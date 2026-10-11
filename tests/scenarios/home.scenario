@@ -4,7 +4,19 @@
 scenario: clicking idle opens Home when there are panels
 panel focus                         -> Idle
 click                               -> Expanded expanded=home
-click                               -> Idle
+
+scenario: clicking Home doesn't close it, cards still close on click
+panel focus
+start media
+click                               -> Expanded expanded=media
+home                                -> Expanded expanded=home
+click                               -> Expanded expanded=home
+switch media
+click                               -> Compact
+click
+home
+tile focus                          -> Expanded expanded=focus
+click                               -> Compact
 
 scenario: a panel never takes the pill or the bubble
 panel focus
@@ -33,10 +45,11 @@ start media
 click
 home                                -> Expanded expanded=media
 
-scenario: a dormant tile opens its panel's card
+scenario: a dormant tile opens its panel's card, and Home's button goes back
 panel focus
 click
 tile focus                          -> Expanded expanded=focus
+home                                -> Expanded expanded=home
 
 scenario: a static widget's tile opens nothing
 panel battery static

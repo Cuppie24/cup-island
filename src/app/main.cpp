@@ -89,6 +89,13 @@ const Placed* findElement(const std::string& key)
     return nullptr;
 }
 
+// The tab of what's shown (already marked): clicking it does nothing.
+bool isCurrent(const Tab& tab)
+{
+    const auto& strip = *g_scene.tabs;
+    return strip.active && &tab == &strip.tabs[*strip.active];
+}
+
 // Re-run on every pointer move and every new scene: content can move under a still pointer.
 void updateHover()
 {
@@ -103,7 +110,7 @@ void updateHover()
     // Tabs light up as a whole, except the active one, which is already marked (decision 007).
     // Home's tiles too, unless the pointer is on one of their buttons (decision 009).
     const Tab* tab = g_scene.tabs && g_pointer.at ? tabAt(*g_scene.tabs, *g_pointer.at) : nullptr;
-    if (tab && tab == &g_scene.tabs->tabs[g_scene.tabs->active]) tab = nullptr;
+    if (tab && isCurrent(*tab)) tab = nullptr;
     const Tile* tile = g_pointer.at && key.empty() ? tileAt(g_scene, *g_pointer.at) : nullptr;
     if (tile && !tile->opens) tile = nullptr; // widgets without a card don't react
     if (tab) g_renderer.setAreaHovered(tab->frame, g_scene.tabs->radius);
@@ -225,8 +232,7 @@ void onPressRelease(Vec2 canvasPoint, Release how)
     if (g_pointer.tabPress) {
         std::string id = *std::exchange(g_pointer.tabPress, std::nullopt);
         const Tab* tab = how == Release::Inside && onPill(canvasPoint) ? tabUnder(toPill(canvasPoint)) : nullptr;
-        bool active = tab && tab == &g_scene.tabs->tabs[g_scene.tabs->active];
-        if (tab && tab->id == id && !active) dispatch(id.empty() ? Event{ HomeOpened{} } : Event{ ActivitySwitched{ id } }, "tab");
+        if (tab && tab->id == id && !isCurrent(*tab)) dispatch(id.empty() ? Event{ HomeOpened{} } : Event{ ActivitySwitched{ id } }, "tab");
         return;
     }
     if (g_pointer.tilePress) {

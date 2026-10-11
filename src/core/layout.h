@@ -38,13 +38,14 @@ struct BubbleScene {
 // button apart at the left when there are panels (decision 009). Clicking a
 // tab switches to it (ActivitySwitched, or HomeOpened for Home).
 struct Tab {
-    Rect frame;     // pill coordinates: the whole tab is clickable
+    Rect frame;     // pill coordinates: drawn highlight
+    Rect hitFrame;  // clickable area: the frame, or more (Home's reaches into the card's corner)
     std::string id; // the activity's id; empty = Home
 };
 
 struct TabStrip {
     std::vector<Tab> tabs;  // Home's button, then activities in start order: stable, so a click doesn't reorder them
-    std::size_t active = 0; // the tab of the activity shown
+    std::optional<std::size_t> active; // the tab of what's shown; none for a dormant panel's card
     float radius = 0;       // tab highlight corners, nested in the card's
 };
 

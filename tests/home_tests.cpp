@@ -3,6 +3,7 @@
 
 #include "core/hit_test.h"
 #include "core/layout.h"
+#include "core/tabs.h"
 #include "core/tokens.h"
 #include "expect.h"
 
@@ -106,7 +107,11 @@ void runHomeTests()
     expect(strip.tabs && strip.tabs->tabs.size() == 3 && strip.tabs->tabs[0].id.empty() && strip.tabs->active == 0,
            "Home button first and selected on Home");
     const Tab& homeButton = strip.tabs->tabs[0];
-    expect(homeButton.frame == Rect{ p, strip.size.y - p - t.tabHeight, t.tabHeight, t.tabHeight }, "Home: a square at the bottom left");
+    expect(homeButton.frame == Rect{ p, strip.size.y - p - t.tabHeight, t.homeButtonWidth, t.tabHeight }, "Home: a button at the bottom left");
+    expect(tabAt(*strip.tabs, { 1, strip.size.y - 1 }) == &homeButton, "its click area takes in the card's corner");
+    expect(tabAt(*strip.tabs, { p + t.homeButtonWidth + t.slotGap / 2 - 1, homeButton.frame.y - t.slotGap / 2 + 1 }) == &homeButton,
+           "and half the gaps around it");
+    expect(!tabAt(*strip.tabs, { p + t.homeButtonWidth + t.slotGap / 2 + 1, homeButton.frame.y + 2 }), "but no further");
     const Tab& first = strip.tabs->tabs[1];
     const Tab& last = strip.tabs->tabs[2];
     expect(first.frame.x >= homeButton.frame.x + homeButton.frame.width + t.slotGap, "set apart from the activity tabs");
@@ -117,11 +122,13 @@ void runHomeTests()
     expect(lowest + t.slotGap <= homeButton.frame.y, "tiles sit above the strip");
     const Placed* homeIcon = find(strip, "tab/home/lead");
     expect(homeIcon && std::get<Icon>(homeIcon->item).glyph == Glyph::Home && !find(strip, "tab/home/title"), "Home: icon only");
-    expect(std::abs(homeIcon->frame.x + homeIcon->frame.width / 2 - (homeButton.frame.x + t.tabHeight / 2)) < 0.01f, "icon centred");
+    expect(std::abs(homeIcon->frame.x + homeIcon->frame.width / 2 - (homeButton.frame.x + t.homeButtonWidth / 2)) < 0.01f, "icon centred");
     Scene card = layout(reduce(tabbed, TileClicked{ "b" }, Ms{ 0 }), Ms{ 0 });
-    expect(card.activityId == "b" && card.tabs->active == 0 && card.tiles.empty(), "a dormant card: Home tab stays selected");
+    expect(card.activityId == "b" && !card.tabs->active && card.tiles.empty(),
+           "a dormant card: nothing selected, so Home's button is a way back");
     Scene media = layout(reduce(tabbed, ActivitySwitched{ "media" }, Ms{ 0 }), Ms{ 0 });
-    expect(media.tabs->tabs[media.tabs->active].id == "media" && media.tiles.empty(), "an activity's tab shows its card");
+    expect(media.tabs->active && media.tabs->tabs[*media.tabs->active].id == "media" && media.tiles.empty(),
+           "an activity's tab shows its card");
     Scene single = layout(reduce(reduce(s, ActivityStarted{ { .id = "solo" } }, Ms{ 0 }), PillClicked{}, Ms{ 0 }), Ms{ 0 });
     expect(single.tabs && single.tabs->tabs.size() == 2, "one activity plus panels: Home and its tab");
     expect(!layout(reduce(s, PillClicked{}, Ms{ 0 }), Ms{ 0 }).tabs, "Home with nothing running: no strip");

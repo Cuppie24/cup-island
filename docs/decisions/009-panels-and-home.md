@@ -24,12 +24,17 @@ nothing could be started from the island. The idle pill also showed nothing.
   shown (a setting to choose them is open). Home keeps Expanded's card size,
   so switching between Home and a card doesn't resize the island.
 - **Getting there.** Clicking the idle pill opens Home (when there are
-  panels; with none, it still does nothing).
+  panels; with none, it still does nothing). A click on Home's empty space
+  doesn't close it, unlike a card: Home is where things are started from,
+  and a stray click between tiles shouldn't throw the user out. It closes
+  like the rest of Expanded: outside click, Esc, idle timeout.
 - **Tabs below, Home apart.** The tab strip (decision 007) runs along the
   bottom of the card, under its content: the card's content keeps its
-  place whether or not the strip is there. With panels, Home is a square,
-  icon-only button on its own at the strip's left edge; the same room is
-  kept free on the right, so the activity tabs stay centred on the card.
+  place whether or not the strip is there. With panels, Home is an
+  icon-only button (`homeButtonWidth`) on its own at the strip's left edge;
+  its click area takes in the card's bottom-left corner and half the gaps
+  around it, so it's hard to miss. The same room is kept free on the
+  right, so the activity tabs stay centred on the card.
   The strip shows when there's somewhere else to go: another activity, or
   Home from any card (including a dormant panel's with nothing running).
   Home with nothing running has no strip.
@@ -42,8 +47,10 @@ nothing could be started from the island. The idle pill also showed nothing.
 - **Tiles.** A tile's buttons route to its provider like any button (the
   dormant tile's ▶ starts it). A click elsewhere on a tile with a card opens it:
   the running activity's (and makes it the pick, like its tab), or the
-  dormant panel's, where it can be started. A dormant panel's card counts as
-  part of Home: the Home tab stays selected.
+  dormant panel's, where it can be started. On a dormant panel's card no
+  tab is selected, so Home's button reads (and works) as the way back.
+  (First tried: Home stayed selected there, as "part of Home"; a selected
+  button looks like where you are, and clicking it did nothing.)
 - **Exits.** Ending is the provider's: `endActivity` at a natural end (media
   after the paused linger, Pomodoro after its last break), or a stop button
   it puts on its tile and card. What "stop" means differs per provider, so

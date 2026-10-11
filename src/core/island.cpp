@@ -94,7 +94,9 @@ void onClick(IslandState& s, Ms now)
         expand(s, s.activities.front().id, now);
         break;
     case Mode::Expanded:
-        collapse(s); // provisional: until expanded content has its own buttons
+        // Home stays: it's where things are started from (decision 009). Cards
+        // close (provisional: until expanded content has its own buttons).
+        if (!s.homeOpen) collapse(s);
         break;
     case Mode::Idle:
         if (!s.panels.empty()) openHome(s, now); // decision 009

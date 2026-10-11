@@ -108,20 +108,26 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     float p = t.expandedPadding, y = cardSize.y - p - t.tabHeight;
     TabStrip strip;
     strip.radius = std::min(nestedRadius, t.tabHeight / 2);
-    // Home's button stays selected for a dormant panel's card: it's part of Home.
-    std::string shown = findActivity(s, s.expandedId) ? s.expandedId : "";
-    auto add = [&](const TabFace& face, Rect frame) {
+    // What's shown: Home, an activity's card, or (a dormant panel's card) neither,
+    // so Home's button there is a plain way back, not the current tab.
+    std::optional<std::string> shown;
+    if (s.homeOpen) shown = "";
+    else if (findActivity(s, s.expandedId)) shown = s.expandedId;
+    auto add = [&](const TabFace& face, Rect frame, Rect hitFrame) {
         if (face.id == shown) strip.active = strip.tabs.size();
-        strip.tabs.push_back({ frame, face.id });
+        strip.tabs.push_back({ frame, hitFrame, face.id });
         placeTab(face, frame, strip.radius, measure, elements);
     };
 
-    // Home: a square icon button on its own at the left edge. The same room is
-    // kept free on the right, so the activity tabs stay centred on the card.
+    // Home: an icon-only button on its own at the left edge. Its click area
+    // takes in the card's bottom-left corner, so it's hard to miss. The same
+    // room is kept free on the right, so the activity tabs stay centred on the card.
     float reserved = 0;
     if (!s.panels.empty()) {
-        add({ "", "", &kHomeIcon, Text{}, true }, { p, y, t.tabHeight, t.tabHeight });
-        reserved = t.tabHeight + t.slotGap;
+        Rect button{ p, y, t.homeButtonWidth, t.tabHeight };
+        float top = y - t.slotGap / 2;
+        add({ "", "", &kHomeIcon, Text{}, true }, button, { 0, top, p + button.width + t.slotGap / 2, cardSize.y - top });
+        reserved = button.width + t.slotGap;
     }
 
     // Every tab at its full width, the group centred; narrower only when they don't fit.
@@ -129,14 +135,17 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     float width = std::min(t.tabMaxWidth, (available - (n - 1) * t.tabGap) / n);
     float left = (cardSize.x - (n * width + (n - 1) * t.tabGap)) / 2;
     for (std::size_t i = 0; i < started.size() && n > 0; ++i)
-        add(faceOf(*started[i]), { left + static_cast<float>(i) * (width + t.tabGap), y, width, t.tabHeight });
+    {
+        Rect frame{ left + static_cast<float>(i) * (width + t.tabGap), y, width, t.tabHeight };
+        add(faceOf(*started[i]), frame, frame);
+    }
     return strip;
 }
 
 const Tab* tabAt(const TabStrip& strip, Vec2 point)
 {
     for (const Tab& tab : strip.tabs)
-        if (tab.frame.contains(point)) return &tab;
+        if (tab.hitFrame.contains(point)) return &tab;
     return nullptr;
 }
 
