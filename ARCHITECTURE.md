@@ -67,6 +67,8 @@ Nothing includes "upward". `core/` never includes `platform/`.
    that centre text of unknown width (Expanded's tabs); core has no fonts.
 4. The renderer sets those targets. **Implicit Composition animations** do the
    actual morph (TR §5), and the interaction layer follows it (decision 001).
+   Geometry is set at once; new content is built in a queued call right after,
+   so drawing it never delays the morph's first frame (decision 012).
 5. `nextDeadline(state)`, `sceneDeadline(scene)` and the registry's
    `nextWake()` say when the next timed change happens (an alert or activity
    expires, Expanded times out, a visible time label's second or the idle
