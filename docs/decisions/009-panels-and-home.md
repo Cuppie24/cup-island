@@ -20,8 +20,8 @@ nothing could be started from the island. The idle pill also showed nothing.
   panel whose tile has a start button; no separate concept.
 - **Home.** Expanded gains a Home view: a grid of tiles, the clock first,
   then panels in the order they were published (stable, like tabs).
-  `homeColumns` columns; a tile is one column wide or two (`Panel::wide`). Tiles that don't fit the card are not
-  shown (a setting to choose them is open). Home keeps Expanded's card size,
+  `homeColumns` columns; a tile is one column wide or two (`Panel::wide`).
+  Tiles that don't fit the card are not shown (a setting to choose them is open). Home keeps Expanded's card size,
   so switching between Home and a card doesn't resize the island.
 - **Getting there.** Clicking the idle pill opens Home (when there are
   panels; with none, it still does nothing). A click on Home's empty space
@@ -41,7 +41,9 @@ nothing could be started from the island. The idle pill also showed nothing.
 - **Static widgets.** Some panels have no card, only a tile that shows
   something: battery, the connected Bluetooth device and its battery. Their
   tiles don't react to the pointer and a click on them does nothing (it
-  doesn't fall through and close Home either).
+  doesn't fall through and close Home either). The clock tile (time, large,
+  and the date) is built by the host from the clock it keeps for the idle
+  pill, so nothing ticks it but the scene's minute deadline.
 - **Toggles.** A panel can give its tile a *tap action* (`Panel::tapAction`,
   PS §7.2's "primary tap action"): a click anywhere on the tile sends it to
   the provider instead of opening a card, and the tile lights up under the
@@ -51,9 +53,7 @@ nothing could be started from the island. The idle pill also showed nothing.
   Personalize values, tells running apps (`WM_SETTINGCHANGE`
   "ImmersiveColorSet", off the UI thread so a hung app can't stall the
   island), and watches the key, so a change made in Settings shows too.
-  The island itself stays black in both modes. The clock tile (time, large,
-  and the date) is built by the host from the clock it keeps for the idle
-  pill, so nothing ticks it but the scene's minute deadline.
+  The island itself stays black in both modes.
 - **Tiles.** A tile's buttons route to its provider like any button (the
   dormant tile's ▶ starts it). A click elsewhere on a tile with a card opens it:
   the running activity's (and makes it the pick, like its tab), or the
@@ -94,5 +94,5 @@ setting once there are more than fit; today the order is whichever panel
 appears first (Bluetooth, published when a device connects, can land after
 Pomodoro). Not every Bluetooth device reports a battery level to Windows;
 those show "Connected". LE devices that only expose it over GATT aren't
-read. Panels can't change their tile's size. A paused Pomodoro stays until stopped (no linger like media). Matched
-geometry from tile to card (PS §3.4) isn't built.
+read. Panels can't change their tile's size. A paused Pomodoro stays until
+stopped (no linger like media). Matched geometry from tile to card (PS §3.4) isn't built.

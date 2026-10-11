@@ -26,9 +26,14 @@ struct SlotFrame {
 
 // Appends the slot's items to `out`, rows stacked and centred vertically in the frame.
 // Rounded items (art, button hover) get `nestedRadius`, capped at half their size.
-void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, Ms now, std::vector<Placed>& out);
+// `measure` sizes large time labels to their digits (estimated without it).
+void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, Ms now, std::vector<Placed>& out,
+               const MeasureText& measure = {});
 
 // Font size in pixels for a text style (tokens).
 float fontSize(TextStyle style);
+
+// Without the real font: an average glyph is about half the font size wide (tests).
+float estimateTextWidth(const Text& text);
 
 } // namespace cup

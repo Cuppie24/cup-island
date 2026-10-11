@@ -16,12 +16,14 @@ bool isRing(const Item& item)
     return progress && progress->shape == ProgressShape::Ring;
 }
 
-// Natural height of an item. Images and rings fill the slot's square.
-float heightOf(const Item& item, Rect slot)
+// Natural height of an item. Images fill the slot's square; a ring is
+// `ringSide` (its row's height, or the slot's square when alone).
+float heightOf(const Item& item, Rect slot, float ringSide)
 {
     const Tokens& t = tokens();
     if (auto* text = std::get_if<Text>(&item)) return lineHeight(text->style);
-    if (std::holds_alternative<Image>(item) || isRing(item)) return std::min(slot.width, slot.height);
+    if (std::holds_alternative<Image>(item)) return std::min(slot.width, slot.height);
+    if (isRing(item)) return ringSide;
     if (std::holds_alternative<Steps>(item)) return t.stepDotSize;
     if (std::holds_alternative<Button>(item)) return t.buttonSize;
     if (std::holds_alternative<Progress>(item)) return t.progressHitHeight;
@@ -29,8 +31,16 @@ float heightOf(const Item& item, Rect slot)
     return t.iconSize; // Icon, Waveform
 }
 
+// "0:00"-shaped: the widest the label gets, so its frame never changes while it ticks.
+std::string zeroed(std::string s)
+{
+    for (char& c : s)
+        if (c >= '1' && c <= '9') c = '0';
+    return s;
+}
+
 // Fixed width, or nothing for items that stretch (Text, Progress).
-std::optional<float> fixedWidthOf(const Item& item, float height)
+std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureText& measure)
 {
     const Tokens& t = tokens();
     if (std::holds_alternative<Text>(item) || (std::holds_alternative<Progress>(item) && !isRing(item))) return std::nullopt;
@@ -40,7 +50,13 @@ std::optional<float> fixedWidthOf(const Item& item, float height)
         return std::max(0.0f, n * t.stepDotSize + (n - 1) * t.stepDotGap);
     }
     if (std::holds_alternative<Button>(item)) return t.buttonSize;
-    if (std::holds_alternative<TimeLabel>(item)) return t.timeLabelWidth;
+    if (auto* label = std::get_if<TimeLabel>(&item)) {
+        if (label->style == TextStyle::Digits) return t.timeLabelWidth; // a column, so rows of labels line up
+        std::string widest = zeroed(formatDuration(label->timeline.duration));
+        if (label->remaining && !label->countdown) widest = "-" + widest;
+        Text text{ widest, label->style };
+        return (measure ? measure(text) : estimateTextWidth(text)) + 1; // +1: rounding never trips the "…"
+    }
     return t.iconSize; // Icon, Waveform
 }
 
@@ -73,21 +89,35 @@ float fontSize(TextStyle style)
     case TextStyle::Body: return t.bodyFontSize;
     case TextStyle::Caption:
     case TextStyle::Digits: return t.captionFontSize;
+    case TextStyle::Display: return t.displayFontSize;
     }
     return t.bodyFontSize;
 }
 
-void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, Ms now, std::vector<Placed>& out)
+float estimateTextWidth(const Text& text) { return std::ceil(static_cast<float>(text.value.size()) * fontSize(text.style) * 0.5f); }
+
+void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, Ms now, std::vector<Placed>& out,
+               const MeasureText& measure)
 {
     const Tokens& t = tokens();
     const Slot& rows = *slot.slot;
 
+    // A ring matches the other items in its row; alone, it fills the slot's square.
+    std::vector<float> ringSides;
+    for (const Row& r : rows) {
+        float others = 0;
+        for (const auto* items : { &r.items, &r.leading, &r.trailing })
+            for (const Item& item : *items)
+                if (!isRing(item)) others = std::max(others, heightOf(item, slot.frame, 0));
+        ringSides.push_back(others > 0 ? others : std::min(slot.frame.width, slot.frame.height));
+    }
+
     std::vector<float> rowHeights;
     float total = 0;
-    for (const Row& r : rows) {
+    for (std::size_t i = 0; i < rows.size(); ++i) {
         float h = 0;
-        for (const auto* items : { &r.items, &r.leading, &r.trailing })
-            for (const Item& item : *items) h = std::max(h, heightOf(item, slot.frame));
+        for (const auto* items : { &rows[i].items, &rows[i].leading, &rows[i].trailing })
+            for (const Item& item : *items) h = std::max(h, heightOf(item, slot.frame, ringSides[i]));
         rowHeights.push_back(h);
         total += h;
     }
@@ -96,13 +126,13 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
     float y = slot.frame.y + (slot.frame.height - total) / 2; // centred vertically
     for (size_t r = 0; r < rows.size(); ++r) {
         const Row& row = rows[r];
-        float rowHeight = rowHeights[r];
+        float rowHeight = rowHeights[r], ringSide = ringSides[r];
         float gap = row.loose ? t.looseItemSpacing : t.itemSpacing;
 
         // Keys number `items`, then `trailing`, then `leading`, so they stay stable as rows grow.
         size_t first = out.size();
         auto place = [&](const Item& item, size_t index, float x, float w) {
-            float h = heightOf(item, slot.frame);
+            float h = heightOf(item, slot.frame, ringSide);
             Placed placed;
             placed.key = slot.name + "/" + std::to_string(r) + "/" + std::to_string(index);
             placed.item = resolve(item, now);
@@ -114,7 +144,7 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
             if (auto* label = std::get_if<TimeLabel>(&item)) placed.ticking = label->timeline;
             out.push_back(std::move(placed));
         };
-        auto widthOf = [&](const Item& item) { return fixedWidthOf(item, heightOf(item, slot.frame)); };
+        auto widthOf = [&](const Item& item) { return fixedWidthOf(item, heightOf(item, slot.frame, ringSide), measure); };
 
         // Edge groups: packed with the normal spacing, kept `gap` away from the middle.
         auto edgeWidth = [&](const std::vector<Item>& group) {
