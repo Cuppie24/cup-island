@@ -222,6 +222,10 @@ void runContentTests()
            "bubble art radius is nested in the bubble's corner");
     expect(!rest.bubble->dragCentre && !rest.dropTarget, "bubble at rest");
     expect(!layout(reduce(split, ActivityEnded{ "music" }, Ms{ 0 }), Ms{ 0 }).bubble, "no bubble in Compact");
+    Scene card = layout(reduce(split, PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    expect(!card.bubble && card.bubbleTuck.y == card.offset.y && card.bubbleTuck.x > card.offset.x &&
+           card.bubbleTuck.x < card.offset.x + card.size.x,
+           "tucked bubble waits on the top edge inside the pill, even under a tall card");
     IslandState timerSecond = reduce(split, ActivityPromoted{ "music" }, Ms{ 0 });
     Scene timerBubble = layout(timerSecond, Ms{ 0 });
     const Placed& icon = timerBubble.bubble->elements[0];

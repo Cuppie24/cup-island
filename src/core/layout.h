@@ -44,7 +44,7 @@ struct Scene {
     std::string activityId;        // whose content the pill shows (empty: none, or a standalone alert)
     std::optional<BubbleScene> bubble;
     bool dropTarget = false;       // the dragged bubble is over the pill: letting go swaps them (pill lightens)
-    Vec2 bubbleTuck;               // no bubble: it shrinks to this point inside the pill
+    Vec2 bubbleTuck;               // no bubble: it shrinks to this point, on the top edge inside the pill
     std::string label;             // accessible name of what's shown
     Ms now{};                      // when the scene was laid out (progress bars animate from here)
 };

@@ -307,7 +307,11 @@ Scene layout(const IslandState& state, Ms now)
     scene.mode = mode(state);
     scene.size = sizeFor(scene.mode);
     scene.offset = { (tokens().canvas.x - scene.size.x) / 2, 0 };
-    scene.bubbleTuck = { scene.offset.x + scene.size.x - scene.size.y / 2, scene.offset.y + scene.size.y / 2 };
+    // On the top edge, inside the pill's right end: the bubble shrinks into it
+    // and buds back out of it hanging from the edge, like the pill, never
+    // floating up from the middle of a tall card.
+    float tuckInset = std::min(scene.size.x, tokens().bubbleSize) / 2;
+    scene.bubbleTuck = { scene.offset.x + scene.size.x - tuckInset, scene.offset.y };
     if (scene.mode == Mode::Split) scene.bubble = bubbleFor(state, now);
     scene.dropTarget = swapPreview(state);
 
