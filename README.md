@@ -8,7 +8,8 @@ publish to.
   [docs/provider-platform-spec.md](docs/provider-platform-spec.md)
 - How the code works: [ARCHITECTURE.md](ARCHITECTURE.md)
 
-Runs on Windows 10 (version 1809 or later) and Windows 11.
+Runs on Windows 10 (version 1809 or later) and Windows 11. Both are supported
+platforms; see [decision 015](docs/decisions/015-windows-10-support.md).
 
 ## Build
 

@@ -108,6 +108,10 @@ example: thin WinRT reading, with every decision in a pure presenter (decision 0
 
 ## Rules that keep it readable
 
+- **Windows 10 1809+ and Windows 11, both first-class (decision 015).** Any
+  API newer than 1809 is looked up at runtime (by name, never ordinal) and
+  has a fallback. One static import of a Windows 11 function stops the exe
+  from starting on Windows 10 at all.
 - **Plain C++20:** `struct` + free functions, `enum class`, `std::variant`,
   `std::optional`. Use a class only when it owns platform handles
   (`PillRenderer`). The only interfaces are `Provider` and `Host`.
