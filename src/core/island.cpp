@@ -18,11 +18,21 @@ Activity* findActivity(IslandState& s, const std::string& id)
     return nullptr;
 }
 
-// PS §6.2: level, then relevance, then most recently started.
+// Level, with the user's pick slotted in: above every Passive/Active
+// activity, but below a more urgent one (decision 006).
+int priority(const Activity& a, const std::string& pinnedId)
+{
+    int p = 2 * static_cast<int>(a.level);
+    if (a.id == pinnedId) p = std::max(p, 2 * static_cast<int>(Level::Active)) + 1;
+    return p;
+}
+
+// PS §6.2: user pick + level, then relevance, then most recently started.
 void rank(IslandState& s)
 {
-    std::stable_sort(s.activities.begin(), s.activities.end(), [](const Activity& a, const Activity& b) {
-        if (a.level != b.level) return a.level > b.level;
+    std::stable_sort(s.activities.begin(), s.activities.end(), [&](const Activity& a, const Activity& b) {
+        int pa = priority(a, s.pinnedId), pb = priority(b, s.pinnedId);
+        if (pa != pb) return pa > pb;
         if (a.relevance != b.relevance) return a.relevance > b.relevance;
         return a.startOrder > b.startOrder;
     });
@@ -98,6 +108,7 @@ void postAlert(IslandState& s, Alert alert, Ms now)
 void settle(IslandState& s, Ms now)
 {
     std::erase_if(s.activities, [&](const Activity& a) { return a.expiresAt && now >= *a.expiresAt; });
+    if (!s.pinnedId.empty() && !findActivity(s, s.pinnedId)) s.pinnedId.clear(); // a pick dies with its activity
     if (s.alert && now >= s.alertUntil) s.alert.reset();
 
     if (isExpanded(s)) {
@@ -194,6 +205,29 @@ void handle(IslandState& s, const HiddenChanged& e, Ms)
 }
 
 void handle(IslandState&, const Tick&, Ms) {} // settle() does the work
+
+void handle(IslandState& s, const BubbleClicked&, Ms now)
+{
+    if (mode(s) == Mode::Split) expand(s, s.activities[1].id, now);
+    else onClick(s, now); // no bubble on screen (e.g. an alert covers it): an ordinary click
+}
+
+void handle(IslandState& s, const ActivityPromoted& e, Ms now)
+{
+    if (!findActivity(s, e.id)) return;
+    s.pinnedId = e.id;
+    rank(s);
+    if (isExpanded(s)) s.lastPointerAt = now; // the user is busy here
+}
+
+void handle(IslandState& s, const ExpandedPaged& e, Ms now)
+{
+    if (!isExpanded(s)) return;
+    auto n = static_cast<int>(s.activities.size());
+    auto it = std::find_if(s.activities.begin(), s.activities.end(), [&](const Activity& a) { return a.id == s.expandedId; });
+    int i = static_cast<int>(it - s.activities.begin());
+    expand(s, s.activities[static_cast<size_t>(((i + e.step) % n + n) % n)].id, now);
+}
 
 } // namespace
 

@@ -46,9 +46,12 @@ struct SlotFrame {
     Rect frame;
 };
 
+// Expanded with several activities: the host's switcher column on the right (PS §3.1).
+bool hasSwitcher(const IslandState& s, Mode mode) { return mode == Mode::Expanded && s.activities.size() > 1; }
+
 // Where each slot sits inside the pill (PS §5.1). Leading squares are pushed
 // in horizontally a little more, clear of the rounded bottom corners.
-std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
+std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c, bool switcher)
 {
     const Tokens& t = tokens();
     switch (mode) {
@@ -65,8 +68,9 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
     }
     case Mode::Expanded: {
         float p = t.expandedPadding, art = t.expandedArtSize, centerX = p + art + t.slotGap, bottomY = p + art + t.slotGap;
+        float reserved = switcher ? t.buttonSize + t.itemSpacing : 0;
         return { { "expandedLeading", &c.expandedLeading, { p, p, art, art } },
-                 { "expandedCenter", &c.expandedCenter, { centerX, p, size.x - centerX - p, art } },
+                 { "expandedCenter", &c.expandedCenter, { centerX, p, size.x - centerX - p - reserved, art } },
                  { "expandedBottom", &c.expandedBottom, { p, bottomY, size.x - 2 * p, size.y - bottomY - p } } };
     }
     default:
@@ -174,6 +178,21 @@ void placeSlot(const SlotFrame& slot, const Source& source, Ms now, std::vector<
     }
 }
 
+// The switcher: "next activity" on top, and "show in the island" below it
+// unless this activity already has the pill (decision 006). Host-owned, so
+// no provider id: hitTest's actions for these map to island events.
+void placeSwitcher(const IslandState& s, Vec2 size, std::vector<Placed>& out)
+{
+    const Tokens& t = tokens();
+    float x = size.x - t.expandedPadding - t.buttonSize, top = t.expandedPadding;
+    auto place = [&](const char* key, Button button, float y) {
+        out.push_back({ .key = key, .item = button, .frame = { x, y, t.buttonSize, t.buttonSize }, .activityId = s.expandedId });
+    };
+    place("switcher/next", { Glyph::NextActivity, kIslandNext }, top);
+    if (s.activities.front().id != s.expandedId)
+        place("switcher/promote", { Glyph::Pin, kIslandPromote }, top + t.expandedArtSize - t.buttonSize);
+}
+
 } // namespace
 
 Scene layout(const IslandState& state, Ms now)
@@ -188,8 +207,10 @@ Scene layout(const IslandState& state, Ms now)
     Source source = sourceFor(state, scene.mode);
     if (!source.content) return scene;
     scene.label = source.content->label;
-    for (const SlotFrame& slot : slotFrames(scene.mode, scene.size, *source.content))
+    bool switcher = hasSwitcher(state, scene.mode);
+    for (const SlotFrame& slot : slotFrames(scene.mode, scene.size, *source.content, switcher))
         placeSlot(slot, source, now, scene.elements);
+    if (switcher) placeSwitcher(state, scene.size, scene.elements);
     return scene;
 }
 

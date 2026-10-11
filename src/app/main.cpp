@@ -116,6 +116,10 @@ void onPressRelease()
 void onClick(Vec2 point)
 {
     if (auto hit = hitTest(g_scene, point)) {
+        if (auto event = islandEvent(hit->action)) {
+            dispatch(*event, "switcher");
+            return;
+        }
         g_providers->route(hit->action);
         dispatch(PointerMoved{}, "action"); // the user is busy here: keep Expanded open
     } else {

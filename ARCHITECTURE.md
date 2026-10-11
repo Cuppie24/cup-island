@@ -143,6 +143,7 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 | Fullscreen detection (TR §9.2): borderless + exclusive, per monitor, maximized windows excluded | done; rules tested (`core/fullscreen`), hooks need Windows |
 | Real input for drag (OLE drop target) | not yet; the D key simulates it |
 | Provider API (PS §7 Tier 1), registry, demo music player | done, tested |
+| Switching activities (decision 006): bubble click, promote, Expanded switcher | core done, tested; bubble hit area + drag-to-swap need the renderer |
 | Real media provider (SMTC, TR §6): art, controls, seek, multi-app switch, paused linger | done; rules tested, WinRT part needs Windows |
 | Plugin pipe (PS §8 Tier 2) | not yet |
 | Activity expiry (`expiresAt`) | done, tested |

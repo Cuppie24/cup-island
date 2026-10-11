@@ -11,6 +11,10 @@
 
 namespace cup {
 
+// Action ids of the host's own Expanded switcher (no provider id).
+inline constexpr const char* kIslandNext = "island.next";
+inline constexpr const char* kIslandPromote = "island.promote";
+
 struct Placed {
     std::string key;    // "<slot>/<row>/<item>": stable across updates, so the renderer can diff
     Item item;          // TimeLabels arrive already formatted as Text

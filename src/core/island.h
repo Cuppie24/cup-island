@@ -56,14 +56,19 @@ struct DragLeft {};
 struct Dropped {};
 struct HiddenChanged { bool hidden; };  // fullscreen app, user toggle, locked session
 struct Tick {};                         // a deadline from nextDeadline() was reached
+struct BubbleClicked {};                // Split: expand the bubble's (2nd-ranked) activity
+struct ActivityPromoted { std::string id; }; // user's pick for the pill: drag-swap or Expanded's pin (decision 006)
+struct ExpandedPaged { int step = 1; }; // Expanded switcher: show the next (+1) / previous (-1) activity, wrapping
 
 using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, AlertPosted,
                            PillClicked, ClickedOutside, EscapePressed, PointerMoved,
-                           DragEntered, DragLeft, Dropped, HiddenChanged, Tick>;
+                           DragEntered, DragLeft, Dropped, HiddenChanged, Tick,
+                           BubbleClicked, ActivityPromoted, ExpandedPaged>;
 
 // --- State --------------------------------------------------------------
 struct IslandState {
     std::vector<Activity> activities;  // ranked, best first (PS §6.2)
+    std::string pinnedId;              // the user's pick for the pill; cleared when it ends (decision 006)
     std::optional<Alert> alert;        // the alert on screen
     Ms alertUntil{};
     std::deque<Alert> alertQueue;      // waiting alerts, oldest first (PS §6.3)

@@ -90,6 +90,33 @@ void runContentTests()
     expect(seek && seek->action.actionId == "seek" && seek->action.value > 0.24f && seek->action.value < 0.26f,
            "seek returns the fraction");
     expect(!hitTest(scene, centre(art)), "art is not clickable");
+    expect(!find(scene, "switcher/next"), "no switcher with a single activity");
+    expect(!islandEvent(hit->action), "provider actions are not island events");
+
+    // Expanded switcher (decision 006): "next" always, "promote" unless it's already the pill.
+    s = reduce(s, ActivityStarted{ { .id = "demo.timer", .content = { .expandedCenter = { row({ Text{ "Timer" } }) } } } }, Ms{ 0 });
+    s = reduce(s, PillClicked{}, Ms{ 0 });
+    s = reduce(s, PillClicked{}, Ms{ 0 }); // collapse, then open the top one: the timer
+    scene = layout(s, Ms{ 0 });
+    const Placed* next = find(scene, "switcher/next");
+    expect(next && next->frame.x + next->frame.width == scene.size.x - t.expandedPadding, "switcher sits at the right edge");
+    expect(!find(scene, "switcher/promote"), "no promote button on the activity that has the pill");
+    const Placed* title = find(scene, "expandedCenter/0/0");
+    expect(title && title->frame.x + title->frame.width <= next->frame.x - t.itemSpacing, "center text stays clear of the switcher");
+
+    auto paged = hitTest(scene, centre(next));
+    expect(paged && islandEvent(paged->action) && std::holds_alternative<ExpandedPaged>(*islandEvent(paged->action)),
+           "next button pages");
+    s = reduce(s, *islandEvent(paged->action), Ms{ 0 });
+    scene = layout(s, Ms{ 0 });
+    const Placed* promote = find(scene, "switcher/promote");
+    auto promoted = promote ? hitTest(scene, centre(promote)) : std::nullopt;
+    auto event = promoted ? islandEvent(promoted->action) : std::nullopt;
+    expect(event && std::get_if<ActivityPromoted>(&*event) && std::get<ActivityPromoted>(*event).id == "demo.media",
+           "promote button picks the shown activity");
+    for (const auto& p : scene.elements)
+        expect(p.frame.x >= 0 && p.frame.x + p.frame.width <= scene.size.x && p.frame.y + p.frame.height <= scene.size.y,
+               "switcher element inside the pill: " + p.key);
 }
 
 } // namespace cup::test

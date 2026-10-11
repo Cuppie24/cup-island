@@ -18,4 +18,8 @@ struct Hit {
 // else returns nothing (the click is then a plain pill click).
 std::optional<Hit> hitTest(const Scene& scene, Vec2 point);
 
+// The island Event for a host-owned control (the Expanded switcher), or
+// nothing for a provider's action, which goes to ProviderRegistry::route.
+std::optional<Event> islandEvent(const Action& action);
+
 } // namespace cup

@@ -1,0 +1,81 @@
+# Switching which activity has the pill and which one Expanded shows
+# (PS §3.1 Split/Expanded, §6.2 user pin; decision 006).
+
+scenario: clicking the bubble expands the bubble's activity
+start media
+start timer                         -> Split top=timer bubble=media
+bubble                              -> Expanded expanded=media
+outside                             -> Split top=timer          # looking doesn't swap
+click                               -> Expanded expanded=timer  # the pill opens the top one
+
+scenario: clicking the bubble while an alert covers it is an ordinary click
+start media
+start timer
+alert song for=media                -> Alert
+bubble                              -> Expanded expanded=media
+
+scenario: promoting swaps the pill and the bubble
+start media
+start timer                         -> top=timer bubble=media
+promote media                       -> Split top=media bubble=timer pinned=media
+start meeting                       -> top=media                # a newer activity doesn't take the pill back
+promote timer                       -> top=timer pinned=timer   # a new pick replaces the old one
+promote nobody                      -> top=timer pinned=timer   # unknown ids are ignored
+
+scenario: the pick beats relevance and Passive/Active, not more urgent levels
+start media active 0.1
+start download active 0.9
+start sync passive 1.0
+promote media                       -> top=media
+start meeting timeSensitive         -> top=meeting bubble=media pinned=media
+end meeting                         -> top=media
+
+scenario: an urgent pick stays above others of its level
+start call timeSensitive 0.1
+start meeting timeSensitive 0.9     -> top=meeting
+promote call                        -> top=call
+
+scenario: the pick ends with its activity
+start media
+start timer
+promote media                       -> top=media
+end media                           -> Compact top=timer pinned=none
+start media                         -> top=media pinned=none    # newest wins again, no stale pick
+
+scenario: an expiring pick is cleared too
+start media expires=5000
+start timer
+promote media                       -> pinned=media
+wait 5000                           -> Compact top=timer pinned=none
+
+scenario: the Expanded switcher pages through activities in rank order, wrapping
+start a
+start b
+start c                             -> top=c
+click                               -> Expanded expanded=c
+page                                -> Expanded expanded=b
+page                                -> expanded=a
+page                                -> expanded=c
+page -1                             -> expanded=a
+
+scenario: paging keeps Expanded open like pointer movement
+start a
+start b
+click
+wait 7000
+page                                -> Expanded expanded=a
+wait 7000                           -> Expanded
+wait 1000                           -> Split
+
+scenario: promoting from Expanded keeps the card open on it
+start media
+start timer
+click                               -> Expanded expanded=timer
+page                                -> expanded=media
+promote media                       -> Expanded expanded=media top=media
+outside                             -> Split top=media bubble=timer
+
+scenario: paging outside Expanded does nothing
+start a
+start b
+page                                -> Split top=b
