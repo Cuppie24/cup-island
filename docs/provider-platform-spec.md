@@ -1,8 +1,8 @@
 # Dynamic Island for Windows — Provider Platform Spec
 
-2026-10-11 · Draft v0.1
+2026-10-11 · Draft v0.1 · Referenced in code as **PS §n**
 
-Companion to *Dynamic Island for Windows — Technical Requirements*. That document covers the window, the rendering and the animation engine. This one covers **what the island shows and how anything, built-in or third-party, gets content onto it.**
+Companion to the [Technical Requirements](technical-requirements.md) (TR). That document covers the window, the rendering and the animation engine. This one covers **what the island shows and how anything, built-in or third-party, gets content onto it.**
 
 > **Scope change:** the Technical Requirements list "Third-party plugin/extension system for other developers" as out of scope for v1. This spec reverses that: the island is a **platform**, and media, clipboard and battery become the first clients of a public provider API rather than hard-wired features.
 

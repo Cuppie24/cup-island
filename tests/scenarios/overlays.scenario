@@ -1,0 +1,42 @@
+# Receptive (drag and drop) and Hidden (fullscreen) overlays (PS §3.3, §6.4).
+
+scenario: accepted drag opens receptive, then returns
+start media
+drag-enter                          -> Receptive
+drag-leave                          -> Compact
+drag-enter
+drop                                -> Compact
+
+scenario: rejected drag is ignored
+drag-rejected                       -> Idle
+
+scenario: drag wins over expanded, which resumes after
+start media
+click
+drag-enter                          -> Receptive
+drag-leave                          -> Expanded
+
+scenario: drag replays the interrupted alert afterwards
+alert copied                        -> Alert
+drag-enter                          -> Receptive queue=1
+drag-leave                          -> Alert alert=copied
+
+scenario: hidden drops active alerts and holds urgent ones
+start media
+alert song                          -> Alert
+hide                                -> Hidden queue=0
+alert ignored                       -> Hidden queue=0
+alert meeting timeSensitive         -> Hidden queue=1
+show                                -> Alert alert=meeting
+
+scenario: held alerts expire after 30 s
+hide
+alert meeting timeSensitive         -> queue=1
+wait 30001                          -> Hidden queue=0
+show                                -> Idle
+
+scenario: hiding collapses expanded
+start media
+click                               -> Expanded
+hide                                -> Hidden
+show                                -> Compact

@@ -1,0 +1,27 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "core",
+      "displayName": "Core + tests (any OS)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/core",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "windows",
+      "displayName": "Full app (Visual Studio, x64)",
+      "binaryDir": "${sourceDir}/build/windows",
+      "architecture": { "value": "x64", "strategy": "set" },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "core", "configurePreset": "core" },
+    { "name": "windows", "configurePreset": "windows", "configuration": "Release" }
+  ],
+  "testPresets": [
+    { "name": "core", "configurePreset": "core", "output": { "outputOnFailure": true } },
+    { "name": "windows", "configurePreset": "windows", "configuration": "Release", "output": { "outputOnFailure": true } }
+  ]
+}

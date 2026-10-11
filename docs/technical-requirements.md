@@ -1,6 +1,6 @@
 # Dynamic Island for Windows — Technical Requirements
 
-2026-09-21 · @Someone
+2026-09-21 · @Someone · Referenced in code as **TR §n**
 
 ## 1. Overview
 
