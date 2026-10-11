@@ -232,13 +232,11 @@ void handle(IslandState& s, const BubbleReleased&, Ms now)
 
 void handle(IslandState& s, const BubbleDragCancelled&, Ms) { s.bubbleDrag.reset(); }
 
-void handle(IslandState& s, const ExpandedPaged& e, Ms now)
+void handle(IslandState& s, const ActivitySwitched& e, Ms now)
 {
-    if (!isExpanded(s)) return;
-    auto n = static_cast<int>(s.activities.size());
-    auto it = std::find_if(s.activities.begin(), s.activities.end(), [&](const Activity& a) { return a.id == s.expandedId; });
-    int i = static_cast<int>(it - s.activities.begin());
-    expand(s, s.activities[static_cast<size_t>(((i + e.step) % n + n) % n)].id, now);
+    if (!findActivity(s, e.id)) return;
+    handle(s, ActivityPromoted{ e.id }, now);
+    if (isExpanded(s)) expand(s, e.id, now);
 }
 
 } // namespace

@@ -14,6 +14,7 @@
 #include "core/hit_test.h"
 #include "core/island.h"
 #include "core/layout.h"
+#include "core/side_card.h"
 #include "core/tokens.h"
 #include "platform/file_watcher.h"
 #include "platform/fullscreen_watcher.h"
@@ -52,6 +53,8 @@ struct Pointer {
     float scrubFraction = 0;
     std::optional<Vec2> bubblePress; // mouse-down on the Split bubble, render-layer coordinates
     bool dragged = false;            // ...and core took it as a drag (BubbleDragged): not a click
+    std::optional<Vec2> over;        // over the island at all, render-layer coordinates (side card hover)
+    std::optional<std::string> sidePress; // mouse-down on a side card row: that row's activity
 } g_pointer;
 
 // Pointer callbacks get render-layer points; content works in pill coordinates.
@@ -88,7 +91,14 @@ void updateHover()
         if (auto hit = hitTest(g_scene, *g_pointer.at)) key = hit->key;
     }
     g_renderer.setHovered(key);
+
+    // Side card rows light up as a whole (decision 007).
+    const SideRow* row = g_scene.side && g_pointer.over ? sideRowAt(*g_scene.side, *g_pointer.over) : nullptr;
+    g_renderer.setSideRowHovered(row ? std::optional<Rect>(row->frame) : std::nullopt, g_scene.side ? g_scene.side->rowRadius : 0);
 }
+
+// The side card row under a render-layer point, if any.
+const SideRow* sideRowUnder(Vec2 point) { return g_scene.side ? sideRowAt(*g_scene.side, point) : nullptr; }
 
 std::optional<Ms> earliest(std::optional<Ms> a, std::optional<Ms> b)
 {
@@ -142,6 +152,12 @@ void toggleTimer()
 // a button gets its own press feedback, anything else squashes the pill.
 void onPressDown(Vec2 canvasPoint)
 {
+    if (g_scene.side && g_scene.side->frame.contains(canvasPoint)) {
+        // Switches on release, if still on the same row. Between rows: nothing.
+        const SideRow* row = sideRowUnder(canvasPoint);
+        g_pointer.sidePress = row ? row->activityId : std::string{};
+        return;
+    }
     if (onBubble(canvasPoint)) {
         g_pointer.bubblePress = canvasPoint;
         g_pointer.dragged = false;
@@ -167,6 +183,7 @@ void onPressDown(Vec2 canvasPoint)
 
 void onPointerMoved(Vec2 canvasPoint, bool inside)
 {
+    g_pointer.over = inside ? std::optional<Vec2>(canvasPoint) : std::nullopt;
     if (g_pointer.bubblePress) {
         Vec2 start = *g_pointer.bubblePress;
         dispatch(BubbleDragged{ { canvasPoint.x - start.x, canvasPoint.y - start.y } }, "drag");
@@ -187,6 +204,12 @@ void onPointerMoved(Vec2 canvasPoint, bool inside)
 
 void onPressRelease(Vec2 canvasPoint, Release how)
 {
+    if (g_pointer.sidePress) {
+        std::string id = *std::exchange(g_pointer.sidePress, std::nullopt);
+        const SideRow* row = how == Release::Inside ? sideRowUnder(canvasPoint) : nullptr;
+        if (!id.empty() && row && row->activityId == id) dispatch(ActivitySwitched{ id }, "side card");
+        return;
+    }
     if (g_pointer.bubblePress) {
         g_pointer.bubblePress.reset();
         if (!g_pointer.dragged) g_renderer.pressRelease(true);
@@ -210,10 +233,6 @@ void onPressRelease(Vec2 canvasPoint, Release how)
         // Only a release on the same button counts: sliding off cancels, like any button.
         auto hit = how == Release::Inside && onPill(canvasPoint) ? hitTest(g_scene, point) : std::nullopt;
         if (hit && hit->key == key) {
-            if (auto event = islandEvent(hit->action)) {
-                dispatch(*event, "switcher"); // the host's own Expanded switcher
-                return;
-            }
             g_providers->route(hit->action);
             dispatch(PointerMoved{}, "action"); // the user is busy here: keep Expanded open
         }
@@ -290,6 +309,7 @@ int main()
     callbacks.onPointerMoved = onPointerMoved;
     callbacks.onPointerLeft = [] {
         g_pointer.at.reset();
+        g_pointer.over.reset();
         updateHover();
     };
     callbacks.onKeyDown = onKey;

@@ -43,37 +43,28 @@ start timer
 promote media                       -> pinned=media
 wait 5000                           -> Compact top=timer pinned=none
 
-scenario: the Expanded switcher pages through activities in rank order, wrapping
+scenario: a side card row switches the card and the pill to that activity
 start a
 start b
 start c                             -> top=c
 click                               -> Expanded expanded=c
-page                                -> Expanded expanded=b
-page                                -> expanded=a
-page                                -> expanded=c
-page -1                             -> expanded=a
+switch a                            -> Expanded expanded=a top=a pinned=a
+outside                             -> Split top=a              # collapsed: the pill shows what you picked
+switch nobody                       -> top=a                    # unknown ids are ignored
 
-scenario: paging keeps Expanded open like pointer movement
+scenario: switching keeps Expanded open like pointer movement
 start a
 start b
 click
 wait 7000
-page                                -> Expanded expanded=a
+switch a                            -> Expanded expanded=a
 wait 7000                           -> Expanded
-wait 1000                           -> Split
+wait 1000                           -> Split top=a
 
-scenario: promoting from Expanded keeps the card open on it
-start media
-start timer
-click                               -> Expanded expanded=timer
-page                                -> expanded=media
-promote media                       -> Expanded expanded=media top=media
-outside                             -> Split top=media bubble=timer
-
-scenario: paging outside Expanded does nothing
+scenario: switching outside Expanded just makes it the pick
 start a
 start b
-page                                -> Split top=b
+switch a                            -> Split top=a pinned=a
 
 scenario: dragging the bubble onto the pill previews the swap, letting go commits it
 start media

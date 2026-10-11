@@ -59,7 +59,7 @@ struct HiddenChanged { bool hidden; };  // fullscreen app, user toggle, locked s
 struct Tick {};                         // a deadline from nextDeadline() was reached
 struct BubbleClicked {};                // Split: expand the bubble's (2nd-ranked) activity
 struct ActivityPromoted { std::string id; }; // user's pick for the pill: drag-swap or Expanded's pin (decision 007)
-struct ExpandedPaged { int step = 1; }; // Expanded switcher: show the next (+1) / previous (-1) activity, wrapping
+struct ActivitySwitched { std::string id; }; // Expanded side card row: make it the pick and show its card (decision 007)
 struct BubbleDragged { Vec2 drag; };    // pressed bubble moved: offset from its home (counts once past dragStartDistance)
 struct BubbleReleased {};               // drag let go: over the pill = swap (promote the bubble's activity)
 struct BubbleDragCancelled {};          // drag interrupted (capture lost): no swap
@@ -67,7 +67,7 @@ struct BubbleDragCancelled {};          // drag interrupted (capture lost): no s
 using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, AlertPosted,
                            PillClicked, ClickedOutside, EscapePressed, PointerMoved,
                            DragEntered, DragLeft, Dropped, HiddenChanged, Tick,
-                           BubbleClicked, ActivityPromoted, ExpandedPaged,
+                           BubbleClicked, ActivityPromoted, ActivitySwitched,
                            BubbleDragged, BubbleReleased, BubbleDragCancelled>;
 
 // --- State --------------------------------------------------------------

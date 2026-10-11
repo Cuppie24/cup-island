@@ -34,7 +34,7 @@ So "why did X happen?" is always answered in `core/`, by a scenario test.
 ## Layout
 
 ```
-src/core/       pure logic: island.h (state machine), content.h (what providers show), layout.h, split.h,
+src/core/       pure logic: island.h (state machine), content.h (what providers show), layout.h, split.h, side_card.h,
                 hit_test.h, provider.h (Provider/Host API), tokens.h (+ tokens_json.h), easing.h
 src/platform/   Win32 + C++/WinRT + Composition: render/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
@@ -146,7 +146,7 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 | Fullscreen detection (TR §9.2): borderless + exclusive, per monitor, maximized windows excluded | done; rules tested (`core/fullscreen`), hooks need Windows |
 | Real input for drag (OLE drop target) | not yet; the D key simulates it |
 | Provider API (PS §7 Tier 1), registry, demo music player | done, tested |
-| Switching activities (decision 007): bubble click, drag-to-swap, Expanded switcher, sticky pick | done, tested |
+| Switching activities (decision 007): bubble click, drag-to-swap, Expanded side card, sticky pick | done; rules tested, side card visuals need Windows |
 | Real media provider (SMTC, TR §6): art, controls, seek, multi-app switch, paused linger | done; rules tested, WinRT part needs Windows |
 | Plugin pipe (PS §8 Tier 2) | not yet |
 | Activity expiry (`expiresAt`) | done, tested |
