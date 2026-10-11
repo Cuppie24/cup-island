@@ -45,6 +45,8 @@ const Field kFields[] = {
     { "displayFontSize", &Tokens::displayFontSize },
     { "iconSize", &Tokens::iconSize },
     { "buttonSize", &Tokens::buttonSize },
+    { "smallButtonSize", &Tokens::smallButtonSize },
+    { "buttonLabelPadding", &Tokens::buttonLabelPadding },
     { "buttonGlyphSize", &Tokens::buttonGlyphSize },
     { "buttonPressScale", &Tokens::buttonPressScale },
     { "progressHeight", &Tokens::progressHeight },
@@ -109,6 +111,7 @@ const Field kFields[] = {
     { "tabSelectedColor", &Tokens::tabSelectedColor },
     { "hoverColor", &Tokens::hoverColor },
     { "tileColor", &Tokens::tileColor },
+    { "inputColor", &Tokens::inputColor },
     { "imagePlaceholderColor", &Tokens::imagePlaceholderColor },
     { "pomodoroFocusColor", &Tokens::pomodoroFocusColor },
     { "pomodoroBreakColor", &Tokens::pomodoroBreakColor },
@@ -116,6 +119,7 @@ const Field kFields[] = {
     { "pomodoroBreakMs", &Tokens::pomodoroBreak },
     { "pomodoroLongBreakMs", &Tokens::pomodoroLongBreak },
     { "pomodoroRounds", &Tokens::pomodoroRounds },
+    { "todoVisibleItems", &Tokens::todoVisibleItems },
     { "logsNoteMs", &Tokens::logsNote, true },
 };
 

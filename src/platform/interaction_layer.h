@@ -27,6 +27,7 @@ struct InteractionCallbacks {
     std::function<void(Vec2 point, bool inside)> onPointerMoved;
     std::function<void()> onPointerLeft;
     std::function<void(WPARAM key)> onKeyDown;
+    std::function<void(wchar_t character)> onChar; // typed text (WM_CHAR), for a focused text field
     std::function<void(TimerId)> onTimer;
 };
 

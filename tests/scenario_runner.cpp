@@ -10,8 +10,10 @@
 //            drag-leave  drop  hide  show  wait <ms>
 //            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel
 //            panel <id> [static]  unpanel <id>  home  tile <id>     (static: a widget with no card)
+//            focus <card> <action>  type <text...>  erase  submit  cancel-input   (a TextInput, decision 016)
 // Checks after "->":  <Mode>  queue=<n>  top=<activity>  bubble=<activity>  alert=<name>
 //                     expanded=<activity|panel|home>  pinned=<activity>  dragging=yes|no  preview=yes|no
+//                     draft=<text>|empty|none  (no spaces in <text>)
 // Levels: passive active timeSensitive critical.  '#' starts a comment.
 
 #include "core/island.h"
@@ -124,6 +126,15 @@ struct Runner {
         else if (cmd == "unpanel") apply(PanelRemoved{ arg(1) });
         else if (cmd == "home") apply(HomeOpened{});
         else if (cmd == "tile") apply(TileClicked{ arg(1) });
+        else if (cmd == "focus") apply(InputFocused{ "p", arg(1), arg(2) });
+        else if (cmd == "type") {
+            std::string text;
+            for (size_t i = 1; i < w.size(); ++i) text += (i > 1 ? " " : "") + w[i];
+            apply(TextTyped{ text });
+        }
+        else if (cmd == "erase") apply(TextErased{});
+        else if (cmd == "submit") apply(InputSubmitted{});
+        else if (cmd == "cancel-input") apply(InputCancelled{});
         else fail("unknown command '" + cmd + "'");
     }
 
@@ -151,6 +162,9 @@ struct Runner {
             } else if (auto v = option(word, "alert")) {
                 std::string shown = state.alert ? state.alert->content.label : "none";
                 if (shown != *v) fail("alert=" + *v + ", got " + shown);
+            } else if (auto v = option(word, "draft")) {
+                std::string got = !state.draft ? "none" : state.draft->text.empty() ? "empty" : state.draft->text;
+                if (got != *v) fail("draft=" + *v + ", got " + got);
             } else if (auto v = option(word, "expanded")) {
                 std::string id = state.homeOpen ? "home" : state.expandedId.empty() ? "none" : state.expandedId;
                 if (id != *v) fail("expanded=" + *v + ", got " + id);

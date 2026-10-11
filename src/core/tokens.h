@@ -24,7 +24,7 @@ struct Bezier {
 struct Tokens {
     // Render layer: sized once to the largest pill plus press-overshoot room,
     // never resized (TR §5, §9.1). Only read at startup.
-    Vec2 canvas{ 420, 220 }; // room for the largest pill: Expanded with tabs
+    Vec2 canvas{ 420, 400 }; // room for the largest pill: a Centred card at its tallest, with tabs
 
     // Pill size per mode (PS §3.1). Height 0 = tucked into the screen edge.
     Vec2 idleSize{ 160, 28 };
@@ -51,7 +51,9 @@ struct Tokens {
     float captionFontSize = 11;
     float displayFontSize = 34; // TextStyle::Display: a timer as the card's centre
     float iconSize = 18;
-    float buttonSize = 36;        // hover circle; the click area also takes in half the gaps around it
+    float buttonSize = 36;
+    float smallButtonSize = 24;   // Button::small, and a TextInput's height: list rows
+    float buttonLabelPadding = 10; // a text button: its label plus this on each side        // hover circle; the click area also takes in half the gaps around it
     float buttonGlyphSize = 16;
     float buttonPressScale = 0.85f;
     float progressHeight = 4;
@@ -143,6 +145,7 @@ struct Tokens {
     Color tabSelectedColor{ 255, 255, 255, 41 };
     Color hoverColor{ 255, 255, 255, 20 };         // a tab or tile under the pointer
     Color tileColor{ 255, 255, 255, 20 };          // Home's tile backgrounds
+    Color inputColor{ 255, 255, 255, 26 };         // a text field's background (decision 016)
     Color imagePlaceholderColor{ 255, 255, 255, 31 }; // art that hasn't arrived
     Color pomodoroFocusColor{ 255, 99, 71 };       // accents (decision 010)
     Color pomodoroBreakColor{ 52, 199, 89 };
@@ -152,6 +155,7 @@ struct Tokens {
     Ms pomodoroBreak{ 300000 };
     Ms pomodoroLongBreak{ 900000 };
     std::size_t pomodoroRounds = 4;
+    std::size_t todoVisibleItems = 4; // Pomodoro's to-dos shown in its card; the rest as "+n more"
 
     // Home's "Copy logs" tile: how long it says "Copied" after a tap.
     Ms logsNote{ 2000 };

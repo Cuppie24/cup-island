@@ -15,7 +15,8 @@ struct Hit {
 
 // `point` is in pill coordinates and tested against each element's hitFrame.
 // Enabled buttons return their action; a seekable progress bar returns
-// "seek" with the clicked fraction. Anything else returns nothing (the click
+// "seek" with the clicked fraction; a TextInput returns its actionId (the
+// app focuses it rather than routing it, decision 016). Anything else returns nothing (the click
 // is then a plain pill click).
 std::optional<Hit> hitTest(const Scene& scene, Vec2 point);
 

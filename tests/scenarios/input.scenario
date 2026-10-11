@@ -1,0 +1,69 @@
+# Typing into a card's text field (decision 015): one draft at a time, on the
+# card that's shown; it keeps the card open and goes with it.
+
+scenario: focusing only works on the card that's shown
+start timer
+focus timer add                     -> draft=none           # not expanded
+click                               -> Expanded expanded=timer
+focus other add                     -> draft=none           # not this card
+focus timer add                     -> draft=empty
+
+scenario: typing, erasing a whole character, submitting keeps focus
+start timer
+click
+focus timer add
+type café                           -> draft=café
+erase                               -> draft=caf            # é is two bytes: both go
+erase
+erase
+erase                               -> draft=empty
+erase                               -> draft=empty          # nothing left: no-op
+type milk
+submit                              -> draft=empty Expanded # sent; ready for the next one
+
+scenario: typing with no field focused does nothing
+start timer
+click
+type hello                          -> draft=none
+
+scenario: Esc in the field cancels typing, not the card
+start timer
+click
+focus timer add
+type hello
+cancel-input                        -> draft=none Expanded
+
+scenario: the draft goes with its card
+start timer
+start media
+click                               -> expanded=media
+switch timer
+focus timer add
+type hello
+switch media                        -> draft=none
+switch timer
+focus timer add
+type hello
+outside                             -> draft=none Split
+
+scenario: unsent text keeps the card open; an empty field doesn't
+start timer
+click
+focus timer add
+type hello
+wait 20000                          -> Expanded draft=hello
+erase
+erase
+erase
+erase
+erase
+wait 7999                           -> Expanded             # erasing counts as activity
+wait 1                              -> Compact draft=none
+
+scenario: a dormant panel's card takes typing too
+panel focus
+click
+tile focus
+focus focus add                     -> draft=empty
+type x
+home                                -> draft=none

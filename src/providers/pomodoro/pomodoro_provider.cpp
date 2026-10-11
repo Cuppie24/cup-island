@@ -62,18 +62,23 @@ Alert phaseAlert(const std::string& title, const std::string& detail, const std:
 
 } // namespace
 
-Panel pomodoroPanel()
+// Dormant: a centred card like the running one, so starting changes as
+// little as possible: ▶ where the controls go, the full focus time big, the
+// plan, then the to-dos (decision 016).
+Panel pomodoroPanel(const TodoList& todos)
 {
     const Tokens& t = tokens();
     std::string plan = minutes(t.pomodoroFocus) + " focus, " + minutes(t.pomodoroBreak) + " breaks";
     Content content{
         .label = "Focus",
         .accent = accentOf(Phase::Focus),
-        .expandedLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
-        .expandedCenter = { row({ Text{ "Focus", TextStyle::Title } }), row({ Text{ plan } }) },
-        .expandedBottom = { row({ Button{ Glyph::Play, act::kStart } }, Align::Center) },
+        .card = CardLayout::Centred,
+        .expandedCenter = { row({ Button{ Glyph::Play, act::kStart } }, Align::Center),
+                            row({ Text{ .value = formatDuration(t.pomodoroFocus), .style = TextStyle::Display, .centred = true } }),
+                            row({ Text{ .value = plan, .style = TextStyle::Caption, .centred = true } }) },
         .tile = { Row{ .items = { Icon{ Glyph::Timer }, Text{ "Focus" } }, .trailing = { Button{ Glyph::Play, act::kStart } } } },
     };
+    appendTodoRows(content.expandedCenter, todos);
     return { .id = PomodoroProvider::kPanelId, .content = content, .wide = true };
 }
 
@@ -82,7 +87,7 @@ Panel pomodoroPanel()
 // controls on top, a big countdown in the middle, a bar for the phase under
 // it (as wide as the dots), then a dot per phase and what they mean. The ring is for compact and
 // the bubble, where there's no room for digits.
-Content pomodoroContent(const PomodoroProvider::Session& s)
+Content pomodoroContent(const PomodoroProvider::Session& s, const TodoList& todos)
 {
     std::string name = nameOf(s.phase);
     int done = phasesDone(s), total = phaseCount();
@@ -94,7 +99,7 @@ Content pomodoroContent(const PomodoroProvider::Session& s)
     Progress ring{ .timeline = s.timeline, .shape = ProgressShape::Ring };
     Button pause{ s.timeline.playing ? Glyph::Pause : Glyph::Play, act::kPause };
     Button stop{ Glyph::Stop, act::kStop };
-    return {
+    Content content{
         .label = name,
         .accent = accentOf(s.phase),
         .card = CardLayout::Centred,
@@ -112,12 +117,15 @@ Content pomodoroContent(const PomodoroProvider::Session& s)
         // Same place on Home as the dormant tile, now live (decision 009).
         .tile = { Row{ .items = { Text{ name }, left }, .trailing = { stop } } },
     };
+    appendTodoRows(content.expandedCenter, todos); // what to work on, under the timer (decision 016)
+    return content;
 }
 
 void PomodoroProvider::start(Host& host)
 {
     host_ = &host;
-    host_->publishPanel(pomodoroPanel());
+    if (storage_.load) todos_ = TodoList::load(storage_.load());
+    host_->publishPanel(pomodoroPanel(todos_));
 }
 
 void PomodoroProvider::stop()
@@ -132,6 +140,14 @@ void PomodoroProvider::stop()
 void PomodoroProvider::onAction(const Action& action)
 {
     if (!host_ || action.activityId != kPanelId) return;
+    if (action.actionId == todo_action::kPaste) {
+        if (readClipboard_ && todos_.add(readClipboard_())) showTodos(); // every line a to-do
+        return;
+    }
+    if (todos_.apply(action.actionId, action.text)) {
+        showTodos();
+        return;
+    }
     Ms now = host_->now();
     if (action.actionId == act::kStart && !session_) {
         begin(Phase::Focus, 1);
@@ -194,10 +210,17 @@ void PomodoroProvider::finish()
     host_->endActivity(kPanelId);
 }
 
+void PomodoroProvider::showTodos()
+{
+    if (storage_.save) storage_.save(todos_.save());
+    if (session_) publish();
+    else host_->publishPanel(pomodoroPanel(todos_));
+}
+
 void PomodoroProvider::publish()
 {
     const Timeline& tl = session_->timeline;
-    host_->startActivity({ .id = kPanelId, .relevance = 0.4f, .content = pomodoroContent(*session_) });
+    host_->startActivity({ .id = kPanelId, .relevance = 0.4f, .content = pomodoroContent(*session_, todos_) });
     host_->wakeAt(tl.playing ? std::optional<Ms>(tl.anchoredAt + (tl.duration - tl.position)) : std::nullopt);
 }
 

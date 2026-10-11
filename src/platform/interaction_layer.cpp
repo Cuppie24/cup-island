@@ -202,6 +202,10 @@ try {
         call(g_callbacks.onKeyDown, wParam);
         return 0;
 
+    case WM_CHAR:
+        call(g_callbacks.onChar, static_cast<wchar_t>(wParam));
+        return 0;
+
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;

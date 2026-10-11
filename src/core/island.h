@@ -57,6 +57,15 @@ struct Alert {
     Ms postedAt{};           // set by reduce()
 };
 
+// Text being typed into a TextInput (decision 016). One at a time, on the shown card.
+struct Draft {
+    std::string providerId;
+    std::string activityId; // the card it's on (an activity's, or a dormant panel's)
+    std::string actionId;   // the TextInput's
+    std::string text;
+    bool operator==(const Draft&) const = default;
+};
+
 // --- Events -------------------------------------------------------------
 struct ActivityStarted { Activity activity; };           // existing id = replace
 struct ActivityUpdated { std::string id; Content content; };
@@ -82,6 +91,11 @@ struct PanelRemoved { std::string id; };
 struct HomeOpened {};                   // Home tab (decision 009)
 struct TileClicked { std::string id; }; // a Home tile, not on a button: open its card
 // Local wall time at `now`, from the platform (idle clock, Home's clock tile).
+struct InputFocused { std::string providerId, activityId, actionId; }; // a TextInput was clicked
+struct TextTyped { std::string text; };  // UTF-8, appended to the draft
+struct TextErased {};                    // Backspace: the last character
+struct InputSubmitted {};                // Enter: the app sent the text; the field empties and keeps focus
+struct InputCancelled {};                // Esc: stop typing, drop the draft
 struct ClockSynced {
     Ms timeOfDay;
     bool hour24 = true;
@@ -93,7 +107,8 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            DragEntered, DragLeft, Dropped, HiddenChanged, Tick,
                            BubbleClicked, ActivityPromoted, ActivitySwitched,
                            BubbleDragged, BubbleReleased, BubbleDragCancelled,
-                           PanelPublished, PanelRemoved, HomeOpened, TileClicked, ClockSynced>;
+                           PanelPublished, PanelRemoved, HomeOpened, TileClicked, ClockSynced,
+                           InputFocused, TextTyped, TextErased, InputSubmitted, InputCancelled>;
 
 // --- State --------------------------------------------------------------
 struct WallClock {
@@ -116,6 +131,7 @@ struct IslandState {
     bool dragging = false;             // an accepted drag is over the island
     bool hidden = false;
     std::optional<WallClock> clock;    // unknown until the platform syncs it
+    std::optional<Draft> draft;        // a TextInput has focus (decision 016)
     std::uint64_t nextStartOrder = 1;
 };
 

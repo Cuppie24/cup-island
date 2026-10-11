@@ -25,6 +25,7 @@ add_library(cup_core STATIC
     src/core/hit_test.cpp
     src/core/home.cpp
     src/core/island.cpp
+    src/core/island_queries.cpp
     src/core/layout.cpp
     src/core/slot_layout.cpp
     src/core/split.cpp
@@ -40,6 +41,7 @@ add_library(cup_providers STATIC
     src/providers/media/media_presenter.cpp
     src/providers/media/now_playing.cpp
     src/providers/pomodoro/pomodoro_provider.cpp
+    src/providers/pomodoro/todo_list.cpp
     src/providers/system/logs_provider.cpp
     src/providers/system/system_panels.cpp
     src/providers/provider_registry.cpp
@@ -61,6 +63,7 @@ if(CUP_BUILD_TESTS)
         tests/unit_tests.cpp
         tests/scenario_runner.cpp
         tests/system_tests.cpp
+        tests/todo_tests.cpp
         tests/tokens_tests.cpp
     )
     target_link_libraries(cup_tests PRIVATE cup_providers)
@@ -95,6 +98,7 @@ if(WIN32)
         src/platform/liquid_bridge.cpp
         src/platform/pill_renderer.cpp
         src/platform/render_layer.cpp
+        src/platform/text_input.cpp
         src/platform/stay_on_top.cpp
         src/platform/tray_icon.cpp
         src/platform/watchdog.cpp

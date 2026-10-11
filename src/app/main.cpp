@@ -29,6 +29,7 @@
 #include "platform/pill_renderer.h"
 #include "platform/render_layer.h"
 #include "platform/stay_on_top.h"
+#include "platform/text_input.h"
 #include "platform/tray_icon.h"
 #include "platform/watchdog.h"
 #include "providers/demo/demo_media_provider.h"
@@ -42,7 +43,9 @@
 
 #include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <utility>
@@ -277,8 +280,15 @@ void onPressRelease(Vec2 canvasPoint, Release how)
         // Only a release on the same button counts: sliding off cancels, like any button.
         auto hit = how == Release::Inside && onPill(canvasPoint) ? hitTest(g_scene, point) : std::nullopt;
         if (hit && hit->key == key) {
-            g_providers->route(hit->action);
-            dispatch(PointerMoved{}, "action"); // the user is busy here: keep Expanded open
+            const Placed* element = findElement(key);
+            if (element && std::holds_alternative<TextInput>(element->item)) {
+                // A field: focus it for typing (decision 016); nothing is sent until Enter.
+                SetFocus(g_inputHwnd);
+                dispatch(InputFocused{ hit->action.providerId, hit->action.activityId, hit->action.actionId }, "focus field");
+            } else {
+                g_providers->route(hit->action);
+                dispatch(PointerMoved{}, "action"); // the user is busy here: keep Expanded open
+            }
         }
         return;
     }
@@ -286,8 +296,46 @@ void onPressRelease(Vec2 canvasPoint, Release how)
     if (how == Release::Inside && onPill(canvasPoint) && !hitTest(g_scene, point)) dispatch(PillClicked{}, "click");
 }
 
+// Sends the focused field's text to its provider: what was typed (Enter), or
+// the clipboard (Ctrl+V: the provider splits lines into items).
+void sendDraft(const std::string& text)
+{
+    const Draft& d = *g_state.draft;
+    if (!text.empty()) g_providers->route({ d.providerId, d.activityId, d.actionId, 0, text });
+}
+
+// Typed text, for the focused field (decision 016). Enter sends, Backspace
+// erases, Ctrl+V pastes; other control characters are ignored.
+void onChar(wchar_t c)
+{
+    static wchar_t highSurrogate = 0; // the first half of a character outside the BMP (emoji)
+    if (!g_state.draft) return;
+    if (c == L'\r') {
+        sendDraft(g_state.draft->text);
+        dispatch(InputSubmitted{}, "enter");
+    } else if (c == L'\b') {
+        dispatch(TextErased{}, "backspace");
+    } else if (c == 0x16) { // Ctrl+V
+        sendDraft(readClipboardText(g_inputHwnd));
+        dispatch(PointerMoved{}, "paste"); // busy: keep the card open
+    } else if (c >= 0xD800 && c <= 0xDBFF) {
+        highSurrogate = c;
+    } else if (c >= 0x20) {
+        wchar_t pair[2] = { highSurrogate, c };
+        bool low = highSurrogate && c >= 0xDC00 && c <= 0xDFFF;
+        dispatch(TextTyped{ toUtf8(low ? std::wstring_view(pair, 2) : std::wstring_view(&c, 1)) }, "typing");
+        highSurrogate = 0;
+    }
+}
+
 void onKey(WPARAM key)
 {
+    // A focused field gets the keys (onChar): no demo keys while typing. Esc
+    // stops typing; a second Esc closes the card.
+    if (g_state.draft) {
+        if (key == VK_ESCAPE) dispatch(InputCancelled{}, "esc");
+        return;
+    }
     switch (key) {
     case VK_ESCAPE:
         if (mode(g_state) == Mode::Expanded) dispatch(EscapePressed{}, "esc");
@@ -361,6 +409,7 @@ int main()
         updateHover();
     };
     callbacks.onKeyDown = onKey;
+    callbacks.onChar = onChar;
     callbacks.onTimer = onTimer;
 
     Rect bounds = interactiveBounds(g_scene);
@@ -386,7 +435,22 @@ int main()
     g_providers->add(std::make_unique<BatteryProvider>(postToUi));
     g_providers->add(std::make_unique<BluetoothProvider>(postToUi));
     g_providers->add(std::make_unique<ThemeProvider>(postToUi));
-    g_providers->add(std::make_unique<PomodoroProvider>());
+    // Pomodoro's to-dos live next to the logs: %LOCALAPPDATA%\CupIsland\todos.txt (decision 016).
+    std::filesystem::path todos = logFolder().empty() ? std::filesystem::path() : logFolder().parent_path() / L"todos.txt";
+    TodoStorage storage{
+        [todos] {
+            std::ifstream in(todos, std::ios::binary);
+            std::stringstream text;
+            text << in.rdbuf();
+            return text.str();
+        },
+        [todos](const std::string& text) {
+            if (todos.empty()) return;
+            std::ofstream out(todos, std::ios::binary | std::ios::trunc);
+            out << text;
+        },
+    };
+    g_providers->add(std::make_unique<PomodoroProvider>(storage, [] { return readClipboardText(g_inputHwnd); }));
     g_providers->add(std::make_unique<LogsProvider>([] { return copyLogToClipboard(g_inputHwnd); }));
     g_providers->start("media");
     g_providers->start("system.battery");

@@ -25,7 +25,8 @@ float heightOf(const Item& item, Rect slot, float ringSide)
     if (std::holds_alternative<Image>(item)) return std::min(slot.width, slot.height);
     if (isRing(item)) return ringSide;
     if (std::holds_alternative<Steps>(item)) return t.stepDotSize;
-    if (std::holds_alternative<Button>(item)) return t.buttonSize;
+    if (auto* button = std::get_if<Button>(&item)) return button->small ? t.smallButtonSize : t.buttonSize;
+    if (std::holds_alternative<TextInput>(item)) return t.smallButtonSize;
     // Seekable bars get a taller row to be easy to click; a bar nobody clicks is just its line.
     if (auto* bar = std::get_if<Progress>(&item)) return bar->seekable ? t.progressHitHeight : t.progressHeight;
     if (auto* label = std::get_if<TimeLabel>(&item)) return lineHeight(label->style);
@@ -44,13 +45,19 @@ std::string zeroed(std::string s)
 std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureText& measure)
 {
     const Tokens& t = tokens();
-    if (std::holds_alternative<Text>(item) || (std::holds_alternative<Progress>(item) && !isRing(item))) return std::nullopt;
+    if (std::holds_alternative<Text>(item) || std::holds_alternative<TextInput>(item) ||
+        (std::holds_alternative<Progress>(item) && !isRing(item)))
+        return std::nullopt;
     if (std::holds_alternative<Image>(item) || isRing(item)) return height;
     if (auto* steps = std::get_if<Steps>(&item)) {
         float n = static_cast<float>(std::max(steps->count, 0));
         return std::max(0.0f, n * t.stepDotSize + (n - 1) * t.stepDotGap);
     }
-    if (std::holds_alternative<Button>(item)) return t.buttonSize;
+    if (auto* button = std::get_if<Button>(&item)) {
+        if (button->label.empty()) return button->small ? t.smallButtonSize : t.buttonSize;
+        Text text{ button->label, TextStyle::Body };
+        return (measure ? measure(text) : estimateTextWidth(text)) + 2 * t.buttonLabelPadding;
+    }
     if (auto* label = std::get_if<TimeLabel>(&item)) {
         if (label->style == TextStyle::Digits) return t.timeLabelWidth; // a column, so rows of labels line up
         std::string widest = zeroed(formatDuration(label->timeline.duration));
@@ -61,8 +68,15 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
     return t.iconSize; // Icon, Waveform
 }
 
-Item resolve(const Item& item, Ms now)
+Item resolve(const Item& item, Ms now, const Source& source)
 {
+    if (auto* input = std::get_if<TextInput>(&item)) {
+        TextInput shown = *input;
+        const Draft* d = source.draft;
+        shown.focused = d && d->activityId == source.activityId && d->actionId == input->actionId;
+        shown.value = shown.focused ? d->text : "";
+        return shown;
+    }
     if (auto* label = std::get_if<TimeLabel>(&item)) {
         Ms position = label->timeline.positionAt(now);
         std::string left = formatDuration(label->timeline.duration - position);
@@ -72,10 +86,10 @@ Item resolve(const Item& item, Ms now)
     return item;
 }
 
-// Rounded content (art, button hover circles) only.
+// Rounded content (art, button hover shapes, text fields) only.
 float radiusFor(const Item& item, Rect frame, float nestedRadius)
 {
-    if (!std::holds_alternative<Image>(item) && !std::holds_alternative<Button>(item)) return 0;
+    if (!std::holds_alternative<Image>(item) && !std::holds_alternative<Button>(item) && !std::holds_alternative<TextInput>(item)) return 0;
     return std::min(nestedRadius, std::min(frame.width, frame.height) / 2);
 }
 
@@ -93,6 +107,21 @@ float fontSize(TextStyle style)
     case TextStyle::Display: return t.displayFontSize;
     }
     return t.bodyFontSize;
+}
+
+float slotHeight(const Slot& slot, Rect frame)
+{
+    float total = 0;
+    for (const Row& r : slot) {
+        float others = 0, rings = 0;
+        for (const auto* items : { &r.items, &r.leading, &r.trailing })
+            for (const Item& item : *items) {
+                if (isRing(item)) rings = std::max(rings, std::min(frame.width, frame.height));
+                else others = std::max(others, heightOf(item, frame, 0));
+            }
+        total += others > 0 ? others : rings;
+    }
+    return total + tokens().rowSpacing * static_cast<float>(slot.empty() ? 0 : slot.size() - 1);
 }
 
 float estimateTextWidth(const Text& text) { return std::ceil(static_cast<float>(text.value.size()) * fontSize(text.style) * 0.5f); }
@@ -145,7 +174,7 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
                 float h = heightOf(item, slot.frame, ringSide);
                 Placed placed;
                 placed.key = slot.name + "/" + std::to_string(r) + "/" + std::to_string(index);
-                placed.item = resolve(item, now);
+                placed.item = resolve(item, now, source);
                 placed.frame = { x, y + (rowHeight - h) / 2, w, h };
                 placed.cornerRadius = radiusFor(item, placed.frame, nestedRadius);
                 placed.accent = source.content ? source.content->accent : std::nullopt;

@@ -17,7 +17,7 @@ using Ms = std::chrono::milliseconds;
 
 // Built-in icons; the renderer maps them to font glyphs.
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
-                   Battery, Charging, Bluetooth, Sun, Moon, Copy };
+                   Battery, Charging, Bluetooth, Sun, Moon, Copy, Checked, Unchecked, Paste };
 
 enum class TextStyle { Title, Body, Caption, Digits, Display }; // Display: a big number, the card's centre (a timer)
 
@@ -60,6 +60,7 @@ struct Text {
     bool alignEnd = false; // right-aligned in its frame
     bool marquee = false;  // too long: scrolls ("swims") in a loop instead of ending in "…"
     bool centred = false;  // centred in its frame (wins over alignEnd)
+    bool struck = false;   // struck through: a solved to-do
     bool operator==(const Text&) const = default;
 };
 struct Image { std::shared_ptr<const ImageData> data; bool operator==(const Image&) const = default; };
@@ -69,7 +70,21 @@ struct Button {
     std::string actionId; // sent back to the provider when clicked
     bool enabled = true;
     std::optional<bool> on; // toggles only (shuffle, repeat): lit with a dot when on, dimmed when off
+    std::string label;      // a text button ("Clear all") instead of the glyph; as wide as its text
+    bool small = false;     // smallButtonSize: list rows (a to-do's checkbox), not main controls
     bool operator==(const Button&) const = default;
+};
+
+// A one-line text field the host draws and edits (decision 016). Clicking it
+// focuses it; typing goes to IslandState::draft. Enter sends the text to the
+// provider as Action{actionId, text}; a paste sends the clipboard's text the
+// same way (the provider splits lines). Stretches across its row.
+struct TextInput {
+    std::string actionId;
+    std::string placeholder; // shown dim while empty
+    std::string value;       // host-filled from the draft: providers leave it empty
+    bool focused = false;    // host-filled
+    bool operator==(const TextInput&) const = default;
 };
 // A bar stretches across its row. A ring is a square: alone in its row it
 // fills the slot's height (like art); next to other items it matches the
@@ -102,7 +117,7 @@ struct Steps {
     bool operator==(const Steps&) const = default;
 };
 
-using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps>;
+using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput>;
 
 enum class Align { Start, Center, End };
 

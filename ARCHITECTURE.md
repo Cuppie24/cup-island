@@ -156,7 +156,7 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing),
   `home_tests.cpp` (tiles, Home tab, idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop),
-  `system_tests.cpp` (battery and Bluetooth presenters).**
+  `system_tests.cpp` (battery and Bluetooth presenters), `todo_tests.cpp` (the to-do list end to end).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
 
@@ -182,6 +182,7 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 | Battery, theme toggle and Bluetooth widgets | presenters tested; Windows readers need Windows |
 | Pomodoro (first panel): focus rounds, breaks, pause/skip/stop, ring, phase dots | done, tested |
 | Progress ring, Steps, accent colour (decision 010) | done; rules tested, drawing needs Windows |
+| Text input (typing, paste) and Pomodoro's to-do list (decision 016) | done; rules tested, typing and drawing need Windows |
 | Release: no-console exe, static C++ runtime, tray icon with Start with Windows + Exit, Inno Setup installer (decision 011) | done; needs a Windows build to verify |
 | MSIX, code signing, StartupTask (TR §9, §10) | not yet |
 | Log file, Copy logs tile, hang/crash minidumps, exit without deadlock (decision 013) | done; tile rules tested, the rest needs Windows |

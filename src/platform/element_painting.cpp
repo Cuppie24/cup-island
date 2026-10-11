@@ -64,6 +64,9 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Sun: return L"\uE706";  // Brightness
     case Glyph::Moon: return L"\uE708"; // QuietHours (crescent)
     case Glyph::Copy: return L"\uE8C8";
+    case Glyph::Checked: return L"\uE73A";   // CheckboxComposite
+    case Glyph::Unchecked: return L"\uE739"; // Checkbox
+    case Glyph::Paste: return L"\uE77F";
     }
     return L"?";
 }
@@ -134,7 +137,45 @@ winrt::com_ptr<IDWriteTextFormat> formatOf(IDWriteFactory* dw, const Text& text)
 
 void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec2 size)
 {
-    drawString(dc, formatOf(dw, text).get(), widen(text.value), size, lookOf(text.style).color);
+    if (!text.struck) {
+        drawString(dc, formatOf(dw, text).get(), widen(text.value), size, lookOf(text.style).color);
+        return;
+    }
+    // Struck through (a solved to-do): a layout carries the strikethrough.
+    std::wstring value = widen(text.value);
+    winrt::com_ptr<IDWriteTextLayout> layout;
+    winrt::check_hresult(dw->CreateTextLayout(value.c_str(), static_cast<UINT32>(value.size()), formatOf(dw, text).get(),
+                                              size.x, size.y, layout.put()));
+    layout->SetStrikethrough(TRUE, DWRITE_TEXT_RANGE{ 0, static_cast<UINT32>(value.size()) });
+    dc->DrawTextLayout(D2D1::Point2F(0, 0), layout.get(), brushOf(dc, lookOf(text.style).color).get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
+}
+
+void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& label, Vec2 size, const Color& color)
+{
+    Text text{ .value = label, .style = TextStyle::Body, .centred = true };
+    drawString(dc, formatOf(dw, text).get(), widen(label), size, color);
+}
+
+void paintInput(ID2D1DeviceContext* dc, IDWriteFactory* dw, const TextInput& input, Vec2 size, float cornerRadius)
+{
+    const Tokens& t = tokens();
+    D2D1_ROUNDED_RECT field{ D2D1::RectF(0, 0, size.x, size.y), cornerRadius, cornerRadius };
+    dc->FillRoundedRectangle(field, brushOf(dc, t.inputColor).get());
+
+    float inset = t.buttonLabelPadding, room = std::max(0.0f, size.x - 2 * inset);
+    bool empty = input.value.empty();
+    Text text{ .value = empty ? input.placeholder : input.value, .style = empty ? TextStyle::Caption : TextStyle::Body };
+    float width = measureText(dw, text);
+    // Longer than the field while typing: show its end, where the caret is.
+    if (!empty && width > room) text.alignEnd = true;
+    D2D1_RECT_F box = D2D1::RectF(inset, 0, inset + room, size.y);
+    drawString(dc, formatOf(dw, text).get(), widen(text.value), box, lookOf(text.style).color);
+
+    if (!input.focused) return;
+    // A still caret after the text: no blinking, so typing costs nothing between keys.
+    float x = empty ? inset : std::min(inset + width, inset + room) + 1;
+    float h = std::ceil(t.bodyFontSize * 1.2f);
+    dc->FillRectangle(D2D1::RectF(x, (size.y - h) / 2, x + 1.5f, (size.y + h) / 2), brushOf(dc, lookOf(TextStyle::Body).color).get());
 }
 
 float measureText(IDWriteFactory* dw, const Text& text)
