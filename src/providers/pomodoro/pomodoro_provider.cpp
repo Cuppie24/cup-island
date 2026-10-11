@@ -150,7 +150,7 @@ void PomodoroProvider::onAction(const Action& action)
     if (!host_ || action.activityId != kPanelId) return;
     namespace todo = todo_action;
     if (action.actionId == todo::kClearDone || action.actionId == todo::kClearAll) {
-        host_->ask(clearQuestion(action.actionId, todos_, kPanelId)); // clears only once confirmed (decision 019)
+        host_->ask(clearQuestion(action.actionId, todos_, kPanelId)); // clears only once confirmed (decision 020)
         return;
     }
     if (action.actionId == todo::kScroll) {

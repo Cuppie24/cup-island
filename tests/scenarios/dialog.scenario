@@ -1,4 +1,4 @@
-# A provider's question over its card (decision 019): only over the card
+# A provider's question over its card (decision 020): only over the card
 # that's shown, it stops typing, and it goes with its card.
 
 scenario: a question opens only over the card that's shown

@@ -1,5 +1,5 @@
 #pragma once
-// The host's dialog (decision 019): what it shows in place of a card's
+// The host's dialog (decision 020): what it shows in place of a card's
 // content while a provider's question is open. Pure.
 
 #include "core/island.h"

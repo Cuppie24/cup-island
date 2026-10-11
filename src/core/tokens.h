@@ -158,7 +158,7 @@ struct Tokens {
     Color tileColor{ 255, 255, 255, 20 };          // Home's tile backgrounds
     Color inputColor{ 255, 255, 255, 26 };         // a text field's background (decision 016)
     Color placeholderTextColor{ 255, 255, 255, 128 }; // "Add a to-do…": like body text, a little dimmer
-    Color dangerColor{ 255, 69, 58 };              // a destructive button's label: a dialog's "Clear all" (decision 019)
+    Color dangerColor{ 255, 69, 58 };              // a destructive button's label: a dialog's "Clear all" (decision 020)
     Color imagePlaceholderColor{ 255, 255, 255, 31 }; // art that hasn't arrived
     Color shadowColor{ 0, 0, 0, 115 };             // under the island in every mode; its alpha is the shadow's strength
     Color pomodoroFocusColor{ 255, 99, 71 };       // accents (decision 010)

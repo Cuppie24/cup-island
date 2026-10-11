@@ -1,5 +1,5 @@
 #pragma once
-// Pomodoro's to-do list (decisions 016, 019): what to work on this session. Pure:
+// Pomodoro's to-do list (decisions 016, 020): what to work on this session. Pure:
 // the list, the actions on it, how it's saved, and the rows it adds to the
 // card. Pomodoro owns one and shows it under the timer.
 

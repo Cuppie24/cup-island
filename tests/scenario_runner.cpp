@@ -11,7 +11,7 @@
 //            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel
 //            panel <id> [static]  unpanel <id>  home  tile <id>     (static: a widget with no card)
 //            focus <card> <action>  type <text...>  erase  submit  cancel-input   (a TextInput, decision 016)
-//            ask <card>  close-dialog                                               (a provider's dialog, decision 019)
+//            ask <card>  close-dialog                                               (a provider's dialog, decision 020)
 // Checks after "->":  <Mode>  queue=<n>  top=<activity>  bubble=<activity>  alert=<name>
 //                     expanded=<activity|panel|home>  pinned=<activity>  dragging=yes|no  preview=yes|no
 //                     draft=<text>|empty|none  (no spaces in <text>)  dialog=<card>|none

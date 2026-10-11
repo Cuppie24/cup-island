@@ -174,7 +174,7 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
         scene.label = source.content->label;
         scene.activityId = source.activityId;
         // A dialog over this card takes the content's place, at the card's
-        // size: nothing morphs when a question opens or closes (decision 019).
+        // size: nothing morphs when a question opens or closes (decision 020).
         Content asked;
         if (const Dialog* d = scene.mode == Mode::Expanded ? dialogOver(state, source.activityId) : nullptr) {
             asked = dialogContent(*d);

@@ -66,7 +66,7 @@ struct Draft {
     bool operator==(const Draft&) const = default;
 };
 
-// A question a provider asks over its card (decision 019): "Clear all
+// A question a provider asks over its card (decision 020): "Clear all
 // tasks?". The host draws it in place of the card's content, with Cancel and
 // a confirm button; confirming sends `confirmAction` to the provider.
 struct Dialog {
@@ -147,7 +147,7 @@ struct IslandState {
     bool hidden = false;
     std::optional<WallClock> clock;    // unknown until the platform syncs it
     std::optional<Draft> draft;        // a TextInput has focus (decision 016)
-    std::optional<Dialog> dialog;      // a question over the shown card (decision 019)
+    std::optional<Dialog> dialog;      // a question over the shown card (decision 020)
     std::uint64_t nextStartOrder = 1;
 };
 

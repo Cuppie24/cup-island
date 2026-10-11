@@ -1,6 +1,6 @@
 #pragma once
 // What can sit over the shown card: text being typed into its field
-// (decision 016) and a provider's dialog (decision 019). Both belong to the
+// (decision 016) and a provider's dialog (decision 020). Both belong to the
 // card they were started on and go with it. Part of reduce(); split out of
 // island.cpp to keep it readable.
 

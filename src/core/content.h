@@ -72,7 +72,7 @@ struct Button {
     std::optional<bool> on; // toggles only (shuffle, repeat): lit with a dot when on, dimmed when off
     std::string label;      // a text button ("Clear all") instead of the glyph; as wide as its text
     bool compact = false;   // smallButtonSize: list rows (a to-do's checkbox), not main controls. Not "small": windows.h #defines it
-    bool revealOnHover = false; // hidden until the pointer is on its row: a list item's delete (decision 019)
+    bool revealOnHover = false; // hidden until the pointer is on its row: a list item's delete (decision 020)
     bool destructive = false;   // its label in dangerColor: a dialog's "Clear"
     bool operator==(const Button&) const = default;
 };
@@ -151,7 +151,7 @@ struct Row {
     bool clickAnywhere = false;
     // The mouse wheel over this row sends this action, Action::value = steps
     // (positive: down). A list that scrolls: the provider moves its window
-    // and republishes (decision 019).
+    // and republishes (decision 020).
     std::string scrollAction;
     bool operator==(const Row&) const = default;
 };

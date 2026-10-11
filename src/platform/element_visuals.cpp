@@ -20,7 +20,7 @@ bool isRing(const Item& item)
 // Live data's colour: the content's accent, else the live colour (decision 010).
 Color accentOf(const Placed& p) { return p.accent.value_or(tokens().liveColor); }
 
-// A list item's delete button: hidden until the pointer is on its row (decision 019).
+// A list item's delete button: hidden until the pointer is on its row (decision 020).
 bool revealsOnHover(const Item& item)
 {
     auto* button = std::get_if<Button>(&item);

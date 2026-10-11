@@ -60,7 +60,7 @@ private:
     Host* host_ = nullptr;
     std::optional<Session> session_;
     TodoList todos_;
-    std::size_t todoScroll_ = 0; // the first to-do in the card's window (decision 019)
+    std::size_t todoScroll_ = 0; // the first to-do in the card's window (decision 020)
     TodoStorage storage_;
 };
 

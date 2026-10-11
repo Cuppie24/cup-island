@@ -190,7 +190,7 @@ void toggleTimer()
     dispatch(ActivityStarted{ { .id = id, .content = content } }, "demo key");
 }
 
-// A dialog's own buttons (decision 019): Cancel just closes it; the confirm
+// A dialog's own buttons (decision 020): Cancel just closes it; the confirm
 // button sends the provider its action, then closes it.
 void answerDialog(bool confirmed)
 {
@@ -211,7 +211,7 @@ void act(const Action& action)
     dispatch(PointerMoved{}, "action"); // the user is busy here: keep Expanded open
 }
 
-// The wheel over a row that scrolls (Row::scrollAction): its provider moves the list (decision 019).
+// The wheel over a row that scrolls (Row::scrollAction): its provider moves the list (decision 020).
 void onWheel(Vec2 canvasPoint, int steps)
 {
     Vec2 point = toPill(canvasPoint);
@@ -372,7 +372,7 @@ void onChar(wchar_t c)
 
 void onKey(WPARAM key)
 {
-    // A dialog: Esc cancels it, the card stays (decision 019).
+    // A dialog: Esc cancels it, the card stays (decision 020).
     if (g_state.dialog) {
         if (key == VK_ESCAPE) answerDialog(false);
         return;

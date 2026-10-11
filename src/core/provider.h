@@ -39,7 +39,7 @@ public:
     virtual void wakeAt(std::optional<Ms> at) = 0;
 
     // Asks the user over this provider's card, which must be the one shown
-    // (decision 019). On confirm the provider gets Action{dialog.confirmAction};
+    // (decision 020). On confirm the provider gets Action{dialog.confirmAction};
     // Cancel, Esc or the card closing just dismisses it.
     virtual void ask(Dialog dialog) = 0;
 };
