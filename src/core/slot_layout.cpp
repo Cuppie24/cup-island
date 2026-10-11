@@ -33,11 +33,21 @@ float heightOf(const Item& item, Rect slot, float ringSide)
     return t.iconSize; // Icon, Waveform
 }
 
-// "0:00"-shaped: the widest the label gets, so its frame never changes while it ticks.
-std::string zeroed(std::string s)
+// The widest the label can get, so its frame never changes while it ticks:
+// its shape ("25:00") with every digit replaced by the widest digit in this
+// font and style. Windows' UI font has proportional digits ("4" is wider
+// than "0"), so "00:00" alone isn't enough: "24:44" got cut to "2…".
+std::string widestDigits(std::string s, TextStyle style, const MeasureText& measure)
 {
+    char widest = '0';
+    float widestWidth = -1;
+    for (char d = '0'; d <= '9'; ++d) {
+        Text digit{ std::string(1, d), style };
+        float w = measure ? measure(digit) : estimateTextWidth(digit);
+        if (w > widestWidth) widestWidth = w, widest = d;
+    }
     for (char& c : s)
-        if (c >= '1' && c <= '9') c = '0';
+        if (c >= '0' && c <= '9') c = widest;
     return s;
 }
 
@@ -60,7 +70,7 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
     }
     if (auto* label = std::get_if<TimeLabel>(&item)) {
         if (label->style == TextStyle::Digits) return t.timeLabelWidth; // a column, so rows of labels line up
-        std::string widest = zeroed(formatDuration(label->timeline.duration));
+        std::string widest = widestDigits(formatDuration(label->timeline.duration), label->style, measure);
         if (label->remaining && !label->countdown) widest = "-" + widest;
         Text text{ widest, label->style };
         return (measure ? measure(text) : estimateTextWidth(text)) + 1; // +1: rounding never trips the "…"
