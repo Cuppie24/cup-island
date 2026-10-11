@@ -97,6 +97,7 @@ void postAlert(IslandState& s, Alert alert, Ms now)
 // Runs after every event: expire timers, drop stale state, show the next alert.
 void settle(IslandState& s, Ms now)
 {
+    std::erase_if(s.activities, [&](const Activity& a) { return a.expiresAt && now >= *a.expiresAt; });
     if (s.alert && now >= s.alertUntil) s.alert.reset();
 
     if (isExpanded(s)) {
@@ -227,6 +228,8 @@ std::optional<Ms> nextDeadline(const IslandState& s)
     auto consider = [&](Ms t) { if (!next || t < *next) next = t; };
 
     if (s.alert) consider(s.alertUntil);
+    for (const auto& a : s.activities)
+        if (a.expiresAt) consider(*a.expiresAt);
     if (isExpanded(s)) consider(s.lastPointerAt + tokens().expandedIdleTimeout);
     for (const auto& a : s.alertQueue) consider(a.postedAt + tokens().heldAlertMaxAge + Ms{ 1 });
     return next;

@@ -1,8 +1,10 @@
 #pragma once
-// Draws the pill. apply() sets target Size/Offset/Opacity and implicit
+// Draws the pill and its content. apply() sets targets and implicit
 // animations do the morph (TR §5), so this never redraws per frame.
 
 #include "core/layout.h"
+#include "platform/element_visuals.h"
+#include "platform/graphics_device.h"
 #include "platform/win.h"
 
 namespace cup::platform {
@@ -10,7 +12,9 @@ namespace cup::platform {
 class PillRenderer {
 public:
     void build(wuc::Compositor const& compositor, wuc::ContainerVisual const& root, const Scene& initial);
-    void apply(const Scene& scene);
+
+    // Returns true if the pill's geometry changed (so the interaction layer must follow the morph).
+    bool apply(const Scene& scene);
 
     // Rebuilds the implicit animations from the current tokens() (after a reload).
     void refreshAnimations();
@@ -19,10 +23,17 @@ public:
     void pressDown();
     void pressRelease();
 
+    // Same, for one content element (a button) instead of the whole pill.
+    void pressElement(const std::string& key) { elements_.press(key); }
+    void releaseElement(const std::string& key) { elements_.release(key); }
+
 private:
     wuc::Compositor compositor_{ nullptr };
     wuc::ShapeVisual pill_{ nullptr };
-    wuc::ContainerVisual detail_{ nullptr }; // placeholder expanded content
+    wuc::CompositionPropertySet shape_{ nullptr }; // MaxRadius, read by the corner expressions
+    GraphicsDevice device_;
+    ElementVisuals elements_;
+    Vec2 size_, offset_;
 };
 
 } // namespace cup::platform

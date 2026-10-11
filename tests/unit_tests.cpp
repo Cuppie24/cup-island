@@ -30,19 +30,19 @@ void runUnitTests()
     expect(!nextDeadline(idle).has_value(), "idle island schedules no ticks");
 
     // Layout: pill is centered in the canvas and hangs from the top edge.
-    Scene scene = layout(idle);
+    Scene scene = layout(idle, Ms{ 0 });
     expect(scene.size == tokens().idleSize, "idle uses idle size");
     expect(scene.offset.x * 2 + scene.size.x == tokens().canvas.x, "pill is horizontally centered");
     expect(scene.offset.y == 0, "pill is flush with the top edge");
 
-    // Expanded shows the opened activity's content and the detail layer.
+    // Expanded shows the opened activity's content.
     IslandState s;
-    s = reduce(s, ActivityStarted{ { .id = "media", .content = { "Song", "Artist" } } }, Ms{ 0 });
+    s = reduce(s, ActivityStarted{ { .id = "media", .content = { .label = "Song", .expandedCenter = { row({ Text{ "Song" } }) } } } }, Ms{ 0 });
     s = reduce(s, PillClicked{}, Ms{ 10 });
-    scene = layout(s);
+    scene = layout(s, Ms{ 10 });
     expect(scene.mode == Mode::Expanded, "click on compact expands");
-    expect(scene.detailOpacity == 1.0f, "expanded shows detail");
-    expect(scene.content.title == "Song", "expanded shows the activity's content");
+    expect(scene.label == "Song", "expanded shows the activity's content");
+    expect(scene.elements.size() == 1 && scene.elements[0].key == "expandedCenter/0/0", "one placed text");
 }
 
 } // namespace cup::test

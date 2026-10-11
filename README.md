@@ -24,7 +24,8 @@ cmake --preset core && cmake --build --preset core && ctest --preset core   # Li
 (sizes, durations, easing curves) and save. Changes apply instantly. See
 ARCHITECTURE.md → Tuning.
 
-The prototype starts empty. After a moment a demo media activity appears
-with an alert, then settles. Click the pill to expand it. Demo keys (once
-the pill has focus): **M** media, **T** second activity, **A** alert,
-**C** critical alert, **D** simulated drag, **H** hide, **Esc** collapse/quit.
+The prototype starts empty. After a moment a demo music player appears
+(fake tracks, gradient album art). Click the pill to expand it: ⏮ ⏯ ⏭ work,
+and clicking the progress bar seeks. Demo keys (once the pill has focus):
+**M** demo player on/off, **T** second activity, **C** critical alert,
+**D** simulated drag, **H** hide, **Esc** collapse/quit.

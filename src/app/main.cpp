@@ -4,12 +4,12 @@
 // Tuning: edit assets/tokens.json while it runs; saving applies it live.
 //
 // Demo keys (click the pill first so it has keyboard focus):
-//   M  toggle the fake media activity      T  toggle a second activity (Split)
-//   A  post a track-change alert           C  post a critical alert
-//   D  toggle a simulated accepted drag    H  toggle hidden
-//   Esc collapse when expanded, otherwise quit
+//   M  toggle the demo music player        T  toggle a second activity (Split)
+//   C  post a critical alert               D  toggle a simulated accepted drag
+//   H  toggle hidden                       Esc collapse when expanded, otherwise quit
 
 #include "app/live_tokens.h"
+#include "core/hit_test.h"
 #include "core/island.h"
 #include "core/layout.h"
 #include "core/tokens.h"
@@ -17,10 +17,13 @@
 #include "platform/interaction_layer.h"
 #include "platform/pill_renderer.h"
 #include "platform/render_layer.h"
+#include "providers/demo/demo_media_provider.h"
+#include "providers/provider_registry.h"
 
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
+#include <memory>
 
 using namespace cup;
 using namespace cup::platform;
@@ -33,6 +36,8 @@ Scene g_scene;
 PillRenderer g_renderer;
 HWND g_inputHwnd{};
 std::filesystem::path g_tokensFile;
+std::unique_ptr<ProviderRegistry> g_providers;
+std::string g_pressedKey; // element under the mouse-down, if it was a button
 
 Ms now()
 {
@@ -46,31 +51,73 @@ bool hasActivity(const std::string& id)
     return false;
 }
 
+std::optional<Ms> earliest(std::optional<Ms> a, std::optional<Ms> b)
+{
+    if (!a) return b;
+    if (!b) return a;
+    return std::min(*a, *b);
+}
+
 void dispatch(const Event& event, const char* reason)
 {
     Ms t = now();
     g_state = reduce(g_state, event, t);
-    Scene next = layout(g_state);
+    Scene next = layout(g_state, t);
 
     if (next.mode != g_scene.mode) {
-        std::printf("[cup-island] %s -> %s (%s)\n", toString(g_scene.mode), toString(next.mode), reason);
+        std::printf("[cup-island] %s -> %s (%s) %s\n", toString(g_scene.mode), toString(next.mode), reason, next.label.c_str());
         std::fflush(stdout);
     }
-    // Only touch visuals on a real change: re-setting a property restarts its
-    // implicit animation, which would stall a morph in flight.
-    bool geometryChanged = next.size != g_scene.size || next.offset != g_scene.offset;
-    if (geometryChanged || next.detailOpacity != g_scene.detailOpacity) g_renderer.apply(next);
-    if (geometryChanged) followMorph(next.size, next.offset);
+    if (g_renderer.apply(next)) followMorph(next.size, next.offset);
     g_scene = next;
 
-    auto deadline = nextDeadline(g_state);
-    setTimer(TimerId::Deadline, deadline ? std::optional<Ms>(*deadline - t) : std::nullopt);
+    // One timer for everything time-based: core deadlines and ticking labels.
+    auto deadline = earliest(nextDeadline(g_state), sceneDeadline(g_scene));
+    setTimer(TimerId::Deadline, deadline ? std::optional<Ms>(std::max(*deadline - t, Ms{ 0 })) : std::nullopt);
 }
 
-void toggleActivity(const std::string& id, const char* title, const char* subtitle)
+void toggleProvider(const char* id)
 {
-    if (hasActivity(id)) dispatch(ActivityEnded{ id }, "demo key");
-    else dispatch(ActivityStarted{ { .id = id, .content = { title, subtitle } } }, "demo key");
+    if (g_providers->isRunning(id)) g_providers->stop(id);
+    else g_providers->start(id);
+}
+
+void toggleTimer()
+{
+    const std::string id = "demo.timer";
+    if (hasActivity(id)) {
+        dispatch(ActivityEnded{ id }, "demo key");
+        return;
+    }
+    Content content{ .label = "Timer", .compactLeading = { row({ Icon{ Glyph::Warning } }) },
+                     .compactTrailing = { row({ Text{ "4:59", TextStyle::Digits } }) },
+                     .expandedCenter = { row({ Text{ "Timer", TextStyle::Title } }), row({ Text{ "Demo activity" } }) } };
+    dispatch(ActivityStarted{ { .id = id, .content = content } }, "demo key");
+}
+
+// Mouse-down: a button gets its own press feedback, anything else squashes the pill.
+void onPressDown(Vec2 point)
+{
+    auto hit = hitTest(g_scene, point);
+    g_pressedKey = hit ? hit->key : "";
+    if (hit) g_renderer.pressElement(g_pressedKey);
+    else g_renderer.pressDown();
+}
+
+void onPressRelease()
+{
+    if (!g_pressedKey.empty()) g_renderer.releaseElement(g_pressedKey);
+    else g_renderer.pressRelease();
+}
+
+void onClick(Vec2 point)
+{
+    if (auto hit = hitTest(g_scene, point)) {
+        g_providers->route(hit->action);
+        dispatch(PointerMoved{}, "action"); // the user is busy here: keep Expanded open
+    } else {
+        dispatch(PillClicked{}, "click");
+    }
 }
 
 void onKey(WPARAM key)
@@ -80,15 +127,14 @@ void onKey(WPARAM key)
         if (mode(g_state) == Mode::Expanded) dispatch(EscapePressed{}, "esc");
         else DestroyWindow(g_inputHwnd);
         break;
-    case 'M': toggleActivity("media", "Song title", "Artist"); break;
-    case 'T': toggleActivity("timer", "Timer", "04:59"); break;
-    case 'A':
-        dispatch(AlertPosted{ { .activityId = "media", .content = { "Next song", "Artist" }, .coalesceKey = "track" } },
-                 "demo key");
+    case 'M': toggleProvider("demo"); break;
+    case 'T': toggleTimer(); break;
+    case 'C': {
+        Content content{ .label = "Battery 5%", .alertLeading = { row({ Icon{ Glyph::Warning } }) },
+                         .alertCenter = { row({ Text{ "Battery 5%", TextStyle::Title } }), row({ Text{ "Plug in soon" } }) } };
+        dispatch(AlertPosted{ { .level = Level::Critical, .content = content } }, "demo key");
         break;
-    case 'C':
-        dispatch(AlertPosted{ { .level = Level::Critical, .content = { "Battery 5%", "" } } }, "demo key");
-        break;
+    }
     case 'D':
         if (g_state.dragging) dispatch(DragLeft{}, "demo key");
         else dispatch(DragEntered{ true }, "demo key");
@@ -107,11 +153,8 @@ void onTimer(TimerId id)
             dispatch(Tick{}, "tokens.json"); // re-layout with the new sizes
         }
     } else if (id == TimerId::Demo) {
-        // Unattended intro so the morphs are visible without input: a media
-        // activity appears with a track alert, then settles into Compact.
-        dispatch(ActivityStarted{ { .id = "media", .content = { "Song title", "Artist" } } }, "demo");
-        dispatch(AlertPosted{ { .activityId = "media", .content = { "Now playing", "Song title" }, .coalesceKey = "track" } },
-                 "demo");
+        // Unattended intro so there's something to see without input.
+        g_providers->start("demo");
     }
 }
 
@@ -120,7 +163,7 @@ void onTimer(TimerId id)
 int main()
 {
     std::printf("Cup Island prototype\n");
-    std::printf("Click the pill to expand/collapse. Keys: M T A C D H, Esc to quit.\n\n");
+    std::printf("Click the pill to expand/collapse. Keys: M T C D H, Esc to quit.\n\n");
     std::fflush(stdout);
 
     winrt::init_apartment(winrt::apartment_type::single_threaded);
@@ -137,13 +180,13 @@ int main()
         return 1;
     }
 
-    g_scene = layout(g_state);
+    g_scene = layout(g_state, now());
     g_renderer.build(render.compositor, render.root, g_scene);
 
     InteractionCallbacks callbacks;
-    callbacks.onPressDown = [] { g_renderer.pressDown(); };
-    callbacks.onPressRelease = [] { g_renderer.pressRelease(); };
-    callbacks.onClick = [] { dispatch(PillClicked{}, "click"); };
+    callbacks.onPressDown = onPressDown;
+    callbacks.onPressRelease = onPressRelease;
+    callbacks.onClick = onClick;
     callbacks.onClickOutside = [] { dispatch(ClickedOutside{}, "click outside"); };
     callbacks.onPointerMoved = [] { dispatch(PointerMoved{}, "pointer"); };
     callbacks.onKeyDown = onKey;
@@ -154,6 +197,9 @@ int main()
         std::printf("Failed to create interaction window (0x%08lx)\n", GetLastError());
         return 1;
     }
+
+    g_providers = std::make_unique<ProviderRegistry>(dispatch, now);
+    g_providers->add(std::make_unique<DemoMediaProvider>());
 
     // Debounced: one save fires several notifications; reload once it settles.
     watchDirectoryOf(g_tokensFile, [] { setTimerFromAnyThread(TimerId::TokensReload, Ms{ 50 }); });
@@ -168,6 +214,7 @@ int main()
         DispatchMessageW(&msg);
     }
 
+    g_providers.reset(); // stops providers while the window still exists
     DestroyWindow(render.hwnd);
     queueController.ShutdownQueueAsync().get();
     return static_cast<int>(msg.wParam);

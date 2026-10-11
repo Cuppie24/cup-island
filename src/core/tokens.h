@@ -23,23 +23,42 @@ struct Bezier {
 struct Tokens {
     // Render layer: sized once to the largest pill plus press-overshoot room,
     // never resized (TR §5, §9.1). Only read at startup.
-    Vec2 canvas{ 420, 150 };
+    Vec2 canvas{ 420, 180 };
 
     // Pill size per mode (PS §3.1). Height 0 = tucked into the screen edge.
     Vec2 idleSize{ 160, 28 };
     Vec2 compactSize{ 220, 32 };
     Vec2 alertSize{ 320, 64 };
-    Vec2 expandedSize{ 380, 108 };
+    Vec2 expandedSize{ 380, 150 };
     Vec2 receptiveSize{ 380, 84 };
     Vec2 hiddenSize{ 160, 0 };
+    float maxCornerRadius = 28; // bottom corners: half the height, capped, so big shapes aren't blobs
+
+    // Content layout inside the pill (PS §5.1 slots). Fonts are in pixels.
+    float compactInset = 4;     // compact leading/trailing squares sit this far in
+    float alertPadding = 8;
+    float expandedPadding = 12;
+    float expandedArtSize = 64; // expanded leading square
+    float slotGap = 10;         // between leading and center/bottom slots
+    float rowSpacing = 4;
+    float itemSpacing = 8;
+    float titleFontSize = 15;
+    float bodyFontSize = 13;
+    float captionFontSize = 11;
+    float iconSize = 18;
+    float buttonSize = 32;
+    float progressHeight = 4;
+    float progressHitHeight = 14; // taller than drawn, so it's easy to click
+    float timeLabelWidth = 48;
+    float artCornerRadius = 6;
 
     // Morph between modes: ease-out, 250-350 ms budget (TR §5).
     Ms morphDuration{ 300 };
     Bezier morphEase{ { 0.16f, 1.0f }, { 0.30f, 1.0f } };
 
-    // Expanded detail content fades in slightly after the pill starts growing.
-    Ms detailFadeDuration{ 200 };
-    Ms detailFadeDelay{ 100 };
+    // Content crossfades slightly after the pill starts morphing.
+    Ms contentFadeDuration{ 200 };
+    Ms contentFadeDelay{ 100 };
 
     // Press feedback: squash on mouse-down, spring back with overshoot (y > 1) on release.
     float pressScale = 0.96f;

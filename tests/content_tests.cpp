@@ -1,0 +1,95 @@
+// Content model: timeline math, time formatting, slot layout and hit-testing.
+
+#include "core/hit_test.h"
+#include "core/layout.h"
+#include "core/tokens.h"
+#include "expect.h"
+
+namespace cup::test {
+namespace {
+
+const Placed* find(const Scene& scene, const std::string& key)
+{
+    for (const auto& p : scene.elements)
+        if (p.key == key) return &p;
+    return nullptr;
+}
+
+IslandState expandedWith(const Content& content)
+{
+    IslandState s;
+    s = reduce(s, ActivityStarted{ { .id = "demo.media", .content = content, .providerId = "demo" } }, Ms{ 0 });
+    return reduce(s, PillClicked{}, Ms{ 0 });
+}
+
+} // namespace
+
+void runContentTests()
+{
+    // Timeline: extrapolates while playing, freezes when paused, clamps to duration.
+    Timeline playing{ .position = Ms{ 10000 }, .duration = Ms{ 60000 }, .anchoredAt = Ms{ 1000 }, .playing = true };
+    expect(playing.positionAt(Ms{ 3000 }) == Ms{ 12000 }, "position advances while playing");
+    expect(playing.positionAt(Ms{ 999999 }) == Ms{ 60000 }, "position clamps to duration");
+    Timeline paused = playing;
+    paused.playing = false;
+    expect(paused.positionAt(Ms{ 3000 }) == Ms{ 10000 }, "position frozen while paused");
+    expect(playing.fractionAt(Ms{ 1000 }) > 0.166f && playing.fractionAt(Ms{ 1000 }) < 0.167f, "fraction");
+    expect(Timeline{}.fractionAt(Ms{ 0 }) == 0.0f, "unknown duration -> 0");
+
+    expect(formatDuration(Ms{ 0 }) == "0:00", "format 0");
+    expect(formatDuration(Ms{ 83999 }) == "1:23", "format rounds down");
+    expect(formatDuration(Ms{ 3723000 }) == "1:02:03", "format hours");
+
+    // Expanded layout: art square, stacked text, bottom rows.
+    Content media{
+        .label = "Song",
+        .expandedLeading = { row({ Image{} }) },
+        .expandedCenter = { row({ Text{ "Song", TextStyle::Title } }), row({ Text{ "Artist" } }) },
+        .expandedBottom = {
+            row({ TimeLabel{ playing }, Progress{ playing, true }, TimeLabel{ playing, true } }),
+            row({ Button{ Glyph::Previous, "previous" }, Button{ Glyph::Pause, "playPause" }, Button{ Glyph::Next, "next", false } }, Align::Center),
+        },
+    };
+    IslandState s = expandedWith(media);
+    Scene scene = layout(s, Ms{ 1000 });
+    const Tokens& t = tokens();
+
+    const Placed* art = find(scene, "expandedLeading/0/0");
+    expect(art && art->frame == Rect{ t.expandedPadding, t.expandedPadding, t.expandedArtSize, t.expandedArtSize }, "art fills the leading square");
+
+    const Placed* elapsed = find(scene, "expandedBottom/0/0");
+    const Placed* bar = find(scene, "expandedBottom/0/1");
+    const Placed* left = find(scene, "expandedBottom/0/2");
+    expect(elapsed && std::get<Text>(elapsed->item).value == "0:10", "elapsed label formatted");
+    expect(left && std::get<Text>(left->item).value == "-0:50" && std::get<Text>(left->item).alignEnd,
+           "remaining label formatted, right-aligned");
+    expect(bar && bar->frame.width == scene.size.x - 2 * t.expandedPadding - 2 * t.timeLabelWidth - 2 * t.itemSpacing,
+           "progress stretches between the labels");
+
+    const Placed* play = find(scene, "expandedBottom/1/1");
+    expect(play && play->frame.x + play->frame.width / 2 == scene.size.x / 2, "button row is centred");
+    for (const auto& p : scene.elements) {
+        bool inside = p.frame.x >= 0 && p.frame.y >= 0 && p.frame.x + p.frame.width <= scene.size.x &&
+                      p.frame.y + p.frame.height <= scene.size.y;
+        expect(inside, "element inside the pill: " + p.key);
+    }
+
+    // Time labels tick once per second while playing, never while paused.
+    auto deadline = sceneDeadline(scene);
+    expect(deadline && *deadline > scene.now && *deadline <= scene.now + Ms{ 1000 }, "labels schedule the next second");
+    expect(!sceneDeadline(layout(expandedWith({ .expandedBottom = { row({ TimeLabel{ paused } }) } }), Ms{ 0 })),
+           "paused labels don't tick");
+
+    // Hit-testing: buttons, disabled buttons, seek, and misses.
+    auto centre = [](const Placed* p) { return Vec2{ p->frame.x + p->frame.width / 2, p->frame.y + p->frame.height / 2 }; };
+    auto hit = hitTest(scene, centre(play));
+    expect(hit && hit->action == Action{ "demo", "demo.media", "playPause", 0 } && hit->key == "expandedBottom/1/1",
+           "button click routes to its provider");
+    expect(!hitTest(scene, centre(find(scene, "expandedBottom/1/2"))), "disabled button is ignored");
+    auto seek = hitTest(scene, { bar->frame.x + bar->frame.width / 4, centre(bar).y });
+    expect(seek && seek->action.actionId == "seek" && seek->action.value > 0.24f && seek->action.value < 0.26f,
+           "seek returns the fraction");
+    expect(!hitTest(scene, centre(art)), "art is not clickable");
+}
+
+} // namespace cup::test
