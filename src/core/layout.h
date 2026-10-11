@@ -55,7 +55,10 @@ struct TabStrip {
 struct Tile {
     Rect frame;     // pill coordinates; the renderer draws a faint background here
     std::string id; // the panel's (and its activity's) id; empty for the clock
-    bool opens = false; // has a card: clickable, lights up under the pointer
+    bool opens = false;     // has a card: a click opens it (TileClicked)
+    std::string providerId;
+    std::string tapAction;  // a click sends this action instead (Panel::tapAction)
+    bool clickable() const { return opens || !tapAction.empty(); } // lights up under the pointer
 };
 
 struct Scene {

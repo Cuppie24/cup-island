@@ -225,8 +225,8 @@ void handle(IslandState& s, const TileClicked& e, Ms now)
     if (findActivity(s, e.id)) {
         handle(s, ActivityPromoted{ e.id }, now);
         expand(s, e.id, now);
-    } else if (const Panel* p = findPanel(s, e.id); p && hasCard(p->content)) {
-        expand(s, e.id, now); // static widgets (battery, Bluetooth) have no card
+    } else if (const Panel* p = findPanel(s, e.id); p && p->tapAction.empty() && hasCard(p->content)) {
+        expand(s, e.id, now); // static widgets have no card; a toggle's tap goes to its provider
     }
 }
 

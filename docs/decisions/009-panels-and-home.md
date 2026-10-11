@@ -41,7 +41,17 @@ nothing could be started from the island. The idle pill also showed nothing.
 - **Static widgets.** Some panels have no card, only a tile that shows
   something: battery, the connected Bluetooth device and its battery. Their
   tiles don't react to the pointer and a click on them does nothing (it
-  doesn't fall through and close Home either). The clock tile (time, large,
+  doesn't fall through and close Home either).
+- **Toggles.** A panel can give its tile a *tap action* (`Panel::tapAction`,
+  PS §7.2's "primary tap action"): a click anywhere on the tile sends it to
+  the provider instead of opening a card, and the tile lights up under the
+  pointer like any clickable one. The theme tile is the first: it shows the
+  mode (moon "Dark" / sun "Light") and a click switches Windows between
+  light and dark, apps and system together, as Settings does. It writes the
+  Personalize values, tells running apps (`WM_SETTINGCHANGE`
+  "ImmersiveColorSet", off the UI thread so a hung app can't stall the
+  island), and watches the key, so a change made in Settings shows too.
+  The island itself stays black in both modes. The clock tile (time, large,
   and the date) is built by the host from the clock it keeps for the idle
   pill, so nothing ticks it but the scene's minute deadline.
 - **Tiles.** A tile's buttons route to its provider like any button (the

@@ -15,6 +15,25 @@ Panel batteryPanel(const BatteryReading& r)
     return { .id = BatteryPresenter::kPanelId, .content = content };
 }
 
+// The mode it's in, the way Settings words it; a click switches (the tap action).
+Panel themePanel(bool dark)
+{
+    const char* mode = dark ? "Dark" : "Light";
+    Content content{
+        .label = std::string(mode) + " mode",
+        .tile = { row({ Icon{ dark ? Glyph::Moon : Glyph::Sun } }), row({ Text{ mode, TextStyle::Title } }) },
+    };
+    return { .id = ThemePresenter::kPanelId, .content = content, .tapAction = ThemePresenter::kToggle };
+}
+
+void ThemePresenter::show(std::optional<bool> dark)
+{
+    if (dark == last_) return;
+    last_ = dark;
+    if (dark) host_.publishPanel(themePanel(*dark));
+    else host_.removePanel(kPanelId);
+}
+
 // The device to show: one that reports its battery (headphones, a mouse)
 // before one that doesn't, else the first connected. The rest are counted.
 std::optional<Panel> bluetoothPanel(const std::vector<BluetoothDevice>& connected)

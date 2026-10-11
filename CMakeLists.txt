@@ -87,6 +87,7 @@ if(WIN32)
         src/providers/media/smtc_reading.cpp
         src/providers/system/battery_provider.cpp
         src/providers/system/bluetooth_provider.cpp
+        src/providers/system/theme_provider.cpp
     )
     target_link_libraries(CupIsland PRIVATE cup_providers WindowsApp CoreMessaging User32 dcomp d3d11 d2d1 dwrite dxgi dwmapi shell32)
     # Dev builds read and live-reload the source tree's tokens.json directly.

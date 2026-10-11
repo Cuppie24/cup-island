@@ -61,6 +61,8 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Battery: return L"\uE83F";
     case Glyph::Charging: return L"\uE945"; // lightning bolt
     case Glyph::Bluetooth: return L"\uE702";
+    case Glyph::Sun: return L"\uE706";  // Brightness
+    case Glyph::Moon: return L"\uE708"; // QuietHours (crescent)
     }
     return L"?";
 }

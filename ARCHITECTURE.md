@@ -42,7 +42,7 @@ src/platform/   Win32 + C++/WinRT + Composition: render/interaction layers, pill
                 per content item), graphics_device (D2D/DirectWrite)
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules, SMTC provider for real Windows media), pomodoro/ (the first panel),
-                system/ (Home's battery and Bluetooth widgets)
+                system/ (Home's battery, theme and Bluetooth widgets)
 src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload
 assets/         tokens.json: the live-tunable sizes, timings and curves
 tests/          unit tests + scenarios/*.scenario (state rules in plain text)
@@ -168,6 +168,6 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 | Rate limits, stale activities (PS §4, §6.3) | not yet |
 | Live-tunable tokens (`assets/tokens.json`, reload on save) | done; parser tested |
 | Panels, Home (tile grid, clock tile, Home button), tabs at the bottom, idle clock, provider wake-ups (decision 009) | done; rules tested, visuals need Windows |
-| Battery and Bluetooth widgets | presenters tested; WinRT readers need Windows |
+| Battery, theme toggle and Bluetooth widgets | presenters tested; Windows readers need Windows |
 | Pomodoro (first panel): focus rounds, breaks, pause/skip/stop, ring, phase dots | done, tested |
 | Progress ring, Steps, accent colour (decision 010) | done; rules tested, drawing needs Windows |

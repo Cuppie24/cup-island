@@ -4,7 +4,7 @@
 // Tuning: edit assets/tokens.json while it runs; saving applies it live.
 //
 // The idle pill shows the time; clicking it opens Home (decision 009): the
-// clock, battery and Bluetooth widgets, and the Pomodoro tile.
+// clock, battery, theme and Bluetooth widgets, and the Pomodoro tile.
 //
 // Demo keys (click the pill first so it has keyboard focus):
 //   M  toggle the demo music player (real media shows by itself)
@@ -30,6 +30,7 @@
 #include "providers/pomodoro/pomodoro_provider.h"
 #include "providers/system/battery_provider.h"
 #include "providers/system/bluetooth_provider.h"
+#include "providers/system/theme_provider.h"
 #include "providers/provider_registry.h"
 
 #include <chrono>
@@ -112,7 +113,7 @@ void updateHover()
     const Tab* tab = g_scene.tabs && g_pointer.at ? tabAt(*g_scene.tabs, *g_pointer.at) : nullptr;
     if (tab && isCurrent(*tab)) tab = nullptr;
     const Tile* tile = g_pointer.at && key.empty() ? tileAt(g_scene, *g_pointer.at) : nullptr;
-    if (tile && !tile->opens) tile = nullptr; // widgets without a card don't react
+    if (tile && !tile->clickable()) tile = nullptr; // widgets without a card or tap action don't react
     if (tab) g_renderer.setAreaHovered(tab->frame, g_scene.tabs->radius);
     else if (tile) g_renderer.setAreaHovered(tile->frame, g_scene.tileRadius);
     else g_renderer.setAreaHovered(std::nullopt, 0);
@@ -238,7 +239,13 @@ void onPressRelease(Vec2 canvasPoint, Release how)
     if (g_pointer.tilePress) {
         std::string id = *std::exchange(g_pointer.tilePress, std::nullopt);
         const Tile* tile = how == Release::Inside && onPill(canvasPoint) ? tileAt(g_scene, toPill(canvasPoint)) : nullptr;
-        if (tile && tile->id == id && tile->opens) dispatch(TileClicked{ id }, "tile");
+        if (!tile || tile->id != id) return;
+        if (!tile->tapAction.empty()) {
+            g_providers->route({ tile->providerId, tile->id, tile->tapAction, 0 }); // a toggle: no card
+            dispatch(PointerMoved{}, "tile action");                                  // the user is busy here: keep Home open
+        } else if (tile->opens) {
+            dispatch(TileClicked{ id }, "tile");
+        }
         return;
     }
     if (g_pointer.bubblePress) {
@@ -365,9 +372,11 @@ int main()
     // Home's tiles follow the order panels first appear: widgets, then Pomodoro.
     g_providers->add(std::make_unique<BatteryProvider>(postToUi));
     g_providers->add(std::make_unique<BluetoothProvider>(postToUi));
+    g_providers->add(std::make_unique<ThemeProvider>(postToUi));
     g_providers->add(std::make_unique<PomodoroProvider>());
     g_providers->start("media");
     g_providers->start("system.battery");
+    g_providers->start("system.theme");
     g_providers->start("system.bluetooth");
     g_providers->start("pomodoro");
     dispatch(readWallClock(), "clock");

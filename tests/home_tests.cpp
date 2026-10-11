@@ -169,6 +169,16 @@ void runHomeTests()
     expect(date && std::get<Text>(date->item).value == "Sat 11 Oct", "and the date under it");
     expect(sceneDeadline(withClock) == Ms{ 45000 }, "Home re-lays out at the minute while the clock shows");
 
+    // A tap-action tile (a toggle): clickable, sends its action, opens no card even with one.
+    Panel toggle{ .id = "theme", .content = { .expandedCenter = { row({ Text{ "card" } }) }, .tile = { row({ Text{ "Dark" } }) } },
+                  .providerId = "sys", .tapAction = "toggle" };
+    IslandState toggled = reduce(withPanels({ toggle }), PillClicked{}, Ms{ 0 });
+    Scene toggleHome = layout(toggled, Ms{ 0 });
+    expect(toggleHome.tiles.size() == 1 && !toggleHome.tiles[0].opens && toggleHome.tiles[0].clickable() &&
+           toggleHome.tiles[0].tapAction == "toggle" && toggleHome.tiles[0].providerId == "sys",
+           "a toggle tile carries its action and provider, and lights up");
+    expect(!withClock.tiles[0].clickable() && !withClock.tiles[2].clickable(), "the clock and static widgets don't");
+
     // Countdown labels: time left without the "-".
     Timeline timer{ .duration = Ms{ 1500000 }, .anchoredAt = Ms{ 0 }, .playing = true };
     IslandState counting;

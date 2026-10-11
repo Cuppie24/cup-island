@@ -16,6 +16,7 @@ struct Entry {
     const Content* content; // whose `tile` slot to place
     bool wide = false;
     bool opens = false;
+    std::string tapAction;
 };
 
 // A tile's place in the grid, in columns and rows.
@@ -70,7 +71,8 @@ std::vector<Tile> homeTilesFor(const IslandState& s, Vec2 cardSize, float tileRa
     for (const Panel& panel : s.panels) {
         const Activity* live = findActivity(s, panel.id);
         const Content& content = live && !live->content.tile.empty() ? live->content : panel.content;
-        entries.push_back({ panel.id, panel.providerId, &content, panel.wide, live || hasCard(panel.content) });
+        bool opens = panel.tapAction.empty() && (live || hasCard(panel.content)); // a tap action wins over a card
+        entries.push_back({ panel.id, panel.providerId, &content, panel.wide, opens, panel.tapAction });
     }
 
     std::size_t columns = std::max<std::size_t>(t.homeColumns, 1);
@@ -94,7 +96,7 @@ std::vector<Tile> homeTilesFor(const IslandState& s, Vec2 cardSize, float tileRa
         float span = static_cast<float>(cell.span);
         Rect frame{ p + static_cast<float>(cell.column) * (columnWidth + gap), y0 + static_cast<float>(cell.row) * (h + gap),
                     span * columnWidth + (span - 1) * gap, h };
-        tiles.push_back({ frame, e.id, e.opens });
+        tiles.push_back({ frame, e.id, e.opens, e.providerId, e.tapAction });
 
         float inset = t.tilePadding;
         Rect inner{ frame.x + inset, frame.y + inset, std::max(0.0f, frame.width - 2 * inset), std::max(0.0f, frame.height - 2 * inset) };

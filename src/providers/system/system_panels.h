@@ -37,6 +37,19 @@ private:
     std::optional<BatteryReading> last_;
 };
 
+// Windows' light/dark mode (apps and system together), as a toggle tile.
+class ThemePresenter {
+public:
+    explicit ThemePresenter(Host& host) : host_(host) {}
+    void show(std::optional<bool> dark); // nullopt = can't tell (no such setting): no tile
+    static constexpr const char* kPanelId = "system.theme";
+    static constexpr const char* kToggle = "toggle"; // the tile's tap action
+
+private:
+    Host& host_;
+    std::optional<bool> last_;
+};
+
 class BluetoothPresenter {
 public:
     explicit BluetoothPresenter(Host& host) : host_(host) {}
@@ -50,6 +63,7 @@ private:
 
 // Content, pure.
 Panel batteryPanel(const BatteryReading& reading);
+Panel themePanel(bool dark);
 std::optional<Panel> bluetoothPanel(const std::vector<BluetoothDevice>& connected); // nullopt: none connected
 
 } // namespace cup

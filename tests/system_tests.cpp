@@ -58,6 +58,22 @@ void runSystemTests()
     battery.show(std::nullopt);
     expect(host.removed.size() == 1 && host.removed[0] == BatteryPresenter::kPanelId, "battery gone: panel removed");
 
+    // Theme: a toggle tile whose tap switches the mode; republished on change only.
+    PanelHost th;
+    ThemePresenter theme(th);
+    theme.show(std::nullopt);
+    expect(th.published.empty() && th.removed.empty(), "can't tell the mode: no tile");
+    theme.show(true);
+    const Panel& dark = th.published.back();
+    expect(dark.id == ThemePresenter::kPanelId && dark.tapAction == ThemePresenter::kToggle && !hasCard(dark.content),
+           "a tap-action tile, no card");
+    expect(glyphAt(dark, 0) == Glyph::Moon && textAt(dark, 1, 0) == "Dark", "dark: the moon");
+    theme.show(true);
+    expect(th.published.size() == 1, "same mode: no republish");
+    theme.show(false);
+    expect(th.published.size() == 2 && glyphAt(th.published.back(), 0) == Glyph::Sun && textAt(th.published.back(), 1, 0) == "Light",
+           "light: the sun");
+
     // Bluetooth: the connected device, preferring one that reports its battery.
     PanelHost bt;
     BluetoothPresenter bluetooth(bt);

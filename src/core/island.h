@@ -42,6 +42,9 @@ struct Panel {
     Content content;        // `tile` for Home, `expanded*` for its card
     bool wide = false;      // two Home columns instead of one
     std::string providerId; // set by the host
+    // The tile's primary tap action (PS §7.2): a click on the tile sends this
+    // to the provider instead of opening a card. For a quick toggle (theme).
+    std::string tapAction;
     bool operator==(const Panel&) const = default;
 };
 
