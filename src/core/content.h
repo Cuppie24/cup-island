@@ -17,7 +17,7 @@ using Ms = std::chrono::milliseconds;
 
 // Built-in icons; the renderer maps them to font glyphs.
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
-                   Battery, Charging, Bluetooth, Sun, Moon, Copy, Checked, Unchecked };
+                   Bluetooth, Sun, Moon, Copy, Checked, Unchecked };
 
 enum class TextStyle { Title, Body, Caption, Digits, Display }; // Display: a big number, the card's centre (a timer)
 
@@ -170,7 +170,11 @@ struct Content {
     Slot expandedCenter;
     Slot expandedTrailing; // a button-sized square in the top-right corner; the centre narrows only when it's used
     Slot expandedBottom;
-    Slot tile; // a panel's glance on Home (decision 009); a running panel's activity can replace it
+    // A panel's widget on Home (decisions 009, 019): information only, no
+    // buttons (the host leaves them out); a click opens the card. A running
+    // panel's activity can replace it.
+    Slot tileLeading; // a square at the widget's left, as tall as it: art, an icon, a ring
+    Slot tile;        // the rows beside it
     bool operator==(const Content&) const = default;
 };
 

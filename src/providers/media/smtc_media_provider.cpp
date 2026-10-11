@@ -32,6 +32,7 @@ void SmtcMediaProvider::start(Host& host)
 {
     host_ = &host;
     presenter_ = std::make_unique<MediaPresenter>(host);
+    presenter_->start();
     alive_ = std::make_shared<bool>(true);
     connect(alive_);
 }
@@ -51,7 +52,7 @@ void SmtcMediaProvider::stop()
     artKey_.clear();
     artPending_ = false;
     art_.reset();
-    presenter_->show(std::nullopt);
+    presenter_->stop();
     presenter_.reset();
     host_ = nullptr;
 }

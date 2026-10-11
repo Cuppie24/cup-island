@@ -1,5 +1,7 @@
-// MediaPresenter: which Host calls each "what's playing" snapshot produces.
+// MediaPresenter: which Host calls each "what's playing" snapshot produces,
+// and the media widget on Home (decision 019).
 
+#include "core/layout.h"
 #include "core/tokens.h"
 #include "expect.h"
 #include "providers/media/media_presenter.h"
@@ -15,13 +17,15 @@ struct FakeHost : Host {
     std::vector<Activity> started;
     std::vector<Alert> alerts;
     std::vector<std::string> ended;
+    std::vector<Panel> panels;
+    std::vector<std::string> removedPanels;
 
     void startActivity(Activity a) override { started.push_back(std::move(a)); }
     void endActivity(const std::string& id) override { ended.push_back(id); }
     void postAlert(Alert a) override { alerts.push_back(std::move(a)); }
     Ms now() const override { return clock; }
-    void publishPanel(Panel) override {}
-    void removePanel(const std::string&) override {}
+    void publishPanel(Panel p) override { panels.push_back(std::move(p)); }
+    void removePanel(const std::string& id) override { removedPanels.push_back(id); }
     void wakeAt(std::optional<Ms>) override {}
 };
 
@@ -126,6 +130,43 @@ void runMediaTests()
            "caption: app \u00B7 track position");
     Content unnumbered = nowPlayingContent({ .title = "T", .source = "Chrome" });
     expect(std::get<Text>(unnumbered.expandedCenter.back().items[0]).value == "Chrome", "no position: just the app");
+    // The widget: there from the start, even with nothing playing; a card to open, no buttons.
+    FakeHost widgetHost;
+    MediaPresenter widget(widgetHost);
+    widget.start();
+    expect(widgetHost.panels.size() == 1 && widgetHost.panels[0].id == MediaPresenter::kActivityId && widgetHost.panels[0].wide,
+           "start publishes a wide media widget, under the activity's id");
+    const Panel& idlePanel = widgetHost.panels[0];
+    expect(hasCard(idlePanel.content) && std::get<Text>(idlePanel.content.tile[0].items[0]).value == "Not playing" &&
+           std::get<Icon>(idlePanel.content.tileLeading[0].items[0]).glyph == Glyph::Music, "nothing playing: says so, with a card");
+    widget.show(track("Spotify.exe", "One"));
+    widget.stop();
+    expect(widgetHost.ended.size() == 1 && widgetHost.removedPanels == std::vector<std::string>{ MediaPresenter::kActivityId },
+           "stop ends what plays and removes the widget");
+
+    Content playing = nowPlayingContent({ .title = "Song", .artist = "Band", .art = std::make_shared<ImageData>(),
+                                          .timeline = { .duration = Ms{ 1000 }, .playing = true } });
+    expect(std::holds_alternative<Image>(playing.tileLeading[0].items[0]), "playing: the art on the left");
+    expect(playing.tile[0].items[0] == Item{ Text{ .value = "Song", .style = TextStyle::Title, .marquee = true } } &&
+           playing.tile[0].trailing[0] == Item{ Waveform{ true } }, "the title swims, the bars beside it");
+    expect(std::get<Text>(playing.tile[1].items[0]).value == "Band", "the artist under it");
+
+    // On Home: the activity's widget replaces the idle one in place, and back.
+    IslandState s = reduce(IslandState{}, PanelPublished{ idlePanel }, Ms{ 0 });
+    s = reduce(s, PillClicked{}, Ms{ 0 });
+    auto titleOnHome = [](const IslandState& state) {
+        for (const Placed& p : layout(state, Ms{ 0 }).elements)
+            if (p.key == std::string("tile/") + MediaPresenter::kActivityId + "/0/0") return std::get<Text>(p.item).value;
+        return std::string("none");
+    };
+    expect(titleOnHome(s) == "Not playing", "Home: the idle media widget");
+    IslandState live = reduce(s, ActivityStarted{ { .id = MediaPresenter::kActivityId, .content = playing } }, Ms{ 0 });
+    live = reduce(live, HomeOpened{}, Ms{ 0 });
+    expect(titleOnHome(live) == "Song", "playing: the widget shows the track");
+    Scene liveHome = layout(live, Ms{ 0 });
+    expect(liveHome.tiles.size() == 1 && liveHome.tiles[0].opens, "a click opens the player's card");
+    expect(titleOnHome(reduce(live, ActivityEnded{ MediaPresenter::kActivityId }, Ms{ 0 })) == "Not playing", "ended: idle again");
+
     expect(nextRepeat(Repeat::Off) == Repeat::All && nextRepeat(Repeat::All) == Repeat::One && nextRepeat(Repeat::One) == Repeat::Off,
            "repeat cycles off -> all -> one");
 }

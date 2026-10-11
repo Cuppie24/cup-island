@@ -271,7 +271,7 @@ void handle(IslandState& s, const InputSubmitted&, Ms now)
 
 void handle(IslandState& s, const InputCancelled&, Ms) { s.draft.reset(); }
 
-void handle(IslandState& s, const ClockSynced& e, Ms now) { s.clock = WallClock{ e.timeOfDay - now, e.hour24, e.date }; }
+void handle(IslandState& s, const ClockSynced& e, Ms now) { s.clock = WallClock{ e.timeOfDay - now, e.hour24 }; }
 
 } // namespace
 

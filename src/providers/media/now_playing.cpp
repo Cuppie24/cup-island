@@ -19,6 +19,12 @@ Content nowPlayingContent(const NowPlaying& m)
     c.alertLeading = { row({ art }) };
     c.alertCenter = { row({ title }), row({ artist }) };
 
+    // Home's widget (decision 019): the art on the left, the title (swimming
+    // when long) with the bars, the artist under it.
+    c.tileLeading = { row({ art }) };
+    c.tile = { Row{ .items = { Text{ .value = m.title, .style = TextStyle::Title, .marquee = true } }, .trailing = { Waveform{ playing } } },
+               row({ Text{ m.artist.empty() ? m.source : m.artist, TextStyle::Caption } }) };
+
     c.expandedLeading = { row({ art }) };
     c.expandedCenter = { row({ title }), row({ artist }) };
     std::string caption = m.source, position = trackPosition(m.trackNumber, m.trackCount);
@@ -39,6 +45,17 @@ Content nowPlayingContent(const NowPlaying& m)
         controls.trailing.push_back(Button{ m.repeat == Repeat::One ? Glyph::RepeatOne : Glyph::Repeat, act::kRepeat, true,
                                             m.repeat != Repeat::Off });
     c.expandedBottom.push_back(controls);
+    return c;
+}
+
+Content nothingPlayingContent()
+{
+    Content c{ .label = "Nothing playing", .card = CardLayout::Centred };
+    c.tileLeading = { row({ Icon{ Glyph::Music } }, Align::Center) };
+    c.tile = { row({ Text{ "Not playing", TextStyle::Title } }), row({ Text{ "Play in any app", TextStyle::Caption } }) };
+    c.expandedCenter = { row({ Icon{ Glyph::Music } }, Align::Center),
+                         row({ Text{ .value = "Nothing playing", .style = TextStyle::Title, .centred = true } }),
+                         row({ Text{ .value = "Music and videos from any app show here", .style = TextStyle::Caption, .centred = true } }) };
     return c;
 }
 

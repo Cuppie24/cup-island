@@ -9,7 +9,7 @@
 namespace cup {
 namespace {
 
-// What one tile shows: a panel (live or dormant), or the clock.
+// What one tile shows: a panel, live or dormant.
 struct Entry {
     std::string id;
     std::string providerId;
@@ -43,14 +43,16 @@ std::vector<Cell> cellsFor(const std::vector<Entry>& entries, std::size_t column
     return cells;
 }
 
-// The clock: the time large, today's date under it. Built by the host from
-// the clock it already keeps (the idle pill's), so no provider ticks it.
-Content clockTile(Ms timeOfDay, const WallClock& clock)
+// A widget shows information only (decision 019): its buttons and text
+// fields are left out, so a click anywhere on it means "open the card".
+Slot informationOnly(const Slot& slot)
 {
-    Content c{ .label = "Clock" };
-    c.tile = { row({ Text{ formatClock(timeOfDay, clock.hour24), TextStyle::Title } }) };
-    if (!clock.date.empty()) c.tile.push_back(row({ Text{ clock.date, TextStyle::Caption } }));
-    return c;
+    auto interactive = [](const Item& item) { return std::holds_alternative<Button>(item) || std::holds_alternative<TextInput>(item); };
+    Slot out = slot;
+    for (Row& r : out)
+        for (auto* items : { &r.items, &r.leading, &r.trailing }) std::erase_if(*items, interactive);
+    std::erase_if(out, [](const Row& r) { return r.items.empty() && r.leading.empty() && r.trailing.empty(); });
+    return out;
 }
 
 } // namespace
@@ -60,17 +62,13 @@ std::vector<Tile> homeTilesFor(const IslandState& s, Vec2 cardSize, float tileRa
 {
     const Tokens& t = tokens();
 
-    // The clock first, then panels in publish order. A running panel shows its
-    // activity's tile, if it gives one (decision 009).
+    // Panels in publish order. A running panel shows its activity's tile, if
+    // it gives one (decision 009).
     std::vector<Entry> entries;
-    Content clock;
-    if (auto time = timeOfDay(s, now)) {
-        clock = clockTile(*time, *s.clock);
-        entries.push_back({ "", "", &clock });
-    }
     for (const Panel& panel : s.panels) {
         const Activity* live = findActivity(s, panel.id);
-        const Content& content = live && !live->content.tile.empty() ? live->content : panel.content;
+        bool liveTile = live && (!live->content.tile.empty() || !live->content.tileLeading.empty());
+        const Content& content = liveTile ? live->content : panel.content;
         bool opens = panel.tapAction.empty() && (live || hasCard(panel.content)); // a tap action wins over a card
         entries.push_back({ panel.id, panel.providerId, &content, panel.wide, opens, panel.tapAction });
     }
@@ -98,10 +96,19 @@ std::vector<Tile> homeTilesFor(const IslandState& s, Vec2 cardSize, float tileRa
                     span * columnWidth + (span - 1) * gap, h };
         tiles.push_back({ frame, e.id, e.opens, e.providerId, e.tapAction });
 
-        float inset = t.tilePadding;
+        // The leading square (art, an icon, a ring) as tall as the tile's inside, the rows beside it.
+        float inset = t.tilePadding, radius = std::max(0.0f, tileRadius - inset);
         Rect inner{ frame.x + inset, frame.y + inset, std::max(0.0f, frame.width - 2 * inset), std::max(0.0f, frame.height - 2 * inset) };
-        placeSlot({ e.id.empty() ? "tile/clock" : "tile/" + e.id, &e.content->tile, inner }, { e.content, e.providerId, e.id },
-                  std::max(0.0f, tileRadius - inset), now, elements);
+        Source source{ e.content, e.providerId, e.id };
+        std::string key = "tile/" + e.id;
+        if (Slot lead = informationOnly(e.content->tileLeading); !lead.empty()) {
+            Rect square{ inner.x, inner.y, inner.height, inner.height };
+            placeSlot({ key + "/lead", &lead, square, /* square */ true }, source, radius, now, elements);
+            float shift = std::min(inner.width, inner.height + t.slotGap);
+            inner = { inner.x + shift, inner.y, inner.width - shift, inner.height };
+        }
+        Slot rows = informationOnly(e.content->tile);
+        placeSlot({ key, &rows, inner }, source, radius, now, elements);
     }
     return tiles;
 }

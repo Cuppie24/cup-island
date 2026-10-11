@@ -4,17 +4,6 @@
 
 namespace cup {
 
-Panel batteryPanel(const BatteryReading& r)
-{
-    int percent = std::clamp(r.percent, 0, 100);
-    Content content{
-        .label = "Battery " + std::to_string(percent) + "%",
-        .tile = { row({ Icon{ r.pluggedIn ? Glyph::Charging : Glyph::Battery } }),
-                  row({ Text{ std::to_string(percent) + "%", TextStyle::Title } }) },
-    };
-    return { .id = BatteryPresenter::kPanelId, .content = content };
-}
-
 // The mode it's in, the way Settings words it; a click switches (the tap action).
 Panel themePanel(bool dark)
 {
@@ -51,14 +40,6 @@ std::optional<Panel> bluetoothPanel(const std::vector<BluetoothDevice>& connecte
         .tile = { row({ Icon{ Glyph::Bluetooth }, Text{ shown->name } }), status },
     };
     return Panel{ .id = BluetoothPresenter::kPanelId, .content = content, .wide = true };
-}
-
-void BatteryPresenter::show(const std::optional<BatteryReading>& reading)
-{
-    if (reading == last_) return; // also: no battery, never shown, nothing to remove
-    last_ = reading;
-    if (reading) host_.publishPanel(batteryPanel(*reading));
-    else host_.removePanel(kPanelId);
 }
 
 void BluetoothPresenter::show(const std::vector<BluetoothDevice>& connected)

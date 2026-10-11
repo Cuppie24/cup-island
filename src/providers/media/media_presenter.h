@@ -21,10 +21,13 @@ class MediaPresenter {
 public:
     explicit MediaPresenter(Host& host) : host_(host) {}
 
+    void start(); // publishes the media widget (decision 019), there even when nothing plays
+    void stop();  // ends what's shown, removes the widget
+
     // nullopt = no media session at all.
     void show(const std::optional<MediaSnapshot>& snapshot);
 
-    static constexpr const char* kActivityId = "media.nowPlaying";
+    static constexpr const char* kActivityId = "media.nowPlaying"; // also the widget's panel (decision 009)
 
 private:
     Host& host_;

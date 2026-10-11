@@ -105,7 +105,6 @@ if(WIN32)
         src/platform/wall_clock.cpp
         src/providers/media/smtc_media_provider.cpp
         src/providers/media/smtc_reading.cpp
-        src/providers/system/battery_provider.cpp
         src/providers/system/bluetooth_provider.cpp
         src/providers/system/theme_provider.cpp
     )

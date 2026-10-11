@@ -78,13 +78,13 @@ void runHomeTests()
     for (const Tile& tile : full.tiles)
         expect(tile.frame.y + tile.frame.height <= full.size.y - p, "tile inside the card: " + tile.id);
 
-    // Tile content: keyed by panel, inside the tile's padding, its button routes to the provider.
+    // Tile content: keyed by panel, inside the tile's padding. A widget is
+    // information only (decision 019): its button is left out, a click anywhere opens the card.
     const Placed* label = find(home, "tile/a/0/0");
-    const Placed* start = find(home, "tile/a/0/1");
     expect(label && label->frame.x == a.frame.x + t.tilePadding, "tile content keeps the tile's padding");
-    expect(start && start->frame.x + start->frame.width == a.frame.x + a.frame.width - t.tilePadding, "trailing button at the tile's edge");
-    auto hit = hitTest(home, { start->frame.x + start->frame.width / 2, start->frame.y + start->frame.height / 2 });
-    expect(hit && hit->action == Action{ "test", "a", "start", 0 }, "a tile's button routes to its provider, with the panel's id");
+    expect(!find(home, "tile/a/0/1"), "a widget's button is left out");
+    expect(!hitTest(home, { a.frame.x + a.frame.width - t.tilePadding - 2, a.frame.y + a.frame.height / 2 }) && a.opens,
+           "nothing on it takes the click: the tile opens its card");
     expect(tileAt(home, { a.frame.x + 2, a.frame.y + 2 }) && tileAt(home, { a.frame.x + 2, a.frame.y + 2 })->id == "a",
            "a point finds its tile");
     expect(!tileAt(home, { 1, 1 }), "outside the tiles: none");
@@ -155,19 +155,26 @@ void runHomeTests()
     IslandState busy = reduce(idle, ActivityStarted{ { .id = "media" } }, at);
     expect(clockAt(busy, at) == "none" && !layout(busy, at).clockTick, "only the idle pill shows the clock");
 
-    // Home's clock: the first tile, built from the synced clock; a static widget, no card.
-    IslandState dated = reduce(withPanels({ panel("a"), Panel{ .id = "battery", .content = { .tile = { row({ Text{ "82%" } }) } } } }),
-                               ClockSynced{ Ms{ (9 * 60 + 41) * 60000 + 15000 }, true, "Sat 11 Oct" }, Ms{ 0 });
-    Scene withClock = layout(reduce(dated, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    expect(withClock.tiles.size() == 3 && withClock.tiles[0].id.empty() && !withClock.tiles[0].opens, "clock first, not clickable");
-    expect(withClock.tiles[1].id == "a" && withClock.tiles[1].opens, "a panel with a card opens");
-    expect(withClock.tiles[2].id == "battery" && !withClock.tiles[2].opens, "a static widget doesn't");
-    const Placed* bigTime = find(withClock, "tile/clock/0/0");
-    const Placed* date = find(withClock, "tile/clock/1/0");
-    expect(bigTime && std::get<Text>(bigTime->item).value == "9:41" && std::get<Text>(bigTime->item).style == TextStyle::Title,
-           "clock tile: the time, large");
-    expect(date && std::get<Text>(date->item).value == "Sat 11 Oct", "and the date under it");
-    expect(sceneDeadline(withClock) == Ms{ 45000 }, "Home re-lays out at the minute while the clock shows");
+    // Home has no clock tile (decision 019): the idle pill already shows the time.
+    IslandState synced = reduce(withPanels({ panel("a"), Panel{ .id = "bt", .content = { .tile = { row({ Text{ "82%" } }) } } } }),
+                                ClockSynced{ Ms{ (9 * 60 + 41) * 60000 + 15000 }, true }, Ms{ 0 });
+    Scene widgets = layout(reduce(synced, PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    expect(widgets.tiles.size() == 2 && widgets.tiles[0].id == "a" && widgets.tiles[0].opens, "panels only; one with a card opens");
+    expect(widgets.tiles[1].id == "bt" && !widgets.tiles[1].opens, "a static widget doesn't");
+    expect(!sceneDeadline(widgets), "nothing ticks on Home without a clock");
+
+    // The leading square: as tall as the tile's inside, at its left; the rows beside it.
+    Panel art{ .id = "m", .content = { .tileLeading = { row({ Image{} }) },
+                                       .tile = { row({ Text{ "Song" } }), Row{ .items = { Text{ "Band" } }, .trailing = { Button{ Glyph::Play, "p" } } } } },
+               .wide = true };
+    Scene leading = layout(reduce(withPanels({ art }), PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    const Tile& m = leading.tiles[0];
+    const Placed* cover = find(leading, "tile/m/lead/0/0");
+    const Placed* song = find(leading, "tile/m/0/0");
+    float inside = m.frame.height - 2 * t.tilePadding;
+    expect(cover && cover->frame == Rect{ m.frame.x + t.tilePadding, m.frame.y + t.tilePadding, inside, inside }, "art fills the square");
+    expect(song && song->frame.x == cover->frame.x + inside + t.slotGap, "the rows start past it");
+    expect(find(leading, "tile/m/1/0") && !find(leading, "tile/m/1/1"), "the row keeps its text, loses its button");
 
     // A tap-action tile (a toggle): clickable, sends its action, opens no card even with one.
     Panel toggle{ .id = "theme", .content = { .expandedCenter = { row({ Text{ "card" } }) }, .tile = { row({ Text{ "Dark" } }) } },
@@ -177,7 +184,7 @@ void runHomeTests()
     expect(toggleHome.tiles.size() == 1 && !toggleHome.tiles[0].opens && toggleHome.tiles[0].clickable() &&
            toggleHome.tiles[0].tapAction == "toggle" && toggleHome.tiles[0].providerId == "sys",
            "a toggle tile carries its action and provider, and lights up");
-    expect(!withClock.tiles[0].clickable() && !withClock.tiles[2].clickable(), "the clock and static widgets don't");
+    expect(!widgets.tiles[1].clickable(), "static widgets don't");
 
     // Countdown labels: time left without the "-".
     Timeline timer{ .duration = Ms{ 1500000 }, .anchoredAt = Ms{ 0 }, .playing = true };

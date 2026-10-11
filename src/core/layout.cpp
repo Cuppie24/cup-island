@@ -166,7 +166,6 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
         scene.label = "Home";
         scene.tileRadius = std::min(nestedRadius, tokens().tileHeight / 2);
         scene.tiles = homeTilesFor(state, contentSize, scene.tileRadius, now, scene.elements);
-        if (auto time = timeOfDay(state, now)) scene.clockTick = nextMinute(*time, now); // the clock tile
     }
 
     if (source.content) {

@@ -50,11 +50,11 @@ struct TabStrip {
     float radius = 0;       // tab highlight corners, nested in the card's
 };
 
-// A tile on Home (decision 009): a panel's, or the clock. A click on it, off
-// its buttons, opens its card (TileClicked) if it has one.
+// A panel's widget on Home (decisions 009, 019). A click on it opens its
+// card (TileClicked) if it has one, or sends its tap action.
 struct Tile {
     Rect frame;     // pill coordinates; the renderer draws a faint background here
-    std::string id; // the panel's (and its activity's) id; empty for the clock
+    std::string id; // the panel's (and its activity's) id
     bool opens = false;     // has a card: a click opens it (TileClicked)
     std::string providerId;
     std::string tapAction;  // a click sends this action instead (Panel::tapAction)

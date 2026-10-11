@@ -1,7 +1,7 @@
 #pragma once
-// Home (decision 009): a grid of tiles, the clock first (once synced), then
-// every panel in the order it was published. A running panel's tile shows
-// its activity's tile slot, so the tile stays in place and goes live.
+// Home (decisions 009, 019): a grid of widgets, one per panel, in the order
+// they were published. A running panel's widget shows its activity's tile,
+// so it stays in place and goes live.
 
 #include "core/layout.h"
 

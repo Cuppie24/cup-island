@@ -1,7 +1,8 @@
 #pragma once
-// Pomodoro: the first panel (decision 009). Dormant, its Home tile starts a
-// session; running, it's an activity that counts down focus rounds and
-// breaks. It ends by itself after the long break, or with its stop button.
+// Pomodoro: the first panel (decision 009). Dormant, its Home widget opens
+// a card that starts a session; running, it's an activity that counts down
+// focus rounds and breaks. It ends by itself after the long break, or with
+// its card's stop button. The widget only informs (decision 019).
 // Pure: the countdown is host-driven (a Timeline), phase ends come from
 // Host::wakeAt, so it builds and tests on any OS. It keeps a to-do list
 // under the timer (decision 016); saving it is handed in, so it stays out of
