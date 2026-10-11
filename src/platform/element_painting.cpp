@@ -162,18 +162,27 @@ void paintInput(ID2D1DeviceContext* dc, IDWriteFactory* dw, const TextInput& inp
 
     float inset = t.buttonLabelPadding, room = std::max(0.0f, size.x - 2 * inset);
     bool empty = input.value.empty();
-    Text text{ .value = empty ? input.placeholder : input.value, .style = empty ? TextStyle::Caption : TextStyle::Body };
-    float width = measureText(dw, text);
+    // Its own size (inputFontSize), so the field reads as a field even unfocused and empty;
+    // the placeholder is the same size, just dimmer (placeholderTextColor).
+    std::wstring value = widen(empty ? input.placeholder : input.value);
+    auto measuring = format(dw, textFamily(dw), t.inputFontSize, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_TEXT_ALIGNMENT_LEADING);
+    winrt::com_ptr<IDWriteTextLayout> line;
+    winrt::check_hresult(dw->CreateTextLayout(value.c_str(), static_cast<UINT32>(value.size()), measuring.get(), 100000.0f, 1000.0f, line.put()));
+    DWRITE_TEXT_METRICS metrics{};
+    winrt::check_hresult(line->GetMetrics(&metrics));
+    float width = std::ceil(metrics.widthIncludingTrailingWhitespace);
     // Longer than the field while typing: show its end, where the caret is.
-    if (!empty && width > room) text.alignEnd = true;
+    bool tail = !empty && width > room;
+    auto f = format(dw, textFamily(dw), t.inputFontSize, DWRITE_FONT_WEIGHT_NORMAL,
+                    tail ? DWRITE_TEXT_ALIGNMENT_TRAILING : DWRITE_TEXT_ALIGNMENT_LEADING);
     D2D1_RECT_F box = D2D1::RectF(inset, 0, inset + room, size.y);
-    drawString(dc, formatOf(dw, text).get(), widen(text.value), box, lookOf(text.style).color);
+    drawString(dc, f.get(), value, box, empty ? t.placeholderTextColor : t.bodyTextColor);
 
     if (!input.focused) return;
     // A still caret after the text: no blinking, so typing costs nothing between keys.
     float x = empty ? inset : std::min(inset + width, inset + room) + 1;
-    float h = std::ceil(t.bodyFontSize * 1.2f);
-    dc->FillRectangle(D2D1::RectF(x, (size.y - h) / 2, x + 1.5f, (size.y + h) / 2), brushOf(dc, lookOf(TextStyle::Body).color).get());
+    float h = std::ceil(t.inputFontSize * 1.2f);
+    dc->FillRectangle(D2D1::RectF(x, (size.y - h) / 2, x + 1.5f, (size.y + h) / 2), brushOf(dc, t.bodyTextColor).get());
 }
 
 float measureText(IDWriteFactory* dw, const Text& text)

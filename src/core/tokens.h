@@ -55,6 +55,7 @@ struct Tokens {
     float bodyFontSize = 13;
     float captionFontSize = 11;
     float displayFontSize = 34; // TextStyle::Display: a timer as the card's centre
+    float inputFontSize = 15;   // a TextInput's text and placeholder: noticeable even when it isn't focused
     float iconSize = 18;
     float buttonSize = 36;
     float smallButtonSize = 24;   // Button::compact: list rows (a to-do's checkbox)
@@ -152,6 +153,7 @@ struct Tokens {
     Color hoverColor{ 255, 255, 255, 20 };         // a tab or tile under the pointer
     Color tileColor{ 255, 255, 255, 20 };          // Home's tile backgrounds
     Color inputColor{ 255, 255, 255, 26 };         // a text field's background (decision 016)
+    Color placeholderTextColor{ 255, 255, 255, 128 }; // "Add a to-do…": like body text, a little dimmer
     Color imagePlaceholderColor{ 255, 255, 255, 31 }; // art that hasn't arrived
     Color pomodoroFocusColor{ 255, 99, 71 };       // accents (decision 010)
     Color pomodoroBreakColor{ 52, 199, 89 };
