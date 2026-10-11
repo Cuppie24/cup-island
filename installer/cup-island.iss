@@ -6,7 +6,7 @@
 ; (CMakeLists.txt), so there is nothing extra to install.
 
 #define AppName "Cup Island"
-#define AppVersion "0.1.0"
+#define AppVersion "0.1.2"
 #define AppExe "CupIsland.exe"
 
 [Setup]
