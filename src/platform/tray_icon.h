@@ -1,7 +1,8 @@
 #pragma once
 // Notification-area (tray) icon. Release builds have no console window, so this
 // is the way to quit when the pill doesn't have keyboard focus for Esc.
-// Right-click (or Shift+F10) opens a menu with Exit.
+// Right-click (or Shift+F10) opens a menu: Start with Windows (a checkbox,
+// platform/autostart.h) and Exit.
 
 #include "platform/win.h"
 

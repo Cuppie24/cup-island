@@ -52,3 +52,5 @@ Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags
 [UninstallRun]
 ; The island has no window to close politely; stop it so its files can be removed.
 Filename: "{sys}\taskkill.exe"; Parameters: "/im {#AppExe} /f"; Flags: runhidden; RunOnceId: "StopCupIsland"
+; Undo the tray menu's "Start with Windows" (src/platform/autostart.cpp), if it was ticked.
+Filename: "{sys}\reg.exe"; Parameters: "delete ""HKCU\Software\Microsoft\Windows\CurrentVersion\Run"" /v ""Cup Island"" /f"; Flags: runhidden; RunOnceId: "RemoveStartup"
