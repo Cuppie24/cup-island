@@ -14,9 +14,11 @@ second activity, and sometimes to make it the main one.
   fast gesture), and a tab in Expanded (the visible one, since a
   drag is undiscoverable).
 - **Expanded tabs:** with several activities, a strip of tabs runs along
-  the top of the Expanded card (moved to the bottom, with a Home button
-  apart, by decision 009), one per activity (the shown one included),
-  and the card grows by the strip's height. Each tab: the compact leading
+  the bottom of the Expanded card, one per activity (the shown one
+  included), and the card grows by the strip's height; the card's own
+  content keeps its place above it. (Tabs on top were tried first: below,
+  the activity's own title and art stay at the top, where the eye lands.
+  With panels, a Home button sits apart at the strip's left, decision 009.) Each tab: the compact leading
   item (icon or art) and a title (the compact centre text, else the
   activity's name; ends in "…", no swimming: a row of moving titles is
   busy). Built from what providers already give for Compact, so they need

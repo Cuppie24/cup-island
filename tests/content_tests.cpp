@@ -273,8 +273,9 @@ void runContentTests()
             if (p.key.rfind("tab/" + tab.id + "/", 0) == 0)
                 expect(p.frame.x >= tab.frame.x && p.frame.x + p.frame.width <= tab.frame.x + tab.frame.width,
                        "tab content stays inside its tab: " + p.key);
-    const Placed* body = find(opened, "expandedLeading/0/0");
-    expect(!body || body->frame.y + body->frame.height + t.slotGap <= strip.tabs[0].frame.y, "card content sits above the strip");
+    for (const auto& p : opened.elements)
+        if (p.key.rfind("tab/", 0) != 0)
+            expect(p.frame.y + p.frame.height <= strip.tabs[0].frame.y - t.slotGap, "card content sits above the strip: " + p.key);
     // Icon and title centred in the tab as one group, the title as wide as the real text.
     MeasureText fixed = [](const Text&) { return 40.0f; };
     Scene measured = layout(reduce(three, PillClicked{}, Ms{ 0 }), Ms{ 0 }, fixed);
@@ -305,13 +306,21 @@ void runContentTests()
     expect(!tabAt(strip, { 1, 1 }), "outside the strip: no tab");
     Scene mediaCard = layout(reduce(reduce(three, PillClicked{}, Ms{ 0 }), ActivitySwitched{ "media" }, Ms{ 0 }), Ms{ 0 });
     const Placed* mediaArt = find(mediaCard, "expandedLeading/0/0");
-    expect(mediaArt && mediaArt->frame.y == t.expandedPadding, "switched card's art keeps its place at the top");
-    const Placed* bottomRow = nullptr;
+    expect(mediaArt && mediaArt->frame.y == t.expandedPadding, "card content keeps its place at the top");
     for (const auto& p : mediaCard.elements)
-        if (p.key.rfind("expandedBottom/", 0) == 0) bottomRow = &p;
-    expect(!bottomRow || bottomRow->frame.y + bottomRow->frame.height + t.slotGap <= mediaCard.tabs->tabs[0].frame.y,
-           "the card's bottom slot ends above the strip");
-    expect(mediaCard.tabs->tabs[0].id == "media" && mediaCard.tabs->active == 0, "switching doesn't reorder tabs");
+        if (p.key.rfind("tab/", 0) != 0)
+            expect(p.frame.y + p.frame.height <= mediaCard.tabs->tabs[0].frame.y - t.slotGap, "media card content above the strip: " + p.key);
+    expect(mediaCard.tabs->tabs[0].id == "media" && mediaCard.tabs->active == 0u, "switching doesn't reorder tabs");
+
+    // A full media card (progress + controls) with tabs: the bottom rows move up to clear the strip.
+    IslandState busy;
+    busy = reduce(busy, ActivityStarted{ { .id = "timer" } }, Ms{ 0 });
+    busy = reduce(busy, ActivityStarted{ { .id = "demo.media", .content = media, .providerId = "demo" } }, Ms{ 0 });
+    Scene busyCard = layout(reduce(busy, PillClicked{}, Ms{ 0 }), Ms{ 1000 });
+    const Placed* busyPlay = find(busyCard, "expandedBottom/1/1");
+    expect(busyCard.tabs && busyPlay && busyPlay->frame.y + busyPlay->frame.height <= busyCard.tabs->tabs[0].frame.y - t.slotGap,
+           "controls sit above the tab strip");
+    expect(busyPlay && busyPlay->frame == play->frame, "and exactly where they are without tabs");
 }
 
 } // namespace cup::test
