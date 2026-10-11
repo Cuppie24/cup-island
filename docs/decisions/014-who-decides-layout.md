@@ -38,8 +38,9 @@ What this added:
   for every provider using them.
 
 **Consequences.** Pomodoro's card: pause/skip/stop on top, a Display
-countdown centred in the middle, the phase dots centred under it, then
-"Focus · 3 of 8 done". No bar and no ring in the card: the big digits and
-the dots already say how far along it is (a ring beside them was tried and
-dropped as clutter). The ring stays in compact and the bubble, where there's
-no room for digits. Tested in `tests/item_tests.cpp` and `tests/pomodoro_tests.cpp`.
+countdown centred in the middle, the phase's bar under it, the phase dots
+under that, then "Focus · 3 of 8 done". No ring in the card (one beside the
+digits was tried and dropped as clutter); the ring stays in compact and the
+bubble, where there's no room for digits. A bar that isn't seekable is
+only as tall as its line: it needs no click area, and the card has no
+room to spare. Tested in `tests/item_tests.cpp` and `tests/pomodoro_tests.cpp`.

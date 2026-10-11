@@ -26,7 +26,8 @@ float heightOf(const Item& item, Rect slot, float ringSide)
     if (isRing(item)) return ringSide;
     if (std::holds_alternative<Steps>(item)) return t.stepDotSize;
     if (std::holds_alternative<Button>(item)) return t.buttonSize;
-    if (std::holds_alternative<Progress>(item)) return t.progressHitHeight;
+    // Seekable bars get a taller row to be easy to click; a bar nobody clicks is just its line.
+    if (auto* bar = std::get_if<Progress>(&item)) return bar->seekable ? t.progressHitHeight : t.progressHeight;
     if (auto* label = std::get_if<TimeLabel>(&item)) return lineHeight(label->style);
     return t.iconSize; // Icon, Waveform
 }

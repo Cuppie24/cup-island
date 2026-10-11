@@ -98,7 +98,7 @@ void runPomodoroTests()
     };
     expect(stepsShown() == Steps{ static_cast<int>(2 * t.pomodoroRounds), 0 }, "card: a dot per phase, none done yet");
 
-    // The card: centred, controls on top, a big countdown, then the dots; no bar, no ring.
+    // The card: centred, controls on top, a big countdown, the phase's bar, then the dots; no ring.
     island.send(PillClicked{});
     Scene card = island.scene();
     island.send(EscapePressed{});
@@ -109,7 +109,11 @@ void runPomodoroTests()
     };
     const Placed* pauseButton = at("expandedCenter/0/0");
     const Placed* bigTimer = at("expandedCenter/1/0");
-    const Placed* dots = at("expandedCenter/2/0");
+    const Placed* bar = at("expandedCenter/2/0");
+    const Placed* dots = at("expandedCenter/3/0");
+    expect(bar && std::get<Progress>(bar->item).shape == ProgressShape::Bar && bar->frame.y > bigTimer->frame.y + bigTimer->frame.height - 1,
+           "a bar below the countdown");
+    expect(bar && dots && dots->frame.y > bar->frame.y + bar->frame.height - 1, "above the dots");
     expect(pauseButton && std::holds_alternative<Button>(pauseButton->item), "card: controls on top");
     expect(bigTimer && std::get<Text>(bigTimer->item).style == TextStyle::Display && pauseButton->frame.y < bigTimer->frame.y,
            "card: a big countdown below them");
@@ -117,7 +121,7 @@ void runPomodoroTests()
     expect(dots && std::abs(dots->frame.x + dots->frame.width / 2 - card.size.x / 2) < 0.51f && dots->frame.y > bigTimer->frame.y,
            "the dots centred, below");
     for (const Placed& p : card.elements) {
-        expect(!std::holds_alternative<Progress>(p.item), "no bar or ring in the card: " + p.key);
+        if (auto* progress = std::get_if<Progress>(&p.item)) expect(progress->shape == ProgressShape::Bar, "no ring in the card: " + p.key);
         if (p.key.rfind("tab/", 0) != 0) expect(p.frame.y + p.frame.height <= t.expandedSize.y - t.expandedPadding, "fits the card: " + p.key);
     }
 
