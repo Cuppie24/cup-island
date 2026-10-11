@@ -1,6 +1,6 @@
 #pragma once
-// Draws the island: the pill, the Split bubble beside it, and the liquid
-// neck between them. apply() sets targets and implicit animations do the
+// Draws the island: the pill, the Split bubble beside it (which becomes
+// Expanded's side card), and the liquid neck between them. apply() sets targets and implicit animations do the
 // morph (TR §5), so this never redraws per frame.
 
 #include "core/layout.h"
@@ -32,6 +32,9 @@ public:
     void releaseElement(const std::string& key) { pill_.elements().release(key); }
     void scrubElement(const std::string& key, float fraction) { pill_.elements().scrub(key, fraction); }
     void endScrub(const std::string& key, std::optional<float> seekTo, Ms now) { pill_.elements().endScrub(key, seekTo, now); }
+
+    // Expanded's side card: highlight the row under the pointer (side-card coordinates), or none.
+    void setSideRowHovered(std::optional<Rect> row, float cornerRadius) { bubble_.setRowHighlight(row, cornerRadius); }
 
 private:
     GraphicsDevice device_;

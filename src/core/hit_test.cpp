@@ -23,12 +23,4 @@ float seekFraction(const Placed& progress, float x)
     return std::clamp((x - progress.frame.x) / progress.frame.width, 0.0f, 1.0f);
 }
 
-std::optional<Event> islandEvent(const Action& action)
-{
-    if (!action.providerId.empty()) return std::nullopt;
-    if (action.actionId == kIslandNext) return ExpandedPaged{ 1 };
-    if (action.actionId == kIslandPromote) return ActivityPromoted{ action.activityId };
-    return std::nullopt;
-}
-
 } // namespace cup

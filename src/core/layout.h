@@ -11,10 +11,6 @@
 
 namespace cup {
 
-// Action ids of the host's own Expanded switcher (no provider id).
-inline constexpr const char* kIslandNext = "island.next";
-inline constexpr const char* kIslandPromote = "island.promote";
-
 struct Placed {
     std::string key;    // "<slot>/<row>/<item>": stable across updates, so the renderer can diff
     Item item;          // TimeLabels arrive already formatted as Text
@@ -36,6 +32,21 @@ struct BubbleScene {
     std::optional<Vec2> dragCentre; // being dragged: centred on the cursor here, no easing (decision 007)
 };
 
+// Expanded with several activities: the others in a card to the right of
+// it, one row each, in rank order (decision 007). Clicking a row switches to
+// that activity (ActivitySwitched).
+struct SideRow {
+    Rect frame; // side-card coordinates: the whole row is clickable
+    std::string activityId;
+};
+
+struct SideCard {
+    Rect frame;                   // render-layer coordinates; hangs from the top edge like the pill
+    std::vector<Placed> elements; // side-card coordinates
+    std::vector<SideRow> rows;
+    float rowRadius = 0;          // hover highlight, nested in the card's corner
+};
+
 struct Scene {
     Mode mode = Mode::Idle;
     Vec2 size;                     // pill target size, render-layer coordinates
@@ -43,6 +54,7 @@ struct Scene {
     std::vector<Placed> elements;  // content of the activity/alert being shown
     std::string activityId;        // whose content the pill shows (empty: none, or a standalone alert)
     std::optional<BubbleScene> bubble;
+    std::optional<SideCard> side;  // Expanded with several activities
     bool dropTarget = false;       // the dragged bubble is over the pill: letting go swaps them (pill lightens)
     Vec2 bubbleTuck;               // no bubble: it shrinks to this point, on the top edge inside the pill
     std::string label;             // accessible name of what's shown
@@ -51,7 +63,8 @@ struct Scene {
 
 Scene layout(const IslandState& state, Ms now);
 
-// What the interaction layer must cover: the pill, plus the bubble at rest in Split.
+// What the interaction layer must cover: the pill, plus the bubble at rest in Split
+// or the side card in Expanded.
 Rect interactiveBounds(const Scene& scene);
 
 // The pill's bottom corner radius at `size`: half the height, capped by

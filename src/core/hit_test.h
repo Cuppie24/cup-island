@@ -23,8 +23,4 @@ std::optional<Hit> hitTest(const Scene& scene, Vec2 point);
 // a scrub dragged past either end (or off the pill) pins to it.
 float seekFraction(const Placed& progress, float x);
 
-// The island Event for a host-owned control (the Expanded switcher), or
-// nothing for a provider's action, which goes to ProviderRegistry::route.
-std::optional<Event> islandEvent(const Action& action);
-
 } // namespace cup

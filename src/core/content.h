@@ -16,7 +16,7 @@ namespace cup {
 using Ms = std::chrono::milliseconds;
 
 // Built-in icons; the renderer maps them to font glyphs.
-enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, NextActivity, Pin, Timer };
+enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer };
 
 enum class TextStyle { Title, Body, Caption, Digits };
 

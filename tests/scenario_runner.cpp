@@ -8,7 +8,7 @@
 //            alert <name> [level] [for=<activity>] [key=<coalesceKey>]
 //            click  outside  esc  pointer  drag-enter  drag-rejected
 //            drag-leave  drop  hide  show  wait <ms>
-//            bubble  promote <id>  page [step]  drag <dx> <dy>  release  cancel
+//            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel
 // Checks after "->":  <Mode>  queue=<n>  top=<activity>  bubble=<activity>  alert=<name>
 //                     expanded=<activity>  pinned=<activity>  dragging=yes|no  preview=yes|no
 // Levels: passive active timeSensitive critical.  '#' starts a comment.
@@ -111,7 +111,7 @@ struct Runner {
         else if (cmd == "wait") wait(Ms{ std::stoi(arg(1)) });
         else if (cmd == "bubble") apply(BubbleClicked{});
         else if (cmd == "promote") apply(ActivityPromoted{ arg(1) });
-        else if (cmd == "page") apply(ExpandedPaged{ w.size() > 1 ? std::stoi(arg(1)) : 1 });
+        else if (cmd == "switch") apply(ActivitySwitched{ arg(1) });
         else if (cmd == "drag") apply(BubbleDragged{ { std::stof(arg(1)), std::stof(arg(2)) } });
         else if (cmd == "release") apply(BubbleReleased{});
         else if (cmd == "cancel") apply(BubbleDragCancelled{});

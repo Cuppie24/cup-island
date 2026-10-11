@@ -1,5 +1,7 @@
 #include "platform/blob.h"
 
+#include "platform/element_parts.h"
+
 #include <algorithm>
 
 namespace cup::platform {
@@ -89,11 +91,11 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
 
     // Content lives in a container clipped to the shape's live size, so new
     // content fading in during a grow morph never shows outside it.
-    auto content = c.CreateContainerVisual();
-    bind(c, content, L"Size", L"pill.Size", body_, shape_);
-    content.Clip(c.CreateInsetClip());
-    body_.Children().InsertAtTop(content);
-    elements_.init(c, device, content);
+    content_ = c.CreateContainerVisual();
+    bind(c, content_, L"Size", L"pill.Size", body_, shape_);
+    content_.Clip(c.CreateInsetClip());
+    body_.Children().InsertAtTop(content_);
+    elements_.init(c, device, content_);
 
     parent.Children().InsertAtTop(body_);
 
@@ -156,6 +158,29 @@ void Blob::setHighlighted(bool on)
     anim.InsertKeyFrame(1.0f, fillColor(on));
     anim.Duration(std::max(tokens().hoverFadeDuration, Ms{ 1 }));
     fill_.StartAnimation(L"Color", anim);
+}
+
+void Blob::setRowHighlight(std::optional<Rect> row, float cornerRadius)
+{
+    if (row == highlightedRow_) return;
+    highlightedRow_ = row;
+    if (!rowHighlight_) {
+        rowShape_ = compositor_.CreateRoundedRectangleGeometry();
+        auto fill = compositor_.CreateSpriteShape(rowShape_);
+        fill.FillBrush(compositor_.CreateColorBrush(Color{ 40, 255, 255, 255 })); // same as a button's hover
+        rowHighlight_ = compositor_.CreateShapeVisual();
+        rowHighlight_.Shapes().Append(fill);
+        rowHighlight_.Opacity(0.0f);
+        content_.Children().InsertAtBottom(rowHighlight_); // under the row's content
+    }
+    if (row) {
+        // Jumps to the new row and fades in: rows are close, a slide would be more motion than it's worth.
+        rowHighlight_.Offset({ row->x, row->y, 0 });
+        rowHighlight_.Size({ row->width, row->height });
+        rowShape_.Size({ row->width, row->height });
+        rowShape_.CornerRadius({ cornerRadius, cornerRadius });
+    }
+    fadeTo(compositor_, rowHighlight_, row ? 1.0f : 0.0f, tokens().hoverFadeDuration);
 }
 
 void Blob::pressDown()

@@ -15,7 +15,7 @@ Content nowPlayingContent(const NowPlaying& m)
     c.compactLeading = { row({ art }) };
     c.compactCenter = { row({ Text{ .value = c.label, .marquee = true } }) }; // swims when too long
     c.compactTrailing = { row({ Waveform{ playing } }, Align::Center) }; // paused: the bars rest as dots
-    c.minimal = { row({ art }) };
+    c.minimal = { row({ Waveform{ playing } }) }; // the Split bubble: equalizer bars, still dots when paused
     c.alertLeading = { row({ art }) };
     c.alertCenter = { row({ title }), row({ artist }) };
 

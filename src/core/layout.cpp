@@ -1,5 +1,6 @@
 #include "core/layout.h"
 
+#include "core/side_card.h"
 #include "core/split.h"
 #include "core/tokens.h"
 
@@ -48,15 +49,6 @@ struct SlotFrame {
     bool square = false; // a one-glyph square (compact ends, the bubble): content always centred in it
 };
 
-// Expanded with several activities gets the host's switcher in its top row
-// (PS §3.1): "next activity", plus "show in the island" unless the shown
-// activity already has the pill. How many buttons that is.
-int switcherButtons(const IslandState& s, Mode mode)
-{
-    if (mode != Mode::Expanded || s.activities.size() < 2) return 0;
-    return s.activities.front().id == s.expandedId ? 1 : 2;
-}
-
 // The padding a mode keeps on every side of its content.
 float paddingFor(Mode mode)
 {
@@ -73,7 +65,7 @@ float paddingFor(Mode mode)
 // Where each slot sits inside the pill (PS §5.1). Every slot keeps the mode's
 // padding from the pill's edges: with the nested corner radius that keeps
 // rounded content concentric with the pill's corners.
-std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c, int switcherButtons)
+std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
 {
     const Tokens& t = tokens();
     float p = paddingFor(mode);
@@ -93,9 +85,7 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c, int sw
     case Mode::Expanded: {
         float art = t.expandedArtSize, centerX = p + art + t.slotGap, bottomY = p + art + t.slotGap;
         float corner = t.buttonSize, cornerX = size.x - p - corner;
-        float right = c.expandedTrailing.empty() ? size.x - p : cornerX - t.itemSpacing; // switcher ends here
-        float centerRight = switcherButtons > 0 ? right - switcherButtons * (corner + t.itemSpacing) + t.itemSpacing - t.slotGap
-                          : c.expandedTrailing.empty() ? size.x - p : cornerX - t.slotGap;
+        float centerRight = c.expandedTrailing.empty() ? size.x - p : cornerX - t.slotGap;
         return { { "expandedLeading", &c.expandedLeading, { p, p, art, art } },
                  { "expandedCenter", &c.expandedCenter, { centerX, p, centerRight - centerX, art } },
                  { "expandedTrailing", &c.expandedTrailing, { cornerX, p, corner, corner } },
@@ -257,25 +247,6 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
     }
 }
 
-// The switcher, right to left from the top-right corner (left of a
-// provider's expandedTrailing button): "next", then "show in the island".
-// Host-owned, so no provider id: islandEvent() maps their actions (decision 007).
-void placeSwitcher(const IslandState& s, Vec2 size, const Content& c, float nestedRadius, std::vector<Placed>& out)
-{
-    const Tokens& t = tokens();
-    float p = t.expandedPadding, side = t.buttonSize;
-    float x = size.x - p - side;
-    if (!c.expandedTrailing.empty()) x -= side + t.itemSpacing;
-    auto place = [&](const char* key, Button button) {
-        Rect frame{ x, p, side, side };
-        out.push_back({ .key = key, .item = button, .frame = frame, .hitFrame = frame,
-                        .cornerRadius = std::min(nestedRadius, side / 2), .activityId = s.expandedId });
-        x -= side + t.itemSpacing;
-    };
-    place("switcher/next", { Glyph::NextActivity, kIslandNext });
-    if (s.activities.front().id != s.expandedId) place("switcher/promote", { Glyph::Pin, kIslandPromote });
-}
-
 // Split: the 2nd activity's `minimal` slot, else its compact leading one
 // (PS §5.1). Same shape as the pill (straight top, rounded bottom), so its
 // content gets the same nested corner radius.
@@ -320,10 +291,9 @@ Scene layout(const IslandState& state, Ms now)
     scene.label = source.content->label;
     scene.activityId = source.activityId;
     float nestedRadius = std::max(0.0f, pillCornerRadius(scene.size) - paddingFor(scene.mode));
-    int buttons = switcherButtons(state, scene.mode);
-    for (const SlotFrame& slot : slotFrames(scene.mode, scene.size, *source.content, buttons))
+    for (const SlotFrame& slot : slotFrames(scene.mode, scene.size, *source.content))
         placeSlot(slot, source, nestedRadius, now, scene.elements);
-    if (buttons > 0) placeSwitcher(state, scene.size, *source.content, nestedRadius, scene.elements);
+    scene.side = sideCardFor(state, { scene.offset.x, scene.offset.y, scene.size.x, scene.size.y });
     return scene;
 }
 
@@ -334,12 +304,15 @@ float pillCornerRadius(Vec2 size)
 
 Rect interactiveBounds(const Scene& scene)
 {
-    Rect pill{ scene.offset.x, scene.offset.y, scene.size.x, scene.size.y };
-    if (!scene.bubble) return pill;
-    const Rect& b = scene.bubble->frame;
-    float left = std::min(pill.x, b.x), top = std::min(pill.y, b.y);
-    float right = std::max(pill.x + pill.width, b.x + b.width), bottom = std::max(pill.y + pill.height, b.y + b.height);
-    return { left, top, right - left, bottom - top };
+    Rect r{ scene.offset.x, scene.offset.y, scene.size.x, scene.size.y };
+    auto add = [&](const Rect& b) {
+        float left = std::min(r.x, b.x), top = std::min(r.y, b.y);
+        float right = std::max(r.x + r.width, b.x + b.width), bottom = std::max(r.y + r.height, b.y + b.height);
+        r = { left, top, right - left, bottom - top };
+    };
+    if (scene.bubble) add(scene.bubble->frame);
+    if (scene.side) add(scene.side->frame);
+    return r;
 }
 
 std::optional<Ms> sceneDeadline(const Scene& scene)

@@ -2,6 +2,7 @@
 
 #include "core/hit_test.h"
 #include "core/layout.h"
+#include "core/side_card.h"
 #include "core/split.h"
 #include "core/tokens.h"
 #include "expect.h"
@@ -176,34 +177,7 @@ void runContentTests()
     expect(cText && cText->frame.x > cArt->frame.x + side && cText->frame.x + cText->frame.width < compact.size.x - inset - side,
            "compact title sits between the squares");
 
-    expect(!find(scene, "switcher/next"), "no switcher with a single activity");
-    expect(!islandEvent(hit->action), "provider actions are not island events");
-
-    // Expanded switcher (decision 007): "next" always, "promote" unless it's already the pill.
-    s = reduce(s, ActivityStarted{ { .id = "demo.timer", .content = { .expandedCenter = { row({ Text{ "Timer" } }) } } } }, Ms{ 0 });
-    s = reduce(s, PillClicked{}, Ms{ 0 });
-    s = reduce(s, PillClicked{}, Ms{ 0 }); // collapse, then open the top one: the timer
-    scene = layout(s, Ms{ 0 });
-    const Placed* next = find(scene, "switcher/next");
-    expect(next && next->frame.x + next->frame.width == scene.size.x - t.expandedPadding, "switcher sits at the right edge");
-    expect(!find(scene, "switcher/promote"), "no promote button on the activity that has the pill");
-    const Placed* title = find(scene, "expandedCenter/0/0");
-    expect(title && title->frame.x + title->frame.width <= next->frame.x - t.itemSpacing, "center text stays clear of the switcher");
-
-    auto paged = hitTest(scene, centre(next));
-    expect(paged && islandEvent(paged->action) && std::holds_alternative<ExpandedPaged>(*islandEvent(paged->action)),
-           "next button pages");
-    s = reduce(s, *islandEvent(paged->action), Ms{ 0 });
-    scene = layout(s, Ms{ 0 });
-    const Placed* promote = find(scene, "switcher/promote");
-    auto promoted = promote ? hitTest(scene, centre(promote)) : std::nullopt;
-    auto event = promoted ? islandEvent(promoted->action) : std::nullopt;
-    expect(event && std::get_if<ActivityPromoted>(&*event) && std::get<ActivityPromoted>(*event).id == "demo.media",
-           "promote button picks the shown activity");
-    for (const auto& p : scene.elements)
-        expect(p.frame.x >= 0 && p.frame.x + p.frame.width <= scene.size.x && p.frame.y + p.frame.height <= scene.size.y,
-               "switcher element inside the pill: " + p.key);
-
+    expect(!scene.side, "no side card with a single activity");
 
     // Split bubble: the 2nd activity's minimal slot (else compact leading), right of the pill.
     IslandState split;
@@ -251,17 +225,62 @@ void runContentTests()
            "interaction layer covers pill and bubble");
     expect(Rect{ rest.offset.x, rest.offset.y, rest.size.x, rest.size.y } == splitPillFrame(), "split pill frame matches layout");
 
-    // The switcher shares the top row with a provider's corner button: it sits to its left.
-    IslandState twoCornered;
-    twoCornered = reduce(twoCornered, ActivityStarted{ { .id = "timer" } }, Ms{ 0 });
-    twoCornered = reduce(twoCornered, ActivityStarted{ { .id = "media", .content = cornered } }, Ms{ 0 });
-    Scene both = layout(reduce(twoCornered, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    const Placed* bothCorner = find(both, "expandedTrailing/0/0");
-    const Placed* bothNext = find(both, "switcher/next");
-    const Placed* bothTitle = find(both, "expandedCenter/0/0");
-    expect(bothCorner && bothNext && bothNext->frame.x + bothNext->frame.width + t.itemSpacing == bothCorner->frame.x,
-           "switcher sits left of the corner button");
-    expect(bothTitle && bothTitle->frame.x + bothTitle->frame.width + t.slotGap == bothNext->frame.x, "title stops before the switcher");
+    // Expanded side card (decision 007): the others, one row each, right of the card.
+    IslandState three;
+    three = reduce(three, ActivityStarted{ { .id = "media", .content = { .label = "Song - Artist",
+        .compactLeading = { row({ Image{} }) },
+        .compactCenter = { row({ Text{ .value = "Song - Artist", .marquee = true } }) },
+        .compactTrailing = { row({ Waveform{ true } }) } } } }, Ms{ 0 });
+    three = reduce(three, ActivityStarted{ { .id = "timer", .content = { .label = "Timer",
+        .compactLeading = { row({ Icon{ Glyph::Timer } }) },
+        .compactTrailing = { row({ Text{ "4:59", TextStyle::Digits } }) } } } }, Ms{ 0 });
+    three = reduce(three, ActivityStarted{ { .id = "sync", .content = { .label = "Sync" } } }, Ms{ 0 });
+    Scene opened = layout(reduce(three, PillClicked{}, Ms{ 0 }), Ms{ 0 }); // opens the top one: sync
+    expect(opened.side && opened.side->rows.size() == 2, "side card lists every other activity");
+    const SideCard& sc = *opened.side;
+    expect(sc.rows[0].activityId == "timer" && sc.rows[1].activityId == "media", "rows in rank order");
+    expect(sc.frame.x == opened.offset.x + opened.size.x + t.bubbleGap && sc.frame.y == opened.offset.y,
+           "side card hangs from the top edge, a bubble gap right of the card");
+    expect(sc.frame.x + sc.frame.width <= t.canvas.x, "side card fits on the canvas");
+    expect(sc.frame.height == 2 * t.sideCardPadding + 2 * t.sideRowHeight + t.sideRowGap, "side card fits its rows");
+    auto sideFind = [&](const std::string& key) -> const Placed* {
+        for (const auto& p : sc.elements)
+            if (p.key == key) return &p;
+        return nullptr;
+    };
+    const Placed* mediaTitle = sideFind("side/media/title");
+    const Placed* timerStatus = sideFind("side/timer/status");
+    const Placed* timerTitle = sideFind("side/timer/title");
+    const Placed* timerLead = sideFind("side/timer/lead");
+    const Placed* mediaLead = sideFind("side/media/lead");
+    expect(mediaTitle && std::get<Text>(mediaTitle->item).value == "Song - Artist" && std::get<Text>(mediaTitle->item).marquee,
+           "row title: the compact centre text, swimming");
+    expect(timerTitle && std::get<Text>(timerTitle->item).value == "Timer", "no compact centre: the activity's name");
+    expect(timerStatus && std::get<Text>(timerStatus->item).value == "4:59" && std::get<Text>(timerStatus->item).alignEnd,
+           "short trailing text becomes the row's status");
+    expect(sideFind("side/media/status") && std::holds_alternative<Waveform>(sideFind("side/media/status")->item),
+           "media's bars show as its status");
+    expect(timerLead && timerLead->frame.y + timerLead->frame.height / 2 == sc.rows[0].frame.y + sc.rows[0].frame.height / 2,
+           "glyph centred in its row");
+    expect(mediaLead && mediaLead->cornerRadius > 0 && mediaLead->cornerRadius <= sc.rowRadius, "row art radius is nested");
+    for (const auto& p : sc.elements)
+        expect(p.frame.x >= 0 && p.frame.x + p.frame.width <= sc.frame.width && p.frame.y + p.frame.height <= sc.frame.height,
+               "side element inside the side card: " + p.key);
+    Vec2 onTimerRow{ sc.frame.x + sc.rows[0].frame.x + 5, sc.frame.y + sc.rows[0].frame.y + 5 };
+    expect(sideRowAt(sc, onTimerRow) && sideRowAt(sc, onTimerRow)->activityId == "timer", "a point finds its row");
+    expect(!sideRowAt(sc, { sc.frame.x - 2, sc.frame.y + 10 }), "outside the card: no row");
+    Rect openedBounds = interactiveBounds(opened);
+    expect(openedBounds.x + openedBounds.width == sc.frame.x + sc.frame.width, "interaction layer covers the side card");
+
+    // More than fit: the last row stands for the rest and opens the first of them.
+    IslandState many = three;
+    for (const char* id : { "d", "e", "f" }) many = reduce(many, ActivityStarted{ { .id = id } }, Ms{ 0 });
+    Scene crowded = layout(reduce(many, PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    expect(crowded.side && crowded.side->rows.size() == t.sideCardRows, "rows capped");
+    const Placed* more = nullptr;
+    for (const auto& p : crowded.side->elements)
+        if (p.key == "side/more") more = &p;
+    expect(more && std::get<Text>(more->item).value == "+3 more", "overflow row counts what it stands for");
 }
 
 } // namespace cup::test
