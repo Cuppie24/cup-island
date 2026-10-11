@@ -15,6 +15,13 @@ a helper thread that posts one message per frame), and it snaps to the exact
 target at the end. A new morph starts from wherever the window is now, which
 matches where the compositor picks up an interrupted animation.
 
+**Windows 10.** `DCompositionWaitForCompositorClock` is Windows 11 only, and
+`dcomp.lib` links it by ordinal (1104). Linked statically, the exe wouldn't
+even start on Windows 10 ("ordinal 1104 not found"). So it's looked up at
+runtime by name, and when it's missing the follower waits with `DwmFlush()`,
+which also returns once per desktop composition. The log says which clock
+is in use ("frame clock: …").
+
 **Consequences.** Renderer and follower must use identical timing, which is
 why both read `tokens::kMorphDuration` / `kMorphEase*`. The helper thread
 sleeps when no morph runs, so idle cost stays zero. If Microsoft adds a way
