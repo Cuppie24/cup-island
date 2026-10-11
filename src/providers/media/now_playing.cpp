@@ -30,7 +30,7 @@ Content nowPlayingContent(const NowPlaying& m)
                          Button{ Glyph::Next, act::kNext, m.canNext } },
                        Align::Center);
     controls.loose = true; // big, well-separated targets
-    if (m.showSourceSwitch) controls.items.push_back(Button{ Glyph::Source, act::kSource });
+    if (m.showSourceSwitch) controls.trailing.push_back(Button{ Glyph::Source, act::kSource }); // at the right edge
     c.expandedBottom.push_back(controls);
     return c;
 }

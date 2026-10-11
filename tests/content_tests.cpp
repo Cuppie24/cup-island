@@ -101,6 +101,18 @@ void runContentTests()
     expect(seekFraction(*bar, bar->frame.x - 50) == 0.0f && seekFraction(*bar, bar->frame.x + bar->frame.width + 50) == 1.0f,
            "scrubbing past the ends pins to them");
 
+    // A trailing item sits at the end edge without pulling the centred group off centre.
+    Content withSource = media;
+    withSource.expandedBottom[1].trailing.push_back(Button{ Glyph::Source, "source" });
+    Scene sourced = layout(expandedWith(withSource), Ms{ 1000 });
+    const Placed* centred = find(sourced, "expandedBottom/1/1");
+    const Placed* source = find(sourced, "expandedBottom/1/3");
+    expect(centred && centred->frame == play->frame, "controls stay centred with a source switch");
+    expect(source && source->frame.x + source->frame.width == sourced.size.x - t.expandedPadding,
+           "source switch sits at the right edge, one padding in");
+    auto sourceHit = hitTest(sourced, centre(source));
+    expect(sourceHit && sourceHit->action.actionId == "source", "source switch is clickable");
+
     // Equal margins: the bottom row sits as far from the bottom as art from the side.
     expect(play->frame.y + play->frame.height == scene.size.y - t.expandedPadding, "expanded bottom margin = side margin");
 
