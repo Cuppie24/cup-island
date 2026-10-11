@@ -124,96 +124,112 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
     }
     total += t.rowSpacing * static_cast<float>(rows.empty() ? 0 : rows.size() - 1);
 
-    float y = slot.frame.y + (slot.frame.height - total) / 2; // centred vertically
-    Rect above = slot.frame; // the previous row's content, left to right
-    for (size_t r = 0; r < rows.size(); ++r) {
-        const Row& row = rows[r];
-        // Where this row lays out: the slot, or (matchAbove) under the row above's content.
-        Rect area = row.matchAbove ? Rect{ above.x, slot.frame.y, above.width, slot.frame.height } : slot.frame;
-        float rowHeight = rowHeights[r], ringSide = ringSides[r];
-        float gap = row.loose ? t.looseItemSpacing : t.itemSpacing;
+    // Places every row into `target` and returns each row's content span.
+    // `spans`: the first pass's spans, for rows that match a neighbour's width.
+    auto placeRows = [&](std::vector<Placed>& target, const std::vector<Rect>* spans) {
+        std::vector<Rect> contentSpans;
+        float y = slot.frame.y + (slot.frame.height - total) / 2; // centred vertically
+        for (size_t r = 0; r < rows.size(); ++r) {
+            const Row& row = rows[r];
+            // Where this row lays out: the slot, or a neighbour's content span.
+            Rect area = slot.frame;
+            std::size_t neighbour = row.span == RowSpan::MatchAbove ? r - 1 : r + 1;
+            if (spans && row.span != RowSpan::Slot && neighbour < rows.size() && (*spans)[neighbour].width > 0)
+                area = { (*spans)[neighbour].x, slot.frame.y, (*spans)[neighbour].width, slot.frame.height };
+            float rowHeight = rowHeights[r], ringSide = ringSides[r];
+            float gap = row.loose ? t.looseItemSpacing : t.itemSpacing;
 
-        // Keys number `items`, then `trailing`, then `leading`, so they stay stable as rows grow.
-        size_t first = out.size();
-        auto place = [&](const Item& item, size_t index, float x, float w) {
-            float h = heightOf(item, slot.frame, ringSide);
-            Placed placed;
-            placed.key = slot.name + "/" + std::to_string(r) + "/" + std::to_string(index);
-            placed.item = resolve(item, now);
-            placed.frame = { x, y + (rowHeight - h) / 2, w, h };
-            placed.cornerRadius = radiusFor(item, placed.frame, nestedRadius);
-            placed.accent = source.content ? source.content->accent : std::nullopt;
-            placed.providerId = source.providerId;
-            placed.activityId = source.activityId;
-            if (auto* label = std::get_if<TimeLabel>(&item)) placed.ticking = label->timeline;
-            out.push_back(std::move(placed));
-        };
-        auto widthOf = [&](const Item& item) { return fixedWidthOf(item, heightOf(item, slot.frame, ringSide), measure); };
+            // Keys number `items`, then `trailing`, then `leading`, so they stay stable as rows grow.
+            size_t first = target.size();
+            auto place = [&](const Item& item, size_t index, float x, float w) {
+                float h = heightOf(item, slot.frame, ringSide);
+                Placed placed;
+                placed.key = slot.name + "/" + std::to_string(r) + "/" + std::to_string(index);
+                placed.item = resolve(item, now);
+                placed.frame = { x, y + (rowHeight - h) / 2, w, h };
+                placed.cornerRadius = radiusFor(item, placed.frame, nestedRadius);
+                placed.accent = source.content ? source.content->accent : std::nullopt;
+                placed.providerId = source.providerId;
+                placed.activityId = source.activityId;
+                if (auto* label = std::get_if<TimeLabel>(&item)) placed.ticking = label->timeline;
+                target.push_back(std::move(placed));
+            };
+            auto widthOf = [&](const Item& item) { return fixedWidthOf(item, heightOf(item, slot.frame, ringSide), measure); };
 
-        // Edge groups: packed with the normal spacing, kept `gap` away from the middle.
-        auto edgeWidth = [&](const std::vector<Item>& group) {
-            float w = 0;
-            for (const Item& item : group) w += widthOf(item).value_or(0) + t.itemSpacing;
-            return group.empty() ? 0.0f : w - t.itemSpacing + gap;
-        };
-        float leadingWidth = edgeWidth(row.leading), trailingWidth = edgeWidth(row.trailing);
-        float available = area.width - leadingWidth - trailingWidth;
+            // Edge groups: packed with the normal spacing, kept `gap` away from the middle.
+            auto edgeWidth = [&](const std::vector<Item>& group) {
+                float w = 0;
+                for (const Item& item : group) w += widthOf(item).value_or(0) + t.itemSpacing;
+                return group.empty() ? 0.0f : w - t.itemSpacing + gap;
+            };
+            float leadingWidth = edgeWidth(row.leading), trailingWidth = edgeWidth(row.trailing);
+            float available = area.width - leadingWidth - trailingWidth;
 
-        float fixed = 0;
-        int stretchCount = 0;
-        for (const Item& item : row.items) {
-            if (auto w = widthOf(item)) fixed += *w;
-            else ++stretchCount;
-        }
-        float spacing = gap * static_cast<float>(row.items.empty() ? 0 : row.items.size() - 1);
-        float used = fixed + spacing;
-        float spare = std::max(0.0f, available - used);
-        float stretchWidth = stretchCount > 0 ? spare / static_cast<float>(stretchCount) : 0;
-
-        Align align = slot.square ? Align::Center : row.align;
-        float x = area.x + leadingWidth;
-        if (stretchCount == 0 && align == Align::End) x += spare;
-        if (stretchCount == 0 && align == Align::Center) {
-            // Centred on the whole row, so edge groups don't pull the middle off
-            // centre; nudged sideways only as far as needed to clear them.
-            x = area.x + std::clamp((area.width - used) / 2, leadingWidth, leadingWidth + spare);
-        }
-        for (size_t i = 0; i < row.items.size(); ++i) {
-            float w = widthOf(row.items[i]).value_or(stretchWidth);
-            place(row.items[i], i, x, w);
-            x += w + gap;
-        }
-        auto placeEdge = [&](const std::vector<Item>& group, size_t firstIndex, float x) {
-            for (size_t i = 0; i < group.size(); ++i) {
-                float w = widthOf(group[i]).value_or(0);
-                place(group[i], firstIndex + i, x, w);
-                x += w + t.itemSpacing;
+            float fixed = 0;
+            int stretchCount = 0;
+            for (const Item& item : row.items) {
+                if (auto w = widthOf(item)) fixed += *w;
+                else ++stretchCount;
             }
-        };
-        placeEdge(row.trailing, row.items.size(), area.x + area.width - trailingWidth + gap);
-        placeEdge(row.leading, row.items.size() + row.trailing.size(), area.x);
-        if (out.size() > first) {
-            float left = out[first].frame.x, right = left;
-            for (size_t i = first; i < out.size(); ++i) {
-                left = std::min(left, out[i].frame.x);
-                right = std::max(right, out[i].frame.x + out[i].frame.width);
-            }
-            above = { left, y, right - left, rowHeight };
-        }
+            float spacing = gap * static_cast<float>(row.items.empty() ? 0 : row.items.size() - 1);
+            float used = fixed + spacing;
+            float spare = std::max(0.0f, available - used);
+            float stretchWidth = stretchCount > 0 ? spare / static_cast<float>(stretchCount) : 0;
 
-        // Click areas meet halfway between neighbours (no dead strips) and reach
-        // half a gap past the row's ends and half the row spacing above and below.
-        std::vector<Placed*> placed;
-        for (size_t i = first; i < out.size(); ++i) placed.push_back(&out[i]);
-        std::sort(placed.begin(), placed.end(), [](const Placed* a, const Placed* b) { return a->frame.x < b->frame.x; });
-        for (size_t i = 0; i < placed.size(); ++i) {
-            const Rect& f = placed[i]->frame;
-            float left = i == 0 ? f.x - gap / 2 : (placed[i - 1]->frame.x + placed[i - 1]->frame.width + f.x) / 2;
-            float right = i + 1 == placed.size() ? f.x + f.width + gap / 2 : (f.x + f.width + placed[i + 1]->frame.x) / 2;
-            placed[i]->hitFrame = { left, y - t.rowSpacing / 2, right - left, rowHeight + t.rowSpacing };
+            Align align = slot.square ? Align::Center : row.align;
+            float x = area.x + leadingWidth;
+            if (stretchCount == 0 && align == Align::End) x += spare;
+            if (stretchCount == 0 && align == Align::Center) {
+                // Centred on the whole row, so edge groups don't pull the middle off
+                // centre; nudged sideways only as far as needed to clear them.
+                x = area.x + std::clamp((area.width - used) / 2, leadingWidth, leadingWidth + spare);
+            }
+            for (size_t i = 0; i < row.items.size(); ++i) {
+                float w = widthOf(row.items[i]).value_or(stretchWidth);
+                place(row.items[i], i, x, w);
+                x += w + gap;
+            }
+            auto placeEdge = [&](const std::vector<Item>& group, size_t firstIndex, float x) {
+                for (size_t i = 0; i < group.size(); ++i) {
+                    float w = widthOf(group[i]).value_or(0);
+                    place(group[i], firstIndex + i, x, w);
+                    x += w + t.itemSpacing;
+                }
+            };
+            placeEdge(row.trailing, row.items.size(), area.x + area.width - trailingWidth + gap);
+            placeEdge(row.leading, row.items.size() + row.trailing.size(), area.x);
+            Rect content{};
+            if (target.size() > first) {
+                float left = target[first].frame.x, right = left;
+                for (size_t i = first; i < target.size(); ++i) {
+                    left = std::min(left, target[i].frame.x);
+                    right = std::max(right, target[i].frame.x + target[i].frame.width);
+                }
+                content = { left, y, right - left, rowHeight };
+            }
+            contentSpans.push_back(content);
+
+            // Click areas meet halfway between neighbours (no dead strips) and reach
+            // half a gap past the row's ends and half the row spacing above and below.
+            std::vector<Placed*> placed;
+            for (size_t i = first; i < target.size(); ++i) placed.push_back(&target[i]);
+            std::sort(placed.begin(), placed.end(), [](const Placed* a, const Placed* b) { return a->frame.x < b->frame.x; });
+            for (size_t i = 0; i < placed.size(); ++i) {
+                const Rect& f = placed[i]->frame;
+                float left = i == 0 ? f.x - gap / 2 : (placed[i - 1]->frame.x + placed[i - 1]->frame.width + f.x) / 2;
+                float right = i + 1 == placed.size() ? f.x + f.width + gap / 2 : (f.x + f.width + placed[i + 1]->frame.x) / 2;
+                placed[i]->hitFrame = { left, y - t.rowSpacing / 2, right - left, rowHeight + t.rowSpacing };
+            }
+            y += rowHeight + t.rowSpacing;
         }
-        y += rowHeight + t.rowSpacing;
-    }
+        return contentSpans;
+    };
+
+    // Two passes: natural spans first, then the real layout, where a matching
+    // row takes its neighbour's span (above or below: either may come first).
+    std::vector<Placed> scratch;
+    std::vector<Rect> spans = placeRows(scratch, nullptr);
+    placeRows(out, &spans);
 }
 
 } // namespace cup

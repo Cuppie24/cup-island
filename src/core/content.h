@@ -106,6 +106,11 @@ using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Wavefo
 
 enum class Align { Start, Center, End };
 
+// How wide a row lays out (decision 014): the slot, or exactly the span of
+// the row above's / below's content, centred with it (a bar as wide as the
+// countdown above it, or the dots below it). The host works out the width.
+enum class RowSpan { Slot, MatchAbove, MatchBelow };
+
 // How the Expanded card arranges its slots (decision 014). Providers pick a
 // preset; the host owns the geometry.
 //  Standard: art square left, title centre, corner button, bottom rows (media).
@@ -123,9 +128,7 @@ struct Row {
     // full width. Keys number items, then trailing, then leading.
     std::vector<Item> leading;
     std::vector<Item> trailing;
-    // Span only as wide as the row above's content, centred under it, instead
-    // of the slot: a bar exactly as wide as the countdown above it (decision 014).
-    bool matchAbove = false;
+    RowSpan span = RowSpan::Slot;
     bool operator==(const Row&) const = default;
 };
 

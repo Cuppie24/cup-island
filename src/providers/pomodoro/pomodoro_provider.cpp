@@ -80,7 +80,7 @@ Panel pomodoroPanel()
 // Compact: the countdown centred, the ring filling on the right; no phase
 // name (the colour says it). Expanded, a centred card (decision 014): the
 // controls on top, a big countdown in the middle, a bar for the phase under
-// it (as wide as the digits), then a dot per phase and what they mean. The ring is for compact and
+// it (as wide as the dots), then a dot per phase and what they mean. The ring is for compact and
 // the bubble, where there's no room for digits.
 Content pomodoroContent(const PomodoroProvider::Session& s)
 {
@@ -105,7 +105,7 @@ Content pomodoroContent(const PomodoroProvider::Session& s)
         .expandedCenter = {
             Row{ .items = { pause, Button{ Glyph::Next, act::kSkip }, stop }, .align = Align::Center, .loose = true },
             row({ bigLeft }, Align::Center),
-            Row{ .items = { Progress{ .timeline = s.timeline } }, .matchAbove = true }, // as wide as the countdown
+            Row{ .items = { Progress{ .timeline = s.timeline } }, .span = RowSpan::MatchBelow }, // as wide as the dots
             row({ Steps{ total, done } }, Align::Center),
             row({ Text{ .value = caption, .style = TextStyle::Caption, .centred = true } }, Align::Center),
         },

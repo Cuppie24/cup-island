@@ -34,16 +34,17 @@ What this added:
   with the real font), so a centred countdown doesn't jump as it ticks and
   sits snug next to its ring. Digits-style labels keep their fixed column,
   so media's time labels still line up.
-- **`Row::matchAbove`:** a row can span only the row above's content
-  (centred under it) instead of the slot, so a bar is exactly as wide as
-  the countdown above it. A relationship the provider states; the host
-  works out the width.
+- **`Row::span`:** a row can span exactly its neighbour's content (the row
+  above or below, `MatchAbove` / `MatchBelow`) instead of the slot, so a
+  bar is as wide as the dots under it. A relationship the provider states;
+  the host works out the width (two passes: natural spans, then the rows
+  that match).
 - **Steps are bigger** (`stepDotSize`, `stepDotGap`): a host size, the same
   for every provider using them.
 
 **Consequences.** Pomodoro's card: pause/skip/stop on top, a Display
-countdown centred in the middle, the phase's bar under it, the phase dots
-under that, then "Focus · 3 of 8 done". No ring in the card (one beside the
+countdown centred in the middle, the phase's bar under it (as wide as the
+dots), the phase dots under that, then "Focus · 3 of 8 done". No ring in the card (one beside the
 digits was tried and dropped as clutter); the ring stays in compact and the
 bubble, where there's no room for digits. A bar that isn't seekable is
 only as tall as its line: it needs no click area, and the card has no
