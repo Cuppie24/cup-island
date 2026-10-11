@@ -28,7 +28,8 @@ std::string clockAt(const IslandState& s, Ms now)
 
 Panel panel(const std::string& id, bool wide = false)
 {
-    Content content{ .label = id, .tile = { Row{ .items = { Text{ id } }, .trailing = { Button{ Glyph::Play, "start" } } } } };
+    Content content{ .label = id, .expandedCenter = { row({ Text{ id } }) },
+                     .tile = { Row{ .items = { Text{ id } }, .trailing = { Button{ Glyph::Play, "start" } } } } };
     return { .id = id, .content = content, .wide = wide, .providerId = "test" };
 }
 
@@ -97,21 +98,36 @@ void runHomeTests()
     expect(runningLabel && std::get<Text>(runningLabel->item).value == "running", "running: the activity's tile");
     expect(liveScene.tiles[0].frame.x == a.frame.x, "the tile stays where it was");
 
-    // Tabs: Home first, then activities; Home stays selected for a dormant panel's card.
+    // Tabs along the bottom: Home's square icon button apart at the left, then
+    // activities, centred on the card; Home stays selected for a dormant panel's card.
     IslandState tabbed = reduce(running, ActivityStarted{ { .id = "media", .content = { .label = "Song" } } }, Ms{ 0 });
     tabbed = reduce(tabbed, HomeOpened{}, Ms{ 0 });
     Scene strip = layout(tabbed, Ms{ 0 });
     expect(strip.tabs && strip.tabs->tabs.size() == 3 && strip.tabs->tabs[0].id.empty() && strip.tabs->active == 0,
-           "Home tab first and selected on Home");
-    expect(strip.tiles.front().frame.y > strip.tabs->tabs[0].frame.y + t.tabHeight, "tiles sit below the strip");
+           "Home button first and selected on Home");
+    const Tab& homeButton = strip.tabs->tabs[0];
+    expect(homeButton.frame == Rect{ p, strip.size.y - p - t.tabHeight, t.tabHeight, t.tabHeight }, "Home: a square at the bottom left");
+    const Tab& first = strip.tabs->tabs[1];
+    const Tab& last = strip.tabs->tabs[2];
+    expect(first.frame.x >= homeButton.frame.x + homeButton.frame.width + t.slotGap, "set apart from the activity tabs");
+    expect(std::abs(first.frame.x - (strip.size.x - last.frame.x - last.frame.width)) < 0.01f, "activity tabs stay centred on the card");
+    expect(first.frame.y == homeButton.frame.y, "one strip");
+    float lowest = 0;
+    for (const Tile& tile : strip.tiles) lowest = std::max(lowest, tile.frame.y + tile.frame.height);
+    expect(lowest + t.slotGap <= homeButton.frame.y, "tiles sit above the strip");
     const Placed* homeIcon = find(strip, "tab/home/lead");
-    expect(homeIcon && std::get<Icon>(homeIcon->item).glyph == Glyph::Home, "Home tab has the home glyph");
+    expect(homeIcon && std::get<Icon>(homeIcon->item).glyph == Glyph::Home && !find(strip, "tab/home/title"), "Home: icon only");
+    expect(std::abs(homeIcon->frame.x + homeIcon->frame.width / 2 - (homeButton.frame.x + t.tabHeight / 2)) < 0.01f, "icon centred");
     Scene card = layout(reduce(tabbed, TileClicked{ "b" }, Ms{ 0 }), Ms{ 0 });
     expect(card.activityId == "b" && card.tabs->active == 0 && card.tiles.empty(), "a dormant card: Home tab stays selected");
     Scene media = layout(reduce(tabbed, ActivitySwitched{ "media" }, Ms{ 0 }), Ms{ 0 });
     expect(media.tabs->tabs[media.tabs->active].id == "media" && media.tiles.empty(), "an activity's tab shows its card");
     Scene single = layout(reduce(reduce(s, ActivityStarted{ { .id = "solo" } }, Ms{ 0 }), PillClicked{}, Ms{ 0 }), Ms{ 0 });
     expect(single.tabs && single.tabs->tabs.size() == 2, "one activity plus panels: Home and its tab");
+    expect(!layout(reduce(s, PillClicked{}, Ms{ 0 }), Ms{ 0 }).tabs, "Home with nothing running: no strip");
+    Scene dormant = layout(reduce(reduce(s, PillClicked{}, Ms{ 0 }), TileClicked{ "a" }, Ms{ 0 }), Ms{ 0 });
+    expect(dormant.tabs && dormant.tabs->tabs.size() == 1 && dormant.tabs->tabs[0].id.empty(),
+           "a dormant card with nothing running: just the way back Home");
 
     // Idle clock: the local time, centred, re-laid out at the next minute.
     IslandState idle;
@@ -131,6 +147,20 @@ void runHomeTests()
     expect(clockAt(midnight, Ms{ 24 * 3600000 }) == "12:00", "wraps after a day");
     IslandState busy = reduce(idle, ActivityStarted{ { .id = "media" } }, at);
     expect(clockAt(busy, at) == "none" && !layout(busy, at).clockTick, "only the idle pill shows the clock");
+
+    // Home's clock: the first tile, built from the synced clock; a static widget, no card.
+    IslandState dated = reduce(withPanels({ panel("a"), Panel{ .id = "battery", .content = { .tile = { row({ Text{ "82%" } }) } } } }),
+                               ClockSynced{ Ms{ (9 * 60 + 41) * 60000 + 15000 }, true, "Sat 11 Oct" }, Ms{ 0 });
+    Scene withClock = layout(reduce(dated, PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    expect(withClock.tiles.size() == 3 && withClock.tiles[0].id.empty() && !withClock.tiles[0].opens, "clock first, not clickable");
+    expect(withClock.tiles[1].id == "a" && withClock.tiles[1].opens, "a panel with a card opens");
+    expect(withClock.tiles[2].id == "battery" && !withClock.tiles[2].opens, "a static widget doesn't");
+    const Placed* bigTime = find(withClock, "tile/clock/0/0");
+    const Placed* date = find(withClock, "tile/clock/1/0");
+    expect(bigTime && std::get<Text>(bigTime->item).value == "9:41" && std::get<Text>(bigTime->item).style == TextStyle::Title,
+           "clock tile: the time, large");
+    expect(date && std::get<Text>(date->item).value == "Sat 11 Oct", "and the date under it");
+    expect(sceneDeadline(withClock) == Ms{ 45000 }, "Home re-lays out at the minute while the clock shows");
 
     // Countdown labels: time left without the "-".
     Timeline timer{ .duration = Ms{ 1500000 }, .anchoredAt = Ms{ 0 }, .playing = true };

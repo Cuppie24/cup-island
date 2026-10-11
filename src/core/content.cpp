@@ -34,4 +34,17 @@ std::string formatDuration(Ms duration)
     return buffer;
 }
 
+std::string formatClock(Ms timeOfDay, bool hour24)
+{
+    long long minutes = timeOfDay.count() / 60000;
+    long long hour = minutes / 60 % 24, minute = minutes % 60;
+    if (!hour24) hour = hour % 12 == 0 ? 12 : hour % 12;
+    return std::to_string(hour) + (minute < 10 ? ":0" : ":") + std::to_string(minute);
+}
+
+bool hasCard(const Content& c)
+{
+    return !c.expandedLeading.empty() || !c.expandedCenter.empty() || !c.expandedTrailing.empty() || !c.expandedBottom.empty();
+}
+
 } // namespace cup

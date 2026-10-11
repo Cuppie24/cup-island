@@ -247,7 +247,8 @@ void runContentTests()
     expect(strip.tabs[0].frame.width == t.tabMaxWidth || groupRight - groupLeft == opened.size.x - 2 * t.expandedPadding,
            "tabs use their full width unless they don't fit");
     expect(groupLeft - 0 == opened.size.x - groupRight, "the group is centred");
-    expect(groupLeft >= t.expandedPadding && strip.tabs[0].frame.y == t.expandedPadding, "strip keeps the card's padding");
+    expect(groupLeft >= t.expandedPadding && strip.tabs[0].frame.y + t.tabHeight == opened.size.y - t.expandedPadding,
+           "strip along the bottom, keeping the card's padding");
     expect(strip.radius == std::min(pillCornerRadius(opened.size) - t.expandedPadding, t.tabHeight / 2), "tab corners nested");
 
     IslandState two;
@@ -273,7 +274,7 @@ void runContentTests()
                 expect(p.frame.x >= tab.frame.x && p.frame.x + p.frame.width <= tab.frame.x + tab.frame.width,
                        "tab content stays inside its tab: " + p.key);
     const Placed* body = find(opened, "expandedLeading/0/0");
-    expect(!body || body->frame.y >= strip.tabs[0].frame.y + t.tabHeight + t.slotGap, "card content sits below the strip");
+    expect(!body || body->frame.y + body->frame.height + t.slotGap <= strip.tabs[0].frame.y, "card content sits above the strip");
     // Icon and title centred in the tab as one group, the title as wide as the real text.
     MeasureText fixed = [](const Text&) { return 40.0f; };
     Scene measured = layout(reduce(three, PillClicked{}, Ms{ 0 }), Ms{ 0 }, fixed);
@@ -304,7 +305,12 @@ void runContentTests()
     expect(!tabAt(strip, { 1, 1 }), "outside the strip: no tab");
     Scene mediaCard = layout(reduce(reduce(three, PillClicked{}, Ms{ 0 }), ActivitySwitched{ "media" }, Ms{ 0 }), Ms{ 0 });
     const Placed* mediaArt = find(mediaCard, "expandedLeading/0/0");
-    expect(mediaArt && mediaArt->frame.y == t.expandedPadding + t.tabHeight + t.slotGap, "switched card's art sits below the strip");
+    expect(mediaArt && mediaArt->frame.y == t.expandedPadding, "switched card's art keeps its place at the top");
+    const Placed* bottomRow = nullptr;
+    for (const auto& p : mediaCard.elements)
+        if (p.key.rfind("expandedBottom/", 0) == 0) bottomRow = &p;
+    expect(!bottomRow || bottomRow->frame.y + bottomRow->frame.height + t.slotGap <= mediaCard.tabs->tabs[0].frame.y,
+           "the card's bottom slot ends above the strip");
     expect(mediaCard.tabs->tabs[0].id == "media" && mediaCard.tabs->active == 0, "switching doesn't reorder tabs");
 }
 

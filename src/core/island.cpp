@@ -223,12 +223,12 @@ void handle(IslandState& s, const TileClicked& e, Ms now)
     if (findActivity(s, e.id)) {
         handle(s, ActivityPromoted{ e.id }, now);
         expand(s, e.id, now);
-    } else if (findPanel(s, e.id)) {
-        expand(s, e.id, now);
+    } else if (const Panel* p = findPanel(s, e.id); p && hasCard(p->content)) {
+        expand(s, e.id, now); // static widgets (battery, Bluetooth) have no card
     }
 }
 
-void handle(IslandState& s, const ClockSynced& e, Ms now) { s.clock = WallClock{ e.timeOfDay - now, e.hour24 }; }
+void handle(IslandState& s, const ClockSynced& e, Ms now) { s.clock = WallClock{ e.timeOfDay - now, e.hour24, e.date }; }
 
 } // namespace
 
@@ -262,6 +262,8 @@ std::optional<Ms> timeOfDay(const IslandState& s, Ms now)
     if (!s.clock) return std::nullopt;
     return ((now + s.clock->offset) % kDay + kDay) % kDay;
 }
+
+Ms nextMinute(Ms timeOfDay, Ms now) { return now + (Ms{ 60000 } - timeOfDay % Ms{ 60000 }); }
 
 Mode restingMode(const IslandState& s)
 {

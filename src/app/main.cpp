@@ -3,8 +3,8 @@
 // The loop: input -> reduce() -> layout() -> renderer + interaction layer.
 // Tuning: edit assets/tokens.json while it runs; saving applies it live.
 //
-// The idle pill shows the time; clicking it opens Home (decision 009), where
-// the Pomodoro tile starts a focus session.
+// The idle pill shows the time; clicking it opens Home (decision 009): the
+// clock, battery and Bluetooth widgets, and the Pomodoro tile.
 //
 // Demo keys (click the pill first so it has keyboard focus):
 //   M  toggle the demo music player (real media shows by itself)
@@ -20,6 +20,7 @@
 #include "core/tabs.h"
 #include "core/tokens.h"
 #include "platform/file_watcher.h"
+#include "platform/wall_clock.h"
 #include "platform/fullscreen_watcher.h"
 #include "platform/interaction_layer.h"
 #include "platform/pill_renderer.h"
@@ -27,13 +28,15 @@
 #include "providers/demo/demo_media_provider.h"
 #include "providers/media/smtc_media_provider.h"
 #include "providers/pomodoro/pomodoro_provider.h"
+#include "providers/system/battery_provider.h"
+#include "providers/system/bluetooth_provider.h"
 #include "providers/provider_registry.h"
 
 #include <chrono>
 #include <cstdio>
-#include <cwchar>
 #include <filesystem>
 #include <memory>
+#include <string>
 #include <utility>
 
 using namespace cup;
@@ -102,6 +105,7 @@ void updateHover()
     const Tab* tab = g_scene.tabs && g_pointer.at ? tabAt(*g_scene.tabs, *g_pointer.at) : nullptr;
     if (tab && tab == &g_scene.tabs->tabs[g_scene.tabs->active]) tab = nullptr;
     const Tile* tile = g_pointer.at && key.empty() ? tileAt(g_scene, *g_pointer.at) : nullptr;
+    if (tile && !tile->opens) tile = nullptr; // widgets without a card don't react
     if (tab) g_renderer.setAreaHovered(tab->frame, g_scene.tabs->radius);
     else if (tile) g_renderer.setAreaHovered(tile->frame, g_scene.tileRadius);
     else g_renderer.setAreaHovered(std::nullopt, 0);
@@ -137,18 +141,6 @@ void dispatch(const Event& event, const char* reason)
     auto deadline = earliest(nextDeadline(g_state), sceneDeadline(g_scene));
     if (g_providers) deadline = earliest(deadline, g_providers->nextWake());
     setTimer(TimerId::Deadline, deadline ? std::optional<Ms>(std::max(*deadline - t, Ms{ 0 })) : std::nullopt);
-}
-
-// The local time of day for core (which reads no clocks), and whether the
-// user's locale uses a 24-hour clock ("H" in its time format).
-ClockSynced readClock()
-{
-    SYSTEMTIME t{};
-    GetLocalTime(&t);
-    Ms timeOfDay{ ((t.wHour * 60LL + t.wMinute) * 60 + t.wSecond) * 1000 + t.wMilliseconds };
-    wchar_t format[80]{};
-    bool hour24 = GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_STIMEFORMAT, format, 80) == 0 || wcschr(format, L'H') != nullptr;
-    return { timeOfDay, hour24 };
 }
 
 void toggleProvider(const char* id)
@@ -190,7 +182,9 @@ void onPressDown(Vec2 canvasPoint)
     auto hit = hitTest(g_scene, point);
     const Placed* element = hit ? findElement(hit->key) : nullptr;
     if (const Tile* tile = element ? nullptr : tileAt(g_scene, point)) {
-        g_pointer.tilePress = tile->id; // opens its card on release, if still on the same tile
+        // Opens its card on release, if still on the same tile. A widget with no
+        // card takes the click too, so it doesn't fall through and close Home.
+        g_pointer.tilePress = tile->id;
         return;
     }
     if (element && std::holds_alternative<Progress>(element->item)) {
@@ -238,7 +232,7 @@ void onPressRelease(Vec2 canvasPoint, Release how)
     if (g_pointer.tilePress) {
         std::string id = *std::exchange(g_pointer.tilePress, std::nullopt);
         const Tile* tile = how == Release::Inside && onPill(canvasPoint) ? tileAt(g_scene, toPill(canvasPoint)) : nullptr;
-        if (tile && tile->id == id) dispatch(TileClicked{ id }, "tile");
+        if (tile && tile->id == id && tile->opens) dispatch(TileClicked{ id }, "tile");
         return;
     }
     if (g_pointer.bubblePress) {
@@ -302,7 +296,7 @@ void onTimer(TimerId id)
         g_providers->wakeDue(now());
         // Re-read the wall clock every time: it also does Tick's work, and a
         // clock or time-zone change shows within a minute (decision 009).
-        dispatch(readClock(), "timer");
+        dispatch(readWallClock(), "timer");
     } else if (id == TimerId::TokensReload) {
         if (app::loadTokens(g_tokensFile, /* startup */ false)) {
             g_renderer.refreshAnimations();
@@ -362,10 +356,15 @@ int main()
     g_providers = std::make_unique<ProviderRegistry>(dispatch, now);
     g_providers->add(std::make_unique<SmtcMediaProvider>(postToUi));
     g_providers->add(std::make_unique<DemoMediaProvider>()); // M key
+    // Home's tiles follow the order panels first appear: widgets, then Pomodoro.
+    g_providers->add(std::make_unique<BatteryProvider>(postToUi));
+    g_providers->add(std::make_unique<BluetoothProvider>(postToUi));
     g_providers->add(std::make_unique<PomodoroProvider>());
     g_providers->start("media");
+    g_providers->start("system.battery");
+    g_providers->start("system.bluetooth");
     g_providers->start("pomodoro");
-    dispatch(readClock(), "clock");
+    dispatch(readWallClock(), "clock");
 
     // TR §9.2: hide over borderless/exclusive fullscreen apps on this monitor.
     watchFullscreen(render.hwnd, [](bool fullscreen) { dispatch(HiddenChanged{ fullscreen }, "fullscreen"); });

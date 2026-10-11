@@ -34,24 +34,26 @@ struct BubbleScene {
 };
 
 // Expanded with several activities, or activities and panels: a tab per
-// activity along the top of the card (decision 007), after a Home tab when
-// there are panels (decision 009). Clicking a tab switches to it
-// (ActivitySwitched, or HomeOpened for Home).
+// activity along the bottom of the card (decision 007), and a square Home
+// button apart at the left when there are panels (decision 009). Clicking a
+// tab switches to it (ActivitySwitched, or HomeOpened for Home).
 struct Tab {
     Rect frame;     // pill coordinates: the whole tab is clickable
     std::string id; // the activity's id; empty = Home
 };
 
 struct TabStrip {
-    std::vector<Tab> tabs;  // Home, then activities in start order: stable, so a click doesn't reorder them
+    std::vector<Tab> tabs;  // Home's button, then activities in start order: stable, so a click doesn't reorder them
     std::size_t active = 0; // the tab of the activity shown
     float radius = 0;       // tab highlight corners, nested in the card's
 };
 
-// A panel's tile on Home (decision 009). A click on it, off its buttons, opens its card (TileClicked).
+// A tile on Home (decision 009): a panel's, or the clock. A click on it, off
+// its buttons, opens its card (TileClicked) if it has one.
 struct Tile {
     Rect frame;     // pill coordinates; the renderer draws a faint background here
-    std::string id; // the panel's (and its activity's) id
+    std::string id; // the panel's (and its activity's) id; empty for the clock
+    bool opens = false; // has a card: clickable, lights up under the pointer
 };
 
 struct Scene {

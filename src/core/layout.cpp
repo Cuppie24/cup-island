@@ -54,7 +54,7 @@ float paddingFor(Mode mode)
 // Where each slot sits inside the pill (PS §5.1). Every slot keeps the mode's
 // padding from the pill's edges: with the nested corner radius that keeps
 // rounded content concentric with the pill's corners.
-std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c, float top)
+std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
 {
     const Tokens& t = tokens();
     float p = paddingFor(mode);
@@ -72,8 +72,7 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c, float 
                  { "alertCenter", &c.alertCenter, { centerX, p, size.x - centerX - p, side } } };
     }
     case Mode::Expanded: {
-        // `top`: room for the tab strip above, when there is one.
-        float art = t.expandedArtSize, y = p + top, centerX = p + art + t.slotGap, bottomY = y + art + t.slotGap;
+        float art = t.expandedArtSize, y = p, centerX = p + art + t.slotGap, bottomY = y + art + t.slotGap;
         float corner = t.buttonSize, cornerX = size.x - p - corner;
         float centerRight = c.expandedTrailing.empty() ? size.x - p : cornerX - t.slotGap;
         return { { "expandedLeading", &c.expandedLeading, { p, y, art, art } },
@@ -112,15 +111,6 @@ BubbleScene bubbleFor(const IslandState& s, Ms now)
 // Without the real font: an average glyph is about half the font size wide.
 float estimateTextWidth(const Text& text) { return std::ceil(static_cast<float>(text.value.size()) * fontSize(text.style) * 0.5f); }
 
-// "14:05", or "2:05" on a 12-hour clock: no AM/PM, it's a glance (decision 009).
-std::string formatClock(Ms timeOfDay, bool hour24)
-{
-    long long minutes = timeOfDay.count() / 60000;
-    long long hour = minutes / 60 % 24, minute = minutes % 60;
-    if (!hour24) hour = hour % 12 == 0 ? 12 : hour % 12;
-    return std::to_string(hour) + (minute < 10 ? ":0" : ":") + std::to_string(minute);
-}
-
 // Idle: the local time, centred in the pill, once the platform has synced the clock.
 void placeClock(const IslandState& s, Scene& scene, const MeasureText& measure)
 {
@@ -130,7 +120,7 @@ void placeClock(const IslandState& s, Scene& scene, const MeasureText& measure)
     float width = std::min(measure(text) + 1, scene.size.x); // +1: rounding never trips the "…"
     Rect frame{ (scene.size.x - width) / 2, 0, width, scene.size.y };
     scene.elements.push_back({ .key = "clock", .item = text, .frame = frame, .hitFrame = frame });
-    scene.clockTick = scene.now + (Ms{ 60000 } - *time % Ms{ 60000 });
+    scene.clockTick = nextMinute(*time, scene.now);
 }
 
 } // namespace
@@ -155,18 +145,21 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     MeasureText measureText = measure ? measure : MeasureText{ estimateTextWidth };
     if (scene.mode == Mode::Idle) placeClock(state, scene, measureText);
 
+    // The card's content keeps Expanded's size; the tab strip, if any, adds room below it (decision 009).
+    Vec2 contentSize{ scene.size.x, scene.size.y - tabSpace };
     float nestedRadius = std::max(0.0f, pillCornerRadius(scene.size) - paddingFor(scene.mode));
     if (scene.mode == Mode::Expanded && state.homeOpen) {
         scene.label = "Home";
         scene.tileRadius = std::min(nestedRadius, tokens().tileHeight / 2);
-        scene.tiles = homeTilesFor(state, scene.size, tabSpace, scene.tileRadius, now, scene.elements);
+        scene.tiles = homeTilesFor(state, contentSize, scene.tileRadius, now, scene.elements);
+        if (auto time = timeOfDay(state, now)) scene.clockTick = nextMinute(*time, now); // the clock tile
     }
 
     Source source = sourceFor(state, scene.mode);
     if (source.content) {
         scene.label = source.content->label;
         scene.activityId = source.activityId;
-        for (const SlotFrame& slot : slotFrames(scene.mode, scene.size, *source.content, tabSpace))
+        for (const SlotFrame& slot : slotFrames(scene.mode, contentSize, *source.content))
             placeSlot(slot, source, nestedRadius, now, scene.elements);
     }
     scene.tabs = tabStripFor(state, scene.size, nestedRadius, measureText, scene.elements);

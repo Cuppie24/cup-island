@@ -7,10 +7,14 @@
 namespace cup {
 namespace {
 
-// Home (with panels) plus one per activity; a strip of one tab says nothing.
-std::size_t tabCount(const IslandState& s) { return s.activities.size() + (s.panels.empty() ? 0 : 1); }
-
-bool hasTabs(const IslandState& s) { return mode(s) == Mode::Expanded && tabCount(s) > 1; }
+// Somewhere else to go: another activity, or Home (with panels) from any card.
+bool hasTabs(const IslandState& s)
+{
+    if (mode(s) != Mode::Expanded) return false;
+    bool home = !s.panels.empty();
+    bool dormantCard = !s.homeOpen && !findActivity(s, s.expandedId);
+    return s.activities.size() + (home ? 1 : 0) > 1 || (home && dormantCard);
+}
 
 const Item* firstItem(const Slot& slot)
 {
@@ -34,6 +38,7 @@ struct TabFace {
     std::string providerId;
     const Item* lead = nullptr;
     Text title;
+    bool iconOnly = false; // Home: the lead, centred, no title
 };
 
 TabFace faceOf(const Activity& a)
@@ -61,6 +66,11 @@ void placeTab(const TabFace& face, Rect tab, float radius, const MeasureText& me
 
     const Item* lead = face.lead;
     const Text& title = face.title;
+    if (face.iconOnly && lead) {
+        float g = std::min(t.iconSize, side);
+        place("lead", *lead, { tab.x + (tab.width - g) / 2, tab.y + (tab.height - g) / 2, g, g });
+        return;
+    }
     float leadWidth = lead ? side + gap : 0;
     float room = std::max(0.0f, tab.width - 2 * t.itemSpacing - leadWidth); // side margins = item spacing
     float titleWidth = std::min(measure(title) + 1, room); // +1: rounding never trips the "…"
@@ -94,25 +104,32 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     std::vector<const Activity*> started;
     for (const Activity& a : s.activities) started.push_back(&a);
     std::sort(started.begin(), started.end(), [](const Activity* a, const Activity* b) { return a->startOrder < b->startOrder; });
-    std::vector<TabFace> order;
-    if (!s.panels.empty()) order.push_back({ "", "", &kHomeIcon, Text{ "Home", TextStyle::Body } }); // decision 009
-    for (const Activity* a : started) order.push_back(faceOf(*a));
-
-    // Every tab at its full width, the group centred; narrower only when they don't fit.
-    float p = t.expandedPadding, available = cardSize.x - 2 * p, n = static_cast<float>(order.size());
-    float width = std::min(t.tabMaxWidth, (available - (n - 1) * t.tabGap) / n);
-    float left = (cardSize.x - (n * width + (n - 1) * t.tabGap)) / 2;
-
+    // Along the bottom, under the card's content (decision 009).
+    float p = t.expandedPadding, y = cardSize.y - p - t.tabHeight;
     TabStrip strip;
     strip.radius = std::min(nestedRadius, t.tabHeight / 2);
-    // Home's tab stays selected for a dormant panel's card: it's part of Home.
+    // Home's button stays selected for a dormant panel's card: it's part of Home.
     std::string shown = findActivity(s, s.expandedId) ? s.expandedId : "";
-    for (std::size_t i = 0; i < order.size(); ++i) {
-        Rect frame{ left + static_cast<float>(i) * (width + t.tabGap), p, width, t.tabHeight };
-        if (order[i].id == shown) strip.active = i;
-        strip.tabs.push_back({ frame, order[i].id });
-        placeTab(order[i], frame, strip.radius, measure, elements);
+    auto add = [&](const TabFace& face, Rect frame) {
+        if (face.id == shown) strip.active = strip.tabs.size();
+        strip.tabs.push_back({ frame, face.id });
+        placeTab(face, frame, strip.radius, measure, elements);
+    };
+
+    // Home: a square icon button on its own at the left edge. The same room is
+    // kept free on the right, so the activity tabs stay centred on the card.
+    float reserved = 0;
+    if (!s.panels.empty()) {
+        add({ "", "", &kHomeIcon, Text{}, true }, { p, y, t.tabHeight, t.tabHeight });
+        reserved = t.tabHeight + t.slotGap;
     }
+
+    // Every tab at its full width, the group centred; narrower only when they don't fit.
+    float available = cardSize.x - 2 * p - 2 * reserved, n = static_cast<float>(started.size());
+    float width = std::min(t.tabMaxWidth, (available - (n - 1) * t.tabGap) / n);
+    float left = (cardSize.x - (n * width + (n - 1) * t.tabGap)) / 2;
+    for (std::size_t i = 0; i < started.size() && n > 0; ++i)
+        add(faceOf(*started[i]), { left + static_cast<float>(i) * (width + t.tabGap), y, width, t.tabHeight });
     return strip;
 }
 

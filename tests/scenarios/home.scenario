@@ -38,6 +38,11 @@ panel focus
 click
 tile focus                          -> Expanded expanded=focus
 
+scenario: a static widget's tile opens nothing
+panel battery static
+click
+tile battery                        -> Expanded expanded=home
+
 scenario: starting from the card shows the live card, stopping shows the dormant one
 panel focus
 click

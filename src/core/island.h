@@ -42,6 +42,7 @@ struct Panel {
     Content content;        // `tile` for Home, `expanded*` for its card
     bool wide = false;      // two Home columns instead of one
     std::string providerId; // set by the host
+    bool operator==(const Panel&) const = default;
 };
 
 struct Alert {
@@ -77,7 +78,12 @@ struct PanelPublished { Panel panel; }; // existing id = replace, keeping its pl
 struct PanelRemoved { std::string id; };
 struct HomeOpened {};                   // Home tab (decision 009)
 struct TileClicked { std::string id; }; // a Home tile, not on a button: open its card
-struct ClockSynced { Ms timeOfDay; bool hour24 = true; }; // local wall time at `now`, from the platform (idle clock)
+// Local wall time at `now`, from the platform (idle clock, Home's clock tile).
+struct ClockSynced {
+    Ms timeOfDay;
+    bool hour24 = true;
+    std::string date; // today, formatted for the user's locale ("Sat 11 Oct")
+};
 
 using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, AlertPosted,
                            PillClicked, ClickedOutside, EscapePressed, PointerMoved,
@@ -90,6 +96,7 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
 struct WallClock {
     Ms offset{};        // local time of day = now + offset (mod 24 h)
     bool hour24 = true;
+    std::string date;   // as of the last sync; the app re-syncs at least every minute while it shows
 };
 
 struct IslandState {
@@ -127,6 +134,9 @@ const Panel* findPanel(const IslandState& state, const std::string& id);
 
 // Local time of day at `now`, once the platform has synced the clock.
 std::optional<Ms> timeOfDay(const IslandState& state, Ms now);
+
+// When a clock showing `timeOfDay` (at `now`) must change next: the next minute.
+Ms nextMinute(Ms timeOfDay, Ms now);
 
 // When reduce(Tick) must run next, or nothing if the island is static.
 std::optional<Ms> nextDeadline(const IslandState& state);

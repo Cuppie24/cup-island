@@ -9,7 +9,7 @@
 //            click  outside  esc  pointer  drag-enter  drag-rejected
 //            drag-leave  drop  hide  show  wait <ms>
 //            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel
-//            panel <id>  unpanel <id>  home  tile <id>
+//            panel <id> [static]  unpanel <id>  home  tile <id>     (static: a widget with no card)
 // Checks after "->":  <Mode>  queue=<n>  top=<activity>  bubble=<activity>  alert=<name>
 //                     expanded=<activity|panel|home>  pinned=<activity>  dragging=yes|no  preview=yes|no
 // Levels: passive active timeSensitive critical.  '#' starts a comment.
@@ -116,7 +116,11 @@ struct Runner {
         else if (cmd == "drag") apply(BubbleDragged{ { std::stof(arg(1)), std::stof(arg(2)) } });
         else if (cmd == "release") apply(BubbleReleased{});
         else if (cmd == "cancel") apply(BubbleDragCancelled{});
-        else if (cmd == "panel") apply(PanelPublished{ { .id = arg(1), .content = { .label = arg(1) } } });
+        else if (cmd == "panel") {
+            Panel p{ .id = arg(1), .content = { .label = arg(1) } };
+            if (arg(2) != "static") p.content.expandedCenter = { row({ Text{ arg(1) } }) };
+            apply(PanelPublished{ p });
+        }
         else if (cmd == "unpanel") apply(PanelRemoved{ arg(1) });
         else if (cmd == "home") apply(HomeOpened{});
         else if (cmd == "tile") apply(TileClicked{ arg(1) });

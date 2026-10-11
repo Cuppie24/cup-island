@@ -14,7 +14,8 @@ second activity, and sometimes to make it the main one.
   fast gesture), and a tab in Expanded (the visible one, since a
   drag is undiscoverable).
 - **Expanded tabs:** with several activities, a strip of tabs runs along
-  the top of the Expanded card, one per activity (the shown one included),
+  the top of the Expanded card (moved to the bottom, with a Home button
+  apart, by decision 009), one per activity (the shown one included),
   and the card grows by the strip's height. Each tab: the compact leading
   item (icon or art) and a title (the compact centre text, else the
   activity's name; ends in "…", no swimming: a row of moving titles is

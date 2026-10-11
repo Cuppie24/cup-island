@@ -37,6 +37,7 @@ add_library(cup_providers STATIC
     src/providers/media/media_presenter.cpp
     src/providers/media/now_playing.cpp
     src/providers/pomodoro/pomodoro_provider.cpp
+    src/providers/system/system_panels.cpp
     src/providers/provider_registry.cpp
 )
 target_link_libraries(cup_providers PUBLIC cup_core)
@@ -54,6 +55,7 @@ if(CUP_BUILD_TESTS)
         tests/provider_tests.cpp
         tests/unit_tests.cpp
         tests/scenario_runner.cpp
+        tests/system_tests.cpp
         tests/tokens_tests.cpp
     )
     target_link_libraries(cup_tests PRIVATE cup_providers)
@@ -79,8 +81,11 @@ if(WIN32)
         src/platform/liquid_bridge.cpp
         src/platform/pill_renderer.cpp
         src/platform/render_layer.cpp
+        src/platform/wall_clock.cpp
         src/providers/media/smtc_media_provider.cpp
         src/providers/media/smtc_reading.cpp
+        src/providers/system/battery_provider.cpp
+        src/providers/system/bluetooth_provider.cpp
     )
     target_link_libraries(CupIsland PRIVATE cup_providers WindowsApp CoreMessaging User32 dcomp d3d11 d2d1 dwrite dxgi dwmapi shell32)
     # Dev builds read and live-reload the source tree's tokens.json directly.

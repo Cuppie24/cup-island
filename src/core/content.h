@@ -16,7 +16,8 @@ namespace cup {
 using Ms = std::chrono::milliseconds;
 
 // Built-in icons; the renderer maps them to font glyphs.
-enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home };
+enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
+                   Battery, Charging, Bluetooth };
 
 enum class TextStyle { Title, Body, Caption, Digits };
 
@@ -110,5 +111,11 @@ struct Content {
 
 // "1:23", or "1:02:03" past an hour.
 std::string formatDuration(Ms duration);
+
+// Time of day: "14:05", or "2:05" on a 12-hour clock (no AM/PM: a glance, decision 009).
+std::string formatClock(Ms timeOfDay, bool hour24);
+
+// Any expanded slot filled: there's a card to open (a static Home widget may have none).
+bool hasCard(const Content& content);
 
 } // namespace cup

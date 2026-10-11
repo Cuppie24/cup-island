@@ -41,7 +41,8 @@ src/platform/   Win32 + C++/WinRT + Composition: render/interaction layers, pill
                 pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
                 per content item), graphics_device (D2D/DirectWrite)
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
-                MediaPresenter rules, SMTC provider for real Windows media), pomodoro/ (the first panel)
+                MediaPresenter rules, SMTC provider for real Windows media), pomodoro/ (the first panel),
+                system/ (Home's battery and Bluetooth widgets)
 src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload
 assets/         tokens.json: the live-tunable sizes, timings and curves
 tests/          unit tests + scenarios/*.scenario (state rules in plain text)
@@ -142,7 +143,8 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
   format is documented at the top of `tests/scenario_runner.cpp`.
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing),
   `home_tests.cpp` (tiles, Home tab, idle clock), `tokens_tests.cpp`,
-  `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop).**
+  `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop),
+  `system_tests.cpp` (battery and Bluetooth presenters).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
 
@@ -164,5 +166,6 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 | Activity expiry (`expiresAt`) | done, tested |
 | Rate limits, stale activities (PS §4, §6.3) | not yet |
 | Live-tunable tokens (`assets/tokens.json`, reload on save) | done; parser tested |
-| Panels, Home tab and tile grid, idle clock, provider wake-ups (decision 009) | done; rules tested, visuals need Windows |
+| Panels, Home (tile grid, clock tile, Home button), tabs at the bottom, idle clock, provider wake-ups (decision 009) | done; rules tested, visuals need Windows |
+| Battery and Bluetooth widgets | presenters tested; WinRT readers need Windows |
 | Pomodoro (first panel): focus rounds, breaks, pause/skip/stop | done, tested |
