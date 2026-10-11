@@ -116,6 +116,9 @@ example: thin WinRT reading, with every decision in a pure presenter (decision 0
   `std::optional`. Use a class only when it owns platform handles
   (`PillRenderer`). The only interfaces are `Provider` and `Host`.
 - **No template tricks, no macros, no custom smart pointers.**
+- **No names `windows.h` defines as macros** (`small`, `near`, `far`,
+  `hyper`, `interface`, `IN`, `OUT`, `OPTIONAL`…), even in core: core is
+  included after it on Windows, and Linux builds won't catch it.
 - **`winrt::` / Win32 types stay in `platform/` and `app/`.** Providers
   translate at the edge.
 - **One concept per file, ~300 lines max.** Headers are the table of contents:

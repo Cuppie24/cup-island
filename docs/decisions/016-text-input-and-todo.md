@@ -26,7 +26,7 @@ can't draw (PS §5.3), and nothing typed reached the island.
 - **Caret:** a still bar after the text, no blinking: nothing runs between
   keys (TR §8). A text longer than the field shows its end.
 - **Buttons grow two options:** `label` (a text button, as wide as its
-  label: "Clear all") and `small` (`smallButtonSize`, for list rows: a
+  label: "Clear all") and `compact` (`smallButtonSize`, for list rows: a
   to-do's checkbox, the paste button). `Text::struck` strikes a solved one.
 - **Centred cards grow to fit** their rows, from Expanded's size up to the
   canvas (now 420×400). The provider caps its list (`todoVisibleItems`,

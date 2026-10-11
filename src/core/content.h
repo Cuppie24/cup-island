@@ -71,7 +71,7 @@ struct Button {
     bool enabled = true;
     std::optional<bool> on; // toggles only (shuffle, repeat): lit with a dot when on, dimmed when off
     std::string label;      // a text button ("Clear all") instead of the glyph; as wide as its text
-    bool small = false;     // smallButtonSize: list rows (a to-do's checkbox), not main controls
+    bool compact = false;   // smallButtonSize: list rows (a to-do's checkbox), not main controls. Not "small": windows.h #defines it
     bool operator==(const Button&) const = default;
 };
 

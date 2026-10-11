@@ -25,7 +25,7 @@ float heightOf(const Item& item, Rect slot, float ringSide)
     if (std::holds_alternative<Image>(item)) return std::min(slot.width, slot.height);
     if (isRing(item)) return ringSide;
     if (std::holds_alternative<Steps>(item)) return t.stepDotSize;
-    if (auto* button = std::get_if<Button>(&item)) return button->small ? t.smallButtonSize : t.buttonSize;
+    if (auto* button = std::get_if<Button>(&item)) return button->compact ? t.smallButtonSize : t.buttonSize;
     if (std::holds_alternative<TextInput>(item)) return t.smallButtonSize;
     // Seekable bars get a taller row to be easy to click; a bar nobody clicks is just its line.
     if (auto* bar = std::get_if<Progress>(&item)) return bar->seekable ? t.progressHitHeight : t.progressHeight;
@@ -54,7 +54,7 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
         return std::max(0.0f, n * t.stepDotSize + (n - 1) * t.stepDotGap);
     }
     if (auto* button = std::get_if<Button>(&item)) {
-        if (button->label.empty()) return button->small ? t.smallButtonSize : t.buttonSize;
+        if (button->label.empty()) return button->compact ? t.smallButtonSize : t.buttonSize;
         Text text{ button->label, TextStyle::Body };
         return (measure ? measure(text) : estimateTextWidth(text)) + 2 * t.buttonLabelPadding;
     }

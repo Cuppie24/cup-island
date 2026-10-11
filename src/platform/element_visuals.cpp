@@ -167,7 +167,7 @@ void ElementVisuals::paint(View& view)
             bool toggledOff = button->on && !*button->on;
             Color color = !button->enabled ? t.buttonDisabledColor : toggledOff ? t.buttonOffColor : t.buttonColor;
             if (!button->label.empty()) paintLabel(dc, dw, button->label, size, color);
-            else paintGlyph(dc, dw, button->glyph, button->small ? t.iconSize : t.buttonGlyphSize, size, color);
+            else paintGlyph(dc, dw, button->glyph, button->compact ? t.iconSize : t.buttonGlyphSize, size, color);
             if (button->on && *button->on) paintToggleDot(dc, size, t.buttonGlyphSize);
         } else if (auto* image = std::get_if<Image>(&item)) {
             paintImage(dc, image->data.get(), size, view.placed.cornerRadius);

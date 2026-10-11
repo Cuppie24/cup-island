@@ -52,7 +52,7 @@ struct Tokens {
     float displayFontSize = 34; // TextStyle::Display: a timer as the card's centre
     float iconSize = 18;
     float buttonSize = 36;
-    float smallButtonSize = 24;   // Button::small, and a TextInput's height: list rows
+    float smallButtonSize = 24;   // Button::compact, and a TextInput's height: list rows
     float buttonLabelPadding = 10; // a text button: its label plus this on each side        // hover circle; the click area also takes in half the gaps around it
     float buttonGlyphSize = 16;
     float buttonPressScale = 0.85f;

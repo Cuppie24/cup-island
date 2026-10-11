@@ -99,12 +99,12 @@ void appendTodoRows(Slot& slot, const TodoList& list)
 {
     const auto& items = list.items();
     slot.push_back(Row{ .items = { TextInput{ .actionId = act::kAdd, .placeholder = "Add a to-do…" } },
-                        .trailing = { Button{ .glyph = Glyph::Paste, .actionId = act::kPaste, .small = true } } });
+                        .trailing = { Button{ .glyph = Glyph::Paste, .actionId = act::kPaste, .compact = true } } });
 
     std::size_t shown = std::min(items.size(), tokens().todoVisibleItems);
     for (std::size_t i = 0; i < shown; ++i) {
         const Todo& t = items[i];
-        Button box{ .glyph = t.done ? Glyph::Checked : Glyph::Unchecked, .actionId = act::kToggle + std::to_string(t.id), .small = true };
+        Button box{ .glyph = t.done ? Glyph::Checked : Glyph::Unchecked, .actionId = act::kToggle + std::to_string(t.id), .compact = true };
         Text text{ .value = t.text, .style = t.done ? TextStyle::Caption : TextStyle::Body, .struck = t.done };
         slot.push_back(row({ box, text }));
     }
@@ -113,8 +113,8 @@ void appendTodoRows(Slot& slot, const TodoList& list)
 
     if (items.empty()) return;
     bool anyDone = std::any_of(items.begin(), items.end(), [](const Todo& t) { return t.done; });
-    slot.push_back(Row{ .items = { Button{ .actionId = act::kClearDone, .enabled = anyDone, .label = "Clear solved", .small = true },
-                                   Button{ .actionId = act::kClearAll, .label = "Clear all", .small = true } },
+    slot.push_back(Row{ .items = { Button{ .actionId = act::kClearDone, .enabled = anyDone, .label = "Clear solved", .compact = true },
+                                   Button{ .actionId = act::kClearAll, .label = "Clear all", .compact = true } },
                         .align = Align::Center });
 }
 
