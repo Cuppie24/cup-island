@@ -27,6 +27,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <memory>
+#include <utility>
 
 using namespace cup;
 using namespace cup::platform;
@@ -40,7 +41,15 @@ PillRenderer g_renderer;
 HWND g_inputHwnd{};
 std::filesystem::path g_tokensFile;
 std::unique_ptr<ProviderRegistry> g_providers;
-std::string g_pressedKey; // element under the mouse-down, if it was a button
+
+// The pointer over the pill. Feedback is the renderer's; what a click means is
+// core's (hitTest). Content reacts to hover, the pill never does (decision 002).
+struct Pointer {
+    std::optional<Vec2> at;      // over the pill, pill coordinates
+    std::string pressedKey;      // the button under the mouse-down
+    std::optional<Placed> scrub; // the progress bar being dragged
+    float scrubFraction = 0;
+} g_pointer;
 
 Ms now()
 {
@@ -52,6 +61,25 @@ bool hasActivity(const std::string& id)
     for (const auto& a : g_state.activities)
         if (a.id == id) return true;
     return false;
+}
+
+const Placed* findElement(const std::string& key)
+{
+    for (const auto& p : g_scene.elements)
+        if (p.key == key) return &p;
+    return nullptr;
+}
+
+// Re-run on every pointer move and every new scene: content can move under a still pointer.
+void updateHover()
+{
+    std::string key;
+    if (g_pointer.scrub) {
+        key = g_pointer.scrub->key; // stays lit while dragged, even off the bar
+    } else if (g_pointer.at) {
+        if (auto hit = hitTest(g_scene, *g_pointer.at)) key = hit->key;
+    }
+    g_renderer.setHovered(key);
 }
 
 std::optional<Ms> earliest(std::optional<Ms> a, std::optional<Ms> b)
@@ -73,6 +101,7 @@ void dispatch(const Event& event, const char* reason)
     }
     if (g_renderer.apply(next)) followMorph(next.size, next.offset);
     g_scene = next;
+    updateHover();
 
     // One timer for everything time-based: core deadlines and ticking labels.
     auto deadline = earliest(nextDeadline(g_state), sceneDeadline(g_scene));
@@ -98,29 +127,60 @@ void toggleTimer()
     dispatch(ActivityStarted{ { .id = id, .content = content } }, "demo key");
 }
 
-// Mouse-down: a button gets its own press feedback, anything else squashes the pill.
+// Mouse-down: a progress bar starts scrubbing, a button gets its own press
+// feedback, anything else squashes the pill.
 void onPressDown(Vec2 point)
 {
+    g_pointer.at = point;
     auto hit = hitTest(g_scene, point);
-    g_pressedKey = hit ? hit->key : "";
-    if (hit) g_renderer.pressElement(g_pressedKey);
-    else g_renderer.pressDown();
-}
-
-void onPressRelease()
-{
-    if (!g_pressedKey.empty()) g_renderer.releaseElement(g_pressedKey);
-    else g_renderer.pressRelease();
-}
-
-void onClick(Vec2 point)
-{
-    if (auto hit = hitTest(g_scene, point)) {
-        g_providers->route(hit->action);
-        dispatch(PointerMoved{}, "action"); // the user is busy here: keep Expanded open
+    const Placed* element = hit ? findElement(hit->key) : nullptr;
+    if (element && std::holds_alternative<Progress>(element->item)) {
+        g_pointer.scrub = *element;
+        g_pointer.scrubFraction = hit->action.value;
+        g_renderer.scrubElement(hit->key, g_pointer.scrubFraction);
+    } else if (element) {
+        g_pointer.pressedKey = hit->key;
+        g_renderer.pressElement(hit->key);
     } else {
-        dispatch(PillClicked{}, "click");
+        g_renderer.pressDown();
     }
+    updateHover();
+}
+
+void onPointerMoved(Vec2 point, bool overPill)
+{
+    g_pointer.at = overPill ? std::optional<Vec2>(point) : std::nullopt;
+    if (g_pointer.scrub) {
+        g_pointer.scrubFraction = seekFraction(*g_pointer.scrub, point.x);
+        g_renderer.scrubElement(g_pointer.scrub->key, g_pointer.scrubFraction);
+    }
+    dispatch(PointerMoved{}, "pointer"); // keeps Expanded open while in use; refreshes hover
+}
+
+void onPressRelease(Vec2 point, Release how)
+{
+    if (g_pointer.scrub) {
+        // A scrub seeks wherever it's let go, even off the pill; only a lost capture cancels it.
+        Placed bar = *std::exchange(g_pointer.scrub, std::nullopt);
+        bool commit = how != Release::Cancelled;
+        g_renderer.endScrub(bar.key, commit ? std::optional<float>(g_pointer.scrubFraction) : std::nullopt, now());
+        if (commit) g_providers->route({ bar.providerId, bar.activityId, "seek", g_pointer.scrubFraction });
+        dispatch(PointerMoved{}, "seek");
+        return;
+    }
+    if (!g_pointer.pressedKey.empty()) {
+        std::string key = std::exchange(g_pointer.pressedKey, std::string{});
+        g_renderer.releaseElement(key);
+        // Only a release on the same button counts: sliding off cancels, like any button.
+        auto hit = how == Release::OnPill ? hitTest(g_scene, point) : std::nullopt;
+        if (hit && hit->key == key) {
+            g_providers->route(hit->action);
+            dispatch(PointerMoved{}, "action"); // the user is busy here: keep Expanded open
+        }
+        return;
+    }
+    g_renderer.pressRelease();
+    if (how == Release::OnPill && !hitTest(g_scene, point)) dispatch(PillClicked{}, "click");
 }
 
 void onKey(WPARAM key)
@@ -186,9 +246,12 @@ int main()
     InteractionCallbacks callbacks;
     callbacks.onPressDown = onPressDown;
     callbacks.onPressRelease = onPressRelease;
-    callbacks.onClick = onClick;
     callbacks.onClickOutside = [] { dispatch(ClickedOutside{}, "click outside"); };
-    callbacks.onPointerMoved = [] { dispatch(PointerMoved{}, "pointer"); };
+    callbacks.onPointerMoved = onPointerMoved;
+    callbacks.onPointerLeft = [] {
+        g_pointer.at.reset();
+        updateHover();
+    };
     callbacks.onKeyDown = onKey;
     callbacks.onTimer = onTimer;
 

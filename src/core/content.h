@@ -46,6 +46,7 @@ struct Text {
     std::string value;
     TextStyle style = TextStyle::Body;
     bool alignEnd = false; // right-aligned in its frame
+    bool marquee = false;  // too long: scrolls ("swims") in a loop instead of ending in "…"
     bool operator==(const Text&) const = default;
 };
 struct Image { std::shared_ptr<const ImageData> data; bool operator==(const Image&) const = default; };
@@ -58,7 +59,7 @@ struct Button {
 };
 struct Progress { Timeline timeline; bool seekable = false; bool operator==(const Progress&) const = default; };
 struct TimeLabel { Timeline timeline; bool remaining = false; bool operator==(const TimeLabel&) const = default; }; // "1:23" / "-2:05"
-struct Waveform { bool active = false; bool operator==(const Waveform&) const = default; };              // live "now playing" bars
+struct Waveform { bool active = false; bool operator==(const Waveform&) const = default; };              // "now playing" bars; still dots when inactive
 
 using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform>;
 
@@ -68,6 +69,7 @@ enum class Align { Start, Center, End };
 struct Row {
     std::vector<Item> items;
     Align align = Align::Start;
+    bool loose = false; // wider gaps between items (controls: easier to hit, harder to mis-hit)
     bool operator==(const Row&) const = default;
 };
 
@@ -80,6 +82,7 @@ using Slot = std::vector<Row>;
 struct Content {
     std::string label; // accessible name, also used in logs and tests
     Slot compactLeading;
+    Slot compactCenter;  // between the two compact squares, e.g. a swimming title
     Slot compactTrailing;
     Slot minimal;
     Slot alertLeading;

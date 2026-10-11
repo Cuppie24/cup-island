@@ -3,6 +3,7 @@
 #include "core/tokens.h"
 
 #include <algorithm>
+#include <cmath>
 #include <string>
 
 namespace cup::platform {
@@ -71,29 +72,70 @@ winrt::com_ptr<IDWriteTextFormat> format(IDWriteFactory* dw, const wchar_t* fami
     return f;
 }
 
-void drawString(ID2D1DeviceContext* dc, IDWriteTextFormat* f, const std::wstring& text, Vec2 size, float alpha)
+void drawString(ID2D1DeviceContext* dc, IDWriteTextFormat* f, const std::wstring& text, D2D1_RECT_F rect, float alpha)
 {
     winrt::com_ptr<ID2D1SolidColorBrush> brush;
     winrt::check_hresult(dc->CreateSolidColorBrush(D2D1::ColorF(1, 1, 1, alpha), brush.put()));
-    dc->DrawText(text.c_str(), static_cast<UINT32>(text.size()), f, D2D1::RectF(0, 0, size.x, size.y), brush.get(),
-                 D2D1_DRAW_TEXT_OPTIONS_CLIP);
+    dc->DrawText(text.c_str(), static_cast<UINT32>(text.size()), f, rect, brush.get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
+}
+
+void drawString(ID2D1DeviceContext* dc, IDWriteTextFormat* f, const std::wstring& text, Vec2 size, float alpha)
+{
+    drawString(dc, f, text, D2D1::RectF(0, 0, size.x, size.y), alpha);
+}
+
+struct TextLook {
+    float fontSize;
+    float alpha;
+    DWRITE_FONT_WEIGHT weight;
+};
+
+TextLook lookOf(TextStyle style)
+{
+    const Tokens& t = tokens();
+    switch (style) {
+    case TextStyle::Title: return { t.titleFontSize, 1.0f, DWRITE_FONT_WEIGHT_SEMI_BOLD };
+    case TextStyle::Body: break;
+    case TextStyle::Caption:
+    case TextStyle::Digits: return { t.captionFontSize, 0.55f, DWRITE_FONT_WEIGHT_NORMAL };
+    }
+    return { t.bodyFontSize, 0.7f, DWRITE_FONT_WEIGHT_NORMAL };
+}
+
+winrt::com_ptr<IDWriteTextFormat> formatOf(IDWriteFactory* dw, const Text& text)
+{
+    TextLook look = lookOf(text.style);
+    return format(dw, textFamily(dw), look.fontSize, look.weight,
+                  text.alignEnd ? DWRITE_TEXT_ALIGNMENT_TRAILING : DWRITE_TEXT_ALIGNMENT_LEADING);
 }
 
 } // namespace
 
 void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec2 size)
 {
-    const Tokens& t = tokens();
-    float fontSize = t.bodyFontSize, alpha = 0.7f;
-    DWRITE_FONT_WEIGHT weight = DWRITE_FONT_WEIGHT_NORMAL;
-    switch (text.style) {
-    case TextStyle::Title: fontSize = t.titleFontSize; alpha = 1.0f; weight = DWRITE_FONT_WEIGHT_SEMI_BOLD; break;
-    case TextStyle::Body: break;
-    case TextStyle::Caption:
-    case TextStyle::Digits: fontSize = t.captionFontSize; alpha = 0.55f; break;
-    }
-    auto f = format(dw, textFamily(dw), fontSize, weight, text.alignEnd ? DWRITE_TEXT_ALIGNMENT_TRAILING : DWRITE_TEXT_ALIGNMENT_LEADING);
-    drawString(dc, f.get(), widen(text.value), size, alpha);
+    drawString(dc, formatOf(dw, text).get(), widen(text.value), size, lookOf(text.style).alpha);
+}
+
+float measureText(IDWriteFactory* dw, const Text& text)
+{
+    std::wstring value = widen(text.value);
+    winrt::com_ptr<IDWriteTextLayout> layout;
+    winrt::check_hresult(dw->CreateTextLayout(value.c_str(), static_cast<UINT32>(value.size()), formatOf(dw, text).get(),
+                                              100000.0f, 1000.0f, layout.put()));
+    DWRITE_TEXT_METRICS metrics{};
+    winrt::check_hresult(layout->GetMetrics(&metrics));
+    return std::ceil(metrics.widthIncludingTrailingWhitespace);
+}
+
+void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, float width, float lead, float gap, float height)
+{
+    Text start = text;
+    start.alignEnd = false;
+    auto f = formatOf(dw, start);
+    std::wstring value = widen(text.value);
+    float alpha = lookOf(text.style).alpha;
+    // A pixel of slack, so rounding never trips the "…" trimming.
+    for (float x : { lead, lead + width + gap }) drawString(dc, f.get(), value, D2D1::RectF(x, 0, x + width + 1, height), alpha);
 }
 
 void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float fontSize, Vec2 size, float alpha)
