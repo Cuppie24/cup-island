@@ -1,4 +1,5 @@
 #include "app/live_tokens.h"
+#include "platform/log.h"
 
 #include "core/tokens_json.h"
 #include "platform/win.h"
@@ -15,8 +16,7 @@ std::string g_lastText; // skip the duplicate change notifications one save prod
 
 void log(const std::string& message)
 {
-    std::printf("[cup-island] %s\n", message.c_str());
-    std::fflush(stdout);
+    platform::logLine("%s", message.c_str());
 }
 
 void warnIfClipped(const Tokens& t)

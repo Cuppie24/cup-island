@@ -4,7 +4,7 @@
 // Tuning: edit assets/tokens.json while it runs; saving applies it live.
 //
 // The idle pill shows the time; clicking it opens Home (decision 009): the
-// clock, battery, theme and Bluetooth widgets, and the Pomodoro tile.
+// clock, battery, theme and Bluetooth widgets, the Pomodoro tile, and Copy logs.
 //
 // Demo keys (click the pill first so it has keyboard focus):
 //   M  toggle the demo music player (real media shows by itself)
@@ -12,6 +12,8 @@
 //      it onto the pill to make it the main one.
 //   C  post a critical alert               D  toggle a simulated accepted drag
 //   H  toggle hidden                       Esc collapse when expanded, otherwise quit
+// Quit any time from the tray icon's right-click menu. Everything is logged to
+// %LOCALAPPDATA%\CupIsland\logs (platform/log.h); Debug builds also show it in a console.
 
 #include "app/live_tokens.h"
 #include "core/hit_test.h"
@@ -22,22 +24,27 @@
 #include "platform/file_watcher.h"
 #include "platform/wall_clock.h"
 #include "platform/fullscreen_watcher.h"
+#include "platform/log.h"
 #include "platform/interaction_layer.h"
 #include "platform/pill_renderer.h"
 #include "platform/render_layer.h"
+#include "platform/stay_on_top.h"
+#include "platform/tray_icon.h"
+#include "platform/watchdog.h"
 #include "providers/demo/demo_media_provider.h"
 #include "providers/media/smtc_media_provider.h"
 #include "providers/pomodoro/pomodoro_provider.h"
 #include "providers/system/battery_provider.h"
 #include "providers/system/bluetooth_provider.h"
+#include "providers/system/logs_provider.h"
 #include "providers/system/theme_provider.h"
 #include "providers/provider_registry.h"
 
 #include <chrono>
-#include <cstdio>
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <thread>
 #include <utility>
 
 using namespace cup;
@@ -136,8 +143,7 @@ void dispatch(const Event& event, const char* reason)
     Scene next = layout(g_state, t, [](const Text& text) { return g_renderer.measure(text); });
 
     if (next.mode != g_scene.mode) {
-        std::printf("[cup-island] %s -> %s (%s) %s\n", toString(g_scene.mode), toString(next.mode), reason, next.label.c_str());
-        std::fflush(stdout);
+        logLine("%s -> %s (%s) %s", toString(g_scene.mode), toString(next.mode), reason, next.label.c_str());
     }
     g_renderer.apply(next);
     Rect bounds = interactiveBounds(next);
@@ -322,9 +328,11 @@ void onTimer(TimerId id)
 
 int main()
 {
-    std::printf("Cup Island prototype\n");
-    std::printf("Click the pill to expand/collapse. Keys: M T C D H, Esc to quit.\n\n");
-    std::fflush(stdout);
+    startLog();
+    watchForCrashes();
+    wchar_t exePath[MAX_PATH]{};
+    GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+    logLine("Cup Island starting: %ls (pid %lu)", exePath, GetCurrentProcessId());
 
     winrt::init_apartment(winrt::apartment_type::single_threaded);
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
@@ -336,7 +344,7 @@ int main()
     HINSTANCE instance = GetModuleHandleW(nullptr);
     RenderLayer render = createRenderLayer(instance, tokens().canvas);
     if (!render.hwnd) {
-        std::printf("Failed to create render window (0x%08lx)\n", GetLastError());
+        logLine("failed to create the render window (0x%08lx)", GetLastError());
         return 1;
     }
 
@@ -358,9 +366,14 @@ int main()
     Rect bounds = interactiveBounds(g_scene);
     g_inputHwnd = createInteractionLayer(instance, render.left, { bounds.width, bounds.height }, { bounds.x, bounds.y }, callbacks);
     if (!g_inputHwnd) {
-        std::printf("Failed to create interaction window (0x%08lx)\n", GetLastError());
+        logLine("failed to create the interaction window (0x%08lx)", GetLastError());
         return 1;
     }
+    createTrayIcon(instance, [] {
+        logLine("exit from the tray");
+        DestroyWindow(g_inputHwnd); // same as Esc
+    });
+    watchForHangs(g_inputHwnd);
 
     // WinRT events arrive on background threads; providers hop to this (UI) thread with it.
     auto uiQueue = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
@@ -374,11 +387,13 @@ int main()
     g_providers->add(std::make_unique<BluetoothProvider>(postToUi));
     g_providers->add(std::make_unique<ThemeProvider>(postToUi));
     g_providers->add(std::make_unique<PomodoroProvider>());
+    g_providers->add(std::make_unique<LogsProvider>([] { return copyLogToClipboard(g_inputHwnd); }));
     g_providers->start("media");
     g_providers->start("system.battery");
     g_providers->start("system.theme");
     g_providers->start("system.bluetooth");
     g_providers->start("pomodoro");
+    g_providers->start("system.logs");
     dispatch(readWallClock(), "clock");
 
     // TR §9.2: hide over borderless/exclusive fullscreen apps on this monitor.
@@ -389,6 +404,7 @@ int main()
 
     ShowWindow(render.hwnd, SW_SHOWNOACTIVATE);
     ShowWindow(g_inputHwnd, SW_SHOW);
+    stayOnTop({ render.hwnd, g_inputHwnd }); // re-raised whenever another app comes to the front
 
     MSG msg;
     while (GetMessageW(&msg, nullptr, 0, 0)) {
@@ -396,8 +412,28 @@ int main()
         DispatchMessageW(&msg);
     }
 
+    int exitCode = static_cast<int>(msg.wParam);
+    logLine("exiting");
+    // Safety net: if anything below blocks (a provider's WinRT teardown, a
+    // static destructor), the process still ends instead of lingering unseen.
+    std::thread([] {
+        Sleep(3000);
+        logLine("exit stuck for 3 s; terminating");
+        TerminateProcess(GetCurrentProcess(), 0);
+    }).detach();
+
+    removeTrayIcon();
     g_providers.reset(); // stops providers while the window still exists
     DestroyWindow(render.hwnd);
-    queueController.ShutdownQueueAsync().get();
-    return static_cast<int>(msg.wParam);
+
+    // The queue finishes shutting down on this thread, so keep pumping until
+    // it has. Blocking on it (.get()) deadlocked: Exit left the process running.
+    DWORD uiThread = GetCurrentThreadId();
+    queueController.ShutdownQueueAsync().Completed([uiThread](auto&&, auto&&) { PostThreadMessageW(uiThread, WM_QUIT, 0, 0); });
+    while (GetMessageW(&msg, nullptr, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+    }
+    logLine("exited");
+    return exitCode;
 }
