@@ -13,6 +13,8 @@ it with `tokens.json` into a per-user setup exe: no admin prompt, Start menu
 shortcut, uninstaller. `.\build.ps1 -Installer` builds it into `dist\`.
 
 **Consequences.** No VC++ Redistributable to bundle or detect. Unsigned, so
-SmartScreen warns until we sign the setup exe and `CupIsland.exe`. No launch
-at sign-in yet: TR §9 wants the MSIX `StartupTask` (opt-in), not a registry
-Run key, so that waits for MSIX. Static linking adds a few hundred KB to the exe.
+SmartScreen warns until we sign the setup exe and `CupIsland.exe`. Launch at
+sign-in is a "Start with Windows" checkbox in the tray menu, written as an
+HKCU Run value. TR §9 asks for the MSIX `StartupTask`, but its real rule is
+"user opt-in, no silent autorun", and an unticked-by-default checkbox meets
+it. The uninstaller removes the value; MSIX will swap in `StartupTask`. Static linking adds a few hundred KB to the exe.

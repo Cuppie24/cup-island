@@ -76,6 +76,7 @@ if(WIN32)
         assets/cup_island.rc
         src/app/live_tokens.cpp
         src/app/main.cpp
+        src/platform/autostart.cpp
         src/platform/blob.cpp
         src/platform/element_painting.cpp
         src/platform/element_parts.cpp
@@ -95,7 +96,7 @@ if(WIN32)
         src/providers/system/bluetooth_provider.cpp
         src/providers/system/theme_provider.cpp
     )
-    target_link_libraries(CupIsland PRIVATE cup_providers WindowsApp CoreMessaging User32 dcomp d3d11 d2d1 dwrite dxgi dwmapi shell32)
+    target_link_libraries(CupIsland PRIVATE cup_providers WindowsApp CoreMessaging User32 Advapi32 dcomp d3d11 d2d1 dwrite dxgi dwmapi shell32)
     # Release: a GUI app, no console window (quit from the tray icon). Debug keeps
     # the console for the log. mainCRTStartup lets main() stay the entry point.
     target_link_options(CupIsland PRIVATE

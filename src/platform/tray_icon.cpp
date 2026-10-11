@@ -1,5 +1,7 @@
 #include "platform/tray_icon.h"
 
+#include "platform/autostart.h"
+
 #include <shellapi.h>
 
 #include <utility>
@@ -9,7 +11,8 @@ namespace {
 
 constexpr wchar_t kClassName[] = L"CupIslandTray";
 constexpr UINT kTrayMessage = WM_APP + 1;
-constexpr UINT kExitCommand = 1;
+constexpr UINT kStartWithWindowsCommand = 1;
+constexpr UINT kExitCommand = 2;
 
 HWND g_hwnd{};
 UINT g_taskbarCreated = 0; // broadcast when Explorer (re)starts: every tray icon must be re-added
@@ -25,6 +28,9 @@ void addIcon()
 void showMenu()
 {
     HMENU menu = CreatePopupMenu();
+    bool startup = startsWithWindows(); // read each time: the user may have changed it in Task Manager
+    AppendMenuW(menu, MF_STRING | (startup ? MF_CHECKED : MF_UNCHECKED), kStartWithWindowsCommand, L"Start with Windows");
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING, kExitCommand, L"Exit");
     POINT at{};
     GetCursorPos(&at);
@@ -33,6 +39,7 @@ void showMenu()
     UINT picked = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_NONOTIFY, at.x, at.y, 0, g_hwnd, nullptr);
     PostMessageW(g_hwnd, WM_NULL, 0, 0);
     DestroyMenu(menu);
+    if (picked == kStartWithWindowsCommand) setStartsWithWindows(!startup);
     if (picked == kExitCommand && g_onExit) g_onExit();
 }
 

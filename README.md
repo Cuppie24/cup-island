@@ -25,7 +25,7 @@ cmake --preset core && cmake --build --preset core && ctest --preset core   # Li
 run `.\build.ps1 -Installer`, tag the commit (`git tag v0.1.0`) and attach the
 setup exe to a GitHub release. The exe has the C++ runtime built in, so users
 need nothing else. The Release build has no console: quit from the tray icon
-(right-click → Exit). See [decision 011](docs/decisions/011-installer-before-msix.md).
+(right-click → Exit; *Start with Windows* is there too). See [decision 011](docs/decisions/011-installer-before-msix.md).
 
 **Tuning:** while the app runs, edit [`assets/tokens.json`](assets/tokens.json)
 (sizes, durations, easing curves) and save. Changes apply instantly. See

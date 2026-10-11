@@ -39,7 +39,7 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 tokens.h (+ tokens_json.h), easing.h
 src/platform/   Win32 + C++/WinRT + Composition: render/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
-                per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit)
+                per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Start with Windows, Exit), autostart
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules, SMTC provider for real Windows media), pomodoro/ (the first panel),
                 system/ (Home's battery, theme and Bluetooth widgets)
@@ -172,5 +172,5 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 | Battery, theme toggle and Bluetooth widgets | presenters tested; Windows readers need Windows |
 | Pomodoro (first panel): focus rounds, breaks, pause/skip/stop, ring, phase dots | done, tested |
 | Progress ring, Steps, accent colour (decision 010) | done; rules tested, drawing needs Windows |
-| Release: no-console exe, static C++ runtime, tray icon with Exit, Inno Setup installer (decision 011) | done; needs a Windows build to verify |
-| MSIX, code signing, launch at sign-in (TR §9, §10) | not yet |
+| Release: no-console exe, static C++ runtime, tray icon with Start with Windows + Exit, Inno Setup installer (decision 011) | done; needs a Windows build to verify |
+| MSIX, code signing, StartupTask (TR §9, §10) | not yet |
