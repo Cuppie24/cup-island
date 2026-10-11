@@ -4,7 +4,8 @@
 // Tuning: edit assets/tokens.json while it runs; saving applies it live.
 //
 // Demo keys (click the pill first so it has keyboard focus):
-//   M  toggle the demo music player        T  toggle a second activity (Split)
+//   M  toggle the demo music player (real media shows by itself)
+//   T  toggle a second activity (Split)
 //   C  post a critical alert               D  toggle a simulated accepted drag
 //   H  toggle hidden                       Esc collapse when expanded, otherwise quit
 
@@ -18,6 +19,7 @@
 #include "platform/pill_renderer.h"
 #include "platform/render_layer.h"
 #include "providers/demo/demo_media_provider.h"
+#include "providers/media/smtc_media_provider.h"
 #include "providers/provider_registry.h"
 
 #include <chrono>
@@ -152,9 +154,6 @@ void onTimer(TimerId id)
             g_renderer.refreshAnimations();
             dispatch(Tick{}, "tokens.json"); // re-layout with the new sizes
         }
-    } else if (id == TimerId::Demo) {
-        // Unattended intro so there's something to see without input.
-        g_providers->start("demo");
     }
 }
 
@@ -198,15 +197,20 @@ int main()
         return 1;
     }
 
+    // WinRT events arrive on background threads; providers hop to this (UI) thread with it.
+    auto uiQueue = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
+    auto postToUi = [uiQueue](std::function<void()> work) { uiQueue.TryEnqueue([work = std::move(work)] { work(); }); };
+
     g_providers = std::make_unique<ProviderRegistry>(dispatch, now);
-    g_providers->add(std::make_unique<DemoMediaProvider>());
+    g_providers->add(std::make_unique<SmtcMediaProvider>(postToUi));
+    g_providers->add(std::make_unique<DemoMediaProvider>()); // M key
+    g_providers->start("media");
 
     // Debounced: one save fires several notifications; reload once it settles.
     watchDirectoryOf(g_tokensFile, [] { setTimerFromAnyThread(TimerId::TokensReload, Ms{ 50 }); });
 
     ShowWindow(render.hwnd, SW_SHOWNOACTIVATE);
     ShowWindow(g_inputHwnd, SW_SHOW);
-    setTimer(TimerId::Demo, Ms{ 700 });
 
     MSG msg;
     while (GetMessageW(&msg, nullptr, 0, 0)) {

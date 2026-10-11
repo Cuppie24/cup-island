@@ -38,7 +38,8 @@ src/core/       pure logic: island.h (state machine), content.h (what providers 
                 hit_test.h, provider.h (Provider/Host API), tokens.h (+ tokens_json.h), easing.h
 src/platform/   Win32 + C++/WinRT + Composition: render/interaction layers, pill_renderer,
                 element_visuals (one visual per content item), graphics_device (D2D/DirectWrite)
-src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content)
+src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
+                MediaPresenter rules, SMTC provider for real Windows media)
 src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload
 assets/         tokens.json: the live-tunable sizes, timings and curves
 tests/          unit tests + scenarios/*.scenario (state rules in plain text)
@@ -46,8 +47,9 @@ docs/           specs (TR, PS) and decisions/ (why things are the way they are)
 ```
 
 Dependency direction is one-way: `app → platform → core`, `providers → core`.
-Pure provider logic builds on any OS (`cup_providers` library); WinRT-backed
-providers will be Windows-only files next to it.
+Pure provider logic builds on any OS (`cup_providers` library). WinRT-backed
+parts (`providers/media/smtc_*`) are Windows-only files next to it, compiled
+into the app.
 Nothing includes "upward". `core/` never includes `platform/`.
 
 ## Data flow, concretely
@@ -81,7 +83,8 @@ Writing one: implement `Provider`, build `Content` in a pure function (see
 `providers/media/now_playing.cpp`), test it through `ProviderRegistry` like
 `tests/provider_tests.cpp`, and register it in `app/main.cpp`. WinRT event
 handlers run on background threads; marshal to the UI thread before calling
-the Host.
+the Host. `providers/media/smtc_media_provider.cpp` is the reference
+example: thin WinRT reading, with every decision in a pure presenter (decision 005).
 
 ## Rules that keep it readable
 
@@ -139,7 +142,7 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 | Renderer: Split bubble, alert pulse, receptive drop zones, DPI scaling, matched geometry | not yet |
 | Real input for drag (OLE drop target) and fullscreen detection (TR §9.2) | not yet; demo keys simulate them |
 | Provider API (PS §7 Tier 1), registry, demo music player | done, tested |
-| Real media provider (SMTC, TR §6) | next (PR B) |
+| Real media provider (SMTC, TR §6): art, controls, seek, multi-app switch, paused linger | done; rules tested, WinRT part needs Windows |
 | Plugin pipe (PS §8 Tier 2) | not yet |
 | Activity expiry (`expiresAt`) | done, tested |
 | Rate limits, stale activities (PS §4, §6.3) | not yet |

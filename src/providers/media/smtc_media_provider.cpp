@@ -1,0 +1,175 @@
+#include "providers/media/smtc_media_provider.h"
+
+#include <cstdio>
+
+namespace cup {
+
+auto SmtcMediaProvider::onUiThread(void (SmtcMediaProvider::*method)())
+{
+    return [this, alive = alive_, method](auto&&...) {
+        post_([this, alive, method] {
+            if (*alive) (this->*method)();
+        });
+    };
+}
+
+void SmtcMediaProvider::start(Host& host)
+{
+    host_ = &host;
+    presenter_ = std::make_unique<MediaPresenter>(host);
+    alive_ = std::make_shared<bool>(true);
+    connect(alive_);
+}
+
+void SmtcMediaProvider::stop()
+{
+    *alive_ = false;
+    currentChanged_.revoke();
+    sessionsChanged_.revoke();
+    propertiesChanged_.revoke();
+    playbackChanged_.revoke();
+    timelineChanged_.revoke();
+    manager_ = nullptr;
+    session_ = nullptr;
+    chosen_ = nullptr;
+    artKey_.clear();
+    artPending_ = false;
+    art_.reset();
+    presenter_->show(std::nullopt);
+    presenter_.reset();
+    host_ = nullptr;
+}
+
+winrt::fire_and_forget SmtcMediaProvider::connect(std::shared_ptr<bool> alive)
+{
+    Manager manager{ nullptr };
+    try {
+        manager = co_await Manager::RequestAsync();
+    } catch (winrt::hresult_error const& e) {
+        std::printf("[cup-island] media: session manager unavailable (0x%08x)\n", static_cast<unsigned>(e.code()));
+        co_return;
+    }
+    if (!*alive) co_return;
+
+    manager_ = manager;
+    currentChanged_ = manager_.CurrentSessionChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::pickSession));
+    sessionsChanged_ = manager_.SessionsChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::pickSession));
+    std::printf("[cup-island] media: %u session(s)\n", manager_.GetSessions().Size());
+    pickSession();
+}
+
+void SmtcMediaProvider::pickSession()
+{
+    if (!manager_) return;
+    auto sessions = manager_.GetSessions();
+
+    // By session, not app id: every Chrome tab shares one app id.
+    Session chosen{ nullptr };
+    if (chosen_) {
+        for (auto const& s : sessions)
+            if (s == chosen_) chosen = s;
+        if (!chosen) chosen_ = nullptr; // it went away: follow Windows again
+    }
+    if (!chosen) chosen = manager_.GetCurrentSession();
+    if (!chosen && sessions.Size() > 0) chosen = sessions.GetAt(0);
+
+    if (chosen != session_) {
+        session_ = chosen;
+        propertiesChanged_.revoke();
+        playbackChanged_.revoke();
+        timelineChanged_.revoke();
+        if (session_) {
+            propertiesChanged_ = session_.MediaPropertiesChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::refresh));
+            playbackChanged_ = session_.PlaybackInfoChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::refresh));
+            timelineChanged_ = session_.TimelinePropertiesChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::refresh));
+            std::printf("[cup-island] media: showing %s\n", appName(session_.SourceAppUserModelId()).c_str());
+        }
+    }
+    refresh(); // also when only the session count changed (source button)
+}
+
+void SmtcMediaProvider::refresh()
+{
+    load(++generation_, alive_);
+}
+
+winrt::fire_and_forget SmtcMediaProvider::load(std::uint64_t generation, std::shared_ptr<bool> alive)
+{
+    Session session = session_;
+    if (!session) {
+        presenter_->show(std::nullopt);
+        co_return;
+    }
+
+    wmc::GlobalSystemMediaTransportControlsSessionMediaProperties properties{ nullptr };
+    NowPlaying media;
+    try {
+        properties = co_await session.TryGetMediaPropertiesAsync();
+        if (!*alive || generation != generation_) co_return; // stopped, or a newer refresh started
+        media = readNowPlaying(properties, session.GetPlaybackInfo(), session.GetTimelineProperties(), host_->now());
+    } catch (winrt::hresult_error const&) {
+        co_return; // the app closed its session mid-read; SessionsChanged follows
+    }
+
+    winrt::hstring app = session.SourceAppUserModelId();
+    media.source = appName(app);
+    media.showSourceSwitch = manager_.GetSessions().Size() > 1;
+
+    // New track (or its art just appeared): decode the art before showing, so
+    // the track alert carries it. Other refreshes wait for the decode too.
+    auto thumbnail = properties.Thumbnail();
+    std::string key = winrt::to_string(app) + "|" + media.title + "|" + media.artist + "|" +
+                      winrt::to_string(properties.AlbumTitle()) + "|" + (thumbnail ? "art" : "");
+    if (key != artKey_) {
+        artKey_ = key;
+        art_.reset();
+        artPending_ = thumbnail != nullptr;
+        if (artPending_) {
+            decodeArt(thumbnail, [this, alive, key](std::shared_ptr<const ImageData> image) {
+                if (!*alive || key != artKey_) return; // a newer track took over
+                art_ = std::move(image);
+                artPending_ = false;
+                refresh();
+            });
+        }
+    }
+    if (artPending_) co_return;
+
+    media.art = art_;
+    presenter_->show(MediaSnapshot{ winrt::to_string(app), media });
+}
+
+void SmtcMediaProvider::cycleSource()
+{
+    auto sessions = manager_.GetSessions();
+    std::uint32_t count = sessions.Size();
+    if (count < 2) return;
+    std::uint32_t current = 0;
+    for (std::uint32_t i = 0; i < count; ++i)
+        if (sessions.GetAt(i) == session_) current = i;
+    chosen_ = sessions.GetAt((current + 1) % count);
+    pickSession();
+}
+
+void SmtcMediaProvider::onAction(const Action& action)
+{
+    if (!session_) return;
+    namespace act = media_action;
+    try {
+        // Fire and forget: the real state comes back through the change events.
+        if (action.actionId == act::kPlayPause) session_.TryTogglePlayPauseAsync();
+        else if (action.actionId == act::kNext) session_.TrySkipNextAsync();
+        else if (action.actionId == act::kPrevious) session_.TrySkipPreviousAsync();
+        else if (action.actionId == act::kSource) cycleSource();
+        else if (action.actionId == act::kSeek) {
+            auto timeline = session_.GetTimelineProperties();
+            auto start = timeline.StartTime(), end = timeline.EndTime();
+            auto offset = static_cast<std::int64_t>(static_cast<double>((end - start).count()) * action.value);
+            session_.TryChangePlaybackPositionAsync(start.count() + offset); // 100 ns ticks
+        }
+    } catch (winrt::hresult_error const&) {
+        // Session vanished between the click and the call.
+    }
+}
+
+} // namespace cup

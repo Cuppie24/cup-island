@@ -73,6 +73,9 @@ struct Tokens {
     Ms heldAlertMaxAge{ 30000 };
     std::size_t alertQueueCapacity = 5;
 
+    // Media (PS §10): a paused track stays on the island this long, then ends.
+    Ms mediaPausedLinger{ 300000 };
+
     bool operator==(const Tokens&) const = default;
 };
 

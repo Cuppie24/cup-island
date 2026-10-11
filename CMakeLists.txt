@@ -28,6 +28,7 @@ target_include_directories(cup_core PUBLIC src)
 # --- providers: data sources; the pure parts build on any OS -------------------
 add_library(cup_providers STATIC
     src/providers/demo/demo_media_provider.cpp
+    src/providers/media/media_presenter.cpp
     src/providers/media/now_playing.cpp
     src/providers/provider_registry.cpp
 )
@@ -39,6 +40,7 @@ if(CUP_BUILD_TESTS)
     add_executable(cup_tests
         tests/content_tests.cpp
         tests/main.cpp
+        tests/media_tests.cpp
         tests/provider_tests.cpp
         tests/unit_tests.cpp
         tests/scenario_runner.cpp
@@ -63,6 +65,8 @@ if(WIN32)
         src/platform/interaction_layer.cpp
         src/platform/pill_renderer.cpp
         src/platform/render_layer.cpp
+        src/providers/media/smtc_media_provider.cpp
+        src/providers/media/smtc_reading.cpp
     )
     target_link_libraries(CupIsland PRIVATE cup_providers WindowsApp CoreMessaging User32 dcomp d3d11 d2d1 dwrite dxgi)
     # Dev builds read and live-reload the source tree's tokens.json directly.

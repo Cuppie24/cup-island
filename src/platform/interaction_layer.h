@@ -11,7 +11,7 @@
 
 namespace cup::platform {
 
-enum class TimerId : UINT_PTR { Deadline = 1, Demo = 2, TokensReload = 3 };
+enum class TimerId : UINT_PTR { Deadline = 1, TokensReload = 2 };
 
 // Points are in pill coordinates: this window always covers exactly the pill.
 struct InteractionCallbacks {
