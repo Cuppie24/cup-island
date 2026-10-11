@@ -15,6 +15,7 @@
 #include "core/layout.h"
 #include "core/tokens.h"
 #include "platform/file_watcher.h"
+#include "platform/fullscreen_watcher.h"
 #include "platform/interaction_layer.h"
 #include "platform/pill_renderer.h"
 #include "platform/render_layer.h"
@@ -205,6 +206,9 @@ int main()
     g_providers->add(std::make_unique<SmtcMediaProvider>(postToUi));
     g_providers->add(std::make_unique<DemoMediaProvider>()); // M key
     g_providers->start("media");
+
+    // TR §9.2: hide over borderless/exclusive fullscreen apps on this monitor.
+    watchFullscreen(render.hwnd, [](bool fullscreen) { dispatch(HiddenChanged{ fullscreen }, "fullscreen"); });
 
     // Debounced: one save fires several notifications; reload once it settles.
     watchDirectoryOf(g_tokensFile, [] { setTimerFromAnyThread(TimerId::TokensReload, Ms{ 50 }); });

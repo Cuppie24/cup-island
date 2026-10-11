@@ -30,6 +30,10 @@ artist, progress and ⏮ ⏯ ⏭ when you click it. Clicking the progress bar
 seeks. With several players, ⇄ switches between them. Paused music stays
 for 5 minutes (`mediaPausedLingerMs`).
 
+The island hides itself over fullscreen apps (games, F11 browsers, fullscreen
+video) on its monitor, and comes back when they leave fullscreen. Normal
+maximized windows don't hide it.
+
 Demo keys (once the pill has focus): **M** fake music player on/off,
 **T** second activity, **C** critical alert, **D** simulated drag, **H** hide,
 **Esc** collapse/quit.

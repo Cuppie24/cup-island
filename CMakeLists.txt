@@ -17,6 +17,7 @@ endif()
 add_library(cup_core STATIC
     src/core/content.cpp
     src/core/easing.cpp
+    src/core/fullscreen.cpp
     src/core/hit_test.cpp
     src/core/island.cpp
     src/core/layout.cpp
@@ -39,6 +40,7 @@ if(CUP_BUILD_TESTS)
     enable_testing()
     add_executable(cup_tests
         tests/content_tests.cpp
+        tests/fullscreen_tests.cpp
         tests/main.cpp
         tests/media_tests.cpp
         tests/provider_tests.cpp
@@ -61,6 +63,7 @@ if(WIN32)
         src/platform/element_painting.cpp
         src/platform/element_visuals.cpp
         src/platform/file_watcher.cpp
+        src/platform/fullscreen_watcher.cpp
         src/platform/graphics_device.cpp
         src/platform/interaction_layer.cpp
         src/platform/pill_renderer.cpp
@@ -68,7 +71,7 @@ if(WIN32)
         src/providers/media/smtc_media_provider.cpp
         src/providers/media/smtc_reading.cpp
     )
-    target_link_libraries(CupIsland PRIVATE cup_providers WindowsApp CoreMessaging User32 dcomp d3d11 d2d1 dwrite dxgi)
+    target_link_libraries(CupIsland PRIVATE cup_providers WindowsApp CoreMessaging User32 dcomp d3d11 d2d1 dwrite dxgi dwmapi shell32)
     # Dev builds read and live-reload the source tree's tokens.json directly.
     target_compile_definitions(CupIsland PRIVATE CUP_TOKENS_SOURCE_PATH=L"${CMAKE_SOURCE_DIR}/assets/tokens.json")
 

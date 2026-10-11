@@ -140,7 +140,8 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 | State machine: all PS §3 modes, alert queue/pre-emption/coalescing, hidden rules | done, tested |
 | Renderer: pill morph per mode, press feedback, content items (text, art, icons, buttons, progress, waveform) | done |
 | Renderer: Split bubble, alert pulse, receptive drop zones, DPI scaling, matched geometry | not yet |
-| Real input for drag (OLE drop target) and fullscreen detection (TR §9.2) | not yet; demo keys simulate them |
+| Fullscreen detection (TR §9.2): borderless + exclusive, per monitor, maximized windows excluded | done; rules tested (`core/fullscreen`), hooks need Windows |
+| Real input for drag (OLE drop target) | not yet; the D key simulates it |
 | Provider API (PS §7 Tier 1), registry, demo music player | done, tested |
 | Real media provider (SMTC, TR §6): art, controls, seek, multi-app switch, paused linger | done; rules tested, WinRT part needs Windows |
 | Plugin pipe (PS §8 Tier 2) | not yet |
