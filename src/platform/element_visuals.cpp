@@ -20,6 +20,14 @@ bool isRing(const Item& item)
 // Live data's colour: the content's accent, else the live colour (decision 010).
 Color accentOf(const Placed& p) { return p.accent.value_or(tokens().liveColor); }
 
+// A focused text field keeps its background: you can see where you're typing,
+// with the pointer anywhere (decision 016).
+bool focusedField(const Item& item)
+{
+    auto* input = std::get_if<TextInput>(&item);
+    return input && input->focused;
+}
+
 // Swimming text is sized to its string, so any change to it needs a new surface.
 bool swims(const Item& item)
 {
@@ -124,6 +132,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now)
     if (view.fill) armProgress(compositor_, view.fill, std::get<Progress>(placed.item).timeline, size.x, now);
     if (view.arc) armRing(compositor_, view.arc, std::get<Progress>(placed.item).timeline, now);
     if (!view.bars.empty()) animateBars(view);
+    if (view.highlight && focusedField(placed.item)) view.highlight.Opacity(1.0f);
     fadeIn(compositor_, view.visual);
     return view;
 }
@@ -142,9 +151,12 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
         view = create(placed, now);
         return true;
     }
+    bool wasFocused = focusedField(view.placed.item);
     view.placed = placed;
     if (moved) view.visual.Offset({ placed.frame.x - view.lead, placed.frame.y, 0 });
     if (!changed) return false;
+    if (view.highlight && focusedField(placed.item) != wasFocused) // focus came or went: background follows (or hover keeps it)
+        fadeTo(compositor_, view.highlight, focusedField(placed.item) || placed.key == hovered_ ? 1.0f : 0.0f, tokens().hoverFadeDuration);
     if (view.surface) paint(view);
     // While scrubbing, the bar belongs to the pointer; endScrub() re-arms it.
     if (view.fill && !view.scrubbing) armProgress(compositor_, view.fill, std::get<Progress>(placed.item).timeline, placed.frame.width, now);
@@ -211,7 +223,7 @@ void ElementVisuals::showHover(const std::string& key, bool on)
     auto it = views_.find(key);
     if (it == views_.end()) return;
     View& view = it->second;
-    if (view.highlight) fadeTo(compositor_, view.highlight, on ? 1.0f : 0.0f, tokens().hoverFadeDuration);
+    if (view.highlight) fadeTo(compositor_, view.highlight, on || focusedField(view.placed.item) ? 1.0f : 0.0f, tokens().hoverFadeDuration);
     if (view.knob && !view.scrubbing) showKnob(compositor_, view.knob, on);
 }
 
@@ -230,7 +242,8 @@ void ElementVisuals::release(const std::string& key)
     auto it = views_.find(key);
     if (it == views_.end()) return;
     const Tokens& t = tokens();
-    if (it->second.highlight && key != hovered_) fadeTo(compositor_, it->second.highlight, 0.0f, t.hoverFadeDuration);
+    if (it->second.highlight && key != hovered_ && !focusedField(it->second.placed.item))
+        fadeTo(compositor_, it->second.highlight, 0.0f, t.hoverFadeDuration);
     if (std::holds_alternative<TextInput>(it->second.placed.item)) return;
     playScale(compositor_, it->second.visual, 1.0f, t.pressReleaseDuration, t.pressReleaseEase);
 }
