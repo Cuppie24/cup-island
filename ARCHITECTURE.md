@@ -141,7 +141,9 @@ example: thin WinRT reading, with every decision in a pure presenter (decision 0
    syntax error), the console lists each problem with its line number and the
    previous values stay active. Nothing is half-applied.
 
-Durations are in milliseconds and named `…Ms`. Sizes are `[width, height]`.
+Durations are in milliseconds and named `…Ms`. Sizes are `[width, height]`,
+in logical pixels: the app multiplies every length by the display's scale
+(decision 017), so 380 is 570 physical pixels at 150%.
 Colours are `[r, g, b]` or `[r, g, b, alpha]` (0..255, alpha 0..1, like CSS `rgba()`).
 Curves are `[x1, y1, x2, y2]`, the same as CSS `cubic-bezier()`, so you can
 paste from cubic-bezier.com. `canvasSize` only applies on restart. Watching
@@ -171,7 +173,8 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 | Renderer: pill morph per mode, press feedback, content items (text, swimming text, art, icons, buttons, progress, waveform) | done |
 | Content hover (buttons, progress knob), drag-to-seek, nested radii (decisions 002, 006) | done; platform side untested on a real build yet |
 | Renderer: Split bubble with liquid neck, drag-to-swap (decision 007) | done; rules tested, visuals need Windows |
-| Renderer: alert pulse, receptive drop zones, DPI scaling, matched geometry | not yet |
+| Display scaling: tokens in logical pixels, scaled per the primary display, live on a scale change (decision 017) | done; scaling tested, Windows side needs a run |
+| Renderer: alert pulse, receptive drop zones, matched geometry | not yet |
 | Fullscreen detection (TR §9.2): borderless + exclusive, per monitor, maximized windows excluded | done; rules tested (`core/fullscreen`), hooks need Windows |
 | Real input for drag (OLE drop target) | not yet; the D key simulates it |
 | Provider API (PS §7 Tier 1), registry, demo music player | done, tested |

@@ -61,6 +61,7 @@ Scene g_scene;
 PillRenderer g_renderer;
 HWND g_inputHwnd{};
 std::filesystem::path g_tokensFile;
+RenderLayer g_render;
 std::unique_ptr<ProviderRegistry> g_providers;
 
 // The pointer over the pill. Feedback is the renderer's; what a click means is
@@ -357,6 +358,17 @@ void onKey(WPARAM key)
     }
 }
 
+// Display scale changed (Settings, or the primary display was swapped): every
+// length is rescaled, the render layer resized, and the content rebuilt.
+void onDpiChanged(float scale)
+{
+    if (!app::rescaleTokens(g_tokensFile, scale)) return;
+    resizeRenderLayer(g_render, tokens().canvas);
+    setRenderLeft(g_render.left);
+    g_renderer.refreshAnimations(); // also drops content visuals, so they're redrawn at the new size
+    dispatch(Tick{}, "display scale");
+}
+
 void onTimer(TimerId id)
 {
     if (id == TimerId::Deadline) {
@@ -386,11 +398,14 @@ int main()
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     auto queueController = createDispatcherQueueForCurrentThread();
 
+    // tokens.json is in logical pixels: lengths are multiplied by the display's scale.
+    app::setDisplayScale(primaryDisplayScale());
     g_tokensFile = app::findTokensFile();
     app::loadTokens(g_tokensFile, /* startup */ true);
 
     HINSTANCE instance = GetModuleHandleW(nullptr);
-    RenderLayer render = createRenderLayer(instance, tokens().canvas);
+    g_render = createRenderLayer(instance, tokens().canvas);
+    RenderLayer& render = g_render;
     if (!render.hwnd) {
         logLine("failed to create the render window (0x%08lx)", GetLastError());
         return 1;
@@ -410,6 +425,7 @@ int main()
     };
     callbacks.onKeyDown = onKey;
     callbacks.onChar = onChar;
+    callbacks.onDpiChanged = onDpiChanged;
     callbacks.onTimer = onTimer;
 
     Rect bounds = interactiveBounds(g_scene);

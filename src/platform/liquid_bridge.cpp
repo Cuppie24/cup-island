@@ -50,7 +50,8 @@ void LiquidBridge::build(wuc::Compositor const& c, wuc::ContainerVisual const& p
     brush_ = c.CreateColorBrush();
     refreshAnimations();
 
-    auto visual = c.CreateShapeVisual();
+    visual_ = c.CreateShapeVisual();
+    auto& visual = visual_;
     visual.Size(toFloat2(canvas));
     auto geometry = c.CreateRoundedRectangleGeometry();
     auto strand = c.CreateSpriteShape(geometry);
@@ -72,6 +73,7 @@ void LiquidBridge::refreshAnimations()
     params_.InsertScalar(L"Thickness", tokens().bridgeThickness);
     params_.InsertScalar(L"Reach", std::max(tokens().bridgeReach, 0.01f)); // divided by
     brush_.Color(toUiColor(tokens().islandColor));
+    if (visual_) visual_.Size(toFloat2(tokens().canvas)); // the canvas grows with the display's scale
 }
 
 void LiquidBridge::setEnabled(bool on)

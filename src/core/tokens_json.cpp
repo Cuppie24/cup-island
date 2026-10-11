@@ -300,6 +300,19 @@ TokensParse parseTokens(std::string_view json)
     return result;
 }
 
+Tokens scaleTokens(const Tokens& t, float scale)
+{
+    // Factors, not lengths: a press squashes to 96% at any scale.
+    auto unitless = [](const char* name) { return std::string_view(name) == "pressScale" || std::string_view(name) == "buttonPressScale"; };
+    Tokens out = t;
+    for (const Field& field : kFields) {
+        if (unitless(field.name)) continue;
+        if (auto* f = std::get_if<float Tokens::*>(&field.member)) out.**f *= scale;
+        else if (auto* v = std::get_if<Vec2 Tokens::*>(&field.member)) out.**v = { (out.**v).x * scale, (out.**v).y * scale };
+    }
+    return out;
+}
+
 std::string toJson(const Tokens& t)
 {
     std::ostringstream out;

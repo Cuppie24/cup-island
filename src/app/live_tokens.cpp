@@ -13,6 +13,7 @@ namespace cup::app {
 namespace {
 
 std::string g_lastText; // skip the duplicate change notifications one save produces
+float g_scale = 1.0f;   // display scale: tokens.json is logical pixels
 
 void log(const std::string& message)
 {
@@ -41,15 +42,22 @@ std::filesystem::path findTokensFile()
     return std::filesystem::path(CUP_TOKENS_SOURCE_PATH);
 }
 
-bool loadTokens(const std::filesystem::path& file, bool startup)
+namespace {
+
+// `resize`: canvasSize may change too (startup, or a new display scale).
+bool apply(const std::filesystem::path& file, bool startup, bool resize)
 {
     std::ifstream in(file, std::ios::binary);
     if (!in) {
         if (startup) log("no tokens.json at " + file.string() + ", using built-in defaults");
-        return false;
+        if (!resize) return false;
+        Tokens defaults = scaleTokens(Tokens{}, g_scale);
+        if (defaults == tokens()) return false;
+        setTokens(defaults);
+        return true;
     }
     std::string text{ std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>() };
-    if (text == g_lastText) return false;
+    if (text == g_lastText && !resize) return false;
     g_lastText = text;
 
     TokensParse parsed = parseTokens(text);
@@ -59,8 +67,8 @@ bool loadTokens(const std::filesystem::path& file, bool startup)
         return false;
     }
 
-    Tokens next = parsed.tokens;
-    if (!startup && next.canvas != tokens().canvas) {
+    Tokens next = scaleTokens(parsed.tokens, g_scale);
+    if (!resize && next.canvas != tokens().canvas) {
         log("tokens.json: canvasSize changes apply on restart");
         next.canvas = tokens().canvas;
     }
@@ -68,8 +76,25 @@ bool loadTokens(const std::filesystem::path& file, bool startup)
     if (next == tokens()) return false;
 
     setTokens(next);
-    log(startup ? "loaded " + file.string() : "tokens.json reloaded");
+    log(startup ? "loaded " + file.string() : resize ? "tokens.json re-applied for the new display scale" : "tokens.json reloaded");
     return true;
+}
+
+} // namespace
+
+bool loadTokens(const std::filesystem::path& file, bool startup) { return apply(file, startup, startup); }
+
+void setDisplayScale(float scale)
+{
+    g_scale = scale > 0 ? scale : 1.0f;
+    log("display scale " + std::to_string(static_cast<int>(g_scale * 100 + 0.5f)) + "%");
+}
+
+bool rescaleTokens(const std::filesystem::path& file, float scale)
+{
+    if (scale <= 0 || scale == g_scale) return false;
+    setDisplayScale(scale);
+    return apply(file, /* startup */ false, /* resize */ true);
 }
 
 } // namespace cup::app

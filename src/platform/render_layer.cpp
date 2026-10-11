@@ -1,5 +1,7 @@
 #include "platform/render_layer.h"
 
+#include <shellscalingapi.h>
+
 namespace cup::platform {
 namespace {
 
@@ -66,6 +68,21 @@ RenderLayer createRenderLayer(HINSTANCE instance, Vec2 canvas)
     layer.root.RelativeSizeAdjustment({ 1.0f, 1.0f });
     layer.target.Root(layer.root);
     return layer;
+}
+
+void resizeRenderLayer(RenderLayer& layer, Vec2 canvas)
+{
+    int width = static_cast<int>(canvas.x), height = static_cast<int>(canvas.y);
+    layer.left = (GetSystemMetrics(SM_CXSCREEN) - width) / 2;
+    SetWindowPos(layer.hwnd, nullptr, layer.left, 0, width, height, SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+float primaryDisplayScale()
+{
+    HMONITOR primary = MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY);
+    UINT dpiX = 96, dpiY = 96;
+    if (FAILED(GetDpiForMonitor(primary, MDT_EFFECTIVE_DPI, &dpiX, &dpiY))) return 1.0f;
+    return static_cast<float>(dpiX) / 96.0f;
 }
 
 } // namespace cup::platform

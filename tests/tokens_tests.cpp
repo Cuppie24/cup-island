@@ -67,6 +67,18 @@ void runTokensTests()
     expect(mentions(parseTokens(R"({"islandColor": [0, 0, 1.5]})"), "0..255"), "fractional channel rejected");
     expect(mentions(parseTokens(R"({"islandColor": [0, 0, 0, 2]})"), "alpha must be within 0..1"), "alpha out of range rejected");
     expect(fromFile.tokens == Tokens{}, "the shipped file matches the defaults in tokens.h");
+
+    // Display scaling: lengths grow with the display's scale; nothing else does.
+    Tokens d{};
+    Tokens x = scaleTokens(d, 1.5f);
+    expect(x.expandedSize == Vec2{ d.expandedSize.x * 1.5f, d.expandedSize.y * 1.5f } && x.canvas.y == d.canvas.y * 1.5f, "sizes scale");
+    expect(x.bodyFontSize == d.bodyFontSize * 1.5f && x.expandedPadding == d.expandedPadding * 1.5f &&
+           x.dragStartDistance == d.dragStartDistance * 1.5f && x.marqueeSpeed == d.marqueeSpeed * 1.5f,
+           "fonts, paddings, distances and px/s speeds scale");
+    expect(x.pressScale == d.pressScale && x.buttonPressScale == d.buttonPressScale, "press factors don't");
+    expect(x.morphDuration == d.morphDuration && x.morphEase == d.morphEase && x.alertQueueCapacity == d.alertQueueCapacity &&
+           x.islandColor == d.islandColor, "durations, curves, counts and colours don't");
+    expect(scaleTokens(d, 1.0f) == d, "100%: unchanged");
 }
 
 } // namespace cup::test
