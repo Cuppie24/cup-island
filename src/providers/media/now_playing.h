@@ -28,6 +28,7 @@ struct NowPlaying {
     bool canRepeat = false;
     Repeat repeat = Repeat::Off;
     bool showSourceSwitch = false; // more than one media app to choose from
+    bool canOpenSource = false;    // clicking the expanded art brings the playing app forward
 
     bool operator==(const NowPlaying&) const = default;
 };
@@ -40,6 +41,7 @@ inline constexpr const char* kNext = "next";
 inline constexpr const char* kShuffle = "shuffle"; // toggle
 inline constexpr const char* kRepeat = "repeat";   // cycle: off -> all -> one -> off
 inline constexpr const char* kSource = "source";
+inline constexpr const char* kOpenSource = "openSource"; // the expanded art was clicked
 inline constexpr const char* kSeek = "seek"; // value = 0..1 fraction
 } // namespace media_action
 

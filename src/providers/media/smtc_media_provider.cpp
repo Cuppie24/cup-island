@@ -1,4 +1,5 @@
 #include "providers/media/smtc_media_provider.h"
+#include "providers/media/app_activation.h"
 #include "platform/log.h"
 
 #include "core/tokens.h"
@@ -177,6 +178,8 @@ winrt::fire_and_forget SmtcMediaProvider::load(std::uint64_t generation, std::sh
     winrt::hstring app = session.SourceAppUserModelId();
     media.source = appName(app);
     media.showSourceSwitch = manager_.GetSessions().Size() > 1;
+    media.canOpenSource = true;
+    shownTitle_ = winrt::to_hstring(media.title);
 
     // New track (or its art just appeared): decode the art before showing, so
     // the track alert carries it. Other refreshes wait for the decode too.
@@ -235,6 +238,11 @@ void SmtcMediaProvider::onAction(const Action& action)
         else if (action.actionId == act::kNext) session_.TrySkipNextAsync();
         else if (action.actionId == act::kPrevious) session_.TrySkipPreviousAsync();
         else if (action.actionId == act::kSource) cycleSource();
+        else if (action.actionId == act::kOpenSource) {
+            winrt::hstring app = session_.SourceAppUserModelId();
+            bool opened = openSourceApp(std::wstring(app), std::wstring(shownTitle_));
+            platform::logLine("media: open %s %s", appName(app).c_str(), opened ? "ok" : "failed");
+        }
         else if (action.actionId == act::kShuffle) {
             auto shuffle = session_.GetPlaybackInfo().IsShuffleActive();
             session_.TryChangeShuffleActiveAsync(!(shuffle && shuffle.Value()));

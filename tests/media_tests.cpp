@@ -184,6 +184,14 @@ void runMediaTests()
     expect(mainMediaMoved("Spotify.exe", "Chrome") && mainMediaMoved("", "Spotify.exe"), "another app took over: move");
     expect(nextSession(3, 1u) == 2 && nextSession(3, 2u) == 0, "source button steps and wraps");
     expect(nextSession(3, std::nullopt) == 0 && nextSession(0, std::nullopt) == 0, "nothing shown: start at the first");
+
+    // The expanded art opens the playing app, when the provider can; nowhere else is the art clickable.
+    Content openable = nowPlayingContent({ .title = "T", .canOpenSource = true });
+    expect(std::get<Image>(openable.expandedLeading[0].items[0]).actionId == media_action::kOpenSource, "expanded art opens the app");
+    expect(std::get<Image>(openable.compactLeading[0].items[0]).actionId.empty() &&
+           std::get<Image>(openable.alertLeading[0].items[0]).actionId.empty(), "compact/alert art isn't (a click there expands)");
+    expect(std::get<Image>(nowPlayingContent({ .title = "T" }).expandedLeading[0].items[0]).actionId.empty(),
+           "a provider that can't open its app: plain art");
 }
 
 } // namespace cup::test

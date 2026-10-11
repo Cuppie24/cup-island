@@ -255,7 +255,9 @@ void ElementVisuals::press(const std::string& key)
     const Tokens& t = tokens();
     if (it->second.highlight) fadeTo(compositor_, it->second.highlight, 1.0f, t.hoverFadeDuration);
     if (std::holds_alternative<TextInput>(it->second.placed.item)) return; // a field is clicked into, not pressed: no squash
-    playScale(compositor_, it->second.visual, t.buttonPressScale, t.pressDownDuration, t.pressDownEase);
+    // Art is big: the pill's gentle squash, not a button's deep one.
+    float scale = std::holds_alternative<Image>(it->second.placed.item) ? t.pressScale : t.buttonPressScale;
+    playScale(compositor_, it->second.visual, scale, t.pressDownDuration, t.pressDownEase);
 }
 
 void ElementVisuals::release(const std::string& key)

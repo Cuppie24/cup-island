@@ -56,7 +56,8 @@ private:
     Session session_{ nullptr };
     Session chosen_{ nullptr };  // manual pick via the source button; null = follow Windows
     std::string chosenApp_;      // its app id, to find it again if Windows hands out a new object
-    std::string mainApp_;        // app of Windows' main media (what the media keys control), last seen
+    std::string mainApp_;
+    winrt::hstring shownTitle_; // the title on screen: picks the right browser window when opening the app        // app of Windows' main media (what the media keys control), last seen
     std::uint64_t generation_ = 0; // newer refresh wins; stale async reads are dropped
 
     std::string artKey_;   // app|title|artist|album|has-art the art belongs to

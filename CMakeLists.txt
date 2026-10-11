@@ -106,6 +106,7 @@ if(WIN32)
         src/platform/tray_icon.cpp
         src/platform/watchdog.cpp
         src/platform/wall_clock.cpp
+        src/providers/media/app_activation.cpp
         src/providers/media/smtc_media_provider.cpp
         src/providers/media/smtc_reading.cpp
         src/providers/system/bluetooth_provider.cpp
