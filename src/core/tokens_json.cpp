@@ -24,6 +24,7 @@ struct Field {
 
 const Field kFields[] = {
     { "canvasSize", &Tokens::canvas },
+    { "islandScale", &Tokens::islandScale },
     { "idleSize", &Tokens::idleSize, true },
     { "compactSize", &Tokens::compactSize },
     { "alertSize", &Tokens::alertSize },
@@ -300,10 +301,14 @@ TokensParse parseTokens(std::string_view json)
     return result;
 }
 
-Tokens scaleTokens(const Tokens& t, float scale)
+Tokens scaleTokens(const Tokens& t, float displayScale)
 {
-    // Factors, not lengths: a press squashes to 96% at any scale.
-    auto unitless = [](const char* name) { return std::string_view(name) == "pressScale" || std::string_view(name) == "buttonPressScale"; };
+    float scale = displayScale * t.islandScale;
+    // Factors, not lengths: a press squashes to 96% at any scale, and the size knob isn't a size.
+    auto unitless = [](const char* name) {
+        std::string_view n(name);
+        return n == "pressScale" || n == "buttonPressScale" || n == "islandScale";
+    };
     Tokens out = t;
     for (const Field& field : kFields) {
         if (unitless(field.name)) continue;

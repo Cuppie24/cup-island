@@ -68,17 +68,22 @@ void runTokensTests()
     expect(mentions(parseTokens(R"({"islandColor": [0, 0, 0, 2]})"), "alpha must be within 0..1"), "alpha out of range rejected");
     expect(fromFile.tokens == Tokens{}, "the shipped file matches the defaults in tokens.h");
 
-    // Display scaling: lengths grow with the display's scale; nothing else does.
+    // Display scaling: lengths grow with the display's scale times islandScale; nothing else does.
     Tokens d{};
+    float k = 1.5f * d.islandScale;
     Tokens x = scaleTokens(d, 1.5f);
-    expect(x.expandedSize == Vec2{ d.expandedSize.x * 1.5f, d.expandedSize.y * 1.5f } && x.canvas.y == d.canvas.y * 1.5f, "sizes scale");
-    expect(x.bodyFontSize == d.bodyFontSize * 1.5f && x.expandedPadding == d.expandedPadding * 1.5f &&
-           x.dragStartDistance == d.dragStartDistance * 1.5f && x.marqueeSpeed == d.marqueeSpeed * 1.5f,
+    expect(x.expandedSize == Vec2{ d.expandedSize.x * k, d.expandedSize.y * k } && x.canvas.y == d.canvas.y * k, "sizes scale");
+    expect(x.bodyFontSize == d.bodyFontSize * k && x.expandedPadding == d.expandedPadding * k &&
+           x.dragStartDistance == d.dragStartDistance * k && x.marqueeSpeed == d.marqueeSpeed * k,
            "fonts, paddings, distances and px/s speeds scale");
-    expect(x.pressScale == d.pressScale && x.buttonPressScale == d.buttonPressScale, "press factors don't");
+    expect(x.pressScale == d.pressScale && x.buttonPressScale == d.buttonPressScale && x.islandScale == d.islandScale,
+           "factors don't, the size knob included");
     expect(x.morphDuration == d.morphDuration && x.morphEase == d.morphEase && x.alertQueueCapacity == d.alertQueueCapacity &&
            x.islandColor == d.islandColor, "durations, curves, counts and colours don't");
-    expect(scaleTokens(d, 1.0f) == d, "100%: unchanged");
+    Tokens asWritten = d;
+    asWritten.islandScale = 1.0f;
+    expect(scaleTokens(asWritten, 1.0f) == asWritten, "100% and islandScale 1: the sizes as written");
+    expect(scaleTokens(d, 1.0f).expandedSize.x == d.expandedSize.x * d.islandScale, "islandScale alone makes it more compact");
 }
 
 } // namespace cup::test

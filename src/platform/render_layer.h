@@ -1,6 +1,6 @@
 #pragma once
 // Render layer (TR §9.1): one large click-through topmost window that owns all
-// the visuals, sized once and never resized.
+// the visuals. Resized only when the canvas changes (display scale, islandScale).
 
 #include "platform/win.h"
 

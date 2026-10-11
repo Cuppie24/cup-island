@@ -143,10 +143,11 @@ example: thin WinRT reading, with every decision in a pure presenter (decision 0
 
 Durations are in milliseconds and named `…Ms`. Sizes are `[width, height]`,
 in logical pixels: the app multiplies every length by the display's scale
-(decision 017), so 380 is 570 physical pixels at 150%.
+and by `islandScale`, the one knob for the island's overall size (decision
+017). At 150% with `islandScale` 0.85, a 380 card is 485 physical pixels.
 Colours are `[r, g, b]` or `[r, g, b, alpha]` (0..255, alpha 0..1, like CSS `rgba()`).
 Curves are `[x1, y1, x2, y2]`, the same as CSS `cubic-bezier()`, so you can
-paste from cubic-bezier.com. `canvasSize` only applies on restart. Watching
+paste from cubic-bezier.com. A new `canvasSize` (or `islandScale`) resizes the render layer. Watching
 is event-driven (`FindFirstChangeNotification`), so it costs nothing between saves.
 
 Adding a token: add the field to `Tokens` in `core/tokens.h`, add one line to

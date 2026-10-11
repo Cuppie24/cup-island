@@ -22,9 +22,14 @@ struct Bezier {
 };
 
 struct Tokens {
-    // Render layer: sized once to the largest pill plus press-overshoot room,
-    // never resized (TR §5, §9.1). Only read at startup.
+    // Render layer: sized to the largest pill plus press-overshoot room (TR §5,
+    // §9.1). Resized only when this changes (an edit, islandScale, the display's scale).
     Vec2 canvas{ 420, 400 }; // room for the largest pill: a Centred card at its tallest, with tabs
+
+    // One knob for the island's overall size: every length below is
+    // multiplied by it, on top of the display's scaling (decision 017).
+    // 1 = the sizes as written; below 1 = more compact.
+    float islandScale = 0.85f;
 
     // Pill size per mode (PS §3.1). Height 0 = tucked into the screen edge.
     Vec2 idleSize{ 160, 28 };

@@ -358,15 +358,24 @@ void onKey(WPARAM key)
     }
 }
 
+// New tokens are active (a tokens.json save, or a new display scale): resize
+// the render layer if the canvas changed, rebuild the content, re-layout.
+void tokensChanged(Vec2 oldCanvas, const char* reason)
+{
+    if (tokens().canvas != oldCanvas) {
+        resizeRenderLayer(g_render, tokens().canvas);
+        setRenderLeft(g_render.left);
+    }
+    g_renderer.refreshAnimations(); // also drops content visuals, so they're redrawn at the new sizes
+    dispatch(Tick{}, reason);
+}
+
 // Display scale changed (Settings, or the primary display was swapped): every
-// length is rescaled, the render layer resized, and the content rebuilt.
+// length is rescaled (decision 017).
 void onDpiChanged(float scale)
 {
-    if (!app::rescaleTokens(g_tokensFile, scale)) return;
-    resizeRenderLayer(g_render, tokens().canvas);
-    setRenderLeft(g_render.left);
-    g_renderer.refreshAnimations(); // also drops content visuals, so they're redrawn at the new size
-    dispatch(Tick{}, "display scale");
+    Vec2 oldCanvas = tokens().canvas;
+    if (app::rescaleTokens(g_tokensFile, scale)) tokensChanged(oldCanvas, "display scale");
 }
 
 void onTimer(TimerId id)
@@ -377,10 +386,8 @@ void onTimer(TimerId id)
         // clock or time-zone change shows within a minute (decision 009).
         dispatch(readWallClock(), "timer");
     } else if (id == TimerId::TokensReload) {
-        if (app::loadTokens(g_tokensFile, /* startup */ false)) {
-            g_renderer.refreshAnimations();
-            dispatch(Tick{}, "tokens.json"); // re-layout with the new sizes
-        }
+        Vec2 oldCanvas = tokens().canvas;
+        if (app::loadTokens(g_tokensFile, /* startup */ false)) tokensChanged(oldCanvas, "tokens.json");
     }
 }
 

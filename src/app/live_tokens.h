@@ -11,9 +11,9 @@ namespace cup::app {
 std::filesystem::path findTokensFile();
 
 // Reads, validates and applies the file. Prints problems and keeps the
-// previous values if anything is wrong. Returns true if tokens changed.
-// canvasSize is only applied at startup (and on a display-scale change):
-// the render layer isn't resized for an edit.
+// previous values if anything is wrong. Returns true if tokens changed;
+// if the canvas changed too (canvasSize, islandScale), the caller resizes
+// the render layer.
 bool loadTokens(const std::filesystem::path& file, bool startup);
 
 // The display's scale, 1.0 = 100%: tokens.json is in logical pixels and

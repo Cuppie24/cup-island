@@ -67,11 +67,9 @@ bool apply(const std::filesystem::path& file, bool startup, bool resize)
         return false;
     }
 
+    // canvasSize (and islandScale, which scales it) apply live: the app
+    // resizes the render layer when the canvas changes.
     Tokens next = scaleTokens(parsed.tokens, g_scale);
-    if (!resize && next.canvas != tokens().canvas) {
-        log("tokens.json: canvasSize changes apply on restart");
-        next.canvas = tokens().canvas;
-    }
     warnIfClipped(next);
     if (next == tokens()) return false;
 

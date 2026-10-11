@@ -17,6 +17,11 @@ TR §9 asks for correct scaling per display.
   then simply works in physical pixels. Nothing is drawn small and
   stretched, so text and art stay crisp, and pointer coordinates need no
   conversion. Core stays unaware of DPI; its tests run at scale 1.
+- **`islandScale`**, one size knob (default 0.85): lengths are multiplied
+  by the display's scale times it. Windows' scaling alone made the island
+  feel too big next to the taskbar and tray; one factor keeps every
+  proportion while making it more compact. Tunable live: a changed canvas
+  resizes the render layer.
 - **The island lives on the primary display**, so that display's scale is
   the one used (`GetDpiForMonitor`).
 - **Changing the scale while it runs** (Settings › Display › Scale, or a
