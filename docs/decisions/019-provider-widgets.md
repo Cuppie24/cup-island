@@ -30,6 +30,12 @@ used most, wasn't on Home at all unless something was already playing.
   plan. Running: the ring filling in the phase's colour, the time left,
   the phase and round ("Focus · 2/4", "Paused · 2/4"). Starting, pausing,
   skipping and stopping are on its card.
+- **One row, full width.** Home's widgets sit in a single row that always
+  reaches both sides of the card: a wide widget gets twice a narrow one's
+  share of the width, so two wide widgets are halves and one fills it.
+  The row holds `homeColumns` columns' worth (a wide widget counts two);
+  widgets past that are left out, in publish order. With media and
+  Pomodoro (both wide) and four columns, the row is exactly those two.
 - **No clock or battery tiles.** The idle pill already shows the time;
   the date and the battery level are one glance away in the taskbar.
   `ClockSynced` no longer carries a date.

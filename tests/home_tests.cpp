@@ -47,34 +47,33 @@ void runHomeTests()
 {
     const Tokens& t = tokens();
 
-    // The grid: publish order, one column or two, centred vertically in Expanded's card.
-    IslandState s = withPanels({ panel("a"), panel("b", true), panel("c"), panel("d", true), panel("e") });
+    // One row across the full width (decision 019): publish order, a wide tile
+    // twice a narrow one, centred vertically in Expanded's card.
+    IslandState s = withPanels({ panel("a"), panel("b", true), panel("c") });
     Scene home = layout(reduce(s, PillClicked{}, Ms{ 0 }), Ms{ 0 });
     expect(home.mode == Mode::Expanded && home.size == t.expandedSize, "Home keeps Expanded's card size");
     expect(!home.tabs, "no tab strip with only Home");
     expect(home.label == "Home" && home.activityId.empty(), "Home is no activity's card");
-    float p = t.expandedPadding, gap = t.tileGap, column = (home.size.x - 2 * p - 3 * gap) / 4;
-    expect(home.tiles.size() == 5, "two rows: a b(wide) c / d(wide) e");
+    float p = t.expandedPadding, gap = t.tileGap, unit = (home.size.x - 2 * p - 2 * gap) / 4;
+    expect(home.tiles.size() == 3, "three widgets, one row");
     const Tile& a = home.tiles[0];
     const Tile& b = home.tiles[1];
     const Tile& c = home.tiles[2];
-    const Tile& d = home.tiles[3];
-    expect(a.id == "a" && a.frame.x == p && std::abs(a.frame.width - column) < 0.01f, "first tile: one column, one padding in");
-    expect(b.frame.x == a.frame.x + a.frame.width + gap && std::abs(b.frame.width - (2 * column + gap)) < 0.01f, "wide tile: two columns");
-    expect(c.frame.y == a.frame.y && std::abs(c.frame.x + c.frame.width - (home.size.x - p)) < 0.01f, "row fills to the far padding");
-    expect(d.frame.x == p && d.frame.y == a.frame.y + t.tileHeight + gap, "next row");
-    float top = a.frame.y, bottom = d.frame.y + d.frame.height;
-    expect(std::abs(top - p - (home.size.y - p - bottom)) < 0.01f, "grid centred vertically");
+    expect(a.id == "a" && a.frame.x == p && std::abs(a.frame.width - unit) < 0.01f, "first: one share, one padding in");
+    expect(std::abs(b.frame.x - (a.frame.x + a.frame.width + gap)) < 0.01f && std::abs(b.frame.width - 2 * unit) < 0.01f, "wide: two shares");
+    expect(c.frame.y == a.frame.y && std::abs(c.frame.x + c.frame.width - (home.size.x - p)) < 0.01f, "the row reaches the far padding");
+    expect(std::abs(a.frame.y - p - (home.size.y - p - a.frame.y - a.frame.height)) < 0.01f, "row centred vertically");
 
-    IslandState wideFirst = withPanels({ panel("x"), panel("y"), panel("z"), panel("w", true) });
-    Scene wrapped = layout(reduce(wideFirst, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    expect(wrapped.tiles.size() == 4 && wrapped.tiles[3].frame.x == p && wrapped.tiles[3].frame.y > wrapped.tiles[0].frame.y,
-           "a wide tile that doesn't fit the row's rest starts the next row");
+    IslandState pair = withPanels({ panel("m", true), panel("f", true) });
+    Scene two = layout(reduce(pair, PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    expect(two.tiles.size() == 2 && std::abs(two.tiles[0].frame.width - two.tiles[1].frame.width) < 0.01f &&
+           std::abs(two.tiles[1].frame.x + two.tiles[1].frame.width - (two.size.x - p)) < 0.01f, "two wide widgets: halves of the width");
+    Scene alone = layout(reduce(withPanels({ panel("x") }), PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    expect(alone.tiles.size() == 1 && std::abs(alone.tiles[0].frame.width - (alone.size.x - 2 * p)) < 0.01f, "one widget: the full width");
 
-    IslandState many;
-    for (int i = 0; i < 12; ++i) many = reduce(many, PanelPublished{ panel("p" + std::to_string(i)) }, Ms{ 0 });
+    IslandState many = withPanels({ panel("w1", true), panel("w2", true), panel("n1"), panel("w3", true) });
     Scene full = layout(reduce(many, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    expect(full.tiles.size() == 8, "tiles that don't fit the card are left out");
+    expect(full.tiles.size() == 2 && full.tiles[1].id == "w2", "widgets past homeColumns' worth are left out");
     for (const Tile& tile : full.tiles)
         expect(tile.frame.y + tile.frame.height <= full.size.y - p, "tile inside the card: " + tile.id);
 

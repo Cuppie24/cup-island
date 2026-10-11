@@ -4,7 +4,7 @@
 #include "core/tokens.h"
 
 #include <algorithm>
-#include <cmath>
+#include <utility>
 
 namespace cup {
 namespace {
@@ -19,28 +19,19 @@ struct Entry {
     std::string tapAction;
 };
 
-// A tile's place in the grid, in columns and rows.
-struct Cell {
-    Entry entry;
-    std::size_t column, row, span;
-};
-
-// Row by row. A wide tile that doesn't fit the rest of a row starts the
-// next one, so tiles never change size to fit.
-std::vector<Cell> cellsFor(const std::vector<Entry>& entries, std::size_t columns)
+// One row, in publish order: each widget takes one column's worth, or two
+// (Panel::wide); one that doesn't fit what's left of `columns` is left out.
+std::vector<std::pair<Entry, std::size_t>> rowFor(const std::vector<Entry>& entries, std::size_t columns)
 {
-    std::vector<Cell> cells;
-    std::size_t column = 0, row = 0;
+    std::vector<std::pair<Entry, std::size_t>> shown;
+    std::size_t used = 0;
     for (const Entry& entry : entries) {
         std::size_t span = entry.wide && columns > 1 ? 2 : 1;
-        if (column + span > columns) {
-            column = 0;
-            ++row;
-        }
-        cells.push_back({ entry, column, row, span });
-        column += span;
+        if (used + span > columns) continue;
+        shown.push_back({ entry, span });
+        used += span;
     }
-    return cells;
+    return shown;
 }
 
 // A widget shows information only (decision 019): its buttons and text
@@ -73,27 +64,23 @@ std::vector<Tile> homeTilesFor(const IslandState& s, Vec2 cardSize, float tileRa
         entries.push_back({ panel.id, panel.providerId, &content, panel.wide, opens, panel.tapAction });
     }
 
-    std::size_t columns = std::max<std::size_t>(t.homeColumns, 1);
-    std::vector<Cell> cells = cellsFor(entries, columns);
-    if (cells.empty()) return {};
+    std::vector<std::pair<Entry, std::size_t>> shown = rowFor(entries, std::max<std::size_t>(t.homeColumns, 1));
+    if (shown.empty()) return {};
 
-    float p = t.expandedPadding, gap = t.tileGap, h = t.tileHeight, n = static_cast<float>(columns);
-    float columnWidth = (cardSize.x - 2 * p - (n - 1) * gap) / n;
-    float areaTop = p, areaHeight = cardSize.y - 2 * p;
-
-    // As many rows as fit, centred vertically in the card (which keeps Expanded's size).
-    auto fit = static_cast<std::size_t>(std::max(0.0f, std::floor((areaHeight + gap) / (h + gap))));
-    std::size_t rows = std::min(fit, cells.back().row + 1);
-    float gridHeight = static_cast<float>(rows) * (h + gap) - gap;
-    float y0 = areaTop + (areaHeight - gridHeight) / 2;
+    // One row across the card's full width (decision 019), centred vertically
+    // in it (the card keeps Expanded's size). Widths share what's left after
+    // the gaps by span, so the row always reaches both paddings.
+    float p = t.expandedPadding, gap = t.tileGap, h = t.tileHeight;
+    float spans = 0;
+    for (const auto& [entry, span] : shown) spans += static_cast<float>(span);
+    float unit = (cardSize.x - 2 * p - static_cast<float>(shown.size() - 1) * gap) / spans;
+    float y = p + (cardSize.y - 2 * p - h) / 2;
 
     std::vector<Tile> tiles;
-    for (const Cell& cell : cells) {
-        if (cell.row >= rows) break;
-        const Entry& e = cell.entry;
-        float span = static_cast<float>(cell.span);
-        Rect frame{ p + static_cast<float>(cell.column) * (columnWidth + gap), y0 + static_cast<float>(cell.row) * (h + gap),
-                    span * columnWidth + (span - 1) * gap, h };
+    float x = p;
+    for (const auto& [e, span] : shown) {
+        Rect frame{ x, y, static_cast<float>(span) * unit, h };
+        x += frame.width + gap;
         tiles.push_back({ frame, e.id, e.opens, e.providerId, e.tapAction });
 
         // The leading square (art, an icon, a ring) as tall as the tile's inside, the rows beside it.
