@@ -2,10 +2,12 @@
 
 #include "core/hit_test.h"
 #include "core/layout.h"
-#include "core/side_card.h"
 #include "core/split.h"
+#include "core/tabs.h"
 #include "core/tokens.h"
 #include "expect.h"
+
+#include <cmath>
 
 namespace cup::test {
 namespace {
@@ -177,7 +179,7 @@ void runContentTests()
     expect(cText && cText->frame.x > cArt->frame.x + side && cText->frame.x + cText->frame.width < compact.size.x - inset - side,
            "compact title sits between the squares");
 
-    expect(!scene.side, "no side card with a single activity");
+    expect(!scene.tabs, "no tabs with a single activity");
 
     // Split bubble: the 2nd activity's minimal slot (else compact leading), right of the pill.
     IslandState split;
@@ -225,62 +227,85 @@ void runContentTests()
            "interaction layer covers pill and bubble");
     expect(Rect{ rest.offset.x, rest.offset.y, rest.size.x, rest.size.y } == splitPillFrame(), "split pill frame matches layout");
 
-    // Expanded side card (decision 007): the others, one row each, right of the card.
+    // Expanded tabs (decision 007): one per activity along the top of the card.
     IslandState three;
     three = reduce(three, ActivityStarted{ { .id = "media", .content = { .label = "Song - Artist",
         .compactLeading = { row({ Image{} }) },
         .compactCenter = { row({ Text{ .value = "Song - Artist", .marquee = true } }) },
-        .compactTrailing = { row({ Waveform{ true } }) } } } }, Ms{ 0 });
+        .expandedLeading = { row({ Image{} }) } } } }, Ms{ 0 });
     three = reduce(three, ActivityStarted{ { .id = "timer", .content = { .label = "Timer",
-        .compactLeading = { row({ Icon{ Glyph::Timer } }) },
-        .compactTrailing = { row({ Text{ "4:59", TextStyle::Digits } }) } } } }, Ms{ 0 });
+        .compactLeading = { row({ Icon{ Glyph::Timer } }) } } } }, Ms{ 0 });
     three = reduce(three, ActivityStarted{ { .id = "sync", .content = { .label = "Sync" } } }, Ms{ 0 });
     Scene opened = layout(reduce(three, PillClicked{}, Ms{ 0 }), Ms{ 0 }); // opens the top one: sync
-    expect(opened.side && opened.side->rows.size() == 2, "side card lists every other activity");
-    const SideCard& sc = *opened.side;
-    expect(sc.rows[0].activityId == "timer" && sc.rows[1].activityId == "media", "rows in rank order");
-    expect(sc.frame.x == opened.offset.x + opened.size.x + t.bubbleGap && sc.frame.y == opened.offset.y,
-           "side card hangs from the top edge, a bubble gap right of the card");
-    expect(sc.frame.x + sc.frame.width <= t.canvas.x, "side card fits on the canvas");
-    expect(sc.frame.height == 2 * t.sideCardPadding + 2 * t.sideRowHeight + t.sideRowGap, "side card fits its rows");
-    auto sideFind = [&](const std::string& key) -> const Placed* {
-        for (const auto& p : sc.elements)
-            if (p.key == key) return &p;
-        return nullptr;
-    };
-    const Placed* mediaTitle = sideFind("side/media/title");
-    const Placed* timerStatus = sideFind("side/timer/status");
-    const Placed* timerTitle = sideFind("side/timer/title");
-    const Placed* timerLead = sideFind("side/timer/lead");
-    const Placed* mediaLead = sideFind("side/media/lead");
-    expect(mediaTitle && std::get<Text>(mediaTitle->item).value == "Song - Artist" && std::get<Text>(mediaTitle->item).marquee,
-           "row title: the compact centre text, swimming");
-    expect(timerTitle && std::get<Text>(timerTitle->item).value == "Timer", "no compact centre: the activity's name");
-    expect(timerStatus && std::get<Text>(timerStatus->item).value == "4:59" && std::get<Text>(timerStatus->item).alignEnd,
-           "short trailing text becomes the row's status");
-    expect(sideFind("side/media/status") && std::holds_alternative<Waveform>(sideFind("side/media/status")->item),
-           "media's bars show as its status");
-    expect(timerLead && timerLead->frame.y + timerLead->frame.height / 2 == sc.rows[0].frame.y + sc.rows[0].frame.height / 2,
-           "glyph centred in its row");
-    expect(mediaLead && mediaLead->cornerRadius > 0 && mediaLead->cornerRadius <= sc.rowRadius, "row art radius is nested");
-    for (const auto& p : sc.elements)
-        expect(p.frame.x >= 0 && p.frame.x + p.frame.width <= sc.frame.width && p.frame.y + p.frame.height <= sc.frame.height,
-               "side element inside the side card: " + p.key);
-    Vec2 onTimerRow{ sc.frame.x + sc.rows[0].frame.x + 5, sc.frame.y + sc.rows[0].frame.y + 5 };
-    expect(sideRowAt(sc, onTimerRow) && sideRowAt(sc, onTimerRow)->activityId == "timer", "a point finds its row");
-    expect(!sideRowAt(sc, { sc.frame.x - 2, sc.frame.y + 10 }), "outside the card: no row");
-    Rect openedBounds = interactiveBounds(opened);
-    expect(openedBounds.x + openedBounds.width == sc.frame.x + sc.frame.width, "interaction layer covers the side card");
+    expect(opened.tabs && opened.tabs->tabs.size() == 3, "a tab per activity, the shown one included");
+    const TabStrip& strip = *opened.tabs;
+    expect(strip.tabs[0].activityId == "media" && strip.tabs[2].activityId == "sync" && strip.active == 2,
+           "tabs in start order (stable), the shown one marked active");
+    expect(opened.size.y == t.expandedSize.y + t.tabHeight + t.slotGap, "the card grows by the strip");
+    expect(opened.size.y <= t.canvas.y, "the taller card fits on the canvas");
+    float groupLeft = strip.tabs.front().frame.x, groupRight = strip.tabs.back().frame.x + strip.tabs.back().frame.width;
+    expect(strip.tabs[0].frame.width == t.tabMaxWidth || groupRight - groupLeft == opened.size.x - 2 * t.expandedPadding,
+           "tabs use their full width unless they don't fit");
+    expect(groupLeft - 0 == opened.size.x - groupRight, "the group is centred");
+    expect(groupLeft >= t.expandedPadding && strip.tabs[0].frame.y == t.expandedPadding, "strip keeps the card's padding");
+    expect(strip.radius == std::min(pillCornerRadius(opened.size) - t.expandedPadding, t.tabHeight / 2), "tab corners nested");
 
-    // More than fit: the last row stands for the rest and opens the first of them.
-    IslandState many = three;
-    for (const char* id : { "d", "e", "f" }) many = reduce(many, ActivityStarted{ { .id = id } }, Ms{ 0 });
-    Scene crowded = layout(reduce(many, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    expect(crowded.side && crowded.side->rows.size() == t.sideCardRows, "rows capped");
-    const Placed* more = nullptr;
-    for (const auto& p : crowded.side->elements)
-        if (p.key == "side/more") more = &p;
-    expect(more && std::get<Text>(more->item).value == "+3 more", "overflow row counts what it stands for");
+    IslandState two;
+    two = reduce(two, ActivityStarted{ { .id = "a" } }, Ms{ 0 });
+    two = reduce(two, ActivityStarted{ { .id = "b" } }, Ms{ 0 });
+    Scene pair = layout(reduce(two, PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    expect(pair.tabs && pair.tabs->tabs[0].frame.width == t.tabMaxWidth, "few tabs: full width");
+    expect(pair.tabs->tabs[0].frame.x == (pair.size.x - 2 * t.tabMaxWidth - t.tabGap) / 2, "few tabs: centred, not left-aligned");
+
+    const Placed* artLead = find(opened, "tab/media/lead");
+    const Placed* glyphLead = find(opened, "tab/timer/lead");
+    const Placed* mediaTab = find(opened, "tab/media/title");
+    const Placed* syncTab = find(opened, "tab/sync/title");
+    expect(mediaTab && std::get<Text>(mediaTab->item).value == "Song - Artist" && !std::get<Text>(mediaTab->item).marquee,
+           "tab title: the compact centre text, not swimming");
+    expect(syncTab && std::get<Text>(syncTab->item).value == "Sync", "no compact centre: the activity's name");
+    expect(artLead && artLead->cornerRadius > 0, "tab art radius nested");
+    expect(glyphLead && glyphLead->frame.y + glyphLead->frame.height / 2 == strip.tabs[1].frame.y + strip.tabs[1].frame.height / 2,
+           "tab glyph centred vertically");
+    for (const Tab& tab : strip.tabs)
+        for (const auto& p : opened.elements)
+            if (p.key.rfind("tab/" + tab.activityId + "/", 0) == 0)
+                expect(p.frame.x >= tab.frame.x && p.frame.x + p.frame.width <= tab.frame.x + tab.frame.width,
+                       "tab content stays inside its tab: " + p.key);
+    const Placed* body = find(opened, "expandedLeading/0/0");
+    expect(!body || body->frame.y >= strip.tabs[0].frame.y + t.tabHeight + t.slotGap, "card content sits below the strip");
+    // Icon and title centred in the tab as one group, the title as wide as the real text.
+    MeasureText fixed = [](const Text&) { return 40.0f; };
+    Scene measured = layout(reduce(three, PillClicked{}, Ms{ 0 }), Ms{ 0 }, fixed);
+    for (const Tab& tab : measured.tabs->tabs) {
+        const Placed* lead = nullptr;
+        const Placed* label = nullptr;
+        for (const auto& p : measured.elements) {
+            if (p.key == "tab/" + tab.activityId + "/lead") lead = &p;
+            if (p.key == "tab/" + tab.activityId + "/title") label = &p;
+        }
+        float groupLeft = lead ? lead->frame.x - (lead->frame.width < t.tabHeight - 2 * t.compactInset
+                                                      ? (t.tabHeight - 2 * t.compactInset - lead->frame.width) / 2 : 0)
+                               : label->frame.x;
+        float groupRight = label->frame.x + label->frame.width;
+        float tabCentre = tab.frame.x + tab.frame.width / 2;
+        expect(label && label->frame.width == 41, "title as wide as the measured text (+1 slack): " + tab.activityId);
+        expect(std::abs((groupLeft + groupRight) / 2 - tabCentre) < 0.01f, "icon + title centred in the tab: " + tab.activityId);
+    }
+    MeasureText huge = [](const Text&) { return 1000.0f; };
+    Scene squeezed = layout(reduce(three, PillClicked{}, Ms{ 0 }), Ms{ 0 }, huge);
+    const Placed* longTitle = find(squeezed, "tab/media/title");
+    const Tab& longTab = squeezed.tabs->tabs[0];
+    expect(longTitle && longTitle->frame.x + longTitle->frame.width <= longTab.frame.x + longTab.frame.width - t.itemSpacing,
+           "a title too long for its tab gets what's left (and ends in an ellipsis)");
+
+    Vec2 onTimer{ strip.tabs[1].frame.x + 3, strip.tabs[1].frame.y + 3 };
+    expect(tabAt(strip, onTimer) && tabAt(strip, onTimer)->activityId == "timer", "a point finds its tab");
+    expect(!tabAt(strip, { 1, 1 }), "outside the strip: no tab");
+    Scene mediaCard = layout(reduce(reduce(three, PillClicked{}, Ms{ 0 }), ActivitySwitched{ "media" }, Ms{ 0 }), Ms{ 0 });
+    const Placed* mediaArt = find(mediaCard, "expandedLeading/0/0");
+    expect(mediaArt && mediaArt->frame.y == t.expandedPadding + t.tabHeight + t.slotGap, "switched card's art sits below the strip");
+    expect(mediaCard.tabs->tabs[0].activityId == "media" && mediaCard.tabs->active == 0, "switching doesn't reorder tabs");
 }
 
 } // namespace cup::test

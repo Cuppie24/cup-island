@@ -14,7 +14,7 @@
 #include "core/hit_test.h"
 #include "core/island.h"
 #include "core/layout.h"
-#include "core/side_card.h"
+#include "core/tabs.h"
 #include "core/tokens.h"
 #include "platform/file_watcher.h"
 #include "platform/fullscreen_watcher.h"
@@ -53,8 +53,7 @@ struct Pointer {
     float scrubFraction = 0;
     std::optional<Vec2> bubblePress; // mouse-down on the Split bubble, render-layer coordinates
     bool dragged = false;            // ...and core took it as a drag (BubbleDragged): not a click
-    std::optional<Vec2> over;        // over the island at all, render-layer coordinates (side card hover)
-    std::optional<std::string> sidePress; // mouse-down on a side card row: that row's activity
+    std::optional<std::string> tabPress; // mouse-down on an Expanded tab: its activity
 } g_pointer;
 
 // Pointer callbacks get render-layer points; content works in pill coordinates.
@@ -92,13 +91,14 @@ void updateHover()
     }
     g_renderer.setHovered(key);
 
-    // Side card rows light up as a whole (decision 007).
-    const SideRow* row = g_scene.side && g_pointer.over ? sideRowAt(*g_scene.side, *g_pointer.over) : nullptr;
-    g_renderer.setSideRowHovered(row ? std::optional<Rect>(row->frame) : std::nullopt, g_scene.side ? g_scene.side->rowRadius : 0);
+    // Tabs light up as a whole, except the active one, which is already marked (decision 007).
+    const Tab* tab = g_scene.tabs && g_pointer.at ? tabAt(*g_scene.tabs, *g_pointer.at) : nullptr;
+    if (tab && tab->activityId == g_scene.activityId) tab = nullptr;
+    g_renderer.setTabHovered(tab ? std::optional<Rect>(tab->frame) : std::nullopt, g_scene.tabs ? g_scene.tabs->radius : 0);
 }
 
-// The side card row under a render-layer point, if any.
-const SideRow* sideRowUnder(Vec2 point) { return g_scene.side ? sideRowAt(*g_scene.side, point) : nullptr; }
+// The Expanded tab under a pill-coordinate point, if any.
+const Tab* tabUnder(Vec2 point) { return g_scene.tabs ? tabAt(*g_scene.tabs, point) : nullptr; }
 
 std::optional<Ms> earliest(std::optional<Ms> a, std::optional<Ms> b)
 {
@@ -111,7 +111,7 @@ void dispatch(const Event& event, const char* reason)
 {
     Ms t = now();
     g_state = reduce(g_state, event, t);
-    Scene next = layout(g_state, t);
+    Scene next = layout(g_state, t, [](const Text& text) { return g_renderer.measure(text); });
 
     if (next.mode != g_scene.mode) {
         std::printf("[cup-island] %s -> %s (%s) %s\n", toString(g_scene.mode), toString(next.mode), reason, next.label.c_str());
@@ -152,12 +152,6 @@ void toggleTimer()
 // a button gets its own press feedback, anything else squashes the pill.
 void onPressDown(Vec2 canvasPoint)
 {
-    if (g_scene.side && g_scene.side->frame.contains(canvasPoint)) {
-        // Switches on release, if still on the same row. Between rows: nothing.
-        const SideRow* row = sideRowUnder(canvasPoint);
-        g_pointer.sidePress = row ? row->activityId : std::string{};
-        return;
-    }
     if (onBubble(canvasPoint)) {
         g_pointer.bubblePress = canvasPoint;
         g_pointer.dragged = false;
@@ -166,6 +160,10 @@ void onPressDown(Vec2 canvasPoint)
     }
     Vec2 point = toPill(canvasPoint);
     g_pointer.at = point;
+    if (const Tab* tab = tabUnder(point)) {
+        g_pointer.tabPress = tab->activityId; // switches on release, if still on the same tab
+        return;
+    }
     auto hit = hitTest(g_scene, point);
     const Placed* element = hit ? findElement(hit->key) : nullptr;
     if (element && std::holds_alternative<Progress>(element->item)) {
@@ -183,7 +181,6 @@ void onPressDown(Vec2 canvasPoint)
 
 void onPointerMoved(Vec2 canvasPoint, bool inside)
 {
-    g_pointer.over = inside ? std::optional<Vec2>(canvasPoint) : std::nullopt;
     if (g_pointer.bubblePress) {
         Vec2 start = *g_pointer.bubblePress;
         dispatch(BubbleDragged{ { canvasPoint.x - start.x, canvasPoint.y - start.y } }, "drag");
@@ -204,10 +201,10 @@ void onPointerMoved(Vec2 canvasPoint, bool inside)
 
 void onPressRelease(Vec2 canvasPoint, Release how)
 {
-    if (g_pointer.sidePress) {
-        std::string id = *std::exchange(g_pointer.sidePress, std::nullopt);
-        const SideRow* row = how == Release::Inside ? sideRowUnder(canvasPoint) : nullptr;
-        if (!id.empty() && row && row->activityId == id) dispatch(ActivitySwitched{ id }, "side card");
+    if (g_pointer.tabPress) {
+        std::string id = *std::exchange(g_pointer.tabPress, std::nullopt);
+        const Tab* tab = how == Release::Inside && onPill(canvasPoint) ? tabUnder(toPill(canvasPoint)) : nullptr;
+        if (tab && tab->activityId == id && id != g_scene.activityId) dispatch(ActivitySwitched{ id }, "tab");
         return;
     }
     if (g_pointer.bubblePress) {
@@ -309,7 +306,6 @@ int main()
     callbacks.onPointerMoved = onPointerMoved;
     callbacks.onPointerLeft = [] {
         g_pointer.at.reset();
-        g_pointer.over.reset();
         updateHover();
     };
     callbacks.onKeyDown = onKey;

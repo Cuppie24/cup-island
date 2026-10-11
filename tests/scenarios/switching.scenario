@@ -43,7 +43,7 @@ start timer
 promote media                       -> pinned=media
 wait 5000                           -> Compact top=timer pinned=none
 
-scenario: a side card row switches the card and the pill to that activity
+scenario: a tab switches the card and the pill to that activity
 start a
 start b
 start c                             -> top=c

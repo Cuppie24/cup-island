@@ -1,7 +1,7 @@
 #include "core/layout.h"
 
-#include "core/side_card.h"
 #include "core/split.h"
+#include "core/tabs.h"
 #include "core/tokens.h"
 
 #include <algorithm>
@@ -65,7 +65,7 @@ float paddingFor(Mode mode)
 // Where each slot sits inside the pill (PS §5.1). Every slot keeps the mode's
 // padding from the pill's edges: with the nested corner radius that keeps
 // rounded content concentric with the pill's corners.
-std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
+std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c, float top)
 {
     const Tokens& t = tokens();
     float p = paddingFor(mode);
@@ -83,12 +83,13 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
                  { "alertCenter", &c.alertCenter, { centerX, p, size.x - centerX - p, side } } };
     }
     case Mode::Expanded: {
-        float art = t.expandedArtSize, centerX = p + art + t.slotGap, bottomY = p + art + t.slotGap;
+        // `top`: room for the tab strip above, when there is one.
+        float art = t.expandedArtSize, y = p + top, centerX = p + art + t.slotGap, bottomY = y + art + t.slotGap;
         float corner = t.buttonSize, cornerX = size.x - p - corner;
         float centerRight = c.expandedTrailing.empty() ? size.x - p : cornerX - t.slotGap;
-        return { { "expandedLeading", &c.expandedLeading, { p, p, art, art } },
-                 { "expandedCenter", &c.expandedCenter, { centerX, p, centerRight - centerX, art } },
-                 { "expandedTrailing", &c.expandedTrailing, { cornerX, p, corner, corner } },
+        return { { "expandedLeading", &c.expandedLeading, { p, y, art, art } },
+                 { "expandedCenter", &c.expandedCenter, { centerX, y, centerRight - centerX, art } },
+                 { "expandedTrailing", &c.expandedTrailing, { cornerX, y, corner, corner } },
                  { "expandedBottom", &c.expandedBottom, { p, bottomY, size.x - 2 * p, size.y - bottomY - p } } };
     }
     default:
@@ -269,14 +270,20 @@ BubbleScene bubbleFor(const IslandState& s, Ms now)
     return bubble;
 }
 
+
+// Without the real font: an average glyph is about half the font size wide.
+float estimateTextWidth(const Text& text) { return std::ceil(static_cast<float>(text.value.size()) * fontSize(text.style) * 0.5f); }
+
 } // namespace
 
-Scene layout(const IslandState& state, Ms now)
+Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
 {
     Scene scene;
     scene.now = now;
     scene.mode = mode(state);
+    float tabSpace = tabStripSpace(state);
     scene.size = sizeFor(scene.mode);
+    scene.size.y += tabSpace;
     scene.offset = { (tokens().canvas.x - scene.size.x) / 2, 0 };
     // On the top edge, inside the pill's right end: the bubble shrinks into it
     // and buds back out of it hanging from the edge, like the pill, never
@@ -291,9 +298,9 @@ Scene layout(const IslandState& state, Ms now)
     scene.label = source.content->label;
     scene.activityId = source.activityId;
     float nestedRadius = std::max(0.0f, pillCornerRadius(scene.size) - paddingFor(scene.mode));
-    for (const SlotFrame& slot : slotFrames(scene.mode, scene.size, *source.content))
+    for (const SlotFrame& slot : slotFrames(scene.mode, scene.size, *source.content, tabSpace))
         placeSlot(slot, source, nestedRadius, now, scene.elements);
-    scene.side = sideCardFor(state, { scene.offset.x, scene.offset.y, scene.size.x, scene.size.y });
+    scene.tabs = tabStripFor(state, scene.size, nestedRadius, measure ? measure : MeasureText{ estimateTextWidth }, scene.elements);
     return scene;
 }
 
@@ -304,15 +311,12 @@ float pillCornerRadius(Vec2 size)
 
 Rect interactiveBounds(const Scene& scene)
 {
-    Rect r{ scene.offset.x, scene.offset.y, scene.size.x, scene.size.y };
-    auto add = [&](const Rect& b) {
-        float left = std::min(r.x, b.x), top = std::min(r.y, b.y);
-        float right = std::max(r.x + r.width, b.x + b.width), bottom = std::max(r.y + r.height, b.y + b.height);
-        r = { left, top, right - left, bottom - top };
-    };
-    if (scene.bubble) add(scene.bubble->frame);
-    if (scene.side) add(scene.side->frame);
-    return r;
+    Rect pill{ scene.offset.x, scene.offset.y, scene.size.x, scene.size.y };
+    if (!scene.bubble) return pill;
+    const Rect& b = scene.bubble->frame;
+    float left = std::min(pill.x, b.x), top = std::min(pill.y, b.y);
+    float right = std::max(pill.x + pill.width, b.x + b.width), bottom = std::max(pill.y + pill.height, b.y + b.height);
+    return { left, top, right - left, bottom - top };
 }
 
 std::optional<Ms> sceneDeadline(const Scene& scene)

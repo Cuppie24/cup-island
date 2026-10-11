@@ -11,23 +11,26 @@ second activity, and sometimes to make it the main one.
 - **Bubble click** expands the bubble's activity. Looking never re-ranks.
 - **Promote** (`ActivityPromoted`) makes an activity the user's pick
   (`pinnedId`). Two ways to send it: dragging the bubble onto the pill (the
-  fast gesture), and a row in Expanded's side card (the visible one, since a
+  fast gesture), and a tab in Expanded (the visible one, since a
   drag is undiscoverable).
-- **Expanded side card:** with several activities, the others are listed in
-  a second, narrower card a `bubbleGap` right of the Expanded card, hanging
-  from the top edge like it. It's the Split bubble's shape grown into a list,
-  so expanding from Split reads as one object getting bigger. One row per
-  activity, in rank order: the compact leading item (icon or art), a title
-  (the compact centre text, else the activity's name; swims if long) and a
-  short status (compact trailing text like "4:59", or a glyph such as the
-  equalizer). Built from what providers already give for Compact, so they
-  need nothing new. No actions in rows: a row is one click target. Clicking
-  it (`ActivitySwitched`) shows that activity's card *and* makes it the pick,
-  so collapsing shows it in the pill. More activities than `sideCardRows`:
-  the last row reads "+N more" and opens the first of them. Rows light up as
-  a whole on hover; the content crossfades on a switch, nothing slides.
-  (This replaced a first try: "next" and "pin" buttons in the card's top
-  row, which were hard to read and crowded the title.)
+- **Expanded tabs:** with several activities, a strip of tabs runs along
+  the top of the Expanded card, one per activity (the shown one included),
+  and the card grows by the strip's height. Each tab: the compact leading
+  item (icon or art) and a title (the compact centre text, else the
+  activity's name; ends in "…", no swimming: a row of moving titles is
+  busy). Built from what providers already give for Compact, so they need
+  nothing new. Tabs keep the order activities started in, so clicking one
+  never reorders them. Every tab is `tabMaxWidth` wide and the group is
+  centred, shrinking only when they don't fit. Inside a tab, icon and title
+  are centred as one group; that needs the title's real width, so
+  `layout()` takes a `MeasureText` the platform answers with DirectWrite
+  (tests use a per-character estimate). The active tab has a soft
+  background that slides to a newly picked tab; others light up faintly on
+  hover. Clicking a tab (`ActivitySwitched`) shows that activity's card *and*
+  makes it the pick, so collapsing shows it in the pill.
+  (Tried before: "next"/"pin" buttons in the top row, hard to read and
+  crowding the title; then a detached side card listing the others, which
+  needed a 720-wide canvas and split the island in two.)
 - **Drag-to-swap:** a press on the bubble that moves `dragStartDistance` is
   a drag, and the bubble follows the cursor 1:1. Nothing else moves. Once its
   centre is over the pill, the pill's background lightens (`dropHighlight`):
@@ -51,9 +54,8 @@ second activity, and sometimes to make it the main one.
 `tests/scenarios/switching.scenario` and `tests/content_tests.cpp`. The
 renderer only follows `BubbleScene.dragCentre` and `Scene.dropTarget`. The interaction
 layer covers the pill plus the bubble (`interactiveBounds`), so the gap
-between them also takes clicks (and ignores them). In Expanded it covers
-the side card too, which is why the canvas is 720 wide: the card stays
-centred and the side card needs room on its right.
+between them also takes clicks (and ignores them). The canvas is 220 tall
+for Expanded plus its tab strip.
 
 **Open.** The settings pin per provider (PS §6.2) isn't built; the pick is
 the only pin. The only second source today is the demo timer (T key). The

@@ -25,8 +25,10 @@ public:
     void setHighlighted(bool on);            // drop target: the background lightens (decision 007)
     void setContent(const std::vector<Placed>& elements, Ms now) { elements_.apply(elements, now); }
     ElementVisuals& elements() { return elements_; } // hover, press, scrub feedback on content
-    // Side card: light up a whole row under the pointer (like a button's hover). nullopt = none.
-    void setRowHighlight(std::optional<Rect> row, float cornerRadius);
+    // Expanded's tabs (pill coordinates; nullopt = none): the active tab's
+    // background slides to a newly picked tab; hover is fainter and just fades.
+    void setSelectedTab(std::optional<Rect> tab, float cornerRadius);
+    void setHoveredTab(std::optional<Rect> tab, float cornerRadius);
 
     // Tactile click feedback: squash on press, spring back on release.
     void pressDown();
@@ -44,9 +46,13 @@ private:
     wuc::CompositionColorBrush fill_{ nullptr };
     wuc::ImplicitAnimationCollection implicit_{ nullptr }; // the Size/Offset morph
     wuc::ContainerVisual content_{ nullptr };
-    wuc::ShapeVisual rowHighlight_{ nullptr };          // made on first use
-    wuc::CompositionRoundedRectangleGeometry rowShape_{ nullptr };
-    std::optional<Rect> highlightedRow_;
+    struct Mark { // a rounded highlight under content, made on first use
+        wuc::ShapeVisual visual{ nullptr };
+        wuc::CompositionRoundedRectangleGeometry shape{ nullptr };
+        std::optional<Rect> at;
+    };
+    void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, std::uint8_t alpha, bool slide);
+    Mark selectedTab_, hoveredTab_;
     ElementVisuals elements_;
     Vec2 size_, offset_;
     Vec2 centre_;            // last cursor position while following

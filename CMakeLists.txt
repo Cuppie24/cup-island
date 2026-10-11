@@ -21,8 +21,8 @@ add_library(cup_core STATIC
     src/core/hit_test.cpp
     src/core/island.cpp
     src/core/layout.cpp
-    src/core/side_card.cpp
     src/core/split.cpp
+    src/core/tabs.cpp
     src/core/tokens.cpp
     src/core/tokens_json.cpp
 )
