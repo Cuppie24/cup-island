@@ -65,7 +65,7 @@ float paddingFor(Mode mode)
 // Where each slot sits inside the pill (PS §5.1). Every slot keeps the mode's
 // padding from the pill's edges: with the nested corner radius that keeps
 // rounded content concentric with the pill's corners.
-std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c, float top)
+std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c, float below)
 {
     const Tokens& t = tokens();
     float p = paddingFor(mode);
@@ -83,14 +83,14 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c, float 
                  { "alertCenter", &c.alertCenter, { centerX, p, size.x - centerX - p, side } } };
     }
     case Mode::Expanded: {
-        // `top`: room for the tab strip above, when there is one.
-        float art = t.expandedArtSize, y = p + top, centerX = p + art + t.slotGap, bottomY = y + art + t.slotGap;
+        // `below`: room for the tab strip under the content, when there is one.
+        float art = t.expandedArtSize, y = p, centerX = p + art + t.slotGap, bottomY = y + art + t.slotGap;
         float corner = t.buttonSize, cornerX = size.x - p - corner;
         float centerRight = c.expandedTrailing.empty() ? size.x - p : cornerX - t.slotGap;
         return { { "expandedLeading", &c.expandedLeading, { p, y, art, art } },
                  { "expandedCenter", &c.expandedCenter, { centerX, y, centerRight - centerX, art } },
                  { "expandedTrailing", &c.expandedTrailing, { cornerX, y, corner, corner } },
-                 { "expandedBottom", &c.expandedBottom, { p, bottomY, size.x - 2 * p, size.y - bottomY - p } } };
+                 { "expandedBottom", &c.expandedBottom, { p, bottomY, size.x - 2 * p, size.y - bottomY - p - below } } };
     }
     default:
         return {};

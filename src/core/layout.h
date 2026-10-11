@@ -33,7 +33,7 @@ struct BubbleScene {
     std::optional<Vec2> dragCentre; // being dragged: centred on the cursor here, no easing (decision 007)
 };
 
-// Expanded with several activities: a tab per activity along the top of the
+// Expanded with several activities: a tab per activity along the bottom of the
 // card (decision 007). Clicking a tab switches to it (ActivitySwitched).
 struct Tab {
     Rect frame; // pill coordinates: the whole tab is clickable
