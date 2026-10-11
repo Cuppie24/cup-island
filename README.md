@@ -8,6 +8,8 @@ publish to.
   [docs/provider-platform-spec.md](docs/provider-platform-spec.md)
 - How the code works: [ARCHITECTURE.md](ARCHITECTURE.md)
 
+Runs on Windows 10 (version 1809 or later) and Windows 11.
+
 ## Build
 
 ```powershell
