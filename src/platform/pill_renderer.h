@@ -23,9 +23,12 @@ public:
     void pressDown();
     void pressRelease();
 
-    // Same, for one content element (a button) instead of the whole pill.
+    // Pointer feedback on one content element instead of the whole pill (see ElementVisuals).
+    void setHovered(const std::string& key) { elements_.setHovered(key); }
     void pressElement(const std::string& key) { elements_.press(key); }
     void releaseElement(const std::string& key) { elements_.release(key); }
+    void scrubElement(const std::string& key, float fraction) { elements_.scrub(key, fraction); }
+    void endScrub(const std::string& key, std::optional<float> seekTo, Ms now) { elements_.endScrub(key, seekTo, now); }
 
 private:
     wuc::Compositor compositor_{ nullptr };

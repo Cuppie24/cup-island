@@ -23,6 +23,7 @@ HWND g_hwnd{};
 int g_renderLeft = 0;
 InteractionCallbacks g_callbacks;
 bool g_pressed = false;
+bool g_trackingLeave = false; // TrackMouseEvent armed: WM_MOUSELEAVE will come
 
 // The compositor never reports animated values back to the app, so this
 // replays the same morph (endpoints, duration, easing) clocked from the
@@ -90,6 +91,14 @@ Vec2 pointFrom(LPARAM lParam)
     return { static_cast<float>(GET_X_LPARAM(lParam)), static_cast<float>(GET_Y_LPARAM(lParam)) };
 }
 
+bool overPill(HWND hwnd, LPARAM lParam)
+{
+    POINT pt{ GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+    RECT client{};
+    GetClientRect(hwnd, &client);
+    return PtInRect(&client, pt) != FALSE;
+}
+
 template <typename F, typename... Args>
 void call(const F& callback, Args... args)
 {
@@ -115,16 +124,11 @@ try {
 
     case WM_LBUTTONUP:
         if (g_pressed) {
+            // Cleared before ReleaseCapture, so the WM_CAPTURECHANGED it sends isn't a cancel.
             g_pressed = false;
             ReleaseCapture();
-            call(g_callbacks.onPressRelease);
-
-            // With capture we get this even if the press was dragged off the
-            // pill; only count it as a click if released on the pill.
-            POINT pt{ GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
-            RECT client{};
-            GetClientRect(hwnd, &client);
-            if (PtInRect(&client, pt)) call(g_callbacks.onClick, pointFrom(lParam));
+            // With capture we get this even if the press was dragged off the pill.
+            call(g_callbacks.onPressRelease, pointFrom(lParam), overPill(hwnd, lParam) ? Release::OnPill : Release::OffPill);
         }
         return 0;
 
@@ -132,12 +136,21 @@ try {
         // Capture taken by someone else mid-press: spring back, don't stick.
         if (g_pressed) {
             g_pressed = false;
-            call(g_callbacks.onPressRelease);
+            call(g_callbacks.onPressRelease, Vec2{}, Release::Cancelled);
         }
         return 0;
 
     case WM_MOUSEMOVE:
-        call(g_callbacks.onPointerMoved);
+        if (!g_trackingLeave) {
+            TRACKMOUSEEVENT track{ sizeof(track), TME_LEAVE, hwnd, 0 };
+            g_trackingLeave = TrackMouseEvent(&track) != FALSE;
+        }
+        call(g_callbacks.onPointerMoved, pointFrom(lParam), overPill(hwnd, lParam));
+        return 0;
+
+    case WM_MOUSELEAVE: // hover ends; one-shot, re-armed by the next move
+        g_trackingLeave = false;
+        call(g_callbacks.onPointerLeft);
         return 0;
 
     case WM_ACTIVATE:

@@ -46,25 +46,41 @@ struct SlotFrame {
     Rect frame;
 };
 
-// Where each slot sits inside the pill (PS §5.1). Leading squares are pushed
-// in horizontally a little more, clear of the rounded bottom corners.
-std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
+// The padding a mode keeps on every side of its content.
+float paddingFor(Mode mode)
 {
     const Tokens& t = tokens();
     switch (mode) {
     case Mode::Compact:
+    case Mode::Split: return t.compactInset;
+    case Mode::Alert: return t.alertPadding;
+    case Mode::Expanded: return t.expandedPadding;
+    default: return 0;
+    }
+}
+
+// Where each slot sits inside the pill (PS §5.1). Every slot keeps the mode's
+// padding from the pill's edges: with the nested corner radius that keeps
+// rounded content concentric with the pill's corners.
+std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
+{
+    const Tokens& t = tokens();
+    float p = paddingFor(mode);
+    switch (mode) {
+    case Mode::Compact:
     case Mode::Split: {
-        float inset = t.compactInset, side = size.y - 2 * inset, x = 2 * inset;
-        return { { "compactLeading", &c.compactLeading, { x, inset, side, side } },
-                 { "compactTrailing", &c.compactTrailing, { size.x - x - side, inset, side, side } } };
+        float side = size.y - 2 * p, centerX = p + side + t.itemSpacing;
+        return { { "compactLeading", &c.compactLeading, { p, p, side, side } },
+                 { "compactCenter", &c.compactCenter, { centerX, p, std::max(0.0f, size.x - 2 * centerX), side } },
+                 { "compactTrailing", &c.compactTrailing, { size.x - p - side, p, side, side } } };
     }
     case Mode::Alert: {
-        float p = t.alertPadding, side = size.y - 2 * p, x = 2 * p, centerX = x + side + t.slotGap;
-        return { { "alertLeading", &c.alertLeading, { x, p, side, side } },
-                 { "alertCenter", &c.alertCenter, { centerX, p, size.x - centerX - x, side } } };
+        float side = size.y - 2 * p, centerX = p + side + t.slotGap;
+        return { { "alertLeading", &c.alertLeading, { p, p, side, side } },
+                 { "alertCenter", &c.alertCenter, { centerX, p, size.x - centerX - p, side } } };
     }
     case Mode::Expanded: {
-        float p = t.expandedPadding, art = t.expandedArtSize, centerX = p + art + t.slotGap, bottomY = p + art + t.slotGap;
+        float art = t.expandedArtSize, centerX = p + art + t.slotGap, bottomY = p + art + t.slotGap;
         return { { "expandedLeading", &c.expandedLeading, { p, p, art, art } },
                  { "expandedCenter", &c.expandedCenter, { centerX, p, size.x - centerX - p, art } },
                  { "expandedBottom", &c.expandedBottom, { p, bottomY, size.x - 2 * p, size.y - bottomY - p } } };
@@ -122,7 +138,14 @@ Item resolve(const Item& item, Ms now)
     return item;
 }
 
-void placeSlot(const SlotFrame& slot, const Source& source, Ms now, std::vector<Placed>& out)
+// Rounded content (art, button hover circles) only.
+float radiusFor(const Item& item, Rect frame, float nestedRadius)
+{
+    if (!std::holds_alternative<Image>(item) && !std::holds_alternative<Button>(item)) return 0;
+    return std::min(nestedRadius, std::min(frame.width, frame.height) / 2);
+}
+
+void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, Ms now, std::vector<Placed>& out)
 {
     const Tokens& t = tokens();
     const Slot& rows = *slot.slot;
@@ -148,7 +171,8 @@ void placeSlot(const SlotFrame& slot, const Source& source, Ms now, std::vector<
             if (auto w = fixedWidthOf(item, heightOf(item, slot.frame))) fixed += *w;
             else ++stretchCount;
         }
-        float spacing = t.itemSpacing * static_cast<float>(row.items.empty() ? 0 : row.items.size() - 1);
+        float gap = row.loose ? t.looseItemSpacing : t.itemSpacing;
+        float spacing = gap * static_cast<float>(row.items.empty() ? 0 : row.items.size() - 1);
         float spare = std::max(0.0f, slot.frame.width - fixed - spacing);
         float stretchWidth = stretchCount > 0 ? spare / static_cast<float>(stretchCount) : 0;
 
@@ -164,11 +188,13 @@ void placeSlot(const SlotFrame& slot, const Source& source, Ms now, std::vector<
             placed.key = std::string(slot.name) + "/" + std::to_string(r) + "/" + std::to_string(i);
             placed.item = resolve(item, now);
             placed.frame = { x, y + (rowHeight - h) / 2, w, h };
+            placed.hitFrame = { x - gap / 2, y - t.rowSpacing / 2, w + gap, rowHeight + t.rowSpacing };
+            placed.cornerRadius = radiusFor(item, placed.frame, nestedRadius);
             placed.providerId = source.providerId;
             placed.activityId = source.activityId;
             if (auto* label = std::get_if<TimeLabel>(&item)) placed.ticking = label->timeline;
             out.push_back(std::move(placed));
-            x += w + t.itemSpacing;
+            x += w + gap;
         }
         y += rowHeight + t.rowSpacing;
     }
@@ -188,9 +214,15 @@ Scene layout(const IslandState& state, Ms now)
     Source source = sourceFor(state, scene.mode);
     if (!source.content) return scene;
     scene.label = source.content->label;
+    float nestedRadius = std::max(0.0f, pillCornerRadius(scene.size) - paddingFor(scene.mode));
     for (const SlotFrame& slot : slotFrames(scene.mode, scene.size, *source.content))
-        placeSlot(slot, source, now, scene.elements);
+        placeSlot(slot, source, nestedRadius, now, scene.elements);
     return scene;
+}
+
+float pillCornerRadius(Vec2 size)
+{
+    return std::min(std::min(size.x, size.y) / 2, tokens().maxCornerRadius);
 }
 
 std::optional<Ms> sceneDeadline(const Scene& scene)

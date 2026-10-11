@@ -47,7 +47,8 @@ void runContentTests()
         .expandedCenter = { row({ Text{ "Song", TextStyle::Title } }), row({ Text{ "Artist" } }) },
         .expandedBottom = {
             row({ TimeLabel{ playing }, Progress{ playing, true }, TimeLabel{ playing, true } }),
-            row({ Button{ Glyph::Previous, "previous" }, Button{ Glyph::Pause, "playPause" }, Button{ Glyph::Next, "next", false } }, Align::Center),
+            Row{ { Button{ Glyph::Previous, "previous" }, Button{ Glyph::Pause, "playPause" }, Button{ Glyph::Next, "next", false } },
+                 Align::Center, /* loose */ true },
         },
     };
     IslandState s = expandedWith(media);
@@ -90,6 +91,41 @@ void runContentTests()
     expect(seek && seek->action.actionId == "seek" && seek->action.value > 0.24f && seek->action.value < 0.26f,
            "seek returns the fraction");
     expect(!hitTest(scene, centre(art)), "art is not clickable");
+
+    // Easy targets: neighbouring buttons' click areas meet, so the gap between them isn't dead.
+    const Placed* previous = find(scene, "expandedBottom/1/0");
+    expect(previous->frame.x + previous->frame.width + t.looseItemSpacing == play->frame.x, "loose rows use the wide gap");
+    expect(previous->hitFrame.x + previous->hitFrame.width == play->hitFrame.x, "click areas meet in the middle of the gap");
+    auto inGap = hitTest(scene, { play->frame.x - t.looseItemSpacing / 4, centre(play).y });
+    expect(inGap && inGap->key == "expandedBottom/1/1", "a click just outside a button still hits it");
+    expect(seekFraction(*bar, bar->frame.x - 50) == 0.0f && seekFraction(*bar, bar->frame.x + bar->frame.width + 50) == 1.0f,
+           "scrubbing past the ends pins to them");
+
+    // Equal margins: the bottom row sits as far from the bottom as art from the side.
+    expect(play->frame.y + play->frame.height == scene.size.y - t.expandedPadding, "expanded bottom margin = side margin");
+
+    // Nested radius: rounded content is concentric with the pill's corner.
+    expect(art->cornerRadius == pillCornerRadius(scene.size) - t.expandedPadding, "art radius = pill radius - padding");
+    expect(play->cornerRadius == std::min(art->cornerRadius, t.buttonSize / 2), "button hover shape uses the same radius");
+    expect(bar->cornerRadius == 0, "only art and buttons are rounded by layout");
+
+    // Compact: equal padding on every side, a centre slot between the squares.
+    IslandState compactState;
+    compactState = reduce(compactState, ActivityStarted{ { .id = "demo.media", .content = {
+        .compactLeading = { row({ Image{} }) },
+        .compactCenter = { row({ Text{ .value = "Song - Artist", .marquee = true } }) },
+        .compactTrailing = { row({ Waveform{ true } }, Align::Center) } } } }, Ms{ 0 });
+    Scene compact = layout(compactState, Ms{ 0 });
+    float inset = t.compactInset, side = compact.size.y - 2 * inset;
+    const Placed* cArt = find(compact, "compactLeading/0/0");
+    const Placed* cText = find(compact, "compactCenter/0/0");
+    const Placed* cBars = find(compact, "compactTrailing/0/0");
+    expect(cArt && cArt->frame == Rect{ inset, inset, side, side }, "compact art: same margin on every side");
+    expect(cArt && cArt->cornerRadius == std::min(pillCornerRadius(compact.size) - inset, side / 2), "compact art radius is nested");
+    expect(cBars && cBars->frame.x + cBars->frame.width / 2 == compact.size.x - inset - side / 2,
+           "compact trailing square mirrors leading");
+    expect(cText && cText->frame.x > cArt->frame.x + side && cText->frame.x + cText->frame.width < compact.size.x - inset - side,
+           "compact title sits between the squares");
 }
 
 } // namespace cup::test

@@ -71,7 +71,8 @@ void PillRenderer::build(wuc::Compositor const& c, wuc::ContainerVisual const& r
     // Background: only the bottom corners are rounded (a notch hanging from the
     // screen edge). The geometry has one radius for all corners, so it's made
     // a radius taller and shifted up; ShapeVisual clips the top corners away.
-    // Radius = half the height, capped by maxCornerRadius.
+    // Radius = half the height, capped by maxCornerRadius: the same curve as
+    // core pillCornerRadius(), which content radii are nested in.
     shape_ = c.CreatePropertySet();
     shape_.InsertScalar(L"MaxRadius", tokens().maxCornerRadius);
     auto background = c.CreateRoundedRectangleGeometry();

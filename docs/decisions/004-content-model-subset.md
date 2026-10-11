@@ -13,6 +13,13 @@ have token-defined sizes. Alerts get two slots (`alertLeading` +
 `alertCenter`) instead of PS's single `alert` slot, so art and text sit side
 by side like the other presentations.
 
+Compact has a third slot, `compactCenter`, between the two squares (e.g. the
+track name). `Text::marquee` makes a string that doesn't fit "swim"
+(pause, scroll, loop, soft edges) instead of ending in "…"; the renderer
+measures it, and the loop runs on the compositor. `Row::loose` asks for
+wider gaps (controls). A paused `Waveform` rests as still dots instead of
+being swapped for a pause icon, so play/pause is a calm in-place change.
+
 Time-based content stays host-driven (PS §4): a Progress bar animates on
 the compositor from its Timeline, and TimeLabels are re-formatted by
 `layout()` once per second only while visible (`sceneDeadline`).

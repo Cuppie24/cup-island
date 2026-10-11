@@ -13,7 +13,8 @@ Content nowPlayingContent(const NowPlaying& m)
     Content c;
     c.label = m.artist.empty() ? m.title : m.title + " - " + m.artist;
     c.compactLeading = { row({ art }) };
-    c.compactTrailing = { row({ playing ? Item{ Waveform{ true } } : Item{ Icon{ Glyph::Pause } } }) };
+    c.compactCenter = { row({ Text{ .value = c.label, .marquee = true } }) }; // swims when too long
+    c.compactTrailing = { row({ Waveform{ playing } }, Align::Center) }; // paused: the bars rest as dots
     c.minimal = { row({ art }) };
     c.alertLeading = { row({ art }) };
     c.alertCenter = { row({ title }), row({ artist }) };
@@ -28,6 +29,7 @@ Content nowPlayingContent(const NowPlaying& m)
                          Button{ playing ? Glyph::Pause : Glyph::Play, act::kPlayPause, m.canPlayPause },
                          Button{ Glyph::Next, act::kNext, m.canNext } },
                        Align::Center);
+    controls.loose = true; // big, well-separated targets
     if (m.showSourceSwitch) controls.items.push_back(Button{ Glyph::Source, act::kSource });
     c.expandedBottom.push_back(controls);
     return c;
