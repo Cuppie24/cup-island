@@ -71,6 +71,11 @@ endif()
 
 # --- app: Windows only ----------------------------------------------------
 if(WIN32)
+    # The app is x64-only (installer, TR §3). A 32-bit compiler here usually
+    # means a default "Developer PowerShell for VS"; build.ps1 picks x64 itself.
+    if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+        message(FATAL_ERROR "32-bit compiler detected. Use .\\build.ps1, or an x64 developer environment, then delete ${CMAKE_BINARY_DIR} and configure again.")
+    endif()
     enable_language(RC)
     add_executable(CupIsland
         assets/cup_island.rc
