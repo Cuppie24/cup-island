@@ -52,10 +52,13 @@ Write-Host "Build succeeded: $exePath"
 if ($Installer) {
     $iscc = Get-Command iscc.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
     if (-not $iscc) {
-        $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
-                  "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+        # Machine-wide or per-user (winget's default) installs, any version; newest first.
+        $iscc = @("${env:ProgramFiles(x86)}", "$env:ProgramFiles", "$env:LOCALAPPDATA\Programs") |
+            ForEach-Object { Get-ChildItem -Path $_ -Filter "Inno Setup *" -Directory -ErrorAction SilentlyContinue } |
+            Sort-Object Name -Descending | ForEach-Object { Join-Path $_.FullName "ISCC.exe" } |
+            Where-Object { Test-Path $_ } | Select-Object -First 1
     }
-    if (-not $iscc) { throw "Inno Setup 6 not found - install it from https://jrsoftware.org/isdl.php (or: winget install JRSoftware.InnoSetup)." }
+    if (-not $iscc) { throw "Inno Setup not found. Install it (winget install JRSoftware.InnoSetup, or https://jrsoftware.org/isdl.php), then open a new terminal and re-run." }
     & $iscc /Qp "installer\cup-island.iss"
     if ($LASTEXITCODE -ne 0) { throw "Installer build failed (exit $LASTEXITCODE)" }
     Write-Host "Installer: $(Get-ChildItem dist\CupIsland-Setup-*.exe | Sort-Object LastWriteTime | Select-Object -Last 1)"
