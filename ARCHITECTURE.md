@@ -116,6 +116,9 @@ example: thin WinRT reading, with every decision in a pure presenter (decision 0
   `std::optional`. Use a class only when it owns platform handles
   (`PillRenderer`). The only interfaces are `Provider` and `Host`.
 - **No template tricks, no macros, no custom smart pointers.**
+- **No names `windows.h` defines as macros** (`small`, `near`, `far`,
+  `hyper`, `interface`, `IN`, `OUT`, `OPTIONAL`…), even in core: core is
+  included after it on Windows, and Linux builds won't catch it.
 - **`winrt::` / Win32 types stay in `platform/` and `app/`.** Providers
   translate at the edge.
 - **One concept per file, ~300 lines max.** Headers are the table of contents:
@@ -138,10 +141,13 @@ example: thin WinRT reading, with every decision in a pure presenter (decision 0
    syntax error), the console lists each problem with its line number and the
    previous values stay active. Nothing is half-applied.
 
-Durations are in milliseconds and named `…Ms`. Sizes are `[width, height]`.
+Durations are in milliseconds and named `…Ms`. Sizes are `[width, height]`,
+in logical pixels: the app multiplies every length by the display's scale
+and by `islandScale`, the one knob for the island's overall size (decision
+017). At 150% with `islandScale` 0.85, a 380 card is 485 physical pixels.
 Colours are `[r, g, b]` or `[r, g, b, alpha]` (0..255, alpha 0..1, like CSS `rgba()`).
 Curves are `[x1, y1, x2, y2]`, the same as CSS `cubic-bezier()`, so you can
-paste from cubic-bezier.com. `canvasSize` only applies on restart. Watching
+paste from cubic-bezier.com. A new `canvasSize` (or `islandScale`) resizes the render layer. Watching
 is event-driven (`FindFirstChangeNotification`), so it costs nothing between saves.
 
 Adding a token: add the field to `Tokens` in `core/tokens.h`, add one line to
@@ -156,7 +162,7 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing),
   `home_tests.cpp` (tiles, Home tab, idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop),
-  `system_tests.cpp` (battery and Bluetooth presenters).**
+  `system_tests.cpp` (battery and Bluetooth presenters), `todo_tests.cpp` (the to-do list end to end).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
 
@@ -168,7 +174,9 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 | Renderer: pill morph per mode, press feedback, content items (text, swimming text, art, icons, buttons, progress, waveform) | done |
 | Content hover (buttons, progress knob), drag-to-seek, nested radii (decisions 002, 006) | done; platform side untested on a real build yet |
 | Renderer: Split bubble with liquid neck, drag-to-swap (decision 007) | done; rules tested, visuals need Windows |
-| Renderer: alert pulse, receptive drop zones, DPI scaling, matched geometry | not yet |
+| Display scaling: tokens in logical pixels, scaled per the primary display, live on a scale change (decision 017) | done; scaling tested, Windows side needs a run |
+| Island shadow: a DropShadow under the pill and the bubble, masked by a live snapshot of each (decision 018) | done; needs a Windows run to judge |
+| Renderer: alert pulse, receptive drop zones, matched geometry | not yet |
 | Fullscreen detection (TR §9.2): borderless + exclusive, per monitor, maximized windows excluded | done; rules tested (`core/fullscreen`), hooks need Windows |
 | Real input for drag (OLE drop target) | not yet; the D key simulates it |
 | Provider API (PS §7 Tier 1), registry, demo music player | done, tested |
@@ -182,6 +190,7 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 | Battery, theme toggle and Bluetooth widgets | presenters tested; Windows readers need Windows |
 | Pomodoro (first panel): focus rounds, breaks, pause/skip/stop, ring, phase dots | done, tested |
 | Progress ring, Steps, accent colour (decision 010) | done; rules tested, drawing needs Windows |
+| Text input (typing, paste) and Pomodoro's to-do list (decision 016) | done; rules tested, typing and drawing need Windows |
 | Release: no-console exe, static C++ runtime, tray icon with Start with Windows + Exit, Inno Setup installer (decision 011) | done; needs a Windows build to verify |
 | MSIX, code signing, StartupTask (TR §9, §10) | not yet |
 | Log file, Copy logs tile, hang/crash minidumps, exit without deadlock (decision 013) | done; tile rules tested, the rest needs Windows |

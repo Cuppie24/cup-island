@@ -202,6 +202,16 @@ try {
         call(g_callbacks.onKeyDown, wParam);
         return 0;
 
+    case WM_CHAR:
+        call(g_callbacks.onChar, static_cast<wchar_t>(wParam));
+        return 0;
+
+    case WM_DPICHANGED:
+        // Handled, not passed on: the app resizes everything itself (tokens are
+        // rescaled), so Windows' suggested rectangle for this window is ignored.
+        call(g_callbacks.onDpiChanged, static_cast<float>(LOWORD(wParam)) / 96.0f);
+        return 0;
+
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;
@@ -250,6 +260,12 @@ HWND createInteractionLayer(HINSTANCE instance, int renderLeft, Vec2 size, Vec2 
     g_morphStartedEvent = CreateEventW(nullptr, /* manualReset */ FALSE, /* initialState */ FALSE, nullptr);
     std::thread(compositorTickThread).detach();
     return g_hwnd;
+}
+
+void setRenderLeft(int renderLeft)
+{
+    g_renderLeft = renderLeft;
+    snap(g_morph.size, g_morph.offset);
 }
 
 void followMorph(Vec2 toSize, Vec2 toOffset)

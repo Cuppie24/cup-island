@@ -121,10 +121,13 @@ void runPomodoroTests()
     expect(std::abs(bigTimer->frame.x + bigTimer->frame.width / 2 - card.size.x / 2) < 0.51f, "the countdown centred");
     expect(dots && std::abs(dots->frame.x + dots->frame.width / 2 - card.size.x / 2) < 0.51f && dots->frame.y > bigTimer->frame.y,
            "the dots centred, below");
+    // The card grows to fit its rows (the to-do list); content stays above the tab strip, if any.
+    float contentBottom = card.tabs ? card.tabs->tabs[0].frame.y - t.slotGap : card.size.y - t.expandedPadding;
     for (const Placed& p : card.elements) {
         if (auto* progress = std::get_if<Progress>(&p.item)) expect(progress->shape == ProgressShape::Bar, "no ring in the card: " + p.key);
-        if (p.key.rfind("tab/", 0) != 0) expect(p.frame.y + p.frame.height <= t.expandedSize.y - t.expandedPadding, "fits the card: " + p.key);
+        if (p.key.rfind("tab/", 0) != 0) expect(p.frame.y + p.frame.height <= contentBottom + 0.01f, "fits the card: " + p.key);
     }
+    expect(card.size.y <= t.canvas.y, "and the card fits the canvas");
 
     // A phase ends: alert, next phase.
     island.send(EscapePressed{});

@@ -15,6 +15,7 @@ struct Source {
     const Content* content = nullptr;
     std::string providerId;
     std::string activityId;
+    const Draft* draft = nullptr; // text being typed: fills a matching TextInput (decision 016)
 };
 
 struct SlotFrame {
@@ -29,6 +30,10 @@ struct SlotFrame {
 // `measure` sizes large time labels to their digits (estimated without it).
 void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, Ms now, std::vector<Placed>& out,
                const MeasureText& measure = {});
+
+// The height a slot's rows need, stacked with their spacing: how tall a
+// Centred card grows (decision 016).
+float slotHeight(const Slot& slot, Rect frame);
 
 // Font size in pixels for a text style (tokens).
 float fontSize(TextStyle style);

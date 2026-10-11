@@ -27,12 +27,18 @@ struct InteractionCallbacks {
     std::function<void(Vec2 point, bool inside)> onPointerMoved;
     std::function<void()> onPointerLeft;
     std::function<void(WPARAM key)> onKeyDown;
+    std::function<void(wchar_t character)> onChar; // typed text (WM_CHAR), for a focused text field
+    std::function<void(float scale)> onDpiChanged; // the display's scale changed (1.0 = 100%)
     std::function<void(TimerId)> onTimer;
 };
 
 // Creates the window over the pill's initial bounds and starts the
 // compositor-tick thread. Closing it (DestroyWindow) ends the message loop.
 HWND createInteractionLayer(HINSTANCE instance, int renderLeft, Vec2 size, Vec2 offset, InteractionCallbacks callbacks);
+
+// The render layer moved (resized for a new display scale): points and the
+// window's position are relative to it.
+void setRenderLeft(int renderLeft);
 
 // Follow the morph the renderer just started toward these bounds (the pill,
 // plus the bubble in Split), frame by frame (decision 001).

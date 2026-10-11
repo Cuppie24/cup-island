@@ -18,7 +18,6 @@ Activity* findActivity(IslandState& s, const std::string& id)
     return nullptr;
 }
 
-constexpr Ms kDay{ 24 * 60 * 60 * 1000 };
 
 // PS §6.2: the user's pick, then level, then relevance, then most recently
 // started. The pick beats every level (decision 007).
@@ -53,6 +52,9 @@ void collapse(IslandState& s)
     s.homeOpen = false;
 }
 
+// Unsent text in a field: Expanded doesn't time out under it (decision 016).
+bool typing(const IslandState& s) { return s.draft && !s.draft->text.empty(); }
+
 // Is what Expanded shows still there? A card stays while its activity or its
 // panel exists: a panel's activity ending shows the dormant card (decision 009).
 bool expandedViewExists(const IslandState& s)
@@ -68,9 +70,11 @@ void settle(IslandState& s, Ms now)
     if (!s.pinnedId.empty() && !findActivity(s, s.pinnedId)) s.pinnedId.clear(); // a pick dies with its activity
 
     if (isExpanded(s)) {
-        bool timedOut = now >= s.lastPointerAt + tokens().expandedIdleTimeout;
+        bool timedOut = now >= s.lastPointerAt + tokens().expandedIdleTimeout && !typing(s);
         if (timedOut || !expandedViewExists(s)) collapse(s);
     }
+    // A draft lives on the card it was started on: gone with it (decision 016).
+    if (s.draft && (s.homeOpen || s.expandedId != s.draft->activityId)) s.draft.reset();
 
     settleAlerts(s, now); // after Expanded may have closed: alerts it held back can show
 
@@ -230,6 +234,43 @@ void handle(IslandState& s, const TileClicked& e, Ms now)
     }
 }
 
+// --- Text input (decision 016) ------------------------------------------------
+
+void handle(IslandState& s, const InputFocused& e, Ms now)
+{
+    if (s.homeOpen || s.expandedId != e.activityId) return; // only on the card that's shown
+    if (!s.draft || s.draft->actionId != e.actionId) s.draft = Draft{ e.providerId, e.activityId, e.actionId, "" };
+    s.lastPointerAt = now;
+}
+
+void handle(IslandState& s, const TextTyped& e, Ms now)
+{
+    if (!s.draft) return;
+    s.draft->text += e.text;
+    s.lastPointerAt = now; // the user is busy here
+}
+
+void handle(IslandState& s, const TextErased&, Ms now)
+{
+    if (!s.draft) return;
+    std::string& text = s.draft->text;
+    while (!text.empty()) { // drop one UTF-8 character: continuation bytes, then its lead byte
+        bool continuation = (static_cast<unsigned char>(text.back()) & 0xC0) == 0x80;
+        text.pop_back();
+        if (!continuation) break;
+    }
+    s.lastPointerAt = now;
+}
+
+void handle(IslandState& s, const InputSubmitted&, Ms now)
+{
+    if (!s.draft) return;
+    s.draft->text.clear(); // focus stays: add the next one
+    s.lastPointerAt = now;
+}
+
+void handle(IslandState& s, const InputCancelled&, Ms) { s.draft.reset(); }
+
 void handle(IslandState& s, const ClockSynced& e, Ms now) { s.clock = WallClock{ e.timeOfDay - now, e.hour24, e.date }; }
 
 } // namespace
@@ -243,29 +284,6 @@ IslandState reduce(IslandState state, const Event& event, Ms now)
     return state;
 }
 
-bool isExpanded(const IslandState& s) { return s.homeOpen || !s.expandedId.empty(); }
-
-const Activity* findActivity(const IslandState& s, const std::string& id)
-{
-    for (const auto& a : s.activities)
-        if (a.id == id) return &a;
-    return nullptr;
-}
-
-const Panel* findPanel(const IslandState& s, const std::string& id)
-{
-    for (const auto& p : s.panels)
-        if (p.id == id) return &p;
-    return nullptr;
-}
-
-std::optional<Ms> timeOfDay(const IslandState& s, Ms now)
-{
-    if (!s.clock) return std::nullopt;
-    return ((now + s.clock->offset) % kDay + kDay) % kDay;
-}
-
-Ms nextMinute(Ms timeOfDay, Ms now) { return now + (Ms{ 60000 } - timeOfDay % Ms{ 60000 }); }
 
 Mode restingMode(const IslandState& s)
 {
@@ -296,34 +314,10 @@ std::optional<Ms> nextDeadline(const IslandState& s)
     if (s.alert) consider(s.alertUntil);
     for (const auto& a : s.activities)
         if (a.expiresAt) consider(*a.expiresAt);
-    if (isExpanded(s)) consider(s.lastPointerAt + tokens().expandedIdleTimeout);
+    if (isExpanded(s) && !typing(s)) consider(s.lastPointerAt + tokens().expandedIdleTimeout);
     for (const auto& a : s.alertQueue) consider(a.postedAt + tokens().heldAlertMaxAge + Ms{ 1 });
     return next;
 }
 
-const char* toString(Mode mode)
-{
-    switch (mode) {
-    case Mode::Idle: return "Idle";
-    case Mode::Compact: return "Compact";
-    case Mode::Split: return "Split";
-    case Mode::Alert: return "Alert";
-    case Mode::Expanded: return "Expanded";
-    case Mode::Receptive: return "Receptive";
-    case Mode::Hidden: return "Hidden";
-    }
-    return "?";
-}
-
-const char* toString(Level level)
-{
-    switch (level) {
-    case Level::Passive: return "passive";
-    case Level::Active: return "active";
-    case Level::TimeSensitive: return "timeSensitive";
-    case Level::Critical: return "critical";
-    }
-    return "?";
-}
 
 } // namespace cup

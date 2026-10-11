@@ -24,4 +24,11 @@ TokensParse parseTokens(std::string_view json);
 // Every token with its current value, one per line.
 std::string toJson(const Tokens& tokens);
 
+// tokens.json is in logical pixels (100% display scaling). The app multiplies
+// every length (sizes, gaps, paddings, fonts, radii, speeds in px/s) by the
+// display's scale times `islandScale`, so the island follows Windows' own
+// UI, then the size knob. Durations, counts, curves, colours and pure
+// factors stay as they are.
+Tokens scaleTokens(const Tokens& tokens, float displayScale);
+
 } // namespace cup

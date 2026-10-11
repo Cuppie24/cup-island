@@ -33,9 +33,20 @@ Source sourceFor(const IslandState& s, Mode mode)
     if (mode != Mode::Compact && mode != Mode::Split && mode != Mode::Expanded) return {};
     if (mode != Mode::Expanded) return { &s.activities[0].content, s.activities[0].providerId, s.activities[0].id }; // the top one
     // Expanded shows the card that was opened: an activity's, else a dormant panel's (decision 009). Home has none.
-    if (const Activity* a = findActivity(s, s.expandedId)) return { &a->content, a->providerId, a->id };
-    if (const Panel* p = findPanel(s, s.expandedId)) return { &p->content, p->providerId, p->id };
+    const Draft* draft = s.draft ? &*s.draft : nullptr; // fills its TextInput (decision 016)
+    if (const Activity* a = findActivity(s, s.expandedId)) return { &a->content, a->providerId, a->id, draft };
+    if (const Panel* p = findPanel(s, s.expandedId)) return { &p->content, p->providerId, p->id, draft };
     return {};
+}
+
+// A Centred card grows to fit its rows (a to-do list), never below Expanded's
+// size and never past the canvas (decision 016).
+float centredCardHeight(const Content& c, Vec2 size, float tabSpace)
+{
+    const Tokens& t = tokens();
+    float p = t.expandedPadding;
+    float needed = slotHeight(c.expandedCenter, { p, p, size.x - 2 * p, size.y }) + 2 * p;
+    return std::clamp(needed, t.expandedSize.y, std::max(t.expandedSize.y, t.canvas.y - tabSpace));
 }
 
 // The padding a mode keeps on every side of its content.
@@ -132,6 +143,9 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     scene.mode = mode(state);
     float tabSpace = tabStripSpace(state);
     scene.size = sizeFor(scene.mode);
+    Source source = sourceFor(state, scene.mode);
+    if (scene.mode == Mode::Expanded && source.content && source.content->card == CardLayout::Centred)
+        scene.size.y = centredCardHeight(*source.content, scene.size, tabSpace);
     scene.size.y += tabSpace;
     scene.offset = { (tokens().canvas.x - scene.size.x) / 2, 0 };
     // On the top edge, inside the pill's right end: the bubble shrinks into it
@@ -155,7 +169,6 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
         if (auto time = timeOfDay(state, now)) scene.clockTick = nextMinute(*time, now); // the clock tile
     }
 
-    Source source = sourceFor(state, scene.mode);
     if (source.content) {
         scene.label = source.content->label;
         scene.activityId = source.activityId;

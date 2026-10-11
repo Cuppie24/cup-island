@@ -2,6 +2,8 @@
 
 #include "platform/element_parts.h"
 
+#include <winrt/Windows.Foundation.Metadata.h>
+
 #include <algorithm>
 #include <utility>
 
@@ -96,16 +98,50 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     body_.Children().InsertAtTop(content_);
     elements_.init(c, device, content_);
 
+    buildShadow(c, parent); // under the body
     parent.Children().InsertAtTop(body_);
 
     // Attached last, so the initial Size/Offset above don't animate.
     refreshAnimations();
 }
 
+void Blob::buildShadow(Compositor const& c, ContainerVisual const& parent)
+{
+    // CreateVisualSurface is Windows 10 1903+; on 1809 the island just has no
+    // shadow (decision 015: newer APIs only behind runtime checks).
+    using winrt::Windows::Foundation::Metadata::ApiInformation;
+    if (!ApiInformation::IsMethodPresent(L"Windows.UI.Composition.Compositor", L"CreateVisualSurface")) return;
+
+    auto snapshot = c.CreateVisualSurface(); // live: re-rendered as the body changes, on the compositor
+    snapshot.SourceVisual(body_);
+    bind(c, snapshot, L"SourceSize", L"pill.Size", body_, shape_);
+    shadow_ = c.CreateDropShadow();
+    shadow_.Mask(c.CreateSurfaceBrush(snapshot)); // the body's alpha: its rounded shape, not its rectangle
+    applyShadow();
+
+    caster_ = c.CreateSpriteVisual(); // no brush: only its shadow shows
+    bind(c, caster_, L"Size", L"pill.Size", body_, shape_);
+    bind(c, caster_, L"Offset", L"pill.Offset", body_, shape_);
+    bind(c, caster_, L"CenterPoint", L"pill.CenterPoint", body_, shape_);
+    bind(c, caster_, L"Scale", L"pill.Scale", body_, shape_);
+    caster_.Shadow(shadow_);
+    parent.Children().InsertAtTop(caster_);
+}
+
+void Blob::applyShadow()
+{
+    if (!shadow_) return;
+    const Tokens& t = tokens();
+    shadow_.Color(toUiColor(t.shadowColor));
+    shadow_.BlurRadius(t.shadowBlur);
+    shadow_.Offset(toFloat3(t.shadowOffset));
+}
+
 void Blob::refreshAnimations()
 {
     implicit_ = morphAnimations(compositor_);
     body_.ImplicitAnimations(implicit_);
+    applyShadow();
     shape_.InsertScalar(L"MaxRadius", tokens().maxCornerRadius);
     if (fill_) fill_.Color(fillColor(highlighted_)); // colours are tokens too
     elements_.refresh();

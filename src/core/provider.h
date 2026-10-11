@@ -13,8 +13,9 @@ namespace cup {
 struct Action {
     std::string providerId;
     std::string activityId;
-    std::string actionId; // the Button's actionId, or "seek"
+    std::string actionId; // the Button's actionId, "seek", or a TextInput's actionId
     float value = 0;      // "seek": target position as a 0..1 fraction
+    std::string text;     // a TextInput: what was typed (Enter) or pasted (may hold several lines)
     bool operator==(const Action&) const = default;
 };
 

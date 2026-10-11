@@ -16,6 +16,11 @@ void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, 
 // The "this toggle is on" dot under a glyph of `glyphSize` centred in `size`.
 void paintToggleDot(ID2D1DeviceContext* dc, Vec2 size, float glyphSize);
 void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float fontSize, Vec2 size, const Color& color);
+// A text button's label, centred.
+void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& label, Vec2 size, const Color& color);
+// A text field (decision 016): the text (or the placeholder, dim) and, when
+// focused, a caret after it. Its background is a hover shape, not painted here.
+void paintInput(ID2D1DeviceContext* dc, IDWriteFactory* dw, const TextInput& input, Vec2 size, float cornerRadius);
 // Steps (decision 010): a dot per step, centred vertically; done and to-do
 // ones in their token colours, the current one in `accent`.
 void paintSteps(ID2D1DeviceContext* dc, const Steps& steps, Vec2 size, const Color& accent);

@@ -24,6 +24,7 @@ struct Field {
 
 const Field kFields[] = {
     { "canvasSize", &Tokens::canvas },
+    { "islandScale", &Tokens::islandScale },
     { "idleSize", &Tokens::idleSize, true },
     { "compactSize", &Tokens::compactSize },
     { "alertSize", &Tokens::alertSize },
@@ -43,8 +44,12 @@ const Field kFields[] = {
     { "bodyFontSize", &Tokens::bodyFontSize },
     { "captionFontSize", &Tokens::captionFontSize },
     { "displayFontSize", &Tokens::displayFontSize },
+    { "inputFontSize", &Tokens::inputFontSize },
     { "iconSize", &Tokens::iconSize },
     { "buttonSize", &Tokens::buttonSize },
+    { "smallButtonSize", &Tokens::smallButtonSize },
+    { "inputHeight", &Tokens::inputHeight },
+    { "buttonLabelPadding", &Tokens::buttonLabelPadding },
     { "buttonGlyphSize", &Tokens::buttonGlyphSize },
     { "buttonPressScale", &Tokens::buttonPressScale },
     { "progressHeight", &Tokens::progressHeight },
@@ -68,6 +73,8 @@ const Field kFields[] = {
     { "dragStartDistance", &Tokens::dragStartDistance },
     { "bridgeThickness", &Tokens::bridgeThickness },
     { "bridgeReach", &Tokens::bridgeReach },
+    { "shadowBlur", &Tokens::shadowBlur, true },
+    { "shadowOffset", &Tokens::shadowOffset },
     { "tabHeight", &Tokens::tabHeight, true },
     { "tabGap", &Tokens::tabGap },
     { "tabMaxWidth", &Tokens::tabMaxWidth },
@@ -109,13 +116,17 @@ const Field kFields[] = {
     { "tabSelectedColor", &Tokens::tabSelectedColor },
     { "hoverColor", &Tokens::hoverColor },
     { "tileColor", &Tokens::tileColor },
+    { "inputColor", &Tokens::inputColor },
+    { "placeholderTextColor", &Tokens::placeholderTextColor },
     { "imagePlaceholderColor", &Tokens::imagePlaceholderColor },
+    { "shadowColor", &Tokens::shadowColor },
     { "pomodoroFocusColor", &Tokens::pomodoroFocusColor },
     { "pomodoroBreakColor", &Tokens::pomodoroBreakColor },
     { "pomodoroFocusMs", &Tokens::pomodoroFocus, true },
     { "pomodoroBreakMs", &Tokens::pomodoroBreak },
     { "pomodoroLongBreakMs", &Tokens::pomodoroLongBreak },
     { "pomodoroRounds", &Tokens::pomodoroRounds },
+    { "todoVisibleItems", &Tokens::todoVisibleItems },
     { "logsNoteMs", &Tokens::logsNote, true },
 };
 
@@ -294,6 +305,23 @@ TokensParse parseTokens(std::string_view json)
     in.expect('}');
     if (!in.failed() && !in.atEnd()) in.fail("unexpected text after the closing '}'");
     return result;
+}
+
+Tokens scaleTokens(const Tokens& t, float displayScale)
+{
+    float scale = displayScale * t.islandScale;
+    // Factors, not lengths: a press squashes to 96% at any scale, and the size knob isn't a size.
+    auto unitless = [](const char* name) {
+        std::string_view n(name);
+        return n == "pressScale" || n == "buttonPressScale" || n == "islandScale";
+    };
+    Tokens out = t;
+    for (const Field& field : kFields) {
+        if (unitless(field.name)) continue;
+        if (auto* f = std::get_if<float Tokens::*>(&field.member)) out.**f *= scale;
+        else if (auto* v = std::get_if<Vec2 Tokens::*>(&field.member)) out.**v = { (out.**v).x * scale, (out.**v).y * scale };
+    }
+    return out;
 }
 
 std::string toJson(const Tokens& t)

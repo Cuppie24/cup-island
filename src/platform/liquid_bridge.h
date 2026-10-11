@@ -20,6 +20,7 @@ private:
     wuc::CompositionPropertySet params_{ nullptr }; // Thickness, Reach, On
     bool on_ = true;
     wuc::CompositionColorBrush brush_{ nullptr }; // the island's colour
+    wuc::ShapeVisual visual_{ nullptr };          // as big as the canvas
 };
 
 } // namespace cup::platform

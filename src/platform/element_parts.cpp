@@ -236,13 +236,14 @@ void animateWaveform(Compositor const& c, const WaveformParts& parts, float heig
 
 // --- Button ------------------------------------------------------------------
 
-ButtonParts createButton(Compositor const& c, Vec2 frame, float cornerRadius, CompositionDrawingSurface const& glyph)
+ButtonParts createButton(Compositor const& c, Vec2 frame, float cornerRadius, CompositionDrawingSurface const& glyph,
+                         const Color& hover)
 {
     auto shape = c.CreateRoundedRectangleGeometry();
     shape.Size(toFloat2(frame));
     shape.CornerRadius({ cornerRadius, cornerRadius });
     auto fill = c.CreateSpriteShape(shape);
-    fill.FillBrush(brushOf(c, tokens().buttonHoverColor));
+    fill.FillBrush(brushOf(c, hover));
 
     ButtonParts parts;
     parts.highlight = c.CreateShapeVisual();

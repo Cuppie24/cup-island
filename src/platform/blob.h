@@ -43,6 +43,14 @@ private:
 
     wuc::Compositor compositor_{ nullptr };
     wuc::ShapeVisual body_{ nullptr };             // Size/Offset morph implicitly
+    // Its shadow (decision 018): a sprite under the body that draws nothing
+    // itself and casts a DropShadow masked by a live snapshot of the body, so
+    // the shadow has the body's shape through every morph, drag and press.
+    // Null where Windows can't snapshot a visual (before 1903): no shadow.
+    wuc::SpriteVisual caster_{ nullptr };
+    wuc::DropShadow shadow_{ nullptr };
+    void buildShadow(wuc::Compositor const& compositor, wuc::ContainerVisual const& parent);
+    void applyShadow(); // colour, blur, offset from tokens
     wuc::CompositionPropertySet shape_{ nullptr }; // MaxRadius, read by the corner expressions
     wuc::CompositionPropertySet drag_{ nullptr };  // Centre: the cursor, while following
     wuc::CompositionColorBrush fill_{ nullptr };

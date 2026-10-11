@@ -30,10 +30,12 @@ What this added:
 - **Rings size with their row:** next to other items a ring is as tall as
   the row (a ring beside a big countdown); alone it fills the slot's square
   as before (compact, the bubble).
-- **Large time labels are as wide as their widest digits** ("0:00" measured
-  with the real font), so a centred countdown doesn't jump as it ticks and
-  sits snug next to its ring. Digits-style labels keep their fixed column,
-  so media's time labels still line up.
+- **Large time labels are as wide as their widest digits**: the label's
+  shape ("25:00") with every digit replaced by the widest digit in that font
+  and style, measured with the real font. So a centred countdown doesn't
+  jump as it ticks, and never gets cut to "…": Windows' UI font has
+  proportional digits, and sizing for "00:00" let "24:44" overflow. Digits-
+  style labels keep their fixed column, so media's time labels still line up.
 - **`Row::span`:** a row can span exactly its neighbour's content (the row
   above or below, `MatchAbove` / `MatchBelow`) instead of the slot, so a
   bar is as wide as the dots under it. A relationship the provider states;

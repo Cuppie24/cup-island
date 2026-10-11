@@ -92,6 +92,18 @@ void runItemTests()
     Scene later = layout(bigState, Ms{ 50000 }, perChar);
     expect(bigLabel && bigLabel->frame.width == 41, "display label: as wide as \"0:00\" (+1)");
     expect(find(later, "expandedCenter/0/0")->frame.width == 41, "and stays that wide as it ticks");
+    // Proportional digits (Windows' UI font): sized with the widest one, not just "0".
+    MeasureText wideFour = [](const Text& text) {
+        float w = 0;
+        for (char c : text.value) w += c == '4' ? 14.0f : 10.0f;
+        return w;
+    };
+    Content fourDigits{ .expandedCenter = { row({ TimeLabel{ .timeline = { .duration = Ms{ 25 * 60000 }, .playing = true },
+                                                            .countdown = true, .style = TextStyle::Display } }) } };
+    IslandState fours = reduce(reduce(IslandState{}, ActivityStarted{ { .id = "f", .content = fourDigits } }, Ms{ 0 }), PillClicked{}, Ms{ 0 });
+    Scene foursScene = layout(fours, Ms{ 0 }, wideFour);
+    const Placed* fourLabel = find(foursScene, "expandedCenter/0/0");
+    expect(fourLabel && fourLabel->frame.width == 4 * 14 + 10 + 1, "room for \"44:44\" when 4 is the widest digit");
 
     // No accent: none stamped (the renderer uses white).
     IslandState plain = reduce(IslandState{}, ActivityStarted{ { .id = "m", .content = { .compactCenter = { row({ Text{ "x" } }) } } } }, Ms{ 0 });

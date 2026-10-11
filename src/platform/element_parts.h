@@ -55,7 +55,9 @@ struct ButtonParts {
     wuc::ContainerVisual visual{ nullptr };
     wuc::ShapeVisual highlight{ nullptr };
 };
-ButtonParts createButton(wuc::Compositor const& c, Vec2 frame, float cornerRadius, wuc::CompositionDrawingSurface const& glyph);
+// `hover`: the shape's colour (buttonHoverColor; a text field uses inputColor).
+ButtonParts createButton(wuc::Compositor const& c, Vec2 frame, float cornerRadius, wuc::CompositionDrawingSurface const& glyph,
+                         const Color& hover);
 
 // Swimming text: shows `surface` (see paintMarquee) through soft-edged mask,
 // pausing at the start, then scrolling `travel` pixels left, forever.
