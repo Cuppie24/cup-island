@@ -1,5 +1,6 @@
 #include "core/island.h"
 
+#include "core/split.h"
 #include "core/tokens.h"
 
 #include <algorithm>
@@ -18,10 +19,13 @@ Activity* findActivity(IslandState& s, const std::string& id)
     return nullptr;
 }
 
-// PS §6.2: level, then relevance, then most recently started.
+// PS §6.2: the user's pick, then level, then relevance, then most recently
+// started. The pick beats every level (decision 007).
 void rank(IslandState& s)
 {
-    std::stable_sort(s.activities.begin(), s.activities.end(), [](const Activity& a, const Activity& b) {
+    std::stable_sort(s.activities.begin(), s.activities.end(), [&](const Activity& a, const Activity& b) {
+        bool pa = a.id == s.pinnedId, pb = b.id == s.pinnedId;
+        if (pa != pb) return pa;
         if (a.level != b.level) return a.level > b.level;
         if (a.relevance != b.relevance) return a.relevance > b.relevance;
         return a.startOrder > b.startOrder;
@@ -98,6 +102,7 @@ void postAlert(IslandState& s, Alert alert, Ms now)
 void settle(IslandState& s, Ms now)
 {
     std::erase_if(s.activities, [&](const Activity& a) { return a.expiresAt && now >= *a.expiresAt; });
+    if (!s.pinnedId.empty() && !findActivity(s, s.pinnedId)) s.pinnedId.clear(); // a pick dies with its activity
     if (s.alert && now >= s.alertUntil) s.alert.reset();
 
     if (isExpanded(s)) {
@@ -116,6 +121,9 @@ void settle(IslandState& s, Ms now)
             s.alertUntil = now + tokens().alertDuration;
         }
     }
+
+    // The bubble left the screen mid-drag (an alert, an activity ended): drop the drag.
+    if (s.bubbleDrag && mode(s) != Mode::Split) s.bubbleDrag.reset();
 }
 
 void onClick(IslandState& s, Ms now)
@@ -195,6 +203,44 @@ void handle(IslandState& s, const HiddenChanged& e, Ms)
 
 void handle(IslandState&, const Tick&, Ms) {} // settle() does the work
 
+void handle(IslandState& s, const BubbleClicked&, Ms now)
+{
+    if (mode(s) == Mode::Split) expand(s, s.activities[1].id, now);
+    else onClick(s, now); // no bubble on screen (e.g. an alert covers it): an ordinary click
+}
+
+void handle(IslandState& s, const ActivityPromoted& e, Ms now)
+{
+    if (!findActivity(s, e.id)) return;
+    s.pinnedId = e.id;
+    rank(s);
+    if (isExpanded(s)) s.lastPointerAt = now; // the user is busy here
+}
+
+void handle(IslandState& s, const BubbleDragged& e, Ms)
+{
+    if (mode(s) != Mode::Split) return;
+    if (s.bubbleDrag || isDrag(e.drag)) s.bubbleDrag = e.drag; // small wobbles stay a click
+}
+
+void handle(IslandState& s, const BubbleReleased&, Ms now)
+{
+    bool swap = swapPreview(s);
+    s.bubbleDrag.reset();
+    if (swap) handle(s, ActivityPromoted{ s.activities[1].id }, now);
+}
+
+void handle(IslandState& s, const BubbleDragCancelled&, Ms) { s.bubbleDrag.reset(); }
+
+void handle(IslandState& s, const ExpandedPaged& e, Ms now)
+{
+    if (!isExpanded(s)) return;
+    auto n = static_cast<int>(s.activities.size());
+    auto it = std::find_if(s.activities.begin(), s.activities.end(), [&](const Activity& a) { return a.id == s.expandedId; });
+    int i = static_cast<int>(it - s.activities.begin());
+    expand(s, s.activities[static_cast<size_t>(((i + e.step) % n + n) % n)].id, now);
+}
+
 } // namespace
 
 // --- Public API -------------------------------------------------------------
@@ -211,6 +257,11 @@ Mode restingMode(const IslandState& s)
     if (s.activities.empty()) return Mode::Idle;
     if (s.activities.size() == 1) return Mode::Compact;
     return Mode::Split;
+}
+
+bool swapPreview(const IslandState& s)
+{
+    return s.bubbleDrag && mode(s) == Mode::Split && bubbleOverPill(*s.bubbleDrag);
 }
 
 Mode mode(const IslandState& s)

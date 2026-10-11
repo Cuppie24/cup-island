@@ -8,7 +8,9 @@
 //            alert <name> [level] [for=<activity>] [key=<coalesceKey>]
 //            click  outside  esc  pointer  drag-enter  drag-rejected
 //            drag-leave  drop  hide  show  wait <ms>
-// Checks after "->":  <Mode>  queue=<n>  top=<activity>  alert=<name>  expanded=<activity>
+//            bubble  promote <id>  page [step]  drag <dx> <dy>  release  cancel
+// Checks after "->":  <Mode>  queue=<n>  top=<activity>  bubble=<activity>  alert=<name>
+//                     expanded=<activity>  pinned=<activity>  dragging=yes|no  preview=yes|no
 // Levels: passive active timeSensitive critical.  '#' starts a comment.
 
 #include "core/island.h"
@@ -107,6 +109,12 @@ struct Runner {
         else if (cmd == "hide") apply(HiddenChanged{ true });
         else if (cmd == "show") apply(HiddenChanged{ false });
         else if (cmd == "wait") wait(Ms{ std::stoi(arg(1)) });
+        else if (cmd == "bubble") apply(BubbleClicked{});
+        else if (cmd == "promote") apply(ActivityPromoted{ arg(1) });
+        else if (cmd == "page") apply(ExpandedPaged{ w.size() > 1 ? std::stoi(arg(1)) : 1 });
+        else if (cmd == "drag") apply(BubbleDragged{ { std::stof(arg(1)), std::stof(arg(2)) } });
+        else if (cmd == "release") apply(BubbleReleased{});
+        else if (cmd == "cancel") apply(BubbleDragCancelled{});
         else fail("unknown command '" + cmd + "'");
     }
 
@@ -119,6 +127,18 @@ struct Runner {
             } else if (auto v = option(word, "top")) {
                 std::string top = state.activities.empty() ? "none" : state.activities.front().id;
                 if (top != *v) fail("top=" + *v + ", got " + top);
+            } else if (auto v = option(word, "bubble")) {
+                std::string second = state.activities.size() < 2 ? "none" : state.activities[1].id;
+                if (second != *v) fail("bubble=" + *v + ", got " + second);
+            } else if (auto v = option(word, "pinned")) {
+                std::string id = state.pinnedId.empty() ? "none" : state.pinnedId;
+                if (id != *v) fail("pinned=" + *v + ", got " + id);
+            } else if (auto v = option(word, "dragging")) {
+                std::string got = state.bubbleDrag ? "yes" : "no";
+                if (got != *v) fail("dragging=" + *v + ", got " + got);
+            } else if (auto v = option(word, "preview")) {
+                std::string got = swapPreview(state) ? "yes" : "no";
+                if (got != *v) fail("preview=" + *v + ", got " + got);
             } else if (auto v = option(word, "alert")) {
                 std::string shown = state.alert ? state.alert->content.label : "none";
                 if (shown != *v) fail("alert=" + *v + ", got " + shown);

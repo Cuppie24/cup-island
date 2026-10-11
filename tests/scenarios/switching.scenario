@@ -1,0 +1,119 @@
+# Switching which activity has the pill and which one Expanded shows
+# (PS §3.1 Split/Expanded, §6.2 user pin; decision 007).
+
+scenario: clicking the bubble expands the bubble's activity
+start media
+start timer                         -> Split top=timer bubble=media
+bubble                              -> Expanded expanded=media
+outside                             -> Split top=timer          # looking doesn't swap
+click                               -> Expanded expanded=timer  # the pill opens the top one
+
+scenario: clicking the bubble while an alert covers it is an ordinary click
+start media
+start timer
+alert song for=media                -> Alert
+bubble                              -> Expanded expanded=media
+
+scenario: promoting swaps the pill and the bubble
+start media
+start timer                         -> top=timer bubble=media
+promote media                       -> Split top=media bubble=timer pinned=media
+start meeting                       -> top=media                # a newer activity doesn't take the pill back
+promote timer                       -> top=timer pinned=timer   # a new pick replaces the old one
+promote nobody                      -> top=timer pinned=timer   # unknown ids are ignored
+
+scenario: the pick beats every level until the user switches
+start media active 0.1
+start download active 0.9
+promote media                       -> top=media
+start meeting timeSensitive         -> top=media bubble=meeting pinned=media
+start battery critical              -> top=media
+promote meeting                     -> top=meeting pinned=meeting
+
+scenario: the pick ends with its activity
+start media
+start timer
+promote media                       -> top=media
+end media                           -> Compact top=timer pinned=none
+start media                         -> top=media pinned=none    # newest wins again, no stale pick
+
+scenario: an expiring pick is cleared too
+start media expires=5000
+start timer
+promote media                       -> pinned=media
+wait 5000                           -> Compact top=timer pinned=none
+
+scenario: the Expanded switcher pages through activities in rank order, wrapping
+start a
+start b
+start c                             -> top=c
+click                               -> Expanded expanded=c
+page                                -> Expanded expanded=b
+page                                -> expanded=a
+page                                -> expanded=c
+page -1                             -> expanded=a
+
+scenario: paging keeps Expanded open like pointer movement
+start a
+start b
+click
+wait 7000
+page                                -> Expanded expanded=a
+wait 7000                           -> Expanded
+wait 1000                           -> Split
+
+scenario: promoting from Expanded keeps the card open on it
+start media
+start timer
+click                               -> Expanded expanded=timer
+page                                -> expanded=media
+promote media                       -> Expanded expanded=media top=media
+outside                             -> Split top=media bubble=timer
+
+scenario: paging outside Expanded does nothing
+start a
+start b
+page                                -> Split top=b
+
+scenario: dragging the bubble onto the pill previews the swap, letting go commits it
+start media
+start timer                         -> Split top=timer bubble=media
+drag -20 0                          -> Split preview=no         # still beside the pill
+drag -60 0                          -> Split preview=yes top=timer  # over the pill: preview only
+release                             -> Split preview=no top=media bubble=timer pinned=media
+
+scenario: dragging back out of the pill cancels the preview
+start media
+start timer
+drag -60 0                          -> preview=yes
+drag -10 30                         -> preview=no
+release                             -> top=timer pinned=none    # let go off the pill: springs back
+
+scenario: a tiny wobble is still a click
+start media
+start timer
+drag 2 1                            -> dragging=no
+release                             -> top=timer
+
+scenario: once dragging, coming back near home stays a drag
+start media
+start timer
+drag 10 0                           -> dragging=yes
+drag 1 0                            -> dragging=yes
+
+scenario: lost capture cancels the drag
+start media
+start timer
+drag -60 0                          -> preview=yes
+cancel                              -> dragging=no top=timer
+
+scenario: an alert mid-drag drops the drag
+start media
+start timer
+drag -60 0                          -> preview=yes
+alert copied                        -> Alert dragging=no
+release                             -> top=timer pinned=none
+
+scenario: no bubble, no drag
+start media
+drag -60 0                          -> Compact dragging=no

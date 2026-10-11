@@ -6,6 +6,7 @@
 
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.Media.h>
 #include <winrt/Windows.Media.Control.h>
 #include <winrt/Windows.Storage.Streams.h>
 
@@ -22,6 +23,10 @@ namespace wmc = winrt::Windows::Media::Control;
 NowPlaying readNowPlaying(wmc::GlobalSystemMediaTransportControlsSessionMediaProperties const& properties,
                           wmc::GlobalSystemMediaTransportControlsSessionPlaybackInfo const& playback,
                           wmc::GlobalSystemMediaTransportControlsSessionTimelineProperties const& timeline, Ms appNow);
+
+// SMTC's repeat modes: None / List / Track.
+Repeat fromWindows(winrt::Windows::Media::MediaPlaybackAutoRepeatMode mode);
+winrt::Windows::Media::MediaPlaybackAutoRepeatMode toWindows(Repeat repeat);
 
 // Display name of the app that owns a session ("Spotify", "Google Chrome"…). Cached.
 std::string appName(winrt::hstring const& appUserModelId);

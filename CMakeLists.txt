@@ -21,6 +21,7 @@ add_library(cup_core STATIC
     src/core/hit_test.cpp
     src/core/island.cpp
     src/core/layout.cpp
+    src/core/split.cpp
     src/core/tokens.cpp
     src/core/tokens_json.cpp
 )
@@ -60,12 +61,15 @@ if(WIN32)
     add_executable(CupIsland
         src/app/live_tokens.cpp
         src/app/main.cpp
+        src/platform/blob.cpp
         src/platform/element_painting.cpp
+        src/platform/element_parts.cpp
         src/platform/element_visuals.cpp
         src/platform/file_watcher.cpp
         src/platform/fullscreen_watcher.cpp
         src/platform/graphics_device.cpp
         src/platform/interaction_layer.cpp
+        src/platform/liquid_bridge.cpp
         src/platform/pill_renderer.cpp
         src/platform/render_layer.cpp
         src/providers/media/smtc_media_provider.cpp

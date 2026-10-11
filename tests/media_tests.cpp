@@ -3,6 +3,7 @@
 #include "core/tokens.h"
 #include "expect.h"
 #include "providers/media/media_presenter.h"
+#include "providers/media/now_playing.h"
 
 #include <vector>
 
@@ -90,6 +91,37 @@ void runMediaTests()
     auto untitled = track("Chrome", "");
     presenter.show(untitled);
     expect(host.alerts.size() == 1, "no alert for an empty title");
+
+    // Shuffle/repeat buttons: only for apps that support them, lit when on.
+    auto controlsOf = [](const NowPlaying& m) { return nowPlayingContent(m).expandedBottom.back(); };
+    Row plain = controlsOf({ .title = "T" });
+    expect(plain.leading.empty() && plain.trailing.empty(), "no shuffle/repeat when the app doesn't support them");
+    Row toggles = controlsOf({ .title = "T", .canShuffle = true, .shuffle = true, .canRepeat = true, .repeat = Repeat::One,
+                               .showSourceSwitch = true });
+    auto* shuffleButton = toggles.leading.size() == 1 ? std::get_if<Button>(&toggles.leading[0]) : nullptr;
+    expect(shuffleButton && shuffleButton->glyph == Glyph::Shuffle && shuffleButton->on == true, "shuffle on the left, lit");
+    auto* repeatButton = toggles.trailing.size() == 1 ? std::get_if<Button>(&toggles.trailing[0]) : nullptr;
+    expect(repeatButton && repeatButton->glyph == Glyph::RepeatOne && repeatButton->on == true,
+           "repeat-one alone in the bottom-right corner");
+
+    // The source switch lives in the top-right corner, not with the playback controls.
+    Content withSwitch = nowPlayingContent({ .title = "T", .showSourceSwitch = true });
+    auto* sourceButton = withSwitch.expandedTrailing.size() == 1 && withSwitch.expandedTrailing[0].items.size() == 1
+                             ? std::get_if<Button>(&withSwitch.expandedTrailing[0].items[0]) : nullptr;
+    expect(sourceButton && sourceButton->actionId == media_action::kSource && !sourceButton->on, "source switch in expanded.trailing");
+    expect(nowPlayingContent({ .title = "T" }).expandedTrailing.empty(), "one media app: no corner button");
+
+    // Track N of M, after the app name in the caption.
+    expect(trackPosition(3, 12) == "Track 3 of 12" && trackPosition(3, 0) == "Track 3" && trackPosition(3, 2) == "Track 3" &&
+           trackPosition(0, 12).empty(), "track position text, tolerant of missing or bad counts");
+    Content numbered = nowPlayingContent({ .title = "T", .source = "Spotify", .trackNumber = 3, .trackCount = 12 });
+    auto* caption = std::get_if<Text>(&numbered.expandedCenter.back().items[0]);
+    expect(caption && caption->value == "Spotify \u00B7 Track 3 of 12" && caption->style == TextStyle::Caption,
+           "caption: app \u00B7 track position");
+    Content unnumbered = nowPlayingContent({ .title = "T", .source = "Chrome" });
+    expect(std::get<Text>(unnumbered.expandedCenter.back().items[0]).value == "Chrome", "no position: just the app");
+    expect(nextRepeat(Repeat::Off) == Repeat::All && nextRepeat(Repeat::All) == Repeat::One && nextRepeat(Repeat::One) == Repeat::Off,
+           "repeat cycles off -> all -> one");
 }
 
 } // namespace cup::test

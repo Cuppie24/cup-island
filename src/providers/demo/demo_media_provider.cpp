@@ -62,6 +62,10 @@ void DemoMediaProvider::onAction(const Action& action)
         changeTrack(+1);
     } else if (action.actionId == act::kPrevious) {
         changeTrack(-1);
+    } else if (action.actionId == act::kShuffle) {
+        shuffle_ = !shuffle_;
+    } else if (action.actionId == act::kRepeat) {
+        repeat_ = nextRepeat(repeat_);
     } else if (action.actionId == act::kSeek) {
         timeline_.position = Ms{ static_cast<long long>(static_cast<double>(timeline_.duration.count()) * action.value) };
         timeline_.anchoredAt = now;
@@ -72,6 +76,7 @@ void DemoMediaProvider::onAction(const Action& action)
 void DemoMediaProvider::changeTrack(int delta)
 {
     auto count = static_cast<int>(tracks_.size());
+    if (shuffle_) delta *= 2; // stand-in for a random pick: with 3 tracks, still visits all of them
     track_ = static_cast<size_t>((static_cast<int>(track_) + delta + count) % count);
     timeline_ = { .position = Ms{ 0 }, .duration = tracks_[track_].duration, .anchoredAt = host_->now(), .playing = true };
 
@@ -83,8 +88,10 @@ void DemoMediaProvider::changeTrack(int delta)
 void DemoMediaProvider::publish()
 {
     const Track& track = tracks_[track_];
-    NowPlaying m{ .title = track.title, .artist = track.artist, .source = "Demo player", .art = track.art,
-                  .timeline = timeline_, .canSeek = true };
+    NowPlaying m{ .title = track.title, .artist = track.artist, .source = "Demo player",
+                  .trackNumber = static_cast<int>(track_) + 1, .trackCount = static_cast<int>(tracks_.size()), .art = track.art,
+                  .timeline = timeline_, .canSeek = true, .canShuffle = true, .shuffle = shuffle_,
+                  .canRepeat = true, .repeat = repeat_ };
     host_->startActivity({ .id = kActivityId, .content = nowPlayingContent(m) });
 }
 
