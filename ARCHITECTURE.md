@@ -142,7 +142,7 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
   expected mode after it. Readable as a spec and runnable anywhere. The
   format is documented at the top of `tests/scenario_runner.cpp`.
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing),
-  `home_tests.cpp` (tiles, Home tab, idle clock), `tokens_tests.cpp`,
+  `home_tests.cpp` (tiles, Home tab, idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop),
   `system_tests.cpp` (battery and Bluetooth presenters).**
   A tiny `expect()`, no framework.
@@ -168,4 +168,5 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 | Live-tunable tokens (`assets/tokens.json`, reload on save) | done; parser tested |
 | Panels, Home (tile grid, clock tile, Home button), tabs at the bottom, idle clock, provider wake-ups (decision 009) | done; rules tested, visuals need Windows |
 | Battery and Bluetooth widgets | presenters tested; WinRT readers need Windows |
-| Pomodoro (first panel): focus rounds, breaks, pause/skip/stop | done, tested |
+| Pomodoro (first panel): focus rounds, breaks, pause/skip/stop, ring, phase dots | done, tested |
+| Progress ring, Steps, accent colour (decision 010) | done; rules tested, drawing needs Windows |

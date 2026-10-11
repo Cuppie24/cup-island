@@ -49,6 +49,7 @@ if(CUP_BUILD_TESTS)
         tests/content_tests.cpp
         tests/fullscreen_tests.cpp
         tests/home_tests.cpp
+        tests/item_tests.cpp
         tests/main.cpp
         tests/media_tests.cpp
         tests/pomodoro_tests.cpp

@@ -115,7 +115,8 @@ winrt::com_ptr<IDWriteTextFormat> formatOf(IDWriteFactory* dw, const Text& text)
 {
     TextLook look = lookOf(text.style);
     return format(dw, textFamily(dw), look.fontSize, look.weight,
-                  text.alignEnd ? DWRITE_TEXT_ALIGNMENT_TRAILING : DWRITE_TEXT_ALIGNMENT_LEADING);
+                  text.centred ? DWRITE_TEXT_ALIGNMENT_CENTER
+                  : text.alignEnd ? DWRITE_TEXT_ALIGNMENT_TRAILING : DWRITE_TEXT_ALIGNMENT_LEADING);
 }
 
 } // namespace
@@ -140,6 +141,7 @@ void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, 
 {
     Text start = text;
     start.alignEnd = false;
+    start.centred = false;
     auto f = formatOf(dw, start);
     std::wstring value = widen(text.value);
     float alpha = lookOf(text.style).alpha;
@@ -159,6 +161,21 @@ void paintToggleDot(ID2D1DeviceContext* dc, Vec2 size, float glyphSize)
     winrt::check_hresult(dc->CreateSolidColorBrush(D2D1::ColorF(1, 1, 1, 0.95f), brush.put()));
     float r = std::max(1.0f, glyphSize / 10), y = std::min(size.y / 2 + glyphSize / 2 + 2 * r + 1, size.y - r);
     dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(size.x / 2, y), r, r), brush.get());
+}
+
+void paintSteps(ID2D1DeviceContext* dc, const Steps& steps, Vec2 size, const cup::Color& accent)
+{
+    const Tokens& t = tokens();
+    float r = t.stepDotSize / 2, y = size.y / 2;
+    for (int i = 0; i < steps.count; ++i) {
+        D2D1::ColorF color = i < steps.done ? D2D1::ColorF(1, 1, 1, 0.75f)
+                             : i == steps.done ? D2D1::ColorF(accent.r / 255.0f, accent.g / 255.0f, accent.b / 255.0f, 1)
+                                               : D2D1::ColorF(1, 1, 1, 0.2f);
+        winrt::com_ptr<ID2D1SolidColorBrush> brush;
+        winrt::check_hresult(dc->CreateSolidColorBrush(color, brush.put()));
+        float x = r + static_cast<float>(i) * (t.stepDotSize + t.stepDotGap);
+        dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), r, r), brush.get());
+    }
 }
 
 void paintImage(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float cornerRadius)

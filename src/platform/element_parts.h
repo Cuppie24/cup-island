@@ -25,19 +25,29 @@ struct ProgressParts {
     wuc::CompositionSpriteShape knob{ nullptr };
 };
 float progressOverhang();
-ProgressParts createProgress(wuc::Compositor const& c, Vec2 frame);
+ProgressParts createProgress(wuc::Compositor const& c, Vec2 frame, const cup::Color& accent);
 // Fill grows from where playback is now to full width, entirely on the compositor.
 void armProgress(wuc::Compositor const& c, wuc::CompositionRoundedRectangleGeometry const& fill, const Timeline& timeline,
                  float width, Ms now);
 void holdProgress(wuc::CompositionRoundedRectangleGeometry const& fill, float fillWidth); // scrubbing: stop and pin
 void showKnob(wuc::Compositor const& c, wuc::CompositionSpriteShape const& knob, bool visible);
 
+// Ring (decision 010): a faint full circle under an accent arc that starts
+// at the top and runs clockwise, filling as the timeline runs. The arc is
+// trimmed (TrimEnd), so it animates on the compositor like the bar.
+struct RingParts {
+    wuc::ShapeVisual visual{ nullptr };
+    wuc::CompositionEllipseGeometry arc{ nullptr };
+};
+RingParts createRing(wuc::Compositor const& c, Vec2 frame, const cup::Color& accent);
+void armRing(wuc::Compositor const& c, wuc::CompositionEllipseGeometry const& arc, const Timeline& timeline, Ms now);
+
 // Waveform: rounded bars that rise and fall while playing and rest as dots when paused.
 struct WaveformParts {
     wuc::ShapeVisual visual{ nullptr };
     std::vector<wuc::CompositionRoundedRectangleGeometry> bars;
 };
-WaveformParts createWaveform(wuc::Compositor const& c, Vec2 frame);
+WaveformParts createWaveform(wuc::Compositor const& c, Vec2 frame, const cup::Color& accent);
 void animateWaveform(wuc::Compositor const& c, const WaveformParts& parts, float height, bool active);
 
 // Button: a hover shape (nested radius, hidden) under the glyph surface.

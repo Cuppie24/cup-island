@@ -8,7 +8,8 @@ content now, and full nesting means a general layout engine.
 
 **Decision.** Each slot is a vertical stack of `Row`s, and a row is a
 horizontal list of items (one level, no nesting). Items: Text, Image, Icon,
-Button, Progress, TimeLabel, Waveform. Text and Progress stretch; the rest
+Button, Progress, TimeLabel, Waveform (decision 010 adds a ring shape for
+Progress, Steps, and an accent colour). Text and Progress stretch; the rest
 have token-defined sizes. Alerts get two slots (`alertLeading` +
 `alertCenter`) instead of PS's single `alert` slot, so art and text sit side
 by side like the other presentations.

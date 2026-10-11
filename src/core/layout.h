@@ -18,6 +18,7 @@ struct Placed {
     Rect frame;         // pill coordinates
     Rect hitFrame;      // clickable area: the frame plus half the gap to each neighbour, so there are no dead strips
     float cornerRadius = 0; // nested in the pill's corner (pill radius - padding), capped at half the frame
+    std::optional<Color> accent; // the content's accent, for the renderer to tint live data (decision 010)
     std::string providerId;
     std::string activityId;
     std::optional<Timeline> ticking; // time labels: the text changes as playback moves

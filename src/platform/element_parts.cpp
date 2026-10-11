@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <iterator>
+#include <optional>
 #include <utility>
 
 namespace cup::platform {
@@ -20,6 +21,22 @@ CompositionEasingFunction easeOf(Compositor const& c, Bezier curve)
 }
 
 CompositionColorBrush white(Compositor const& c, std::uint8_t alpha) { return c.CreateColorBrush(Color{ alpha, 255, 255, 255 }); }
+
+// Live data in the content's accent (decision 010); white when it has none.
+CompositionColorBrush tinted(Compositor const& c, const cup::Color& accent, std::uint8_t alpha)
+{
+    return c.CreateColorBrush(Color{ alpha, accent.r, accent.g, accent.b });
+}
+
+// How long, in wall time, until a running timeline reaches its end; nothing if it isn't moving.
+std::optional<Ms> wallTimeLeft(const Timeline& timeline, Ms now)
+{
+    if (!timeline.playing || timeline.rate <= 0 || timeline.duration <= Ms{ 0 }) return std::nullopt;
+    Ms left = timeline.duration - timeline.positionAt(now);
+    Ms wall{ static_cast<long long>(static_cast<double>(left.count()) / timeline.rate) };
+    if (wall <= Ms{ 0 }) return std::nullopt;
+    return std::min(wall, Ms{ 24LL * 3600 * 1000 }); // Composition caps durations
+}
 
 // Breathing waveform: symmetric ease-in-out, so a bar slows at its top and bottom.
 constexpr Bezier kBreath{ { 0.45f, 0.0f }, { 0.55f, 1.0f } };
@@ -59,24 +76,24 @@ void playScale(Compositor const& c, Visual const& visual, float scale, Ms durati
 
 float progressOverhang() { return tokens().progressKnobSize / 2; }
 
-ProgressParts createProgress(Compositor const& c, Vec2 frame)
+ProgressParts createProgress(Compositor const& c, Vec2 frame, const cup::Color& accent)
 {
     const Tokens& t = tokens();
     float h = t.progressHeight, x = progressOverhang(), y = (frame.y - h) / 2;
-    auto bar = [&](float width, std::uint8_t alpha) {
+    auto bar = [&](float width, CompositionColorBrush const& brush) {
         auto geometry = c.CreateRoundedRectangleGeometry();
         geometry.Size({ width, h });
         geometry.Offset({ x, y });
         geometry.CornerRadius({ h / 2, h / 2 });
         auto shape = c.CreateSpriteShape(geometry);
-        shape.FillBrush(white(c, alpha));
+        shape.FillBrush(brush);
         return std::pair{ geometry, shape };
     };
 
     ProgressParts parts;
     parts.visual = c.CreateShapeVisual();
-    parts.visual.Shapes().Append(bar(frame.x, 60).second);
-    auto [fill, fillShape] = bar(0, 230);
+    parts.visual.Shapes().Append(bar(frame.x, white(c, 60)).second);
+    auto [fill, fillShape] = bar(0, tinted(c, accent, 230));
     parts.visual.Shapes().Append(fillShape);
     parts.fill = fill;
 
@@ -102,15 +119,12 @@ void armProgress(Compositor const& c, CompositionRoundedRectangleGeometry const&
     float height = tokens().progressHeight;
     float from = timeline.fractionAt(now) * width;
     holdProgress(fill, from);
-    if (!timeline.playing || timeline.rate <= 0 || timeline.duration <= Ms{ 0 }) return;
-
-    Ms left = timeline.duration - timeline.positionAt(now);
-    Ms wall{ static_cast<long long>(static_cast<double>(left.count()) / timeline.rate) };
-    if (wall <= Ms{ 0 }) return;
+    auto wall = wallTimeLeft(timeline, now);
+    if (!wall) return;
     auto anim = c.CreateVector2KeyFrameAnimation();
     anim.InsertKeyFrame(0.0f, { from, height });
     anim.InsertKeyFrame(1.0f, { width, height }, c.CreateLinearEasingFunction());
-    anim.Duration(std::min(wall, Ms{ 24LL * 3600 * 1000 })); // Composition caps durations
+    anim.Duration(*wall);
     fill.StartAnimation(L"Size", anim);
 }
 
@@ -129,9 +143,55 @@ void showKnob(Compositor const& c, CompositionSpriteShape const& knob, bool visi
     knob.StartAnimation(L"Scale", anim);
 }
 
+// --- Ring --------------------------------------------------------------------
+
+RingParts createRing(Compositor const& c, Vec2 frame, const cup::Color& accent)
+{
+    float thickness = tokens().ringThickness;
+    float r = std::max(0.0f, std::min(frame.x, frame.y) / 2 - thickness / 2); // the stroke stays inside the frame
+    wfn::float2 centre{ frame.x / 2, frame.y / 2 };
+    auto circle = [&](CompositionColorBrush const& brush) {
+        auto geometry = c.CreateEllipseGeometry();
+        geometry.Center(centre);
+        geometry.Radius({ r, r });
+        auto shape = c.CreateSpriteShape(geometry);
+        shape.StrokeBrush(brush);
+        shape.StrokeThickness(thickness);
+        shape.StrokeStartCap(CompositionStrokeCap::Round);
+        shape.StrokeEndCap(CompositionStrokeCap::Round);
+        return std::pair{ geometry, shape };
+    };
+
+    RingParts parts;
+    parts.visual = c.CreateShapeVisual();
+    parts.visual.Shapes().Append(circle(white(c, 60)).second);
+    auto [arc, arcShape] = circle(tinted(c, accent, 255));
+    // An ellipse's path starts at 3 o'clock: turn it so the arc starts at 12.
+    arcShape.CenterPoint(centre);
+    arcShape.RotationAngleInDegrees(-90.0f);
+    arc.TrimEnd(0.0f);
+    parts.visual.Shapes().Append(arcShape);
+    parts.arc = arc;
+    return parts;
+}
+
+void armRing(Compositor const& c, CompositionEllipseGeometry const& arc, const Timeline& timeline, Ms now)
+{
+    float from = timeline.fractionAt(now);
+    arc.StopAnimation(L"TrimEnd");
+    arc.TrimEnd(from);
+    auto wall = wallTimeLeft(timeline, now);
+    if (!wall) return;
+    auto anim = c.CreateScalarKeyFrameAnimation();
+    anim.InsertKeyFrame(0.0f, from);
+    anim.InsertKeyFrame(1.0f, 1.0f, c.CreateLinearEasingFunction());
+    anim.Duration(*wall);
+    arc.StartAnimation(L"TrimEnd", anim);
+}
+
 // --- Waveform ----------------------------------------------------------------
 
-WaveformParts createWaveform(Compositor const& c, Vec2 frame)
+WaveformParts createWaveform(Compositor const& c, Vec2 frame, const cup::Color& accent)
 {
     const Tokens& t = tokens();
     size_t count = std::max<size_t>(t.waveformBarCount, 1);
@@ -151,7 +211,7 @@ WaveformParts createWaveform(Compositor const& c, Vec2 frame)
         offset.SetScalarParameter(L"height", frame.y);
         bar.StartAnimation(L"Offset", offset);
         auto shape = c.CreateSpriteShape(bar);
-        shape.FillBrush(white(c, 230));
+        shape.FillBrush(tinted(c, accent, 230));
         parts.visual.Shapes().Append(shape);
         parts.bars.push_back(bar);
     }

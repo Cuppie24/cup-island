@@ -33,9 +33,31 @@ Ms durationOf(Phase phase)
     return t.pomodoroFocus;
 }
 
-Alert phaseAlert(const std::string& title, const std::string& detail, const std::string& activityId)
+// Focus is tomato red, breaks are green (decision 010). Colours aren't
+// tokens yet: tokens.json has no colour type.
+constexpr Color kFocus{ 255, 99, 71 };
+constexpr Color kRest{ 52, 199, 89 };
+
+Color accentOf(Phase phase) { return phase == Phase::Focus ? kFocus : kRest; }
+
+// Every phase of a session, in order: focus, break, ... focus, long break.
+int phaseCount() { return 2 * static_cast<int>(tokens().pomodoroRounds); }
+
+int phasesDone(const PomodoroProvider::Session& s)
+{
+    int round = static_cast<int>(s.round);
+    switch (s.phase) {
+    case Phase::Focus: return 2 * (round - 1);
+    case Phase::Break: return 2 * round - 1;
+    case Phase::LongBreak: return phaseCount() - 1;
+    }
+    return 0;
+}
+
+Alert phaseAlert(const std::string& title, const std::string& detail, const std::string& activityId, Color accent)
 {
     Content content{ .label = title,
+                     .accent = accent,
                      .alertLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
                      .alertCenter = { row({ Text{ title, TextStyle::Title } }), row({ Text{ detail } }) } };
     // Time-sensitive: the user asked to be told (PS §6.1). Coalesced: a skip right after never stacks two.
@@ -50,6 +72,7 @@ Panel pomodoroPanel()
     std::string plan = minutes(t.pomodoroFocus) + " focus, " + minutes(t.pomodoroBreak) + " breaks";
     Content content{
         .label = "Focus",
+        .accent = kFocus,
         .expandedLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
         .expandedCenter = { row({ Text{ "Focus", TextStyle::Title } }), row({ Text{ plan } }) },
         .expandedBottom = { row({ Button{ Glyph::Play, act::kStart } }, Align::Center) },
@@ -58,23 +81,31 @@ Panel pomodoroPanel()
     return { .id = PomodoroProvider::kPanelId, .content = content, .wide = true };
 }
 
+// Compact: the countdown centred, the ring filling on the right; no phase
+// name (the colour says it). Expanded: a big ring, the phase, and a dot per
+// phase showing how many have passed.
 Content pomodoroContent(const PomodoroProvider::Session& s)
 {
-    const Tokens& t = tokens();
     std::string name = nameOf(s.phase);
-    std::string round = "Round " + std::to_string(s.round) + " of " + std::to_string(t.pomodoroRounds);
-    if (!s.timeline.playing) round = "Paused · " + round;
+    int done = phasesDone(s), total = phaseCount();
+    std::string passed = std::to_string(done) + " of " + std::to_string(total) + " phases done";
+    if (!s.timeline.playing) passed = "Paused · " + passed;
     TimeLabel left{ .timeline = s.timeline, .countdown = true };
+    TimeLabel bigLeft{ .timeline = s.timeline, .countdown = true, .style = TextStyle::Body };
+    Progress ring{ .timeline = s.timeline, .shape = ProgressShape::Ring };
     Button pause{ s.timeline.playing ? Glyph::Pause : Glyph::Play, act::kPause };
     Button stop{ Glyph::Stop, act::kStop };
     return {
         .label = name,
+        .accent = accentOf(s.phase),
         .compactLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
-        .compactCenter = { row({ Text{ name }, left }) },
-        .minimal = { row({ Icon{ Glyph::Timer } }, Align::Center) },
-        .expandedLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
-        .expandedCenter = { row({ Text{ name, TextStyle::Title } }), row({ Text{ round } }) },
-        .expandedBottom = { row({ TimeLabel{ .timeline = s.timeline }, Progress{ s.timeline }, left }),
+        .compactCenter = { row({ bigLeft }, Align::Center) },
+        .compactTrailing = { row({ ring }, Align::Center) },
+        .minimal = { row({ ring }, Align::Center) },
+        .expandedLeading = { row({ ring }, Align::Center) },
+        .expandedCenter = { row({ Text{ name, TextStyle::Title } }), row({ Steps{ total, done } }),
+                            row({ Text{ passed, TextStyle::Caption } }) },
+        .expandedBottom = { row({ TimeLabel{ .timeline = s.timeline }, Progress{ s.timeline }, TimeLabel{ .timeline = s.timeline, .remaining = true } }),
                             Row{ .items = { pause, Button{ Glyph::Next, act::kSkip }, stop }, .align = Align::Center, .loose = true } },
         // Same place on Home as the dormant tile, now live (decision 009).
         .tile = { Row{ .items = { Text{ name }, left }, .trailing = { stop } } },
@@ -139,19 +170,19 @@ void PomodoroProvider::advance(bool alert)
     Session s = *session_;
     if (s.phase == Phase::LongBreak) {
         finish();
-        if (alert) host_->postAlert(phaseAlert("Session done", std::to_string(t.pomodoroRounds) + " rounds of focus", ""));
+        if (alert) host_->postAlert(phaseAlert("Session done", std::to_string(t.pomodoroRounds) + " rounds of focus", "", kRest));
         return;
     }
     if (s.phase == Phase::Focus) {
         Phase next = s.round >= t.pomodoroRounds ? Phase::LongBreak : Phase::Break;
         begin(next, s.round);
         if (alert) host_->postAlert(phaseAlert(next == Phase::LongBreak ? "Long break" : "Break time",
-                                               minutes(durationOf(next)), kPanelId));
+                                               minutes(durationOf(next)), kPanelId, kRest));
         return;
     }
     begin(Phase::Focus, s.round + 1);
     if (alert) host_->postAlert(phaseAlert("Back to focus", "Round " + std::to_string(s.round + 1) + " of " +
-                                                                std::to_string(t.pomodoroRounds), kPanelId));
+                                                                std::to_string(t.pomodoroRounds), kPanelId, kFocus));
 }
 
 void PomodoroProvider::finish()

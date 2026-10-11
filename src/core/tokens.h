@@ -56,6 +56,9 @@ struct Tokens {
     float progressHitHeight = 16; // taller than drawn, so it's easy to click
     float progressKnobSize = 12;  // the scrub handle shown on hover
     float timeLabelWidth = 48;
+    float ringThickness = 3;      // progress ring stroke (decision 010)
+    float stepDotSize = 6;        // Steps: one dot per step
+    float stepDotGap = 5;
 
     // Hover on buttons and the progress bar (decision 002: content only, not the pill).
     Ms hoverFadeDuration{ 120 };

@@ -34,7 +34,8 @@ private:
         wuc::CompositionDrawingSurface surface{ nullptr };          // text, icon, button glyph, image
         float marqueeWidth = 0;                                     // > 0: swimming text, one copy's width
         wuc::Visual highlight{ nullptr };                           // button hover shape
-        wuc::CompositionRoundedRectangleGeometry fill{ nullptr };   // progress
+        wuc::CompositionRoundedRectangleGeometry fill{ nullptr };   // progress bar
+        wuc::CompositionEllipseGeometry arc{ nullptr };             // progress ring
         wuc::CompositionSpriteShape knob{ nullptr };                // progress
         std::vector<wuc::CompositionRoundedRectangleGeometry> bars; // waveform
         wuc::ShapeVisual waveform{ nullptr };

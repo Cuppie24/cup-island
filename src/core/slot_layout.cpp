@@ -10,15 +10,22 @@ namespace {
 
 float lineHeight(TextStyle style) { return std::ceil(fontSize(style) * 1.3f); }
 
-// Natural height of an item. Images fill the slot's square.
+bool isRing(const Item& item)
+{
+    auto* progress = std::get_if<Progress>(&item);
+    return progress && progress->shape == ProgressShape::Ring;
+}
+
+// Natural height of an item. Images and rings fill the slot's square.
 float heightOf(const Item& item, Rect slot)
 {
     const Tokens& t = tokens();
     if (auto* text = std::get_if<Text>(&item)) return lineHeight(text->style);
-    if (std::holds_alternative<Image>(item)) return std::min(slot.width, slot.height);
+    if (std::holds_alternative<Image>(item) || isRing(item)) return std::min(slot.width, slot.height);
+    if (std::holds_alternative<Steps>(item)) return t.stepDotSize;
     if (std::holds_alternative<Button>(item)) return t.buttonSize;
     if (std::holds_alternative<Progress>(item)) return t.progressHitHeight;
-    if (std::holds_alternative<TimeLabel>(item)) return lineHeight(TextStyle::Digits);
+    if (auto* label = std::get_if<TimeLabel>(&item)) return lineHeight(label->style);
     return t.iconSize; // Icon, Waveform
 }
 
@@ -26,8 +33,12 @@ float heightOf(const Item& item, Rect slot)
 std::optional<float> fixedWidthOf(const Item& item, float height)
 {
     const Tokens& t = tokens();
-    if (std::holds_alternative<Text>(item) || std::holds_alternative<Progress>(item)) return std::nullopt;
-    if (std::holds_alternative<Image>(item)) return height;
+    if (std::holds_alternative<Text>(item) || (std::holds_alternative<Progress>(item) && !isRing(item))) return std::nullopt;
+    if (std::holds_alternative<Image>(item) || isRing(item)) return height;
+    if (auto* steps = std::get_if<Steps>(&item)) {
+        float n = static_cast<float>(std::max(steps->count, 0));
+        return std::max(0.0f, n * t.stepDotSize + (n - 1) * t.stepDotGap);
+    }
     if (std::holds_alternative<Button>(item)) return t.buttonSize;
     if (std::holds_alternative<TimeLabel>(item)) return t.timeLabelWidth;
     return t.iconSize; // Icon, Waveform
@@ -39,7 +50,7 @@ Item resolve(const Item& item, Ms now)
         Ms position = label->timeline.positionAt(now);
         std::string left = formatDuration(label->timeline.duration - position);
         std::string value = label->countdown ? left : label->remaining ? "-" + left : formatDuration(position);
-        return Text{ value, TextStyle::Digits, label->remaining || label->countdown };
+        return Text{ .value = value, .style = label->style, .alignEnd = label->remaining, .marquee = false, .centred = label->countdown };
     }
     return item;
 }
@@ -97,6 +108,7 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
             placed.item = resolve(item, now);
             placed.frame = { x, y + (rowHeight - h) / 2, w, h };
             placed.cornerRadius = radiusFor(item, placed.frame, nestedRadius);
+            placed.accent = source.content ? source.content->accent : std::nullopt;
             placed.providerId = source.providerId;
             placed.activityId = source.activityId;
             if (auto* label = std::get_if<TimeLabel>(&item)) placed.ticking = label->timeline;

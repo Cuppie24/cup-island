@@ -70,6 +70,32 @@ void runPomodoroTests()
         if (p.key == std::string("tile/") + PomodoroProvider::kPanelId + "/0/1") left = &p;
     expect(left && std::get<Text>(left->item).value == "25:00", "the tile counts down");
 
+    // Compact: the countdown in the middle, the ring on the right, no phase name; red for focus.
+    island.send(EscapePressed{});
+    Scene compact = island.scene();
+    const Placed* centre = nullptr;
+    const Placed* ring = nullptr;
+    for (const Placed& p : compact.elements) {
+        if (p.key == "compactCenter/0/0") centre = &p;
+        if (p.key == "compactTrailing/0/0") ring = &p;
+        if (auto* text = std::get_if<Text>(&p.item)) expect(text->value != "Focus", "compact shows no phase name");
+    }
+    expect(centre && std::get<Text>(centre->item).value == "25:00", "compact: the countdown in the centre");
+    expect(ring && std::get<Progress>(ring->item).shape == ProgressShape::Ring, "compact: the ring on the right");
+    Color focusRed = *island.focus()->content.accent;
+    expect(ring && ring->accent == focusRed, "the ring takes the phase's accent");
+
+    // Expanded: how many phases have passed.
+    auto stepsShown = [&] {
+        island.send(PillClicked{});
+        Scene card = island.scene();
+        island.send(EscapePressed{});
+        for (const Placed& p : card.elements)
+            if (auto* steps = std::get_if<Steps>(&p.item)) return *steps;
+        return Steps{ -1, -1 };
+    };
+    expect(stepsShown() == Steps{ static_cast<int>(2 * t.pomodoroRounds), 0 }, "card: a dot per phase, none done yet");
+
     // A phase ends: alert, next phase.
     island.send(EscapePressed{});
     island.wake();
@@ -77,6 +103,10 @@ void runPomodoroTests()
     expect(mode(island.state) == Mode::Alert && island.state.alert->content.label == "Break time" &&
            island.state.alert->level == Level::TimeSensitive, "with a time-sensitive alert");
     expect(island.registry.nextWake() == island.now + t.pomodoroBreak, "wakes when the break ends");
+    expect(island.focus()->content.accent && *island.focus()->content.accent != focusRed, "a break has its own colour");
+    island.now += t.alertDuration;
+    island.send(Tick{});
+    expect(stepsShown().done == 1, "one phase done");
 
     // Skip: next phase now, no alert.
     island.now += Ms{ 10000 };

@@ -176,7 +176,7 @@ void runHomeTests()
     counting = reduce(counting, PillClicked{}, Ms{ 0 });
     Scene countdown = layout(counting, Ms{ 1 });
     const Placed* left = find(countdown, "expandedBottom/0/0");
-    expect(left && std::get<Text>(left->item).value == "24:59" && std::get<Text>(left->item).alignEnd, "countdown: 24:59, no minus");
+    expect(left && std::get<Text>(left->item).value == "24:59" && std::get<Text>(left->item).centred, "countdown: 24:59, no minus, centred");
 }
 
 } // namespace cup::test

@@ -16,6 +16,9 @@ void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, 
 // The "this toggle is on" dot under a glyph of `glyphSize` centred in `size`.
 void paintToggleDot(ID2D1DeviceContext* dc, Vec2 size, float glyphSize);
 void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float fontSize, Vec2 size, float alpha);
+// Steps (decision 010): a dot per step, centred vertically; done ones white,
+// the current one in `accent`, the rest faint.
+void paintSteps(ID2D1DeviceContext* dc, const Steps& steps, Vec2 size, const cup::Color& accent);
 // Fills a rounded rect with the image scaled to cover it; a neutral tile if `data` is null.
 void paintImage(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float cornerRadius);
 

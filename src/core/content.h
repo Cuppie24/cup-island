@@ -21,6 +21,14 @@ enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Sour
 
 enum class TextStyle { Title, Body, Caption, Digits };
 
+// An activity's colour (decision 010). Tints only its live data: progress
+// fills (bar and ring), the current step, waveform bars. Never text, icons
+// or the island itself, which stays black.
+struct Color {
+    std::uint8_t r = 255, g = 255, b = 255;
+    bool operator==(const Color&) const = default;
+};
+
 // Decoded pixels: BGRA, premultiplied alpha, rows of width * 4 bytes.
 // Shared and immutable, so state copies are cheap; new pixels = new ImageData.
 struct ImageData {
@@ -49,6 +57,7 @@ struct Text {
     TextStyle style = TextStyle::Body;
     bool alignEnd = false; // right-aligned in its frame
     bool marquee = false;  // too long: scrolls ("swims") in a loop instead of ending in "…"
+    bool centred = false;  // centred in its frame (wins over alignEnd)
     bool operator==(const Text&) const = default;
 };
 struct Image { std::shared_ptr<const ImageData> data; bool operator==(const Image&) const = default; };
@@ -60,17 +69,35 @@ struct Button {
     std::optional<bool> on; // toggles only (shuffle, repeat): lit with a dot when on, dimmed when off
     bool operator==(const Button&) const = default;
 };
-struct Progress { Timeline timeline; bool seekable = false; bool operator==(const Progress&) const = default; };
-// Elapsed "1:23"; `remaining` "-2:05" (media); `countdown` "2:05", time left without the "-" (a timer).
+// A bar stretches across its row. A ring is a square that fills its slot's
+// height (like art), drawn as an arc from the top, clockwise (decision 010).
+// Both fill from the Timeline on the compositor: no updates while it runs.
+enum class ProgressShape { Bar, Ring };
+struct Progress {
+    Timeline timeline;
+    bool seekable = false; // bars only
+    ProgressShape shape = ProgressShape::Bar;
+    bool operator==(const Progress&) const = default;
+};
+// Elapsed "1:23"; `remaining` "-2:05" (media, right-aligned); `countdown`
+// "2:05", time left without the "-", centred (a timer).
 struct TimeLabel {
     Timeline timeline;
     bool remaining = false;
     bool countdown = false;
+    TextStyle style = TextStyle::Digits; // a countdown that is the main thing shown can be Body or Title
     bool operator==(const TimeLabel&) const = default;
 };
 struct Waveform { bool active = false; bool operator==(const Waveform&) const = default; };              // "now playing" bars; still dots when inactive
+// A row of dots, one per step: `done` filled, the current one (index `done`)
+// in the accent, the rest faint. Pomodoro's phases, a multi-step task (decision 010).
+struct Steps {
+    int count = 0;
+    int done = 0;
+    bool operator==(const Steps&) const = default;
+};
 
-using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform>;
+using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps>;
 
 enum class Align { Start, Center, End };
 
@@ -95,6 +122,7 @@ using Slot = std::vector<Row>;
 // One activity's content for every presentation (PS §5.1). Empty slots are fine.
 struct Content {
     std::string label; // accessible name, also used in logs and tests
+    std::optional<Color> accent; // none: white (decision 010)
     Slot compactLeading;
     Slot compactCenter;  // between the two compact squares, e.g. a swimming title
     Slot compactTrailing;
