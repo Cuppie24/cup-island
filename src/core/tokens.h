@@ -23,7 +23,7 @@ struct Bezier {
 struct Tokens {
     // Render layer: sized once to the largest pill plus press-overshoot room,
     // never resized (TR §5, §9.1). Only read at startup.
-    Vec2 canvas{ 720, 180 }; // wide enough for Expanded plus its side card, centred
+    Vec2 canvas{ 420, 220 }; // room for the largest pill: Expanded with tabs
 
     // Pill size per mode (PS §3.1). Height 0 = tucked into the screen edge.
     Vec2 idleSize{ 160, 28 };
@@ -80,13 +80,10 @@ struct Tokens {
     float bridgeThickness = 20;   // liquid neck between pill and bubble, at its thickest
     float bridgeReach = 6;        // edge gap at which the neck has thinned to nothing (< bubbleGap: none at rest)
 
-    // Expanded's side card: the other activities, one row each, right of the card (decision 007).
-    float sideCardWidth = 150;
-    float sideCardPadding = 6;
-    float sideRowHeight = 36;
-    float sideRowGap = 2;
-    float sideStatusWidth = 40;   // the short status at a row's end ("4:59", "42%")
-    std::size_t sideCardRows = 3; // more activities than this: the last row reads "+N more"
+    // Expanded's tabs: one per activity along the top of the card (decision 007).
+    float tabHeight = 28;
+    float tabGap = 4;
+    float tabMaxWidth = 140;      // each tab's width; the group is centred, and shrinks only when they don't fit
 
     // Morph between modes: ease-out, 250-350 ms budget (TR §5).
     Ms morphDuration{ 300 };

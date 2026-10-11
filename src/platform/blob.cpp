@@ -3,6 +3,7 @@
 #include "platform/element_parts.h"
 
 #include <algorithm>
+#include <utility>
 
 namespace cup::platform {
 namespace {
@@ -160,27 +161,41 @@ void Blob::setHighlighted(bool on)
     fill_.StartAnimation(L"Color", anim);
 }
 
-void Blob::setRowHighlight(std::optional<Rect> row, float cornerRadius)
+void Blob::setSelectedTab(std::optional<Rect> tab, float cornerRadius) { showMark(selectedTab_, tab, cornerRadius, 40, true); }
+
+void Blob::setHoveredTab(std::optional<Rect> tab, float cornerRadius) { showMark(hoveredTab_, tab, cornerRadius, 20, false); }
+
+void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, std::uint8_t alpha, bool slide)
 {
-    if (row == highlightedRow_) return;
-    highlightedRow_ = row;
-    if (!rowHighlight_) {
-        rowShape_ = compositor_.CreateRoundedRectangleGeometry();
-        auto fill = compositor_.CreateSpriteShape(rowShape_);
-        fill.FillBrush(compositor_.CreateColorBrush(Color{ 40, 255, 255, 255 })); // same as a button's hover
-        rowHighlight_ = compositor_.CreateShapeVisual();
-        rowHighlight_.Shapes().Append(fill);
-        rowHighlight_.Opacity(0.0f);
-        content_.Children().InsertAtBottom(rowHighlight_); // under the row's content
+    if (at == mark.at) return;
+    std::optional<Rect> from = std::exchange(mark.at, at);
+    if (!mark.visual) {
+        mark.shape = compositor_.CreateRoundedRectangleGeometry();
+        auto fill = compositor_.CreateSpriteShape(mark.shape);
+        fill.FillBrush(compositor_.CreateColorBrush(Color{ alpha, 255, 255, 255 })); // like a button's hover
+        mark.visual = compositor_.CreateShapeVisual();
+        mark.visual.Shapes().Append(fill);
+        mark.visual.Opacity(0.0f);
+        content_.Children().InsertAtBottom(mark.visual); // under the content it marks
     }
-    if (row) {
-        // Jumps to the new row and fades in: rows are close, a slide would be more motion than it's worth.
-        rowHighlight_.Offset({ row->x, row->y, 0 });
-        rowHighlight_.Size({ row->width, row->height });
-        rowShape_.Size({ row->width, row->height });
-        rowShape_.CornerRadius({ cornerRadius, cornerRadius });
+    if (!at) {
+        fadeTo(compositor_, mark.visual, 0.0f, tokens().hoverFadeDuration);
+        return;
     }
-    fadeTo(compositor_, rowHighlight_, row ? 1.0f : 0.0f, tokens().hoverFadeDuration);
+    mark.visual.Size({ at->width, at->height });
+    mark.shape.Size({ at->width, at->height });
+    mark.shape.CornerRadius({ cornerRadius, cornerRadius });
+    mark.visual.Offset({ at->x, at->y, 0 });
+    if (slide && from) {
+        // Glide from the old tab to the new one: the one motion that says
+        // "switched". Both ends explicit (decision 008).
+        auto anim = compositor_.CreateVector3KeyFrameAnimation();
+        anim.InsertKeyFrame(0.0f, { from->x, from->y, 0 });
+        anim.InsertKeyFrame(1.0f, { at->x, at->y, 0 }, easingFor(compositor_, tokens().morphEase));
+        anim.Duration(tokens().morphDuration);
+        mark.visual.StartAnimation(L"Offset", anim);
+    }
+    fadeTo(compositor_, mark.visual, 1.0f, tokens().hoverFadeDuration);
 }
 
 void Blob::pressDown()
