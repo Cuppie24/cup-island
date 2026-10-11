@@ -98,15 +98,14 @@ TodoList TodoList::load(const std::string& saved)
 void appendTodoRows(Slot& slot, const TodoList& list)
 {
     const auto& items = list.items();
-    slot.push_back(Row{ .items = { TextInput{ .actionId = act::kAdd, .placeholder = "Add a to-do…" } },
-                        .trailing = { Button{ .glyph = Glyph::Paste, .actionId = act::kPaste, .compact = true } } });
+    slot.push_back(row({ TextInput{ .actionId = act::kAdd, .placeholder = "Add a to-do…" } }));
 
     std::size_t shown = std::min(items.size(), tokens().todoVisibleItems);
     for (std::size_t i = 0; i < shown; ++i) {
         const Todo& t = items[i];
         Button box{ .glyph = t.done ? Glyph::Checked : Glyph::Unchecked, .actionId = act::kToggle + std::to_string(t.id), .compact = true };
         Text text{ .value = t.text, .style = t.done ? TextStyle::Caption : TextStyle::Body, .struck = t.done };
-        slot.push_back(row({ box, text }));
+        slot.push_back(Row{ .items = { box, text }, .clickAnywhere = true }); // the text ticks it too
     }
     if (items.size() > shown)
         slot.push_back(row({ Text{ .value = "+" + std::to_string(items.size() - shown) + " more", .style = TextStyle::Caption, .centred = true } }));

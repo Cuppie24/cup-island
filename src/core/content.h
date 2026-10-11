@@ -17,7 +17,7 @@ using Ms = std::chrono::milliseconds;
 
 // Built-in icons; the renderer maps them to font glyphs.
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
-                   Battery, Charging, Bluetooth, Sun, Moon, Copy, Checked, Unchecked, Paste };
+                   Battery, Charging, Bluetooth, Sun, Moon, Copy, Checked, Unchecked };
 
 enum class TextStyle { Title, Body, Caption, Digits, Display }; // Display: a big number, the card's centre (a timer)
 
@@ -144,6 +144,9 @@ struct Row {
     std::vector<Item> leading;
     std::vector<Item> trailing;
     RowSpan span = RowSpan::Slot;
+    // The row's button takes clicks anywhere on the row, not just on itself:
+    // a list item, where clicking a to-do's text ticks it.
+    bool clickAnywhere = false;
     bool operator==(const Row&) const = default;
 };
 

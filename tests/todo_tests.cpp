@@ -49,8 +49,7 @@ void runTodoTests()
     IslandState state;
     Ms now{ 0 };
     ProviderRegistry registry{ [&](const Event& e, const char*) { state = reduce(state, e, now); }, [&] { return now; } };
-    registry.add(std::make_unique<PomodoroProvider>(TodoStorage{ [&] { return saved; }, [&](const std::string& s) { saved = s; } },
-                                                    [&] { return clipboard; }));
+    registry.add(std::make_unique<PomodoroProvider>(TodoStorage{ [&] { return saved; }, [&](const std::string& s) { saved = s; } }));
     registry.start("pomodoro");
     auto send = [&](const Event& e) { state = reduce(state, e, now); };
     send(PillClicked{});
@@ -64,6 +63,16 @@ void runTodoTests()
            "the saved list is loaded");
     const Placed* oldDone = firstOf(card, [](const Placed& p) { auto* t = std::get_if<Text>(&p.item); return t && t->value == "Old done"; });
     expect(oldDone && std::get<Text>(oldDone->item).struck, "solved ones are struck through");
+
+    // A to-do ticks from anywhere on its row: clicking its text hits its checkbox.
+    const Placed* openText = firstOf(card, [](const Placed& p) { auto* t = std::get_if<Text>(&p.item); return t && t->value == "Old open"; });
+    auto onText = hitTest(card, { openText->frame.x + openText->frame.width - 2, openText->frame.y + openText->frame.height / 2 });
+    expect(onText && onText->action.actionId.rfind(todo_action::kToggle, 0) == 0, "clicking a to-do's text ticks it");
+    std::string fieldRow = field->key.substr(0, field->key.rfind('/') + 1);
+    std::size_t inFieldRow = 0;
+    for (const Placed& p : card.elements)
+        if (p.key.rfind(fieldRow, 0) == 0) ++inFieldRow;
+    expect(inFieldRow == 1, "the field is alone on its row: no paste button (Ctrl+V pastes)");
 
     // Click the field (the app sees a TextInput hit and focuses it), type, Enter.
     auto hit = hitTest(card, { field->frame.x + 5, field->frame.y + field->frame.height / 2 });
@@ -80,8 +89,8 @@ void runTodoTests()
     expect(saved.find("[ ] Call mum") != std::string::npos, "added and saved");
     expect(state.draft && state.draft->text.empty(), "the field stays focused for the next one");
 
-    // Paste button: every clipboard line a to-do.
-    registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kPaste, 0 });
+    // Ctrl+V in the field: the app sends the clipboard as the field's action; every line a to-do.
+    registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kAdd, 0, clipboard });
     expect(saved.find("Email Anna") != std::string::npos && saved.find("Book flights") != std::string::npos, "paste adds each line");
 
     // Five to-dos now: the card shows todoVisibleItems of them, and counts the rest.

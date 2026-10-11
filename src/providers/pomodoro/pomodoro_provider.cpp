@@ -140,10 +140,6 @@ void PomodoroProvider::stop()
 void PomodoroProvider::onAction(const Action& action)
 {
     if (!host_ || action.activityId != kPanelId) return;
-    if (action.actionId == todo_action::kPaste) {
-        if (readClipboard_ && todos_.add(readClipboard_())) showTodos(); // every line a to-do
-        return;
-    }
     if (todos_.apply(action.actionId, action.text)) {
         showTodos();
         return;

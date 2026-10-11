@@ -13,7 +13,6 @@ namespace cup {
 
 namespace todo_action {
 inline constexpr const char* kAdd = "todo.add";         // the field's action: Enter, or Ctrl+V into it
-inline constexpr const char* kPaste = "todo.paste";     // the paste button: the provider reads the clipboard
 inline constexpr const char* kToggle = "todo.toggle.";  // + the item's id
 inline constexpr const char* kClearDone = "todo.clearDone";
 inline constexpr const char* kClearAll = "todo.clearAll";
@@ -35,7 +34,7 @@ public:
     bool toggle(std::uint64_t id);
     bool clearDone();
     bool clearAll();
-    // A todo.* action (not paste: that needs the clipboard). True if the list changed.
+    // A todo.* action. True if the list changed.
     bool apply(const std::string& actionId, const std::string& text);
 
     // One per line: "[x] text" or "[ ] text". Unknown lines are read as open to-dos.
@@ -47,9 +46,10 @@ private:
     std::uint64_t nextId_ = 1;
 };
 
-// The list's rows for a Centred card: the field and paste button, the first
-// todoVisibleItems to-dos (checkbox + text, struck when done), "+n more",
-// then Clear solved / Clear all while there's anything to clear.
+// The list's rows for a Centred card: the field (Ctrl+V pastes), the first
+// todoVisibleItems to-dos (checkbox + text, struck when done; a click
+// anywhere on the row ticks it), "+n more", then Clear solved / Clear all
+// while there's anything to clear.
 void appendTodoRows(Slot& slot, const TodoList& list);
 
 } // namespace cup

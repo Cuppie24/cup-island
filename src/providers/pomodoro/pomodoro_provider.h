@@ -4,8 +4,8 @@
 // breaks. It ends by itself after the long break, or with its stop button.
 // Pure: the countdown is host-driven (a Timeline), phase ends come from
 // Host::wakeAt, so it builds and tests on any OS. It keeps a to-do list
-// under the timer (decision 016); saving it and reading the clipboard are
-// handed in, so they stay out of the pure code.
+// under the timer (decision 016); saving it is handed in, so it stays out of
+// the pure code.
 
 #include "core/provider.h"
 #include "providers/pomodoro/todo_list.h"
@@ -32,8 +32,7 @@ struct TodoStorage {
 
 class PomodoroProvider : public Provider {
 public:
-    explicit PomodoroProvider(TodoStorage storage = {}, std::function<std::string()> readClipboard = {})
-        : storage_(std::move(storage)), readClipboard_(std::move(readClipboard)) {}
+    explicit PomodoroProvider(TodoStorage storage = {}) : storage_(std::move(storage)) {}
 
     const char* id() const override { return "pomodoro"; }
     void start(Host& host) override; // publishes the dormant panel
@@ -61,7 +60,6 @@ private:
     std::optional<Session> session_;
     TodoList todos_;
     TodoStorage storage_;
-    std::function<std::string()> readClipboard_;
 };
 
 // Content, pure (tested on its own): the dormant panel, and a running session.

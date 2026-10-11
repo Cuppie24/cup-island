@@ -473,7 +473,7 @@ int main()
             out << text;
         },
     };
-    g_providers->add(std::make_unique<PomodoroProvider>(storage, [] { return readClipboardText(g_inputHwnd); }));
+    g_providers->add(std::make_unique<PomodoroProvider>(storage));
     g_providers->add(std::make_unique<LogsProvider>([] { return copyLogToClipboard(g_inputHwnd); }));
     g_providers->start("media");
     g_providers->start("system.battery");

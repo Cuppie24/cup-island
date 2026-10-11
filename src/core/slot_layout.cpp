@@ -249,6 +249,13 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
                 float right = i + 1 == placed.size() ? f.x + f.width + gap / 2 : (f.x + f.width + placed[i + 1]->frame.x) / 2;
                 placed[i]->hitFrame = { left, y - t.rowSpacing / 2, right - left, rowHeight + t.rowSpacing };
             }
+            // A list item: its button takes clicks anywhere on the row (Row::clickAnywhere).
+            if (row.clickAnywhere && !placed.empty()) {
+                Rect whole{ placed.front()->hitFrame.x, y - t.rowSpacing / 2,
+                            placed.back()->hitFrame.x + placed.back()->hitFrame.width - placed.front()->hitFrame.x, rowHeight + t.rowSpacing };
+                for (Placed* p : placed)
+                    if (std::holds_alternative<Button>(p->item)) p->hitFrame = whole;
+            }
             y += rowHeight + t.rowSpacing;
         }
         return contentSpans;

@@ -19,8 +19,8 @@ can't draw (PS §5.3), and nothing typed reached the island.
   holds unsent text, Expanded doesn't time out, so it never eats what you
   typed. While a field is focused, keys go to it, not to the demo hotkeys.
 - **Paste:** Ctrl+V in the field sends the clipboard's text as the field's
-  action, and the paste button asks the provider to read it (handed in, so
-  the provider stays pure). Pomodoro makes every non-blank line a to-do.
+  action. Pomodoro makes every non-blank line a to-do. (A paste button was
+  tried and removed: Ctrl+V in the field is enough, and the row is calmer.)
   Dropping text on the island waits for a real drop target (the D key only
   simulates a drag today).
 - **Caret:** a still bar after the text, no blinking: nothing runs between
@@ -32,7 +32,10 @@ can't draw (PS §5.3), and nothing typed reached the island.
   not pushed. A little taller than the list's rows (`inputHeight`).
 - **Buttons grow two options:** `label` (a text button, as wide as its
   label: "Clear all") and `compact` (`smallButtonSize`, for list rows: a
-  to-do's checkbox, the paste button). `Text::struck` strikes a solved one.
+  to-do's checkbox). `Text::struck` strikes a solved one.
+- **`Row::clickAnywhere`:** the row's button takes clicks anywhere on the
+  row. A to-do ticks from its text too: the checkbox alone was a small
+  target. Hovering anywhere on the row lights the checkbox.
 - **Centred cards grow to fit** their rows, from Expanded's size up to the
   canvas (now 420×400). The provider caps its list (`todoVisibleItems`,
   then "+n more"), so the tallest card still fits.
