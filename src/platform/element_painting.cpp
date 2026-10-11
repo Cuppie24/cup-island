@@ -116,6 +116,7 @@ TextLook lookOf(TextStyle style)
     case TextStyle::Body: break;
     case TextStyle::Caption:
     case TextStyle::Digits: return { t.captionFontSize, t.captionTextColor, DWRITE_FONT_WEIGHT_NORMAL };
+    case TextStyle::Display: return { t.displayFontSize, t.titleTextColor, DWRITE_FONT_WEIGHT_SEMI_LIGHT }; // big and light, like a clock face
     }
     return { t.bodyFontSize, t.bodyTextColor, DWRITE_FONT_WEIGHT_NORMAL };
 }

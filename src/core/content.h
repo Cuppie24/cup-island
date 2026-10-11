@@ -19,7 +19,7 @@ using Ms = std::chrono::milliseconds;
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
                    Battery, Charging, Bluetooth, Sun, Moon };
 
-enum class TextStyle { Title, Body, Caption, Digits };
+enum class TextStyle { Title, Body, Caption, Digits, Display }; // Display: a big number, the card's centre (a timer)
 
 // sRGB plus opacity. As an activity's accent (decision 010) it tints only
 // live data: progress fills (bar and ring), the current step, waveform bars.
@@ -71,8 +71,10 @@ struct Button {
     std::optional<bool> on; // toggles only (shuffle, repeat): lit with a dot when on, dimmed when off
     bool operator==(const Button&) const = default;
 };
-// A bar stretches across its row. A ring is a square that fills its slot's
-// height (like art), drawn as an arc from the top, clockwise (decision 010).
+// A bar stretches across its row. A ring is a square: alone in its row it
+// fills the slot's height (like art); next to other items it matches the
+// row's height (a ring beside a big timer). Drawn as an arc from the top,
+// clockwise (decision 010).
 // Both fill from the Timeline on the compositor: no updates while it runs.
 enum class ProgressShape { Bar, Ring };
 struct Progress {
@@ -82,7 +84,8 @@ struct Progress {
     bool operator==(const Progress&) const = default;
 };
 // Elapsed "1:23"; `remaining` "-2:05" (media, right-aligned); `countdown`
-// "2:05", time left without the "-", centred (a timer).
+// "2:05", time left without the "-", centred (a timer). Digits labels sit in
+// a fixed column (timeLabelWidth); larger styles are as wide as their digits.
 struct TimeLabel {
     Timeline timeline;
     bool remaining = false;
@@ -102,6 +105,13 @@ struct Steps {
 using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps>;
 
 enum class Align { Start, Center, End };
+
+// How the Expanded card arranges its slots (decision 011). Providers pick a
+// preset; the host owns the geometry.
+//  Standard: art square left, title centre, corner button, bottom rows (media).
+//  Centred:  only `expandedCenter`, full width, rows stacked and centred: a
+//            control panel or a timer, nothing to put in an art square.
+enum class CardLayout { Standard, Centred };
 
 // A horizontal row of items. Text and Progress stretch; everything else has a fixed size.
 struct Row {
@@ -125,6 +135,7 @@ using Slot = std::vector<Row>;
 struct Content {
     std::string label; // accessible name, also used in logs and tests
     std::optional<Color> accent; // none: white (decision 010)
+    CardLayout card = CardLayout::Standard;
     Slot compactLeading;
     Slot compactCenter;  // between the two compact squares, e.g. a swimming title
     Slot compactTrailing;

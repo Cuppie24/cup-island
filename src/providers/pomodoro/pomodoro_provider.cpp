@@ -78,31 +78,35 @@ Panel pomodoroPanel()
 }
 
 // Compact: the countdown centred, the ring filling on the right; no phase
-// name (the colour says it). Expanded: a big ring, the phase, and a dot per
-// phase showing how many have passed.
+// name (the colour says it). Expanded, a centred card (decision 011): the
+// controls on top, the ring beside a big countdown in the middle, then a
+// dot per phase and what they mean. No bar: the ring already shows it.
 Content pomodoroContent(const PomodoroProvider::Session& s)
 {
     std::string name = nameOf(s.phase);
     int done = phasesDone(s), total = phaseCount();
-    std::string passed = std::to_string(done) + " of " + std::to_string(total) + " phases done";
-    if (!s.timeline.playing) passed = "Paused · " + passed;
+    std::string caption = name + " · " + std::to_string(done) + " of " + std::to_string(total) + " done";
+    if (!s.timeline.playing) caption = "Paused · " + caption;
     TimeLabel left{ .timeline = s.timeline, .countdown = true };
-    TimeLabel bigLeft{ .timeline = s.timeline, .countdown = true, .style = TextStyle::Body };
+    TimeLabel compactLeft{ .timeline = s.timeline, .countdown = true, .style = TextStyle::Body };
+    TimeLabel bigLeft{ .timeline = s.timeline, .countdown = true, .style = TextStyle::Display };
     Progress ring{ .timeline = s.timeline, .shape = ProgressShape::Ring };
     Button pause{ s.timeline.playing ? Glyph::Pause : Glyph::Play, act::kPause };
     Button stop{ Glyph::Stop, act::kStop };
     return {
         .label = name,
         .accent = accentOf(s.phase),
+        .card = CardLayout::Centred,
         .compactLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
-        .compactCenter = { row({ bigLeft }, Align::Center) },
+        .compactCenter = { row({ compactLeft }, Align::Center) },
         .compactTrailing = { row({ ring }, Align::Center) },
         .minimal = { row({ ring }, Align::Center) },
-        .expandedLeading = { row({ ring }, Align::Center) },
-        .expandedCenter = { row({ Text{ name, TextStyle::Title } }), row({ Steps{ total, done } }),
-                            row({ Text{ passed, TextStyle::Caption } }) },
-        .expandedBottom = { row({ TimeLabel{ .timeline = s.timeline }, Progress{ s.timeline }, TimeLabel{ .timeline = s.timeline, .remaining = true } }),
-                            Row{ .items = { pause, Button{ Glyph::Next, act::kSkip }, stop }, .align = Align::Center, .loose = true } },
+        .expandedCenter = {
+            Row{ .items = { pause, Button{ Glyph::Next, act::kSkip }, stop }, .align = Align::Center, .loose = true },
+            row({ ring, bigLeft }, Align::Center),
+            row({ Steps{ total, done } }, Align::Center),
+            row({ Text{ .value = caption, .style = TextStyle::Caption, .centred = true } }, Align::Center),
+        },
         // Same place on Home as the dormant tile, now live (decision 009).
         .tile = { Row{ .items = { Text{ name }, left }, .trailing = { stop } } },
     };

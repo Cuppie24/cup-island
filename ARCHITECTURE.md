@@ -92,6 +92,10 @@ an activity with a panel's id makes it live; ending it makes it dormant again.
 Providers that change on a schedule ask `Host::wakeAt` and get `onWake()`.
 `providers/pomodoro/` is the reference panel.
 
+Providers decide *what* goes where (items, rows, order, alignment, which
+card preset and text style); the host decides *how it looks* (every size,
+font and colour, from tokens.json). See decision 011.
+
 Writing one: implement `Provider`, build `Content` in a pure function (see
 `providers/media/now_playing.cpp`), test it through `ProviderRegistry` like
 `tests/provider_tests.cpp`, and register it in `app/main.cpp`. WinRT event
