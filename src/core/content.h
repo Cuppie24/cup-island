@@ -70,6 +70,9 @@ struct Row {
     std::vector<Item> items;
     Align align = Align::Start;
     bool loose = false; // wider gaps between items (controls: easier to hit, harder to mis-hit)
+    // Fixed-size items pinned to the row's end edge, e.g. a source switch next
+    // to centred media controls. `items` still centre across the full width.
+    std::vector<Item> trailing;
     bool operator==(const Row&) const = default;
 };
 

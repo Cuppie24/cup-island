@@ -154,7 +154,8 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
     float total = 0;
     for (const Row& r : rows) {
         float h = 0;
-        for (const Item& item : r.items) h = std::max(h, heightOf(item, slot.frame));
+        for (const auto* items : { &r.items, &r.trailing })
+            for (const Item& item : *items) h = std::max(h, heightOf(item, slot.frame));
         rowHeights.push_back(h);
         total += h;
     }
@@ -164,28 +165,13 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
     for (size_t r = 0; r < rows.size(); ++r) {
         const Row& row = rows[r];
         float rowHeight = rowHeights[r];
-
-        float fixed = 0;
-        int stretchCount = 0;
-        for (const Item& item : row.items) {
-            if (auto w = fixedWidthOf(item, heightOf(item, slot.frame))) fixed += *w;
-            else ++stretchCount;
-        }
         float gap = row.loose ? t.looseItemSpacing : t.itemSpacing;
-        float spacing = gap * static_cast<float>(row.items.empty() ? 0 : row.items.size() - 1);
-        float spare = std::max(0.0f, slot.frame.width - fixed - spacing);
-        float stretchWidth = stretchCount > 0 ? spare / static_cast<float>(stretchCount) : 0;
 
-        float x = slot.frame.x;
-        if (stretchCount == 0 && row.align == Align::Center) x += spare / 2;
-        if (stretchCount == 0 && row.align == Align::End) x += spare;
-
-        for (size_t i = 0; i < row.items.size(); ++i) {
-            const Item& item = row.items[i];
+        // Keys number `items` first, then `trailing`, so they stay stable as rows grow.
+        auto place = [&](const Item& item, size_t index, float x, float w) {
             float h = heightOf(item, slot.frame);
-            float w = fixedWidthOf(item, h).value_or(stretchWidth);
             Placed placed;
-            placed.key = std::string(slot.name) + "/" + std::to_string(r) + "/" + std::to_string(i);
+            placed.key = std::string(slot.name) + "/" + std::to_string(r) + "/" + std::to_string(index);
             placed.item = resolve(item, now);
             placed.frame = { x, y + (rowHeight - h) / 2, w, h };
             placed.hitFrame = { x - gap / 2, y - t.rowSpacing / 2, w + gap, rowHeight + t.rowSpacing };
@@ -194,6 +180,42 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
             placed.activityId = source.activityId;
             if (auto* label = std::get_if<TimeLabel>(&item)) placed.ticking = label->timeline;
             out.push_back(std::move(placed));
+        };
+        auto widthOf = [&](const Item& item) { return fixedWidthOf(item, heightOf(item, slot.frame)); };
+
+        // Trailing items take the end of the row; `items` share what's left.
+        float trailingWidth = 0;
+        for (const Item& item : row.trailing) trailingWidth += widthOf(item).value_or(0) + gap;
+        float available = slot.frame.width - trailingWidth;
+
+        float fixed = 0;
+        int stretchCount = 0;
+        for (const Item& item : row.items) {
+            if (auto w = widthOf(item)) fixed += *w;
+            else ++stretchCount;
+        }
+        float spacing = gap * static_cast<float>(row.items.empty() ? 0 : row.items.size() - 1);
+        float used = fixed + spacing;
+        float spare = std::max(0.0f, available - used);
+        float stretchWidth = stretchCount > 0 ? spare / static_cast<float>(stretchCount) : 0;
+
+        float x = slot.frame.x;
+        if (stretchCount == 0 && row.align == Align::End) x += spare;
+        if (stretchCount == 0 && row.align == Align::Center) {
+            // Centred on the whole row, so trailing items don't pull the group off
+            // centre; nudged left only if it would run into them.
+            x += std::clamp((slot.frame.width - used) / 2, 0.0f, spare);
+        }
+        for (size_t i = 0; i < row.items.size(); ++i) {
+            float w = widthOf(row.items[i]).value_or(stretchWidth);
+            place(row.items[i], i, x, w);
+            x += w + gap;
+        }
+
+        x = slot.frame.x + available + gap;
+        for (size_t i = 0; i < row.trailing.size(); ++i) {
+            float w = widthOf(row.trailing[i]).value_or(0);
+            place(row.trailing[i], row.items.size() + i, x, w);
             x += w + gap;
         }
         y += rowHeight + t.rowSpacing;
