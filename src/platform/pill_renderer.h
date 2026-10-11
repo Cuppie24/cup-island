@@ -36,6 +36,7 @@ public:
 
     // Pointer feedback on one of the pill's content elements (see ElementVisuals).
     void setHovered(const std::string& key) { pill_.elements().setHovered(key); }
+    void setHoveredRow(const std::string& row) { pill_.elements().setHoveredRow(row); }
     void pressElement(const std::string& key) { pill_.elements().press(key); }
     void releaseElement(const std::string& key) { pill_.elements().release(key); }
     void scrubElement(const std::string& key, float fraction) { pill_.elements().scrub(key, fraction); }

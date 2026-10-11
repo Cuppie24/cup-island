@@ -55,16 +55,18 @@ private:
     void advance(bool alert);                   // to the next phase, or the end
     void finish();                              // no session any more: dormant panel
     void publish();                             // activity content + the wake-up for the phase end
-    void showTodos();                           // the list changed: save it, show it on whichever card is up
+    void showTodos(bool save = true);           // the list (or its scroll) changed: save it, show it on whichever card is up
 
     Host* host_ = nullptr;
     std::optional<Session> session_;
     TodoList todos_;
+    std::size_t todoScroll_ = 0; // the first to-do in the card's window (decision 020)
     TodoStorage storage_;
 };
 
 // Content, pure (tested on its own): the dormant panel, and a running session.
-Panel pomodoroPanel(const TodoList& todos = {});
-Content pomodoroContent(const PomodoroProvider::Session& session, const TodoList& todos = {});
+// `scroll`: the first to-do in the list's window.
+Panel pomodoroPanel(const TodoList& todos = {}, std::size_t scroll = 0);
+Content pomodoroContent(const PomodoroProvider::Session& session, const TodoList& todos = {}, std::size_t scroll = 0);
 
 } // namespace cup

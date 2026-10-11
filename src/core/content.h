@@ -17,7 +17,7 @@ using Ms = std::chrono::milliseconds;
 
 // Built-in icons; the renderer maps them to font glyphs.
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
-                   Bluetooth, Sun, Moon, Copy, Checked, Unchecked };
+                   Bluetooth, Sun, Moon, Copy, Checked, Unchecked, Delete };
 
 enum class TextStyle { Title, Body, Caption, Digits, Display }; // Display: a big number, the card's centre (a timer)
 
@@ -72,6 +72,8 @@ struct Button {
     std::optional<bool> on; // toggles only (shuffle, repeat): lit with a dot when on, dimmed when off
     std::string label;      // a text button ("Clear all") instead of the glyph; as wide as its text
     bool compact = false;   // smallButtonSize: list rows (a to-do's checkbox), not main controls. Not "small": windows.h #defines it
+    bool revealOnHover = false; // hidden until the pointer is on its row: a list item's delete (decision 020)
+    bool destructive = false;   // its label in dangerColor: a dialog's "Clear"
     bool operator==(const Button&) const = default;
 };
 
@@ -147,6 +149,10 @@ struct Row {
     // The row's button takes clicks anywhere on the row, not just on itself:
     // a list item, where clicking a to-do's text ticks it.
     bool clickAnywhere = false;
+    // The mouse wheel over this row sends this action, Action::value = steps
+    // (positive: down). A list that scrolls: the provider moves its window
+    // and republishes (decision 020).
+    std::string scrollAction;
     bool operator==(const Row&) const = default;
 };
 

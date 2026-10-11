@@ -66,6 +66,20 @@ struct Draft {
     bool operator==(const Draft&) const = default;
 };
 
+// A question a provider asks over its card (decision 020): "Clear all
+// tasks?". The host draws it in place of the card's content, with Cancel and
+// a confirm button; confirming sends `confirmAction` to the provider.
+struct Dialog {
+    std::string providerId;    // set by the host
+    std::string activityId;    // the card it's asked over (an activity's, or a dormant panel's)
+    std::string title;
+    std::string message;
+    std::string confirmLabel = "OK";
+    std::string confirmAction;
+    bool destructive = false;  // the confirm button reads as dangerous (red)
+    bool operator==(const Dialog&) const = default;
+};
+
 // --- Events -------------------------------------------------------------
 struct ActivityStarted { Activity activity; };           // existing id = replace
 struct ActivityUpdated { std::string id; Content content; };
@@ -95,6 +109,8 @@ struct TextTyped { std::string text; };  // UTF-8, appended to the draft
 struct TextErased {};                    // Backspace: the last character
 struct InputSubmitted {};                // Enter: the app sent the text; the field empties and keeps focus
 struct InputCancelled {};                // Esc: stop typing, drop the draft
+struct DialogShown { Dialog dialog; };   // a provider asked (Host::ask)
+struct DialogClosed {};                  // answered or dismissed: the app sends confirmAction first if confirmed
 // Local wall time at `now`, from the platform (the idle clock).
 struct ClockSynced {
     Ms timeOfDay;
@@ -107,7 +123,8 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            BubbleClicked, ActivityPromoted, ActivitySwitched,
                            BubbleDragged, BubbleReleased, BubbleDragCancelled,
                            PanelPublished, PanelRemoved, HomeOpened, TileClicked, ClockSynced,
-                           InputFocused, TextTyped, TextErased, InputSubmitted, InputCancelled>;
+                           InputFocused, TextTyped, TextErased, InputSubmitted, InputCancelled,
+                           DialogShown, DialogClosed>;
 
 // --- State --------------------------------------------------------------
 struct WallClock {
@@ -130,6 +147,7 @@ struct IslandState {
     bool hidden = false;
     std::optional<WallClock> clock;    // unknown until the platform syncs it
     std::optional<Draft> draft;        // a TextInput has focus (decision 016)
+    std::optional<Dialog> dialog;      // a question over the shown card (decision 020)
     std::uint64_t nextStartOrder = 1;
 };
 

@@ -1,0 +1,40 @@
+# A provider's question over its card (decision 020): only over the card
+# that's shown, it stops typing, and it goes with its card.
+
+scenario: a question opens only over the card that's shown
+start timer
+ask timer                           -> dialog=none          # not expanded
+click
+ask other                           -> dialog=none          # not this card
+ask timer                           -> Expanded dialog=timer
+close-dialog                        -> Expanded dialog=none # answered: the card stays
+
+scenario: not over Home
+panel focus
+click                               -> expanded=home
+ask focus                           -> dialog=none
+
+scenario: a question stops typing, and the field can't take focus under it
+start timer
+click
+focus timer add
+type hello
+ask timer                           -> dialog=timer draft=none
+focus timer add                     -> draft=none
+
+scenario: the question goes with its card
+start timer
+start media
+click
+switch timer
+ask timer
+switch media                        -> dialog=none
+switch timer
+ask timer
+outside                             -> dialog=none Split
+
+scenario: a dormant panel's card can ask too
+panel focus
+click
+tile focus
+ask focus                           -> dialog=focus

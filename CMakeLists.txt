@@ -19,7 +19,9 @@ endif()
 # --- core: pure C++, builds and tests on any OS --------------------------
 add_library(cup_core STATIC
     src/core/alert_queue.cpp
+    src/core/card_overlays.cpp
     src/core/content.cpp
+    src/core/dialog.cpp
     src/core/easing.cpp
     src/core/fullscreen.cpp
     src/core/hit_test.cpp

@@ -188,6 +188,7 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
                 placed.frame = { x, y + (rowHeight - h) / 2, w, h };
                 placed.cornerRadius = radiusFor(item, placed.frame, nestedRadius);
                 placed.accent = source.content ? source.content->accent : std::nullopt;
+                placed.scrollAction = row.scrollAction;
                 placed.providerId = source.providerId;
                 placed.activityId = source.activityId;
                 if (auto* label = std::get_if<TimeLabel>(&item)) placed.ticking = label->timeline;
@@ -259,12 +260,18 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
                 float right = i + 1 == placed.size() ? f.x + f.width + gap / 2 : (f.x + f.width + placed[i + 1]->frame.x) / 2;
                 placed[i]->hitFrame = { left, y - t.rowSpacing / 2, right - left, rowHeight + t.rowSpacing };
             }
-            // A list item: its button takes clicks anywhere on the row (Row::clickAnywhere).
-            if (row.clickAnywhere && !placed.empty()) {
-                Rect whole{ placed.front()->hitFrame.x, y - t.rowSpacing / 2,
-                            placed.back()->hitFrame.x + placed.back()->hitFrame.width - placed.front()->hitFrame.x, rowHeight + t.rowSpacing };
-                for (Placed* p : placed)
-                    if (std::holds_alternative<Button>(p->item)) p->hitFrame = whole;
+            // A list item: its button takes clicks anywhere across the row's
+            // `items` (Row::clickAnywhere). Edge items (a delete button) keep their own.
+            std::size_t middle = row.items.size();
+            if (row.clickAnywhere && middle > 0) {
+                float left = target[first].hitFrame.x, right = left;
+                for (std::size_t i = first; i < first + middle; ++i) {
+                    left = std::min(left, target[i].hitFrame.x);
+                    right = std::max(right, target[i].hitFrame.x + target[i].hitFrame.width);
+                }
+                Rect whole{ left, y - t.rowSpacing / 2, right - left, rowHeight + t.rowSpacing };
+                for (std::size_t i = first; i < first + middle; ++i)
+                    if (std::holds_alternative<Button>(target[i].item)) target[i].hitFrame = whole;
             }
             y += rowHeight + t.rowSpacing;
         }

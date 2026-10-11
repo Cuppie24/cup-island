@@ -1,6 +1,7 @@
 #include "core/island.h"
 
 #include "core/alert_queue.h"
+#include "core/card_overlays.h"
 #include "core/split.h"
 #include "core/tokens.h"
 
@@ -73,8 +74,7 @@ void settle(IslandState& s, Ms now)
         bool timedOut = now >= s.lastPointerAt + tokens().expandedIdleTimeout && !typing(s);
         if (timedOut || !expandedViewExists(s)) collapse(s);
     }
-    // A draft lives on the card it was started on: gone with it (decision 016).
-    if (s.draft && (s.homeOpen || s.expandedId != s.draft->activityId)) s.draft.reset();
+    dropStaleOverlays(s); // a draft or dialog goes with its card
 
     settleAlerts(s, now); // after Expanded may have closed: alerts it held back can show
 
@@ -234,42 +234,15 @@ void handle(IslandState& s, const TileClicked& e, Ms now)
     }
 }
 
-// --- Text input (decision 016) ------------------------------------------------
+// --- Over a card: a text draft, a dialog (card_overlays.h) -----------------------
 
-void handle(IslandState& s, const InputFocused& e, Ms now)
-{
-    if (s.homeOpen || s.expandedId != e.activityId) return; // only on the card that's shown
-    if (!s.draft || s.draft->actionId != e.actionId) s.draft = Draft{ e.providerId, e.activityId, e.actionId, "" };
-    s.lastPointerAt = now;
-}
-
-void handle(IslandState& s, const TextTyped& e, Ms now)
-{
-    if (!s.draft) return;
-    s.draft->text += e.text;
-    s.lastPointerAt = now; // the user is busy here
-}
-
-void handle(IslandState& s, const TextErased&, Ms now)
-{
-    if (!s.draft) return;
-    std::string& text = s.draft->text;
-    while (!text.empty()) { // drop one UTF-8 character: continuation bytes, then its lead byte
-        bool continuation = (static_cast<unsigned char>(text.back()) & 0xC0) == 0x80;
-        text.pop_back();
-        if (!continuation) break;
-    }
-    s.lastPointerAt = now;
-}
-
-void handle(IslandState& s, const InputSubmitted&, Ms now)
-{
-    if (!s.draft) return;
-    s.draft->text.clear(); // focus stays: add the next one
-    s.lastPointerAt = now;
-}
-
+void handle(IslandState& s, const InputFocused& e, Ms now) { focusInput(s, e, now); }
+void handle(IslandState& s, const TextTyped& e, Ms now) { typeText(s, e, now); }
+void handle(IslandState& s, const TextErased&, Ms now) { eraseText(s, now); }
+void handle(IslandState& s, const InputSubmitted&, Ms now) { submitText(s, now); }
 void handle(IslandState& s, const InputCancelled&, Ms) { s.draft.reset(); }
+void handle(IslandState& s, const DialogShown& e, Ms now) { showDialog(s, e, now); }
+void handle(IslandState& s, const DialogClosed&, Ms) { s.dialog.reset(); }
 
 void handle(IslandState& s, const ClockSynced& e, Ms now) { s.clock = WallClock{ e.timeOfDay - now, e.hour24 }; }
 

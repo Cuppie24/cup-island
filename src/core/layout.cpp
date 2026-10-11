@@ -1,5 +1,6 @@
 #include "core/layout.h"
 
+#include "core/dialog.h"
 #include "core/home.h"
 #include "core/slot_layout.h"
 #include "core/split.h"
@@ -172,6 +173,14 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     if (source.content) {
         scene.label = source.content->label;
         scene.activityId = source.activityId;
+        // A dialog over this card takes the content's place, at the card's
+        // size: nothing morphs when a question opens or closes (decision 020).
+        Content asked;
+        if (const Dialog* d = scene.mode == Mode::Expanded ? dialogOver(state, source.activityId) : nullptr) {
+            asked = dialogContent(*d);
+            source.content = &asked;
+            scene.label = d->title;
+        }
         for (const SlotFrame& slot : slotFrames(scene.mode, contentSize, *source.content))
             placeSlot(slot, source, nestedRadius, now, scene.elements, measureText);
     }

@@ -1,6 +1,7 @@
 // Pomodoro's to-do list (decision 015): the pure list, and the whole loop
 // (typing into the card's field, paste, checkboxes, clear) through the registry.
 
+#include "core/dialog.h"
 #include "core/hit_test.h"
 #include "core/layout.h"
 #include "core/tokens.h"
@@ -36,9 +37,13 @@ void runTodoTests()
     TodoList reloaded = TodoList::load(list.save());
     expect(reloaded.items().size() == 3 && reloaded.items()[1].done && !reloaded.items()[0].done &&
            reloaded.items()[2].text == "Ship it", "save and load round-trip");
-    expect(list.apply(todo_action::kClearDone, "") && list.items().size() == 2, "clear solved removes the done ones");
-    expect(!list.apply(todo_action::kClearDone, ""), "nothing solved: no change");
-    expect(list.apply(todo_action::kClearAll, "") && list.items().empty(), "clear all");
+    expect(!list.apply(todo_action::kClearDone, "") && list.items().size() == 3, "the clear button alone only asks: nothing cleared");
+    expect(list.apply(todo_action::kClearDoneConfirmed, "") && list.items().size() == 2, "confirmed: clear solved removes the done ones");
+    expect(!list.apply(todo_action::kClearDoneConfirmed, ""), "nothing solved: no change");
+    std::uint64_t first = list.items()[0].id;
+    expect(list.apply(std::string(todo_action::kDelete) + std::to_string(first), "") && list.items().size() == 1 &&
+           list.items()[0].text == "Ship it", "delete one, at once");
+    expect(list.apply(todo_action::kClearAllConfirmed, "") && list.items().empty(), "confirmed: clear all");
     TodoList longOne;
     longOne.add(std::string(500, 'x'));
     expect(longOne.items()[0].text.size() == 200, "a to-do is capped to one line's worth");
@@ -93,23 +98,74 @@ void runTodoTests()
     registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kAdd, 0, clipboard });
     expect(saved.find("Email Anna") != std::string::npos && saved.find("Book flights") != std::string::npos, "paste adds each line");
 
-    // Five to-dos now: the card shows todoVisibleItems of them, and counts the rest.
+    // Five to-dos now: a window of todoVisibleItems, scrolled to the newest, and what's out of it.
+    auto shownTexts = [&] {
+        Scene sc = layout(state, now);
+        std::vector<std::string> texts;
+        for (const Placed& p : sc.elements)
+            if (auto* t = std::get_if<Text>(&p.item); t && p.key.rfind("expandedCenter/", 0) == 0 && !t->centred) texts.push_back(t->value);
+        return texts;
+    };
+    auto hasText = [&](const std::string& value) {
+        Scene sc = layout(state, now);
+        return firstOf(sc, [&](const Placed& p) { auto* t = std::get_if<Text>(&p.item); return t && t->value == value; }) != nullptr;
+    };
     Scene full = layout(state, now);
     std::size_t boxes = 0;
     for (const Placed& p : full.elements)
         if (auto* b = std::get_if<Button>(&p.item); b && b->actionId.rfind(todo_action::kToggle, 0) == 0) ++boxes;
-    expect(boxes == tokens().todoVisibleItems, "only the first few to-dos show");
-    expect(firstOf(full, [](const Placed& p) { auto* t = std::get_if<Text>(&p.item); return t && t->value == "+1 more"; }),
-           "the rest are counted");
+    expect(boxes == tokens().todoVisibleItems, "a window of todoVisibleItems to-dos");
+    expect(shownTexts().back() == "Book flights" && hasText("1 more above"), "adding scrolls to the newest; what's above is counted");
     expect(full.size.y > tokens().expandedSize.y && full.size.y <= tokens().canvas.y, "the card grew to fit, within the canvas");
 
-    // Clear solved, then clear all; then the clear buttons go.
-    const Placed* clearSolved = firstOf(full, [](const Placed& p) { auto* b = std::get_if<Button>(&p.item); return b && b->label == "Clear solved"; });
-    expect(clearSolved && std::get<Button>(clearSolved->item).enabled, "Clear solved is on: one is done");
+    // The wheel over the list scrolls it: the rows carry the scroll action.
+    const Placed* listRow = firstOf(full, [](const Placed& p) { auto* t = std::get_if<Text>(&p.item); return t && t->value == "Call mum"; });
+    expect(listRow && listRow->scrollAction == todo_action::kScroll, "list rows scroll with the wheel");
+    expect(field->scrollAction.empty(), "the field doesn't");
+    registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kScroll, -3 });
+    expect(shownTexts().front() == "Old done" && hasText("1 more below"), "scrolled up to the top");
+    registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kScroll, -5 });
+    expect(shownTexts().front() == "Old done", "and no further");
+    expect(saved.find("Call mum") != std::string::npos, "scrolling doesn't touch the list");
+
+    // A delete button per row, revealed on hover, outside the row's tick area; no question.
+    Scene top = layout(state, now);
+    const Placed* bin = firstOf(top, [](const Placed& p) { auto* b = std::get_if<Button>(&p.item); return b && b->glyph == Glyph::Delete; });
+    expect(bin && std::get<Button>(bin->item).revealOnHover, "each to-do has a delete button, shown on hover");
+    auto onBin = hitTest(top, { bin->frame.x + bin->frame.width / 2, bin->frame.y + bin->frame.height / 2 });
+    expect(onBin && onBin->action.actionId.rfind(todo_action::kDelete, 0) == 0, "the delete button gets its clicks, not the row's tick");
+    registry.route(onBin->action);
+    expect(saved.find("Old done") == std::string::npos && !state.dialog, "deleted at once, no question");
+
+    // Clear solved / Clear all ask first, in the host's dialog over the card.
+    registry.route({ "pomodoro", PomodoroProvider::kPanelId, std::string(todo_action::kToggle) + "2", 0 }); // "Old open" done
+    Vec2 cardSize = layout(state, now).size;
     registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kClearDone, 0 });
-    expect(saved.find("Old done") == std::string::npos && saved.find("Old open") != std::string::npos, "clear solved");
+    expect(state.dialog && state.dialog->title == "Clear solved tasks?" && state.dialog->message == "1 task will be removed." &&
+           state.dialog->providerId == "pomodoro" && state.dialog->destructive, "Clear solved asks");
+    expect(saved.find("Old open") != std::string::npos, "nothing cleared yet");
+    Scene asking = layout(state, now);
+    const Placed* confirm = firstOf(asking, [](const Placed& p) { auto* b = std::get_if<Button>(&p.item); return b && b->actionId == kDialogConfirm; });
+    expect(asking.size == cardSize, "the dialog takes the card's place, at the card's size: nothing morphs");
+    expect(confirm && std::get<Button>(confirm->item).label == "Clear" && !firstOf(asking, [](const Placed& p) { return std::holds_alternative<TextInput>(p.item); }),
+           "Cancel and Clear instead of the card's content");
+    auto onConfirm = hitTest(asking, { confirm->frame.x + confirm->frame.width / 2, confirm->frame.y + confirm->frame.height / 2 });
+    expect(onConfirm && onConfirm->action.actionId == kDialogConfirm, "the confirm button is the host's (the app answers it)");
+    // Confirm: the app sends the dialog's action, then closes it.
+    Dialog asked = *state.dialog;
+    registry.route({ asked.providerId, asked.activityId, asked.confirmAction, 0 });
+    send(DialogClosed{});
+    expect(saved.find("Old open") == std::string::npos && !state.dialog, "confirmed: solved ones cleared");
     registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kClearAll, 0 });
-    expect(saved.empty(), "clear all");
+    expect(state.dialog && state.dialog->confirmAction == todo_action::kClearAllConfirmed, "Clear all asks too");
+    send(EscapePressed{});
+    expect(!state.dialog && !saved.empty(), "Esc (closing the card) dismisses it: nothing cleared");
+    send(PillClicked{});
+    send(TileClicked{ PomodoroProvider::kPanelId });
+    registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kClearAll, 0 });
+    registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kClearAllConfirmed, 0 });
+    send(DialogClosed{});
+    expect(saved.empty(), "confirmed: all cleared");
     Scene empty = layout(state, now);
     expect(!firstOf(empty, [](const Placed& p) { auto* b = std::get_if<Button>(&p.item); return b && !b->label.empty(); }),
            "nothing to clear: no clear buttons");
@@ -121,7 +177,7 @@ void runTodoTests()
     expect(firstOf(running, [](const Placed& p) { auto* t = std::get_if<Text>(&p.item); return t && t->value == "Focus task"; }),
            "the running card shows the list too");
 
-    // The tallest card: running, a full list, "+n more", the clear row, and a tab strip.
+    // The tallest card: running, a full list, what's out of it, the clear row, and a tab strip.
     registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kAdd, 0, "a\nb\nc\nd\ne\nf" });
     registry.route({ "pomodoro", PomodoroProvider::kPanelId, std::string(todo_action::kToggle) + "1", 0 });
     send(ActivityStarted{ { .id = "media", .content = { .label = "Song" } } });
