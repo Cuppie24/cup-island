@@ -9,6 +9,7 @@
 
 #include "core/provider.h"
 #include "providers/media/media_presenter.h"
+#include "providers/media/session_choice.h"
 #include "providers/media/smtc_reading.h"
 
 #include <cstdint>
@@ -42,6 +43,7 @@ private:
     void refresh();       // re-read the shown session
     winrt::fire_and_forget load(std::uint64_t generation, std::shared_ptr<bool> alive);
     void cycleSource();
+    std::vector<SessionView> describe(Session const& remembered) const; // the current sessions, for session_choice
     auto onUiThread(void (SmtcMediaProvider::*method)()); // event handler that posts `method`
     void guarded(void (SmtcMediaProvider::*method)());    // runs it; a vanished session's error is logged, not fatal
 
@@ -52,8 +54,9 @@ private:
 
     Manager manager_{ nullptr };
     Session session_{ nullptr };
-    Session chosen_{ nullptr };         // manual pick via the source button; null = follow Windows
-    Session windowsCurrent_{ nullptr }; // Windows' main media (what the media keys control), last seen
+    Session chosen_{ nullptr };  // manual pick via the source button; null = follow Windows
+    std::string chosenApp_;      // its app id, to find it again if Windows hands out a new object
+    std::string mainApp_;        // app of Windows' main media (what the media keys control), last seen
     std::uint64_t generation_ = 0; // newer refresh wins; stale async reads are dropped
 
     std::string artKey_;   // app|title|artist|album|has-art the art belongs to

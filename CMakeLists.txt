@@ -42,6 +42,7 @@ add_library(cup_providers STATIC
     src/providers/demo/demo_media_provider.cpp
     src/providers/media/media_presenter.cpp
     src/providers/media/now_playing.cpp
+    src/providers/media/session_choice.cpp
     src/providers/pomodoro/pomodoro_provider.cpp
     src/providers/pomodoro/todo_list.cpp
     src/providers/system/logs_provider.cpp

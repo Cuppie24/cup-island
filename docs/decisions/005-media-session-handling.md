@@ -10,8 +10,12 @@ art and timelines unreliably, and their events arrive on background threads.
 - **Which session:** Windows' current session (its "main media", the one
   the media keys control), else the first one. A manual pick from ⇄ overrides
   it until that session goes away or Windows moves its main media to another
-  app. The pick is stored as the session object, not the app id, because
-  every Chrome tab shares one app id.
+  app. The pick is matched by session object first (every Chrome tab shares
+  one app id), then by app id, because Windows can hand out a new object for
+  the same session. "Windows moved its main media" compares app ids and
+  ignores moments with no main media. Matching by object alone made the
+  first click on ⇄ sometimes do nothing (seen mostly with Spotify). The rules
+  are in `session_choice` and tested.
 - **Noticing Windows' switch:** `CurrentSessionChanged` doesn't fire reliably
   when another app starts playing, so every session's PlaybackInfoChanged
   also triggers a re-check, plus one more `mediaSessionRecheckMs` (300 ms)

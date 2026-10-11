@@ -6,6 +6,7 @@
 #include "expect.h"
 #include "providers/media/media_presenter.h"
 #include "providers/media/now_playing.h"
+#include "providers/media/session_choice.h"
 
 #include <vector>
 
@@ -170,6 +171,19 @@ void runMediaTests()
 
     expect(nextRepeat(Repeat::Off) == Repeat::All && nextRepeat(Repeat::All) == Repeat::One && nextRepeat(Repeat::One) == Repeat::Off,
            "repeat cycles off -> all -> one");
+
+    // Session choice (decision 005): the source button's pick must survive Windows
+    // handing out a new object for the same session.
+    std::vector<SessionView> sessions = { { "Chrome" }, { "Spotify.exe" }, { "Chrome" } };
+    expect(!findSession(sessions, "VLC"), "app gone: pick is lost");
+    expect(findSession(sessions, "Spotify.exe") == 1u, "new object, same app: found by app id");
+    sessions[2].remembered = true;
+    expect(findSession(sessions, "Chrome") == 2u, "same object wins over the first tab of the same app");
+    expect(!mainMediaMoved("Spotify.exe", "Spotify.exe"), "same main app (even a new object): no move");
+    expect(!mainMediaMoved("Spotify.exe", ""), "a moment without main media: no move, the pick stays");
+    expect(mainMediaMoved("Spotify.exe", "Chrome") && mainMediaMoved("", "Spotify.exe"), "another app took over: move");
+    expect(nextSession(3, 1u) == 2 && nextSession(3, 2u) == 0, "source button steps and wraps");
+    expect(nextSession(3, std::nullopt) == 0 && nextSession(0, std::nullopt) == 0, "nothing shown: start at the first");
 }
 
 } // namespace cup::test
