@@ -1,6 +1,6 @@
 #pragma once
 // Expanded's tabs (decision 007): with several activities, one tab each
-// along the top of the card (icon or art and a short title), built from the
+// along the bottom of the card (icon or art and a short title), built from the
 // compact presentation providers already give, so they need no extra work.
 
 #include "core/layout.h"
@@ -10,7 +10,7 @@
 
 namespace cup {
 
-// How much taller the Expanded card gets for its tab strip (strip + gap below), 0 without tabs.
+// How much taller the Expanded card gets for its tab strip (strip + gap above), 0 without tabs.
 float tabStripSpace(const IslandState& state);
 
 // The strip, with each tab's content appended to `elements` (pill coordinates).

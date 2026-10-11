@@ -83,7 +83,7 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     TabStrip strip;
     strip.radius = std::min(nestedRadius, t.tabHeight / 2);
     for (std::size_t i = 0; i < order.size(); ++i) {
-        Rect frame{ left + static_cast<float>(i) * (width + t.tabGap), p, width, t.tabHeight };
+        Rect frame{ left + static_cast<float>(i) * (width + t.tabGap), cardSize.y - p - t.tabHeight, width, t.tabHeight };
         if (order[i]->id == s.expandedId) strip.active = i;
         strip.tabs.push_back({ frame, order[i]->id });
         placeTab(*order[i], frame, strip.radius, measure, elements);

@@ -80,7 +80,7 @@ struct Tokens {
     float bridgeThickness = 20;   // liquid neck between pill and bubble, at its thickest
     float bridgeReach = 6;        // edge gap at which the neck has thinned to nothing (< bubbleGap: none at rest)
 
-    // Expanded's tabs: one per activity along the top of the card (decision 007).
+    // Expanded's tabs: one per activity along the bottom of the card (decision 007).
     float tabHeight = 28;
     float tabGap = 4;
     float tabMaxWidth = 140;      // each tab's width; the group is centred, and shrinks only when they don't fit
