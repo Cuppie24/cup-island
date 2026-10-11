@@ -39,12 +39,13 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 tokens.h (+ tokens_json.h), easing.h
 src/platform/   Win32 + C++/WinRT + Composition: render/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
-                per content item), graphics_device (D2D/DirectWrite)
+                per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit)
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules, SMTC provider for real Windows media), pomodoro/ (the first panel),
                 system/ (Home's battery, theme and Bluetooth widgets)
 src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload
-assets/         tokens.json: the live-tunable sizes, timings and curves
+assets/         tokens.json: the live-tunable sizes, timings and curves; the app icon (cup_island.rc/.ico)
+installer/      Inno Setup script for the Windows installer (decision 011)
 tests/          unit tests + scenarios/*.scenario (state rules in plain text)
 docs/           specs (TR, PS) and decisions/ (why things are the way they are)
 ```
@@ -120,7 +121,7 @@ example: thin WinRT reading, with every decision in a pure presenter (decision 0
 
 ## Tuning (live)
 
-1. Run the app (`.\build.ps1 -Run`) and open `assets/tokens.json` in any editor.
+1. Run the app (`.\build.ps1 -Debug -Run`: only Debug builds have the console) and open `assets/tokens.json` in any editor.
 2. Change a value and save. The island picks it up immediately, and the
    console prints `tokens.json reloaded`.
 3. If the file has a mistake (typo'd name, wrong shape, negative duration,
@@ -171,3 +172,5 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 | Battery, theme toggle and Bluetooth widgets | presenters tested; Windows readers need Windows |
 | Pomodoro (first panel): focus rounds, breaks, pause/skip/stop, ring, phase dots | done, tested |
 | Progress ring, Steps, accent colour (decision 010) | done; rules tested, drawing needs Windows |
+| Release: no-console exe, static C++ runtime, tray icon with Exit, Inno Setup installer (decision 011) | done; needs a Windows build to verify |
+| MSIX, code signing, launch at sign-in (TR §9, §10) | not yet |

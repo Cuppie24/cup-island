@@ -1,0 +1,3 @@
+// Windows resources for CupIsland.exe. Icon 1 is the exe's icon (Explorer,
+// taskbar, installer) and the tray icon (platform/tray_icon.cpp).
+1 ICON "cup_island.ico"
