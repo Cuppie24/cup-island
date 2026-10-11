@@ -223,8 +223,14 @@ void runContentTests()
     expect(!rest.bubble->dragCentre && !rest.dropTarget, "bubble at rest");
     expect(!layout(reduce(split, ActivityEnded{ "music" }, Ms{ 0 }), Ms{ 0 }).bubble, "no bubble in Compact");
     IslandState timerSecond = reduce(split, ActivityPromoted{ "music" }, Ms{ 0 });
-    expect(std::get<Icon>(layout(timerSecond, Ms{ 0 }).bubble->elements[0].item).glyph == Glyph::Warning,
-           "minimal falls back to compact leading");
+    Scene timerBubble = layout(timerSecond, Ms{ 0 });
+    const Placed& icon = timerBubble.bubble->elements[0];
+    expect(std::get<Icon>(icon.item).glyph == Glyph::Warning, "minimal falls back to compact leading");
+    expect(icon.frame.x + icon.frame.width / 2 == t.bubbleSize / 2 && icon.frame.y + icon.frame.height / 2 == t.bubbleSize / 2,
+           "an icon smaller than the bubble's square is centred in the bubble");
+    const Placed* pillIcon = find(timerBubble, "compactLeading/0/0");
+    expect(pillIcon && pillIcon->frame.x + pillIcon->frame.width / 2 == t.compactInset + (timerBubble.size.y - 2 * t.compactInset) / 2,
+           "and in the pill's compact square");
 
     // Dragging: only the bubble moves. Over the pill, the pill is marked as the drop target; nothing swaps until release.
     Rect home = bubbleHomeFrame();

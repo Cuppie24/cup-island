@@ -45,6 +45,7 @@ struct SlotFrame {
     const char* name;
     const Slot* slot;
     Rect frame;
+    bool square = false; // a one-glyph square (compact ends, the bubble): content always centred in it
 };
 
 // Expanded with several activities gets the host's switcher in its top row
@@ -80,9 +81,9 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c, int sw
     case Mode::Compact:
     case Mode::Split: {
         float side = size.y - 2 * p, centerX = p + side + t.itemSpacing;
-        return { { "compactLeading", &c.compactLeading, { p, p, side, side } },
+        return { { "compactLeading", &c.compactLeading, { p, p, side, side }, true },
                  { "compactCenter", &c.compactCenter, { centerX, p, std::max(0.0f, size.x - 2 * centerX), side } },
-                 { "compactTrailing", &c.compactTrailing, { size.x - p - side, p, side, side } } };
+                 { "compactTrailing", &c.compactTrailing, { size.x - p - side, p, side, side }, true } };
     }
     case Mode::Alert: {
         float side = size.y - 2 * p, centerX = p + side + t.slotGap;
@@ -218,9 +219,10 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
         float spare = std::max(0.0f, available - used);
         float stretchWidth = stretchCount > 0 ? spare / static_cast<float>(stretchCount) : 0;
 
+        Align align = slot.square ? Align::Center : row.align;
         float x = slot.frame.x + leadingWidth;
-        if (stretchCount == 0 && row.align == Align::End) x += spare;
-        if (stretchCount == 0 && row.align == Align::Center) {
+        if (stretchCount == 0 && align == Align::End) x += spare;
+        if (stretchCount == 0 && align == Align::Center) {
             // Centred on the whole row, so edge groups don't pull the middle off
             // centre; nudged sideways only as far as needed to clear them.
             x = slot.frame.x + std::clamp((slot.frame.width - used) / 2, leadingWidth, leadingWidth + spare);
@@ -291,7 +293,7 @@ BubbleScene bubbleFor(const IslandState& s, Ms now)
     float inset = tokens().compactInset, side = bubble.frame.width - 2 * inset;
     float nestedRadius = std::max(0.0f, pillCornerRadius({ bubble.frame.width, bubble.frame.height }) - inset);
     const Slot& slot = a.content.minimal.empty() ? a.content.compactLeading : a.content.minimal;
-    placeSlot({ "minimal", &slot, { inset, inset, side, side } }, { &a.content, a.providerId, a.id }, nestedRadius, now,
+    placeSlot({ "minimal", &slot, { inset, inset, side, side }, true }, { &a.content, a.providerId, a.id }, nestedRadius, now,
               bubble.elements);
     return bubble;
 }

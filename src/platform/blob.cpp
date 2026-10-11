@@ -103,7 +103,8 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
 
 void Blob::refreshAnimations()
 {
-    body_.ImplicitAnimations(morphAnimations(compositor_));
+    implicit_ = morphAnimations(compositor_);
+    body_.ImplicitAnimations(implicit_);
     shape_.InsertScalar(L"MaxRadius", tokens().maxCornerRadius);
 }
 
@@ -121,6 +122,7 @@ void Blob::place(Vec2 size, Vec2 offset)
 void Blob::follow(std::optional<Vec2> centre)
 {
     if (centre) {
+        centre_ = *centre;
         drag_.InsertVector2(L"Centre", toFloat2(*centre));
         if (following_) return;
         following_ = true;
@@ -131,11 +133,19 @@ void Blob::follow(std::optional<Vec2> centre)
         return;
     }
     if (!following_) return;
-    // Let go: stopping keeps the current (cursor) position, then the implicit
-    // morph carries it home.
+    // Let go: glide from where it was dropped to where it belongs. An explicit
+    // animation with both ends, because stopping the cursor expression and
+    // setting Offset left it stuck at the drop point on a real build.
     following_ = false;
-    body_.StopAnimation(L"Offset");
+    Vec2 from{ centre_.x - size_.x / 2, centre_.y - size_.y / 2 };
+    body_.ImplicitAnimations(nullptr); // so setting the resting value below doesn't start a morph of its own
     body_.Offset(toFloat3(offset_));
+    body_.ImplicitAnimations(implicit_);
+    auto home = compositor_.CreateVector3KeyFrameAnimation();
+    home.InsertKeyFrame(0.0f, toFloat3(from));
+    home.InsertKeyFrame(1.0f, toFloat3(offset_), easingFor(compositor_, tokens().morphEase));
+    home.Duration(tokens().morphDuration);
+    body_.StartAnimation(L"Offset", home); // replaces the cursor expression
 }
 
 void Blob::setHighlighted(bool on)

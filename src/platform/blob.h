@@ -40,8 +40,10 @@ private:
     wuc::CompositionPropertySet shape_{ nullptr }; // MaxRadius, read by the corner expressions
     wuc::CompositionPropertySet drag_{ nullptr };  // Centre: the cursor, while following
     wuc::CompositionColorBrush fill_{ nullptr };
+    wuc::ImplicitAnimationCollection implicit_{ nullptr }; // the Size/Offset morph
     ElementVisuals elements_;
     Vec2 size_, offset_;
+    Vec2 centre_;            // last cursor position while following
     bool following_ = false; // Offset is driven by the cursor expression, not set directly
     bool highlighted_ = false;
 };
