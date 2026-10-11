@@ -1,5 +1,6 @@
 #include "core/layout.h"
 
+#include "core/split.h"
 #include "core/tokens.h"
 
 #include <algorithm>
@@ -34,7 +35,9 @@ Source sourceFor(const IslandState& s, Mode mode)
 {
     if (mode == Mode::Alert) return { &s.alert->content, s.alert->providerId, s.alert->activityId };
     if (mode != Mode::Compact && mode != Mode::Split && mode != Mode::Expanded) return {};
-    // Expanded shows the activity that was opened; resting shows the top one.
+    // Expanded shows the activity that was opened; resting shows the top one,
+    // or the dragged bubble's while it previews the swap (decision 006).
+    if (mode == Mode::Split && swapPreview(s)) return { &s.activities[1].content, s.activities[1].providerId, s.activities[1].id };
     for (const auto& a : s.activities)
         if (mode != Mode::Expanded || a.id == s.expandedId) return { &a.content, a.providerId, a.id };
     return {};
@@ -193,6 +196,22 @@ void placeSwitcher(const IslandState& s, Vec2 size, std::vector<Placed>& out)
         place("switcher/promote", { Glyph::Pin, kIslandPromote }, top + t.expandedArtSize - t.buttonSize);
 }
 
+// Split: the activity the pill isn't showing goes in the bubble, at rest or
+// following the drag. Its `minimal` slot, else its compact leading one (PS §5.1).
+BubbleScene bubbleFor(const IslandState& s, Ms now)
+{
+    bool preview = swapPreview(s);
+    const Activity& a = s.activities[preview ? 0 : 1];
+    BubbleScene bubble;
+    bubble.frame = bubbleHomeFrame();
+    bubble.activityId = a.id;
+
+    float inset = tokens().compactInset, side = bubble.frame.width - 2 * inset;
+    const Slot& slot = a.content.minimal.empty() ? a.content.compactLeading : a.content.minimal;
+    placeSlot({ "minimal", &slot, { inset, inset, side, side } }, { &a.content, a.providerId, a.id }, now, bubble.elements);
+    return bubble;
+}
+
 } // namespace
 
 Scene layout(const IslandState& state, Ms now)
@@ -202,11 +221,18 @@ Scene layout(const IslandState& state, Ms now)
     scene.mode = mode(state);
     scene.size = sizeFor(scene.mode);
     scene.offset = { (tokens().canvas.x - scene.size.x) / 2, 0 };
-    scene.showBubble = scene.mode == Mode::Split;
+    scene.bubbleTuck = { scene.offset.x + scene.size.x - scene.size.y / 2, scene.offset.y + scene.size.y / 2 };
+    if (scene.mode == Mode::Split) scene.bubble = bubbleFor(state, now);
+    if (scene.bubble && state.bubbleDrag) {
+        Rect home = bubbleHomeFrame();
+        scene.drag = SceneDrag{ state.activities[1].id,
+                                { home.x + home.width / 2 + state.bubbleDrag->x, home.y + home.height / 2 + state.bubbleDrag->y } };
+    }
 
     Source source = sourceFor(state, scene.mode);
     if (!source.content) return scene;
     scene.label = source.content->label;
+    scene.activityId = source.activityId;
     bool switcher = hasSwitcher(state, scene.mode);
     for (const SlotFrame& slot : slotFrames(scene.mode, scene.size, *source.content, switcher))
         placeSlot(slot, source, now, scene.elements);
@@ -214,10 +240,25 @@ Scene layout(const IslandState& state, Ms now)
     return scene;
 }
 
+Rect interactiveBounds(const Scene& scene)
+{
+    Rect pill{ scene.offset.x, scene.offset.y, scene.size.x, scene.size.y };
+    if (!scene.bubble) return pill;
+    const Rect& b = scene.bubble->frame;
+    float left = std::min(pill.x, b.x), top = std::min(pill.y, b.y);
+    float right = std::max(pill.x + pill.width, b.x + b.width), bottom = std::max(pill.y + pill.height, b.y + b.height);
+    return { left, top, right - left, bottom - top };
+}
+
 std::optional<Ms> sceneDeadline(const Scene& scene)
 {
     std::optional<Ms> next;
-    for (const Placed& p : scene.elements) {
+    std::vector<const Placed*> all;
+    for (const Placed& p : scene.elements) all.push_back(&p);
+    if (scene.bubble)
+        for (const Placed& p : scene.bubble->elements) all.push_back(&p);
+    for (const Placed* item : all) {
+        const Placed& p = *item;
         if (!p.ticking || !p.ticking->playing || p.ticking->rate <= 0) continue;
         long long position = p.ticking->positionAt(scene.now).count();
         if (p.ticking->duration > Ms{ 0 } && position >= p.ticking->duration.count()) continue;

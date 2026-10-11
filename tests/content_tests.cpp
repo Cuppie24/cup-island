@@ -2,6 +2,7 @@
 
 #include "core/hit_test.h"
 #include "core/layout.h"
+#include "core/split.h"
 #include "core/tokens.h"
 #include "expect.h"
 
@@ -117,6 +118,40 @@ void runContentTests()
     for (const auto& p : scene.elements)
         expect(p.frame.x >= 0 && p.frame.x + p.frame.width <= scene.size.x && p.frame.y + p.frame.height <= scene.size.y,
                "switcher element inside the pill: " + p.key);
+
+    // Split bubble: the 2nd activity's minimal slot (else compact leading), right of the pill.
+    IslandState split;
+    split = reduce(split, ActivityStarted{ { .id = "music", .content = { .compactLeading = { row({ Icon{ Glyph::Music } }) },
+                                                                          .minimal = { row({ Icon{ Glyph::Pause } }) } } } }, Ms{ 0 });
+    split = reduce(split, ActivityStarted{ { .id = "timer", .content = { .compactLeading = { row({ Icon{ Glyph::Warning } }) } } } }, Ms{ 0 });
+    Scene rest = layout(split, Ms{ 0 });
+    expect(rest.bubble && rest.bubble->activityId == "music" && rest.activityId == "timer", "bubble shows the 2nd activity");
+    expect(rest.bubble->frame == bubbleHomeFrame() && rest.bubble->frame.x > rest.offset.x + rest.size.x, "bubble sits right of the pill");
+    expect(rest.bubble->elements.size() == 1 && std::get<Icon>(rest.bubble->elements[0].item).glyph == Glyph::Pause,
+           "bubble uses the minimal slot");
+    expect(rest.bubble->elements[0].frame.x >= 0 && rest.bubble->elements[0].frame.x + rest.bubble->elements[0].frame.width <= t.bubbleSize,
+           "bubble content is in bubble coordinates");
+    expect(!rest.drag, "bubble at rest");
+    expect(!layout(reduce(split, ActivityEnded{ "music" }, Ms{ 0 }), Ms{ 0 }).bubble, "no bubble in Compact");
+
+    Scene dragged = layout(reduce(split, BubbleDragged{ { -10, 5 } }, Ms{ 0 }), Ms{ 0 });
+    Rect home = bubbleHomeFrame();
+    expect(dragged.drag && dragged.drag->activityId == "music" &&
+           dragged.drag->centre == Vec2{ home.x + home.width / 2 - 10, home.y + home.height / 2 + 5 } && dragged.activityId == "timer",
+           "dragging: the bubble's shape follows the cursor, pill unchanged");
+
+    // Over the pill: preview the swap. Pill shows the dragged activity, the bubble the old top, at rest.
+    Scene preview = layout(reduce(split, BubbleDragged{ { -60, 0 } }, Ms{ 0 }), Ms{ 0 });
+    expect(preview.activityId == "music" && preview.bubble->activityId == "timer", "preview swaps roles");
+    expect(preview.drag && preview.drag->activityId == "music", "the dragged shape still follows the cursor while previewing");
+    expect(std::get<Icon>(preview.bubble->elements[0].item).glyph == Glyph::Warning, "minimal falls back to compact leading");
+    Scene committed = layout(reduce(reduce(split, BubbleDragged{ { -60, 0 } }, Ms{ 0 }), BubbleReleased{}, Ms{ 0 }), Ms{ 0 });
+    expect(!committed.drag && committed.activityId == preview.activityId && committed.bubble->activityId == preview.bubble->activityId,
+           "letting go keeps exactly what the preview showed");
+    Rect bounds = interactiveBounds(rest);
+    expect(bounds.x == rest.offset.x && bounds.x + bounds.width == rest.bubble->frame.x + rest.bubble->frame.width,
+           "interaction layer covers pill and bubble");
+    expect(Rect{ preview.offset.x, preview.offset.y, preview.size.x, preview.size.y } == splitPillFrame(), "split pill frame matches layout");
 }
 
 } // namespace cup::test

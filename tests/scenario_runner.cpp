@@ -8,9 +8,9 @@
 //            alert <name> [level] [for=<activity>] [key=<coalesceKey>]
 //            click  outside  esc  pointer  drag-enter  drag-rejected
 //            drag-leave  drop  hide  show  wait <ms>
-//            bubble  promote <id>  page [step]
+//            bubble  promote <id>  page [step]  drag <dx> <dy>  release  cancel
 // Checks after "->":  <Mode>  queue=<n>  top=<activity>  bubble=<activity>  alert=<name>
-//                     expanded=<activity>  pinned=<activity>
+//                     expanded=<activity>  pinned=<activity>  dragging=yes|no  preview=yes|no
 // Levels: passive active timeSensitive critical.  '#' starts a comment.
 
 #include "core/island.h"
@@ -112,6 +112,9 @@ struct Runner {
         else if (cmd == "bubble") apply(BubbleClicked{});
         else if (cmd == "promote") apply(ActivityPromoted{ arg(1) });
         else if (cmd == "page") apply(ExpandedPaged{ w.size() > 1 ? std::stoi(arg(1)) : 1 });
+        else if (cmd == "drag") apply(BubbleDragged{ { std::stof(arg(1)), std::stof(arg(2)) } });
+        else if (cmd == "release") apply(BubbleReleased{});
+        else if (cmd == "cancel") apply(BubbleDragCancelled{});
         else fail("unknown command '" + cmd + "'");
     }
 
@@ -130,6 +133,12 @@ struct Runner {
             } else if (auto v = option(word, "pinned")) {
                 std::string id = state.pinnedId.empty() ? "none" : state.pinnedId;
                 if (id != *v) fail("pinned=" + *v + ", got " + id);
+            } else if (auto v = option(word, "dragging")) {
+                std::string got = state.bubbleDrag ? "yes" : "no";
+                if (got != *v) fail("dragging=" + *v + ", got " + got);
+            } else if (auto v = option(word, "preview")) {
+                std::string got = swapPreview(state) ? "yes" : "no";
+                if (got != *v) fail("preview=" + *v + ", got " + got);
             } else if (auto v = option(word, "alert")) {
                 std::string shown = state.alert ? state.alert->content.label : "none";
                 if (shown != *v) fail("alert=" + *v + ", got " + shown);

@@ -88,22 +88,22 @@ void ElementVisuals::init(wuc::Compositor const& compositor, GraphicsDevice& dev
     parent_ = parent;
 }
 
-void ElementVisuals::apply(const Scene& scene)
+void ElementVisuals::apply(const std::vector<Placed>& elements, Ms now)
 {
     deviceLost_ = false;
 
     for (auto it = views_.begin(); it != views_.end();) {
-        bool stillShown = std::any_of(scene.elements.begin(), scene.elements.end(),
+        bool stillShown = std::any_of(elements.begin(), elements.end(),
                                       [&](const Placed& p) { return p.key == it->first; });
         if (stillShown) { ++it; continue; }
         fadeOutAndRemove(it->second.visual);
         it = views_.erase(it);
     }
 
-    for (const Placed& placed : scene.elements) {
+    for (const Placed& placed : elements) {
         auto it = views_.find(placed.key);
-        if (it != views_.end()) update(it->second, placed, scene.now);
-        else views_.emplace(placed.key, create(placed, scene.now));
+        if (it != views_.end()) update(it->second, placed, now);
+        else views_.emplace(placed.key, create(placed, now));
     }
 
     // The GPU was reset mid-apply: the device is rebuilt, but every surface lost its pixels.

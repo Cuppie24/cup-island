@@ -13,11 +13,13 @@ namespace cup::platform {
 
 enum class TimerId : UINT_PTR { Deadline = 1, TokensReload = 2 };
 
-// Points are in pill coordinates: this window always covers exactly the pill.
+// Points are in render-layer coordinates (the same as Scene frames). The
+// window covers the pill and, in Split, the bubble beside it.
 struct InteractionCallbacks {
     std::function<void(Vec2 point)> onPressDown;
-    std::function<void()> onPressRelease;
-    std::function<void(Vec2 point)> onClick; // released while still on the pill
+    std::function<void(Vec2 point)> onPressMoved; // while pressed, even off the window (captured)
+    std::function<void(std::optional<Vec2> point)> onPressRelease; // nullopt: press interrupted (capture lost)
+    std::function<void(Vec2 point)> onClick; // released while still on the window
     std::function<void()> onClickOutside; // something else was activated
     std::function<void()> onPointerMoved;
     std::function<void(WPARAM key)> onKeyDown;
@@ -28,8 +30,8 @@ struct InteractionCallbacks {
 // compositor-tick thread. Closing it (DestroyWindow) ends the message loop.
 HWND createInteractionLayer(HINSTANCE instance, int renderLeft, Vec2 size, Vec2 offset, InteractionCallbacks callbacks);
 
-// Follow the morph the renderer just started toward these bounds, frame by
-// frame (docs/decisions/001-interaction-layer-replays-morph.md).
+// Follow the morph the renderer just started toward these bounds (the pill,
+// plus the bubble in Split), frame by frame (decision 001).
 void followMorph(Vec2 toSize, Vec2 toOffset);
 
 // One-shot timer: fires onTimer(id) once after `delay`, replacing an earlier

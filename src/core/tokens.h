@@ -52,6 +52,14 @@ struct Tokens {
     float timeLabelWidth = 48;
     float artCornerRadius = 6;
 
+    // Split bubble (PS §3.1) and dragging it onto the pill to swap (decision 006).
+    float bubbleSize = 32;        // diameter
+    float bubbleGap = 8;          // between the pill's right edge and the bubble at rest
+    float dragStartDistance = 4;  // a press on the bubble that moves less is a click
+    float dragLiftScale = 1.12f;  // the dragged bubble grows a little, as if picked up
+    float bridgeThickness = 20;   // liquid neck between pill and bubble, at its thickest
+    float bridgeReach = 6;        // edge gap at which the neck has thinned to nothing (< bubbleGap: none at rest)
+
     // Morph between modes: ease-out, 250-350 ms budget (TR §5).
     Ms morphDuration{ 300 };
     Bezier morphEase{ { 0.16f, 1.0f }, { 0.30f, 1.0f } };

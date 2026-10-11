@@ -5,7 +5,8 @@
 //
 // Demo keys (click the pill first so it has keyboard focus):
 //   M  toggle the demo music player (real media shows by itself)
-//   T  toggle a second activity (Split)
+//   T  toggle a second activity (Split). Click the bubble to open it, or drag
+//      it onto the pill to make it the main one.
 //   C  post a critical alert               D  toggle a simulated accepted drag
 //   H  toggle hidden                       Esc collapse when expanded, otherwise quit
 
@@ -42,6 +43,13 @@ std::filesystem::path g_tokensFile;
 std::unique_ptr<ProviderRegistry> g_providers;
 std::string g_pressedKey; // element under the mouse-down, if it was a button
 
+// What the current (or last) mouse-down landed on. A press on the bubble
+// becomes a drag once core says it moved far enough (BubbleDragged).
+enum class Pressed { Nothing, Pill, Bubble };
+Pressed g_pressed = Pressed::Nothing;
+Vec2 g_pressStart;
+bool g_dragged = false; // this press turned into a drag: its release is not a click
+
 Ms now()
 {
     return std::chrono::duration_cast<Ms>(std::chrono::steady_clock::now() - g_startTime);
@@ -71,7 +79,9 @@ void dispatch(const Event& event, const char* reason)
         std::printf("[cup-island] %s -> %s (%s) %s\n", toString(g_scene.mode), toString(next.mode), reason, next.label.c_str());
         std::fflush(stdout);
     }
-    if (g_renderer.apply(next)) followMorph(next.size, next.offset);
+    g_renderer.apply(next);
+    Rect bounds = interactiveBounds(next);
+    if (bounds != interactiveBounds(g_scene)) followMorph({ bounds.width, bounds.height }, { bounds.x, bounds.y });
     g_scene = next;
 
     // One timer for everything time-based: core deadlines and ticking labels.
@@ -92,30 +102,64 @@ void toggleTimer()
         dispatch(ActivityEnded{ id }, "demo key");
         return;
     }
-    Content content{ .label = "Timer", .compactLeading = { row({ Icon{ Glyph::Warning } }) },
+    Content content{ .label = "Timer", .compactLeading = { row({ Icon{ Glyph::Timer } }) },
                      .compactTrailing = { row({ Text{ "4:59", TextStyle::Digits } }) },
+                     .minimal = { row({ Icon{ Glyph::Timer } }) },
                      .expandedCenter = { row({ Text{ "Timer", TextStyle::Title } }), row({ Text{ "Demo activity" } }) } };
     dispatch(ActivityStarted{ { .id = id, .content = content } }, "demo key");
 }
 
-// Mouse-down: a button gets its own press feedback, anything else squashes the pill.
+Vec2 toPill(Vec2 point) { return { point.x - g_scene.offset.x, point.y - g_scene.offset.y }; }
+bool onBubble(Vec2 point) { return g_scene.bubble && g_scene.bubble->frame.contains(point); }
+
+// Mouse-down: a button gets its own press feedback, anything else squashes
+// the pill, or the bubble.
 void onPressDown(Vec2 point)
 {
-    auto hit = hitTest(g_scene, point);
-    g_pressedKey = hit ? hit->key : "";
+    g_dragged = false;
+    g_pressedKey.clear();
+    if (onBubble(point)) {
+        g_pressed = Pressed::Bubble;
+        g_pressStart = point;
+        g_renderer.pressDown(true);
+        return;
+    }
+    g_pressed = Pressed::Pill;
+    auto hit = hitTest(g_scene, toPill(point));
+    if (hit) g_pressedKey = hit->key;
     if (hit) g_renderer.pressElement(g_pressedKey);
-    else g_renderer.pressDown();
+    else g_renderer.pressDown(false);
 }
 
-void onPressRelease()
+void onPressMoved(Vec2 point)
 {
-    if (!g_pressedKey.empty()) g_renderer.releaseElement(g_pressedKey);
-    else g_renderer.pressRelease();
+    if (g_pressed != Pressed::Bubble) return;
+    dispatch(BubbleDragged{ { point.x - g_pressStart.x, point.y - g_pressStart.y } }, "drag");
+    g_dragged = g_dragged || g_state.bubbleDrag.has_value(); // the renderer lifts it from here
+}
+
+void onPressRelease(std::optional<Vec2> point)
+{
+    if (g_pressed == Pressed::Bubble) {
+        if (!g_dragged) g_renderer.pressRelease(true);
+        if (g_state.bubbleDrag) dispatch(point ? Event{ BubbleReleased{} } : Event{ BubbleDragCancelled{} }, "drop");
+    } else if (!g_pressedKey.empty()) {
+        g_renderer.releaseElement(g_pressedKey);
+    } else {
+        g_renderer.pressRelease(false);
+    }
 }
 
 void onClick(Vec2 point)
 {
-    if (auto hit = hitTest(g_scene, point)) {
+    if (g_dragged) return;
+    if (g_pressed == Pressed::Bubble) {
+        dispatch(BubbleClicked{}, "bubble click");
+        return;
+    }
+    Rect pill{ g_scene.offset.x, g_scene.offset.y, g_scene.size.x, g_scene.size.y };
+    if (!pill.contains(point)) return; // the gap between pill and bubble
+    if (auto hit = hitTest(g_scene, toPill(point))) {
         if (auto event = islandEvent(hit->action)) {
             dispatch(*event, "switcher");
             return;
@@ -189,6 +233,7 @@ int main()
 
     InteractionCallbacks callbacks;
     callbacks.onPressDown = onPressDown;
+    callbacks.onPressMoved = onPressMoved;
     callbacks.onPressRelease = onPressRelease;
     callbacks.onClick = onClick;
     callbacks.onClickOutside = [] { dispatch(ClickedOutside{}, "click outside"); };
@@ -196,7 +241,8 @@ int main()
     callbacks.onKeyDown = onKey;
     callbacks.onTimer = onTimer;
 
-    g_inputHwnd = createInteractionLayer(instance, render.left, g_scene.size, g_scene.offset, callbacks);
+    Rect bounds = interactiveBounds(g_scene);
+    g_inputHwnd = createInteractionLayer(instance, render.left, { bounds.width, bounds.height }, { bounds.x, bounds.y }, callbacks);
     if (!g_inputHwnd) {
         std::printf("Failed to create interaction window (0x%08lx)\n", GetLastError());
         return 1;

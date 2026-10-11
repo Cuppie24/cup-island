@@ -16,7 +16,7 @@ namespace cup::platform {
 class ElementVisuals {
 public:
     void init(wuc::Compositor const& compositor, GraphicsDevice& device, wuc::ContainerVisual const& parent);
-    void apply(const Scene& scene);
+    void apply(const std::vector<Placed>& elements, Ms now);
 
     // Press feedback for a single element (a button), instead of the whole pill.
     void press(const std::string& key);

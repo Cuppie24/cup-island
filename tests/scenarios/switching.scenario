@@ -22,18 +22,13 @@ start meeting                       -> top=media                # a newer activi
 promote timer                       -> top=timer pinned=timer   # a new pick replaces the old one
 promote nobody                      -> top=timer pinned=timer   # unknown ids are ignored
 
-scenario: the pick beats relevance and Passive/Active, not more urgent levels
+scenario: the pick beats every level until the user switches
 start media active 0.1
 start download active 0.9
-start sync passive 1.0
 promote media                       -> top=media
-start meeting timeSensitive         -> top=meeting bubble=media pinned=media
-end meeting                         -> top=media
-
-scenario: an urgent pick stays above others of its level
-start call timeSensitive 0.1
-start meeting timeSensitive 0.9     -> top=meeting
-promote call                        -> top=call
+start meeting timeSensitive         -> top=media bubble=meeting pinned=media
+start battery critical              -> top=media
+promote meeting                     -> top=meeting pinned=meeting
 
 scenario: the pick ends with its activity
 start media
@@ -79,3 +74,46 @@ scenario: paging outside Expanded does nothing
 start a
 start b
 page                                -> Split top=b
+
+scenario: dragging the bubble onto the pill previews the swap, letting go commits it
+start media
+start timer                         -> Split top=timer bubble=media
+drag -20 0                          -> Split preview=no         # still beside the pill
+drag -60 0                          -> Split preview=yes top=timer  # over the pill: preview only
+release                             -> Split preview=no top=media bubble=timer pinned=media
+
+scenario: dragging back out of the pill cancels the preview
+start media
+start timer
+drag -60 0                          -> preview=yes
+drag -10 30                         -> preview=no
+release                             -> top=timer pinned=none    # let go off the pill: springs back
+
+scenario: a tiny wobble is still a click
+start media
+start timer
+drag 2 1                            -> dragging=no
+release                             -> top=timer
+
+scenario: once dragging, coming back near home stays a drag
+start media
+start timer
+drag 10 0                           -> dragging=yes
+drag 1 0                            -> dragging=yes
+
+scenario: lost capture cancels the drag
+start media
+start timer
+drag -60 0                          -> preview=yes
+cancel                              -> dragging=no top=timer
+
+scenario: an alert mid-drag drops the drag
+start media
+start timer
+drag -60 0                          -> preview=yes
+alert copied                        -> Alert dragging=no
+release                             -> top=timer pinned=none
+
+scenario: no bubble, no drag
+start media
+drag -60 0                          -> Compact dragging=no

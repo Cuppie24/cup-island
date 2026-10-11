@@ -85,9 +85,11 @@ void compositorTickThread()
     }
 }
 
+// Client coordinates -> render-layer coordinates. Signed: with capture, a
+// drag reports points left of / above the window as negative.
 Vec2 pointFrom(LPARAM lParam)
 {
-    return { static_cast<float>(GET_X_LPARAM(lParam)), static_cast<float>(GET_Y_LPARAM(lParam)) };
+    return { static_cast<float>(GET_X_LPARAM(lParam)) + g_morph.offset.x, static_cast<float>(GET_Y_LPARAM(lParam)) + g_morph.offset.y };
 }
 
 template <typename F, typename... Args>
@@ -107,7 +109,7 @@ try {
         setTimer(static_cast<TimerId>(wParam), std::chrono::milliseconds{ lParam });
         return 0;
 
-    case WM_LBUTTONDOWN: // this window is exactly the pill
+    case WM_LBUTTONDOWN: // this window is exactly the pill (and bubble)
         g_pressed = true;
         SetCapture(hwnd);
         call(g_callbacks.onPressDown, pointFrom(lParam));
@@ -117,7 +119,7 @@ try {
         if (g_pressed) {
             g_pressed = false;
             ReleaseCapture();
-            call(g_callbacks.onPressRelease);
+            call(g_callbacks.onPressRelease, std::optional<Vec2>(pointFrom(lParam)));
 
             // With capture we get this even if the press was dragged off the
             // pill; only count it as a click if released on the pill.
@@ -132,11 +134,12 @@ try {
         // Capture taken by someone else mid-press: spring back, don't stick.
         if (g_pressed) {
             g_pressed = false;
-            call(g_callbacks.onPressRelease);
+            call(g_callbacks.onPressRelease, std::optional<Vec2>());
         }
         return 0;
 
     case WM_MOUSEMOVE:
+        if (g_pressed) call(g_callbacks.onPressMoved, pointFrom(lParam));
         call(g_callbacks.onPointerMoved);
         return 0;
 

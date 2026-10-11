@@ -34,10 +34,11 @@ So "why did X happen?" is always answered in `core/`, by a scenario test.
 ## Layout
 
 ```
-src/core/       pure logic: island.h (state machine), content.h (what providers show), layout.h,
+src/core/       pure logic: island.h (state machine), content.h (what providers show), layout.h, split.h,
                 hit_test.h, provider.h (Provider/Host API), tokens.h (+ tokens_json.h), easing.h
-src/platform/   Win32 + C++/WinRT + Composition: render/interaction layers, pill_renderer,
-                element_visuals (one visual per content item), graphics_device (D2D/DirectWrite)
+src/platform/   Win32 + C++/WinRT + Composition: render/interaction layers, pill_renderer (two blobs:
+                pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
+                per content item), graphics_device (D2D/DirectWrite)
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules, SMTC provider for real Windows media)
 src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload
@@ -139,11 +140,12 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 | --- | --- |
 | State machine: all PS §3 modes, alert queue/pre-emption/coalescing, hidden rules | done, tested |
 | Renderer: pill morph per mode, press feedback, content items (text, art, icons, buttons, progress, waveform) | done |
-| Renderer: Split bubble, alert pulse, receptive drop zones, DPI scaling, matched geometry | not yet |
+| Renderer: Split bubble with liquid neck, drag-to-swap with live preview (decision 006) | done; rules tested, visuals need Windows |
+| Renderer: alert pulse, receptive drop zones, DPI scaling, matched geometry | not yet |
 | Fullscreen detection (TR §9.2): borderless + exclusive, per monitor, maximized windows excluded | done; rules tested (`core/fullscreen`), hooks need Windows |
 | Real input for drag (OLE drop target) | not yet; the D key simulates it |
 | Provider API (PS §7 Tier 1), registry, demo music player | done, tested |
-| Switching activities (decision 006): bubble click, promote, Expanded switcher | core done, tested; bubble hit area + drag-to-swap need the renderer |
+| Switching activities (decision 006): bubble click, drag-to-swap, Expanded switcher, sticky pick | done, tested |
 | Real media provider (SMTC, TR §6): art, controls, seek, multi-app switch, paused linger | done; rules tested, WinRT part needs Windows |
 | Plugin pipe (PS §8 Tier 2) | not yet |
 | Activity expiry (`expiresAt`) | done, tested |

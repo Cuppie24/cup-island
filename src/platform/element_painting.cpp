@@ -53,6 +53,7 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Warning: return L"";
     case Glyph::NextActivity: return L"";
     case Glyph::Pin: return L"";
+    case Glyph::Timer: return L"";
     }
     return L"?";
 }
