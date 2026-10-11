@@ -39,7 +39,12 @@ tomato red, breaks green.
 (`element_parts`: `createRing`/`armRing`; `paintSteps`) needs a Windows
 run to check the arc's start and direction.
 
-**Open.** Colours aren't tokens (tokens.json has no colour type yet).
-Accents aren't contrast-adjusted (PS §5.2 asks for it once there's a light
+**Colours are tokens.** Every colour the island draws is in tokens.json,
+as `[r, g, b]` or `[r, g, b, alpha]` (channels 0..255, alpha 0..1, like CSS
+`rgba()`): the island, text per style, icons, buttons, tracks and fills,
+tabs and tiles, steps, and Pomodoro's phase accents. A reload rebuilds the
+content visuals, so new colours show at once.
+
+**Open.** Accents aren't contrast-adjusted (PS §5.2 asks for it once there's a light
 theme). Indeterminate progress, button styles and the other items listed
 in the content-vocabulary discussion come when a provider needs them.

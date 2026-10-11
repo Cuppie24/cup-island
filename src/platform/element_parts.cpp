@@ -10,7 +10,6 @@ namespace cup::platform {
 namespace {
 
 using namespace winrt::Windows::UI::Composition;
-using winrt::Windows::UI::Color;
 
 // Composition rejects zero-length animations.
 Ms atLeast1(Ms d) { return std::max(d, Ms{ 1 }); }
@@ -20,13 +19,7 @@ CompositionEasingFunction easeOf(Compositor const& c, Bezier curve)
     return c.CreateCubicBezierEasingFunction(toFloat2(curve.c1), toFloat2(curve.c2));
 }
 
-CompositionColorBrush white(Compositor const& c, std::uint8_t alpha) { return c.CreateColorBrush(Color{ alpha, 255, 255, 255 }); }
-
-// Live data in the content's accent (decision 010); white when it has none.
-CompositionColorBrush tinted(Compositor const& c, const cup::Color& accent, std::uint8_t alpha)
-{
-    return c.CreateColorBrush(Color{ alpha, accent.r, accent.g, accent.b });
-}
+CompositionColorBrush brushOf(Compositor const& c, const Color& color) { return c.CreateColorBrush(toUiColor(color)); }
 
 // How long, in wall time, until a running timeline reaches its end; nothing if it isn't moving.
 std::optional<Ms> wallTimeLeft(const Timeline& timeline, Ms now)
@@ -76,7 +69,7 @@ void playScale(Compositor const& c, Visual const& visual, float scale, Ms durati
 
 float progressOverhang() { return tokens().progressKnobSize / 2; }
 
-ProgressParts createProgress(Compositor const& c, Vec2 frame, const cup::Color& accent)
+ProgressParts createProgress(Compositor const& c, Vec2 frame, const Color& accent)
 {
     const Tokens& t = tokens();
     float h = t.progressHeight, x = progressOverhang(), y = (frame.y - h) / 2;
@@ -92,8 +85,8 @@ ProgressParts createProgress(Compositor const& c, Vec2 frame, const cup::Color& 
 
     ProgressParts parts;
     parts.visual = c.CreateShapeVisual();
-    parts.visual.Shapes().Append(bar(frame.x, white(c, 60)).second);
-    auto [fill, fillShape] = bar(0, tinted(c, accent, 230));
+    parts.visual.Shapes().Append(bar(frame.x, brushOf(c, t.trackColor)).second);
+    auto [fill, fillShape] = bar(0, brushOf(c, accent));
     parts.visual.Shapes().Append(fillShape);
     parts.fill = fill;
 
@@ -106,7 +99,7 @@ ProgressParts createProgress(Compositor const& c, Vec2 frame, const cup::Color& 
     center.SetReferenceParameter(L"fill", fill);
     knob.StartAnimation(L"Center", center);
     parts.knob = c.CreateSpriteShape(knob);
-    parts.knob.FillBrush(white(c, 255));
+    parts.knob.FillBrush(brushOf(c, t.knobColor));
     parts.knob.StartAnimation(L"CenterPoint", center); // grows from its own middle
     parts.knob.Scale({ 0.0f, 0.0f });
     parts.visual.Shapes().Append(parts.knob);
@@ -145,7 +138,7 @@ void showKnob(Compositor const& c, CompositionSpriteShape const& knob, bool visi
 
 // --- Ring --------------------------------------------------------------------
 
-RingParts createRing(Compositor const& c, Vec2 frame, const cup::Color& accent)
+RingParts createRing(Compositor const& c, Vec2 frame, const Color& accent)
 {
     float thickness = tokens().ringThickness;
     float r = std::max(0.0f, std::min(frame.x, frame.y) / 2 - thickness / 2); // the stroke stays inside the frame
@@ -164,8 +157,8 @@ RingParts createRing(Compositor const& c, Vec2 frame, const cup::Color& accent)
 
     RingParts parts;
     parts.visual = c.CreateShapeVisual();
-    parts.visual.Shapes().Append(circle(white(c, 60)).second);
-    auto [arc, arcShape] = circle(tinted(c, accent, 255));
+    parts.visual.Shapes().Append(circle(brushOf(c, tokens().trackColor)).second);
+    auto [arc, arcShape] = circle(brushOf(c, accent));
     // An ellipse's path starts at 3 o'clock: turn it so the arc starts at 12.
     arcShape.CenterPoint(centre);
     arcShape.RotationAngleInDegrees(-90.0f);
@@ -191,7 +184,7 @@ void armRing(Compositor const& c, CompositionEllipseGeometry const& arc, const T
 
 // --- Waveform ----------------------------------------------------------------
 
-WaveformParts createWaveform(Compositor const& c, Vec2 frame, const cup::Color& accent)
+WaveformParts createWaveform(Compositor const& c, Vec2 frame, const Color& accent)
 {
     const Tokens& t = tokens();
     size_t count = std::max<size_t>(t.waveformBarCount, 1);
@@ -211,7 +204,7 @@ WaveformParts createWaveform(Compositor const& c, Vec2 frame, const cup::Color& 
         offset.SetScalarParameter(L"height", frame.y);
         bar.StartAnimation(L"Offset", offset);
         auto shape = c.CreateSpriteShape(bar);
-        shape.FillBrush(tinted(c, accent, 230));
+        shape.FillBrush(brushOf(c, accent));
         parts.visual.Shapes().Append(shape);
         parts.bars.push_back(bar);
     }
@@ -249,7 +242,7 @@ ButtonParts createButton(Compositor const& c, Vec2 frame, float cornerRadius, Co
     shape.Size(toFloat2(frame));
     shape.CornerRadius({ cornerRadius, cornerRadius });
     auto fill = c.CreateSpriteShape(shape);
-    fill.FillBrush(white(c, 40));
+    fill.FillBrush(brushOf(c, tokens().buttonHoverColor));
 
     ButtonParts parts;
     parts.highlight = c.CreateShapeVisual();
@@ -295,7 +288,9 @@ CompositionBrush createMarqueeBrush(Compositor const& c, CompositionDrawingSurfa
     mask.StartPoint({ 0.0f, 0.0f });
     mask.EndPoint({ 1.0f, 0.0f });
     const std::pair<float, std::uint8_t> stops[] = { { 0.0f, 0 }, { fade, 255 }, { 1.0f - fade, 255 }, { 1.0f, 0 } };
-    for (auto [offset, alpha] : stops) mask.ColorStops().Append(c.CreateColorGradientStop(offset, Color{ alpha, 255, 255, 255 }));
+    // An opacity mask: only alpha matters, so it's not a colour token.
+    for (auto [offset, alpha] : stops)
+        mask.ColorStops().Append(c.CreateColorGradientStop(offset, winrt::Windows::UI::Color{ alpha, 255, 255, 255 }));
 
     auto brush = c.CreateMaskBrush();
     brush.Source(text);

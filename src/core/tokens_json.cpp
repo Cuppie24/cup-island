@@ -14,7 +14,7 @@ namespace {
 
 // --- Field table: JSON name <-> Tokens member ------------------------------
 
-using Member = std::variant<float Tokens::*, Vec2 Tokens::*, Ms Tokens::*, std::size_t Tokens::*, Bezier Tokens::*>;
+using Member = std::variant<float Tokens::*, Vec2 Tokens::*, Ms Tokens::*, std::size_t Tokens::*, Bezier Tokens::*, Color Tokens::*>;
 
 struct Field {
     const char* name;
@@ -65,7 +65,6 @@ const Field kFields[] = {
     { "bubbleSize", &Tokens::bubbleSize, true },
     { "bubbleGap", &Tokens::bubbleGap },
     { "dragStartDistance", &Tokens::dragStartDistance },
-    { "dropHighlight", &Tokens::dropHighlight },
     { "bridgeThickness", &Tokens::bridgeThickness },
     { "bridgeReach", &Tokens::bridgeReach },
     { "tabHeight", &Tokens::tabHeight, true },
@@ -91,6 +90,27 @@ const Field kFields[] = {
     { "alertQueueCapacity", &Tokens::alertQueueCapacity },
     { "mediaPausedLingerMs", &Tokens::mediaPausedLinger, true },
     { "mediaSessionRecheckMs", &Tokens::mediaSessionRecheck },
+    { "islandColor", &Tokens::islandColor, true },
+    { "islandHighlightColor", &Tokens::islandHighlightColor },
+    { "titleTextColor", &Tokens::titleTextColor },
+    { "bodyTextColor", &Tokens::bodyTextColor },
+    { "captionTextColor", &Tokens::captionTextColor },
+    { "iconColor", &Tokens::iconColor },
+    { "buttonColor", &Tokens::buttonColor },
+    { "buttonOffColor", &Tokens::buttonOffColor },
+    { "buttonDisabledColor", &Tokens::buttonDisabledColor },
+    { "buttonHoverColor", &Tokens::buttonHoverColor },
+    { "trackColor", &Tokens::trackColor },
+    { "liveColor", &Tokens::liveColor },
+    { "knobColor", &Tokens::knobColor },
+    { "stepDoneColor", &Tokens::stepDoneColor },
+    { "stepTodoColor", &Tokens::stepTodoColor },
+    { "tabSelectedColor", &Tokens::tabSelectedColor },
+    { "hoverColor", &Tokens::hoverColor },
+    { "tileColor", &Tokens::tileColor },
+    { "imagePlaceholderColor", &Tokens::imagePlaceholderColor },
+    { "pomodoroFocusColor", &Tokens::pomodoroFocusColor },
+    { "pomodoroBreakColor", &Tokens::pomodoroBreakColor },
     { "pomodoroFocusMs", &Tokens::pomodoroFocus, true },
     { "pomodoroBreakMs", &Tokens::pomodoroBreak },
     { "pomodoroLongBreakMs", &Tokens::pomodoroLongBreak },
@@ -228,6 +248,15 @@ std::string apply(Tokens& t, const Field& field, const Value& v)
             if (!v.isArray || v.numbers.size() != 4) return "expected [x1, y1, x2, y2]";
             if (v.numbers[0] < 0 || v.numbers[0] > 1 || v.numbers[2] < 0 || v.numbers[2] > 1) return "x1 and x2 must be within 0..1";
             t.*member = { { v.numbers[0], v.numbers[1] }, { v.numbers[2], v.numbers[3] } };
+        } else if constexpr (std::is_same_v<T, Color>) {
+            if (!v.isArray || (v.numbers.size() != 3 && v.numbers.size() != 4)) return "expected [r, g, b] or [r, g, b, alpha]";
+            for (std::size_t i = 0; i < 3; ++i)
+                if (v.numbers[i] < 0 || v.numbers[i] > 255 || v.numbers[i] != std::floor(v.numbers[i])) return "r, g, b must be whole numbers 0..255";
+            float alpha = v.numbers.size() == 4 ? v.numbers[3] : 1.0f;
+            if (alpha < 0 || alpha > 1) return "alpha must be within 0..1";
+            auto channel = [](float n) { return static_cast<std::uint8_t>(n); };
+            t.*member = { channel(v.numbers[0]), channel(v.numbers[1]), channel(v.numbers[2]),
+                          static_cast<std::uint8_t>(std::lround(alpha * 255)) };
         }
         return "";
     }, field.member);
@@ -281,6 +310,11 @@ std::string toJson(const Tokens& t)
             if constexpr (std::is_same_v<T, Vec2>) out << "[" << v.x << ", " << v.y << "]";
             else if constexpr (std::is_same_v<T, Bezier>) out << "[" << v.c1.x << ", " << v.c1.y << ", " << v.c2.x << ", " << v.c2.y << "]";
             else if constexpr (std::is_same_v<T, Ms>) out << v.count();
+            else if constexpr (std::is_same_v<T, Color>) {
+                out << "[" << int(v.r) << ", " << int(v.g) << ", " << int(v.b);
+                if (v.a != 255) out << ", " << v.a / 255.0;
+                out << "]";
+            }
             else out << v;
         }, field.member);
     }

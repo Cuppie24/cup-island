@@ -128,6 +128,7 @@ example: thin WinRT reading, with every decision in a pure presenter (decision 0
    previous values stay active. Nothing is half-applied.
 
 Durations are in milliseconds and named `…Ms`. Sizes are `[width, height]`.
+Colours are `[r, g, b]` or `[r, g, b, alpha]` (0..255, alpha 0..1, like CSS `rgba()`).
 Curves are `[x1, y1, x2, y2]`, the same as CSS `cubic-bezier()`, so you can
 paste from cubic-bezier.com. `canvasSize` only applies on restart. Watching
 is event-driven (`FindFirstChangeNotification`), so it costs nothing between saves.

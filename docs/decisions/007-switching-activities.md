@@ -34,7 +34,7 @@ second activity, and sometimes to make it the main one.
   needed a 720-wide canvas and split the island in two.)
 - **Drag-to-swap:** a press on the bubble that moves `dragStartDistance` is
   a drag, and the bubble follows the cursor 1:1. Nothing else moves. Once its
-  centre is over the pill, the pill's background lightens (`dropHighlight`):
+  centre is over the pill, the pill's background lightens (`islandHighlightColor`):
   letting go there swaps the two activities' content and the bubble slides
   home; letting go elsewhere just sends it home. Losing capture or an alert
   cancels. (A first version previewed the swap by trading the shapes'

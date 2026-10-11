@@ -9,7 +9,6 @@ namespace cup::platform {
 namespace {
 
 using namespace winrt::Windows::UI::Composition;
-using winrt::Windows::UI::Color;
 
 // Binds a property to an expression over the body's live (animating) size,
 // so it follows every morph without app code running per frame.
@@ -47,10 +46,9 @@ ImplicitAnimationCollection morphAnimations(Compositor const& c)
     return collection;
 }
 
-Color fillColor(bool highlighted)
+winrt::Windows::UI::Color fillColor(bool highlighted)
 {
-    auto grey = static_cast<std::uint8_t>(std::clamp(highlighted ? tokens().dropHighlight : 0.0f, 0.0f, 1.0f) * 255);
-    return { 255, grey, grey, grey };
+    return toUiColor(highlighted ? tokens().islandHighlightColor : tokens().islandColor);
 }
 
 } // namespace
@@ -109,6 +107,8 @@ void Blob::refreshAnimations()
     implicit_ = morphAnimations(compositor_);
     body_.ImplicitAnimations(implicit_);
     shape_.InsertScalar(L"MaxRadius", tokens().maxCornerRadius);
+    if (fill_) fill_.Color(fillColor(highlighted_)); // colours are tokens too
+    elements_.refresh();
 }
 
 void Blob::place(Vec2 size, Vec2 offset)
@@ -161,30 +161,32 @@ void Blob::setHighlighted(bool on)
     fill_.StartAnimation(L"Color", anim);
 }
 
-void Blob::setSelectedTab(std::optional<Rect> tab, float cornerRadius) { showMark(selectedTab_, tab, cornerRadius, 40, true); }
+void Blob::setSelectedTab(std::optional<Rect> tab, float cornerRadius) { showMark(selectedTab_, tab, cornerRadius, tokens().tabSelectedColor, true); }
 
-void Blob::setHovered(std::optional<Rect> area, float cornerRadius) { showMark(hovered_, area, cornerRadius, 20, false); }
+void Blob::setHovered(std::optional<Rect> area, float cornerRadius) { showMark(hovered_, area, cornerRadius, tokens().hoverColor, false); }
 
 void Blob::setTiles(const std::vector<Rect>& tiles, float cornerRadius)
 {
     if (tiles_.size() < tiles.size()) tiles_.resize(tiles.size());
     for (std::size_t i = 0; i < tiles_.size(); ++i)
-        showMark(tiles_[i], i < tiles.size() ? std::optional<Rect>(tiles[i]) : std::nullopt, cornerRadius, 20, false);
+        showMark(tiles_[i], i < tiles.size() ? std::optional<Rect>(tiles[i]) : std::nullopt, cornerRadius, tokens().tileColor, false);
 }
 
-void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, std::uint8_t alpha, bool slide)
+void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide)
 {
     if (at == mark.at) return;
     std::optional<Rect> from = std::exchange(mark.at, at);
     if (!mark.visual) {
         mark.shape = compositor_.CreateRoundedRectangleGeometry();
         auto fill = compositor_.CreateSpriteShape(mark.shape);
-        fill.FillBrush(compositor_.CreateColorBrush(Color{ alpha, 255, 255, 255 })); // like a button's hover
+        mark.brush = compositor_.CreateColorBrush();
+        fill.FillBrush(mark.brush);
         mark.visual = compositor_.CreateShapeVisual();
         mark.visual.Shapes().Append(fill);
         mark.visual.Opacity(0.0f);
         content_.Children().InsertAtBottom(mark.visual); // under the content it marks
     }
+    mark.brush.Color(toUiColor(color)); // every time: tokens.json may have changed it
     if (!at) {
         fadeTo(compositor_, mark.visual, 0.0f, tokens().hoverFadeDuration);
         return;

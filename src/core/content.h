@@ -21,11 +21,13 @@ enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Sour
 
 enum class TextStyle { Title, Body, Caption, Digits };
 
-// An activity's colour (decision 010). Tints only its live data: progress
-// fills (bar and ring), the current step, waveform bars. Never text, icons
-// or the island itself, which stays black.
+// sRGB plus opacity. As an activity's accent (decision 010) it tints only
+// live data: progress fills (bar and ring), the current step, waveform bars.
+// Never text, icons or the island itself. Every colour the island draws is
+// one of these, in tokens.json.
 struct Color {
     std::uint8_t r = 255, g = 255, b = 255;
+    std::uint8_t a = 255; // opacity
     bool operator==(const Color&) const = default;
 };
 

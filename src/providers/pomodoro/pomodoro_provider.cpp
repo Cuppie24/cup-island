@@ -33,12 +33,8 @@ Ms durationOf(Phase phase)
     return t.pomodoroFocus;
 }
 
-// Focus is tomato red, breaks are green (decision 010). Colours aren't
-// tokens yet: tokens.json has no colour type.
-constexpr Color kFocus{ 255, 99, 71 };
-constexpr Color kRest{ 52, 199, 89 };
-
-Color accentOf(Phase phase) { return phase == Phase::Focus ? kFocus : kRest; }
+// Focus and breaks have their own colours (decision 010), in tokens.json.
+Color accentOf(Phase phase) { return phase == Phase::Focus ? tokens().pomodoroFocusColor : tokens().pomodoroBreakColor; }
 
 // Every phase of a session, in order: focus, break, ... focus, long break.
 int phaseCount() { return 2 * static_cast<int>(tokens().pomodoroRounds); }
@@ -72,7 +68,7 @@ Panel pomodoroPanel()
     std::string plan = minutes(t.pomodoroFocus) + " focus, " + minutes(t.pomodoroBreak) + " breaks";
     Content content{
         .label = "Focus",
-        .accent = kFocus,
+        .accent = accentOf(Phase::Focus),
         .expandedLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
         .expandedCenter = { row({ Text{ "Focus", TextStyle::Title } }), row({ Text{ plan } }) },
         .expandedBottom = { row({ Button{ Glyph::Play, act::kStart } }, Align::Center) },
@@ -170,19 +166,19 @@ void PomodoroProvider::advance(bool alert)
     Session s = *session_;
     if (s.phase == Phase::LongBreak) {
         finish();
-        if (alert) host_->postAlert(phaseAlert("Session done", std::to_string(t.pomodoroRounds) + " rounds of focus", "", kRest));
+        if (alert) host_->postAlert(phaseAlert("Session done", std::to_string(t.pomodoroRounds) + " rounds of focus", "", accentOf(Phase::Break)));
         return;
     }
     if (s.phase == Phase::Focus) {
         Phase next = s.round >= t.pomodoroRounds ? Phase::LongBreak : Phase::Break;
         begin(next, s.round);
         if (alert) host_->postAlert(phaseAlert(next == Phase::LongBreak ? "Long break" : "Break time",
-                                               minutes(durationOf(next)), kPanelId, kRest));
+                                               minutes(durationOf(next)), kPanelId, accentOf(next)));
         return;
     }
     begin(Phase::Focus, s.round + 1);
     if (alert) host_->postAlert(phaseAlert("Back to focus", "Round " + std::to_string(s.round + 1) + " of " +
-                                                                std::to_string(t.pomodoroRounds), kPanelId, kFocus));
+                                                                std::to_string(t.pomodoroRounds), kPanelId, accentOf(Phase::Focus)));
 }
 
 void PomodoroProvider::finish()

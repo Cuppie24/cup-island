@@ -57,6 +57,16 @@ void runTokensTests()
     expect(!parseTokens("").ok(), "empty file rejected");
     expect(!parseTokens(R"({"pressScale": 1} extra)").ok(), "trailing text rejected");
     expect(parseTokens(R"({"alertSize": [300, 60]})").tokens.alertSize == Vec2{ 300, 60 }, "alert size applied");
+
+    // Colours: [r, g, b] opaque, or [r, g, b, alpha] with alpha 0..1, like CSS rgba().
+    TokensParse colours = parseTokens(R"({ "islandColor": [10, 20, 30], "trackColor": [255, 255, 255, 0.5] })");
+    expect(colours.ok() && colours.tokens.islandColor == Color{ 10, 20, 30, 255 }, "rgb colour applied, opaque");
+    expect(colours.tokens.trackColor == Color{ 255, 255, 255, 128 }, "alpha 0..1 applied");
+    expect(mentions(parseTokens(R"({"islandColor": [0, 0]})"), "expected [r, g, b]"), "colour needs 3 or 4 numbers");
+    expect(mentions(parseTokens(R"({"islandColor": [0, 0, 256]})"), "0..255"), "channel out of range rejected");
+    expect(mentions(parseTokens(R"({"islandColor": [0, 0, 1.5]})"), "0..255"), "fractional channel rejected");
+    expect(mentions(parseTokens(R"({"islandColor": [0, 0, 0, 2]})"), "alpha must be within 0..1"), "alpha out of range rejected");
+    expect(fromFile.tokens == Tokens{}, "the shipped file matches the defaults in tokens.h");
 }
 
 } // namespace cup::test

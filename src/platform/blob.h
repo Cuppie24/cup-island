@@ -51,9 +51,10 @@ private:
     struct Mark { // a rounded highlight under content, made on first use
         wuc::ShapeVisual visual{ nullptr };
         wuc::CompositionRoundedRectangleGeometry shape{ nullptr };
+        wuc::CompositionColorBrush brush{ nullptr };
         std::optional<Rect> at;
     };
-    void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, std::uint8_t alpha, bool slide);
+    void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide);
     Mark selectedTab_, hovered_;
     std::vector<Mark> tiles_; // grows to the most tiles shown; spare ones stay faded out
     ElementVisuals elements_;

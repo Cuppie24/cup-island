@@ -19,6 +19,7 @@ public:
 private:
     wuc::CompositionPropertySet params_{ nullptr }; // Thickness, Reach, On
     bool on_ = true;
+    wuc::CompositionColorBrush brush_{ nullptr }; // the island's colour
 };
 
 } // namespace cup::platform

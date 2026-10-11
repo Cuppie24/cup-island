@@ -4,6 +4,7 @@
 // them and reloads it on save (core/tokens_json.h). Nothing else hard-codes
 // sizes or timings.
 
+#include "core/content.h"
 #include "core/geometry.h"
 
 #include <chrono>
@@ -79,7 +80,6 @@ struct Tokens {
     float bubbleSize = 32;        // width and height; shaped like the pill (straight top, rounded bottom)
     float bubbleGap = 8;          // between the pill's right edge and the bubble at rest
     float dragStartDistance = 4;  // a press on the bubble that moves less is a click
-    float dropHighlight = 0.18f;  // pill background grey (0 black .. 1 white) while the bubble is over it
     float bridgeThickness = 20;   // liquid neck between pill and bubble, at its thickest
     float bridgeReach = 6;        // edge gap at which the neck has thinned to nothing (< bubbleGap: none at rest)
 
@@ -121,6 +121,30 @@ struct Tokens {
     // After any app starts/stops playing, ask Windows again this much later:
     // its "current session" can switch slightly after the playback event.
     Ms mediaSessionRecheck{ 300 };
+
+    // Colours: every colour the island draws. tokens.json writes [r, g, b] or
+    // [r, g, b, alpha], channels 0..255 and alpha 0..1, like CSS rgba().
+    Color islandColor{ 0, 0, 0 };
+    Color islandHighlightColor{ 46, 46, 46 }; // the pill while the dragged bubble is over it (decision 007)
+    Color titleTextColor{ 255, 255, 255 };
+    Color bodyTextColor{ 255, 255, 255, 179 };
+    Color captionTextColor{ 255, 255, 255, 140 }; // also Digits
+    Color iconColor{ 255, 255, 255, 230 };
+    Color buttonColor{ 255, 255, 255, 242 };       // glyph, and a toggle's "on" dot
+    Color buttonOffColor{ 255, 255, 255, 128 };    // a toggle that's off
+    Color buttonDisabledColor{ 255, 255, 255, 77 };
+    Color buttonHoverColor{ 255, 255, 255, 41 };   // the shape behind a hovered button
+    Color trackColor{ 255, 255, 255, 61 };         // a progress bar's or ring's empty part
+    Color liveColor{ 255, 255, 255, 230 };         // progress fill, waveform: when the content has no accent
+    Color knobColor{ 255, 255, 255 };
+    Color stepDoneColor{ 255, 255, 255, 191 };
+    Color stepTodoColor{ 255, 255, 255, 51 };
+    Color tabSelectedColor{ 255, 255, 255, 41 };
+    Color hoverColor{ 255, 255, 255, 20 };         // a tab or tile under the pointer
+    Color tileColor{ 255, 255, 255, 20 };          // Home's tile backgrounds
+    Color imagePlaceholderColor{ 255, 255, 255, 31 }; // art that hasn't arrived
+    Color pomodoroFocusColor{ 255, 99, 71 };       // accents (decision 010)
+    Color pomodoroBreakColor{ 52, 199, 89 };
 
     // Pomodoro (decision 009): focus rounds with short breaks, a long break after the last round.
     Ms pomodoroFocus{ 1500000 };

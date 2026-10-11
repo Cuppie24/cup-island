@@ -17,8 +17,8 @@ bool isRing(const Item& item)
     return progress && progress->shape == ProgressShape::Ring;
 }
 
-// Live data's colour: the accent, or white (decision 010).
-Color accentOf(const Placed& p) { return p.accent.value_or(Color{}); }
+// Live data's colour: the content's accent, else the live colour (decision 010).
+Color accentOf(const Placed& p) { return p.accent.value_or(tokens().liveColor); }
 
 // Swimming text is sized to its string, so any change to it needs a new surface.
 bool swims(const Item& item)
@@ -60,6 +60,12 @@ void ElementVisuals::apply(const std::vector<Placed>& elements, Ms now)
     if (deviceLost_)
         for (auto& [key, view] : views_)
             if (view.surface) paint(view);
+}
+
+void ElementVisuals::refresh()
+{
+    for (auto& [key, view] : views_) parent_.Children().Remove(view.visual);
+    views_.clear();
 }
 
 ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now)
@@ -156,10 +162,11 @@ void ElementVisuals::paint(View& view)
             if (view.marqueeWidth > 0) paintMarquee(dc, dw, *text, view.marqueeWidth, view.lead, t.marqueeGap, size.y);
             else paintText(dc, dw, *text, size);
         } else if (auto* icon = std::get_if<Icon>(&item)) {
-            paintGlyph(dc, dw, icon->glyph, t.iconSize, size, 0.9f);
+            paintGlyph(dc, dw, icon->glyph, t.iconSize, size, t.iconColor);
         } else if (auto* button = std::get_if<Button>(&item)) {
             bool toggledOff = button->on && !*button->on;
-            paintGlyph(dc, dw, button->glyph, t.buttonGlyphSize, size, !button->enabled ? 0.3f : toggledOff ? 0.5f : 0.95f);
+            paintGlyph(dc, dw, button->glyph, t.buttonGlyphSize, size,
+                       !button->enabled ? t.buttonDisabledColor : toggledOff ? t.buttonOffColor : t.buttonColor);
             if (button->on && *button->on) paintToggleDot(dc, size, t.buttonGlyphSize);
         } else if (auto* image = std::get_if<Image>(&item)) {
             paintImage(dc, image->data.get(), size, view.placed.cornerRadius);

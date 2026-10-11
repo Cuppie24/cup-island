@@ -30,6 +30,7 @@
 #include <winrt/Windows.UI.Composition.Desktop.h>
 #include <winrt/Windows.Graphics.DirectX.h>
 
+#include "core/content.h"
 #include "core/geometry.h"
 
 namespace cup::platform {
@@ -40,5 +41,6 @@ namespace wuc = winrt::Windows::UI::Composition;
 
 inline wfn::float2 toFloat2(Vec2 v) { return { v.x, v.y }; }
 inline wfn::float3 toFloat3(Vec2 v) { return { v.x, v.y, 0.0f }; }
+inline winrt::Windows::UI::Color toUiColor(const Color& c) { return { c.a, c.r, c.g, c.b }; }
 
 } // namespace cup::platform
