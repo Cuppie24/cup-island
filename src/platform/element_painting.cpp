@@ -49,6 +49,9 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Pause: return L"";
     case Glyph::Next: return L"";
     case Glyph::Previous: return L"";
+    case Glyph::Shuffle: return L"";
+    case Glyph::Repeat: return L"";
+    case Glyph::RepeatOne: return L"";
     case Glyph::Source: return L"";
     case Glyph::Music: return L"";
     case Glyph::Warning: return L"";
@@ -142,6 +145,14 @@ void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float f
 {
     auto f = format(dw, iconFamily(dw), fontSize, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_TEXT_ALIGNMENT_CENTER);
     drawString(dc, f.get(), codepoint(glyph), size, alpha);
+}
+
+void paintToggleDot(ID2D1DeviceContext* dc, Vec2 size, float glyphSize)
+{
+    winrt::com_ptr<ID2D1SolidColorBrush> brush;
+    winrt::check_hresult(dc->CreateSolidColorBrush(D2D1::ColorF(1, 1, 1, 0.95f), brush.put()));
+    float r = std::max(1.0f, glyphSize / 10), y = std::min(size.y / 2 + glyphSize / 2 + 2 * r + 1, size.y - r);
+    dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(size.x / 2, y), r, r), brush.get());
 }
 
 void paintImage(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float cornerRadius)

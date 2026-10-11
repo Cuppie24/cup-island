@@ -200,6 +200,13 @@ void SmtcMediaProvider::onAction(const Action& action)
         else if (action.actionId == act::kNext) session_.TrySkipNextAsync();
         else if (action.actionId == act::kPrevious) session_.TrySkipPreviousAsync();
         else if (action.actionId == act::kSource) cycleSource();
+        else if (action.actionId == act::kShuffle) {
+            auto shuffle = session_.GetPlaybackInfo().IsShuffleActive();
+            session_.TryChangeShuffleActiveAsync(!(shuffle && shuffle.Value()));
+        } else if (action.actionId == act::kRepeat) {
+            auto repeat = session_.GetPlaybackInfo().AutoRepeatMode();
+            session_.TryChangeAutoRepeatModeAsync(toWindows(nextRepeat(repeat ? fromWindows(repeat.Value()) : Repeat::Off)));
+        }
         else if (action.actionId == act::kSeek) {
             auto timeline = session_.GetTimelineProperties();
             auto start = timeline.StartTime(), end = timeline.EndTime();

@@ -79,6 +79,20 @@ void runProviderTests()
     expect(progress && !progress->timeline.playing && progress->timeline.position == Ms{ 5000 },
            "pause freezes the timeline where it was");
 
+    // Shuffle (leading edge) and repeat (trailing edge) are toggles that light up.
+    const std::string repeat = "expandedBottom/1/3", shuffle = "expandedBottom/1/4";
+    expect(island.button(shuffle) && island.button(shuffle)->glyph == Glyph::Shuffle && island.button(shuffle)->on == false,
+           "shuffle shows, off");
+    island.click(shuffle);
+    expect(island.button(shuffle)->on == true, "shuffle click turns it on");
+    island.click(shuffle);
+    island.click(repeat);
+    expect(island.button(repeat)->glyph == Glyph::Repeat && island.button(repeat)->on == true, "repeat: off -> all");
+    island.click(repeat);
+    expect(island.button(repeat)->glyph == Glyph::RepeatOne && island.button(repeat)->on == true, "repeat: all -> one");
+    island.click(repeat);
+    expect(island.button(repeat)->on == false, "repeat: one -> off");
+
     island.click("expandedBottom/1/2"); // next
     expect(island.state.alertQueue.size() == 1 && island.state.alertQueue[0].coalesceKey == "track",
            "next track queues a track alert (shown once Expanded closes)");

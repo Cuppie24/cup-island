@@ -13,6 +13,8 @@ float measureText(IDWriteFactory* dw, const Text& text);
 // Swimming text: the string twice, `gap` apart, starting at x = `lead`, so
 // scrolling one copy's width plus the gap loops seamlessly.
 void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, float width, float lead, float gap, float height);
+// The "this toggle is on" dot under a glyph of `glyphSize` centred in `size`.
+void paintToggleDot(ID2D1DeviceContext* dc, Vec2 size, float glyphSize);
 void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float fontSize, Vec2 size, float alpha);
 // Fills a rounded rect with the image scaled to cover it; a neutral tile if `data` is null.
 void paintImage(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float cornerRadius);

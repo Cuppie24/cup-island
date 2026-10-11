@@ -44,7 +44,7 @@ struct Tokens {
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;
     float itemSpacing = 8;
-    float looseItemSpacing = 28; // Row::loose, e.g. media controls
+    float looseItemSpacing = 24; // Row::loose, e.g. media controls
     float titleFontSize = 15;
     float bodyFontSize = 13;
     float captionFontSize = 11;

@@ -17,6 +17,22 @@ constexpr std::uint32_t kMaxArtSize = 128;
 
 } // namespace
 
+Repeat fromWindows(winrt::Windows::Media::MediaPlaybackAutoRepeatMode mode)
+{
+    using Mode = winrt::Windows::Media::MediaPlaybackAutoRepeatMode;
+    if (mode == Mode::Track) return Repeat::One;
+    if (mode == Mode::List) return Repeat::All;
+    return Repeat::Off;
+}
+
+winrt::Windows::Media::MediaPlaybackAutoRepeatMode toWindows(Repeat repeat)
+{
+    using Mode = winrt::Windows::Media::MediaPlaybackAutoRepeatMode;
+    if (repeat == Repeat::One) return Mode::Track;
+    if (repeat == Repeat::All) return Mode::List;
+    return Mode::None;
+}
+
 NowPlaying readNowPlaying(wmc::GlobalSystemMediaTransportControlsSessionMediaProperties const& properties,
                           wmc::GlobalSystemMediaTransportControlsSessionPlaybackInfo const& playback,
                           wmc::GlobalSystemMediaTransportControlsSessionTimelineProperties const& timeline, Ms appNow)
@@ -47,6 +63,14 @@ NowPlaying readNowPlaying(wmc::GlobalSystemMediaTransportControlsSessionMediaPro
     t.anchoredAt = appNow - std::chrono::duration_cast<Ms>(age);
 
     m.canSeek = controls.IsPlaybackPositionEnabled() && t.duration > Ms{ 0 };
+
+    // Both are optional in SMTC: an app that doesn't report a state can't show a toggle for it.
+    auto shuffle = playback.IsShuffleActive();
+    m.canShuffle = controls.IsShuffleEnabled() && shuffle;
+    m.shuffle = shuffle && shuffle.Value();
+    auto repeat = playback.AutoRepeatMode();
+    m.canRepeat = controls.IsRepeatEnabled() && repeat;
+    if (repeat) m.repeat = fromWindows(repeat.Value());
     return m;
 }
 

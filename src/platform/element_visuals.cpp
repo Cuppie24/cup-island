@@ -141,7 +141,9 @@ void ElementVisuals::paint(View& view)
         } else if (auto* icon = std::get_if<Icon>(&item)) {
             paintGlyph(dc, dw, icon->glyph, t.iconSize, size, 0.9f);
         } else if (auto* button = std::get_if<Button>(&item)) {
-            paintGlyph(dc, dw, button->glyph, t.buttonGlyphSize, size, button->enabled ? 0.95f : 0.3f);
+            bool toggledOff = button->on && !*button->on;
+            paintGlyph(dc, dw, button->glyph, t.buttonGlyphSize, size, !button->enabled ? 0.3f : toggledOff ? 0.5f : 0.95f);
+            if (button->on && *button->on) paintToggleDot(dc, size, t.buttonGlyphSize);
         } else if (auto* image = std::get_if<Image>(&item)) {
             paintImage(dc, image->data.get(), size, view.placed.cornerRadius);
         }

@@ -17,8 +17,9 @@ Compact has a third slot, `compactCenter`, between the two squares (e.g. the
 track name). `Text::marquee` makes a string that doesn't fit "swim"
 (pause, scroll, loop, soft edges) instead of ending in "…"; the renderer
 measures it, and the loop runs on the compositor. `Row::loose` asks for
-wider gaps (controls), and `Row::trailing` pins items to the row's end edge
-while the rest stay centred on the full width (the media source switch). A paused `Waveform` rests as still dots instead of
+wider gaps (controls), and `Row::leading` / `Row::trailing` pin items to the row's edges
+while the rest stay centred on the full width (shuffle on the left; repeat and the source switch on the right). `Button::on`
+marks a toggle: lit with a dot when on, dimmed when off. A paused `Waveform` rests as still dots instead of
 being swapped for a pause icon, so play/pause is a calm in-place change.
 
 Time-based content stays host-driven (PS §4): a Progress bar animates on

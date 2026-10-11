@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <memory>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -15,7 +16,7 @@ namespace cup {
 using Ms = std::chrono::milliseconds;
 
 // Built-in icons; the renderer maps them to font glyphs.
-enum class Glyph { Play, Pause, Next, Previous, Source, Music, Warning };
+enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning };
 
 enum class TextStyle { Title, Body, Caption, Digits };
 
@@ -55,6 +56,7 @@ struct Button {
     Glyph glyph = Glyph::Play;
     std::string actionId; // sent back to the provider when clicked
     bool enabled = true;
+    std::optional<bool> on; // toggles only (shuffle, repeat): lit with a dot when on, dimmed when off
     bool operator==(const Button&) const = default;
 };
 struct Progress { Timeline timeline; bool seekable = false; bool operator==(const Progress&) const = default; };
@@ -70,8 +72,10 @@ struct Row {
     std::vector<Item> items;
     Align align = Align::Start;
     bool loose = false; // wider gaps between items (controls: easier to hit, harder to mis-hit)
-    // Fixed-size items pinned to the row's end edge, e.g. a source switch next
-    // to centred media controls. `items` still centre across the full width.
+    // Fixed-size items pinned to the row's start / end edge, e.g. shuffle and
+    // repeat around centred media controls. `items` still centre across the
+    // full width. Keys number items, then trailing, then leading.
+    std::vector<Item> leading;
     std::vector<Item> trailing;
     bool operator==(const Row&) const = default;
 };

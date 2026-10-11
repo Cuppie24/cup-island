@@ -113,6 +113,27 @@ void runContentTests()
     auto sourceHit = hitTest(sourced, centre(source));
     expect(sourceHit && sourceHit->action.actionId == "source", "source switch is clickable");
 
+    // Edge groups on both sides: the middle stays centred, the edges keep the padding,
+    // and packed neighbours' click areas meet halfway.
+    Content edges = withSource;
+    edges.expandedBottom[1].trailing.insert(edges.expandedBottom[1].trailing.begin(), Button{ Glyph::Repeat, "repeat", true, false });
+    edges.expandedBottom[1].leading.push_back(Button{ Glyph::Shuffle, "shuffle", true, true });
+    Scene edged = layout(expandedWith(edges), Ms{ 1000 });
+    const Placed* edgePlay = find(edged, "expandedBottom/1/1");
+    const Placed* edgeRepeat = find(edged, "expandedBottom/1/3");
+    const Placed* edgeSource = find(edged, "expandedBottom/1/4");
+    const Placed* edgeShuffle = find(edged, "expandedBottom/1/5");
+    expect(edgeShuffle && edgeShuffle->frame.x == t.expandedPadding, "leading edge item is one padding in");
+    expect(edgeSource && edgeSource->frame.x + edgeSource->frame.width == edged.size.x - t.expandedPadding, "source still at the edge");
+    expect(edgeRepeat && edgeRepeat->frame.x + edgeRepeat->frame.width + t.itemSpacing == edgeSource->frame.x, "edge group is packed");
+    expect(edgeRepeat->hitFrame.x + edgeRepeat->hitFrame.width == edgeSource->hitFrame.x, "packed click areas meet halfway");
+    float offCentre = edgePlay->frame.x + edgePlay->frame.width / 2 - edged.size.x / 2;
+    expect(offCentre <= 0 && offCentre > -8, "middle group stays (almost) centred with both edges busy");
+    const Placed* edgePrevious = find(edged, "expandedBottom/1/0");
+    expect(edgePrevious->frame.x >= edgeShuffle->frame.x + edgeShuffle->frame.width + t.looseItemSpacing &&
+           find(edged, "expandedBottom/1/2")->frame.x + find(edged, "expandedBottom/1/2")->frame.width + t.looseItemSpacing <= edgeRepeat->frame.x,
+           "middle group never crowds the edge groups");
+
     // Equal margins: the bottom row sits as far from the bottom as art from the side.
     expect(play->frame.y + play->frame.height == scene.size.y - t.expandedPadding, "expanded bottom margin = side margin");
 

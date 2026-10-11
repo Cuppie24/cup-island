@@ -3,6 +3,7 @@
 #include "core/tokens.h"
 #include "expect.h"
 #include "providers/media/media_presenter.h"
+#include "providers/media/now_playing.h"
 
 #include <vector>
 
@@ -90,6 +91,22 @@ void runMediaTests()
     auto untitled = track("Chrome", "");
     presenter.show(untitled);
     expect(host.alerts.size() == 1, "no alert for an empty title");
+
+    // Shuffle/repeat buttons: only for apps that support them, lit when on.
+    auto controlsOf = [](const NowPlaying& m) { return nowPlayingContent(m).expandedBottom.back(); };
+    Row plain = controlsOf({ .title = "T" });
+    expect(plain.leading.empty() && plain.trailing.empty(), "no shuffle/repeat when the app doesn't support them");
+    Row toggles = controlsOf({ .title = "T", .canShuffle = true, .shuffle = true, .canRepeat = true, .repeat = Repeat::One,
+                               .showSourceSwitch = true });
+    auto* shuffleButton = toggles.leading.size() == 1 ? std::get_if<Button>(&toggles.leading[0]) : nullptr;
+    expect(shuffleButton && shuffleButton->glyph == Glyph::Shuffle && shuffleButton->on == true, "shuffle on the left, lit");
+    auto* repeatButton = toggles.trailing.size() == 2 ? std::get_if<Button>(&toggles.trailing[0]) : nullptr;
+    expect(repeatButton && repeatButton->glyph == Glyph::RepeatOne && repeatButton->on == true, "repeat-one on the right");
+    auto* sourceButton = toggles.trailing.size() == 2 ? std::get_if<Button>(&toggles.trailing[1]) : nullptr;
+    expect(sourceButton && sourceButton->actionId == media_action::kSource && !sourceButton->on,
+           "source switch stays at the very edge, not a toggle");
+    expect(nextRepeat(Repeat::Off) == Repeat::All && nextRepeat(Repeat::All) == Repeat::One && nextRepeat(Repeat::One) == Repeat::Off,
+           "repeat cycles off -> all -> one");
 }
 
 } // namespace cup::test

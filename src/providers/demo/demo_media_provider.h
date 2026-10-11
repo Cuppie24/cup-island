@@ -36,6 +36,8 @@ private:
     Host* host_ = nullptr;
     size_t track_ = 0;
     Timeline timeline_;
+    bool shuffle_ = false;
+    Repeat repeat_ = Repeat::Off;
 };
 
 } // namespace cup

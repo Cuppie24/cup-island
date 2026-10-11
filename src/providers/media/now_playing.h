@@ -9,6 +9,8 @@
 
 namespace cup {
 
+enum class Repeat { Off, All, One };
+
 struct NowPlaying {
     std::string title;
     std::string artist;
@@ -19,6 +21,10 @@ struct NowPlaying {
     bool canPlayPause = true;
     bool canNext = true;
     bool canSeek = false;
+    bool canShuffle = false; // the app reports and accepts shuffle; otherwise the button is hidden
+    bool shuffle = false;
+    bool canRepeat = false;
+    Repeat repeat = Repeat::Off;
     bool showSourceSwitch = false; // more than one media app to choose from
 
     bool operator==(const NowPlaying&) const = default;
@@ -29,10 +35,15 @@ namespace media_action {
 inline constexpr const char* kPrevious = "previous";
 inline constexpr const char* kPlayPause = "playPause";
 inline constexpr const char* kNext = "next";
+inline constexpr const char* kShuffle = "shuffle"; // toggle
+inline constexpr const char* kRepeat = "repeat";   // cycle: off -> all -> one -> off
 inline constexpr const char* kSource = "source";
 inline constexpr const char* kSeek = "seek"; // value = 0..1 fraction
 } // namespace media_action
 
 Content nowPlayingContent(const NowPlaying& media);
+
+// The repeat mode a click on the repeat button asks for.
+Repeat nextRepeat(Repeat current);
 
 } // namespace cup

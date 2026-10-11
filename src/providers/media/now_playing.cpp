@@ -30,9 +30,24 @@ Content nowPlayingContent(const NowPlaying& m)
                          Button{ Glyph::Next, act::kNext, m.canNext } },
                        Align::Center);
     controls.loose = true; // big, well-separated targets
+    // Shuffle and repeat flank the row's edges; only shown when the app supports them.
+    if (m.canShuffle) controls.leading.push_back(Button{ Glyph::Shuffle, act::kShuffle, true, m.shuffle });
+    if (m.canRepeat)
+        controls.trailing.push_back(Button{ m.repeat == Repeat::One ? Glyph::RepeatOne : Glyph::Repeat, act::kRepeat, true,
+                                            m.repeat != Repeat::Off });
     if (m.showSourceSwitch) controls.trailing.push_back(Button{ Glyph::Source, act::kSource }); // at the right edge
     c.expandedBottom.push_back(controls);
     return c;
+}
+
+Repeat nextRepeat(Repeat current)
+{
+    switch (current) {
+    case Repeat::Off: return Repeat::All;
+    case Repeat::All: return Repeat::One;
+    case Repeat::One: return Repeat::Off;
+    }
+    return Repeat::Off;
 }
 
 } // namespace cup
