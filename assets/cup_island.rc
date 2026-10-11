@@ -1,3 +1,5 @@
 // Windows resources for CupIsland.exe. Icon 1 is the exe's icon (Explorer,
 // taskbar, installer) and the tray icon (platform/tray_icon.cpp).
+// The .ico must hold every size Windows asks for (16-256 px), each scaled
+// ahead of time: given only one, Windows resizes it with a cheap filter.
 1 ICON "cup_island.ico"

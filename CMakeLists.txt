@@ -104,6 +104,8 @@ if(WIN32)
         src/providers/system/bluetooth_provider.cpp
         src/providers/system/theme_provider.cpp
     )
+    # The icon isn't an #include, so the build doesn't see it change on its own.
+    set_source_files_properties(assets/cup_island.rc PROPERTIES OBJECT_DEPENDS ${CMAKE_SOURCE_DIR}/assets/cup_island.ico)
     target_link_libraries(CupIsland PRIVATE cup_providers WindowsApp CoreMessaging User32 Advapi32 Ole32 Dbghelp dcomp d3d11 d2d1 dwrite dxgi dwmapi shell32)
     # Release: a GUI app, no console window (quit from the tray icon). Debug keeps
     # the console for the log. mainCRTStartup lets main() stay the entry point.
