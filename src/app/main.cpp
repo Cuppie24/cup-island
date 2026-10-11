@@ -1,6 +1,7 @@
 // Cup Island entry point: wiring only. Owns the IslandState, turns window
 // input into core Events, and pushes the resulting Scene to the renderer.
 // The loop: input -> reduce() -> layout() -> renderer + interaction layer.
+// Tuning: edit assets/tokens.json while it runs; saving applies it live.
 //
 // Demo keys (click the pill first so it has keyboard focus):
 //   M  toggle the fake media activity      T  toggle a second activity (Split)
@@ -8,15 +9,18 @@
 //   D  toggle a simulated accepted drag    H  toggle hidden
 //   Esc collapse when expanded, otherwise quit
 
+#include "app/live_tokens.h"
 #include "core/island.h"
 #include "core/layout.h"
 #include "core/tokens.h"
+#include "platform/file_watcher.h"
 #include "platform/interaction_layer.h"
 #include "platform/pill_renderer.h"
 #include "platform/render_layer.h"
 
 #include <chrono>
 #include <cstdio>
+#include <filesystem>
 
 using namespace cup;
 using namespace cup::platform;
@@ -28,6 +32,7 @@ IslandState g_state;
 Scene g_scene;
 PillRenderer g_renderer;
 HWND g_inputHwnd{};
+std::filesystem::path g_tokensFile;
 
 Ms now()
 {
@@ -96,6 +101,11 @@ void onTimer(TimerId id)
 {
     if (id == TimerId::Deadline) {
         dispatch(Tick{}, "timer");
+    } else if (id == TimerId::TokensReload) {
+        if (app::loadTokens(g_tokensFile, /* startup */ false)) {
+            g_renderer.refreshAnimations();
+            dispatch(Tick{}, "tokens.json"); // re-layout with the new sizes
+        }
     } else if (id == TimerId::Demo) {
         // Unattended intro so the morphs are visible without input: a media
         // activity appears with a track alert, then settles into Compact.
@@ -117,8 +127,11 @@ int main()
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     auto queueController = createDispatcherQueueForCurrentThread();
 
+    g_tokensFile = app::findTokensFile();
+    app::loadTokens(g_tokensFile, /* startup */ true);
+
     HINSTANCE instance = GetModuleHandleW(nullptr);
-    RenderLayer render = createRenderLayer(instance, tokens::kCanvas);
+    RenderLayer render = createRenderLayer(instance, tokens().canvas);
     if (!render.hwnd) {
         std::printf("Failed to create render window (0x%08lx)\n", GetLastError());
         return 1;
@@ -141,6 +154,9 @@ int main()
         std::printf("Failed to create interaction window (0x%08lx)\n", GetLastError());
         return 1;
     }
+
+    // Debounced: one save fires several notifications; reload once it settles.
+    watchDirectoryOf(g_tokensFile, [] { setTimerFromAnyThread(TimerId::TokensReload, Ms{ 50 }); });
 
     ShowWindow(render.hwnd, SW_SHOWNOACTIVATE);
     ShowWindow(g_inputHwnd, SW_SHOW);

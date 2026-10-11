@@ -45,7 +45,7 @@ bool alertAllowed(const IslandState& s, Level level)
 // Queue full: drop the oldest alert of the lowest level present (PS §6.3).
 void enqueue(IslandState& s, Alert alert)
 {
-    if (s.alertQueue.size() >= tokens::kAlertQueueCapacity) {
+    if (s.alertQueue.size() >= tokens().alertQueueCapacity) {
         auto lowest = std::min_element(s.alertQueue.begin(), s.alertQueue.end(),
             [](const Alert& a, const Alert& b) { return a.level < b.level; });
         s.alertQueue.erase(lowest);
@@ -72,7 +72,7 @@ void postAlert(IslandState& s, Alert alert, Ms now)
     if (!alert.coalesceKey.empty()) {
         if (s.alert && s.alert->coalesceKey == alert.coalesceKey) {
             s.alert = std::move(alert);
-            s.alertUntil = now + tokens::kAlertDuration;
+            s.alertUntil = now + tokens().alertDuration;
             return;
         }
         for (auto& queued : s.alertQueue) {
@@ -88,7 +88,7 @@ void postAlert(IslandState& s, Alert alert, Ms now)
     if (s.alert && alert.level > s.alert->level) {
         s.alertQueue.push_front(std::move(*s.alert)); // pre-empted, replays next
         s.alert = std::move(alert);
-        s.alertUntil = now + tokens::kAlertDuration;
+        s.alertUntil = now + tokens().alertDuration;
         return;
     }
     enqueue(s, std::move(alert));
@@ -100,11 +100,11 @@ void settle(IslandState& s, Ms now)
     if (s.alert && now >= s.alertUntil) s.alert.reset();
 
     if (isExpanded(s)) {
-        bool timedOut = now >= s.lastPointerAt + tokens::kExpandedIdleTimeout;
+        bool timedOut = now >= s.lastPointerAt + tokens().expandedIdleTimeout;
         if (timedOut || !findActivity(s, s.expandedId)) s.expandedId.clear();
     }
 
-    std::erase_if(s.alertQueue, [&](const Alert& a) { return now - a.postedAt > tokens::kHeldAlertMaxAge; });
+    std::erase_if(s.alertQueue, [&](const Alert& a) { return now - a.postedAt > tokens().heldAlertMaxAge; });
 
     if (!s.alert) {
         auto next = std::find_if(s.alertQueue.begin(), s.alertQueue.end(),
@@ -112,7 +112,7 @@ void settle(IslandState& s, Ms now)
         if (next != s.alertQueue.end()) {
             s.alert = std::move(*next);
             s.alertQueue.erase(next);
-            s.alertUntil = now + tokens::kAlertDuration;
+            s.alertUntil = now + tokens().alertDuration;
         }
     }
 }
@@ -227,8 +227,8 @@ std::optional<Ms> nextDeadline(const IslandState& s)
     auto consider = [&](Ms t) { if (!next || t < *next) next = t; };
 
     if (s.alert) consider(s.alertUntil);
-    if (isExpanded(s)) consider(s.lastPointerAt + tokens::kExpandedIdleTimeout);
-    for (const auto& a : s.alertQueue) consider(a.postedAt + tokens::kHeldAlertMaxAge + Ms{ 1 });
+    if (isExpanded(s)) consider(s.lastPointerAt + tokens().expandedIdleTimeout);
+    for (const auto& a : s.alertQueue) consider(a.postedAt + tokens().heldAlertMaxAge + Ms{ 1 });
     return next;
 }
 

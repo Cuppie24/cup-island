@@ -18,6 +18,8 @@ add_library(cup_core STATIC
     src/core/easing.cpp
     src/core/island.cpp
     src/core/layout.cpp
+    src/core/tokens.cpp
+    src/core/tokens_json.cpp
 )
 target_include_directories(cup_core PUBLIC src)
 
@@ -28,21 +30,28 @@ if(CUP_BUILD_TESTS)
         tests/main.cpp
         tests/unit_tests.cpp
         tests/scenario_runner.cpp
+        tests/tokens_tests.cpp
     )
     target_link_libraries(cup_tests PRIVATE cup_core)
-    target_compile_definitions(cup_tests PRIVATE CUP_SCENARIO_DIR="${CMAKE_SOURCE_DIR}/tests/scenarios")
+    target_compile_definitions(cup_tests PRIVATE
+        CUP_SCENARIO_DIR="${CMAKE_SOURCE_DIR}/tests/scenarios"
+        CUP_TOKENS_FILE="${CMAKE_SOURCE_DIR}/assets/tokens.json")
     add_test(NAME core COMMAND cup_tests)
 endif()
 
 # --- app: Windows only ----------------------------------------------------
 if(WIN32)
     add_executable(CupIsland
+        src/app/live_tokens.cpp
         src/app/main.cpp
+        src/platform/file_watcher.cpp
         src/platform/interaction_layer.cpp
         src/platform/pill_renderer.cpp
         src/platform/render_layer.cpp
     )
     target_link_libraries(CupIsland PRIVATE cup_core WindowsApp CoreMessaging User32 dcomp)
+    # Dev builds read and live-reload the source tree's tokens.json directly.
+    target_compile_definitions(CupIsland PRIVATE CUP_TOKENS_SOURCE_PATH=L"${CMAKE_SOURCE_DIR}/assets/tokens.json")
 
     # C++/WinRT headers ship in the Windows SDK; most setups already have
     # them on the include path, this covers the ones that don't.

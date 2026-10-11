@@ -17,6 +17,10 @@ publish to.
 cmake --preset core && cmake --build --preset core && ctest --preset core   # any OS: core + tests
 ```
 
+**Tuning:** while the app runs, edit [`assets/tokens.json`](assets/tokens.json)
+(sizes, durations, easing curves) and save. Changes apply instantly. See
+ARCHITECTURE.md → Tuning.
+
 The prototype starts empty. After a moment a demo media activity appears
 with an alert, then settles. Click the pill to expand it. Demo keys (once
 the pill has focus): **M** media, **T** second activity, **A** alert,

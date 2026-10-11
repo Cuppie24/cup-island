@@ -7,16 +7,17 @@ namespace {
 
 Vec2 sizeFor(Mode mode)
 {
+    const Tokens& t = tokens();
     switch (mode) {
-    case Mode::Idle: return tokens::kIdleSize;
-    case Mode::Compact: return tokens::kCompactSize;
-    case Mode::Split: return tokens::kCompactSize;
-    case Mode::Alert: return tokens::kAlertSize;
-    case Mode::Expanded: return tokens::kExpandedSize;
-    case Mode::Receptive: return tokens::kReceptiveSize;
-    case Mode::Hidden: return tokens::kHiddenSize;
+    case Mode::Idle: return t.idleSize;
+    case Mode::Compact: return t.compactSize;
+    case Mode::Split: return t.compactSize;
+    case Mode::Alert: return t.alertSize;
+    case Mode::Expanded: return t.expandedSize;
+    case Mode::Receptive: return t.receptiveSize;
+    case Mode::Hidden: return t.hiddenSize;
     }
-    return tokens::kIdleSize;
+    return t.idleSize;
 }
 
 Content contentFor(const IslandState& s, Mode mode)
@@ -35,7 +36,7 @@ Scene layout(const IslandState& state)
     Scene scene;
     scene.mode = mode(state);
     scene.size = sizeFor(scene.mode);
-    scene.offset = { (tokens::kCanvas.x - scene.size.x) / 2, 0 };
+    scene.offset = { (tokens().canvas.x - scene.size.x) / 2, 0 };
     scene.detailOpacity = scene.mode == Mode::Expanded ? 1.0f : 0.0f;
     scene.showBubble = scene.mode == Mode::Split;
     scene.content = contentFor(state, scene.mode);

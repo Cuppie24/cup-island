@@ -12,14 +12,14 @@ namespace cup::test {
 void runUnitTests()
 {
     // Easing: pinned endpoints, monotonic, and ease-out (ahead of linear).
-    using tokens::kMorphEase1, tokens::kMorphEase2;
-    expect(cubicBezierEase(kMorphEase1, kMorphEase2, 0.0f) == 0.0f, "ease(0) == 0");
-    expect(cubicBezierEase(kMorphEase1, kMorphEase2, 1.0f) == 1.0f, "ease(1) == 1");
-    expect(cubicBezierEase(kMorphEase1, kMorphEase2, 0.5f) > 0.5f, "ease-out is ahead of linear at 0.5");
+    Bezier ease = tokens().morphEase;
+    expect(cubicBezierEase(ease, 0.0f) == 0.0f, "ease(0) == 0");
+    expect(cubicBezierEase(ease, 1.0f) == 1.0f, "ease(1) == 1");
+    expect(cubicBezierEase(ease, 0.5f) > 0.5f, "ease-out is ahead of linear at 0.5");
     float previous = 0.0f;
     bool monotonic = true;
     for (int i = 1; i <= 100; ++i) {
-        float v = cubicBezierEase(kMorphEase1, kMorphEase2, i / 100.0f);
+        float v = cubicBezierEase(ease, i / 100.0f);
         monotonic = monotonic && v >= previous;
         previous = v;
     }
@@ -31,8 +31,8 @@ void runUnitTests()
 
     // Layout: pill is centered in the canvas and hangs from the top edge.
     Scene scene = layout(idle);
-    expect(scene.size == tokens::kIdleSize, "idle uses idle size");
-    expect(scene.offset.x * 2 + scene.size.x == tokens::kCanvas.x, "pill is horizontally centered");
+    expect(scene.size == tokens().idleSize, "idle uses idle size");
+    expect(scene.offset.x * 2 + scene.size.x == tokens().canvas.x, "pill is horizontally centered");
     expect(scene.offset.y == 0, "pill is flush with the top edge");
 
     // Expanded shows the opened activity's content and the detail layer.

@@ -11,7 +11,7 @@
 
 namespace cup::platform {
 
-enum class TimerId : UINT_PTR { Deadline = 1, Demo = 2 };
+enum class TimerId : UINT_PTR { Deadline = 1, Demo = 2, TokensReload = 3 };
 
 struct InteractionCallbacks {
     std::function<void()> onPressDown;
@@ -34,5 +34,8 @@ void followMorph(Vec2 toSize, Vec2 toOffset);
 // One-shot timer: fires onTimer(id) once after `delay`, replacing an earlier
 // request with the same id. nullopt cancels.
 void setTimer(TimerId id, std::optional<std::chrono::milliseconds> delay);
+
+// Same as setTimer(id, delay), callable from any thread (e.g. the file watcher).
+void setTimerFromAnyThread(TimerId id, std::chrono::milliseconds delay);
 
 } // namespace cup::platform

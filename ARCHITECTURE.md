@@ -21,7 +21,8 @@ How the code is organised and why. For *what* the app does, see
 - **`core/` decides.** It holds every rule: which mode the island is in, which
   alert shows, what's ranked first, what size the pill should be. It has no
   Windows headers, no I/O, no threads and no clock reads (time is passed in).
-  That means it builds and tests on any OS.
+  That means it builds and tests on any OS. Its one piece of global state is
+  the active `tokens()`, which only the tokens.json reload writes.
 - **`platform/` executes.** It turns window messages into core `Event`s and
   `Scene`s into Composition properties. It never decides *what* to show.
 - **`app/` wires.** `main.cpp` owns the state and runs the loop:
@@ -32,10 +33,11 @@ So "why did X happen?" is always answered in `core/`, by a scenario test.
 ## Layout
 
 ```
-src/core/       pure logic: island.h (state machine), layout.h, tokens.h, easing.h
+src/core/       pure logic: island.h (state machine), layout.h, tokens.h (+ tokens_json.h), easing.h
 src/platform/   Win32 + C++/WinRT + Composition: render layer, interaction layer, renderer
 src/providers/  (future) data sources: media, calendar, file shelf, …
-src/app/        main.cpp: wiring only
+src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload
+assets/         tokens.json: the live-tunable sizes, timings and curves
 tests/          unit tests + scenarios/*.scenario (state rules in plain text)
 docs/           specs (TR, PS) and decisions/ (why things are the way they are)
 ```
@@ -67,10 +69,30 @@ Nothing includes "upward". `core/` never includes `platform/`.
   short, with a one-line comment per declaration.
 - **Comments say *why*, briefly**, and point at specs (`// TR §9.1`) or
   decisions (`docs/decisions/001-…`). Long reasoning goes in a decision record.
-- **All tuning lives in `core/tokens.h`.** Sizes, timings, easing curves, limits.
+- **All tuning lives in `assets/tokens.json`.** Sizes, timings, easing curves
+  and limits. Edit it while the app runs and saving applies it live (see
+  "Tuning" below). `core/tokens.h` declares the same fields with fallback defaults.
 - **Threads:** everything runs on the UI thread. The only exception is the
   compositor-tick thread, which just posts a message. Future providers post
   events to the UI thread; core has no locks.
+
+## Tuning (live)
+
+1. Run the app (`.\build.ps1 -Run`) and open `assets/tokens.json` in any editor.
+2. Change a value and save. The island picks it up immediately, and the
+   console prints `tokens.json reloaded`.
+3. If the file has a mistake (typo'd name, wrong shape, negative duration,
+   syntax error), the console lists each problem with its line number and the
+   previous values stay active. Nothing is half-applied.
+
+Durations are in milliseconds and named `…Ms`. Sizes are `[width, height]`.
+Curves are `[x1, y1, x2, y2]`, the same as CSS `cubic-bezier()`, so you can
+paste from cubic-bezier.com. `canvasSize` only applies on restart. Watching
+is event-driven (`FindFirstChangeNotification`), so it costs nothing between saves.
+
+Adding a token: add the field to `Tokens` in `core/tokens.h`, add one line to
+the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
+(the tests fail if the file has unknown names).
 
 ## Testing
 
@@ -90,3 +112,4 @@ Nothing includes "upward". `core/` never includes `platform/`.
 | Real input for drag (OLE drop target) and fullscreen detection (TR §9.2) | not yet; demo keys simulate them |
 | Providers (`IProvider`, media, …) and plugin pipe (PS §7–8) | not yet |
 | Rate limits, dismissal policies, stale activities (PS §4, §6.3) | not yet |
+| Live-tunable tokens (`assets/tokens.json`, reload on save) | done; parser tested |

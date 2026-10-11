@@ -17,7 +17,7 @@ A Dynamic Island for Windows: a standalone C++/WinRT app (Win32 + Composition).
 ## Rules
 - Logic goes in `src/core/` (pure: no Windows headers, no I/O, no clock reads). Platform code only translates.
 - Every state rule change gets a line in `tests/scenarios/*.scenario`. Run the tests before committing.
-- Sizes, timings and limits live only in `src/core/tokens.h`.
+- Sizes, timings and limits: fields in `src/core/tokens.h`, values in `assets/tokens.json` (live-reloaded). Never hard-code them.
 - Plain C++20 subset: structs + free functions, enum class, variant/optional. No macros, no template metaprogramming.
 - Files ~300 lines max; headers are short and commented. Comments say why, and cite TR/PS/decisions.
 - Don't read `build/`.

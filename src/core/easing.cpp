@@ -2,7 +2,7 @@
 
 namespace cup {
 
-float cubicBezierEase(Vec2 c1, Vec2 c2, float t)
+float cubicBezierEase(Bezier curve, float t)
 {
     if (t <= 0.0f) return 0.0f;
     if (t >= 1.0f) return 1.0f;
@@ -17,9 +17,9 @@ float cubicBezierEase(Vec2 c1, Vec2 c2, float t)
     float lo = 0.0f, hi = 1.0f;
     for (int i = 0; i < 24; ++i) {
         float mid = (lo + hi) / 2.0f;
-        (bezier(c1.x, c2.x, mid) < t ? lo : hi) = mid;
+        (bezier(curve.c1.x, curve.c2.x, mid) < t ? lo : hi) = mid;
     }
-    return bezier(c1.y, c2.y, (lo + hi) / 2.0f);
+    return bezier(curve.c1.y, curve.c2.y, (lo + hi) / 2.0f);
 }
 
 } // namespace cup

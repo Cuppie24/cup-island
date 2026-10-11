@@ -30,18 +30,23 @@ CompositionSpriteShape roundedBar(Compositor const& c, ShapeVisual const& pill, 
     return shape;
 }
 
+CubicBezierEasingFunction easingFor(Compositor const& c, Bezier curve)
+{
+    return c.CreateCubicBezierEasingFunction(toFloat2(curve.c1), toFloat2(curve.c2));
+}
+
 ImplicitAnimationCollection morphAnimations(Compositor const& c)
 {
-    auto easing = c.CreateCubicBezierEasingFunction(toFloat2(tokens::kMorphEase1), toFloat2(tokens::kMorphEase2));
+    auto easing = easingFor(c, tokens().morphEase);
 
     auto size = c.CreateVector2KeyFrameAnimation();
     size.InsertExpressionKeyFrame(1.0f, L"this.FinalValue", easing);
-    size.Duration(tokens::kMorphDuration);
+    size.Duration(tokens().morphDuration);
     size.Target(L"Size");
 
     auto offset = c.CreateVector3KeyFrameAnimation();
     offset.InsertExpressionKeyFrame(1.0f, L"this.FinalValue", easing);
-    offset.Duration(tokens::kMorphDuration);
+    offset.Duration(tokens().morphDuration);
     offset.Target(L"Offset");
 
     auto collection = c.CreateImplicitAnimationCollection();
@@ -54,12 +59,12 @@ ImplicitAnimationCollection morphAnimations(Compositor const& c)
 // first, then content crossfades, like the real Dynamic Island.
 ImplicitAnimationCollection fadeAnimations(Compositor const& c)
 {
-    auto easing = c.CreateCubicBezierEasingFunction(toFloat2(tokens::kMorphEase1), toFloat2(tokens::kMorphEase2));
+    auto easing = easingFor(c, tokens().morphEase);
 
     auto opacity = c.CreateScalarKeyFrameAnimation();
     opacity.InsertExpressionKeyFrame(1.0f, L"this.FinalValue", easing);
-    opacity.Duration(tokens::kDetailFadeDuration);
-    opacity.DelayTime(tokens::kDetailFadeDelay);
+    opacity.Duration(tokens().detailFadeDuration);
+    opacity.DelayTime(tokens().detailFadeDelay);
     opacity.DelayBehavior(AnimationDelayBehavior::SetInitialValueBeforeDelay);
     opacity.Target(L"Opacity");
 
@@ -68,9 +73,9 @@ ImplicitAnimationCollection fadeAnimations(Compositor const& c)
     return collection;
 }
 
-void playScale(Compositor const& c, ShapeVisual const& pill, float scale, tokens::Ms duration, Vec2 ease1, Vec2 ease2)
+void playScale(Compositor const& c, ShapeVisual const& pill, float scale, Ms duration, Bezier curve)
 {
-    auto easing = c.CreateCubicBezierEasingFunction(toFloat2(ease1), toFloat2(ease2));
+    auto easing = easingFor(c, curve);
     auto anim = c.CreateVector3KeyFrameAnimation();
     anim.InsertKeyFrame(1.0f, { scale, scale, 1.0f }, easing);
     anim.Duration(duration);
@@ -86,7 +91,6 @@ void PillRenderer::build(wuc::Compositor const& c, wuc::ContainerVisual const& r
     pill_ = c.CreateShapeVisual();
     pill_.Size(toFloat2(initial.size));
     pill_.Offset(toFloat3(initial.offset));
-    pill_.ImplicitAnimations(morphAnimations(c));
 
     // Press-scale pivots on the middle of the top edge, so the pill stays glued
     // to the screen edge while its sides and bottom squash in.
@@ -108,7 +112,6 @@ void PillRenderer::build(wuc::Compositor const& c, wuc::ContainerVisual const& r
     // until the PS §5 content model is rendered. Positions follow the pill's size.
     detail_ = c.CreateContainerVisual();
     detail_.Opacity(initial.detailOpacity);
-    detail_.ImplicitAnimations(fadeAnimations(c));
 
     auto art = c.CreateEllipseGeometry();
     art.Radius({ 16.0f, 16.0f });
@@ -127,6 +130,15 @@ void PillRenderer::build(wuc::Compositor const& c, wuc::ContainerVisual const& r
     detail_.Children().InsertAtTop(detailShapes);
     pill_.Children().InsertAtTop(detail_);
     root.Children().InsertAtTop(pill_);
+
+    // Attached last, so the initial Size/Offset/Opacity above don't animate.
+    refreshAnimations();
+}
+
+void PillRenderer::refreshAnimations()
+{
+    pill_.ImplicitAnimations(morphAnimations(compositor_));
+    detail_.ImplicitAnimations(fadeAnimations(compositor_));
 }
 
 void PillRenderer::apply(const Scene& scene)
@@ -138,14 +150,14 @@ void PillRenderer::apply(const Scene& scene)
 
 void PillRenderer::pressDown()
 {
-    playScale(compositor_, pill_, tokens::kPressScale, tokens::kPressDownDuration,
-              tokens::kPressDownEase1, tokens::kPressDownEase2);
+    const Tokens& t = tokens();
+    playScale(compositor_, pill_, t.pressScale, t.pressDownDuration, t.pressDownEase);
 }
 
 void PillRenderer::pressRelease()
 {
-    playScale(compositor_, pill_, 1.0f, tokens::kPressReleaseDuration,
-              tokens::kPressReleaseEase1, tokens::kPressReleaseEase2);
+    const Tokens& t = tokens();
+    playScale(compositor_, pill_, 1.0f, t.pressReleaseDuration, t.pressReleaseEase);
 }
 
 } // namespace cup::platform

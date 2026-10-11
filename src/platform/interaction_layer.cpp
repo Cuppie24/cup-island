@@ -16,6 +16,8 @@ constexpr wchar_t kClassName[] = L"CupIslandInputWindow";
 
 // Posted by the tick thread once per composed frame while a morph is running.
 constexpr UINT WM_APP_COMPOSITOR_TICK = WM_APP + 1;
+// Posted by setTimerFromAnyThread: wParam = TimerId, lParam = delay in ms.
+constexpr UINT WM_APP_SET_TIMER = WM_APP + 2;
 
 HWND g_hwnd{};
 int g_renderLeft = 0;
@@ -58,13 +60,13 @@ void onCompositorTick()
         g_morph.start = now;
         g_morph.clockPending = false;
     }
-    float t = std::chrono::duration<float>(now - g_morph.start) / tokens::kMorphDuration;
+    float t = std::chrono::duration<float>(now - g_morph.start) / tokens().morphDuration;
     if (t >= 1.0f) {
         g_morph.active = false;
         snap(g_morph.toSize, g_morph.toOffset);
         return;
     }
-    float e = cubicBezierEase(tokens::kMorphEase1, tokens::kMorphEase2, t);
+    float e = cubicBezierEase(tokens().morphEase, t);
     snap(lerp(g_morph.fromSize, g_morph.toSize, e), lerp(g_morph.fromOffset, g_morph.toOffset, e));
 }
 
@@ -94,6 +96,10 @@ try {
     switch (message) {
     case WM_APP_COMPOSITOR_TICK:
         onCompositorTick();
+        return 0;
+
+    case WM_APP_SET_TIMER:
+        setTimer(static_cast<TimerId>(wParam), std::chrono::milliseconds{ lParam });
         return 0;
 
     case WM_LBUTTONDOWN: // this window is exactly the pill
@@ -218,6 +224,11 @@ void setTimer(TimerId id, std::optional<std::chrono::milliseconds> delay)
     }
     auto ms = std::max<long long>(delay->count(), USER_TIMER_MINIMUM);
     SetTimer(g_hwnd, timerId, static_cast<UINT>(ms), nullptr);
+}
+
+void setTimerFromAnyThread(TimerId id, std::chrono::milliseconds delay)
+{
+    PostMessageW(g_hwnd, WM_APP_SET_TIMER, static_cast<WPARAM>(id), static_cast<LPARAM>(delay.count()));
 }
 
 } // namespace cup::platform

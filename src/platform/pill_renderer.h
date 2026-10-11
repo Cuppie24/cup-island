@@ -12,6 +12,9 @@ public:
     void build(wuc::Compositor const& compositor, wuc::ContainerVisual const& root, const Scene& initial);
     void apply(const Scene& scene);
 
+    // Rebuilds the implicit animations from the current tokens() (after a reload).
+    void refreshAnimations();
+
     // Tactile click feedback: squash on press, spring back on release.
     void pressDown();
     void pressRelease();

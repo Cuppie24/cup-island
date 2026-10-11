@@ -10,6 +10,7 @@
 
 namespace cup::test {
 void runUnitTests();
+void runTokensTests();
 int runScenarioFile(const std::filesystem::path& file); // returns scenarios run
 }
 
@@ -19,6 +20,7 @@ int main(int argc, char** argv)
     using namespace cup::test;
 
     runUnitTests();
+    runTokensTests();
 
     fs::path dir = argc > 1 ? fs::path(argv[1]) : fs::path(CUP_SCENARIO_DIR);
     std::vector<fs::path> files;
