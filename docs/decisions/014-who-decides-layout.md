@@ -1,4 +1,4 @@
-# 011: Who decides what a card looks like
+# 014: Who decides what a card looks like
 
 Status: Accepted
 

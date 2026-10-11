@@ -72,7 +72,7 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
                  { "alertCenter", &c.alertCenter, { centerX, p, size.x - centerX - p, side } } };
     }
     case Mode::Expanded: {
-        if (c.card == CardLayout::Centred) // one stack across the whole card (decision 011)
+        if (c.card == CardLayout::Centred) // one stack across the whole card (decision 014)
             return { { "expandedCenter", &c.expandedCenter, { p, p, size.x - 2 * p, size.y - 2 * p } } };
         float art = t.expandedArtSize, y = p, centerX = p + art + t.slotGap, bottomY = y + art + t.slotGap;
         float corner = t.buttonSize, cornerX = size.x - p - corner;

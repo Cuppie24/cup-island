@@ -78,7 +78,7 @@ Panel pomodoroPanel()
 }
 
 // Compact: the countdown centred, the ring filling on the right; no phase
-// name (the colour says it). Expanded, a centred card (decision 011): the
+// name (the colour says it). Expanded, a centred card (decision 014): the
 // controls on top, the ring beside a big countdown in the middle, then a
 // dot per phase and what they mean. No bar: the ring already shows it.
 Content pomodoroContent(const PomodoroProvider::Session& s)

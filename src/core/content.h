@@ -106,7 +106,7 @@ using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Wavefo
 
 enum class Align { Start, Center, End };
 
-// How the Expanded card arranges its slots (decision 011). Providers pick a
+// How the Expanded card arranges its slots (decision 014). Providers pick a
 // preset; the host owns the geometry.
 //  Standard: art square left, title centre, corner button, bottom rows (media).
 //  Centred:  only `expandedCenter`, full width, rows stacked and centred: a
