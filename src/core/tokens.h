@@ -93,7 +93,7 @@ struct Tokens {
     float bridgeThickness = 20;   // liquid neck between pill and bubble, at its thickest
     float bridgeReach = 6;        // edge gap at which the neck has thinned to nothing (< bubbleGap: none at rest)
 
-    // The island's shadow (pill, bubble and neck as one shape); colour in shadowColor.
+    // The island's shadow, under the pill and the bubble (decision 018); colour in shadowColor.
     float shadowBlur = 16;
     Vec2 shadowOffset{ 0, 4 };    // down: the island hangs from the top edge
 

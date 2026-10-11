@@ -48,12 +48,6 @@ private:
     void applyContent(); // the latest pending scene's content, for both blobs
 
     GraphicsDevice device_;
-    // Pill, bubble and the neck between them are drawn into one layer, which
-    // casts one shadow from their combined shape: it follows every morph,
-    // the bubble budding off, drags and press squashes, all on the compositor.
-    wuc::LayerVisual island_{ nullptr };
-    wuc::DropShadow shadow_{ nullptr };
-    void applyShadow(); // from tokens: colour, blur, offset
     Blob pill_;
     Blob bubble_;
     LiquidBridge bridge_;

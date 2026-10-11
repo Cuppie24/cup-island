@@ -1,4 +1,4 @@
-# 018: One shadow for the whole island
+# 018: The island's shadow
 
 Status: Accepted
 
@@ -6,15 +6,20 @@ Status: Accepted
 Split bubble, Expanded), so it lifts off whatever is under it, light
 wallpapers and windows especially.
 
-**Decision.** The pill, the bubble and the liquid neck between them are
-built into one Composition `LayerVisual` covering the canvas, and that
-layer has a `DropShadow`. The shadow comes from the layer's combined alpha,
-so:
-- it's one shadow for one shape: where the bubble buds off and the neck
-  stretches, the shadow does the same, without two shadows overlapping;
-- it follows every morph, drag and press squash with no code: it's all on
-  the compositor, and an idle island still costs nothing (TR §8);
+**Decision.** Each shape (the pill, the bubble) gets a shadow caster under
+it: a `SpriteVisual` with no brush, so it draws nothing itself, carrying a
+`DropShadow` whose mask is a live `CompositionVisualSurface` snapshot of
+the shape. So:
+- the shadow has the shape's outline (rounded bottom), not its rectangle;
+- the caster's size, offset, scale and pivot are bound to the shape's by
+  expressions, and the snapshot re-renders on the compositor, so it
+  follows every morph, drag and press squash with no app code, and an idle
+  island still costs nothing (TR §8);
 - Hidden (height 0) casts nothing.
+- The liquid neck casts none: it's thin and short-lived.
+
+`CreateVisualSurface` is Windows 10 1903+. It's looked up at runtime
+(decision 015); without it there's no shadow and nothing else changes.
 
 Tokens: `shadowColor` (its alpha is the strength), `shadowBlur`,
 `shadowOffset` (down, since the island hangs from the top edge). Like every
@@ -22,10 +27,13 @@ length, blur and offset follow the display's scale and `islandScale`. The
 canvas grew to 440×420 so the blur isn't cut off at the sides or under the
 tallest card.
 
-(Not chosen: a shadow per shape. A ShapeVisual can't carry one anyway, so
-it would mean a SpriteVisual mask per blob, and two shadows would overlap
-where the neck joins them.)
+(Tried first: pill, bubble and neck in one `LayerVisual` with a
+`DropShadow`, for a single shadow of the combined shape. On a real build it
+cast a shadow of the whole canvas rectangle, and the island inside the
+layer wasn't drawn at all. Shapes stay where they always were now; the
+shadow is extra visuals under them, so a shadow problem can't hide the
+island.)
 
-**Consequences.** `platform/pill_renderer` owns the layer and its shadow;
-`Blob` and `LiquidBridge` are unchanged, they just build into the layer.
-Needs a Windows run to judge the look.
+**Consequences.** `Blob` builds and updates its own caster
+(`buildShadow`, `applyShadow`); nothing else changes. Needs a Windows run
+to judge the look.
