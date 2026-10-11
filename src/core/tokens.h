@@ -153,6 +153,9 @@ struct Tokens {
     Ms pomodoroLongBreak{ 900000 };
     std::size_t pomodoroRounds = 4;
 
+    // Home's "Copy logs" tile: how long it says "Copied" after a tap.
+    Ms logsNote{ 2000 };
+
     bool operator==(const Tokens&) const = default;
 };
 

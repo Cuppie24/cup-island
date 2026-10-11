@@ -1,10 +1,14 @@
 #include "platform/interaction_layer.h"
+#include "platform/log.h"
 
 #include "core/easing.h"
 #include "core/tokens.h"
 
+#include <dwmapi.h>
+
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <thread>
@@ -71,16 +75,44 @@ void onCompositorTick()
     snap(lerp(g_morph.fromSize, g_morph.toSize, e), lerp(g_morph.fromOffset, g_morph.toOffset, e));
 }
 
+// Blocks until the next composed frame. Windows 11 has a compositor clock
+// API; it's looked up at runtime, never linked: a static import made the exe
+// refuse to start on Windows 10 ("ordinal 1104 not found", decision 001).
+// Windows 10 waits with DwmFlush, which also returns once per composition.
+using WaitForCompositorClock = DWORD(WINAPI*)(UINT count, const HANDLE* handles, DWORD timeoutMs);
+
+WaitForCompositorClock findCompositorClock()
+{
+    HMODULE dcomp = LoadLibraryW(L"dcomp.dll");
+    auto wait = dcomp ? reinterpret_cast<WaitForCompositorClock>(
+                            reinterpret_cast<void*>(GetProcAddress(dcomp, "DCompositionWaitForCompositorClock")))
+                      : nullptr;
+    logLine("frame clock: %s", wait ? "compositor clock (Windows 11)" : "DwmFlush (Windows 10 fallback)");
+    return wait;
+}
+
+void waitForNextFrame(WaitForCompositorClock compositorClock)
+{
+    if (compositorClock) {
+        // Timeout only so a morph still finishes if the clock stalls (e.g. display off).
+        compositorClock(0, nullptr, 100);
+        return;
+    }
+    // DwmFlush can return at once when nothing is being composed; never spin.
+    auto start = std::chrono::steady_clock::now();
+    DwmFlush();
+    if (std::chrono::steady_clock::now() - start < std::chrono::milliseconds(1)) Sleep(4);
+}
+
 // Wakes once per composed frame while a morph runs (the render layer's own
 // cadence, not an independent timer) and sleeps otherwise: idle costs nothing.
 void compositorTickThread()
 {
+    WaitForCompositorClock compositorClock = findCompositorClock();
     for (;;) {
         WaitForSingleObject(g_morphStartedEvent, INFINITE);
         while (g_morph.active) {
-            // Timeout only so a morph still finishes if the compositor clock
-            // stalls (e.g. display off).
-            DCompositionWaitForCompositorClock(0, nullptr, 100);
+            waitForNextFrame(compositorClock);
             PostMessageW(g_hwnd, WM_APP_COMPOSITOR_TICK, 0, 0);
         }
     }
@@ -179,14 +211,12 @@ try {
 catch (winrt::hresult_error const& e) {
     // An exception escaping a window procedure usually kills the process
     // silently; a visibly skipped frame is better.
-    std::printf("[cup-island] WinRT error handling message 0x%04x: 0x%08x %ls\n",
+    logLine("WinRT error handling message 0x%04x: 0x%08x %ls",
         message, static_cast<unsigned int>(e.code()), e.message().c_str());
-    std::fflush(stdout);
     return 0;
 }
 catch (...) {
-    std::printf("[cup-island] Unknown exception handling message 0x%04x\n", message);
-    std::fflush(stdout);
+    logLine("Unknown exception handling message 0x%04x", message);
     return 0;
 }
 

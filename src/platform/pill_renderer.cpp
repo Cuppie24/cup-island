@@ -1,12 +1,17 @@
 #include "platform/pill_renderer.h"
+#include "platform/log.h"
 
 #include "core/tokens.h"
 #include "platform/element_painting.h"
+
+#include <chrono>
+#include <cstdio>
 
 namespace cup::platform {
 
 void PillRenderer::build(wuc::Compositor const& c, wuc::ContainerVisual const& root, const Scene& initial)
 {
+    queue_ = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
     device_.create(c);
     pill_.build(c, device_, root, initial.size, initial.offset);
     bubble_.build(c, device_, root, {}, initial.bubbleTuck); // above the pill: it's dragged over it
@@ -34,9 +39,12 @@ float PillRenderer::measure(const Text& text)
 
 void PillRenderer::apply(const Scene& scene)
 {
+    // Geometry first, content later (decision 012). Building content means new
+    // surfaces and Direct2D drawing for every element that appears, and while
+    // this handler runs, Composition can't commit the new Size: the morph
+    // would start only after all of it, which reads as lag on mouse-up.
     pill_.place(scene.size, scene.offset);
     pill_.setHighlighted(scene.dropTarget);
-    pill_.setContent(scene.elements, scene.now);
     const TabStrip* tabs = scene.tabs ? &*scene.tabs : nullptr;
     pill_.setSelectedTab(tabs && tabs->active ? std::optional<Rect>(tabs->tabs[*tabs->active].frame) : std::nullopt, tabs ? tabs->radius : 0);
     if (!tabs && scene.tiles.empty()) pill_.setHovered(std::nullopt, 0);
@@ -51,12 +59,40 @@ void PillRenderer::apply(const Scene& scene)
     if (bubble) {
         bubble_.place({ bubble->frame.width, bubble->frame.height }, { bubble->frame.x, bubble->frame.y });
         bubble_.follow(bubble->dragCentre);
-        bubble_.setContent(bubble->elements, scene.now);
     } else {
         // No bubble: shrink into the pill (it buds back out of the same spot).
         bubble_.follow(std::nullopt);
         bubble_.place({}, scene.bubbleTuck);
-        bubble_.setContent({}, scene.now);
+    }
+
+    // Low priority runs after the compositor's own commit work. Only the
+    // latest scene matters, so a burst of applies (pointer moves) queues one call.
+    bool queued = pendingContent_.has_value();
+    pendingContent_ = scene;
+    auto run = [this] {
+        // Outside the window procedure's try: an escaping exception would end the process.
+        try {
+            applyContent();
+        } catch (winrt::hresult_error const& e) {
+            logLine("WinRT error building content: 0x%08x %ls", static_cast<unsigned int>(e.code()), e.message().c_str());
+        }
+    };
+    if (!queued && !queue_.TryEnqueue(winrt::Windows::System::DispatcherQueuePriority::Low, run))
+        run(); // queue shutting down: do it now
+}
+
+void PillRenderer::applyContent()
+{
+    if (!pendingContent_) return;
+    Scene scene = *std::exchange(pendingContent_, std::nullopt);
+    auto start = std::chrono::steady_clock::now();
+    pill_.setContent(scene.elements, scene.now);
+    bubble_.setContent(scene.bubble ? scene.bubble->elements : std::vector<Placed>{}, scene.now);
+
+    // Debug builds have a console: flag slow content builds when chasing lag.
+    auto took = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
+    if (took.count() > 8) {
+        logLine("content took %lld ms", static_cast<long long>(took.count()));
     }
 }
 

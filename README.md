@@ -8,17 +8,31 @@ publish to.
   [docs/provider-platform-spec.md](docs/provider-platform-spec.md)
 - How the code works: [ARCHITECTURE.md](ARCHITECTURE.md)
 
+Runs on Windows 10 (version 1809 or later) and Windows 11.
+
 ## Build
 
 ```powershell
 .\build.ps1 -Run          # Windows: full app, Release (needs Visual Studio "Desktop development with C++")
-.\build.ps1 -Debug -Run   # Windows: Debug build, for stepping through code
+.\build.ps1 -Debug -Run   # Windows: Debug build, with a console window for the log
+.\build.ps1 -Installer    # Windows: Release + dist\CupIsland-Setup-<version>.exe (needs Inno Setup 6.3+)
 ```
 In Visual Studio: **File → Open → Folder**, pick the *Windows x64 Debug* or
 *Release* configure preset in the toolbar, select `CupIsland.exe` as startup item, F5.
 ```sh
 cmake --preset core && cmake --build --preset core && ctest --preset core   # Linux/macOS: core + tests
 ```
+
+**Release:** bump `AppVersion` in [`installer/cup-island.iss`](installer/cup-island.iss),
+run `.\build.ps1 -Installer`, tag the commit (`git tag v0.1.0`) and attach the
+setup exe to a GitHub release. The exe has the C++ runtime built in, so users
+need nothing else. The Release build has no console: quit from the tray icon
+(right-click → Exit; *Start with Windows* is there too). See [decision 011](docs/decisions/011-installer-before-msix.md).
+
+**Something wrong?** Open Home (click the idle pill) and tap **Logs**: the
+recent log is copied to the clipboard, ready to paste into a bug report. The
+log, plus a `.dmp` file if the island froze or crashed, is in
+`%LOCALAPPDATA%\CupIsland\logs`.
 
 **Tuning:** while the app runs, edit [`assets/tokens.json`](assets/tokens.json)
 (sizes, durations, easing curves) and save. Changes apply instantly. See

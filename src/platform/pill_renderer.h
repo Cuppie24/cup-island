@@ -19,6 +19,8 @@ namespace cup::platform {
 class PillRenderer {
 public:
     void build(wuc::Compositor const& compositor, wuc::ContainerVisual const& root, const Scene& initial);
+    // Starts the morph now; content follows in a queued call, so building it
+    // doesn't hold back the frame the morph starts on (decision 012).
     void apply(const Scene& scene);
 
     // Rebuilds the implicit animations from the current tokens() (after a reload).
@@ -43,11 +45,15 @@ public:
     void setAreaHovered(std::optional<Rect> area, float cornerRadius) { pill_.setHovered(area, cornerRadius); }
 
 private:
+    void applyContent(); // the latest pending scene's content, for both blobs
+
     GraphicsDevice device_;
     Blob pill_;
     Blob bubble_;
     LiquidBridge bridge_;
     std::map<std::pair<std::string, TextStyle>, float> measured_;
+    winrt::Windows::System::DispatcherQueue queue_{ nullptr };
+    std::optional<Scene> pendingContent_; // set: an applyContent() call is queued
 };
 
 } // namespace cup::platform
