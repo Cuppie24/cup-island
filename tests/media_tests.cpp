@@ -36,6 +36,9 @@ void runMediaTests()
 
     presenter.show(track("Spotify.exe", "One"));
     expect(host.started.size() == 1 && host.alerts.empty(), "first snapshot shows without an alert");
+    const Slot& bubble = host.started[0].content.minimal;
+    expect(bubble.size() == 1 && bubble[0].items.size() == 1 && bubble[0].items[0] == Item{ Waveform{ true } },
+           "bubble (minimal) shows the equalizer bars while playing");
     expect(host.started[0].id == MediaPresenter::kActivityId && !host.started[0].expiresAt, "playing: no expiry");
 
     presenter.show(track("Spotify.exe", "One"));
