@@ -28,7 +28,9 @@ public:
     // Expanded's tabs (pill coordinates; nullopt = none): the active tab's
     // background slides to a newly picked tab; hover is fainter and just fades.
     void setSelectedTab(std::optional<Rect> tab, float cornerRadius);
-    void setHoveredTab(std::optional<Rect> tab, float cornerRadius);
+    void setHovered(std::optional<Rect> area, float cornerRadius); // a tab or a Home tile under the pointer
+    // Home's tiles (decision 009): a faint background under each, like a hovered tab.
+    void setTiles(const std::vector<Rect>& tiles, float cornerRadius);
 
     // Tactile click feedback: squash on press, spring back on release.
     void pressDown();
@@ -49,10 +51,12 @@ private:
     struct Mark { // a rounded highlight under content, made on first use
         wuc::ShapeVisual visual{ nullptr };
         wuc::CompositionRoundedRectangleGeometry shape{ nullptr };
+        wuc::CompositionColorBrush brush{ nullptr };
         std::optional<Rect> at;
     };
-    void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, std::uint8_t alpha, bool slide);
-    Mark selectedTab_, hoveredTab_;
+    void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide);
+    Mark selectedTab_, hovered_;
+    std::vector<Mark> tiles_; // grows to the most tiles shown; spare ones stay faded out
     ElementVisuals elements_;
     Vec2 size_, offset_;
     Vec2 centre_;            // last cursor position while following

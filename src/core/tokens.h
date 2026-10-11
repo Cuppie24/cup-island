@@ -4,6 +4,7 @@
 // them and reloads it on save (core/tokens_json.h). Nothing else hard-codes
 // sizes or timings.
 
+#include "core/content.h"
 #include "core/geometry.h"
 
 #include <chrono>
@@ -56,6 +57,9 @@ struct Tokens {
     float progressHitHeight = 16; // taller than drawn, so it's easy to click
     float progressKnobSize = 12;  // the scrub handle shown on hover
     float timeLabelWidth = 48;
+    float ringThickness = 3;      // progress ring stroke (decision 010)
+    float stepDotSize = 6;        // Steps: one dot per step
+    float stepDotGap = 5;
 
     // Hover on buttons and the progress bar (decision 002: content only, not the pill).
     Ms hoverFadeDuration{ 120 };
@@ -76,7 +80,6 @@ struct Tokens {
     float bubbleSize = 32;        // width and height; shaped like the pill (straight top, rounded bottom)
     float bubbleGap = 8;          // between the pill's right edge and the bubble at rest
     float dragStartDistance = 4;  // a press on the bubble that moves less is a click
-    float dropHighlight = 0.18f;  // pill background grey (0 black .. 1 white) while the bubble is over it
     float bridgeThickness = 20;   // liquid neck between pill and bubble, at its thickest
     float bridgeReach = 6;        // edge gap at which the neck has thinned to nothing (< bubbleGap: none at rest)
 
@@ -84,6 +87,13 @@ struct Tokens {
     float tabHeight = 28;
     float tabGap = 4;
     float tabMaxWidth = 140;      // each tab's width; the group is centred, and shrinks only when they don't fit
+    float homeButtonWidth = 44;   // Home's icon-only button, apart at the left (decision 009)
+
+    // Home: a grid of panel tiles in the Expanded card (decision 009).
+    std::size_t homeColumns = 4;  // a tile is one column wide, or two (Panel::wide)
+    float tileHeight = 58;
+    float tileGap = 8;
+    float tilePadding = 8;        // inside a tile, on every side
 
     // Morph between modes: ease-out, 250-350 ms budget (TR §5).
     Ms morphDuration{ 300 };
@@ -111,6 +121,36 @@ struct Tokens {
     // After any app starts/stops playing, ask Windows again this much later:
     // its "current session" can switch slightly after the playback event.
     Ms mediaSessionRecheck{ 300 };
+
+    // Colours: every colour the island draws. tokens.json writes [r, g, b] or
+    // [r, g, b, alpha], channels 0..255 and alpha 0..1, like CSS rgba().
+    Color islandColor{ 0, 0, 0 };
+    Color islandHighlightColor{ 46, 46, 46 }; // the pill while the dragged bubble is over it (decision 007)
+    Color titleTextColor{ 255, 255, 255 };
+    Color bodyTextColor{ 255, 255, 255, 179 };
+    Color captionTextColor{ 255, 255, 255, 140 }; // also Digits
+    Color iconColor{ 255, 255, 255, 230 };
+    Color buttonColor{ 255, 255, 255, 242 };       // glyph, and a toggle's "on" dot
+    Color buttonOffColor{ 255, 255, 255, 128 };    // a toggle that's off
+    Color buttonDisabledColor{ 255, 255, 255, 77 };
+    Color buttonHoverColor{ 255, 255, 255, 41 };   // the shape behind a hovered button
+    Color trackColor{ 255, 255, 255, 61 };         // a progress bar's or ring's empty part
+    Color liveColor{ 255, 255, 255, 230 };         // progress fill, waveform: when the content has no accent
+    Color knobColor{ 255, 255, 255 };
+    Color stepDoneColor{ 255, 255, 255, 191 };
+    Color stepTodoColor{ 255, 255, 255, 51 };
+    Color tabSelectedColor{ 255, 255, 255, 41 };
+    Color hoverColor{ 255, 255, 255, 20 };         // a tab or tile under the pointer
+    Color tileColor{ 255, 255, 255, 20 };          // Home's tile backgrounds
+    Color imagePlaceholderColor{ 255, 255, 255, 31 }; // art that hasn't arrived
+    Color pomodoroFocusColor{ 255, 99, 71 };       // accents (decision 010)
+    Color pomodoroBreakColor{ 52, 199, 89 };
+
+    // Pomodoro (decision 009): focus rounds with short breaks, a long break after the last round.
+    Ms pomodoroFocus{ 1500000 };
+    Ms pomodoroBreak{ 300000 };
+    Ms pomodoroLongBreak{ 900000 };
+    std::size_t pomodoroRounds = 4;
 
     bool operator==(const Tokens&) const = default;
 };

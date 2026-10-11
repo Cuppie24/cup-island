@@ -11,6 +11,15 @@ namespace {
 
 Vec2 sizeOf(const Placed& p) { return { p.frame.width, p.frame.height }; }
 
+bool isRing(const Item& item)
+{
+    auto* progress = std::get_if<Progress>(&item);
+    return progress && progress->shape == ProgressShape::Ring;
+}
+
+// Live data's colour: the content's accent, else the live colour (decision 010).
+Color accentOf(const Placed& p) { return p.accent.value_or(tokens().liveColor); }
+
 // Swimming text is sized to its string, so any change to it needs a new surface.
 bool swims(const Item& item)
 {
@@ -53,6 +62,12 @@ void ElementVisuals::apply(const std::vector<Placed>& elements, Ms now)
             if (view.surface) paint(view);
 }
 
+void ElementVisuals::refresh()
+{
+    for (auto& [key, view] : views_) parent_.Children().Remove(view.visual);
+    views_.clear();
+}
+
 ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now)
 {
     const Tokens& t = tokens();
@@ -60,15 +75,19 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now)
     view.placed = placed;
     Vec2 size = sizeOf(placed), visualSize = size;
 
-    if (std::holds_alternative<Progress>(placed.item)) {
-        ProgressParts parts = createProgress(compositor_, size);
+    if (isRing(placed.item)) {
+        RingParts parts = createRing(compositor_, size, accentOf(placed));
+        view.visual = parts.visual;
+        view.arc = parts.arc;
+    } else if (std::holds_alternative<Progress>(placed.item)) {
+        ProgressParts parts = createProgress(compositor_, size, accentOf(placed));
         view.lead = progressOverhang();
         visualSize.x += 2 * view.lead;
         view.visual = parts.visual;
         view.fill = parts.fill;
         view.knob = parts.knob;
     } else if (std::holds_alternative<Waveform>(placed.item)) {
-        WaveformParts parts = createWaveform(compositor_, size);
+        WaveformParts parts = createWaveform(compositor_, size, accentOf(placed));
         view.visual = parts.visual;
         view.waveform = parts.visual;
         view.bars = parts.bars;
@@ -101,6 +120,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now)
 
     if (view.surface) paint(view);
     if (view.fill) armProgress(compositor_, view.fill, std::get<Progress>(placed.item).timeline, size.x, now);
+    if (view.arc) armRing(compositor_, view.arc, std::get<Progress>(placed.item).timeline, now);
     if (!view.bars.empty()) animateBars(view);
     fadeIn(compositor_, view.visual);
     return view;
@@ -109,7 +129,9 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now)
 bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
 {
     bool resized = sizeOf(view.placed) != sizeOf(placed) || view.placed.cornerRadius != placed.cornerRadius;
-    bool retyped = view.placed.item.index() != placed.item.index();
+    // A bar and a ring are both Progress, but different visuals; the accent is baked into brushes.
+    bool retyped = view.placed.item.index() != placed.item.index() || isRing(view.placed.item) != isRing(placed.item) ||
+                   view.placed.accent != placed.accent;
     bool moved = view.placed.frame.x != placed.frame.x || view.placed.frame.y != placed.frame.y;
     bool changed = !(view.placed.item == placed.item);
     if (resized || retyped || (changed && (swims(view.placed.item) || swims(placed.item)))) {
@@ -124,6 +146,7 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     if (view.surface) paint(view);
     // While scrubbing, the bar belongs to the pointer; endScrub() re-arms it.
     if (view.fill && !view.scrubbing) armProgress(compositor_, view.fill, std::get<Progress>(placed.item).timeline, placed.frame.width, now);
+    if (view.arc) armRing(compositor_, view.arc, std::get<Progress>(placed.item).timeline, now);
     if (!view.bars.empty()) animateBars(view);
     return false;
 }
@@ -139,13 +162,16 @@ void ElementVisuals::paint(View& view)
             if (view.marqueeWidth > 0) paintMarquee(dc, dw, *text, view.marqueeWidth, view.lead, t.marqueeGap, size.y);
             else paintText(dc, dw, *text, size);
         } else if (auto* icon = std::get_if<Icon>(&item)) {
-            paintGlyph(dc, dw, icon->glyph, t.iconSize, size, 0.9f);
+            paintGlyph(dc, dw, icon->glyph, t.iconSize, size, t.iconColor);
         } else if (auto* button = std::get_if<Button>(&item)) {
             bool toggledOff = button->on && !*button->on;
-            paintGlyph(dc, dw, button->glyph, t.buttonGlyphSize, size, !button->enabled ? 0.3f : toggledOff ? 0.5f : 0.95f);
+            paintGlyph(dc, dw, button->glyph, t.buttonGlyphSize, size,
+                       !button->enabled ? t.buttonDisabledColor : toggledOff ? t.buttonOffColor : t.buttonColor);
             if (button->on && *button->on) paintToggleDot(dc, size, t.buttonGlyphSize);
         } else if (auto* image = std::get_if<Image>(&item)) {
             paintImage(dc, image->data.get(), size, view.placed.cornerRadius);
+        } else if (auto* steps = std::get_if<Steps>(&item)) {
+            paintSteps(dc, *steps, size, accentOf(view.placed));
         }
     });
     if (!drawn) deviceLost_ = true;

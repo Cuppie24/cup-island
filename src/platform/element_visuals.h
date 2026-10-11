@@ -18,6 +18,8 @@ class ElementVisuals {
 public:
     void init(wuc::Compositor const& compositor, GraphicsDevice& device, wuc::ContainerVisual const& parent);
     void apply(const std::vector<Placed>& elements, Ms now);
+    // tokens.json changed: drop every visual, so the next apply() rebuilds them with the new colours.
+    void refresh();
 
     // Pointer feedback on content (decision 002), by element key. Unknown keys are ignored.
     void setHovered(const std::string& key); // "" = nothing; buttons light up, progress shows its knob
@@ -34,7 +36,8 @@ private:
         wuc::CompositionDrawingSurface surface{ nullptr };          // text, icon, button glyph, image
         float marqueeWidth = 0;                                     // > 0: swimming text, one copy's width
         wuc::Visual highlight{ nullptr };                           // button hover shape
-        wuc::CompositionRoundedRectangleGeometry fill{ nullptr };   // progress
+        wuc::CompositionRoundedRectangleGeometry fill{ nullptr };   // progress bar
+        wuc::CompositionEllipseGeometry arc{ nullptr };             // progress ring
         wuc::CompositionSpriteShape knob{ nullptr };                // progress
         std::vector<wuc::CompositionRoundedRectangleGeometry> bars; // waveform
         wuc::ShapeVisual waveform{ nullptr };

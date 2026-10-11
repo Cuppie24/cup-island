@@ -38,8 +38,11 @@ void PillRenderer::apply(const Scene& scene)
     pill_.setHighlighted(scene.dropTarget);
     pill_.setContent(scene.elements, scene.now);
     const TabStrip* tabs = scene.tabs ? &*scene.tabs : nullptr;
-    pill_.setSelectedTab(tabs ? std::optional<Rect>(tabs->tabs[tabs->active].frame) : std::nullopt, tabs ? tabs->radius : 0);
-    if (!tabs) pill_.setHoveredTab(std::nullopt, 0);
+    pill_.setSelectedTab(tabs && tabs->active ? std::optional<Rect>(tabs->tabs[*tabs->active].frame) : std::nullopt, tabs ? tabs->radius : 0);
+    if (!tabs && scene.tiles.empty()) pill_.setHovered(std::nullopt, 0);
+    std::vector<Rect> tiles;
+    for (const Tile& tile : scene.tiles) tiles.push_back(tile.frame);
+    pill_.setTiles(tiles, scene.tileRadius);
 
     // While the bubble is dragged it just follows the cursor: no neck, no
     // other motion (decision 007). The neck is for budding and settling.

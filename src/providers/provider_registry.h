@@ -6,6 +6,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -27,12 +28,18 @@ public:
     // A click on one of a provider's buttons. Unknown or stopped providers are ignored.
     void route(const Action& action);
 
+    // Wake-ups providers asked for (Host::wakeAt): the earliest, for the app's
+    // one timer, and calling onWake() on every provider whose time has come.
+    std::optional<Ms> nextWake() const;
+    void wakeDue(Ms now);
+
 private:
     class Handle; // the Host a provider sees
     struct Entry {
         std::unique_ptr<Provider> provider;
         std::unique_ptr<Handle> host;
         bool running = false;
+        std::optional<Ms> wake;
     };
     Entry* find(const std::string& providerId);
     const Entry* find(const std::string& providerId) const;

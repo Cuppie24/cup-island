@@ -3,6 +3,9 @@
 // The loop: input -> reduce() -> layout() -> renderer + interaction layer.
 // Tuning: edit assets/tokens.json while it runs; saving applies it live.
 //
+// The idle pill shows the time; clicking it opens Home (decision 009): the
+// clock, battery, theme and Bluetooth widgets, and the Pomodoro tile.
+//
 // Demo keys (click the pill first so it has keyboard focus):
 //   M  toggle the demo music player (real media shows by itself)
 //   T  toggle a second activity (Split). Click the bubble to open it, or drag
@@ -17,18 +20,24 @@
 #include "core/tabs.h"
 #include "core/tokens.h"
 #include "platform/file_watcher.h"
+#include "platform/wall_clock.h"
 #include "platform/fullscreen_watcher.h"
 #include "platform/interaction_layer.h"
 #include "platform/pill_renderer.h"
 #include "platform/render_layer.h"
 #include "providers/demo/demo_media_provider.h"
 #include "providers/media/smtc_media_provider.h"
+#include "providers/pomodoro/pomodoro_provider.h"
+#include "providers/system/battery_provider.h"
+#include "providers/system/bluetooth_provider.h"
+#include "providers/system/theme_provider.h"
 #include "providers/provider_registry.h"
 
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
 #include <memory>
+#include <string>
 #include <utility>
 
 using namespace cup;
@@ -53,7 +62,8 @@ struct Pointer {
     float scrubFraction = 0;
     std::optional<Vec2> bubblePress; // mouse-down on the Split bubble, render-layer coordinates
     bool dragged = false;            // ...and core took it as a drag (BubbleDragged): not a click
-    std::optional<std::string> tabPress; // mouse-down on an Expanded tab: its activity
+    std::optional<std::string> tabPress;  // mouse-down on an Expanded tab: its activity ("" = Home)
+    std::optional<std::string> tilePress; // mouse-down on a Home tile, off its buttons: its panel
 } g_pointer;
 
 // Pointer callbacks get render-layer points; content works in pill coordinates.
@@ -80,6 +90,13 @@ const Placed* findElement(const std::string& key)
     return nullptr;
 }
 
+// The tab of what's shown (already marked): clicking it does nothing.
+bool isCurrent(const Tab& tab)
+{
+    const auto& strip = *g_scene.tabs;
+    return strip.active && &tab == &strip.tabs[*strip.active];
+}
+
 // Re-run on every pointer move and every new scene: content can move under a still pointer.
 void updateHover()
 {
@@ -92,9 +109,14 @@ void updateHover()
     g_renderer.setHovered(key);
 
     // Tabs light up as a whole, except the active one, which is already marked (decision 007).
+    // Home's tiles too, unless the pointer is on one of their buttons (decision 009).
     const Tab* tab = g_scene.tabs && g_pointer.at ? tabAt(*g_scene.tabs, *g_pointer.at) : nullptr;
-    if (tab && tab->activityId == g_scene.activityId) tab = nullptr;
-    g_renderer.setTabHovered(tab ? std::optional<Rect>(tab->frame) : std::nullopt, g_scene.tabs ? g_scene.tabs->radius : 0);
+    if (tab && isCurrent(*tab)) tab = nullptr;
+    const Tile* tile = g_pointer.at && key.empty() ? tileAt(g_scene, *g_pointer.at) : nullptr;
+    if (tile && !tile->clickable()) tile = nullptr; // widgets without a card or tap action don't react
+    if (tab) g_renderer.setAreaHovered(tab->frame, g_scene.tabs->radius);
+    else if (tile) g_renderer.setAreaHovered(tile->frame, g_scene.tileRadius);
+    else g_renderer.setAreaHovered(std::nullopt, 0);
 }
 
 // The Expanded tab under a pill-coordinate point, if any.
@@ -123,8 +145,9 @@ void dispatch(const Event& event, const char* reason)
     g_scene = next;
     updateHover();
 
-    // One timer for everything time-based: core deadlines and ticking labels.
+    // One timer for everything time-based: core deadlines, ticking labels and provider wake-ups.
     auto deadline = earliest(nextDeadline(g_state), sceneDeadline(g_scene));
+    if (g_providers) deadline = earliest(deadline, g_providers->nextWake());
     setTimer(TimerId::Deadline, deadline ? std::optional<Ms>(std::max(*deadline - t, Ms{ 0 })) : std::nullopt);
 }
 
@@ -161,11 +184,17 @@ void onPressDown(Vec2 canvasPoint)
     Vec2 point = toPill(canvasPoint);
     g_pointer.at = point;
     if (const Tab* tab = tabUnder(point)) {
-        g_pointer.tabPress = tab->activityId; // switches on release, if still on the same tab
+        g_pointer.tabPress = tab->id; // switches on release, if still on the same tab
         return;
     }
     auto hit = hitTest(g_scene, point);
     const Placed* element = hit ? findElement(hit->key) : nullptr;
+    if (const Tile* tile = element ? nullptr : tileAt(g_scene, point)) {
+        // Opens its card on release, if still on the same tile. A widget with no
+        // card takes the click too, so it doesn't fall through and close Home.
+        g_pointer.tilePress = tile->id;
+        return;
+    }
     if (element && std::holds_alternative<Progress>(element->item)) {
         g_pointer.scrub = *element;
         g_pointer.scrubFraction = hit->action.value;
@@ -204,7 +233,19 @@ void onPressRelease(Vec2 canvasPoint, Release how)
     if (g_pointer.tabPress) {
         std::string id = *std::exchange(g_pointer.tabPress, std::nullopt);
         const Tab* tab = how == Release::Inside && onPill(canvasPoint) ? tabUnder(toPill(canvasPoint)) : nullptr;
-        if (tab && tab->activityId == id && id != g_scene.activityId) dispatch(ActivitySwitched{ id }, "tab");
+        if (tab && tab->id == id && !isCurrent(*tab)) dispatch(id.empty() ? Event{ HomeOpened{} } : Event{ ActivitySwitched{ id } }, "tab");
+        return;
+    }
+    if (g_pointer.tilePress) {
+        std::string id = *std::exchange(g_pointer.tilePress, std::nullopt);
+        const Tile* tile = how == Release::Inside && onPill(canvasPoint) ? tileAt(g_scene, toPill(canvasPoint)) : nullptr;
+        if (!tile || tile->id != id) return;
+        if (!tile->tapAction.empty()) {
+            g_providers->route({ tile->providerId, tile->id, tile->tapAction, 0 }); // a toggle: no card
+            dispatch(PointerMoved{}, "tile action");                                  // the user is busy here: keep Home open
+        } else if (tile->opens) {
+            dispatch(TileClicked{ id }, "tile");
+        }
         return;
     }
     if (g_pointer.bubblePress) {
@@ -265,7 +306,10 @@ void onKey(WPARAM key)
 void onTimer(TimerId id)
 {
     if (id == TimerId::Deadline) {
-        dispatch(Tick{}, "timer");
+        g_providers->wakeDue(now());
+        // Re-read the wall clock every time: it also does Tick's work, and a
+        // clock or time-zone change shows within a minute (decision 009).
+        dispatch(readWallClock(), "timer");
     } else if (id == TimerId::TokensReload) {
         if (app::loadTokens(g_tokensFile, /* startup */ false)) {
             g_renderer.refreshAnimations();
@@ -325,7 +369,17 @@ int main()
     g_providers = std::make_unique<ProviderRegistry>(dispatch, now);
     g_providers->add(std::make_unique<SmtcMediaProvider>(postToUi));
     g_providers->add(std::make_unique<DemoMediaProvider>()); // M key
+    // Home's tiles follow the order panels first appear: widgets, then Pomodoro.
+    g_providers->add(std::make_unique<BatteryProvider>(postToUi));
+    g_providers->add(std::make_unique<BluetoothProvider>(postToUi));
+    g_providers->add(std::make_unique<ThemeProvider>(postToUi));
+    g_providers->add(std::make_unique<PomodoroProvider>());
     g_providers->start("media");
+    g_providers->start("system.battery");
+    g_providers->start("system.theme");
+    g_providers->start("system.bluetooth");
+    g_providers->start("pomodoro");
+    dispatch(readWallClock(), "clock");
 
     // TR §9.2: hide over borderless/exclusive fullscreen apps on this monitor.
     watchFullscreen(render.hwnd, [](bool fullscreen) { dispatch(HiddenChanged{ fullscreen }, "fullscreen"); });

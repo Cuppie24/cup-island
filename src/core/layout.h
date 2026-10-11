@@ -18,6 +18,7 @@ struct Placed {
     Rect frame;         // pill coordinates
     Rect hitFrame;      // clickable area: the frame plus half the gap to each neighbour, so there are no dead strips
     float cornerRadius = 0; // nested in the pill's corner (pill radius - padding), capped at half the frame
+    std::optional<Color> accent; // the content's accent, for the renderer to tint live data (decision 010)
     std::string providerId;
     std::string activityId;
     std::optional<Timeline> ticking; // time labels: the text changes as playback moves
@@ -33,17 +34,31 @@ struct BubbleScene {
     std::optional<Vec2> dragCentre; // being dragged: centred on the cursor here, no easing (decision 007)
 };
 
-// Expanded with several activities: a tab per activity along the bottom of the
-// card (decision 007). Clicking a tab switches to it (ActivitySwitched).
+// Expanded with several activities, or activities and panels: a tab per
+// activity along the bottom of the card (decision 007), and a square Home
+// button apart at the left when there are panels (decision 009). Clicking a
+// tab switches to it (ActivitySwitched, or HomeOpened for Home).
 struct Tab {
-    Rect frame; // pill coordinates: the whole tab is clickable
-    std::string activityId;
+    Rect frame;     // pill coordinates: drawn highlight
+    Rect hitFrame;  // clickable area: the frame, or more (Home's reaches into the card's corner)
+    std::string id; // the activity's id; empty = Home
 };
 
 struct TabStrip {
-    std::vector<Tab> tabs;  // in the order activities started: stable, so a click doesn't reorder them
-    std::size_t active = 0; // the tab of the activity shown
+    std::vector<Tab> tabs;  // Home's button, then activities in start order: stable, so a click doesn't reorder them
+    std::optional<std::size_t> active; // the tab of what's shown; none for a dormant panel's card
     float radius = 0;       // tab highlight corners, nested in the card's
+};
+
+// A tile on Home (decision 009): a panel's, or the clock. A click on it, off
+// its buttons, opens its card (TileClicked) if it has one.
+struct Tile {
+    Rect frame;     // pill coordinates; the renderer draws a faint background here
+    std::string id; // the panel's (and its activity's) id; empty for the clock
+    bool opens = false;     // has a card: a click opens it (TileClicked)
+    std::string providerId;
+    std::string tapAction;  // a click sends this action instead (Panel::tapAction)
+    bool clickable() const { return opens || !tapAction.empty(); } // lights up under the pointer
 };
 
 struct Scene {
@@ -53,11 +68,14 @@ struct Scene {
     std::vector<Placed> elements;  // content of the activity/alert being shown
     std::string activityId;        // whose content the pill shows (empty: none, or a standalone alert)
     std::optional<BubbleScene> bubble;
-    std::optional<TabStrip> tabs;  // Expanded with several activities
+    std::optional<TabStrip> tabs;  // Expanded with several activities, or activities and panels
+    std::vector<Tile> tiles;       // Home
+    float tileRadius = 0;          // tile background corners, nested in the card's
     bool dropTarget = false;       // the dragged bubble is over the pill: letting go swaps them (pill lightens)
     Vec2 bubbleTuck;               // no bubble: it shrinks to this point, on the top edge inside the pill
     std::string label;             // accessible name of what's shown
     Ms now{};                      // when the scene was laid out (progress bars animate from here)
+    std::optional<Ms> clockTick;   // Idle shows the time: re-layout at this moment (the next minute)
 };
 
 // A Text's width in pixels on one line, as it will be drawn. The platform
@@ -75,8 +93,11 @@ Rect interactiveBounds(const Scene& scene);
 // tokens().maxCornerRadius. The renderer draws the same curve.
 float pillCornerRadius(Vec2 size);
 
+// The Home tile under `point` (pill coordinates), if any.
+const Tile* tileAt(const Scene& scene, Vec2 point);
+
 // When the scene next changes without any event (a time label's second
-// ticking over), so the app can arm its timer. Nothing = static.
+// ticking over, the idle clock's minute), so the app can arm its timer. Nothing = static.
 std::optional<Ms> sceneDeadline(const Scene& scene);
 
 } // namespace cup

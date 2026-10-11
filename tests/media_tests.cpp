@@ -20,6 +20,9 @@ struct FakeHost : Host {
     void endActivity(const std::string& id) override { ended.push_back(id); }
     void postAlert(Alert a) override { alerts.push_back(std::move(a)); }
     Ms now() const override { return clock; }
+    void publishPanel(Panel) override {}
+    void removePanel(const std::string&) override {}
+    void wakeAt(std::optional<Ms>) override {}
 };
 
 MediaSnapshot track(const char* app, const char* title, bool playing = true)

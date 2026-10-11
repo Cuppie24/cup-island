@@ -1,5 +1,6 @@
 #include "core/island.h"
 
+#include "core/alert_queue.h"
 #include "core/split.h"
 #include "core/tokens.h"
 
@@ -10,14 +11,14 @@ namespace {
 
 // --- Helpers --------------------------------------------------------------
 
-bool isExpanded(const IslandState& s) { return !s.expandedId.empty(); }
-
 Activity* findActivity(IslandState& s, const std::string& id)
 {
     for (auto& a : s.activities)
         if (a.id == id) return &a;
     return nullptr;
 }
+
+constexpr Ms kDay{ 24 * 60 * 60 * 1000 };
 
 // PS §6.2: the user's pick, then level, then relevance, then most recently
 // started. The pick beats every level (decision 007).
@@ -35,67 +36,29 @@ void rank(IslandState& s)
 void expand(IslandState& s, const std::string& id, Ms now)
 {
     s.expandedId = id;
+    s.homeOpen = false;
     s.lastPointerAt = now;
 }
 
-// Can an alert of this level be on screen right now? PS §3.3, §6.4.
-bool alertAllowed(const IslandState& s, Level level)
+void openHome(IslandState& s, Ms now)
 {
-    if (s.hidden || s.dragging) return false;
-    if (isExpanded(s)) return level == Level::Critical;
-    return true;
+    s.expandedId.clear();
+    s.homeOpen = true;
+    s.lastPointerAt = now;
 }
 
-// Queue full: drop the oldest alert of the lowest level present (PS §6.3).
-void enqueue(IslandState& s, Alert alert)
+void collapse(IslandState& s)
 {
-    if (s.alertQueue.size() >= tokens().alertQueueCapacity) {
-        auto lowest = std::min_element(s.alertQueue.begin(), s.alertQueue.end(),
-            [](const Alert& a, const Alert& b) { return a.level < b.level; });
-        s.alertQueue.erase(lowest);
-    }
-    s.alertQueue.push_back(std::move(alert));
+    s.expandedId.clear();
+    s.homeOpen = false;
 }
 
-// An overlay is taking over: put the showing alert back to replay later, or
-// drop it if the island is hidden and the alert isn't urgent (PS §6.4).
-void suspendShowingAlert(IslandState& s)
+// Is what Expanded shows still there? A card stays while its activity or its
+// panel exists: a panel's activity ending shows the dormant card (decision 009).
+bool expandedViewExists(const IslandState& s)
 {
-    if (!s.alert) return;
-    bool keep = !s.hidden || s.alert->level >= Level::TimeSensitive;
-    if (keep) s.alertQueue.push_front(std::move(*s.alert));
-    s.alert.reset();
-}
-
-void postAlert(IslandState& s, Alert alert, Ms now)
-{
-    alert.postedAt = now;
-    if (alert.level == Level::Passive) return; // passive never alerts
-    if (s.hidden && alert.level < Level::TimeSensitive) return;
-
-    if (!alert.coalesceKey.empty()) {
-        if (s.alert && s.alert->coalesceKey == alert.coalesceKey) {
-            s.alert = std::move(alert);
-            s.alertUntil = now + tokens().alertDuration;
-            return;
-        }
-        for (auto& queued : s.alertQueue) {
-            if (queued.coalesceKey == alert.coalesceKey) {
-                queued = std::move(alert);
-                return;
-            }
-        }
-    }
-
-    if (alert.level == Level::Critical) s.expandedId.clear(); // only critical interrupts Expanded
-
-    if (s.alert && alert.level > s.alert->level) {
-        s.alertQueue.push_front(std::move(*s.alert)); // pre-empted, replays next
-        s.alert = std::move(alert);
-        s.alertUntil = now + tokens().alertDuration;
-        return;
-    }
-    enqueue(s, std::move(alert));
+    if (s.homeOpen) return !s.panels.empty();
+    return findActivity(s, s.expandedId) || findPanel(s, s.expandedId);
 }
 
 // Runs after every event: expire timers, drop stale state, show the next alert.
@@ -103,24 +66,13 @@ void settle(IslandState& s, Ms now)
 {
     std::erase_if(s.activities, [&](const Activity& a) { return a.expiresAt && now >= *a.expiresAt; });
     if (!s.pinnedId.empty() && !findActivity(s, s.pinnedId)) s.pinnedId.clear(); // a pick dies with its activity
-    if (s.alert && now >= s.alertUntil) s.alert.reset();
 
     if (isExpanded(s)) {
         bool timedOut = now >= s.lastPointerAt + tokens().expandedIdleTimeout;
-        if (timedOut || !findActivity(s, s.expandedId)) s.expandedId.clear();
+        if (timedOut || !expandedViewExists(s)) collapse(s);
     }
 
-    std::erase_if(s.alertQueue, [&](const Alert& a) { return now - a.postedAt > tokens().heldAlertMaxAge; });
-
-    if (!s.alert) {
-        auto next = std::find_if(s.alertQueue.begin(), s.alertQueue.end(),
-            [&](const Alert& a) { return alertAllowed(s, a.level); });
-        if (next != s.alertQueue.end()) {
-            s.alert = std::move(*next);
-            s.alertQueue.erase(next);
-            s.alertUntil = now + tokens().alertDuration;
-        }
-    }
+    settleAlerts(s, now); // after Expanded may have closed: alerts it held back can show
 
     // The bubble left the screen mid-drag (an alert, an activity ended): drop the drag.
     if (s.bubbleDrag && mode(s) != Mode::Split) s.bubbleDrag.reset();
@@ -142,9 +94,13 @@ void onClick(IslandState& s, Ms now)
         expand(s, s.activities.front().id, now);
         break;
     case Mode::Expanded:
-        s.expandedId.clear(); // provisional: until expanded content has its own buttons
+        // Home stays: it's where things are started from (decision 009). Cards
+        // close (provisional: until expanded content has its own buttons).
+        if (!s.homeOpen) collapse(s);
         break;
     case Mode::Idle:
+        if (!s.panels.empty()) openHome(s, now); // decision 009
+        break;
     case Mode::Receptive:
     case Mode::Hidden:
         break;
@@ -176,10 +132,13 @@ void handle(IslandState& s, const ActivityEnded& e, Ms)
     std::erase_if(s.activities, [&](const Activity& a) { return a.id == e.id; });
 }
 
-void handle(IslandState& s, const AlertPosted& e, Ms now) { postAlert(s, e.alert, now); }
+void handle(IslandState& s, const AlertPosted& e, Ms now)
+{
+    if (postAlert(s, e.alert, now)) collapse(s); // only critical interrupts Expanded
+}
 void handle(IslandState& s, const PillClicked&, Ms now) { onClick(s, now); }
-void handle(IslandState& s, const ClickedOutside&, Ms) { s.expandedId.clear(); }
-void handle(IslandState& s, const EscapePressed&, Ms) { s.expandedId.clear(); }
+void handle(IslandState& s, const ClickedOutside&, Ms) { collapse(s); }
+void handle(IslandState& s, const EscapePressed&, Ms) { collapse(s); }
 void handle(IslandState& s, const PointerMoved&, Ms now) { s.lastPointerAt = now; }
 
 void handle(IslandState& s, const DragEntered& e, Ms)
@@ -196,7 +155,7 @@ void handle(IslandState& s, const HiddenChanged& e, Ms)
 {
     s.hidden = e.hidden;
     if (!e.hidden) return;
-    s.expandedId.clear();
+    collapse(s);
     suspendShowingAlert(s);
     std::erase_if(s.alertQueue, [](const Alert& a) { return a.level < Level::TimeSensitive; });
 }
@@ -239,6 +198,40 @@ void handle(IslandState& s, const ActivitySwitched& e, Ms now)
     if (isExpanded(s)) expand(s, e.id, now);
 }
 
+void handle(IslandState& s, const PanelPublished& e, Ms)
+{
+    for (Panel& p : s.panels) {
+        if (p.id == e.panel.id) {
+            p = e.panel; // keeps its place on Home
+            return;
+        }
+    }
+    s.panels.push_back(e.panel);
+}
+
+void handle(IslandState& s, const PanelRemoved& e, Ms)
+{
+    std::erase_if(s.panels, [&](const Panel& p) { return p.id == e.id; });
+}
+
+void handle(IslandState& s, const HomeOpened&, Ms now)
+{
+    if (!s.panels.empty()) openHome(s, now);
+}
+
+// A running panel opens like its tab (and becomes the pick); a dormant one shows its card.
+void handle(IslandState& s, const TileClicked& e, Ms now)
+{
+    if (findActivity(s, e.id)) {
+        handle(s, ActivityPromoted{ e.id }, now);
+        expand(s, e.id, now);
+    } else if (const Panel* p = findPanel(s, e.id); p && p->tapAction.empty() && hasCard(p->content)) {
+        expand(s, e.id, now); // static widgets have no card; a toggle's tap goes to its provider
+    }
+}
+
+void handle(IslandState& s, const ClockSynced& e, Ms now) { s.clock = WallClock{ e.timeOfDay - now, e.hour24, e.date }; }
+
 } // namespace
 
 // --- Public API -------------------------------------------------------------
@@ -249,6 +242,30 @@ IslandState reduce(IslandState state, const Event& event, Ms now)
     settle(state, now);
     return state;
 }
+
+bool isExpanded(const IslandState& s) { return s.homeOpen || !s.expandedId.empty(); }
+
+const Activity* findActivity(const IslandState& s, const std::string& id)
+{
+    for (const auto& a : s.activities)
+        if (a.id == id) return &a;
+    return nullptr;
+}
+
+const Panel* findPanel(const IslandState& s, const std::string& id)
+{
+    for (const auto& p : s.panels)
+        if (p.id == id) return &p;
+    return nullptr;
+}
+
+std::optional<Ms> timeOfDay(const IslandState& s, Ms now)
+{
+    if (!s.clock) return std::nullopt;
+    return ((now + s.clock->offset) % kDay + kDay) % kDay;
+}
+
+Ms nextMinute(Ms timeOfDay, Ms now) { return now + (Ms{ 60000 } - timeOfDay % Ms{ 60000 }); }
 
 Mode restingMode(const IslandState& s)
 {

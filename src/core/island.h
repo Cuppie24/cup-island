@@ -34,6 +34,20 @@ struct Activity {
     std::uint64_t startOrder = 0; // set by reduce(); ranking tiebreak
 };
 
+// Always available, without being live (decision 009): a tile on Home and a
+// card. Starting an activity with the panel's id makes it live; ending it
+// makes the panel dormant again.
+struct Panel {
+    std::string id;         // also the id of the activity it turns into
+    Content content;        // `tile` for Home, `expanded*` for its card
+    bool wide = false;      // two Home columns instead of one
+    std::string providerId; // set by the host
+    // The tile's primary tap action (PS §7.2): a click on the tile sends this
+    // to the provider instead of opening a card. For a quick toggle (theme).
+    std::string tapAction;
+    bool operator==(const Panel&) const = default;
+};
+
 struct Alert {
     std::string activityId; // empty for a standalone alert (e.g. "Copied")
     Level level = Level::Active;
@@ -63,25 +77,45 @@ struct ActivitySwitched { std::string id; }; // Expanded tab: make it the pick a
 struct BubbleDragged { Vec2 drag; };    // pressed bubble moved: offset from its home (counts once past dragStartDistance)
 struct BubbleReleased {};               // drag let go: over the pill = swap (promote the bubble's activity)
 struct BubbleDragCancelled {};          // drag interrupted (capture lost): no swap
+struct PanelPublished { Panel panel; }; // existing id = replace, keeping its place on Home
+struct PanelRemoved { std::string id; };
+struct HomeOpened {};                   // Home tab (decision 009)
+struct TileClicked { std::string id; }; // a Home tile, not on a button: open its card
+// Local wall time at `now`, from the platform (idle clock, Home's clock tile).
+struct ClockSynced {
+    Ms timeOfDay;
+    bool hour24 = true;
+    std::string date; // today, formatted for the user's locale ("Sat 11 Oct")
+};
 
 using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, AlertPosted,
                            PillClicked, ClickedOutside, EscapePressed, PointerMoved,
                            DragEntered, DragLeft, Dropped, HiddenChanged, Tick,
                            BubbleClicked, ActivityPromoted, ActivitySwitched,
-                           BubbleDragged, BubbleReleased, BubbleDragCancelled>;
+                           BubbleDragged, BubbleReleased, BubbleDragCancelled,
+                           PanelPublished, PanelRemoved, HomeOpened, TileClicked, ClockSynced>;
 
 // --- State --------------------------------------------------------------
+struct WallClock {
+    Ms offset{};        // local time of day = now + offset (mod 24 h)
+    bool hour24 = true;
+    std::string date;   // as of the last sync; the app re-syncs at least every minute while it shows
+};
+
 struct IslandState {
     std::vector<Activity> activities;  // ranked, best first (PS §6.2)
+    std::vector<Panel> panels;         // in publish order: Home's tile order (decision 009)
     std::string pinnedId;              // the user's pick for the pill; cleared when it ends (decision 007)
     std::optional<Vec2> bubbleDrag;    // the Split bubble is being dragged, this far from home
     std::optional<Alert> alert;        // the alert on screen
     Ms alertUntil{};
     std::deque<Alert> alertQueue;      // waiting alerts, oldest first (PS §6.3)
-    std::string expandedId;            // non-empty = Expanded, showing this activity
+    std::string expandedId;            // Expanded, showing this activity's card, or a dormant panel's
+    bool homeOpen = false;             // Expanded, showing Home (expandedId empty)
     Ms lastPointerAt{};
     bool dragging = false;             // an accepted drag is over the island
     bool hidden = false;
+    std::optional<WallClock> clock;    // unknown until the platform syncs it
     std::uint64_t nextStartOrder = 1;
 };
 
@@ -93,6 +127,19 @@ Mode restingMode(const IslandState& state); // Idle / Compact / Split, ignoring 
 // The bubble is dragged over the pill: letting go now swaps them. The pill
 // lightens to say so (decision 007).
 bool swapPreview(const IslandState& state);
+
+// Home or a card is open (a drag or Hidden may still cover it).
+bool isExpanded(const IslandState& state);
+
+// Lookups by id: nullptr if there's none.
+const Activity* findActivity(const IslandState& state, const std::string& id);
+const Panel* findPanel(const IslandState& state, const std::string& id);
+
+// Local time of day at `now`, once the platform has synced the clock.
+std::optional<Ms> timeOfDay(const IslandState& state, Ms now);
+
+// When a clock showing `timeOfDay` (at `now`) must change next: the next minute.
+Ms nextMinute(Ms timeOfDay, Ms now);
 
 // When reduce(Tick) must run next, or nothing if the island is static.
 std::optional<Ms> nextDeadline(const IslandState& state);
