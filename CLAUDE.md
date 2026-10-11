@@ -14,6 +14,7 @@ A Dynamic Island for Windows: a standalone C++/WinRT app (Win32 + Composition).
 - Core + tests (Linux/macOS; use this in Linux sessions):
   `cmake --preset core && cmake --build --preset core && ctest --preset core`
 - Full app (Windows only): `.\build.ps1 -Run` (Release) or `-Debug -Run`; presets `windows` / `windows-debug` (Ninja + MSVC). `platform/` and `app/` can't be built on Linux.
+  Before changing how visuals animate, read `docs/decisions/008-composition-animation-handoffs.md`: Composition behaves in ways the code alone won't tell you.
 
 ## Rules
 - Logic goes in `src/core/` (pure: no Windows headers, no I/O, no clock reads). Platform code only translates.

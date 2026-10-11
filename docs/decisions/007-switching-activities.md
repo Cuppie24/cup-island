@@ -38,3 +38,9 @@ renderer only follows `BubbleScene.dragCentre` and `Scene.dropTarget`. The inter
 layer covers the pill plus the bubble (`interactiveBounds`), so the gap
 between them also takes clicks (and ignores them). The Expanded center slot is a
 button narrower when the switcher shows, so providers' text wraps sooner.
+
+**Open.** The settings pin per provider (PS §6.2) isn't built; the pick is
+the only pin. The only second source today is the demo timer (T key). The
+user prefers calm motion: the first drag version (shapes trading sizes,
+lift, neck while dragging) was rejected as too busy. Composition handoffs
+behind the drag are in decision 008.
