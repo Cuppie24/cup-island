@@ -68,6 +68,10 @@ const Field kFields[] = {
     { "tabHeight", &Tokens::tabHeight, true },
     { "tabGap", &Tokens::tabGap },
     { "tabMaxWidth", &Tokens::tabMaxWidth },
+    { "homeColumns", &Tokens::homeColumns, true },
+    { "tileHeight", &Tokens::tileHeight },
+    { "tileGap", &Tokens::tileGap },
+    { "tilePadding", &Tokens::tilePadding },
     { "morphDurationMs", &Tokens::morphDuration, true },
     { "morphEase", &Tokens::morphEase },
     { "contentFadeDurationMs", &Tokens::contentFadeDuration },
@@ -83,6 +87,10 @@ const Field kFields[] = {
     { "alertQueueCapacity", &Tokens::alertQueueCapacity },
     { "mediaPausedLingerMs", &Tokens::mediaPausedLinger, true },
     { "mediaSessionRecheckMs", &Tokens::mediaSessionRecheck },
+    { "pomodoroFocusMs", &Tokens::pomodoroFocus, true },
+    { "pomodoroBreakMs", &Tokens::pomodoroBreak },
+    { "pomodoroLongBreakMs", &Tokens::pomodoroLongBreak },
+    { "pomodoroRounds", &Tokens::pomodoroRounds },
 };
 
 const Field* findField(const std::string& name)

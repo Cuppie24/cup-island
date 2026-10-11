@@ -1,0 +1,76 @@
+# Panels and Home (decision 009): always-available entries that aren't live
+# until started, reachable from the idle pill and Expanded's Home tab.
+
+scenario: clicking idle opens Home when there are panels
+panel focus                         -> Idle
+click                               -> Expanded expanded=home
+click                               -> Idle
+
+scenario: a panel never takes the pill or the bubble
+panel focus
+panel battery
+start media                         -> Compact top=media
+
+scenario: Home closes like any Expanded view
+panel focus
+click                               -> Expanded expanded=home
+esc                                 -> Idle
+click
+outside                             -> Idle
+click
+wait 7999                           -> Expanded
+wait 1                              -> Idle
+
+scenario: compact still opens the top activity, Home is a tab away
+panel focus
+start media
+click                               -> Expanded expanded=media
+home                                -> Expanded expanded=home
+switch media                        -> Expanded expanded=media
+
+scenario: no panels, no Home
+start media
+click
+home                                -> Expanded expanded=media
+
+scenario: a dormant tile opens its panel's card
+panel focus
+click
+tile focus                          -> Expanded expanded=focus
+
+scenario: starting from the card shows the live card, stopping shows the dormant one
+panel focus
+click
+tile focus
+start focus                         -> Expanded expanded=focus top=focus
+end focus                           -> Expanded expanded=focus top=none
+
+scenario: a running tile opens its activity and makes it the pick
+panel focus
+start focus
+start media                         -> top=media
+click                               -> expanded=media
+home
+tile focus                          -> Expanded expanded=focus pinned=focus top=focus
+
+scenario: removing the last panel closes Home
+panel focus
+click                               -> Expanded expanded=home
+unpanel focus                       -> Idle
+
+scenario: removing a panel closes its dormant card
+panel focus
+click
+tile focus
+unpanel focus                       -> Idle
+
+scenario: republishing a panel keeps Home open
+panel focus
+click
+panel focus                         -> Expanded expanded=home
+
+scenario: alerts wait while Home is open
+panel focus
+click
+alert copied                        -> Expanded queue=1
+esc                                 -> Alert alert=copied

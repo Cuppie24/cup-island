@@ -163,7 +163,14 @@ void Blob::setHighlighted(bool on)
 
 void Blob::setSelectedTab(std::optional<Rect> tab, float cornerRadius) { showMark(selectedTab_, tab, cornerRadius, 40, true); }
 
-void Blob::setHoveredTab(std::optional<Rect> tab, float cornerRadius) { showMark(hoveredTab_, tab, cornerRadius, 20, false); }
+void Blob::setHovered(std::optional<Rect> area, float cornerRadius) { showMark(hovered_, area, cornerRadius, 20, false); }
+
+void Blob::setTiles(const std::vector<Rect>& tiles, float cornerRadius)
+{
+    if (tiles_.size() < tiles.size()) tiles_.resize(tiles.size());
+    for (std::size_t i = 0; i < tiles_.size(); ++i)
+        showMark(tiles_[i], i < tiles.size() ? std::optional<Rect>(tiles[i]) : std::nullopt, cornerRadius, 20, false);
+}
 
 void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, std::uint8_t alpha, bool slide)
 {

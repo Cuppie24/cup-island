@@ -15,12 +15,15 @@ endif()
 
 # --- core: pure C++, builds and tests on any OS --------------------------
 add_library(cup_core STATIC
+    src/core/alert_queue.cpp
     src/core/content.cpp
     src/core/easing.cpp
     src/core/fullscreen.cpp
     src/core/hit_test.cpp
+    src/core/home.cpp
     src/core/island.cpp
     src/core/layout.cpp
+    src/core/slot_layout.cpp
     src/core/split.cpp
     src/core/tabs.cpp
     src/core/tokens.cpp
@@ -33,6 +36,7 @@ add_library(cup_providers STATIC
     src/providers/demo/demo_media_provider.cpp
     src/providers/media/media_presenter.cpp
     src/providers/media/now_playing.cpp
+    src/providers/pomodoro/pomodoro_provider.cpp
     src/providers/provider_registry.cpp
 )
 target_link_libraries(cup_providers PUBLIC cup_core)
@@ -43,8 +47,10 @@ if(CUP_BUILD_TESTS)
     add_executable(cup_tests
         tests/content_tests.cpp
         tests/fullscreen_tests.cpp
+        tests/home_tests.cpp
         tests/main.cpp
         tests/media_tests.cpp
+        tests/pomodoro_tests.cpp
         tests/provider_tests.cpp
         tests/unit_tests.cpp
         tests/scenario_runner.cpp

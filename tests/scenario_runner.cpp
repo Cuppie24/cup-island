@@ -9,8 +9,9 @@
 //            click  outside  esc  pointer  drag-enter  drag-rejected
 //            drag-leave  drop  hide  show  wait <ms>
 //            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel
+//            panel <id>  unpanel <id>  home  tile <id>
 // Checks after "->":  <Mode>  queue=<n>  top=<activity>  bubble=<activity>  alert=<name>
-//                     expanded=<activity>  pinned=<activity>  dragging=yes|no  preview=yes|no
+//                     expanded=<activity|panel|home>  pinned=<activity>  dragging=yes|no  preview=yes|no
 // Levels: passive active timeSensitive critical.  '#' starts a comment.
 
 #include "core/island.h"
@@ -115,6 +116,10 @@ struct Runner {
         else if (cmd == "drag") apply(BubbleDragged{ { std::stof(arg(1)), std::stof(arg(2)) } });
         else if (cmd == "release") apply(BubbleReleased{});
         else if (cmd == "cancel") apply(BubbleDragCancelled{});
+        else if (cmd == "panel") apply(PanelPublished{ { .id = arg(1), .content = { .label = arg(1) } } });
+        else if (cmd == "unpanel") apply(PanelRemoved{ arg(1) });
+        else if (cmd == "home") apply(HomeOpened{});
+        else if (cmd == "tile") apply(TileClicked{ arg(1) });
         else fail("unknown command '" + cmd + "'");
     }
 
@@ -143,7 +148,7 @@ struct Runner {
                 std::string shown = state.alert ? state.alert->content.label : "none";
                 if (shown != *v) fail("alert=" + *v + ", got " + shown);
             } else if (auto v = option(word, "expanded")) {
-                std::string id = state.expandedId.empty() ? "none" : state.expandedId;
+                std::string id = state.homeOpen ? "home" : state.expandedId.empty() ? "none" : state.expandedId;
                 if (id != *v) fail("expanded=" + *v + ", got " + id);
             } else if (word != toString(mode(state))) {
                 fail("expected " + word + ", got " + toString(mode(state)));

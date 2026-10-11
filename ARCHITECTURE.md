@@ -34,13 +34,14 @@ So "why did X happen?" is always answered in `core/`, by a scenario test.
 ## Layout
 
 ```
-src/core/       pure logic: island.h (state machine), content.h (what providers show), layout.h, split.h, tabs.h,
-                hit_test.h, provider.h (Provider/Host API), tokens.h (+ tokens_json.h), easing.h
+src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (what providers show), layout.h
+                (+ slot_layout.h), split.h, tabs.h, home.h, hit_test.h, provider.h (Provider/Host API),
+                tokens.h (+ tokens_json.h), easing.h
 src/platform/   Win32 + C++/WinRT + Composition: render/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
                 per content item), graphics_device (D2D/DirectWrite)
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
-                MediaPresenter rules, SMTC provider for real Windows media)
+                MediaPresenter rules, SMTC provider for real Windows media), pomodoro/ (the first panel)
 src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload
 assets/         tokens.json: the live-tunable sizes, timings and curves
 tests/          unit tests + scenarios/*.scenario (state rules in plain text)
@@ -64,10 +65,12 @@ Nothing includes "upward". `core/` never includes `platform/`.
    that centre text of unknown width (Expanded's tabs); core has no fonts.
 4. The renderer sets those targets. **Implicit Composition animations** do the
    actual morph (TR §5), and the interaction layer follows it (decision 001).
-5. `nextDeadline(state)` and `sceneDeadline(scene)` say when the next timed
-   change happens (an alert or activity expires, Expanded times out, a visible
-   time label's second ticks over). The app arms **one one-shot timer** for the
-   earliest. With no deadline nothing runs, so an idle island costs zero (TR §8).
+5. `nextDeadline(state)`, `sceneDeadline(scene)` and the registry's
+   `nextWake()` say when the next timed change happens (an alert or activity
+   expires, Expanded times out, a visible time label's second or the idle
+   clock's minute ticks over, a provider asked to be woken). The app arms
+   **one one-shot timer** for the earliest. Nothing else runs, so an idle
+   island costs one wake-up a minute, for its clock (TR §8, decision 009).
 6. A click is first checked with `hitTest(scene, point)`. A button or seekable
    progress bar becomes an `Action` routed to its provider; anything else is a
    plain `PillClicked`.
@@ -81,6 +84,12 @@ stamps the provider id on everything it posts, and routes actions back.
 Content is declarative (`core/content.h`, decision 004): slots of rows of
 items (text, image, icon, button, progress, time label, waveform). Layout and
 drawing are the host's job, so every provider looks native.
+
+A provider can also publish **panels** (decision 009): always-available
+entries shown as tiles on Expanded's Home, not ranked into the pill. Starting
+an activity with a panel's id makes it live; ending it makes it dormant again.
+Providers that change on a schedule ask `Host::wakeAt` and get `onWake()`.
+`providers/pomodoro/` is the reference panel.
 
 Writing one: implement `Provider`, build `Content` in a pure function (see
 `providers/media/now_playing.cpp`), test it through `ProviderRegistry` like
@@ -132,7 +141,8 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
   expected mode after it. Readable as a spec and runnable anywhere. The
   format is documented at the top of `tests/scenario_runner.cpp`.
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing),
-  `tokens_tests.cpp`, `provider_tests.cpp` (registry + demo provider through the real loop).**
+  `home_tests.cpp` (tiles, Home tab, idle clock), `tokens_tests.cpp`,
+  `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
 
@@ -154,3 +164,5 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 | Activity expiry (`expiresAt`) | done, tested |
 | Rate limits, stale activities (PS §4, §6.3) | not yet |
 | Live-tunable tokens (`assets/tokens.json`, reload on save) | done; parser tested |
+| Panels, Home tab and tile grid, idle clock, provider wake-ups (decision 009) | done; rules tested, visuals need Windows |
+| Pomodoro (first panel): focus rounds, breaks, pause/skip/stop | done, tested |

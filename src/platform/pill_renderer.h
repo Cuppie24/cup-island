@@ -39,8 +39,8 @@ public:
     void scrubElement(const std::string& key, float fraction) { pill_.elements().scrub(key, fraction); }
     void endScrub(const std::string& key, std::optional<float> seekTo, Ms now) { pill_.elements().endScrub(key, seekTo, now); }
 
-    // Expanded's tabs: light up the tab under the pointer (pill coordinates), or none.
-    void setTabHovered(std::optional<Rect> tab, float cornerRadius) { pill_.setHoveredTab(tab, cornerRadius); }
+    // Expanded's tabs and Home's tiles: light up the one under the pointer (pill coordinates), or none.
+    void setAreaHovered(std::optional<Rect> area, float cornerRadius) { pill_.setHovered(area, cornerRadius); }
 
 private:
     GraphicsDevice device_;

@@ -56,6 +56,8 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Music: return L"";
     case Glyph::Warning: return L"";
     case Glyph::Timer: return L"";
+    case Glyph::Stop: return L"\uE71A";
+    case Glyph::Home: return L"\uE80F";
     }
     return L"?";
 }

@@ -85,6 +85,12 @@ struct Tokens {
     float tabGap = 4;
     float tabMaxWidth = 140;      // each tab's width; the group is centred, and shrinks only when they don't fit
 
+    // Home: a grid of panel tiles in the Expanded card (decision 009).
+    std::size_t homeColumns = 4;  // a tile is one column wide, or two (Panel::wide)
+    float tileHeight = 58;
+    float tileGap = 8;
+    float tilePadding = 8;        // inside a tile, on every side
+
     // Morph between modes: ease-out, 250-350 ms budget (TR §5).
     Ms morphDuration{ 300 };
     Bezier morphEase{ { 0.16f, 1.0f }, { 0.30f, 1.0f } };
@@ -111,6 +117,12 @@ struct Tokens {
     // After any app starts/stops playing, ask Windows again this much later:
     // its "current session" can switch slightly after the playback event.
     Ms mediaSessionRecheck{ 300 };
+
+    // Pomodoro (decision 009): focus rounds with short breaks, a long break after the last round.
+    Ms pomodoroFocus{ 1500000 };
+    Ms pomodoroBreak{ 300000 };
+    Ms pomodoroLongBreak{ 900000 };
+    std::size_t pomodoroRounds = 4;
 
     bool operator==(const Tokens&) const = default;
 };

@@ -16,7 +16,7 @@ namespace cup {
 using Ms = std::chrono::milliseconds;
 
 // Built-in icons; the renderer maps them to font glyphs.
-enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer };
+enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home };
 
 enum class TextStyle { Title, Body, Caption, Digits };
 
@@ -60,7 +60,13 @@ struct Button {
     bool operator==(const Button&) const = default;
 };
 struct Progress { Timeline timeline; bool seekable = false; bool operator==(const Progress&) const = default; };
-struct TimeLabel { Timeline timeline; bool remaining = false; bool operator==(const TimeLabel&) const = default; }; // "1:23" / "-2:05"
+// Elapsed "1:23"; `remaining` "-2:05" (media); `countdown` "2:05", time left without the "-" (a timer).
+struct TimeLabel {
+    Timeline timeline;
+    bool remaining = false;
+    bool countdown = false;
+    bool operator==(const TimeLabel&) const = default;
+};
 struct Waveform { bool active = false; bool operator==(const Waveform&) const = default; };              // "now playing" bars; still dots when inactive
 
 using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform>;
@@ -98,6 +104,7 @@ struct Content {
     Slot expandedCenter;
     Slot expandedTrailing; // a button-sized square in the top-right corner; the centre narrows only when it's used
     Slot expandedBottom;
+    Slot tile; // a panel's glance on Home (decision 009); a running panel's activity can replace it
     bool operator==(const Content&) const = default;
 };
 

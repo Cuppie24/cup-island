@@ -25,6 +25,22 @@ public:
 
     Ms now() const override { return registry_.clock_(); }
 
+    void publishPanel(Panel panel) override
+    {
+        panel.providerId = providerId_;
+        registry_.dispatch_(PanelPublished{ std::move(panel) }, providerId_.c_str());
+    }
+
+    void removePanel(const std::string& panelId) override
+    {
+        registry_.dispatch_(PanelRemoved{ panelId }, providerId_.c_str());
+    }
+
+    void wakeAt(std::optional<Ms> at) override
+    {
+        if (Entry* e = registry_.find(providerId_)) e->wake = at;
+    }
+
 private:
     ProviderRegistry& registry_;
     std::string providerId_;
@@ -56,6 +72,7 @@ void ProviderRegistry::stop(const std::string& providerId)
 {
     if (Entry* e = find(providerId); e && e->running) {
         e->running = false;
+        e->wake.reset();
         e->provider->stop();
     }
 }
@@ -69,6 +86,23 @@ bool ProviderRegistry::isRunning(const std::string& providerId) const
 void ProviderRegistry::route(const Action& action)
 {
     if (Entry* e = find(action.providerId); e && e->running) e->provider->onAction(action);
+}
+
+std::optional<Ms> ProviderRegistry::nextWake() const
+{
+    std::optional<Ms> next;
+    for (const auto& e : entries_)
+        if (e.running && e.wake && (!next || *e.wake < *next)) next = e.wake;
+    return next;
+}
+
+void ProviderRegistry::wakeDue(Ms now)
+{
+    for (auto& e : entries_) {
+        if (!e.running || !e.wake || *e.wake > now) continue;
+        e.wake.reset(); // before onWake(), which may ask for the next one
+        e.provider->onWake();
+    }
 }
 
 ProviderRegistry::Entry* ProviderRegistry::find(const std::string& providerId)

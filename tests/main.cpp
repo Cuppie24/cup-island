@@ -15,6 +15,8 @@ void runContentTests();
 void runProviderTests();
 void runMediaTests();
 void runFullscreenTests();
+void runHomeTests();
+void runPomodoroTests();
 int runScenarioFile(const std::filesystem::path& file); // returns scenarios run
 }
 
@@ -29,6 +31,8 @@ int main(int argc, char** argv)
     runProviderTests();
     runMediaTests();
     runFullscreenTests();
+    runHomeTests();
+    runPomodoroTests();
 
     fs::path dir = argc > 1 ? fs::path(argv[1]) : fs::path(CUP_SCENARIO_DIR);
     std::vector<fs::path> files;

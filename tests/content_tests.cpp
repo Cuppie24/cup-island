@@ -239,7 +239,7 @@ void runContentTests()
     Scene opened = layout(reduce(three, PillClicked{}, Ms{ 0 }), Ms{ 0 }); // opens the top one: sync
     expect(opened.tabs && opened.tabs->tabs.size() == 3, "a tab per activity, the shown one included");
     const TabStrip& strip = *opened.tabs;
-    expect(strip.tabs[0].activityId == "media" && strip.tabs[2].activityId == "sync" && strip.active == 2,
+    expect(strip.tabs[0].id == "media" && strip.tabs[2].id == "sync" && strip.active == 2,
            "tabs in start order (stable), the shown one marked active");
     expect(opened.size.y == t.expandedSize.y + t.tabHeight + t.slotGap, "the card grows by the strip");
     expect(opened.size.y <= t.canvas.y, "the taller card fits on the canvas");
@@ -269,7 +269,7 @@ void runContentTests()
            "tab glyph centred vertically");
     for (const Tab& tab : strip.tabs)
         for (const auto& p : opened.elements)
-            if (p.key.rfind("tab/" + tab.activityId + "/", 0) == 0)
+            if (p.key.rfind("tab/" + tab.id + "/", 0) == 0)
                 expect(p.frame.x >= tab.frame.x && p.frame.x + p.frame.width <= tab.frame.x + tab.frame.width,
                        "tab content stays inside its tab: " + p.key);
     const Placed* body = find(opened, "expandedLeading/0/0");
@@ -281,16 +281,16 @@ void runContentTests()
         const Placed* lead = nullptr;
         const Placed* label = nullptr;
         for (const auto& p : measured.elements) {
-            if (p.key == "tab/" + tab.activityId + "/lead") lead = &p;
-            if (p.key == "tab/" + tab.activityId + "/title") label = &p;
+            if (p.key == "tab/" + tab.id + "/lead") lead = &p;
+            if (p.key == "tab/" + tab.id + "/title") label = &p;
         }
         float groupLeft = lead ? lead->frame.x - (lead->frame.width < t.tabHeight - 2 * t.compactInset
                                                       ? (t.tabHeight - 2 * t.compactInset - lead->frame.width) / 2 : 0)
                                : label->frame.x;
         float groupRight = label->frame.x + label->frame.width;
         float tabCentre = tab.frame.x + tab.frame.width / 2;
-        expect(label && label->frame.width == 41, "title as wide as the measured text (+1 slack): " + tab.activityId);
-        expect(std::abs((groupLeft + groupRight) / 2 - tabCentre) < 0.01f, "icon + title centred in the tab: " + tab.activityId);
+        expect(label && label->frame.width == 41, "title as wide as the measured text (+1 slack): " + tab.id);
+        expect(std::abs((groupLeft + groupRight) / 2 - tabCentre) < 0.01f, "icon + title centred in the tab: " + tab.id);
     }
     MeasureText huge = [](const Text&) { return 1000.0f; };
     Scene squeezed = layout(reduce(three, PillClicked{}, Ms{ 0 }), Ms{ 0 }, huge);
@@ -300,12 +300,12 @@ void runContentTests()
            "a title too long for its tab gets what's left (and ends in an ellipsis)");
 
     Vec2 onTimer{ strip.tabs[1].frame.x + 3, strip.tabs[1].frame.y + 3 };
-    expect(tabAt(strip, onTimer) && tabAt(strip, onTimer)->activityId == "timer", "a point finds its tab");
+    expect(tabAt(strip, onTimer) && tabAt(strip, onTimer)->id == "timer", "a point finds its tab");
     expect(!tabAt(strip, { 1, 1 }), "outside the strip: no tab");
     Scene mediaCard = layout(reduce(reduce(three, PillClicked{}, Ms{ 0 }), ActivitySwitched{ "media" }, Ms{ 0 }), Ms{ 0 });
     const Placed* mediaArt = find(mediaCard, "expandedLeading/0/0");
     expect(mediaArt && mediaArt->frame.y == t.expandedPadding + t.tabHeight + t.slotGap, "switched card's art sits below the strip");
-    expect(mediaCard.tabs->tabs[0].activityId == "media" && mediaCard.tabs->active == 0, "switching doesn't reorder tabs");
+    expect(mediaCard.tabs->tabs[0].id == "media" && mediaCard.tabs->active == 0, "switching doesn't reorder tabs");
 }
 
 } // namespace cup::test
