@@ -1,0 +1,54 @@
+# Expanded: opening, closing, timeouts, and how alerts behave around it (PS §3.3).
+
+scenario: click expands compact, click again collapses
+start media                         -> Compact
+click                               -> Expanded expanded=media
+click                               -> Compact
+
+scenario: clicking idle does nothing
+click                               -> Idle
+
+scenario: expanded closes on outside click, Esc and idle timeout
+start media
+click                               -> Expanded
+outside                             -> Compact
+click                               -> Expanded
+esc                                 -> Compact
+click                               -> Expanded
+wait 7999                           -> Expanded
+wait 1                              -> Compact
+
+scenario: pointer movement keeps expanded open
+start media
+click
+wait 5000
+pointer
+wait 5000                           -> Expanded
+wait 3000                           -> Compact
+
+scenario: ending the shown activity collapses expanded
+start media
+start timer
+click                               -> Expanded expanded=timer
+end timer                           -> Compact
+
+scenario: alerts wait while expanded
+start media
+click                               -> Expanded
+alert copied                        -> Expanded queue=1
+outside                             -> Alert alert=copied queue=0
+
+scenario: critical interrupts expanded
+start media
+click
+alert battery-low critical          -> Alert alert=battery-low
+
+scenario: clicking an alert opens its activity
+start media
+start meeting                       -> top=meeting
+alert song for=media                -> Alert
+click                               -> Expanded expanded=media
+
+scenario: clicking a standalone alert with nothing to open dismisses it
+alert copied                        -> Alert
+click                               -> Idle

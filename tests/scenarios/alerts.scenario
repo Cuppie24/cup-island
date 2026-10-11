@@ -1,0 +1,49 @@
+# Alert display, queueing, pre-emption and coalescing (PS §3, §6.3).
+
+scenario: alert shows, then returns to resting
+start media                         -> Compact
+alert copied                        -> Alert alert=copied
+wait 2999                           -> Alert
+wait 1                              -> Compact
+
+scenario: alerts queue and play in order
+alert one                           -> Alert alert=one queue=0
+alert two                           -> Alert alert=one queue=1
+wait 3000                           -> Alert alert=two queue=0
+wait 3000                           -> Idle
+
+scenario: higher level pre-empts, and the pre-empted alert replays
+alert song active                   -> alert=song
+alert meeting timeSensitive         -> alert=meeting queue=1
+wait 3000                           -> alert=song
+wait 3000                           -> Idle
+
+scenario: coalescing replaces the showing alert and restarts its timer
+start media
+alert track1 key=track              -> alert=track1
+alert other                         -> queue=1
+alert track2 key=track              -> alert=track2 queue=1
+wait 2000
+alert track3 key=track              -> alert=track3
+wait 2999                           -> alert=track3
+
+scenario: coalescing replaces a queued alert
+alert first
+alert track1 key=track              -> queue=1
+alert track2 key=track              -> queue=1
+wait 3000                           -> alert=track2
+
+scenario: passive never alerts
+start battery
+alert battery passive               -> Compact queue=0
+
+scenario: full queue drops the oldest lowest-level alert
+alert showing critical              -> alert=showing
+alert t1 timeSensitive
+alert a1
+alert a2
+alert t2 timeSensitive
+alert a3                            -> queue=5
+alert a4                            -> queue=5   # a1 dropped
+wait 3000                           -> alert=t1
+wait 3000                           -> alert=a2

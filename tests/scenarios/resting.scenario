@@ -1,0 +1,16 @@
+# Resting mode follows the set of live activities (PS §3.1) and ranking (PS §6.2).
+
+scenario: activities drive the resting mode
+                                    -> Idle
+start media                         -> Compact top=media
+start timer                         -> Split
+end media                           -> Compact top=timer
+end timer                           -> Idle
+
+scenario: ranking is level, then relevance, then most recently started
+start a active 0.5                  -> top=a
+start b active 0.9                  -> top=b
+start c active 0.9                  -> top=c     # tie: newer wins
+start d timeSensitive 0.1           -> top=d
+start c active 0.9                  -> top=d     # restart = update, keeps its place
+end d                               -> top=c

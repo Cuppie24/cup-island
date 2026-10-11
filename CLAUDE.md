@@ -1,0 +1,23 @@
+# Cup Island
+
+A Dynamic Island for Windows: a standalone C++/WinRT app (Win32 + Composition).
+
+## Read first
+- `ARCHITECTURE.md`: layout, data flow, coding rules. Short; read it before changing code.
+- `src/core/island.h`: the state machine API, the heart of the app.
+- Specs: `docs/technical-requirements.md` (cited as **TR §n**), `docs/provider-platform-spec.md` (**PS §n**).
+  Read only the section you need.
+- `docs/decisions/`: why non-obvious things are the way they are. Check here before "fixing" something odd.
+
+## Build and test
+- Core + tests (any OS, use this in Linux sessions):
+  `cmake --preset core && cmake --build --preset core && ctest --preset core`
+- Full app (Windows only): `.\build.ps1 -Run`. `platform/` and `app/` can't be built on Linux.
+
+## Rules
+- Logic goes in `src/core/` (pure: no Windows headers, no I/O, no clock reads). Platform code only translates.
+- Every state rule change gets a line in `tests/scenarios/*.scenario`. Run the tests before committing.
+- Sizes, timings and limits live only in `src/core/tokens.h`.
+- Plain C++20 subset: structs + free functions, enum class, variant/optional. No macros, no template metaprogramming.
+- Files ~300 lines max; headers are short and commented. Comments say why, and cite TR/PS/decisions.
+- Don't read `build/`.
