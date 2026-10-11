@@ -43,6 +43,7 @@ private:
     winrt::fire_and_forget load(std::uint64_t generation, std::shared_ptr<bool> alive);
     void cycleSource();
     auto onUiThread(void (SmtcMediaProvider::*method)()); // event handler that posts `method`
+    void guarded(void (SmtcMediaProvider::*method)());    // runs it; a vanished session's error is logged, not fatal
 
     PostToUi post_;
     Host* host_ = nullptr;

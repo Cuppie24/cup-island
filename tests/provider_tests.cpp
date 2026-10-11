@@ -3,6 +3,7 @@
 
 #include "core/hit_test.h"
 #include "core/layout.h"
+#include "core/tokens.h"
 #include "expect.h"
 #include "providers/demo/demo_media_provider.h"
 #include "providers/provider_registry.h"
@@ -52,8 +53,11 @@ void runProviderTests()
     expect(island.state.activities[0].providerId == "demo", "host stamps the provider id");
 
     Scene compact = island.scene();
-    expect(compact.elements.size() == 2, "compact: art + waveform");
-    expect(std::holds_alternative<Waveform>(compact.elements[1].item), "playing shows the waveform");
+    expect(compact.elements.size() == 3, "compact: art + title + waveform");
+    const Text* title = compact.elements.size() == 3 ? std::get_if<Text>(&compact.elements[1].item) : nullptr;
+    expect(title && title->marquee && title->value.find("Ocean Drive") == 0, "compact: the title swims between the squares");
+    const Waveform* bars = compact.elements.size() == 3 ? std::get_if<Waveform>(&compact.elements[2].item) : nullptr;
+    expect(bars && bars->active, "playing shows the moving waveform");
 
     island.state = reduce(island.state, PillClicked{}, island.now);
     expect(mode(island.state) == Mode::Expanded, "click expands");
@@ -64,12 +68,30 @@ void runProviderTests()
     island.click(playPause);
     expect(island.button(playPause)->glyph == Glyph::Play, "play/pause button pauses");
     expect(mode(island.state) == Mode::Expanded, "button click doesn't collapse");
+    for (const Placed& p : island.scene().elements)
+        if (p.key == "expandedBottom/1/2")
+            expect(p.frame.y + p.frame.height == island.scene().size.y - tokens().expandedPadding,
+                   "media controls keep the same bottom margin as the sides");
     Scene paused = island.scene();
     const Progress* progress = nullptr;
     for (const Placed& p : paused.elements)
         if (p.key == "expandedBottom/0/1") progress = std::get_if<Progress>(&p.item);
     expect(progress && !progress->timeline.playing && progress->timeline.position == Ms{ 5000 },
            "pause freezes the timeline where it was");
+
+    // Shuffle (leading edge) and repeat (trailing edge) are toggles that light up.
+    const std::string repeat = "expandedBottom/1/3", shuffle = "expandedBottom/1/4";
+    expect(island.button(shuffle) && island.button(shuffle)->glyph == Glyph::Shuffle && island.button(shuffle)->on == false,
+           "shuffle shows, off");
+    island.click(shuffle);
+    expect(island.button(shuffle)->on == true, "shuffle click turns it on");
+    island.click(shuffle);
+    island.click(repeat);
+    expect(island.button(repeat)->glyph == Glyph::Repeat && island.button(repeat)->on == true, "repeat: off -> all");
+    island.click(repeat);
+    expect(island.button(repeat)->glyph == Glyph::RepeatOne && island.button(repeat)->on == true, "repeat: all -> one");
+    island.click(repeat);
+    expect(island.button(repeat)->on == false, "repeat: one -> off");
 
     island.click("expandedBottom/1/2"); // next
     expect(island.state.alertQueue.size() == 1 && island.state.alertQueue[0].coalesceKey == "track",

@@ -28,6 +28,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <memory>
+#include <utility>
 
 using namespace cup;
 using namespace cup::platform;
@@ -41,14 +42,22 @@ PillRenderer g_renderer;
 HWND g_inputHwnd{};
 std::filesystem::path g_tokensFile;
 std::unique_ptr<ProviderRegistry> g_providers;
-std::string g_pressedKey; // element under the mouse-down, if it was a button
 
-// What the current (or last) mouse-down landed on. A press on the bubble
-// becomes a drag once core says it moved far enough (BubbleDragged).
-enum class Pressed { Nothing, Pill, Bubble };
-Pressed g_pressed = Pressed::Nothing;
-Vec2 g_pressStart;
-bool g_dragged = false; // this press turned into a drag: its release is not a click
+// The pointer over the pill. Feedback is the renderer's; what a click means is
+// core's (hitTest). Content reacts to hover, the pill never does (decision 002).
+struct Pointer {
+    std::optional<Vec2> at;      // over the pill, pill coordinates
+    std::string pressedKey;      // the button under the mouse-down
+    std::optional<Placed> scrub; // the progress bar being dragged
+    float scrubFraction = 0;
+    std::optional<Vec2> bubblePress; // mouse-down on the Split bubble, render-layer coordinates
+    bool dragged = false;            // ...and core took it as a drag (BubbleDragged): not a click
+} g_pointer;
+
+// Pointer callbacks get render-layer points; content works in pill coordinates.
+Vec2 toPill(Vec2 point) { return { point.x - g_scene.offset.x, point.y - g_scene.offset.y }; }
+bool onPill(Vec2 point) { return Rect{ g_scene.offset.x, g_scene.offset.y, g_scene.size.x, g_scene.size.y }.contains(point); }
+bool onBubble(Vec2 point) { return g_scene.bubble && g_scene.bubble->frame.contains(point); }
 
 Ms now()
 {
@@ -60,6 +69,25 @@ bool hasActivity(const std::string& id)
     for (const auto& a : g_state.activities)
         if (a.id == id) return true;
     return false;
+}
+
+const Placed* findElement(const std::string& key)
+{
+    for (const auto& p : g_scene.elements)
+        if (p.key == key) return &p;
+    return nullptr;
+}
+
+// Re-run on every pointer move and every new scene: content can move under a still pointer.
+void updateHover()
+{
+    std::string key;
+    if (g_pointer.scrub) {
+        key = g_pointer.scrub->key; // stays lit while dragged, even off the bar
+    } else if (g_pointer.at) {
+        if (auto hit = hitTest(g_scene, *g_pointer.at)) key = hit->key;
+    }
+    g_renderer.setHovered(key);
 }
 
 std::optional<Ms> earliest(std::optional<Ms> a, std::optional<Ms> b)
@@ -83,6 +111,7 @@ void dispatch(const Event& event, const char* reason)
     Rect bounds = interactiveBounds(next);
     if (bounds != interactiveBounds(g_scene)) followMorph({ bounds.width, bounds.height }, { bounds.x, bounds.y });
     g_scene = next;
+    updateHover();
 
     // One timer for everything time-based: core deadlines and ticking labels.
     auto deadline = earliest(nextDeadline(g_state), sceneDeadline(g_scene));
@@ -109,66 +138,89 @@ void toggleTimer()
     dispatch(ActivityStarted{ { .id = id, .content = content } }, "demo key");
 }
 
-Vec2 toPill(Vec2 point) { return { point.x - g_scene.offset.x, point.y - g_scene.offset.y }; }
-bool onBubble(Vec2 point) { return g_scene.bubble && g_scene.bubble->frame.contains(point); }
-
-// Mouse-down: a button gets its own press feedback, anything else squashes
-// the pill, or the bubble.
-void onPressDown(Vec2 point)
+// Mouse-down: the bubble may become a drag, a progress bar starts scrubbing,
+// a button gets its own press feedback, anything else squashes the pill.
+void onPressDown(Vec2 canvasPoint)
 {
-    g_dragged = false;
-    g_pressedKey.clear();
-    if (onBubble(point)) {
-        g_pressed = Pressed::Bubble;
-        g_pressStart = point;
+    if (onBubble(canvasPoint)) {
+        g_pointer.bubblePress = canvasPoint;
+        g_pointer.dragged = false;
         g_renderer.pressDown(true);
         return;
     }
-    g_pressed = Pressed::Pill;
-    auto hit = hitTest(g_scene, toPill(point));
-    if (hit) g_pressedKey = hit->key;
-    if (hit) g_renderer.pressElement(g_pressedKey);
-    else g_renderer.pressDown(false);
-}
-
-void onPressMoved(Vec2 point)
-{
-    if (g_pressed != Pressed::Bubble) return;
-    dispatch(BubbleDragged{ { point.x - g_pressStart.x, point.y - g_pressStart.y } }, "drag");
-    g_dragged = g_dragged || g_state.bubbleDrag.has_value(); // the renderer lifts it from here
-}
-
-void onPressRelease(std::optional<Vec2> point)
-{
-    if (g_pressed == Pressed::Bubble) {
-        if (!g_dragged) g_renderer.pressRelease(true);
-        if (g_state.bubbleDrag) dispatch(point ? Event{ BubbleReleased{} } : Event{ BubbleDragCancelled{} }, "drop");
-    } else if (!g_pressedKey.empty()) {
-        g_renderer.releaseElement(g_pressedKey);
+    Vec2 point = toPill(canvasPoint);
+    g_pointer.at = point;
+    auto hit = hitTest(g_scene, point);
+    const Placed* element = hit ? findElement(hit->key) : nullptr;
+    if (element && std::holds_alternative<Progress>(element->item)) {
+        g_pointer.scrub = *element;
+        g_pointer.scrubFraction = hit->action.value;
+        g_renderer.scrubElement(hit->key, g_pointer.scrubFraction);
+    } else if (element) {
+        g_pointer.pressedKey = hit->key;
+        g_renderer.pressElement(hit->key);
     } else {
-        g_renderer.pressRelease(false);
+        g_renderer.pressDown(false);
     }
+    updateHover();
 }
 
-void onClick(Vec2 point)
+void onPointerMoved(Vec2 canvasPoint, bool inside)
 {
-    if (g_dragged) return;
-    if (g_pressed == Pressed::Bubble) {
-        dispatch(BubbleClicked{}, "bubble click");
+    if (g_pointer.bubblePress) {
+        Vec2 start = *g_pointer.bubblePress;
+        dispatch(BubbleDragged{ { canvasPoint.x - start.x, canvasPoint.y - start.y } }, "drag");
+        if (g_state.bubbleDrag && !g_pointer.dragged) {
+            g_pointer.dragged = true;
+            g_renderer.pressRelease(true); // un-squash: it's being carried now
+        }
         return;
     }
-    Rect pill{ g_scene.offset.x, g_scene.offset.y, g_scene.size.x, g_scene.size.y };
-    if (!pill.contains(point)) return; // the gap between pill and bubble
-    if (auto hit = hitTest(g_scene, toPill(point))) {
-        if (auto event = islandEvent(hit->action)) {
-            dispatch(*event, "switcher");
-            return;
-        }
-        g_providers->route(hit->action);
-        dispatch(PointerMoved{}, "action"); // the user is busy here: keep Expanded open
-    } else {
-        dispatch(PillClicked{}, "click");
+    Vec2 point = toPill(canvasPoint);
+    g_pointer.at = inside && onPill(canvasPoint) ? std::optional<Vec2>(point) : std::nullopt;
+    if (g_pointer.scrub) {
+        g_pointer.scrubFraction = seekFraction(*g_pointer.scrub, point.x);
+        g_renderer.scrubElement(g_pointer.scrub->key, g_pointer.scrubFraction);
     }
+    dispatch(PointerMoved{}, "pointer"); // keeps Expanded open while in use; refreshes hover
+}
+
+void onPressRelease(Vec2 canvasPoint, Release how)
+{
+    if (g_pointer.bubblePress) {
+        g_pointer.bubblePress.reset();
+        if (!g_pointer.dragged) g_renderer.pressRelease(true);
+        if (g_state.bubbleDrag) dispatch(how == Release::Cancelled ? Event{ BubbleDragCancelled{} } : Event{ BubbleReleased{} }, "drop");
+        else if (!g_pointer.dragged && how == Release::Inside && onBubble(canvasPoint)) dispatch(BubbleClicked{}, "bubble click");
+        return;
+    }
+    Vec2 point = toPill(canvasPoint);
+    if (g_pointer.scrub) {
+        // A scrub seeks wherever it's let go, even off the pill; only a lost capture cancels it.
+        Placed bar = *std::exchange(g_pointer.scrub, std::nullopt);
+        bool commit = how != Release::Cancelled;
+        g_renderer.endScrub(bar.key, commit ? std::optional<float>(g_pointer.scrubFraction) : std::nullopt, now());
+        if (commit) g_providers->route({ bar.providerId, bar.activityId, "seek", g_pointer.scrubFraction });
+        dispatch(PointerMoved{}, "seek");
+        return;
+    }
+    if (!g_pointer.pressedKey.empty()) {
+        std::string key = std::exchange(g_pointer.pressedKey, std::string{});
+        g_renderer.releaseElement(key);
+        // Only a release on the same button counts: sliding off cancels, like any button.
+        auto hit = how == Release::Inside && onPill(canvasPoint) ? hitTest(g_scene, point) : std::nullopt;
+        if (hit && hit->key == key) {
+            if (auto event = islandEvent(hit->action)) {
+                dispatch(*event, "switcher"); // the host's own Expanded switcher
+                return;
+            }
+            g_providers->route(hit->action);
+            dispatch(PointerMoved{}, "action"); // the user is busy here: keep Expanded open
+        }
+        return;
+    }
+    g_renderer.pressRelease(false);
+    if (how == Release::Inside && onPill(canvasPoint) && !hitTest(g_scene, point)) dispatch(PillClicked{}, "click");
 }
 
 void onKey(WPARAM key)
@@ -233,11 +285,13 @@ int main()
 
     InteractionCallbacks callbacks;
     callbacks.onPressDown = onPressDown;
-    callbacks.onPressMoved = onPressMoved;
     callbacks.onPressRelease = onPressRelease;
-    callbacks.onClick = onClick;
     callbacks.onClickOutside = [] { dispatch(ClickedOutside{}, "click outside"); };
-    callbacks.onPointerMoved = [] { dispatch(PointerMoved{}, "pointer"); };
+    callbacks.onPointerMoved = onPointerMoved;
+    callbacks.onPointerLeft = [] {
+        g_pointer.at.reset();
+        updateHover();
+    };
     callbacks.onKeyDown = onKey;
     callbacks.onTimer = onTimer;
 

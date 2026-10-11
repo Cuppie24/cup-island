@@ -24,7 +24,7 @@ const std::wstring kGap = L"Max(Abs(" + kDx + L") - (a.Size.X + b.Size.X) / 2, A
 
 // Never thicker than the smaller shape (so it can't stick out of it, and is
 // zero while the bubble is tucked away at size 0).
-const std::wstring kThickness = L"(Min(p.Thickness, Min(a.Size.Y, b.Size.Y) * 0.7) * Clamp(1 - " + kGap + L" / p.Reach, 0, 1))";
+const std::wstring kThickness = L"(p.On * Min(p.Thickness, Min(a.Size.Y, b.Size.Y) * 0.7) * Clamp(1 - " + kGap + L" / p.Reach, 0, 1))";
 
 // The strand is centred on the midpoint, so a 180° ambiguity doesn't matter:
 // Atan (not Atan2) is enough. dx is kept off zero to avoid dividing by it.
@@ -46,6 +46,7 @@ void bind(Compositor const& c, CompositionObject const& target, wchar_t const* p
 void LiquidBridge::build(wuc::Compositor const& c, wuc::ContainerVisual const& parent, Vec2 canvas, const Blob& a, const Blob& b)
 {
     params_ = c.CreatePropertySet();
+    params_.InsertScalar(L"On", 1.0f);
     refreshAnimations();
 
     auto visual = c.CreateShapeVisual();
@@ -71,4 +72,12 @@ void LiquidBridge::refreshAnimations()
     params_.InsertScalar(L"Reach", std::max(tokens().bridgeReach, 0.01f)); // divided by
 }
 
+void LiquidBridge::setEnabled(bool on)
+{
+    if (on == on_) return;
+    on_ = on;
+    params_.InsertScalar(L"On", on ? 1.0f : 0.0f);
+}
+
 } // namespace cup::platform
+

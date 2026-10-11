@@ -10,9 +10,22 @@ auto SmtcMediaProvider::onUiThread(void (SmtcMediaProvider::*method)())
 {
     return [this, alive = alive_, method](auto&&...) {
         post_([this, alive, method] {
-            if (*alive) (this->*method)();
+            if (*alive) guarded(method);
         });
     };
+}
+
+void SmtcMediaProvider::guarded(void (SmtcMediaProvider::*method)())
+{
+    // A session can vanish while we read it (the app closed): its calls then
+    // throw. Uncaught in a posted callback, that would end the app; the next
+    // SessionsChanged brings us back in sync.
+    try {
+        (this->*method)();
+    } catch (winrt::hresult_error const& e) {
+        std::printf("[cup-island] media: session went away mid-update (0x%08x)\n", static_cast<unsigned>(e.code()));
+        std::fflush(stdout);
+    }
 }
 
 void SmtcMediaProvider::start(Host& host)
@@ -85,7 +98,7 @@ winrt::fire_and_forget SmtcMediaProvider::recheckSoon(std::shared_ptr<bool> aliv
     auto post = post_; // `this` is only touched back on the UI thread, after the alive check
     co_await winrt::resume_after(tokens().mediaSessionRecheck);
     post([this, alive] {
-        if (*alive) pickSession();
+        if (*alive) guarded(&SmtcMediaProvider::pickSession);
     });
 }
 
@@ -200,6 +213,13 @@ void SmtcMediaProvider::onAction(const Action& action)
         else if (action.actionId == act::kNext) session_.TrySkipNextAsync();
         else if (action.actionId == act::kPrevious) session_.TrySkipPreviousAsync();
         else if (action.actionId == act::kSource) cycleSource();
+        else if (action.actionId == act::kShuffle) {
+            auto shuffle = session_.GetPlaybackInfo().IsShuffleActive();
+            session_.TryChangeShuffleActiveAsync(!(shuffle && shuffle.Value()));
+        } else if (action.actionId == act::kRepeat) {
+            auto repeat = session_.GetPlaybackInfo().AutoRepeatMode();
+            session_.TryChangeAutoRepeatModeAsync(toWindows(nextRepeat(repeat ? fromWindows(repeat.Value()) : Repeat::Off)));
+        }
         else if (action.actionId == act::kSeek) {
             auto timeline = session_.GetTimelineProperties();
             auto start = timeline.StartTime(), end = timeline.EndTime();

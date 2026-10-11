@@ -139,13 +139,14 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 | Area | State |
 | --- | --- |
 | State machine: all PS §3 modes, alert queue/pre-emption/coalescing, hidden rules | done, tested |
-| Renderer: pill morph per mode, press feedback, content items (text, art, icons, buttons, progress, waveform) | done |
-| Renderer: Split bubble with liquid neck, drag-to-swap with live preview (decision 006) | done; rules tested, visuals need Windows |
+| Renderer: pill morph per mode, press feedback, content items (text, swimming text, art, icons, buttons, progress, waveform) | done |
+| Content hover (buttons, progress knob), drag-to-seek, nested radii (decisions 002, 006) | done; platform side untested on a real build yet |
+| Renderer: Split bubble with liquid neck, drag-to-swap (decision 007) | done; rules tested, visuals need Windows |
 | Renderer: alert pulse, receptive drop zones, DPI scaling, matched geometry | not yet |
 | Fullscreen detection (TR §9.2): borderless + exclusive, per monitor, maximized windows excluded | done; rules tested (`core/fullscreen`), hooks need Windows |
 | Real input for drag (OLE drop target) | not yet; the D key simulates it |
 | Provider API (PS §7 Tier 1), registry, demo music player | done, tested |
-| Switching activities (decision 006): bubble click, drag-to-swap, Expanded switcher, sticky pick | done, tested |
+| Switching activities (decision 007): bubble click, drag-to-swap, Expanded switcher, sticky pick | done, tested |
 | Real media provider (SMTC, TR §6): art, controls, seek, multi-app switch, paused linger | done; rules tested, WinRT part needs Windows |
 | Plugin pipe (PS §8 Tier 2) | not yet |
 | Activity expiry (`expiresAt`) | done, tested |

@@ -35,9 +35,7 @@ Source sourceFor(const IslandState& s, Mode mode)
 {
     if (mode == Mode::Alert) return { &s.alert->content, s.alert->providerId, s.alert->activityId };
     if (mode != Mode::Compact && mode != Mode::Split && mode != Mode::Expanded) return {};
-    // Expanded shows the activity that was opened; resting shows the top one,
-    // or the dragged bubble's while it previews the swap (decision 006).
-    if (mode == Mode::Split && swapPreview(s)) return { &s.activities[1].content, s.activities[1].providerId, s.activities[1].id };
+    // Expanded shows the activity that was opened; resting shows the top one.
     for (const auto& a : s.activities)
         if (mode != Mode::Expanded || a.id == s.expandedId) return { &a.content, a.providerId, a.id };
     return {};
@@ -49,31 +47,57 @@ struct SlotFrame {
     Rect frame;
 };
 
-// Expanded with several activities: the host's switcher column on the right (PS §3.1).
-bool hasSwitcher(const IslandState& s, Mode mode) { return mode == Mode::Expanded && s.activities.size() > 1; }
+// Expanded with several activities gets the host's switcher in its top row
+// (PS §3.1): "next activity", plus "show in the island" unless the shown
+// activity already has the pill. How many buttons that is.
+int switcherButtons(const IslandState& s, Mode mode)
+{
+    if (mode != Mode::Expanded || s.activities.size() < 2) return 0;
+    return s.activities.front().id == s.expandedId ? 1 : 2;
+}
 
-// Where each slot sits inside the pill (PS §5.1). Leading squares are pushed
-// in horizontally a little more, clear of the rounded bottom corners.
-std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c, bool switcher)
+// The padding a mode keeps on every side of its content.
+float paddingFor(Mode mode)
 {
     const Tokens& t = tokens();
     switch (mode) {
     case Mode::Compact:
+    case Mode::Split: return t.compactInset;
+    case Mode::Alert: return t.alertPadding;
+    case Mode::Expanded: return t.expandedPadding;
+    default: return 0;
+    }
+}
+
+// Where each slot sits inside the pill (PS §5.1). Every slot keeps the mode's
+// padding from the pill's edges: with the nested corner radius that keeps
+// rounded content concentric with the pill's corners.
+std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c, int switcherButtons)
+{
+    const Tokens& t = tokens();
+    float p = paddingFor(mode);
+    switch (mode) {
+    case Mode::Compact:
     case Mode::Split: {
-        float inset = t.compactInset, side = size.y - 2 * inset, x = 2 * inset;
-        return { { "compactLeading", &c.compactLeading, { x, inset, side, side } },
-                 { "compactTrailing", &c.compactTrailing, { size.x - x - side, inset, side, side } } };
+        float side = size.y - 2 * p, centerX = p + side + t.itemSpacing;
+        return { { "compactLeading", &c.compactLeading, { p, p, side, side } },
+                 { "compactCenter", &c.compactCenter, { centerX, p, std::max(0.0f, size.x - 2 * centerX), side } },
+                 { "compactTrailing", &c.compactTrailing, { size.x - p - side, p, side, side } } };
     }
     case Mode::Alert: {
-        float p = t.alertPadding, side = size.y - 2 * p, x = 2 * p, centerX = x + side + t.slotGap;
-        return { { "alertLeading", &c.alertLeading, { x, p, side, side } },
-                 { "alertCenter", &c.alertCenter, { centerX, p, size.x - centerX - x, side } } };
+        float side = size.y - 2 * p, centerX = p + side + t.slotGap;
+        return { { "alertLeading", &c.alertLeading, { p, p, side, side } },
+                 { "alertCenter", &c.alertCenter, { centerX, p, size.x - centerX - p, side } } };
     }
     case Mode::Expanded: {
-        float p = t.expandedPadding, art = t.expandedArtSize, centerX = p + art + t.slotGap, bottomY = p + art + t.slotGap;
-        float reserved = switcher ? t.buttonSize + t.itemSpacing : 0;
+        float art = t.expandedArtSize, centerX = p + art + t.slotGap, bottomY = p + art + t.slotGap;
+        float corner = t.buttonSize, cornerX = size.x - p - corner;
+        float right = c.expandedTrailing.empty() ? size.x - p : cornerX - t.itemSpacing; // switcher ends here
+        float centerRight = switcherButtons > 0 ? right - switcherButtons * (corner + t.itemSpacing) + t.itemSpacing - t.slotGap
+                          : c.expandedTrailing.empty() ? size.x - p : cornerX - t.slotGap;
         return { { "expandedLeading", &c.expandedLeading, { p, p, art, art } },
-                 { "expandedCenter", &c.expandedCenter, { centerX, p, size.x - centerX - p - reserved, art } },
+                 { "expandedCenter", &c.expandedCenter, { centerX, p, centerRight - centerX, art } },
+                 { "expandedTrailing", &c.expandedTrailing, { cornerX, p, corner, corner } },
                  { "expandedBottom", &c.expandedBottom, { p, bottomY, size.x - 2 * p, size.y - bottomY - p } } };
     }
     default:
@@ -129,7 +153,14 @@ Item resolve(const Item& item, Ms now)
     return item;
 }
 
-void placeSlot(const SlotFrame& slot, const Source& source, Ms now, std::vector<Placed>& out)
+// Rounded content (art, button hover circles) only.
+float radiusFor(const Item& item, Rect frame, float nestedRadius)
+{
+    if (!std::holds_alternative<Image>(item) && !std::holds_alternative<Button>(item)) return 0;
+    return std::min(nestedRadius, std::min(frame.width, frame.height) / 2);
+}
+
+void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, Ms now, std::vector<Placed>& out)
 {
     const Tokens& t = tokens();
     const Slot& rows = *slot.slot;
@@ -138,7 +169,8 @@ void placeSlot(const SlotFrame& slot, const Source& source, Ms now, std::vector<
     float total = 0;
     for (const Row& r : rows) {
         float h = 0;
-        for (const Item& item : r.items) h = std::max(h, heightOf(item, slot.frame));
+        for (const auto* items : { &r.items, &r.leading, &r.trailing })
+            for (const Item& item : *items) h = std::max(h, heightOf(item, slot.frame));
         rowHeights.push_back(h);
         total += h;
     }
@@ -148,67 +180,119 @@ void placeSlot(const SlotFrame& slot, const Source& source, Ms now, std::vector<
     for (size_t r = 0; r < rows.size(); ++r) {
         const Row& row = rows[r];
         float rowHeight = rowHeights[r];
+        float gap = row.loose ? t.looseItemSpacing : t.itemSpacing;
 
-        float fixed = 0;
-        int stretchCount = 0;
-        for (const Item& item : row.items) {
-            if (auto w = fixedWidthOf(item, heightOf(item, slot.frame))) fixed += *w;
-            else ++stretchCount;
-        }
-        float spacing = t.itemSpacing * static_cast<float>(row.items.empty() ? 0 : row.items.size() - 1);
-        float spare = std::max(0.0f, slot.frame.width - fixed - spacing);
-        float stretchWidth = stretchCount > 0 ? spare / static_cast<float>(stretchCount) : 0;
-
-        float x = slot.frame.x;
-        if (stretchCount == 0 && row.align == Align::Center) x += spare / 2;
-        if (stretchCount == 0 && row.align == Align::End) x += spare;
-
-        for (size_t i = 0; i < row.items.size(); ++i) {
-            const Item& item = row.items[i];
+        // Keys number `items`, then `trailing`, then `leading`, so they stay stable as rows grow.
+        size_t first = out.size();
+        auto place = [&](const Item& item, size_t index, float x, float w) {
             float h = heightOf(item, slot.frame);
-            float w = fixedWidthOf(item, h).value_or(stretchWidth);
             Placed placed;
-            placed.key = std::string(slot.name) + "/" + std::to_string(r) + "/" + std::to_string(i);
+            placed.key = std::string(slot.name) + "/" + std::to_string(r) + "/" + std::to_string(index);
             placed.item = resolve(item, now);
             placed.frame = { x, y + (rowHeight - h) / 2, w, h };
+            placed.cornerRadius = radiusFor(item, placed.frame, nestedRadius);
             placed.providerId = source.providerId;
             placed.activityId = source.activityId;
             if (auto* label = std::get_if<TimeLabel>(&item)) placed.ticking = label->timeline;
             out.push_back(std::move(placed));
-            x += w + t.itemSpacing;
+        };
+        auto widthOf = [&](const Item& item) { return fixedWidthOf(item, heightOf(item, slot.frame)); };
+
+        // Edge groups: packed with the normal spacing, kept `gap` away from the middle.
+        auto edgeWidth = [&](const std::vector<Item>& group) {
+            float w = 0;
+            for (const Item& item : group) w += widthOf(item).value_or(0) + t.itemSpacing;
+            return group.empty() ? 0.0f : w - t.itemSpacing + gap;
+        };
+        float leadingWidth = edgeWidth(row.leading), trailingWidth = edgeWidth(row.trailing);
+        float available = slot.frame.width - leadingWidth - trailingWidth;
+
+        float fixed = 0;
+        int stretchCount = 0;
+        for (const Item& item : row.items) {
+            if (auto w = widthOf(item)) fixed += *w;
+            else ++stretchCount;
+        }
+        float spacing = gap * static_cast<float>(row.items.empty() ? 0 : row.items.size() - 1);
+        float used = fixed + spacing;
+        float spare = std::max(0.0f, available - used);
+        float stretchWidth = stretchCount > 0 ? spare / static_cast<float>(stretchCount) : 0;
+
+        float x = slot.frame.x + leadingWidth;
+        if (stretchCount == 0 && row.align == Align::End) x += spare;
+        if (stretchCount == 0 && row.align == Align::Center) {
+            // Centred on the whole row, so edge groups don't pull the middle off
+            // centre; nudged sideways only as far as needed to clear them.
+            x = slot.frame.x + std::clamp((slot.frame.width - used) / 2, leadingWidth, leadingWidth + spare);
+        }
+        for (size_t i = 0; i < row.items.size(); ++i) {
+            float w = widthOf(row.items[i]).value_or(stretchWidth);
+            place(row.items[i], i, x, w);
+            x += w + gap;
+        }
+        auto placeEdge = [&](const std::vector<Item>& group, size_t firstIndex, float x) {
+            for (size_t i = 0; i < group.size(); ++i) {
+                float w = widthOf(group[i]).value_or(0);
+                place(group[i], firstIndex + i, x, w);
+                x += w + t.itemSpacing;
+            }
+        };
+        placeEdge(row.trailing, row.items.size(), slot.frame.x + slot.frame.width - trailingWidth + gap);
+        placeEdge(row.leading, row.items.size() + row.trailing.size(), slot.frame.x);
+
+        // Click areas meet halfway between neighbours (no dead strips) and reach
+        // half a gap past the row's ends and half the row spacing above and below.
+        std::vector<Placed*> placed;
+        for (size_t i = first; i < out.size(); ++i) placed.push_back(&out[i]);
+        std::sort(placed.begin(), placed.end(), [](const Placed* a, const Placed* b) { return a->frame.x < b->frame.x; });
+        for (size_t i = 0; i < placed.size(); ++i) {
+            const Rect& f = placed[i]->frame;
+            float left = i == 0 ? f.x - gap / 2 : (placed[i - 1]->frame.x + placed[i - 1]->frame.width + f.x) / 2;
+            float right = i + 1 == placed.size() ? f.x + f.width + gap / 2 : (f.x + f.width + placed[i + 1]->frame.x) / 2;
+            placed[i]->hitFrame = { left, y - t.rowSpacing / 2, right - left, rowHeight + t.rowSpacing };
         }
         y += rowHeight + t.rowSpacing;
     }
 }
 
-// The switcher: "next activity" on top, and "show in the island" below it
-// unless this activity already has the pill (decision 006). Host-owned, so
-// no provider id: hitTest's actions for these map to island events.
-void placeSwitcher(const IslandState& s, Vec2 size, std::vector<Placed>& out)
+// The switcher, right to left from the top-right corner (left of a
+// provider's expandedTrailing button): "next", then "show in the island".
+// Host-owned, so no provider id: islandEvent() maps their actions (decision 007).
+void placeSwitcher(const IslandState& s, Vec2 size, const Content& c, float nestedRadius, std::vector<Placed>& out)
 {
     const Tokens& t = tokens();
-    float x = size.x - t.expandedPadding - t.buttonSize, top = t.expandedPadding;
-    auto place = [&](const char* key, Button button, float y) {
-        out.push_back({ .key = key, .item = button, .frame = { x, y, t.buttonSize, t.buttonSize }, .activityId = s.expandedId });
+    float p = t.expandedPadding, side = t.buttonSize;
+    float x = size.x - p - side;
+    if (!c.expandedTrailing.empty()) x -= side + t.itemSpacing;
+    auto place = [&](const char* key, Button button) {
+        Rect frame{ x, p, side, side };
+        out.push_back({ .key = key, .item = button, .frame = frame, .hitFrame = frame,
+                        .cornerRadius = std::min(nestedRadius, side / 2), .activityId = s.expandedId });
+        x -= side + t.itemSpacing;
     };
-    place("switcher/next", { Glyph::NextActivity, kIslandNext }, top);
-    if (s.activities.front().id != s.expandedId)
-        place("switcher/promote", { Glyph::Pin, kIslandPromote }, top + t.expandedArtSize - t.buttonSize);
+    place("switcher/next", { Glyph::NextActivity, kIslandNext });
+    if (s.activities.front().id != s.expandedId) place("switcher/promote", { Glyph::Pin, kIslandPromote });
 }
 
-// Split: the activity the pill isn't showing goes in the bubble, at rest or
-// following the drag. Its `minimal` slot, else its compact leading one (PS §5.1).
+// Split: the 2nd activity's `minimal` slot, else its compact leading one
+// (PS §5.1). Same shape as the pill (straight top, rounded bottom), so its
+// content gets the same nested corner radius.
 BubbleScene bubbleFor(const IslandState& s, Ms now)
 {
-    bool preview = swapPreview(s);
-    const Activity& a = s.activities[preview ? 0 : 1];
+    const Activity& a = s.activities[1];
     BubbleScene bubble;
     bubble.frame = bubbleHomeFrame();
     bubble.activityId = a.id;
+    if (s.bubbleDrag) {
+        Rect f = bubble.frame;
+        bubble.dragCentre = Vec2{ f.x + f.width / 2 + s.bubbleDrag->x, f.y + f.height / 2 + s.bubbleDrag->y };
+    }
 
     float inset = tokens().compactInset, side = bubble.frame.width - 2 * inset;
+    float nestedRadius = std::max(0.0f, pillCornerRadius({ bubble.frame.width, bubble.frame.height }) - inset);
     const Slot& slot = a.content.minimal.empty() ? a.content.compactLeading : a.content.minimal;
-    placeSlot({ "minimal", &slot, { inset, inset, side, side } }, { &a.content, a.providerId, a.id }, now, bubble.elements);
+    placeSlot({ "minimal", &slot, { inset, inset, side, side } }, { &a.content, a.providerId, a.id }, nestedRadius, now,
+              bubble.elements);
     return bubble;
 }
 
@@ -223,21 +307,23 @@ Scene layout(const IslandState& state, Ms now)
     scene.offset = { (tokens().canvas.x - scene.size.x) / 2, 0 };
     scene.bubbleTuck = { scene.offset.x + scene.size.x - scene.size.y / 2, scene.offset.y + scene.size.y / 2 };
     if (scene.mode == Mode::Split) scene.bubble = bubbleFor(state, now);
-    if (scene.bubble && state.bubbleDrag) {
-        Rect home = bubbleHomeFrame();
-        scene.drag = SceneDrag{ state.activities[1].id,
-                                { home.x + home.width / 2 + state.bubbleDrag->x, home.y + home.height / 2 + state.bubbleDrag->y } };
-    }
+    scene.dropTarget = swapPreview(state);
 
     Source source = sourceFor(state, scene.mode);
     if (!source.content) return scene;
     scene.label = source.content->label;
     scene.activityId = source.activityId;
-    bool switcher = hasSwitcher(state, scene.mode);
-    for (const SlotFrame& slot : slotFrames(scene.mode, scene.size, *source.content, switcher))
-        placeSlot(slot, source, now, scene.elements);
-    if (switcher) placeSwitcher(state, scene.size, scene.elements);
+    float nestedRadius = std::max(0.0f, pillCornerRadius(scene.size) - paddingFor(scene.mode));
+    int buttons = switcherButtons(state, scene.mode);
+    for (const SlotFrame& slot : slotFrames(scene.mode, scene.size, *source.content, buttons))
+        placeSlot(slot, source, nestedRadius, now, scene.elements);
+    if (buttons > 0) placeSwitcher(state, scene.size, *source.content, nestedRadius, scene.elements);
     return scene;
+}
+
+float pillCornerRadius(Vec2 size)
+{
+    return std::min(std::min(size.x, size.y) / 2, tokens().maxCornerRadius);
 }
 
 Rect interactiveBounds(const Scene& scene)

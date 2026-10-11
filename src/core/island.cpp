@@ -20,7 +20,7 @@ Activity* findActivity(IslandState& s, const std::string& id)
 }
 
 // PS §6.2: the user's pick, then level, then relevance, then most recently
-// started. The pick beats every level (decision 006).
+// started. The pick beats every level (decision 007).
 void rank(IslandState& s)
 {
     std::stable_sort(s.activities.begin(), s.activities.end(), [&](const Activity& a, const Activity& b) {

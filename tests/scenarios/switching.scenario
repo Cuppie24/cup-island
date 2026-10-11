@@ -1,5 +1,5 @@
 # Switching which activity has the pill and which one Expanded shows
-# (PS §3.1 Split/Expanded, §6.2 user pin; decision 006).
+# (PS §3.1 Split/Expanded, §6.2 user pin; decision 007).
 
 scenario: clicking the bubble expands the bubble's activity
 start media

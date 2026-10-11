@@ -1,21 +1,21 @@
 #include "platform/blob.h"
 
-#include "core/tokens.h"
+#include <algorithm>
 
 namespace cup::platform {
 namespace {
 
 using namespace winrt::Windows::UI::Composition;
+using winrt::Windows::UI::Color;
 
-// Binds a property to an expression over the body's live (animating) values,
-// so it follows every morph and drag without app code running per frame.
+// Binds a property to an expression over the body's live (animating) size,
+// so it follows every morph without app code running per frame.
 void bind(Compositor const& c, CompositionObject const& target, wchar_t const* property, wchar_t const* expression,
-          ShapeVisual const& body, CompositionPropertySet const& shape, CompositionPropertySet const& drag)
+          ShapeVisual const& body, CompositionPropertySet const& shape)
 {
     auto anim = c.CreateExpressionAnimation(expression);
-    anim.SetReferenceParameter(L"body", body);
+    anim.SetReferenceParameter(L"pill", body);
     anim.SetReferenceParameter(L"shape", shape);
-    anim.SetReferenceParameter(L"drag", drag);
     target.StartAnimation(property, anim);
 }
 
@@ -44,58 +44,58 @@ ImplicitAnimationCollection morphAnimations(Compositor const& c)
     return collection;
 }
 
-// Corner radius: half the shorter side, capped so big shapes aren't blobs.
-constexpr wchar_t kRadius[] = L"Min(Min(body.Size.X, body.Size.Y) / 2, shape.MaxRadius)";
+Color fillColor(bool highlighted)
+{
+    auto grey = static_cast<std::uint8_t>(std::clamp(highlighted ? tokens().dropHighlight : 0.0f, 0.0f, 1.0f) * 255);
+    return { 255, grey, grey, grey };
+}
 
 } // namespace
 
-void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::ContainerVisual const& bodies,
-                 wuc::ContainerVisual const& contents, Vec2 size, Vec2 offset, bool round)
+void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::ContainerVisual const& parent, Vec2 size, Vec2 offset)
 {
     compositor_ = c;
     size_ = size;
     offset_ = offset;
-    round_ = round;
 
     body_ = c.CreateShapeVisual();
     body_.Size(toFloat2(size));
     body_.Offset(toFloat3(offset));
-    bodies.Children().InsertAtTop(body_);
-
-    shape_ = c.CreatePropertySet();
-    shape_.InsertScalar(L"MaxRadius", tokens().maxCornerRadius);
-    shape_.InsertScalar(L"Round", round ? 1.0f : 0.0f);
     drag_ = c.CreatePropertySet();
     drag_.InsertVector2(L"Centre", { offset.x + size.x / 2, offset.y + size.y / 2 });
 
-    // Press/lift scale pivots on the top edge's middle for the pill (it stays
-    // glued to the screen edge), on the centre for the bubble.
-    bind(c, body_, L"CenterPoint", L"Vector3(body.Size.X / 2, body.Size.Y / 2 * shape.Round, 0)", body_, shape_, drag_);
+    // Press-scale pivots on the middle of the top edge, so the shape stays
+    // glued to the screen edge while its sides and bottom squash in.
+    shape_ = c.CreatePropertySet();
+    shape_.InsertScalar(L"MaxRadius", tokens().maxCornerRadius);
+    bind(c, body_, L"CenterPoint", L"Vector3(pill.Size.X / 2, 0, 0)", body_, shape_);
 
-    // Background. As a pill only the bottom corners are rounded (a notch
-    // hanging from the screen edge): the geometry is made a radius taller and
-    // shifted up, and ShapeVisual clips the top corners away. Round = 1 drops
-    // the shift, giving a full circle; in between it's a smooth blend.
-    std::wstring r = kRadius;
+    // Background: only the bottom corners are rounded (a notch hanging from the
+    // screen edge). The geometry has one radius for all corners, so it's made
+    // a radius taller and shifted up; ShapeVisual clips the top corners away.
+    // Radius = half the height, capped by maxCornerRadius: the same curve as
+    // core pillCornerRadius(), which content radii are nested in.
     auto background = c.CreateRoundedRectangleGeometry();
-    bind(c, background, L"CornerRadius", (L"Vector2(" + r + L", " + r + L")").c_str(), body_, shape_, drag_);
-    bind(c, background, L"Offset", (L"Vector2(0, -" + r + L" * (1 - shape.Round))").c_str(), body_, shape_, drag_);
-    bind(c, background, L"Size", (L"Vector2(body.Size.X, body.Size.Y + " + r + L" * (1 - shape.Round))").c_str(), body_, shape_, drag_);
+    bind(c, background, L"CornerRadius",
+        L"Vector2(Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius), Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))",
+        body_, shape_);
+    bind(c, background, L"Offset", L"Vector2(0, -Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))", body_, shape_);
+    bind(c, background, L"Size",
+        L"Vector2(pill.Size.X, pill.Size.Y + Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))", body_, shape_);
     auto backgroundShape = c.CreateSpriteShape(background);
-    backgroundShape.FillBrush(c.CreateColorBrush({ 255, 0, 0, 0 }));
+    fill_ = c.CreateColorBrush(fillColor(false));
+    backgroundShape.FillBrush(fill_);
     body_.Shapes().Append(backgroundShape);
 
-    // Content: in the shared content layer, tracking the body's live place,
-    // size and scale, clipped to it so content fading in during a grow morph
-    // never shows outside the shape.
+    // Content lives in a container clipped to the shape's live size, so new
+    // content fading in during a grow morph never shows outside it.
     auto content = c.CreateContainerVisual();
-    bind(c, content, L"Offset", L"body.Offset", body_, shape_, drag_);
-    bind(c, content, L"Size", L"body.Size", body_, shape_, drag_);
-    bind(c, content, L"CenterPoint", L"body.CenterPoint", body_, shape_, drag_);
-    bind(c, content, L"Scale", L"body.Scale", body_, shape_, drag_);
+    bind(c, content, L"Size", L"pill.Size", body_, shape_);
     content.Clip(c.CreateInsetClip());
-    contents.Children().InsertAtTop(content);
+    body_.Children().InsertAtTop(content);
     elements_.init(c, device, content);
+
+    parent.Children().InsertAtTop(body_);
 
     // Attached last, so the initial Size/Offset above don't animate.
     refreshAnimations();
@@ -118,39 +118,34 @@ void Blob::place(Vec2 size, Vec2 offset)
     offset_ = offset;
 }
 
-void Blob::setRound(bool round)
-{
-    if (round == round_) return;
-    round_ = round;
-    auto anim = compositor_.CreateScalarKeyFrameAnimation();
-    anim.InsertKeyFrame(1.0f, round ? 1.0f : 0.0f, easingFor(compositor_, tokens().morphEase));
-    anim.Duration(tokens().morphDuration);
-    shape_.StartAnimation(L"Round", anim);
-}
-
 void Blob::follow(std::optional<Vec2> centre)
 {
-    const Tokens& t = tokens();
     if (centre) {
         drag_.InsertVector2(L"Centre", toFloat2(*centre));
         if (following_) return;
-        // Centred on the cursor from the live size, so growing into the pill
-        // (or shrinking back) during the drag never moves it off the cursor.
         following_ = true;
-        auto anim = compositor_.CreateExpressionAnimation(L"Vector3(drag.Centre.X - body.Size.X / 2, drag.Centre.Y - body.Size.Y / 2, 0)");
-        anim.SetReferenceParameter(L"body", body_);
+        auto anim = compositor_.CreateExpressionAnimation(L"Vector3(drag.Centre.X - pill.Size.X / 2, drag.Centre.Y - pill.Size.Y / 2, 0)");
+        anim.SetReferenceParameter(L"pill", body_);
         anim.SetReferenceParameter(L"drag", drag_);
         body_.StartAnimation(L"Offset", anim);
-        playScale(t.dragLiftScale, t.pressReleaseDuration, t.pressReleaseEase); // picked up
         return;
     }
     if (!following_) return;
     // Let go: stopping keeps the current (cursor) position, then the implicit
-    // morph carries it to where it lands (the pill, or back home).
+    // morph carries it home.
     following_ = false;
     body_.StopAnimation(L"Offset");
     body_.Offset(toFloat3(offset_));
-    playScale(1.0f, t.pressReleaseDuration, t.pressReleaseEase);
+}
+
+void Blob::setHighlighted(bool on)
+{
+    if (on == highlighted_) return;
+    highlighted_ = on;
+    auto anim = compositor_.CreateColorKeyFrameAnimation();
+    anim.InsertKeyFrame(1.0f, fillColor(on));
+    anim.Duration(std::max(tokens().hoverFadeDuration, Ms{ 1 }));
+    fill_.StartAnimation(L"Color", anim);
 }
 
 void Blob::pressDown()

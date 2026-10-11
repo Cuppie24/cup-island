@@ -63,6 +63,7 @@ if(WIN32)
         src/app/main.cpp
         src/platform/blob.cpp
         src/platform/element_painting.cpp
+        src/platform/element_parts.cpp
         src/platform/element_visuals.cpp
         src/platform/file_watcher.cpp
         src/platform/fullscreen_watcher.cpp

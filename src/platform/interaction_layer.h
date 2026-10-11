@@ -13,15 +13,19 @@ namespace cup::platform {
 
 enum class TimerId : UINT_PTR { Deadline = 1, TokensReload = 2 };
 
+// How a press ended. Inside/Outside: released over this window or off it.
+// Cancelled: capture was taken away mid-press.
+enum class Release { Inside, Outside, Cancelled };
+
 // Points are in render-layer coordinates (the same as Scene frames). The
-// window covers the pill and, in Split, the bubble beside it.
+// window covers the pill and, in Split, the bubble beside it. While a press
+// is held the window has capture, so moves and the release arrive even off it.
 struct InteractionCallbacks {
     std::function<void(Vec2 point)> onPressDown;
-    std::function<void(Vec2 point)> onPressMoved; // while pressed, even off the window (captured)
-    std::function<void(std::optional<Vec2> point)> onPressRelease; // nullopt: press interrupted (capture lost)
-    std::function<void(Vec2 point)> onClick; // released while still on the window
+    std::function<void(Vec2 point, Release how)> onPressRelease; // a click is Release::Inside
     std::function<void()> onClickOutside; // something else was activated
-    std::function<void()> onPointerMoved;
+    std::function<void(Vec2 point, bool inside)> onPointerMoved;
+    std::function<void()> onPointerLeft;
     std::function<void(WPARAM key)> onKeyDown;
     std::function<void(TimerId)> onTimer;
 };

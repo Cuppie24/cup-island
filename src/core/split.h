@@ -1,6 +1,6 @@
 #pragma once
 // Split's geometry (PS §3.1): the compact pill and its detached bubble, and
-// the drag-to-swap rule (decision 006). Shared by reduce() and layout().
+// the drag-to-swap rule (decision 007). Shared by reduce() and layout().
 
 #include "core/geometry.h"
 

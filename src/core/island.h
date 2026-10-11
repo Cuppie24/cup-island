@@ -58,7 +58,7 @@ struct Dropped {};
 struct HiddenChanged { bool hidden; };  // fullscreen app, user toggle, locked session
 struct Tick {};                         // a deadline from nextDeadline() was reached
 struct BubbleClicked {};                // Split: expand the bubble's (2nd-ranked) activity
-struct ActivityPromoted { std::string id; }; // user's pick for the pill: drag-swap or Expanded's pin (decision 006)
+struct ActivityPromoted { std::string id; }; // user's pick for the pill: drag-swap or Expanded's pin (decision 007)
 struct ExpandedPaged { int step = 1; }; // Expanded switcher: show the next (+1) / previous (-1) activity, wrapping
 struct BubbleDragged { Vec2 drag; };    // pressed bubble moved: offset from its home (counts once past dragStartDistance)
 struct BubbleReleased {};               // drag let go: over the pill = swap (promote the bubble's activity)
@@ -73,7 +73,7 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
 // --- State --------------------------------------------------------------
 struct IslandState {
     std::vector<Activity> activities;  // ranked, best first (PS §6.2)
-    std::string pinnedId;              // the user's pick for the pill; cleared when it ends (decision 006)
+    std::string pinnedId;              // the user's pick for the pill; cleared when it ends (decision 007)
     std::optional<Vec2> bubbleDrag;    // the Split bubble is being dragged, this far from home
     std::optional<Alert> alert;        // the alert on screen
     Ms alertUntil{};
@@ -90,8 +90,8 @@ IslandState reduce(IslandState state, const Event& event, Ms now);
 Mode mode(const IslandState& state);        // what's visible, with overlay precedence (PS §3.3)
 Mode restingMode(const IslandState& state); // Idle / Compact / Split, ignoring overlays
 
-// The bubble is dragged over the pill: letting go now swaps them, so the
-// island already shows the swapped arrangement as a preview (decision 006).
+// The bubble is dragged over the pill: letting go now swaps them. The pill
+// lightens to say so (decision 007).
 bool swapPreview(const IslandState& state);
 
 // When reduce(Tick) must run next, or nothing if the island is static.

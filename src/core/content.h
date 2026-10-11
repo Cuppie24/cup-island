@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <memory>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
@@ -15,7 +16,7 @@ namespace cup {
 using Ms = std::chrono::milliseconds;
 
 // Built-in icons; the renderer maps them to font glyphs.
-enum class Glyph { Play, Pause, Next, Previous, Source, Music, Warning, NextActivity, Pin, Timer };
+enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, NextActivity, Pin, Timer };
 
 enum class TextStyle { Title, Body, Caption, Digits };
 
@@ -46,6 +47,7 @@ struct Text {
     std::string value;
     TextStyle style = TextStyle::Body;
     bool alignEnd = false; // right-aligned in its frame
+    bool marquee = false;  // too long: scrolls ("swims") in a loop instead of ending in "…"
     bool operator==(const Text&) const = default;
 };
 struct Image { std::shared_ptr<const ImageData> data; bool operator==(const Image&) const = default; };
@@ -54,11 +56,12 @@ struct Button {
     Glyph glyph = Glyph::Play;
     std::string actionId; // sent back to the provider when clicked
     bool enabled = true;
+    std::optional<bool> on; // toggles only (shuffle, repeat): lit with a dot when on, dimmed when off
     bool operator==(const Button&) const = default;
 };
 struct Progress { Timeline timeline; bool seekable = false; bool operator==(const Progress&) const = default; };
 struct TimeLabel { Timeline timeline; bool remaining = false; bool operator==(const TimeLabel&) const = default; }; // "1:23" / "-2:05"
-struct Waveform { bool active = false; bool operator==(const Waveform&) const = default; };              // live "now playing" bars
+struct Waveform { bool active = false; bool operator==(const Waveform&) const = default; };              // "now playing" bars; still dots when inactive
 
 using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform>;
 
@@ -68,6 +71,12 @@ enum class Align { Start, Center, End };
 struct Row {
     std::vector<Item> items;
     Align align = Align::Start;
+    bool loose = false; // wider gaps between items (controls: easier to hit, harder to mis-hit)
+    // Fixed-size items pinned to the row's start / end edge, e.g. shuffle and
+    // repeat around centred media controls. `items` still centre across the
+    // full width. Keys number items, then trailing, then leading.
+    std::vector<Item> leading;
+    std::vector<Item> trailing;
     bool operator==(const Row&) const = default;
 };
 
@@ -80,12 +89,14 @@ using Slot = std::vector<Row>;
 struct Content {
     std::string label; // accessible name, also used in logs and tests
     Slot compactLeading;
+    Slot compactCenter;  // between the two compact squares, e.g. a swimming title
     Slot compactTrailing;
     Slot minimal;
     Slot alertLeading;
     Slot alertCenter;
     Slot expandedLeading;
     Slot expandedCenter;
+    Slot expandedTrailing; // a button-sized square in the top-right corner; the centre narrows only when it's used
     Slot expandedBottom;
     bool operator==(const Content&) const = default;
 };
