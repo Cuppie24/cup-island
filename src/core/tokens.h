@@ -49,6 +49,7 @@ struct Tokens {
     float titleFontSize = 15;
     float bodyFontSize = 13;
     float captionFontSize = 11;
+    float displayFontSize = 34; // TextStyle::Display: a timer as the card's centre
     float iconSize = 18;
     float buttonSize = 36;        // hover circle; the click area also takes in half the gaps around it
     float buttonGlyphSize = 16;
@@ -58,8 +59,8 @@ struct Tokens {
     float progressKnobSize = 12;  // the scrub handle shown on hover
     float timeLabelWidth = 48;
     float ringThickness = 3;      // progress ring stroke (decision 010)
-    float stepDotSize = 6;        // Steps: one dot per step
-    float stepDotGap = 5;
+    float stepDotSize = 9;        // Steps: one dot per step
+    float stepDotGap = 8;
 
     // Hover on buttons and the progress bar (decision 002: content only, not the pill).
     Ms hoverFadeDuration{ 120 };

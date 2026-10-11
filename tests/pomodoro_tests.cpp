@@ -8,6 +8,8 @@
 #include "providers/pomodoro/pomodoro_provider.h"
 #include "providers/provider_registry.h"
 
+#include <cmath>
+
 namespace cup::test {
 namespace {
 
@@ -95,6 +97,34 @@ void runPomodoroTests()
         return Steps{ -1, -1 };
     };
     expect(stepsShown() == Steps{ static_cast<int>(2 * t.pomodoroRounds), 0 }, "card: a dot per phase, none done yet");
+
+    // The card: centred, controls on top, a big countdown, the phase's bar, then the dots; no ring.
+    island.send(PillClicked{});
+    Scene card = island.scene();
+    island.send(EscapePressed{});
+    auto at = [&](const std::string& key) -> const Placed* {
+        for (const Placed& p : card.elements)
+            if (p.key == key) return &p;
+        return nullptr;
+    };
+    const Placed* pauseButton = at("expandedCenter/0/0");
+    const Placed* bigTimer = at("expandedCenter/1/0");
+    const Placed* bar = at("expandedCenter/2/0");
+    const Placed* dots = at("expandedCenter/3/0");
+    expect(bar && std::get<Progress>(bar->item).shape == ProgressShape::Bar && bar->frame.y > bigTimer->frame.y + bigTimer->frame.height - 1,
+           "a bar below the countdown");
+    expect(bar && dots && dots->frame.y > bar->frame.y + bar->frame.height - 1, "above the dots");
+    expect(bar && dots && bar->frame.x == dots->frame.x && bar->frame.width == dots->frame.width, "as wide as the dots");
+    expect(pauseButton && std::holds_alternative<Button>(pauseButton->item), "card: controls on top");
+    expect(bigTimer && std::get<Text>(bigTimer->item).style == TextStyle::Display && pauseButton->frame.y < bigTimer->frame.y,
+           "card: a big countdown below them");
+    expect(std::abs(bigTimer->frame.x + bigTimer->frame.width / 2 - card.size.x / 2) < 0.51f, "the countdown centred");
+    expect(dots && std::abs(dots->frame.x + dots->frame.width / 2 - card.size.x / 2) < 0.51f && dots->frame.y > bigTimer->frame.y,
+           "the dots centred, below");
+    for (const Placed& p : card.elements) {
+        if (auto* progress = std::get_if<Progress>(&p.item)) expect(progress->shape == ProgressShape::Bar, "no ring in the card: " + p.key);
+        if (p.key.rfind("tab/", 0) != 0) expect(p.frame.y + p.frame.height <= t.expandedSize.y - t.expandedPadding, "fits the card: " + p.key);
+    }
 
     // A phase ends: alert, next phase.
     island.send(EscapePressed{});

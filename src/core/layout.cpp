@@ -72,6 +72,8 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
                  { "alertCenter", &c.alertCenter, { centerX, p, size.x - centerX - p, side } } };
     }
     case Mode::Expanded: {
+        if (c.card == CardLayout::Centred) // one stack across the whole card (decision 014)
+            return { { "expandedCenter", &c.expandedCenter, { p, p, size.x - 2 * p, size.y - 2 * p } } };
         float art = t.expandedArtSize, y = p, centerX = p + art + t.slotGap, bottomY = y + art + t.slotGap;
         float corner = t.buttonSize, cornerX = size.x - p - corner;
         float centerRight = c.expandedTrailing.empty() ? size.x - p : cornerX - t.slotGap;
@@ -108,8 +110,6 @@ BubbleScene bubbleFor(const IslandState& s, Ms now)
 }
 
 
-// Without the real font: an average glyph is about half the font size wide.
-float estimateTextWidth(const Text& text) { return std::ceil(static_cast<float>(text.value.size()) * fontSize(text.style) * 0.5f); }
 
 // Idle: the local time, centred in the pill, once the platform has synced the clock.
 void placeClock(const IslandState& s, Scene& scene, const MeasureText& measure)
@@ -160,7 +160,7 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
         scene.label = source.content->label;
         scene.activityId = source.activityId;
         for (const SlotFrame& slot : slotFrames(scene.mode, contentSize, *source.content))
-            placeSlot(slot, source, nestedRadius, now, scene.elements);
+            placeSlot(slot, source, nestedRadius, now, scene.elements, measureText);
     }
     scene.tabs = tabStripFor(state, scene.size, nestedRadius, measureText, scene.elements);
     return scene;
