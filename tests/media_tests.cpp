@@ -100,11 +100,26 @@ void runMediaTests()
                                .showSourceSwitch = true });
     auto* shuffleButton = toggles.leading.size() == 1 ? std::get_if<Button>(&toggles.leading[0]) : nullptr;
     expect(shuffleButton && shuffleButton->glyph == Glyph::Shuffle && shuffleButton->on == true, "shuffle on the left, lit");
-    auto* repeatButton = toggles.trailing.size() == 2 ? std::get_if<Button>(&toggles.trailing[0]) : nullptr;
-    expect(repeatButton && repeatButton->glyph == Glyph::RepeatOne && repeatButton->on == true, "repeat-one on the right");
-    auto* sourceButton = toggles.trailing.size() == 2 ? std::get_if<Button>(&toggles.trailing[1]) : nullptr;
-    expect(sourceButton && sourceButton->actionId == media_action::kSource && !sourceButton->on,
-           "source switch stays at the very edge, not a toggle");
+    auto* repeatButton = toggles.trailing.size() == 1 ? std::get_if<Button>(&toggles.trailing[0]) : nullptr;
+    expect(repeatButton && repeatButton->glyph == Glyph::RepeatOne && repeatButton->on == true,
+           "repeat-one alone in the bottom-right corner");
+
+    // The source switch lives in the top-right corner, not with the playback controls.
+    Content withSwitch = nowPlayingContent({ .title = "T", .showSourceSwitch = true });
+    auto* sourceButton = withSwitch.expandedTrailing.size() == 1 && withSwitch.expandedTrailing[0].items.size() == 1
+                             ? std::get_if<Button>(&withSwitch.expandedTrailing[0].items[0]) : nullptr;
+    expect(sourceButton && sourceButton->actionId == media_action::kSource && !sourceButton->on, "source switch in expanded.trailing");
+    expect(nowPlayingContent({ .title = "T" }).expandedTrailing.empty(), "one media app: no corner button");
+
+    // Track N of M, after the app name in the caption.
+    expect(trackPosition(3, 12) == "Track 3 of 12" && trackPosition(3, 0) == "Track 3" && trackPosition(3, 2) == "Track 3" &&
+           trackPosition(0, 12).empty(), "track position text, tolerant of missing or bad counts");
+    Content numbered = nowPlayingContent({ .title = "T", .source = "Spotify", .trackNumber = 3, .trackCount = 12 });
+    auto* caption = std::get_if<Text>(&numbered.expandedCenter.back().items[0]);
+    expect(caption && caption->value == "Spotify \u00B7 Track 3 of 12" && caption->style == TextStyle::Caption,
+           "caption: app \u00B7 track position");
+    Content unnumbered = nowPlayingContent({ .title = "T", .source = "Chrome" });
+    expect(std::get<Text>(unnumbered.expandedCenter.back().items[0]).value == "Chrome", "no position: just the app");
     expect(nextRepeat(Repeat::Off) == Repeat::All && nextRepeat(Repeat::All) == Repeat::One && nextRepeat(Repeat::One) == Repeat::Off,
            "repeat cycles off -> all -> one");
 }

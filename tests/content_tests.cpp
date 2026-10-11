@@ -134,6 +134,21 @@ void runContentTests()
            find(edged, "expandedBottom/1/2")->frame.x + find(edged, "expandedBottom/1/2")->frame.width + t.looseItemSpacing <= edgeRepeat->frame.x,
            "middle group never crowds the edge groups");
 
+    // expanded.trailing: a button-sized square in the top-right corner; the centre makes room only when it's used.
+    Content cornered = media;
+    cornered.expandedTrailing = { row({ Button{ Glyph::Source, "source" } }) };
+    Scene corneredScene = layout(expandedWith(cornered), Ms{ 1000 });
+    const Placed* corner = find(corneredScene, "expandedTrailing/0/0");
+    float cornerSize = t.buttonSize;
+    expect(corner && corner->frame == Rect{ corneredScene.size.x - t.expandedPadding - cornerSize, t.expandedPadding, cornerSize, cornerSize },
+           "corner button: one padding from the top and right edges");
+    const Placed* narrowTitle = find(corneredScene, "expandedCenter/0/0");
+    const Placed* wideTitle = find(scene, "expandedCenter/0/0");
+    expect(narrowTitle && narrowTitle->frame.x + narrowTitle->frame.width + t.slotGap == corner->frame.x, "title stops a gap before the corner");
+    expect(wideTitle && wideTitle->frame.x + wideTitle->frame.width == scene.size.x - t.expandedPadding, "without it the title runs to the edge");
+    auto cornerHit = hitTest(corneredScene, centre(corner));
+    expect(cornerHit && cornerHit->action.actionId == "source", "corner button is clickable");
+
     // Equal margins: the bottom row sits as far from the bottom as art from the side.
     expect(play->frame.y + play->frame.height == scene.size.y - t.expandedPadding, "expanded bottom margin = side margin");
 

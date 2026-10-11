@@ -81,8 +81,11 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
     }
     case Mode::Expanded: {
         float art = t.expandedArtSize, centerX = p + art + t.slotGap, bottomY = p + art + t.slotGap;
+        float corner = t.buttonSize, cornerX = size.x - p - corner;
+        float centerRight = c.expandedTrailing.empty() ? size.x - p : cornerX - t.slotGap;
         return { { "expandedLeading", &c.expandedLeading, { p, p, art, art } },
-                 { "expandedCenter", &c.expandedCenter, { centerX, p, size.x - centerX - p, art } },
+                 { "expandedCenter", &c.expandedCenter, { centerX, p, centerRight - centerX, art } },
+                 { "expandedTrailing", &c.expandedTrailing, { cornerX, p, corner, corner } },
                  { "expandedBottom", &c.expandedBottom, { p, bottomY, size.x - 2 * p, size.y - bottomY - p } } };
     }
     default:

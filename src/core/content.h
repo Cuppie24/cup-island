@@ -96,6 +96,7 @@ struct Content {
     Slot alertCenter;
     Slot expandedLeading;
     Slot expandedCenter;
+    Slot expandedTrailing; // a button-sized square in the top-right corner; the centre narrows only when it's used
     Slot expandedBottom;
     bool operator==(const Content&) const = default;
 };

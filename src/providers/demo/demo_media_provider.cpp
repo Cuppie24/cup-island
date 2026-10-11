@@ -88,7 +88,8 @@ void DemoMediaProvider::changeTrack(int delta)
 void DemoMediaProvider::publish()
 {
     const Track& track = tracks_[track_];
-    NowPlaying m{ .title = track.title, .artist = track.artist, .source = "Demo player", .art = track.art,
+    NowPlaying m{ .title = track.title, .artist = track.artist, .source = "Demo player",
+                  .trackNumber = static_cast<int>(track_) + 1, .trackCount = static_cast<int>(tracks_.size()), .art = track.art,
                   .timeline = timeline_, .canSeek = true, .canShuffle = true, .shuffle = shuffle_,
                   .canRepeat = true, .repeat = repeat_ };
     host_->startActivity({ .id = kActivityId, .content = nowPlayingContent(m) });

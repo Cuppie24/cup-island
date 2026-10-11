@@ -18,7 +18,9 @@ track name). `Text::marquee` makes a string that doesn't fit "swim"
 (pause, scroll, loop, soft edges) instead of ending in "…"; the renderer
 measures it, and the loop runs on the compositor. `Row::loose` asks for
 wider gaps (controls), and `Row::leading` / `Row::trailing` pin items to the row's edges
-while the rest stay centred on the full width (shuffle on the left; repeat and the source switch on the right). `Button::on`
+while the rest stay centred on the full width (shuffle and repeat in the bottom corners). `expandedTrailing` (PS §5.1
+`expanded.trailing`) is a button-sized square in the top-right corner, used for
+the media source switch; the centre slot only narrows when it's filled. `Button::on`
 marks a toggle: lit with a dot when on, dimmed when off. A paused `Waveform` rests as still dots instead of
 being swapped for a pause icon, so play/pause is a calm in-place change.
 

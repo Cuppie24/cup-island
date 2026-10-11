@@ -40,6 +40,8 @@ NowPlaying readNowPlaying(wmc::GlobalSystemMediaTransportControlsSessionMediaPro
     NowPlaying m;
     m.title = winrt::to_string(properties.Title());
     m.artist = winrt::to_string(properties.Artist());
+    m.trackNumber = properties.TrackNumber();
+    m.trackCount = properties.AlbumTrackCount();
 
     auto controls = playback.Controls();
     m.canPrevious = controls.IsPreviousEnabled();

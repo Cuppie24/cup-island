@@ -21,7 +21,10 @@ Content nowPlayingContent(const NowPlaying& m)
 
     c.expandedLeading = { row({ art }) };
     c.expandedCenter = { row({ title }), row({ artist }) };
-    if (!m.source.empty()) c.expandedCenter.push_back(row({ Text{ m.source, TextStyle::Caption } }));
+    std::string caption = m.source, position = trackPosition(m.trackNumber, m.trackCount);
+    if (!position.empty()) caption += (caption.empty() ? "" : " \u00B7 ") + position;
+    if (!caption.empty()) c.expandedCenter.push_back(row({ Text{ caption, TextStyle::Caption } }));
+    if (m.showSourceSwitch) c.expandedTrailing = { row({ Button{ Glyph::Source, act::kSource } }) }; // top-right corner
 
     if (m.timeline.duration > Ms{ 0 })
         c.expandedBottom.push_back(row({ TimeLabel{ m.timeline }, Progress{ m.timeline, m.canSeek }, TimeLabel{ m.timeline, true } }));
@@ -30,14 +33,21 @@ Content nowPlayingContent(const NowPlaying& m)
                          Button{ Glyph::Next, act::kNext, m.canNext } },
                        Align::Center);
     controls.loose = true; // big, well-separated targets
-    // Shuffle and repeat flank the row's edges; only shown when the app supports them.
+    // Shuffle and repeat take the bottom corners; only shown when the app supports them.
     if (m.canShuffle) controls.leading.push_back(Button{ Glyph::Shuffle, act::kShuffle, true, m.shuffle });
     if (m.canRepeat)
         controls.trailing.push_back(Button{ m.repeat == Repeat::One ? Glyph::RepeatOne : Glyph::Repeat, act::kRepeat, true,
                                             m.repeat != Repeat::Off });
-    if (m.showSourceSwitch) controls.trailing.push_back(Button{ Glyph::Source, act::kSource }); // at the right edge
     c.expandedBottom.push_back(controls);
     return c;
+}
+
+std::string trackPosition(int number, int count)
+{
+    if (number <= 0) return "";
+    std::string text = "Track " + std::to_string(number);
+    if (count >= number) text += " of " + std::to_string(count); // some apps send a count of 0 or garbage
+    return text;
 }
 
 Repeat nextRepeat(Repeat current)
