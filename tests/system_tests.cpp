@@ -1,4 +1,4 @@
-// Home's static widgets (decision 009): which Host calls each battery and
+// Home's system widgets (decision 009): which Host calls each theme and
 // Bluetooth reading produces, and what the tiles say. Plus the Copy logs tile.
 
 #include "expect.h"
@@ -43,25 +43,6 @@ Glyph glyphAt(const Panel& p, std::size_t row)
 
 void runSystemTests()
 {
-    // Battery: a 1-column widget, published on change only, no card.
-    PanelHost host;
-    BatteryPresenter battery(host);
-    battery.show(std::nullopt);
-    expect(host.published.empty() && host.removed.empty(), "no battery: nothing published, nothing to remove");
-    battery.show(BatteryReading{ 82, false });
-    expect(host.published.size() == 1 && host.published[0].id == BatteryPresenter::kPanelId, "battery publishes its panel");
-    const Panel& b = host.published[0];
-    expect(!b.wide && !hasCard(b.content), "a 1-column static widget");
-    expect(glyphAt(b, 0) == Glyph::Battery && textAt(b, 1, 0) == "82%", "battery icon over the percentage");
-    battery.show(BatteryReading{ 82, false });
-    expect(host.published.size() == 1, "same reading: no republish");
-    battery.show(BatteryReading{ 83, true });
-    expect(host.published.size() == 2 && glyphAt(host.published[1], 0) == Glyph::Charging, "plugged in: the bolt");
-    battery.show(BatteryReading{ 140, true });
-    expect(textAt(host.published.back(), 1, 0) == "100%", "clamped to 100%");
-    battery.show(std::nullopt);
-    expect(host.removed.size() == 1 && host.removed[0] == BatteryPresenter::kPanelId, "battery gone: panel removed");
-
     // Theme: a toggle tile whose tap switches the mode; republished on change only.
     PanelHost th;
     ThemePresenter theme(th);

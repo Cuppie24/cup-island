@@ -47,44 +47,55 @@ void runHomeTests()
 {
     const Tokens& t = tokens();
 
-    // The grid: publish order, one column or two, centred vertically in Expanded's card.
-    IslandState s = withPanels({ panel("a"), panel("b", true), panel("c"), panel("d", true), panel("e") });
+    // Rows in publish order, each across the full width (decision 019): a wide
+    // tile twice a narrow one, a row that isn't full stretches, centred vertically.
+    IslandState s = withPanels({ panel("a"), panel("b", true), panel("c") });
     Scene home = layout(reduce(s, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    expect(home.mode == Mode::Expanded && home.size == t.expandedSize, "Home keeps Expanded's card size");
+    expect(home.mode == Mode::Expanded && home.size == t.expandedSize, "one row: Home keeps Expanded's card size");
     expect(!home.tabs, "no tab strip with only Home");
     expect(home.label == "Home" && home.activityId.empty(), "Home is no activity's card");
-    float p = t.expandedPadding, gap = t.tileGap, column = (home.size.x - 2 * p - 3 * gap) / 4;
-    expect(home.tiles.size() == 5, "two rows: a b(wide) c / d(wide) e");
+    float p = t.expandedPadding, gap = t.tileGap, unit = (home.size.x - 2 * p - 2 * gap) / 4;
+    expect(home.tiles.size() == 3, "a b(wide) c: one full row");
     const Tile& a = home.tiles[0];
     const Tile& b = home.tiles[1];
     const Tile& c = home.tiles[2];
-    const Tile& d = home.tiles[3];
-    expect(a.id == "a" && a.frame.x == p && std::abs(a.frame.width - column) < 0.01f, "first tile: one column, one padding in");
-    expect(b.frame.x == a.frame.x + a.frame.width + gap && std::abs(b.frame.width - (2 * column + gap)) < 0.01f, "wide tile: two columns");
-    expect(c.frame.y == a.frame.y && std::abs(c.frame.x + c.frame.width - (home.size.x - p)) < 0.01f, "row fills to the far padding");
-    expect(d.frame.x == p && d.frame.y == a.frame.y + t.tileHeight + gap, "next row");
-    float top = a.frame.y, bottom = d.frame.y + d.frame.height;
-    expect(std::abs(top - p - (home.size.y - p - bottom)) < 0.01f, "grid centred vertically");
+    expect(a.id == "a" && a.frame.x == p && std::abs(a.frame.width - unit) < 0.01f, "first: one share, one padding in");
+    expect(std::abs(b.frame.x - (a.frame.x + a.frame.width + gap)) < 0.01f && std::abs(b.frame.width - 2 * unit) < 0.01f, "wide: two shares");
+    expect(c.frame.y == a.frame.y && std::abs(c.frame.x + c.frame.width - (home.size.x - p)) < 0.01f, "the row reaches the far padding");
+    expect(std::abs(a.frame.y - p - (home.size.y - p - a.frame.y - a.frame.height)) < 0.01f, "centred vertically");
+
+    auto reachesEdge = [&](const Scene& scene, const Tile& last) { return std::abs(last.frame.x + last.frame.width - (scene.size.x - p)) < 0.01f; };
+    IslandState pair = withPanels({ panel("m", true), panel("f", true), panel("x"), panel("y") });
+    Scene two = layout(reduce(pair, PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    expect(two.tiles.size() == 4 && two.tiles[2].frame.y > two.tiles[0].frame.y && two.tiles[2].frame.x == p, "a second row");
+    expect(std::abs(two.tiles[0].frame.width - two.tiles[1].frame.width) < 0.01f && reachesEdge(two, two.tiles[1]), "two wide: halves");
+    expect(std::abs(two.tiles[2].frame.width - two.tiles[3].frame.width) < 0.01f && reachesEdge(two, two.tiles[3]),
+           "a row that isn't full stretches to the full width");
+    Scene alone = layout(reduce(withPanels({ panel("x") }), PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    expect(alone.tiles.size() == 1 && std::abs(alone.tiles[0].frame.width - (alone.size.x - 2 * p)) < 0.01f, "one widget: the full width");
 
     IslandState wideFirst = withPanels({ panel("x"), panel("y"), panel("z"), panel("w", true) });
     Scene wrapped = layout(reduce(wideFirst, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    expect(wrapped.tiles.size() == 4 && wrapped.tiles[3].frame.x == p && wrapped.tiles[3].frame.y > wrapped.tiles[0].frame.y,
-           "a wide tile that doesn't fit the row's rest starts the next row");
+    expect(wrapped.tiles.size() == 4 && wrapped.tiles[3].frame.x == p && wrapped.tiles[3].frame.y > wrapped.tiles[0].frame.y &&
+           reachesEdge(wrapped, wrapped.tiles[2]) && reachesEdge(wrapped, wrapped.tiles[3]),
+           "a wide tile that doesn't fit starts the next row; both rows full width");
 
+    // Nothing is hidden: Home grows to fit every row, up to the canvas.
     IslandState many;
     for (int i = 0; i < 12; ++i) many = reduce(many, PanelPublished{ panel("p" + std::to_string(i)) }, Ms{ 0 });
     Scene full = layout(reduce(many, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    expect(full.tiles.size() == 8, "tiles that don't fit the card are left out");
+    expect(full.tiles.size() == 12, "every widget shows");
+    expect(full.size.y == 3 * (t.tileHeight + gap) - gap + 2 * p && full.size.y <= t.canvas.y, "the card grows to fit three rows");
     for (const Tile& tile : full.tiles)
-        expect(tile.frame.y + tile.frame.height <= full.size.y - p, "tile inside the card: " + tile.id);
+        expect(tile.frame.y + tile.frame.height <= full.size.y - p + 0.01f, "tile inside the card: " + tile.id);
 
-    // Tile content: keyed by panel, inside the tile's padding, its button routes to the provider.
+    // Tile content: keyed by panel, inside the tile's padding. A widget is
+    // information only (decision 019): its button is left out, a click anywhere opens the card.
     const Placed* label = find(home, "tile/a/0/0");
-    const Placed* start = find(home, "tile/a/0/1");
     expect(label && label->frame.x == a.frame.x + t.tilePadding, "tile content keeps the tile's padding");
-    expect(start && start->frame.x + start->frame.width == a.frame.x + a.frame.width - t.tilePadding, "trailing button at the tile's edge");
-    auto hit = hitTest(home, { start->frame.x + start->frame.width / 2, start->frame.y + start->frame.height / 2 });
-    expect(hit && hit->action == Action{ "test", "a", "start", 0 }, "a tile's button routes to its provider, with the panel's id");
+    expect(!find(home, "tile/a/0/1"), "a widget's button is left out");
+    expect(!hitTest(home, { a.frame.x + a.frame.width - t.tilePadding - 2, a.frame.y + a.frame.height / 2 }) && a.opens,
+           "nothing on it takes the click: the tile opens its card");
     expect(tileAt(home, { a.frame.x + 2, a.frame.y + 2 }) && tileAt(home, { a.frame.x + 2, a.frame.y + 2 })->id == "a",
            "a point finds its tile");
     expect(!tileAt(home, { 1, 1 }), "outside the tiles: none");
@@ -155,19 +166,26 @@ void runHomeTests()
     IslandState busy = reduce(idle, ActivityStarted{ { .id = "media" } }, at);
     expect(clockAt(busy, at) == "none" && !layout(busy, at).clockTick, "only the idle pill shows the clock");
 
-    // Home's clock: the first tile, built from the synced clock; a static widget, no card.
-    IslandState dated = reduce(withPanels({ panel("a"), Panel{ .id = "battery", .content = { .tile = { row({ Text{ "82%" } }) } } } }),
-                               ClockSynced{ Ms{ (9 * 60 + 41) * 60000 + 15000 }, true, "Sat 11 Oct" }, Ms{ 0 });
-    Scene withClock = layout(reduce(dated, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    expect(withClock.tiles.size() == 3 && withClock.tiles[0].id.empty() && !withClock.tiles[0].opens, "clock first, not clickable");
-    expect(withClock.tiles[1].id == "a" && withClock.tiles[1].opens, "a panel with a card opens");
-    expect(withClock.tiles[2].id == "battery" && !withClock.tiles[2].opens, "a static widget doesn't");
-    const Placed* bigTime = find(withClock, "tile/clock/0/0");
-    const Placed* date = find(withClock, "tile/clock/1/0");
-    expect(bigTime && std::get<Text>(bigTime->item).value == "9:41" && std::get<Text>(bigTime->item).style == TextStyle::Title,
-           "clock tile: the time, large");
-    expect(date && std::get<Text>(date->item).value == "Sat 11 Oct", "and the date under it");
-    expect(sceneDeadline(withClock) == Ms{ 45000 }, "Home re-lays out at the minute while the clock shows");
+    // Home has no clock tile (decision 019): the idle pill already shows the time.
+    IslandState synced = reduce(withPanels({ panel("a"), Panel{ .id = "bt", .content = { .tile = { row({ Text{ "82%" } }) } } } }),
+                                ClockSynced{ Ms{ (9 * 60 + 41) * 60000 + 15000 }, true }, Ms{ 0 });
+    Scene widgets = layout(reduce(synced, PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    expect(widgets.tiles.size() == 2 && widgets.tiles[0].id == "a" && widgets.tiles[0].opens, "panels only; one with a card opens");
+    expect(widgets.tiles[1].id == "bt" && !widgets.tiles[1].opens, "a static widget doesn't");
+    expect(!sceneDeadline(widgets), "nothing ticks on Home without a clock");
+
+    // The leading square: as tall as the tile's inside, at its left; the rows beside it.
+    Panel art{ .id = "m", .content = { .tileLeading = { row({ Image{} }) },
+                                       .tile = { row({ Text{ "Song" } }), Row{ .items = { Text{ "Band" } }, .trailing = { Button{ Glyph::Play, "p" } } } } },
+               .wide = true };
+    Scene leading = layout(reduce(withPanels({ art }), PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    const Tile& m = leading.tiles[0];
+    const Placed* cover = find(leading, "tile/m/lead/0/0");
+    const Placed* song = find(leading, "tile/m/0/0");
+    float inside = m.frame.height - 2 * t.tilePadding;
+    expect(cover && cover->frame == Rect{ m.frame.x + t.tilePadding, m.frame.y + t.tilePadding, inside, inside }, "art fills the square");
+    expect(song && song->frame.x == cover->frame.x + inside + t.slotGap, "the rows start past it");
+    expect(find(leading, "tile/m/1/0") && !find(leading, "tile/m/1/1"), "the row keeps its text, loses its button");
 
     // A tap-action tile (a toggle): clickable, sends its action, opens no card even with one.
     Panel toggle{ .id = "theme", .content = { .expandedCenter = { row({ Text{ "card" } }) }, .tile = { row({ Text{ "Dark" } }) } },
@@ -177,7 +195,7 @@ void runHomeTests()
     expect(toggleHome.tiles.size() == 1 && !toggleHome.tiles[0].opens && toggleHome.tiles[0].clickable() &&
            toggleHome.tiles[0].tapAction == "toggle" && toggleHome.tiles[0].providerId == "sys",
            "a toggle tile carries its action and provider, and lights up");
-    expect(!withClock.tiles[0].clickable() && !withClock.tiles[2].clickable(), "the clock and static widgets don't");
+    expect(!widgets.tiles[1].clickable(), "static widgets don't");
 
     // Countdown labels: time left without the "-".
     Timeline timer{ .duration = Ms{ 1500000 }, .anchoredAt = Ms{ 0 }, .playing = true };

@@ -3,8 +3,8 @@
 // The loop: input -> reduce() -> layout() -> renderer + interaction layer.
 // Tuning: edit assets/tokens.json while it runs; saving applies it live.
 //
-// The idle pill shows the time; clicking it opens Home (decision 009): the
-// clock, battery, theme and Bluetooth widgets, the Pomodoro tile, and Copy logs.
+// The idle pill shows the time; clicking it opens Home (decisions 009, 019):
+// the media and Pomodoro widgets, then theme, Bluetooth and Copy logs.
 //
 // Demo keys (click the pill first so it has keyboard focus):
 //   M  toggle the demo music player (real media shows by itself)
@@ -35,7 +35,6 @@
 #include "providers/demo/demo_media_provider.h"
 #include "providers/media/smtc_media_provider.h"
 #include "providers/pomodoro/pomodoro_provider.h"
-#include "providers/system/battery_provider.h"
 #include "providers/system/bluetooth_provider.h"
 #include "providers/system/logs_provider.h"
 #include "providers/system/theme_provider.h"
@@ -454,8 +453,6 @@ int main()
     g_providers = std::make_unique<ProviderRegistry>(dispatch, now);
     g_providers->add(std::make_unique<SmtcMediaProvider>(postToUi));
     g_providers->add(std::make_unique<DemoMediaProvider>()); // M key
-    // Home's tiles follow the order panels first appear: widgets, then Pomodoro.
-    g_providers->add(std::make_unique<BatteryProvider>(postToUi));
     g_providers->add(std::make_unique<BluetoothProvider>(postToUi));
     g_providers->add(std::make_unique<ThemeProvider>(postToUi));
     // Pomodoro's to-dos live next to the logs: %LOCALAPPDATA%\CupIsland\todos.txt (decision 016).
@@ -475,11 +472,12 @@ int main()
     };
     g_providers->add(std::make_unique<PomodoroProvider>(storage));
     g_providers->add(std::make_unique<LogsProvider>([] { return copyLogToClipboard(g_inputHwnd); }));
+    // Home's widgets follow the order panels first appear: media and Pomodoro
+    // first (decision 019), then the system tiles.
     g_providers->start("media");
-    g_providers->start("system.battery");
+    g_providers->start("pomodoro");
     g_providers->start("system.theme");
     g_providers->start("system.bluetooth");
-    g_providers->start("pomodoro");
     g_providers->start("system.logs");
     dispatch(readWallClock(), "clock");
 

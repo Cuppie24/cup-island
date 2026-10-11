@@ -1,9 +1,9 @@
 #pragma once
-// Home's static widgets (decision 009): battery and the connected Bluetooth
-// device. The presenters turn plain readings into panels: no WinRT here, so
+// Home's system widgets (decision 009): the theme toggle and the connected
+// Bluetooth device. The presenters turn plain readings into panels: no WinRT here, so
 // every rule is tested on Linux; the Windows providers only read and feed
 // readings in. They publish only on change, and remove the panel when
-// there's nothing to show (a desktop with no battery, no device connected).
+// there's nothing to show (no device connected).
 
 #include "core/provider.h"
 
@@ -13,28 +13,11 @@
 
 namespace cup {
 
-struct BatteryReading {
-    int percent = 0;       // 0..100
-    bool pluggedIn = false; // charging, or full on the charger
-    bool operator==(const BatteryReading&) const = default;
-};
-
 struct BluetoothDevice {
     std::string id;             // stable per device
     std::string name;
     std::optional<int> battery; // 0..100, when the device reports it
     bool operator==(const BluetoothDevice&) const = default;
-};
-
-class BatteryPresenter {
-public:
-    explicit BatteryPresenter(Host& host) : host_(host) {}
-    void show(const std::optional<BatteryReading>& reading); // nullopt = no battery
-    static constexpr const char* kPanelId = "system.battery";
-
-private:
-    Host& host_;
-    std::optional<BatteryReading> last_;
 };
 
 // Windows' light/dark mode (apps and system together), as a toggle tile.
@@ -62,7 +45,6 @@ private:
 };
 
 // Content, pure.
-Panel batteryPanel(const BatteryReading& reading);
 Panel themePanel(bool dark);
 std::optional<Panel> bluetoothPanel(const std::vector<BluetoothDevice>& connected); // nullopt: none connected
 

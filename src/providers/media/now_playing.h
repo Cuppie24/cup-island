@@ -45,6 +45,10 @@ inline constexpr const char* kSeek = "seek"; // value = 0..1 fraction
 
 Content nowPlayingContent(const NowPlaying& media);
 
+// The media widget and card while nothing plays (decision 019): Home always
+// has the media widget, so there's one place to look for what's playing.
+Content nothingPlayingContent();
+
 // "Track 3 of 12", "Track 3", or "" when the app doesn't say. It's the
 // album position (all SMTC reports), not a place in the play queue.
 std::string trackPosition(int number, int count);

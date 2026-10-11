@@ -64,11 +64,13 @@ Alert phaseAlert(const std::string& title, const std::string& detail, const std:
 
 // Dormant: a centred card like the running one, so starting changes as
 // little as possible: ▶ where the controls go, the full focus time big, the
-// plan, then the to-dos (decision 016).
+// plan, then the to-dos (decision 016). The widget is laid out like the
+// running one too: the timer icon where the ring goes, the focus time, the plan.
 Panel pomodoroPanel(const TodoList& todos)
 {
     const Tokens& t = tokens();
     std::string plan = minutes(t.pomodoroFocus) + " focus, " + minutes(t.pomodoroBreak) + " breaks";
+    std::string rounds = "Focus · " + std::to_string(t.pomodoroRounds) + " rounds";
     Content content{
         .label = "Focus",
         .accent = accentOf(Phase::Focus),
@@ -76,7 +78,8 @@ Panel pomodoroPanel(const TodoList& todos)
         .expandedCenter = { row({ Button{ Glyph::Play, act::kStart } }, Align::Center),
                             row({ Text{ .value = formatDuration(t.pomodoroFocus), .style = TextStyle::Display, .centred = true } }),
                             row({ Text{ .value = plan, .style = TextStyle::Caption, .centred = true } }) },
-        .tile = { Row{ .items = { Icon{ Glyph::Timer }, Text{ "Focus" } }, .trailing = { Button{ Glyph::Play, act::kStart } } } },
+        .tileLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
+        .tile = { row({ Text{ formatDuration(t.pomodoroFocus), TextStyle::Title } }), row({ Text{ rounds, TextStyle::Caption } }) },
     };
     appendTodoRows(content.expandedCenter, todos);
     return { .id = PomodoroProvider::kPanelId, .content = content, .wide = true };
@@ -85,15 +88,18 @@ Panel pomodoroPanel(const TodoList& todos)
 // Compact: the countdown centred, the ring filling on the right; no phase
 // name (the colour says it). Expanded, a centred card (decision 014): the
 // controls on top, a big countdown in the middle, a bar for the phase under
-// it (as wide as the dots), then a dot per phase and what they mean. The ring is for compact and
-// the bubble, where there's no room for digits.
+// it (as wide as the dots), then a dot per phase and what they mean. The ring is for compact,
+// the bubble and the widget, where there's no room for a big countdown.
+// The widget (decision 019): the ring filling, the time left, the phase and round.
 Content pomodoroContent(const PomodoroProvider::Session& s, const TodoList& todos)
 {
     std::string name = nameOf(s.phase);
     int done = phasesDone(s), total = phaseCount();
     std::string caption = name + " · " + std::to_string(done) + " of " + std::to_string(total) + " done";
     if (!s.timeline.playing) caption = "Paused · " + caption;
-    TimeLabel left{ .timeline = s.timeline, .countdown = true };
+    std::string glance = s.timeline.playing ? name : "Paused";
+    if (s.phase != Phase::LongBreak) glance += " · " + std::to_string(s.round) + "/" + std::to_string(tokens().pomodoroRounds);
+    TimeLabel tileLeft{ .timeline = s.timeline, .countdown = true, .style = TextStyle::Title };
     TimeLabel compactLeft{ .timeline = s.timeline, .countdown = true, .style = TextStyle::Body };
     TimeLabel bigLeft{ .timeline = s.timeline, .countdown = true, .style = TextStyle::Display };
     Progress ring{ .timeline = s.timeline, .shape = ProgressShape::Ring };
@@ -115,7 +121,8 @@ Content pomodoroContent(const PomodoroProvider::Session& s, const TodoList& todo
             row({ Text{ .value = caption, .style = TextStyle::Caption, .centred = true } }, Align::Center),
         },
         // Same place on Home as the dormant tile, now live (decision 009).
-        .tile = { Row{ .items = { Text{ name }, left }, .trailing = { stop } } },
+        .tileLeading = { row({ ring }, Align::Center) },
+        .tile = { row({ tileLeft }), row({ Text{ glance, TextStyle::Caption } }) },
     };
     appendTodoRows(content.expandedCenter, todos); // what to work on, under the timer (decision 016)
     return content;

@@ -90,16 +90,15 @@ struct PanelPublished { Panel panel; }; // existing id = replace, keeping its pl
 struct PanelRemoved { std::string id; };
 struct HomeOpened {};                   // Home tab (decision 009)
 struct TileClicked { std::string id; }; // a Home tile, not on a button: open its card
-// Local wall time at `now`, from the platform (idle clock, Home's clock tile).
 struct InputFocused { std::string providerId, activityId, actionId; }; // a TextInput was clicked
 struct TextTyped { std::string text; };  // UTF-8, appended to the draft
 struct TextErased {};                    // Backspace: the last character
 struct InputSubmitted {};                // Enter: the app sent the text; the field empties and keeps focus
 struct InputCancelled {};                // Esc: stop typing, drop the draft
+// Local wall time at `now`, from the platform (the idle clock).
 struct ClockSynced {
     Ms timeOfDay;
     bool hour24 = true;
-    std::string date; // today, formatted for the user's locale ("Sat 11 Oct")
 };
 
 using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, AlertPosted,
@@ -114,7 +113,6 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
 struct WallClock {
     Ms offset{};        // local time of day = now + offset (mod 24 h)
     bool hour24 = true;
-    std::string date;   // as of the last sync; the app re-syncs at least every minute while it shows
 };
 
 struct IslandState {

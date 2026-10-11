@@ -41,8 +41,8 @@ src/platform/   Win32 + C++/WinRT + Composition: render/interaction layers, pill
                 pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
                 per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Start with Windows, Exit), autostart, log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
-                MediaPresenter rules, SMTC provider for real Windows media), pomodoro/ (the first panel),
-                system/ (Home's battery, theme and Bluetooth widgets, Copy logs)
+                MediaPresenter rules and the media widget, SMTC provider for real Windows media),
+                pomodoro/ (the first panel), system/ (Home's theme and Bluetooth widgets, Copy logs)
 src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload
 assets/         tokens.json: the live-tunable sizes, timings and curves; the app icon (cup_island.rc/.ico)
 installer/      Inno Setup script for the Windows installer (decision 011)
@@ -90,7 +90,8 @@ items (text, image, icon, button, progress, time label, waveform). Layout and
 drawing are the host's job, so every provider looks native.
 
 A provider can also publish **panels** (decision 009): always-available
-entries shown as tiles on Expanded's Home, not ranked into the pill. Starting
+entries shown as widgets on Expanded's Home, not ranked into the pill.
+Widgets only inform (decision 019): no buttons; a click opens the card. Starting
 an activity with a panel's id makes it live; ending it makes it dormant again.
 Providers that change on a schedule ask `Host::wakeAt` and get `onWake()`.
 `providers/pomodoro/` is the reference panel.
@@ -162,7 +163,7 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing),
   `home_tests.cpp` (tiles, Home tab, idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop),
-  `system_tests.cpp` (battery and Bluetooth presenters), `todo_tests.cpp` (the to-do list end to end).**
+  `media_tests.cpp` (media presenter and widget), `system_tests.cpp` (theme and Bluetooth presenters), `todo_tests.cpp` (the to-do list end to end).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
 
@@ -186,8 +187,9 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 | Activity expiry (`expiresAt`) | done, tested |
 | Rate limits, stale activities (PS §4, §6.3) | not yet |
 | Live-tunable tokens (`assets/tokens.json`, reload on save) | done; parser tested |
-| Panels, Home (tile grid, clock tile, Home button), tabs at the bottom, idle clock, provider wake-ups (decision 009) | done; rules tested, visuals need Windows |
-| Battery, theme toggle and Bluetooth widgets | presenters tested; Windows readers need Windows |
+| Panels, Home (tile grid, Home button), tabs at the bottom, idle clock, provider wake-ups (decision 009) | done; rules tested, visuals need Windows |
+| Widgets: one per provider, information only, media always on Home (decision 019) | done; rules tested, visuals need Windows |
+| Theme toggle and Bluetooth widgets | presenters tested; Windows readers need Windows |
 | Pomodoro (first panel): focus rounds, breaks, pause/skip/stop, ring, phase dots | done, tested |
 | Progress ring, Steps, accent colour (decision 010) | done; rules tested, drawing needs Windows |
 | Text input (typing, paste) and Pomodoro's to-do list (decision 016) | done; rules tested, typing and drawing need Windows |

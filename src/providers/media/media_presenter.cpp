@@ -19,6 +19,17 @@ bool sameTimeline(const Timeline& a, const Timeline& b, Ms now)
 
 } // namespace
 
+void MediaPresenter::start()
+{
+    host_.publishPanel({ .id = kActivityId, .content = nothingPlayingContent(), .wide = true });
+}
+
+void MediaPresenter::stop()
+{
+    show(std::nullopt);
+    host_.removePanel(kActivityId);
+}
+
 void MediaPresenter::show(const std::optional<MediaSnapshot>& snapshot)
 {
     if (!snapshot) {
