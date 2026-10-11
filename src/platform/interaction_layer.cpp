@@ -1,4 +1,5 @@
 #include "platform/interaction_layer.h"
+#include "platform/log.h"
 
 #include "core/easing.h"
 #include "core/tokens.h"
@@ -179,14 +180,12 @@ try {
 catch (winrt::hresult_error const& e) {
     // An exception escaping a window procedure usually kills the process
     // silently; a visibly skipped frame is better.
-    std::printf("[cup-island] WinRT error handling message 0x%04x: 0x%08x %ls\n",
+    logLine("WinRT error handling message 0x%04x: 0x%08x %ls",
         message, static_cast<unsigned int>(e.code()), e.message().c_str());
-    std::fflush(stdout);
     return 0;
 }
 catch (...) {
-    std::printf("[cup-island] Unknown exception handling message 0x%04x\n", message);
-    std::fflush(stdout);
+    logLine("Unknown exception handling message 0x%04x", message);
     return 0;
 }
 

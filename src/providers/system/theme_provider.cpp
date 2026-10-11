@@ -1,4 +1,5 @@
 #include "providers/system/theme_provider.h"
+#include "platform/log.h"
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -44,7 +45,7 @@ void ThemeProvider::start(Host& host)
     watch_ = std::make_shared<Watch>();
     if (RegOpenKeyExW(HKEY_CURRENT_USER, kKey, 0, KEY_READ | KEY_NOTIFY, &watch_->key) != ERROR_SUCCESS) {
         watch_->key = nullptr;
-        std::printf("[cup-island] theme: can't open the Personalize key\n");
+        platform::logLine("theme: can't open the Personalize key");
         return; // no tile: we can't tell or change the mode
     }
     watch_->changed = CreateEventW(nullptr, FALSE, FALSE, nullptr);

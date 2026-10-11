@@ -40,6 +40,7 @@ add_library(cup_providers STATIC
     src/providers/media/media_presenter.cpp
     src/providers/media/now_playing.cpp
     src/providers/pomodoro/pomodoro_provider.cpp
+    src/providers/system/logs_provider.cpp
     src/providers/system/system_panels.cpp
     src/providers/provider_registry.cpp
 )
@@ -71,6 +72,11 @@ endif()
 
 # --- app: Windows only ----------------------------------------------------
 if(WIN32)
+    # The app is x64-only (installer, TR §3). A 32-bit compiler here usually
+    # means a default "Developer PowerShell for VS"; build.ps1 picks x64 itself.
+    if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+        message(FATAL_ERROR "32-bit compiler detected. Use .\\build.ps1, or an x64 developer environment, then delete ${CMAKE_BINARY_DIR} and configure again.")
+    endif()
     enable_language(RC)
     add_executable(CupIsland
         assets/cup_island.rc
@@ -85,10 +91,12 @@ if(WIN32)
         src/platform/fullscreen_watcher.cpp
         src/platform/graphics_device.cpp
         src/platform/interaction_layer.cpp
+        src/platform/log.cpp
         src/platform/liquid_bridge.cpp
         src/platform/pill_renderer.cpp
         src/platform/render_layer.cpp
         src/platform/tray_icon.cpp
+        src/platform/watchdog.cpp
         src/platform/wall_clock.cpp
         src/providers/media/smtc_media_provider.cpp
         src/providers/media/smtc_reading.cpp
@@ -96,7 +104,7 @@ if(WIN32)
         src/providers/system/bluetooth_provider.cpp
         src/providers/system/theme_provider.cpp
     )
-    target_link_libraries(CupIsland PRIVATE cup_providers WindowsApp CoreMessaging User32 Advapi32 dcomp d3d11 d2d1 dwrite dxgi dwmapi shell32)
+    target_link_libraries(CupIsland PRIVATE cup_providers WindowsApp CoreMessaging User32 Advapi32 Ole32 Dbghelp dcomp d3d11 d2d1 dwrite dxgi dwmapi shell32)
     # Release: a GUI app, no console window (quit from the tray icon). Debug keeps
     # the console for the log. mainCRTStartup lets main() stay the entry point.
     target_link_options(CupIsland PRIVATE

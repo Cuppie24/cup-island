@@ -1,4 +1,5 @@
 #include "platform/fullscreen_watcher.h"
+#include "platform/log.h"
 
 #include "core/fullscreen.h"
 
@@ -75,8 +76,7 @@ void evaluate()
     bool hide = shouldHideForFullscreen(describe(GetForegroundWindow()), exclusiveFullscreenRunning());
     if (hide == g_hidden) return;
     g_hidden = hide;
-    std::printf("[cup-island] fullscreen app %s\n", hide ? "detected: hiding" : "gone: showing");
-    std::fflush(stdout);
+    logLine("fullscreen app %s", hide ? "detected: hiding" : "gone: showing");
     g_onChange(hide);
 }
 

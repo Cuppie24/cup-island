@@ -1,4 +1,5 @@
 #include "providers/media/smtc_media_provider.h"
+#include "platform/log.h"
 
 #include "core/tokens.h"
 
@@ -23,8 +24,7 @@ void SmtcMediaProvider::guarded(void (SmtcMediaProvider::*method)())
     try {
         (this->*method)();
     } catch (winrt::hresult_error const& e) {
-        std::printf("[cup-island] media: session went away mid-update (0x%08x)\n", static_cast<unsigned>(e.code()));
-        std::fflush(stdout);
+        platform::logLine("media: session went away mid-update (0x%08x)", static_cast<unsigned>(e.code()));
     }
 }
 
@@ -62,7 +62,7 @@ winrt::fire_and_forget SmtcMediaProvider::connect(std::shared_ptr<bool> alive)
     try {
         manager = co_await Manager::RequestAsync();
     } catch (winrt::hresult_error const& e) {
-        std::printf("[cup-island] media: session manager unavailable (0x%08x)\n", static_cast<unsigned>(e.code()));
+        platform::logLine("media: session manager unavailable (0x%08x)", static_cast<unsigned>(e.code()));
         co_return;
     }
     if (!*alive) co_return;
@@ -70,7 +70,7 @@ winrt::fire_and_forget SmtcMediaProvider::connect(std::shared_ptr<bool> alive)
     manager_ = manager;
     currentChanged_ = manager_.CurrentSessionChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::pickSession));
     sessionsChanged_ = manager_.SessionsChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::onSessionsChanged));
-    std::printf("[cup-island] media: %u session(s)\n", manager_.GetSessions().Size());
+    platform::logLine("media: %u session(s)", manager_.GetSessions().Size());
     onSessionsChanged();
 }
 
@@ -113,7 +113,7 @@ void SmtcMediaProvider::pickSession()
     if (current != windowsCurrent_) {
         windowsCurrent_ = current;
         chosen_ = nullptr;
-        if (current) std::printf("[cup-island] media: Windows' main media is %s\n", appName(current.SourceAppUserModelId()).c_str());
+        if (current) platform::logLine("media: Windows' main media is %s", appName(current.SourceAppUserModelId()).c_str());
     }
 
     // By session, not app id: every Chrome tab shares one app id.
@@ -134,7 +134,7 @@ void SmtcMediaProvider::pickSession()
             // (Playback changes are watched for every session in watchAllSessions.)
             propertiesChanged_ = session_.MediaPropertiesChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::refresh));
             timelineChanged_ = session_.TimelinePropertiesChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::refresh));
-            std::printf("[cup-island] media: showing %s\n", appName(session_.SourceAppUserModelId()).c_str());
+            platform::logLine("media: showing %s", appName(session_.SourceAppUserModelId()).c_str());
         }
     }
     refresh(); // also when only the session count changed (source button)

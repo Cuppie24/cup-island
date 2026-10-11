@@ -1,7 +1,9 @@
 // Home's static widgets (decision 009): which Host calls each battery and
-// Bluetooth reading produces, and what the tiles say.
+// Bluetooth reading produces, and what the tiles say. Plus the Copy logs tile.
 
 #include "expect.h"
+#include "core/tokens.h"
+#include "providers/system/logs_provider.h"
 #include "providers/system/system_panels.h"
 
 #include <vector>
@@ -16,10 +18,12 @@ struct PanelHost : Host {
     void startActivity(Activity) override {}
     void endActivity(const std::string&) override {}
     void postAlert(Alert) override {}
-    Ms now() const override { return Ms{ 0 }; }
+    Ms clock{ 0 };
+    std::optional<Ms> wake;
+    Ms now() const override { return clock; }
     void publishPanel(Panel p) override { published.push_back(std::move(p)); }
     void removePanel(const std::string& id) override { removed.push_back(id); }
-    void wakeAt(std::optional<Ms>) override {}
+    void wakeAt(std::optional<Ms> at) override { wake = at; }
 };
 
 std::string textAt(const Panel& p, std::size_t row, std::size_t item)
@@ -96,6 +100,30 @@ void runSystemTests()
     expect(bt.removed.size() == 1 && bt.removed[0] == BluetoothPresenter::kPanelId, "disconnected: panel removed");
     bluetooth.show({});
     expect(bt.removed.size() == 1, "and removed once");
+
+    // Copy logs: a tap-action tile that says how the copy went, then resets.
+    PanelHost lh;
+    bool copyWorks = true;
+    int copies = 0;
+    LogsProvider logs([&] { ++copies; return copyWorks; });
+    logs.start(lh);
+    const Panel& ready = lh.published.back();
+    expect(ready.id == LogsProvider::kPanelId && ready.tapAction == LogsProvider::kCopy && !hasCard(ready.content),
+           "logs: a tap-action tile, no card");
+    expect(glyphAt(ready, 0) == Glyph::Copy && textAt(ready, 1, 0) == "Logs" && !lh.wake, "logs: idle, nothing scheduled");
+    logs.onAction({ "system.logs", LogsProvider::kPanelId, "other", 0 });
+    expect(copies == 0, "logs: other actions don't copy");
+    lh.clock = Ms{ 1000 };
+    logs.onAction({ "system.logs", LogsProvider::kPanelId, LogsProvider::kCopy, 0 });
+    expect(copies == 1 && textAt(lh.published.back(), 1, 0) == "Copied", "logs: tap copies and says so");
+    expect(lh.wake == Ms{ 1000 } + tokens().logsNote, "logs: the note lasts logsNoteMs");
+    logs.onWake();
+    expect(textAt(lh.published.back(), 1, 0) == "Logs", "logs: then back to Logs");
+    copyWorks = false;
+    logs.onAction({ "system.logs", LogsProvider::kPanelId, LogsProvider::kCopy, 0 });
+    expect(textAt(lh.published.back(), 1, 0) == "Failed", "logs: a failed copy says so");
+    logs.stop();
+    expect(lh.removed.back() == LogsProvider::kPanelId && !lh.wake, "logs: stop removes the tile and the wake-up");
 }
 
 } // namespace cup::test

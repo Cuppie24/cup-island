@@ -39,10 +39,10 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 tokens.h (+ tokens_json.h), easing.h
 src/platform/   Win32 + C++/WinRT + Composition: render/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
-                per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Start with Windows, Exit), autostart
+                per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Start with Windows, Exit), autostart, log (the log file), watchdog (hang/crash dumps)
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules, SMTC provider for real Windows media), pomodoro/ (the first panel),
-                system/ (Home's battery, theme and Bluetooth widgets)
+                system/ (Home's battery, theme and Bluetooth widgets, Copy logs)
 src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload
 assets/         tokens.json: the live-tunable sizes, timings and curves; the app icon (cup_island.rc/.ico)
 installer/      Inno Setup script for the Windows installer (decision 011)
@@ -176,3 +176,4 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 | Progress ring, Steps, accent colour (decision 010) | done; rules tested, drawing needs Windows |
 | Release: no-console exe, static C++ runtime, tray icon with Start with Windows + Exit, Inno Setup installer (decision 011) | done; needs a Windows build to verify |
 | MSIX, code signing, StartupTask (TR §9, §10) | not yet |
+| Log file, Copy logs tile, hang/crash minidumps, exit without deadlock (decision 013) | done; tile rules tested, the rest needs Windows |

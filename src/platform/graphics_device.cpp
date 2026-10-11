@@ -1,4 +1,5 @@
 #include "platform/graphics_device.h"
+#include "platform/log.h"
 
 #include <d3d11.h>
 
@@ -66,7 +67,7 @@ bool GraphicsDevice::draw(wuc::CompositionDrawingSurface const& surface,
     if (isDeviceLost(hr)) {
         // GPU reset or driver update: give Composition a fresh device; all
         // surfaces lose their pixels, so everything is redrawn.
-        std::printf("[cup-island] graphics device lost, recreating\n");
+        logLine("graphics device lost, recreating");
         auto deviceInterop = device_.as<abi::ICompositionGraphicsDeviceInterop>();
         winrt::check_hresult(deviceInterop->SetRenderingDevice(createD2DDevice().get()));
         return false;
