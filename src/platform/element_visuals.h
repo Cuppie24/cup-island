@@ -5,6 +5,7 @@
 // playing track costs no app CPU per frame (TR §5).
 
 #include "core/layout.h"
+#include "platform/element_art.h"
 #include "platform/graphics_device.h"
 
 #include <map>
@@ -37,6 +38,8 @@ private:
         wuc::CompositionDrawingSurface surface{ nullptr };          // text, icon, button glyph, image
         float marqueeWidth = 0;                                     // > 0: swimming text, one copy's width
         wuc::Visual highlight{ nullptr };                           // button hover shape
+        ArtParts art;                                               // clickable art: hover dim + "open" glyph
+        wuc::CompositionDrawingSurface glyphSurface{ nullptr };     // that glyph
         wuc::CompositionRoundedRectangleGeometry fill{ nullptr };   // progress bar
         wuc::CompositionEllipseGeometry arc{ nullptr };             // progress ring
         wuc::CompositionSpriteShape knob{ nullptr };                // progress

@@ -7,6 +7,7 @@
 #include "providers/media/media_presenter.h"
 #include "providers/media/now_playing.h"
 #include "providers/media/session_choice.h"
+#include "providers/media/tab_match.h"
 
 #include <vector>
 
@@ -192,6 +193,14 @@ void runMediaTests()
            std::get<Image>(openable.alertLeading[0].items[0]).actionId.empty(), "compact/alert art isn't (a click there expands)");
     expect(std::get<Image>(nowPlayingContent({ .title = "T" }).expandedLeading[0].items[0]).actionId.empty(),
            "a provider that can't open its app: plain art");
+
+    // Finding the browser tab that plays the media, from tab names.
+    std::vector<std::string> tabs = { "Inbox (3) - Gmail", "Lo-fi beats - YouTube", "lo-fi beats - YouTube - Audio playing" };
+    expect(findMediaTab(tabs, "Lo-fi Beats") == 2u, "any case matches; the tab marked as playing audio wins");
+    tabs.pop_back();
+    expect(findMediaTab(tabs, "Lo-fi beats") == 1u, "no audio marker: the first tab with the title");
+    expect(!findMediaTab(tabs, "Something else") && !findMediaTab(tabs, "") && !findMediaTab(tabs, "a"),
+           "no match, or a title too short to trust: nothing");
 }
 
 } // namespace cup::test

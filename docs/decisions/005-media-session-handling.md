@@ -35,8 +35,14 @@ art and timelines unreliably, and their events arrive on background threads.
   window whose title shows the media (a browser window whose active tab is
   playing). Store apps with no window are activated through Windows; a
   desktop app with no window (Spotify in the tray) is started again, which
-  shows the running one. A specific browser tab isn't selected: SMTC doesn't
-  say which tab is playing. Apps whose session id names neither (Firefox uses
+  shows the running one. Browsers: SMTC doesn't say which tab is playing,
+  so if no window's title shows the media, the app's tab strips are read
+  through UI Automation (`browser_tabs`, skipping web page content) and the
+  tab whose name contains the title is selected, preferring one marked as
+  playing audio (`tab_match`, tested). It's a guess by title: a renamed tab
+  or two tabs with the same title can miss, and then the window is just
+  raised. The search runs on a background thread (it calls into the browser).
+  Hovering the art dims it and springs in an "open" glyph. Apps whose session id names neither (Firefox uses
   a hash) may not be found; that's logged rather than guessed, since
   launching a browser by id would open a new window.
 - **Alerts:** only for a track change within the same app. Never on

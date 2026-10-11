@@ -1,6 +1,7 @@
 #include "providers/media/app_activation.h"
 
 #include "platform/log.h"
+#include "providers/media/browser_tabs.h"
 #include "platform/win.h"
 
 #include <dwmapi.h>
@@ -11,6 +12,8 @@
 
 #include <cwctype>
 #include <iterator>
+#include <thread>
+#include <vector>
 
 namespace cup {
 namespace {
@@ -83,6 +86,7 @@ struct Search {
     std::wstring title;
     HWND best = nullptr;
     bool bestShowsTitle = false;
+    std::vector<HWND> windows; // every match, most recently used first
 };
 
 BOOL CALLBACK visitWindow(HWND hwnd, LPARAM param)
@@ -96,6 +100,7 @@ BOOL CALLBACK visitWindow(HWND hwnd, LPARAM param)
         match = exeStem(processPath(pid)) == s.stem;
     }
     if (!match) return TRUE;
+    s.windows.push_back(hwnd);
     // Windows come in z-order, so the first match is the most recently used;
     // a later one showing the media's title (the playing tab is active there) beats it.
     bool showsTitle = !s.title.empty() && windowTitle(hwnd).find(s.title) != std::wstring::npos;
@@ -135,16 +140,19 @@ std::wstring runningExe(const std::wstring& stem)
     return path;
 }
 
-} // namespace
-
-bool openSourceApp(const std::wstring& appId, const std::wstring& title)
+bool openApp(const std::wstring& appId, const std::wstring& title)
 {
     // Store app ids look like "Package_hash!App"; desktop apps' name their exe.
     bool packaged = appId.find(L'!') != std::wstring::npos;
     Search search{ lower(appId), packaged ? L"" : exeStem(appId), title };
     EnumWindows(visitWindow, reinterpret_cast<LPARAM>(&search));
     if (search.best) {
-        bringToFront(search.best);
+        HWND target = search.best;
+        // No window shows the media, so it isn't an active tab anywhere: look
+        // through the tabs. (Spotify & co. show the track in their title and skip this.)
+        if (!search.bestShowsTitle)
+            if (HWND tabWindow = selectMediaTab(search.windows, winrt::to_string(title))) target = tabWindow;
+        bringToFront(target);
         return true;
     }
     if (packaged) return activatePackaged(appId);
@@ -158,6 +166,25 @@ bool openSourceApp(const std::wstring& appId, const std::wstring& title)
     }
     platform::logLine("media: no window found for %ls", appId.c_str());
     return false;
+}
+
+} // namespace
+
+void openSourceApp(const std::wstring& appId, const std::wstring& title)
+{
+    // Off the UI thread: UI Automation calls into the other app and can take
+    // a few hundred ms. The foreground right from the click is per process,
+    // so this thread may still use it.
+    std::thread([appId, title] {
+        try {
+            winrt::init_apartment(winrt::apartment_type::multi_threaded);
+            bool opened = openApp(appId, title);
+            platform::logLine("media: open %ls %s", appId.c_str(), opened ? "ok" : "failed");
+            winrt::uninit_apartment();
+        } catch (...) { // an escaping exception would end the app
+            platform::logLine("media: opening %ls failed with an exception", appId.c_str());
+        }
+    }).detach();
 }
 
 } // namespace cup

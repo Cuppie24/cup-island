@@ -39,6 +39,13 @@ bool focusedField(const Item& item)
 }
 
 // Swimming text is sized to its string, so any change to it needs a new surface.
+// Art with an action gets the hover overlay, so it's a different visual from plain art.
+bool clickableArt(const Item& item)
+{
+    auto* image = std::get_if<Image>(&item);
+    return image && !image->actionId.empty();
+}
+
 bool swims(const Item& item)
 {
     auto* text = std::get_if<Text>(&item);
@@ -116,6 +123,11 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now)
         ButtonParts parts = createButton(compositor_, size, placed.cornerRadius, view.surface, field ? t.inputColor : t.buttonHoverColor);
         view.visual = parts.visual;
         view.highlight = parts.highlight;
+    } else if (clickableArt(placed.item)) {
+        view.surface = device_->createSurface(size);
+        view.glyphSurface = device_->createSurface(size);
+        view.art = createActionArt(compositor_, size, placed.cornerRadius, view.surface, view.glyphSurface);
+        view.visual = view.art.visual;
     } else {
         auto sprite = compositor_.CreateSpriteVisual();
         float width = swims(placed.item) ? measureText(device_->dwrite(), std::get<Text>(placed.item)) : 0;
@@ -153,6 +165,7 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     bool resized = sizeOf(view.placed) != sizeOf(placed) || view.placed.cornerRadius != placed.cornerRadius;
     // A bar and a ring are both Progress, but different visuals; the accent is baked into brushes.
     bool retyped = view.placed.item.index() != placed.item.index() || isRing(view.placed.item) != isRing(placed.item) ||
+                   clickableArt(view.placed.item) != clickableArt(placed.item) ||
                    view.placed.accent != placed.accent;
     bool moved = view.placed.frame.x != placed.frame.x || view.placed.frame.y != placed.frame.y;
     bool changed = !(view.placed.item == placed.item);
@@ -204,6 +217,10 @@ void ElementVisuals::paint(View& view)
             paintSteps(dc, *steps, size, accentOf(view.placed));
         }
     });
+    if (drawn && view.glyphSurface)
+        drawn = device_->draw(view.glyphSurface, [&](ID2D1DeviceContext* dc) {
+            paintGlyph(dc, dw, Glyph::OpenApp, t.artHoverGlyphSize, size, t.buttonColor);
+        });
     if (!drawn) deviceLost_ = true;
 }
 
@@ -246,6 +263,7 @@ void ElementVisuals::showHover(const std::string& key, bool on)
     View& view = it->second;
     if (view.highlight) fadeTo(compositor_, view.highlight, on || focusedField(view.placed.item) ? 1.0f : 0.0f, tokens().hoverFadeDuration);
     if (view.knob && !view.scrubbing) showKnob(compositor_, view.knob, on);
+    if (view.art.overlay) showArtOverlay(compositor_, view.art, on);
 }
 
 void ElementVisuals::press(const std::string& key)
@@ -254,6 +272,7 @@ void ElementVisuals::press(const std::string& key)
     if (it == views_.end()) return;
     const Tokens& t = tokens();
     if (it->second.highlight) fadeTo(compositor_, it->second.highlight, 1.0f, t.hoverFadeDuration);
+    if (it->second.art.overlay && key != hovered_) showArtOverlay(compositor_, it->second.art, true); // pressed without a hover (touch)
     if (std::holds_alternative<TextInput>(it->second.placed.item)) return; // a field is clicked into, not pressed: no squash
     // Art is big: the pill's gentle squash, not a button's deep one.
     float scale = std::holds_alternative<Image>(it->second.placed.item) ? t.pressScale : t.buttonPressScale;
@@ -267,6 +286,7 @@ void ElementVisuals::release(const std::string& key)
     const Tokens& t = tokens();
     if (it->second.highlight && key != hovered_ && !focusedField(it->second.placed.item))
         fadeTo(compositor_, it->second.highlight, 0.0f, t.hoverFadeDuration);
+    if (it->second.art.overlay && key != hovered_) showArtOverlay(compositor_, it->second.art, false);
     if (std::holds_alternative<TextInput>(it->second.placed.item)) return;
     playScale(compositor_, it->second.visual, 1.0f, t.pressReleaseDuration, t.pressReleaseEase);
 }

@@ -239,9 +239,7 @@ void SmtcMediaProvider::onAction(const Action& action)
         else if (action.actionId == act::kPrevious) session_.TrySkipPreviousAsync();
         else if (action.actionId == act::kSource) cycleSource();
         else if (action.actionId == act::kOpenSource) {
-            winrt::hstring app = session_.SourceAppUserModelId();
-            bool opened = openSourceApp(std::wstring(app), std::wstring(shownTitle_));
-            platform::logLine("media: open %s %s", appName(app).c_str(), opened ? "ok" : "failed");
+            openSourceApp(std::wstring(session_.SourceAppUserModelId()), std::wstring(shownTitle_)); // logs its result
         }
         else if (action.actionId == act::kShuffle) {
             auto shuffle = session_.GetPlaybackInfo().IsShuffleActive();
