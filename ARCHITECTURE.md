@@ -39,7 +39,7 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 tokens.h (+ tokens_json.h), easing.h
 src/platform/   Win32 + C++/WinRT + Composition: render/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
-                per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Start with Windows, Exit), autostart, log (the log file), watchdog (hang/crash dumps)
+                per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Start with Windows, Exit), autostart, log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules, SMTC provider for real Windows media), pomodoro/ (the first panel),
                 system/ (Home's battery, theme and Bluetooth widgets, Copy logs)

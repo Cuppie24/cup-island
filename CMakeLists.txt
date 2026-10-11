@@ -95,6 +95,7 @@ if(WIN32)
         src/platform/liquid_bridge.cpp
         src/platform/pill_renderer.cpp
         src/platform/render_layer.cpp
+        src/platform/stay_on_top.cpp
         src/platform/tray_icon.cpp
         src/platform/watchdog.cpp
         src/platform/wall_clock.cpp

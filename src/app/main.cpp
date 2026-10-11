@@ -28,6 +28,7 @@
 #include "platform/interaction_layer.h"
 #include "platform/pill_renderer.h"
 #include "platform/render_layer.h"
+#include "platform/stay_on_top.h"
 #include "platform/tray_icon.h"
 #include "platform/watchdog.h"
 #include "providers/demo/demo_media_provider.h"
@@ -403,6 +404,7 @@ int main()
 
     ShowWindow(render.hwnd, SW_SHOWNOACTIVATE);
     ShowWindow(g_inputHwnd, SW_SHOW);
+    stayOnTop({ render.hwnd, g_inputHwnd }); // re-raised whenever another app comes to the front
 
     MSG msg;
     while (GetMessageW(&msg, nullptr, 0, 0)) {
