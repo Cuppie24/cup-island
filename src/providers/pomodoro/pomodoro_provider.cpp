@@ -79,8 +79,9 @@ Panel pomodoroPanel()
 
 // Compact: the countdown centred, the ring filling on the right; no phase
 // name (the colour says it). Expanded, a centred card (decision 014): the
-// controls on top, the ring beside a big countdown in the middle, then a
-// dot per phase and what they mean. No bar: the ring already shows it.
+// controls on top, a big countdown in the middle, then a dot per phase and
+// what they mean. No bar or ring in the card: the countdown and the dots say
+// it; the ring is for compact and the bubble, where there's no room for digits.
 Content pomodoroContent(const PomodoroProvider::Session& s)
 {
     std::string name = nameOf(s.phase);
@@ -103,7 +104,7 @@ Content pomodoroContent(const PomodoroProvider::Session& s)
         .minimal = { row({ ring }, Align::Center) },
         .expandedCenter = {
             Row{ .items = { pause, Button{ Glyph::Next, act::kSkip }, stop }, .align = Align::Center, .loose = true },
-            row({ ring, bigLeft }, Align::Center),
+            row({ bigLeft }, Align::Center),
             row({ Steps{ total, done } }, Align::Center),
             row({ Text{ .value = caption, .style = TextStyle::Caption, .centred = true } }, Align::Center),
         },

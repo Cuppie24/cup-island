@@ -98,7 +98,7 @@ void runPomodoroTests()
     };
     expect(stepsShown() == Steps{ static_cast<int>(2 * t.pomodoroRounds), 0 }, "card: a dot per phase, none done yet");
 
-    // The card: centred, controls on top, the ring beside a big countdown, then the dots; no bar.
+    // The card: centred, controls on top, a big countdown, then the dots; no bar, no ring.
     island.send(PillClicked{});
     Scene card = island.scene();
     island.send(EscapePressed{});
@@ -108,20 +108,16 @@ void runPomodoroTests()
         return nullptr;
     };
     const Placed* pauseButton = at("expandedCenter/0/0");
-    const Placed* bigRing = at("expandedCenter/1/0");
-    const Placed* bigTimer = at("expandedCenter/1/1");
+    const Placed* bigTimer = at("expandedCenter/1/0");
     const Placed* dots = at("expandedCenter/2/0");
     expect(pauseButton && std::holds_alternative<Button>(pauseButton->item), "card: controls on top");
     expect(bigTimer && std::get<Text>(bigTimer->item).style == TextStyle::Display && pauseButton->frame.y < bigTimer->frame.y,
            "card: a big countdown below them");
-    expect(bigRing && bigRing->frame.height == bigTimer->frame.height && bigRing->frame.width == bigRing->frame.height,
-           "the ring as tall as the countdown, beside it");
-    float groupCentre = (bigRing->frame.x + bigTimer->frame.x + bigTimer->frame.width) / 2;
-    expect(std::abs(groupCentre - card.size.x / 2) < 0.51f, "ring and countdown centred together");
+    expect(std::abs(bigTimer->frame.x + bigTimer->frame.width / 2 - card.size.x / 2) < 0.51f, "the countdown centred");
     expect(dots && std::abs(dots->frame.x + dots->frame.width / 2 - card.size.x / 2) < 0.51f && dots->frame.y > bigTimer->frame.y,
            "the dots centred, below");
     for (const Placed& p : card.elements) {
-        if (auto* bar = std::get_if<Progress>(&p.item)) expect(bar->shape == ProgressShape::Ring, "no linear bar in the card: " + p.key);
+        expect(!std::holds_alternative<Progress>(p.item), "no bar or ring in the card: " + p.key);
         if (p.key.rfind("tab/", 0) != 0) expect(p.frame.y + p.frame.height <= t.expandedSize.y - t.expandedPadding, "fits the card: " + p.key);
     }
 

@@ -37,7 +37,9 @@ What this added:
 - **Steps are bigger** (`stepDotSize`, `stepDotGap`): a host size, the same
   for every provider using them.
 
-**Consequences.** Pomodoro's card: pause/skip/stop on top, the ring and a
-Display countdown centred in the middle, the phase dots centred under them,
-then "Focus · 3 of 8 done". The linear bar is gone (the ring shows the same
-thing). Tested in `tests/item_tests.cpp` and `tests/pomodoro_tests.cpp`.
+**Consequences.** Pomodoro's card: pause/skip/stop on top, a Display
+countdown centred in the middle, the phase dots centred under it, then
+"Focus · 3 of 8 done". No bar and no ring in the card: the big digits and
+the dots already say how far along it is (a ring beside them was tried and
+dropped as clutter). The ring stays in compact and the bubble, where there's
+no room for digits. Tested in `tests/item_tests.cpp` and `tests/pomodoro_tests.cpp`.
