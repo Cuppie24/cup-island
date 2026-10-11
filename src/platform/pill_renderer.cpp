@@ -13,10 +13,24 @@ void PillRenderer::build(wuc::Compositor const& c, wuc::ContainerVisual const& r
 {
     queue_ = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
     device_.create(c);
-    pill_.build(c, device_, root, initial.size, initial.offset);
-    bubble_.build(c, device_, root, {}, initial.bubbleTuck); // above the pill: it's dragged over it
-    bridge_.build(c, root, tokens().canvas, pill_, bubble_);
+    island_ = c.CreateLayerVisual();
+    island_.RelativeSizeAdjustment({ 1.0f, 1.0f }); // the whole canvas: the shadow can spread past the shapes
+    shadow_ = c.CreateDropShadow();
+    applyShadow();
+    island_.Shadow(shadow_);
+    root.Children().InsertAtTop(island_);
+    pill_.build(c, device_, island_, initial.size, initial.offset);
+    bubble_.build(c, device_, island_, {}, initial.bubbleTuck); // above the pill: it's dragged over it
+    bridge_.build(c, island_, tokens().canvas, pill_, bubble_);
     apply(initial);
+}
+
+void PillRenderer::applyShadow()
+{
+    const Tokens& t = tokens();
+    shadow_.Color(toUiColor(t.shadowColor));
+    shadow_.BlurRadius(t.shadowBlur);
+    shadow_.Offset(toFloat3(t.shadowOffset));
 }
 
 void PillRenderer::refreshAnimations()
@@ -24,6 +38,7 @@ void PillRenderer::refreshAnimations()
     pill_.refreshAnimations();
     bubble_.refreshAnimations();
     bridge_.refreshAnimations();
+    applyShadow();
     measured_.clear();
 }
 

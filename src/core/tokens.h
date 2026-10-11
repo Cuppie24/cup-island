@@ -24,7 +24,7 @@ struct Bezier {
 struct Tokens {
     // Render layer: sized to the largest pill plus press-overshoot room (TR §5,
     // §9.1). Resized only when this changes (an edit, islandScale, the display's scale).
-    Vec2 canvas{ 420, 400 }; // room for the largest pill: a Centred card at its tallest, with tabs
+    Vec2 canvas{ 440, 420 }; // room for the largest pill (a Centred card at its tallest, with tabs) and its shadow
 
     // One knob for the island's overall size: every length below is
     // multiplied by it, on top of the display's scaling (decision 017).
@@ -93,6 +93,10 @@ struct Tokens {
     float bridgeThickness = 20;   // liquid neck between pill and bubble, at its thickest
     float bridgeReach = 6;        // edge gap at which the neck has thinned to nothing (< bubbleGap: none at rest)
 
+    // The island's shadow (pill, bubble and neck as one shape); colour in shadowColor.
+    float shadowBlur = 16;
+    Vec2 shadowOffset{ 0, 4 };    // down: the island hangs from the top edge
+
     // Expanded's tabs: one per activity along the bottom of the card (decision 007).
     float tabHeight = 28;
     float tabGap = 4;
@@ -155,6 +159,7 @@ struct Tokens {
     Color inputColor{ 255, 255, 255, 26 };         // a text field's background (decision 016)
     Color placeholderTextColor{ 255, 255, 255, 128 }; // "Add a to-do…": like body text, a little dimmer
     Color imagePlaceholderColor{ 255, 255, 255, 31 }; // art that hasn't arrived
+    Color shadowColor{ 0, 0, 0, 115 };             // under the island in every mode; its alpha is the shadow's strength
     Color pomodoroFocusColor{ 255, 99, 71 };       // accents (decision 010)
     Color pomodoroBreakColor{ 52, 199, 89 };
 

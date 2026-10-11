@@ -175,6 +175,7 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 | Content hover (buttons, progress knob), drag-to-seek, nested radii (decisions 002, 006) | done; platform side untested on a real build yet |
 | Renderer: Split bubble with liquid neck, drag-to-swap (decision 007) | done; rules tested, visuals need Windows |
 | Display scaling: tokens in logical pixels, scaled per the primary display, live on a scale change (decision 017) | done; scaling tested, Windows side needs a run |
+| Island shadow: one DropShadow for pill, bubble and neck together (decision 018) | done; needs a Windows run to judge |
 | Renderer: alert pulse, receptive drop zones, matched geometry | not yet |
 | Fullscreen detection (TR §9.2): borderless + exclusive, per monitor, maximized windows excluded | done; rules tested (`core/fullscreen`), hooks need Windows |
 | Real input for drag (OLE drop target) | not yet; the D key simulates it |
