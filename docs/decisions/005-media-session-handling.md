@@ -10,8 +10,12 @@ art and timelines unreliably, and their events arrive on background threads.
 - **Which session:** Windows' current session (its "main media", the one
   the media keys control), else the first one. A manual pick from ⇄ overrides
   it until that session goes away or Windows moves its main media to another
-  app. The pick is stored as the session object, not the app id, because
-  every Chrome tab shares one app id.
+  app. The pick is matched by session object first (every Chrome tab shares
+  one app id), then by app id, because Windows can hand out a new object for
+  the same session. "Windows moved its main media" compares app ids and
+  ignores moments with no main media. Matching by object alone made the
+  first click on ⇄ sometimes do nothing (seen mostly with Spotify). The rules
+  are in `session_choice` and tested.
 - **Noticing Windows' switch:** `CurrentSessionChanged` doesn't fire reliably
   when another app starts playing, so every session's PlaybackInfoChanged
   also triggers a re-check, plus one more `mediaSessionRecheckMs` (300 ms)
@@ -25,6 +29,22 @@ art and timelines unreliably, and their events arrive on background threads.
   the snapshot is shown, so the track alert carries its picture. Apps that
   send the title first and art later are covered: the art key includes
   "has thumbnail".
+- **Art opens the app:** clicking the expanded art brings the session's app
+  forward (`app_activation`). It looks for the app's window by its taskbar
+  app id, else by exe name ("Spotify.exe", "Chrome", "MSEdge"), preferring a
+  window whose title shows the media (a browser window whose active tab is
+  playing). Store apps with no window are activated through Windows; a
+  desktop app with no window (Spotify in the tray) is started again, which
+  shows the running one. Browsers: SMTC doesn't say which tab is playing,
+  so if no window's title shows the media, the app's tab strips are read
+  through UI Automation (`browser_tabs`, skipping web page content) and the
+  tab whose name contains the title is selected, preferring one marked as
+  playing audio (`tab_match`, tested). It's a guess by title: a renamed tab
+  or two tabs with the same title can miss, and then the window is just
+  raised. The search runs on a background thread (it calls into the browser).
+  Hovering the art dims it and springs in an "open" glyph. Apps whose session id names neither (Firefox uses
+  a hash) may not be found; that's logged rather than guessed, since
+  launching a browser by id would open a new window.
 - **Alerts:** only for a track change within the same app. Never on
   startup, when an app appears, or when switching apps with ⇄.
 - **Paused media lingers** for `mediaPausedLingerMs` (5 min), using core

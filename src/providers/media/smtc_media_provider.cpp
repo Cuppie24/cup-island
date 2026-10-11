@@ -1,4 +1,5 @@
 #include "providers/media/smtc_media_provider.h"
+#include "providers/media/app_activation.h"
 #include "platform/log.h"
 
 #include "core/tokens.h"
@@ -48,7 +49,8 @@ void SmtcMediaProvider::stop()
     manager_ = nullptr;
     session_ = nullptr;
     chosen_ = nullptr;
-    windowsCurrent_ = nullptr;
+    chosenApp_.clear();
+    mainApp_.clear();
     artKey_.clear();
     artPending_ = false;
     art_.reset();
@@ -109,20 +111,29 @@ void SmtcMediaProvider::pickSession()
     auto sessions = manager_.GetSessions();
 
     // When Windows moves its main media to another app (the one the media keys
-    // now control), follow it, dropping any manual pick.
+    // now control), follow it, dropping any manual pick. Compared by app id:
+    // a new object for the same session, or a moment with no main media, isn't a move.
     Session current = manager_.GetCurrentSession();
-    if (current != windowsCurrent_) {
-        windowsCurrent_ = current;
+    std::string currentApp = current ? winrt::to_string(current.SourceAppUserModelId()) : "";
+    if (mainMediaMoved(mainApp_, currentApp)) {
+        mainApp_ = currentApp;
+        if (chosen_) platform::logLine("media: manual pick dropped, Windows moved its main media");
         chosen_ = nullptr;
-        if (current) platform::logLine("media: Windows' main media is %s", appName(current.SourceAppUserModelId()).c_str());
+        chosenApp_.clear();
+        platform::logLine("media: Windows' main media is %s", appName(current.SourceAppUserModelId()).c_str());
     }
 
-    // By session, not app id: every Chrome tab shares one app id.
+    // By session first (every Chrome tab shares one app id), app id as fallback.
     Session chosen{ nullptr };
     if (chosen_) {
-        for (auto const& s : sessions)
-            if (s == chosen_) chosen = s;
-        if (!chosen) chosen_ = nullptr; // it went away: follow Windows again
+        if (auto i = findSession(describe(chosen_), chosenApp_)) {
+            chosen = sessions.GetAt(static_cast<std::uint32_t>(*i));
+            chosen_ = chosen; // keep the object Windows hands out now
+        } else {
+            platform::logLine("media: picked session went away, following Windows again");
+            chosen_ = nullptr;
+            chosenApp_.clear();
+        }
     }
     if (!chosen) chosen = current;
     if (!chosen && sessions.Size() > 0) chosen = sessions.GetAt(0);
@@ -167,6 +178,8 @@ winrt::fire_and_forget SmtcMediaProvider::load(std::uint64_t generation, std::sh
     winrt::hstring app = session.SourceAppUserModelId();
     media.source = appName(app);
     media.showSourceSwitch = manager_.GetSessions().Size() > 1;
+    media.canOpenSource = true;
+    shownTitle_ = winrt::to_hstring(media.title);
 
     // New track (or its art just appeared): decode the art before showing, so
     // the track alert carries it. Other refreshes wait for the decode too.
@@ -192,15 +205,26 @@ winrt::fire_and_forget SmtcMediaProvider::load(std::uint64_t generation, std::sh
     presenter_->show(MediaSnapshot{ winrt::to_string(app), media });
 }
 
+std::vector<SessionView> SmtcMediaProvider::describe(Session const& remembered) const
+{
+    std::vector<SessionView> views;
+    for (auto const& s : manager_.GetSessions())
+        views.push_back({ winrt::to_string(s.SourceAppUserModelId()), remembered && s == remembered });
+    return views;
+}
+
 void SmtcMediaProvider::cycleSource()
 {
     auto sessions = manager_.GetSessions();
     std::uint32_t count = sessions.Size();
     if (count < 2) return;
-    std::uint32_t current = 0;
-    for (std::uint32_t i = 0; i < count; ++i)
-        if (sessions.GetAt(i) == session_) current = i;
-    chosen_ = sessions.GetAt((current + 1) % count);
+    // Found by object, else by app id: an identity-only search could miss the
+    // shown session and "switch" to it again, so the first click did nothing.
+    std::string shownApp = session_ ? winrt::to_string(session_.SourceAppUserModelId()) : "";
+    auto next = nextSession(count, findSession(describe(session_), shownApp));
+    chosen_ = sessions.GetAt(static_cast<std::uint32_t>(next));
+    chosenApp_ = winrt::to_string(chosen_.SourceAppUserModelId());
+    platform::logLine("media: source button -> %s", appName(chosen_.SourceAppUserModelId()).c_str());
     pickSession();
 }
 
@@ -214,6 +238,9 @@ void SmtcMediaProvider::onAction(const Action& action)
         else if (action.actionId == act::kNext) session_.TrySkipNextAsync();
         else if (action.actionId == act::kPrevious) session_.TrySkipPreviousAsync();
         else if (action.actionId == act::kSource) cycleSource();
+        else if (action.actionId == act::kOpenSource) {
+            openSourceApp(std::wstring(session_.SourceAppUserModelId()), std::wstring(shownTitle_)); // logs its result
+        }
         else if (action.actionId == act::kShuffle) {
             auto shuffle = session_.GetPlaybackInfo().IsShuffleActive();
             session_.TryChangeShuffleActiveAsync(!(shuffle && shuffle.Value()));

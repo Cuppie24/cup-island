@@ -25,7 +25,8 @@ Content nowPlayingContent(const NowPlaying& m)
     c.tile = { Row{ .items = { Text{ .value = m.title, .style = TextStyle::Title, .marquee = true } }, .trailing = { Waveform{ playing } } },
                row({ Text{ m.artist.empty() ? m.source : m.artist, TextStyle::Caption } }) };
 
-    c.expandedLeading = { row({ art }) };
+    // Like iOS: the big art opens the app that's playing (only expanded; elsewhere a click expands).
+    c.expandedLeading = { row({ Image{ m.art, m.canOpenSource ? act::kOpenSource : "" } }) };
     c.expandedCenter = { row({ title }), row({ artist }) };
     std::string caption = m.source, position = trackPosition(m.trackNumber, m.trackCount);
     if (!position.empty()) caption += (caption.empty() ? "" : " \u00B7 ") + position;

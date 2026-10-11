@@ -17,7 +17,7 @@ using Ms = std::chrono::milliseconds;
 
 // Built-in icons; the renderer maps them to font glyphs.
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
-                   Bluetooth, Sun, Moon, Copy, Checked, Unchecked, Delete };
+                   Bluetooth, Sun, Moon, Copy, Checked, Unchecked, Delete, OpenApp };
 
 enum class TextStyle { Title, Body, Caption, Digits, Display }; // Display: a big number, the card's centre (a timer)
 
@@ -63,7 +63,11 @@ struct Text {
     bool struck = false;   // struck through: a solved to-do
     bool operator==(const Text&) const = default;
 };
-struct Image { std::shared_ptr<const ImageData> data; bool operator==(const Image&) const = default; };
+struct Image {
+    std::shared_ptr<const ImageData> data;
+    std::string actionId; // clickable when set: sent back to the provider (media art opens its app)
+    bool operator==(const Image&) const = default;
+};
 struct Icon { Glyph glyph = Glyph::Music; bool operator==(const Icon&) const = default; };
 struct Button {
     Glyph glyph = Glyph::Play;

@@ -73,6 +73,7 @@ struct Tokens {
 
     // Hover on buttons and the progress bar (decision 002: content only, not the pill).
     Ms hoverFadeDuration{ 120 };
+    float artHoverGlyphSize = 22; // clickable art (media: opens its app): the "open" glyph shown on hover
 
     // Swimming (marquee) text: pauses at the start, then scrolls left in a loop.
     float marqueeSpeed = 30;      // pixels per second
@@ -148,6 +149,7 @@ struct Tokens {
     Color buttonOffColor{ 255, 255, 255, 128 };    // a toggle that's off
     Color buttonDisabledColor{ 255, 255, 255, 77 };
     Color buttonHoverColor{ 255, 255, 255, 41 };   // the shape behind a hovered button
+    Color artHoverColor{ 0, 0, 0, 115 };           // dims clickable art under the pointer, behind its "open" glyph
     Color trackColor{ 255, 255, 255, 61 };         // a progress bar's or ring's empty part
     Color liveColor{ 255, 255, 255, 230 };         // progress fill, waveform: when the content has no accent
     Color knobColor{ 255, 255, 255 };

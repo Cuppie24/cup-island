@@ -95,6 +95,11 @@ void runContentTests()
     expect(seek && seek->action.actionId == "seek" && seek->action.value > 0.24f && seek->action.value < 0.26f,
            "seek returns the fraction");
     expect(!hitTest(scene, centre(art)), "art is not clickable");
+    Content clickableArt = media;
+    clickableArt.expandedLeading = { row({ Image{ .actionId = "openSource" } }) };
+    Scene artScene = layout(expandedWith(clickableArt), Ms{ 1000 });
+    auto artHit = hitTest(artScene, centre(find(artScene, "expandedLeading/0/0")));
+    expect(artHit && artHit->action.actionId == "openSource" && artHit->key == "expandedLeading/0/0", "art with an action is clickable");
 
     // Easy targets: neighbouring buttons' click areas meet, so the gap between them isn't dead.
     const Placed* previous = find(scene, "expandedBottom/1/0");

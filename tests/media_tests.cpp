@@ -6,6 +6,8 @@
 #include "expect.h"
 #include "providers/media/media_presenter.h"
 #include "providers/media/now_playing.h"
+#include "providers/media/session_choice.h"
+#include "providers/media/tab_match.h"
 
 #include <vector>
 
@@ -170,6 +172,35 @@ void runMediaTests()
 
     expect(nextRepeat(Repeat::Off) == Repeat::All && nextRepeat(Repeat::All) == Repeat::One && nextRepeat(Repeat::One) == Repeat::Off,
            "repeat cycles off -> all -> one");
+
+    // Session choice (decision 005): the source button's pick must survive Windows
+    // handing out a new object for the same session.
+    std::vector<SessionView> sessions = { { "Chrome" }, { "Spotify.exe" }, { "Chrome" } };
+    expect(!findSession(sessions, "VLC"), "app gone: pick is lost");
+    expect(findSession(sessions, "Spotify.exe") == 1u, "new object, same app: found by app id");
+    sessions[2].remembered = true;
+    expect(findSession(sessions, "Chrome") == 2u, "same object wins over the first tab of the same app");
+    expect(!mainMediaMoved("Spotify.exe", "Spotify.exe"), "same main app (even a new object): no move");
+    expect(!mainMediaMoved("Spotify.exe", ""), "a moment without main media: no move, the pick stays");
+    expect(mainMediaMoved("Spotify.exe", "Chrome") && mainMediaMoved("", "Spotify.exe"), "another app took over: move");
+    expect(nextSession(3, 1u) == 2 && nextSession(3, 2u) == 0, "source button steps and wraps");
+    expect(nextSession(3, std::nullopt) == 0 && nextSession(0, std::nullopt) == 0, "nothing shown: start at the first");
+
+    // The expanded art opens the playing app, when the provider can; nowhere else is the art clickable.
+    Content openable = nowPlayingContent({ .title = "T", .canOpenSource = true });
+    expect(std::get<Image>(openable.expandedLeading[0].items[0]).actionId == media_action::kOpenSource, "expanded art opens the app");
+    expect(std::get<Image>(openable.compactLeading[0].items[0]).actionId.empty() &&
+           std::get<Image>(openable.alertLeading[0].items[0]).actionId.empty(), "compact/alert art isn't (a click there expands)");
+    expect(std::get<Image>(nowPlayingContent({ .title = "T" }).expandedLeading[0].items[0]).actionId.empty(),
+           "a provider that can't open its app: plain art");
+
+    // Finding the browser tab that plays the media, from tab names.
+    std::vector<std::string> tabs = { "Inbox (3) - Gmail", "Lo-fi beats - YouTube", "lo-fi beats - YouTube - Audio playing" };
+    expect(findMediaTab(tabs, "Lo-fi Beats") == 2u, "any case matches; the tab marked as playing audio wins");
+    tabs.pop_back();
+    expect(findMediaTab(tabs, "Lo-fi beats") == 1u, "no audio marker: the first tab with the title");
+    expect(!findMediaTab(tabs, "Something else") && !findMediaTab(tabs, "") && !findMediaTab(tabs, "a"),
+           "no match, or a title too short to trust: nothing");
 }
 
 } // namespace cup::test

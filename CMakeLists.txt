@@ -42,6 +42,8 @@ add_library(cup_providers STATIC
     src/providers/demo/demo_media_provider.cpp
     src/providers/media/media_presenter.cpp
     src/providers/media/now_playing.cpp
+    src/providers/media/session_choice.cpp
+    src/providers/media/tab_match.cpp
     src/providers/pomodoro/pomodoro_provider.cpp
     src/providers/pomodoro/todo_list.cpp
     src/providers/system/logs_provider.cpp
@@ -89,6 +91,7 @@ if(WIN32)
         src/app/main.cpp
         src/platform/autostart.cpp
         src/platform/blob.cpp
+        src/platform/element_art.cpp
         src/platform/element_painting.cpp
         src/platform/element_parts.cpp
         src/platform/element_visuals.cpp
@@ -105,6 +108,8 @@ if(WIN32)
         src/platform/tray_icon.cpp
         src/platform/watchdog.cpp
         src/platform/wall_clock.cpp
+        src/providers/media/app_activation.cpp
+        src/providers/media/browser_tabs.cpp
         src/providers/media/smtc_media_provider.cpp
         src/providers/media/smtc_reading.cpp
         src/providers/system/bluetooth_provider.cpp
