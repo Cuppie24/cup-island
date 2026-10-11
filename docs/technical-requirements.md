@@ -51,7 +51,7 @@ Data providers run as async listeners (event-driven, not polling loops) and push
 | Media data | `GlobalSystemMediaTransportControlsSessionManager` (`Windows.Media.Control`) | Public WinRT API, no injection required |
 | Build system | MSBuild / Visual Studio 2022+ | Windows App SDK project templates |
 | Packaging | MSIX | Standard WinUI 3 distribution and update path |
-| Minimum OS | Windows 10 (2004+) / Windows 11 | Matches Windows App SDK minimum support |
+| Minimum OS | Windows 10 1809 (build 17763) and Windows 11, both fully supported | Floor set by the media session API (SMTC); newer APIs only behind runtime checks with fallbacks (decision 015) |
 
 ## 5. Rendering and Animation Requirements
 

@@ -21,6 +21,7 @@ A Dynamic Island for Windows: a standalone C++/WinRT app (Win32 + Composition).
 - Provider logic that doesn't need WinRT (content building, decisions) lives in `src/providers/` and is tested on Linux.
 - Every state rule change gets a line in `tests/scenarios/*.scenario`. Run the tests before committing.
 - Sizes, timings, limits and colours: fields in `src/core/tokens.h`, values in `assets/tokens.json` (live-reloaded). Never hard-code them.
+- Must run on Windows 10 1809+ as well as Windows 11 (decision 015): check an API's minimum client version; anything newer is looked up at runtime with a fallback, never linked directly.
 - Plain C++20 subset: structs + free functions, enum class, variant/optional. No macros, no template metaprogramming.
 - Files ~300 lines max; headers are short and commented. Comments say why, and cite TR/PS/decisions.
 - Don't read `build/`.
