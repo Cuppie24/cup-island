@@ -3,25 +3,42 @@
   "configurePresets": [
     {
       "name": "core",
-      "displayName": "Core + tests (any OS)",
+      "displayName": "Core + tests (Linux/macOS)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/core",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" },
+      "condition": { "type": "notEquals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    },
+    {
+      "name": "windows-base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "architecture": { "value": "x64", "strategy": "external" },
+      "cacheVariables": { "CMAKE_CXX_COMPILER": "cl" },
+      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
     },
     {
       "name": "windows",
-      "displayName": "Full app (Visual Studio, x64)",
-      "binaryDir": "${sourceDir}/build/windows",
-      "architecture": { "value": "x64", "strategy": "set" },
-      "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+      "displayName": "Windows x64 Release",
+      "inherits": "windows-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "windows-debug",
+      "displayName": "Windows x64 Debug (for the debugger)",
+      "inherits": "windows-base",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
     }
   ],
   "buildPresets": [
     { "name": "core", "configurePreset": "core" },
-    { "name": "windows", "configurePreset": "windows", "configuration": "Release" }
+    { "name": "windows", "configurePreset": "windows" },
+    { "name": "windows-debug", "configurePreset": "windows-debug" }
   ],
   "testPresets": [
     { "name": "core", "configurePreset": "core", "output": { "outputOnFailure": true } },
-    { "name": "windows", "configurePreset": "windows", "configuration": "Release", "output": { "outputOnFailure": true } }
+    { "name": "windows", "configurePreset": "windows", "output": { "outputOnFailure": true } },
+    { "name": "windows-debug", "configurePreset": "windows-debug", "output": { "outputOnFailure": true } }
   ]
 }
