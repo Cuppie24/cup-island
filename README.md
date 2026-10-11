@@ -11,10 +11,13 @@ publish to.
 ## Build
 
 ```powershell
-.\build.ps1 -Run          # Windows: full app (needs Visual Studio with C++ and CMake tools)
+.\build.ps1 -Run          # Windows: full app, Release (needs Visual Studio "Desktop development with C++")
+.\build.ps1 -Debug -Run   # Windows: Debug build, for stepping through code
 ```
+In Visual Studio: **File → Open → Folder**, pick the *Windows x64 Debug* or
+*Release* configure preset in the toolbar, select `CupIsland.exe` as startup item, F5.
 ```sh
-cmake --preset core && cmake --build --preset core && ctest --preset core   # any OS: core + tests
+cmake --preset core && cmake --build --preset core && ctest --preset core   # Linux/macOS: core + tests
 ```
 
 **Tuning:** while the app runs, edit [`assets/tokens.json`](assets/tokens.json)

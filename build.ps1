@@ -1,37 +1,46 @@
-# Builds Cup Island on Windows via CMake (see CMakePresets.json) using the
-# CMake that ships with Visual Studio, so no separate install is needed.
+# Builds Cup Island on Windows via CMake (see CMakePresets.json).
+# Enters the Visual Studio developer environment first, which puts the MSVC
+# compiler, CMake and Ninja (all shipped with Visual Studio) on PATH.
 #
-# Usage: .\build.ps1 [-Run] [-Test]
+# Usage: .\build.ps1 [-Run] [-Test] [-Debug]
 
 param(
     [switch]$Run,
-    [switch]$Test
+    [switch]$Test,
+    [switch]$Debug
 )
 
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
-$cmake = Get-Command cmake -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
-if (-not $cmake) {
+if (-not (Get-Command cl.exe -ErrorAction SilentlyContinue)) {
     $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-    if (-not (Test-Path $vswhere)) { throw "Neither cmake nor vswhere.exe found - is Visual Studio installed?" }
+    if (-not (Test-Path $vswhere)) { throw "vswhere.exe not found - is Visual Studio installed?" }
     $vsInstall = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-    if (-not $vsInstall) { throw "No Visual Studio install with the C++ (VC.Tools.x86.x64) component was found." }
-    $cmake = "$vsInstall\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
-    if (-not (Test-Path $cmake)) { throw "CMake not found at $cmake - install the 'C++ CMake tools for Windows' VS component." }
-}
-$ctest = Join-Path (Split-Path $cmake) "ctest.exe"
+    if (-not $vsInstall) { throw "No Visual Studio install with the 'Desktop development with C++' workload was found." }
 
-& $cmake --preset windows
+    Import-Module "$vsInstall\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+    Enter-VsDevShell -VsInstallPath $vsInstall -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64" | Out-Null
+    Set-Location $PSScriptRoot
+}
+foreach ($tool in "cmake", "ninja") {
+    if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
+        throw "$tool not found - install the 'C++ CMake tools for Windows' Visual Studio component."
+    }
+}
+
+$preset = if ($Debug) { "windows-debug" } else { "windows" }
+
+cmake --preset $preset
 if ($LASTEXITCODE -ne 0) { throw "Configure failed (exit $LASTEXITCODE)" }
-& $cmake --build --preset windows
+cmake --build --preset $preset
 if ($LASTEXITCODE -ne 0) { throw "Build failed (exit $LASTEXITCODE)" }
 
 if ($Test) {
-    & $ctest --preset windows
+    ctest --preset $preset
     if ($LASTEXITCODE -ne 0) { throw "Tests failed (exit $LASTEXITCODE)" }
 }
 
-$exePath = Join-Path $PSScriptRoot "build\windows\Release\CupIsland.exe"
+$exePath = Join-Path $PSScriptRoot "build\$preset\CupIsland.exe"
 Write-Host "Build succeeded: $exePath"
 if ($Run) { & $exePath }
