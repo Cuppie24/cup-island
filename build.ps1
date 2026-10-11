@@ -2,12 +2,15 @@
 # Enters the Visual Studio developer environment first, which puts the MSVC
 # compiler, CMake and Ninja (all shipped with Visual Studio) on PATH.
 #
-# Usage: .\build.ps1 [-Run] [-Test] [-Debug]
+# Usage: .\build.ps1 [-Run] [-Test] [-Debug] [-Installer]
+#   -Installer  also builds dist\CupIsland-Setup-<version>.exe (Release only;
+#               needs Inno Setup 6.3+, see installer\cup-island.iss)
 
 param(
     [switch]$Run,
     [switch]$Test,
-    [switch]$Debug
+    [switch]$Debug,
+    [switch]$Installer
 )
 
 $ErrorActionPreference = "Stop"
@@ -29,6 +32,8 @@ foreach ($tool in "cmake", "ninja") {
     }
 }
 
+if ($Installer -and $Debug) { throw "-Installer packages the Release build; drop -Debug." }
+
 $preset = if ($Debug) { "windows-debug" } else { "windows" }
 
 cmake --preset $preset
@@ -43,4 +48,16 @@ if ($Test) {
 
 $exePath = Join-Path $PSScriptRoot "build\$preset\CupIsland.exe"
 Write-Host "Build succeeded: $exePath"
+
+if ($Installer) {
+    $iscc = Get-Command iscc.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
+    if (-not $iscc) {
+        $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+                  "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+    }
+    if (-not $iscc) { throw "Inno Setup 6 not found - install it from https://jrsoftware.org/isdl.php (or: winget install JRSoftware.InnoSetup)." }
+    & $iscc /Qp "installer\cup-island.iss"
+    if ($LASTEXITCODE -ne 0) { throw "Installer build failed (exit $LASTEXITCODE)" }
+    Write-Host "Installer: $(Get-ChildItem dist\CupIsland-Setup-*.exe | Sort-Object LastWriteTime | Select-Object -Last 1)"
+}
 if ($Run) { & $exePath }

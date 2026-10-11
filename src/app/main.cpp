@@ -12,6 +12,8 @@
 //      it onto the pill to make it the main one.
 //   C  post a critical alert               D  toggle a simulated accepted drag
 //   H  toggle hidden                       Esc collapse when expanded, otherwise quit
+// Quit any time from the tray icon's right-click menu. Release builds have no
+// console window (CMakeLists.txt), so the printf logging shows in Debug builds only.
 
 #include "app/live_tokens.h"
 #include "core/hit_test.h"
@@ -25,6 +27,7 @@
 #include "platform/interaction_layer.h"
 #include "platform/pill_renderer.h"
 #include "platform/render_layer.h"
+#include "platform/tray_icon.h"
 #include "providers/demo/demo_media_provider.h"
 #include "providers/media/smtc_media_provider.h"
 #include "providers/pomodoro/pomodoro_provider.h"
@@ -361,6 +364,7 @@ int main()
         std::printf("Failed to create interaction window (0x%08lx)\n", GetLastError());
         return 1;
     }
+    createTrayIcon(instance, [] { DestroyWindow(g_inputHwnd); }); // right-click -> Exit, same as Esc
 
     // WinRT events arrive on background threads; providers hop to this (UI) thread with it.
     auto uiQueue = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
@@ -396,6 +400,7 @@ int main()
         DispatchMessageW(&msg);
     }
 
+    removeTrayIcon();
     g_providers.reset(); // stops providers while the window still exists
     DestroyWindow(render.hwnd);
     queueController.ShutdownQueueAsync().get();
