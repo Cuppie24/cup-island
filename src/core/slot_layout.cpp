@@ -26,7 +26,7 @@ float heightOf(const Item& item, Rect slot, float ringSide)
     if (isRing(item)) return ringSide;
     if (std::holds_alternative<Steps>(item)) return t.stepDotSize;
     if (auto* button = std::get_if<Button>(&item)) return button->compact ? t.smallButtonSize : t.buttonSize;
-    if (std::holds_alternative<TextInput>(item)) return t.smallButtonSize;
+    if (std::holds_alternative<TextInput>(item)) return t.inputHeight;
     // Seekable bars get a taller row to be easy to click; a bar nobody clicks is just its line.
     if (auto* bar = std::get_if<Progress>(&item)) return bar->seekable ? t.progressHitHeight : t.progressHeight;
     if (auto* label = std::get_if<TimeLabel>(&item)) return lineHeight(label->style);

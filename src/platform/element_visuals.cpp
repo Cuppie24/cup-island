@@ -91,9 +91,11 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now)
         view.visual = parts.visual;
         view.waveform = parts.visual;
         view.bars = parts.bars;
-    } else if (std::holds_alternative<Button>(placed.item)) {
+    } else if (std::holds_alternative<Button>(placed.item) || std::holds_alternative<TextInput>(placed.item)) {
+        // A text field is built like a button: its background is the hover shape, shown only under the pointer.
+        bool field = std::holds_alternative<TextInput>(placed.item);
         view.surface = device_->createSurface(size);
-        ButtonParts parts = createButton(compositor_, size, placed.cornerRadius, view.surface);
+        ButtonParts parts = createButton(compositor_, size, placed.cornerRadius, view.surface, field ? t.inputColor : t.buttonHoverColor);
         view.visual = parts.visual;
         view.highlight = parts.highlight;
     } else {
@@ -219,6 +221,7 @@ void ElementVisuals::press(const std::string& key)
     if (it == views_.end()) return;
     const Tokens& t = tokens();
     if (it->second.highlight) fadeTo(compositor_, it->second.highlight, 1.0f, t.hoverFadeDuration);
+    if (std::holds_alternative<TextInput>(it->second.placed.item)) return; // a field is clicked into, not pressed: no squash
     playScale(compositor_, it->second.visual, t.buttonPressScale, t.pressDownDuration, t.pressDownEase);
 }
 
@@ -228,6 +231,7 @@ void ElementVisuals::release(const std::string& key)
     if (it == views_.end()) return;
     const Tokens& t = tokens();
     if (it->second.highlight && key != hovered_) fadeTo(compositor_, it->second.highlight, 0.0f, t.hoverFadeDuration);
+    if (std::holds_alternative<TextInput>(it->second.placed.item)) return;
     playScale(compositor_, it->second.visual, 1.0f, t.pressReleaseDuration, t.pressReleaseEase);
 }
 

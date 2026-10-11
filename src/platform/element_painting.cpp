@@ -159,8 +159,7 @@ void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& l
 void paintInput(ID2D1DeviceContext* dc, IDWriteFactory* dw, const TextInput& input, Vec2 size, float cornerRadius)
 {
     const Tokens& t = tokens();
-    D2D1_ROUNDED_RECT field{ D2D1::RectF(0, 0, size.x, size.y), cornerRadius, cornerRadius };
-    dc->FillRoundedRectangle(field, brushOf(dc, t.inputColor).get());
+    (void)cornerRadius; // the background is the hover shape (element_visuals), not painted here
 
     float inset = t.buttonLabelPadding, room = std::max(0.0f, size.x - 2 * inset);
     bool empty = input.value.empty();

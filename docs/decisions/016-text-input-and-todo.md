@@ -25,6 +25,10 @@ can't draw (PS §5.3), and nothing typed reached the island.
   simulates a drag today).
 - **Caret:** a still bar after the text, no blinking: nothing runs between
   keys (TR §8). A text longer than the field shows its end.
+- **Looks:** no background at rest, so the list reads as text, not a form;
+  the field's background (`inputColor`) appears under the pointer, like a
+  button's hover shape. It doesn't squash when pressed: it's clicked into,
+  not pushed. A little taller than the list's rows (`inputHeight`).
 - **Buttons grow two options:** `label` (a text button, as wide as its
   label: "Clear all") and `compact` (`smallButtonSize`, for list rows: a
   to-do's checkbox, the paste button). `Text::struck` strikes a solved one.
