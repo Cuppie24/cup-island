@@ -29,6 +29,7 @@
 #include "platform/interaction_layer.h"
 #include "platform/pill_renderer.h"
 #include "platform/render_layer.h"
+#include "platform/single_instance.h"
 #include "platform/stay_on_top.h"
 #include "platform/text_input.h"
 #include "platform/tray_icon.h"
@@ -441,6 +442,9 @@ void onTimer(TimerId id)
 
 int main()
 {
+    // First, before the log: a turned-away second copy must not touch the
+    // running island's log (startLog() rotates it).
+    if (!becomeTheOnlyInstance()) return 0;
     startLog();
     watchForCrashes();
     wchar_t exePath[MAX_PATH]{};
@@ -481,6 +485,10 @@ int main()
     callbacks.onDpiChanged = onDpiChanged;
     callbacks.onWheel = onWheel;
     callbacks.onTimer = onTimer;
+    callbacks.onShowRequested = [] {
+        logLine("launched again: opening Home");
+        dispatch(HomeOpened{}, "launched again");
+    };
 
     Rect bounds = interactiveBounds(g_scene);
     g_inputHwnd = createInteractionLayer(instance, render.left, { bounds.width, bounds.height }, { bounds.x, bounds.y }, callbacks);
