@@ -1,4 +1,5 @@
 #include "platform/pill_renderer.h"
+#include "platform/log.h"
 
 #include "core/tokens.h"
 #include "platform/element_painting.h"
@@ -73,8 +74,7 @@ void PillRenderer::apply(const Scene& scene)
         try {
             applyContent();
         } catch (winrt::hresult_error const& e) {
-            std::printf("[cup-island] WinRT error building content: 0x%08x %ls\n", static_cast<unsigned int>(e.code()), e.message().c_str());
-            std::fflush(stdout);
+            logLine("WinRT error building content: 0x%08x %ls", static_cast<unsigned int>(e.code()), e.message().c_str());
         }
     };
     if (!queued && !queue_.TryEnqueue(winrt::Windows::System::DispatcherQueuePriority::Low, run))
@@ -92,8 +92,7 @@ void PillRenderer::applyContent()
     // Debug builds have a console: flag slow content builds when chasing lag.
     auto took = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
     if (took.count() > 8) {
-        std::printf("[cup-island] content took %lld ms\n", static_cast<long long>(took.count()));
-        std::fflush(stdout);
+        logLine("content took %lld ms", static_cast<long long>(took.count()));
     }
 }
 

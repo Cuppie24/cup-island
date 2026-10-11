@@ -1,4 +1,5 @@
 #include "platform/file_watcher.h"
+#include "platform/log.h"
 
 #include "platform/win.h"
 
@@ -13,7 +14,7 @@ void watchDirectoryOf(const std::filesystem::path& file, std::function<void()> o
     HANDLE change = FindFirstChangeNotificationW(directory.c_str(), /* watchSubtree */ FALSE,
         FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_FILE_NAME);
     if (change == INVALID_HANDLE_VALUE) {
-        std::printf("[cup-island] can't watch %ls (0x%08lx); live reload is off\n", directory.c_str(), GetLastError());
+        logLine("can't watch %ls (0x%08lx); live reload is off", directory.c_str(), GetLastError());
         return;
     }
 

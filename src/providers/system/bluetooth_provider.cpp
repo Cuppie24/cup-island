@@ -1,4 +1,5 @@
 #include "providers/system/bluetooth_provider.h"
+#include "platform/log.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -50,7 +51,7 @@ void BluetoothProvider::start(Host& host)
     try {
         endpoints_ = Info::CreateWatcher(kPairedAqs, { kIsConnected, kContainerId }, wde::DeviceInformationKind::AssociationEndpoint);
     } catch (winrt::hresult_error const& e) {
-        std::printf("[cup-island] bluetooth: can't watch devices (0x%08x)\n", static_cast<unsigned>(e.code()));
+        platform::logLine("bluetooth: can't watch devices (0x%08x)", static_cast<unsigned>(e.code()));
         return;
     }
     endpointAdded_ = endpoints_.Added(winrt::auto_revoke, [this](auto&&, Info const& info) {

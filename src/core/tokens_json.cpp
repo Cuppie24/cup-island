@@ -115,6 +115,7 @@ const Field kFields[] = {
     { "pomodoroBreakMs", &Tokens::pomodoroBreak },
     { "pomodoroLongBreakMs", &Tokens::pomodoroLongBreak },
     { "pomodoroRounds", &Tokens::pomodoroRounds },
+    { "logsNoteMs", &Tokens::logsNote, true },
 };
 
 const Field* findField(const std::string& name)

@@ -27,6 +27,11 @@ setup exe to a GitHub release. The exe has the C++ runtime built in, so users
 need nothing else. The Release build has no console: quit from the tray icon
 (right-click → Exit; *Start with Windows* is there too). See [decision 011](docs/decisions/011-installer-before-msix.md).
 
+**Something wrong?** Open Home (click the idle pill) and tap **Logs**: the
+recent log is copied to the clipboard, ready to paste into a bug report. The
+log, plus a `.dmp` file if the island froze or crashed, is in
+`%LOCALAPPDATA%\CupIsland\logs`.
+
 **Tuning:** while the app runs, edit [`assets/tokens.json`](assets/tokens.json)
 (sizes, durations, easing curves) and save. Changes apply instantly. See
 ARCHITECTURE.md → Tuning.
