@@ -4,7 +4,7 @@
 //   scenario: <name>                  starts a fresh island at t = 0
 //   <command> [args] [-> <Mode> [key=value ...]]
 //
-// Commands:  start <id> [level] [relevance]   update <id>   end <id>
+// Commands:  start <id> [level] [relevance] [expires=<ms>]   update <id>   end <id>
 //            alert <name> [level] [for=<activity>] [key=<coalesceKey>]
 //            click  outside  esc  pointer  drag-enter  drag-rejected
 //            drag-leave  drop  hide  show  wait <ms>
@@ -76,16 +76,19 @@ struct Runner {
         auto arg = [&](size_t i) { return i < w.size() ? w[i] : std::string(); };
 
         if (cmd == "start") {
-            Activity a{ .id = arg(1), .content = { arg(1), "" } };
-            if (auto l = parseLevel(arg(2))) a.level = *l;
-            if (!arg(3).empty()) a.relevance = std::stof(arg(3));
+            Activity a{ .id = arg(1), .content = { .label = arg(1) } };
+            for (size_t i = 2; i < w.size(); ++i) {
+                if (auto l = parseLevel(w[i])) a.level = *l;
+                else if (auto v = option(w[i], "expires")) a.expiresAt = now + Ms{ std::stoi(*v) };
+                else a.relevance = std::stof(w[i]);
+            }
             apply(ActivityStarted{ a });
         } else if (cmd == "update") {
-            apply(ActivityUpdated{ arg(1), { arg(1), "updated" } });
+            apply(ActivityUpdated{ arg(1), { .label = arg(1) + " (updated)" } });
         } else if (cmd == "end") {
             apply(ActivityEnded{ arg(1) });
         } else if (cmd == "alert") {
-            Alert a{ .content = { arg(1), "" } };
+            Alert a{ .content = { .label = arg(1) } };
             for (size_t i = 2; i < w.size(); ++i) {
                 if (auto l = parseLevel(w[i])) a.level = *l;
                 else if (auto v = option(w[i], "for")) a.activityId = *v;
@@ -117,7 +120,7 @@ struct Runner {
                 std::string top = state.activities.empty() ? "none" : state.activities.front().id;
                 if (top != *v) fail("top=" + *v + ", got " + top);
             } else if (auto v = option(word, "alert")) {
-                std::string shown = state.alert ? state.alert->content.title : "none";
+                std::string shown = state.alert ? state.alert->content.label : "none";
                 if (shown != *v) fail("alert=" + *v + ", got " + shown);
             } else if (auto v = option(word, "expanded")) {
                 std::string id = state.expandedId.empty() ? "none" : state.expandedId;

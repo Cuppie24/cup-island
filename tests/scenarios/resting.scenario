@@ -14,3 +14,14 @@ start c active 0.9                  -> top=c     # tie: newer wins
 start d timeSensitive 0.1           -> top=d
 start c active 0.9                  -> top=d     # restart = update, keeps its place
 end d                               -> top=c
+
+scenario: an activity with an expiry ends by itself
+start media expires=5000            -> Compact
+wait 4999                           -> Compact
+wait 1                              -> Idle
+
+scenario: restarting replaces the expiry
+start media expires=5000
+wait 4000
+start media                         -> Compact   # e.g. playback resumed: no expiry
+wait 10000                          -> Compact

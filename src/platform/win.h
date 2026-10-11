@@ -28,6 +28,7 @@
 #include <winrt/Windows.UI.h>
 #include <winrt/Windows.UI.Composition.h>
 #include <winrt/Windows.UI.Composition.Desktop.h>
+#include <winrt/Windows.Graphics.DirectX.h>
 
 #include "core/geometry.h"
 

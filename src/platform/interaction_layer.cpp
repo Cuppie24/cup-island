@@ -85,6 +85,11 @@ void compositorTickThread()
     }
 }
 
+Vec2 pointFrom(LPARAM lParam)
+{
+    return { static_cast<float>(GET_X_LPARAM(lParam)), static_cast<float>(GET_Y_LPARAM(lParam)) };
+}
+
 template <typename F, typename... Args>
 void call(const F& callback, Args... args)
 {
@@ -105,7 +110,7 @@ try {
     case WM_LBUTTONDOWN: // this window is exactly the pill
         g_pressed = true;
         SetCapture(hwnd);
-        call(g_callbacks.onPressDown);
+        call(g_callbacks.onPressDown, pointFrom(lParam));
         return 0;
 
     case WM_LBUTTONUP:
@@ -119,7 +124,7 @@ try {
             POINT pt{ GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
             RECT client{};
             GetClientRect(hwnd, &client);
-            if (PtInRect(&client, pt)) call(g_callbacks.onClick);
+            if (PtInRect(&client, pt)) call(g_callbacks.onClick, pointFrom(lParam));
         }
         return 0;
 

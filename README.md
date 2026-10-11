@@ -24,7 +24,16 @@ cmake --preset core && cmake --build --preset core && ctest --preset core   # Li
 (sizes, durations, easing curves) and save. Changes apply instantly. See
 ARCHITECTURE.md → Tuning.
 
-The prototype starts empty. After a moment a demo media activity appears
-with an alert, then settles. Click the pill to expand it. Demo keys (once
-the pill has focus): **M** media, **T** second activity, **A** alert,
-**C** critical alert, **D** simulated drag, **H** hide, **Esc** collapse/quit.
+The island shows whatever Windows is playing (Spotify, browser tabs, VLC,
+Media Player…): album art and a live waveform in the compact pill, and title,
+artist, progress and ⏮ ⏯ ⏭ when you click it. Clicking the progress bar
+seeks. With several players, ⇄ switches between them. Paused music stays
+for 5 minutes (`mediaPausedLingerMs`).
+
+The island hides itself over fullscreen apps (games, F11 browsers, fullscreen
+video) on its monitor, and comes back when they leave fullscreen. Normal
+maximized windows don't hide it.
+
+Demo keys (once the pill has focus): **M** fake music player on/off,
+**T** second activity, **C** critical alert, **D** simulated drag, **H** hide,
+**Esc** collapse/quit.

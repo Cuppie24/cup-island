@@ -14,6 +14,7 @@ How the code is organised and why. For *what* the app does, see
                             │                       │                   │
                             │                       ▼                   │
                             │                    layout() ─► Scene ─────┼──► platform/ renderer
+                            │                    hitTest(Scene, click) ─┼──► provider.onAction
                             │                    nextDeadline() ────────┼──► one-shot timer
                             └───────────────────────────────────────────┘
 ```
@@ -33,9 +34,12 @@ So "why did X happen?" is always answered in `core/`, by a scenario test.
 ## Layout
 
 ```
-src/core/       pure logic: island.h (state machine), layout.h, tokens.h (+ tokens_json.h), easing.h
-src/platform/   Win32 + C++/WinRT + Composition: render layer, interaction layer, renderer
-src/providers/  (future) data sources: media, calendar, file shelf, …
+src/core/       pure logic: island.h (state machine), content.h (what providers show), layout.h,
+                hit_test.h, provider.h (Provider/Host API), tokens.h (+ tokens_json.h), easing.h
+src/platform/   Win32 + C++/WinRT + Composition: render/interaction layers, pill_renderer,
+                element_visuals (one visual per content item), graphics_device (D2D/DirectWrite)
+src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
+                MediaPresenter rules, SMTC provider for real Windows media)
 src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload
 assets/         tokens.json: the live-tunable sizes, timings and curves
 tests/          unit tests + scenarios/*.scenario (state rules in plain text)
@@ -43,6 +47,9 @@ docs/           specs (TR, PS) and decisions/ (why things are the way they are)
 ```
 
 Dependency direction is one-way: `app → platform → core`, `providers → core`.
+Pure provider logic builds on any OS (`cup_providers` library). WinRT-backed
+parts (`providers/media/smtc_*`) are Windows-only files next to it, compiled
+into the app.
 Nothing includes "upward". `core/` never includes `platform/`.
 
 ## Data flow, concretely
@@ -50,18 +57,40 @@ Nothing includes "upward". `core/` never includes `platform/`.
 1. Something happens: a click, a timer, a provider update. The platform turns
    it into a core `Event` (`PillClicked`, `AlertPosted`, `Tick`, …).
 2. `reduce(state, event, now)` returns the new `IslandState`.
-3. `layout(state)` returns a `Scene`: target size, offset and content per mode.
+3. `layout(state, now)` returns a `Scene`: target size and offset, plus every
+   content item with its frame (time labels already formatted for `now`).
 4. The renderer sets those targets. **Implicit Composition animations** do the
    actual morph (TR §5), and the interaction layer follows it (decision 001).
-5. `nextDeadline(state)` says when the next timed change happens (an alert
-   expires, Expanded times out). The app arms **one one-shot timer** for it.
-   With no deadline nothing runs, so an idle island costs zero (TR §8).
+5. `nextDeadline(state)` and `sceneDeadline(scene)` say when the next timed
+   change happens (an alert or activity expires, Expanded times out, a visible
+   time label's second ticks over). The app arms **one one-shot timer** for the
+   earliest. With no deadline nothing runs, so an idle island costs zero (TR §8).
+6. A click is first checked with `hitTest(scene, point)`. A button or seekable
+   progress bar becomes an `Action` routed to its provider; anything else is a
+   plain `PillClicked`.
+
+## Providers
+
+A provider (`core/provider.h`) publishes activities and alerts through a
+`Host`, and receives `Action`s for its buttons. It never touches the window or
+the renderer. `ProviderRegistry` gives each provider its own Host, which
+stamps the provider id on everything it posts, and routes actions back.
+Content is declarative (`core/content.h`, decision 004): slots of rows of
+items (text, image, icon, button, progress, time label, waveform). Layout and
+drawing are the host's job, so every provider looks native.
+
+Writing one: implement `Provider`, build `Content` in a pure function (see
+`providers/media/now_playing.cpp`), test it through `ProviderRegistry` like
+`tests/provider_tests.cpp`, and register it in `app/main.cpp`. WinRT event
+handlers run on background threads; marshal to the UI thread before calling
+the Host. `providers/media/smtc_media_provider.cpp` is the reference
+example: thin WinRT reading, with every decision in a pure presenter (decision 005).
 
 ## Rules that keep it readable
 
 - **Plain C++20:** `struct` + free functions, `enum class`, `std::variant`,
   `std::optional`. Use a class only when it owns platform handles
-  (`PillRenderer`). The only planned interface is `IProvider`.
+  (`PillRenderer`). The only interfaces are `Provider` and `Host`.
 - **No template tricks, no macros, no custom smart pointers.**
 - **`winrt::` / Win32 types stay in `platform/` and `app/`.** Providers
   translate at the edge.
@@ -99,7 +128,9 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 - **State rules → `tests/scenarios/*.scenario`.** One line per step, with the
   expected mode after it. Readable as a spec and runnable anywhere. The
   format is documented at the top of `tests/scenario_runner.cpp`.
-- **Pure helpers → `tests/unit_tests.cpp`.** A tiny `expect()`, no framework.
+- **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing),
+  `tokens_tests.cpp`, `provider_tests.cpp` (registry + demo provider through the real loop).**
+  A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
 
 ## Status
@@ -107,9 +138,13 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 | Area | State |
 | --- | --- |
 | State machine: all PS §3 modes, alert queue/pre-emption/coalescing, hidden rules | done, tested |
-| Renderer: pill morph per mode, press feedback, expanded placeholder detail | done |
-| Renderer: Split bubble, text/content slots (PS §5), alert pulse, receptive drop zones | not yet |
-| Real input for drag (OLE drop target) and fullscreen detection (TR §9.2) | not yet; demo keys simulate them |
-| Providers (`IProvider`, media, …) and plugin pipe (PS §7–8) | not yet |
-| Rate limits, dismissal policies, stale activities (PS §4, §6.3) | not yet |
+| Renderer: pill morph per mode, press feedback, content items (text, art, icons, buttons, progress, waveform) | done |
+| Renderer: Split bubble, alert pulse, receptive drop zones, DPI scaling, matched geometry | not yet |
+| Fullscreen detection (TR §9.2): borderless + exclusive, per monitor, maximized windows excluded | done; rules tested (`core/fullscreen`), hooks need Windows |
+| Real input for drag (OLE drop target) | not yet; the D key simulates it |
+| Provider API (PS §7 Tier 1), registry, demo music player | done, tested |
+| Real media provider (SMTC, TR §6): art, controls, seek, multi-app switch, paused linger | done; rules tested, WinRT part needs Windows |
+| Plugin pipe (PS §8 Tier 2) | not yet |
+| Activity expiry (`expiresAt`) | done, tested |
+| Rate limits, stale activities (PS §4, §6.3) | not yet |
 | Live-tunable tokens (`assets/tokens.json`, reload on save) | done; parser tested |

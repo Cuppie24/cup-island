@@ -4,6 +4,8 @@
 // `now` and re-runs reduce(Tick) at nextDeadline().
 // Rules come from docs/provider-platform-spec.md (PS) §3 and §6.
 
+#include "core/content.h"
+
 #include <chrono>
 #include <cstdint>
 #include <deque>
@@ -21,17 +23,13 @@ enum class Level { Passive, Active, TimeSensitive, Critical }; // PS §6.1
 // What the island is showing. PS §3.1.
 enum class Mode { Idle, Compact, Split, Alert, Expanded, Receptive, Hidden };
 
-// Placeholder until the slot/element content model (PS §5) lands.
-struct Content {
-    std::string title;
-    std::string subtitle;
-};
-
 struct Activity {
-    std::string id;
+    std::string id;         // unique across providers: prefix with the provider id
     Level level = Level::Active;
     float relevance = 0.5f;
     Content content;
+    std::optional<Ms> expiresAt; // ends by itself at this time (PS §4), e.g. paused media
+    std::string providerId;      // set by the host; actions route back to it
     std::uint64_t startOrder = 0; // set by reduce(); ranking tiebreak
 };
 
@@ -40,6 +38,7 @@ struct Alert {
     Level level = Level::Active;
     Content content;
     std::string coalesceKey; // same key replaces a showing/queued alert
+    std::string providerId;  // set by the host
     Ms postedAt{};           // set by reduce()
 };
 
