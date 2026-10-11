@@ -4,34 +4,39 @@
 #include "core/tokens.h"
 
 #include <algorithm>
-#include <utility>
 
 namespace cup {
 namespace {
+
+std::size_t spanOf(bool wide, std::size_t columns) { return wide && columns > 1 ? 2 : 1; }
 
 // What one tile shows: a panel, live or dormant.
 struct Entry {
     std::string id;
     std::string providerId;
-    const Content* content; // whose `tile` slot to place
+    const Content* content = nullptr; // whose `tile` slots to place
     bool wide = false;
     bool opens = false;
     std::string tapAction;
 };
 
-// One row, in publish order: each widget takes one column's worth, or two
-// (Panel::wide); one that doesn't fit what's left of `columns` is left out.
-std::vector<std::pair<Entry, std::size_t>> rowFor(const std::vector<Entry>& entries, std::size_t columns)
+// Rows of widgets, in publish order: each takes one column's worth, or two
+// (Panel::wide). One that doesn't fit what's left of a row starts the next.
+// Every widget gets a place: none is left out (decision 019).
+std::vector<std::vector<Entry>> rowsFor(const std::vector<Entry>& entries, std::size_t columns)
 {
-    std::vector<std::pair<Entry, std::size_t>> shown;
-    std::size_t used = 0;
+    std::vector<std::vector<Entry>> rows;
+    std::size_t used = columns;
     for (const Entry& entry : entries) {
-        std::size_t span = entry.wide && columns > 1 ? 2 : 1;
-        if (used + span > columns) continue;
-        shown.push_back({ entry, span });
+        std::size_t span = spanOf(entry.wide, columns);
+        if (used + span > columns) {
+            rows.emplace_back();
+            used = 0;
+        }
+        rows.back().push_back(entry);
         used += span;
     }
-    return shown;
+    return rows;
 }
 
 // A widget shows information only (decision 019): its buttons and text
@@ -44,6 +49,27 @@ Slot informationOnly(const Slot& slot)
         for (auto* items : { &r.items, &r.leading, &r.trailing }) std::erase_if(*items, interactive);
     std::erase_if(out, [](const Row& r) { return r.items.empty() && r.leading.empty() && r.trailing.empty(); });
     return out;
+}
+
+std::size_t columnCount() { return std::max<std::size_t>(tokens().homeColumns, 1); }
+
+// A widget's content inside its frame: the leading square (art, an icon, a
+// ring) as tall as the tile's inside, the rows beside it.
+void placeTile(const Entry& e, Rect frame, float tileRadius, Ms now, std::vector<Placed>& elements)
+{
+    const Tokens& t = tokens();
+    float inset = t.tilePadding, radius = std::max(0.0f, tileRadius - inset);
+    Rect inner{ frame.x + inset, frame.y + inset, std::max(0.0f, frame.width - 2 * inset), std::max(0.0f, frame.height - 2 * inset) };
+    Source source{ e.content, e.providerId, e.id };
+    std::string key = "tile/" + e.id;
+    if (Slot lead = informationOnly(e.content->tileLeading); !lead.empty()) {
+        Rect square{ inner.x, inner.y, inner.height, inner.height };
+        placeSlot({ key + "/lead", &lead, square, /* square */ true }, source, radius, now, elements);
+        float shift = std::min(inner.width, inner.height + t.slotGap);
+        inner = { inner.x + shift, inner.y, inner.width - shift, inner.height };
+    }
+    Slot rows = informationOnly(e.content->tile);
+    placeSlot({ key, &rows, inner }, source, radius, now, elements);
 }
 
 } // namespace
@@ -64,40 +90,43 @@ std::vector<Tile> homeTilesFor(const IslandState& s, Vec2 cardSize, float tileRa
         entries.push_back({ panel.id, panel.providerId, &content, panel.wide, opens, panel.tapAction });
     }
 
-    std::vector<std::pair<Entry, std::size_t>> shown = rowFor(entries, std::max<std::size_t>(t.homeColumns, 1));
-    if (shown.empty()) return {};
+    std::size_t columns = columnCount();
+    std::vector<std::vector<Entry>> rows = rowsFor(entries, columns);
+    if (rows.empty()) return {};
 
-    // One row across the card's full width (decision 019), centred vertically
-    // in it (the card keeps Expanded's size). Widths share what's left after
-    // the gaps by span, so the row always reaches both paddings.
+    // Every row reaches across the card's full width (decision 019): its
+    // widgets share what's left after the gaps by span, so a row that isn't
+    // full stretches rather than leaving a hole. The grid is centred
+    // vertically; the card grows to fit it (homeCardHeight).
     float p = t.expandedPadding, gap = t.tileGap, h = t.tileHeight;
-    float spans = 0;
-    for (const auto& [entry, span] : shown) spans += static_cast<float>(span);
-    float unit = (cardSize.x - 2 * p - static_cast<float>(shown.size() - 1) * gap) / spans;
-    float y = p + (cardSize.y - 2 * p - h) / 2;
+    float gridHeight = static_cast<float>(rows.size()) * (h + gap) - gap;
+    float y = p + std::max(0.0f, cardSize.y - 2 * p - gridHeight) / 2;
 
     std::vector<Tile> tiles;
-    float x = p;
-    for (const auto& [e, span] : shown) {
-        Rect frame{ x, y, static_cast<float>(span) * unit, h };
-        x += frame.width + gap;
-        tiles.push_back({ frame, e.id, e.opens, e.providerId, e.tapAction });
-
-        // The leading square (art, an icon, a ring) as tall as the tile's inside, the rows beside it.
-        float inset = t.tilePadding, radius = std::max(0.0f, tileRadius - inset);
-        Rect inner{ frame.x + inset, frame.y + inset, std::max(0.0f, frame.width - 2 * inset), std::max(0.0f, frame.height - 2 * inset) };
-        Source source{ e.content, e.providerId, e.id };
-        std::string key = "tile/" + e.id;
-        if (Slot lead = informationOnly(e.content->tileLeading); !lead.empty()) {
-            Rect square{ inner.x, inner.y, inner.height, inner.height };
-            placeSlot({ key + "/lead", &lead, square, /* square */ true }, source, radius, now, elements);
-            float shift = std::min(inner.width, inner.height + t.slotGap);
-            inner = { inner.x + shift, inner.y, inner.width - shift, inner.height };
+    for (const std::vector<Entry>& r : rows) {
+        float spans = 0;
+        for (const Entry& e : r) spans += static_cast<float>(spanOf(e.wide, columns));
+        float unit = (cardSize.x - 2 * p - static_cast<float>(r.size() - 1) * gap) / spans;
+        float x = p;
+        for (const Entry& e : r) {
+            Rect frame{ x, y, static_cast<float>(spanOf(e.wide, columns)) * unit, h };
+            x += frame.width + gap;
+            tiles.push_back({ frame, e.id, e.opens, e.providerId, e.tapAction });
+            placeTile(e, frame, tileRadius, now, elements);
         }
-        Slot rows = informationOnly(e.content->tile);
-        placeSlot({ key, &rows, inner }, source, radius, now, elements);
+        y += h + gap;
     }
     return tiles;
+}
+
+float homeCardHeight(const IslandState& s, float maxHeight)
+{
+    const Tokens& t = tokens();
+    std::vector<Entry> entries;
+    for (const Panel& panel : s.panels) entries.push_back({ .wide = panel.wide });
+    std::size_t rows = rowsFor(entries, columnCount()).size();
+    float needed = static_cast<float>(rows) * (t.tileHeight + t.tileGap) - t.tileGap + 2 * t.expandedPadding;
+    return std::clamp(needed, t.expandedSize.y, std::max(t.expandedSize.y, maxHeight));
 }
 
 } // namespace cup

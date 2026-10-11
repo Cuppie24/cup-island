@@ -146,6 +146,7 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     Source source = sourceFor(state, scene.mode);
     if (scene.mode == Mode::Expanded && source.content && source.content->card == CardLayout::Centred)
         scene.size.y = centredCardHeight(*source.content, scene.size, tabSpace);
+    if (scene.mode == Mode::Expanded && state.homeOpen) scene.size.y = homeCardHeight(state, tokens().canvas.y - tabSpace);
     scene.size.y += tabSpace;
     scene.offset = { (tokens().canvas.x - scene.size.x) / 2, 0 };
     // On the top edge, inside the pill's right end: the bubble shrinks into it

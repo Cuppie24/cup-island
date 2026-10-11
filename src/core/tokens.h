@@ -104,7 +104,7 @@ struct Tokens {
     float homeButtonWidth = 44;   // Home's icon-only button, apart at the left (decision 009)
 
     // Home: a grid of panel tiles in the Expanded card (decision 009).
-    std::size_t homeColumns = 4;  // Home's one row holds this many columns' worth; a widget takes one, or two (Panel::wide)
+    std::size_t homeColumns = 4;  // columns' worth per Home row; a widget takes one, or two (Panel::wide); rows stretch to full width
     float tileHeight = 58;
     float tileGap = 8;
     float tilePadding = 8;        // inside a tile, on every side

@@ -22,9 +22,10 @@ nothing could be started from the island. The idle pill also showed nothing.
   order they were published (stable, like tabs). (There was a clock tile
   first; decision 019 removed it.)
   `homeColumns` columns; a tile is one column wide or two (`Panel::wide`).
-  (Decision 019 made it a single row across the full width.)
-  Tiles that don't fit the card are not shown (a setting to choose them is open). Home keeps Expanded's card size,
-  so switching between Home and a card doesn't resize the island.
+  Home keeps Expanded's card size, so switching between Home and a card
+  doesn't resize the island. (Superseded in part by decision 019: every
+  row stretches to the full width, and Home grows to fit every tile
+  instead of leaving some out.)
 - **Getting there.** Clicking the idle pill opens Home (when there are
   panels; with none, it still does nothing). A click on Home's empty space
   doesn't close it, unlike a card: Home is where things are started from,
