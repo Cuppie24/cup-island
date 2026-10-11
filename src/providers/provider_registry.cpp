@@ -36,6 +36,12 @@ public:
         registry_.dispatch_(PanelRemoved{ panelId }, providerId_.c_str());
     }
 
+    void ask(Dialog dialog) override
+    {
+        dialog.providerId = providerId_;
+        registry_.dispatch_(DialogShown{ std::move(dialog) }, providerId_.c_str());
+    }
+
     void wakeAt(std::optional<Ms> at) override
     {
         if (Entry* e = registry_.find(providerId_)) e->wake = at;

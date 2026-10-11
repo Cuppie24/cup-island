@@ -118,6 +118,7 @@ const Field kFields[] = {
     { "tileColor", &Tokens::tileColor },
     { "inputColor", &Tokens::inputColor },
     { "placeholderTextColor", &Tokens::placeholderTextColor },
+    { "dangerColor", &Tokens::dangerColor },
     { "imagePlaceholderColor", &Tokens::imagePlaceholderColor },
     { "shadowColor", &Tokens::shadowColor },
     { "pomodoroFocusColor", &Tokens::pomodoroFocusColor },

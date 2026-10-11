@@ -16,6 +16,7 @@
 // %LOCALAPPDATA%\CupIsland\logs (platform/log.h); Debug builds also show it in a console.
 
 #include "app/live_tokens.h"
+#include "core/dialog.h"
 #include "core/hit_test.h"
 #include "core/island.h"
 #include "core/layout.h"
@@ -108,6 +109,14 @@ bool isCurrent(const Tab& tab)
 }
 
 // Re-run on every pointer move and every new scene: content can move under a still pointer.
+// "<slot>/<row>" of whatever content is under a pill-coordinate point, "" if none.
+std::string rowUnder(Vec2 point)
+{
+    for (const Placed& p : g_scene.elements)
+        if (p.hitFrame.contains(point) && p.key.rfind("tab/", 0) != 0) return p.key.substr(0, p.key.rfind('/'));
+    return {};
+}
+
 void updateHover()
 {
     std::string key;
@@ -117,6 +126,7 @@ void updateHover()
         if (auto hit = hitTest(g_scene, *g_pointer.at)) key = hit->key;
     }
     g_renderer.setHovered(key);
+    g_renderer.setHoveredRow(g_pointer.at ? rowUnder(*g_pointer.at) : std::string()); // reveals a to-do's delete button
 
     // Tabs light up as a whole, except the active one, which is already marked (decision 007).
     // Home's tiles too, unless the pointer is on one of their buttons (decision 009).
@@ -178,6 +188,39 @@ void toggleTimer()
                      .minimal = { row({ Icon{ Glyph::Timer } }) },
                      .expandedCenter = { row({ Text{ "Timer", TextStyle::Title } }), row({ Text{ "Demo activity" } }) } };
     dispatch(ActivityStarted{ { .id = id, .content = content } }, "demo key");
+}
+
+// A dialog's own buttons (decision 019): Cancel just closes it; the confirm
+// button sends the provider its action, then closes it.
+void answerDialog(bool confirmed)
+{
+    if (!g_state.dialog) return;
+    Dialog asked = *g_state.dialog;
+    dispatch(DialogClosed{}, confirmed ? "dialog confirmed" : "dialog cancelled");
+    if (confirmed) g_providers->route({ asked.providerId, asked.activityId, asked.confirmAction, 0 });
+}
+
+// A clicked button: the host's dialog answers itself; anything else goes to its provider.
+void act(const Action& action)
+{
+    if (action.actionId == kDialogConfirm || action.actionId == kDialogCancel) { // host-owned names: never a provider's
+        answerDialog(action.actionId == kDialogConfirm);
+        return;
+    }
+    g_providers->route(action);
+    dispatch(PointerMoved{}, "action"); // the user is busy here: keep Expanded open
+}
+
+// The wheel over a row that scrolls (Row::scrollAction): its provider moves the list (decision 019).
+void onWheel(Vec2 canvasPoint, int steps)
+{
+    Vec2 point = toPill(canvasPoint);
+    for (const Placed& p : g_scene.elements) {
+        if (p.scrollAction.empty() || !p.hitFrame.contains(point)) continue;
+        g_providers->route({ p.providerId, p.activityId, p.scrollAction, static_cast<float>(steps) });
+        dispatch(PointerMoved{}, "scroll");
+        return;
+    }
 }
 
 // Mouse-down: the bubble may become a drag, a progress bar starts scrubbing,
@@ -286,8 +329,7 @@ void onPressRelease(Vec2 canvasPoint, Release how)
                 SetFocus(g_inputHwnd);
                 dispatch(InputFocused{ hit->action.providerId, hit->action.activityId, hit->action.actionId }, "focus field");
             } else {
-                g_providers->route(hit->action);
-                dispatch(PointerMoved{}, "action"); // the user is busy here: keep Expanded open
+                act(hit->action);
             }
         }
         return;
@@ -330,6 +372,11 @@ void onChar(wchar_t c)
 
 void onKey(WPARAM key)
 {
+    // A dialog: Esc cancels it, the card stays (decision 019).
+    if (g_state.dialog) {
+        if (key == VK_ESCAPE) answerDialog(false);
+        return;
+    }
     // A focused field gets the keys (onChar): no demo keys while typing. Esc
     // stops typing; a second Esc closes the card.
     if (g_state.draft) {
@@ -432,6 +479,7 @@ int main()
     callbacks.onKeyDown = onKey;
     callbacks.onChar = onChar;
     callbacks.onDpiChanged = onDpiChanged;
+    callbacks.onWheel = onWheel;
     callbacks.onTimer = onTimer;
 
     Rect bounds = interactiveBounds(g_scene);

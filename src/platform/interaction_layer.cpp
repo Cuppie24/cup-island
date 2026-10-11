@@ -182,6 +182,19 @@ try {
         call(g_callbacks.onPointerMoved, pointFrom(lParam), inside(hwnd, lParam));
         return 0;
 
+    case WM_MOUSEWHEEL: {
+        // Notches, positive = towards the user (down). Touchpads send fractions
+        // of a notch: they add up until a whole one is reached.
+        static int pending = 0;
+        pending -= GET_WHEEL_DELTA_WPARAM(wParam);
+        int steps = pending / WHEEL_DELTA;
+        pending -= steps * WHEEL_DELTA;
+        POINT pt{ GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) }; // screen coordinates, unlike the other mouse messages
+        ScreenToClient(hwnd, &pt);
+        if (steps != 0) call(g_callbacks.onWheel, pointFrom(MAKELPARAM(pt.x, pt.y)), steps);
+        return 0;
+    }
+
     case WM_MOUSELEAVE: // hover ends; one-shot, re-armed by the next move
         g_trackingLeave = false;
         call(g_callbacks.onPointerLeft);

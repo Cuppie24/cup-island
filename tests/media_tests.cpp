@@ -27,6 +27,7 @@ struct FakeHost : Host {
     void publishPanel(Panel p) override { panels.push_back(std::move(p)); }
     void removePanel(const std::string& id) override { removedPanels.push_back(id); }
     void wakeAt(std::optional<Ms>) override {}
+    void ask(Dialog) override {}
 };
 
 MediaSnapshot track(const char* app, const char* title, bool playing = true)

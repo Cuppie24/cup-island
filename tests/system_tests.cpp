@@ -24,6 +24,7 @@ struct PanelHost : Host {
     void publishPanel(Panel p) override { published.push_back(std::move(p)); }
     void removePanel(const std::string& id) override { removed.push_back(id); }
     void wakeAt(std::optional<Ms> at) override { wake = at; }
+    void ask(Dialog) override {}
 };
 
 std::string textAt(const Panel& p, std::size_t row, std::size_t item)

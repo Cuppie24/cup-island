@@ -20,6 +20,16 @@ bool isRing(const Item& item)
 // Live data's colour: the content's accent, else the live colour (decision 010).
 Color accentOf(const Placed& p) { return p.accent.value_or(tokens().liveColor); }
 
+// A list item's delete button: hidden until the pointer is on its row (decision 019).
+bool revealsOnHover(const Item& item)
+{
+    auto* button = std::get_if<Button>(&item);
+    return button && button->revealOnHover;
+}
+
+// "<slot>/<row>/<item>" -> "<slot>/<row>"
+std::string rowOf(const std::string& key) { return key.substr(0, key.rfind('/')); }
+
 // A focused text field keeps its background: you can see where you're typing,
 // with the pointer anywhere (decision 016).
 bool focusedField(const Item& item)
@@ -133,7 +143,8 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now)
     if (view.arc) armRing(compositor_, view.arc, std::get<Progress>(placed.item).timeline, now);
     if (!view.bars.empty()) animateBars(view);
     if (view.highlight && focusedField(placed.item)) view.highlight.Opacity(1.0f);
-    fadeIn(compositor_, view.visual);
+    if (revealsOnHover(placed.item) && rowOf(placed.key) != hoveredRow_) view.visual.Opacity(0.0f); // until its row is hovered
+    else fadeIn(compositor_, view.visual);
     return view;
 }
 
@@ -179,7 +190,9 @@ void ElementVisuals::paint(View& view)
             paintGlyph(dc, dw, icon->glyph, t.iconSize, size, t.iconColor);
         } else if (auto* button = std::get_if<Button>(&item)) {
             bool toggledOff = button->on && !*button->on;
-            Color color = !button->enabled ? t.buttonDisabledColor : toggledOff ? t.buttonOffColor : t.buttonColor;
+            Color color = !button->enabled ? t.buttonDisabledColor : toggledOff ? t.buttonOffColor
+                        : button->destructive         ? t.dangerColor
+                                                      : t.buttonColor;
             if (!button->label.empty()) paintLabel(dc, dw, button->label, size, color);
             else paintGlyph(dc, dw, button->glyph, button->compact ? t.iconSize : t.buttonGlyphSize, size, color);
             if (button->on && *button->on) paintToggleDot(dc, size, t.buttonGlyphSize);
@@ -209,6 +222,14 @@ void ElementVisuals::fadeOutAndRemove(wuc::Visual const& visual)
 }
 
 // --- Pointer feedback ---------------------------------------------------------
+
+void ElementVisuals::setHoveredRow(const std::string& row)
+{
+    if (row == hoveredRow_) return;
+    hoveredRow_ = row;
+    for (auto& [key, view] : views_)
+        if (revealsOnHover(view.placed.item)) fadeTo(compositor_, view.visual, rowOf(key) == row ? 1.0f : 0.0f, tokens().hoverFadeDuration);
+}
 
 void ElementVisuals::setHovered(const std::string& key)
 {

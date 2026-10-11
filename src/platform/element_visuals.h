@@ -23,6 +23,7 @@ public:
 
     // Pointer feedback on content (decision 002), by element key. Unknown keys are ignored.
     void setHovered(const std::string& key); // "" = nothing; buttons light up, progress shows its knob
+    void setHoveredRow(const std::string& row); // "<slot>/<row>" under the pointer, "" = none: reveals its revealOnHover buttons
     void press(const std::string& key);      // buttons
     void release(const std::string& key);
     void scrub(const std::string& key, float fraction); // progress follows the pointer and ignores updates
@@ -56,6 +57,7 @@ private:
     wuc::ContainerVisual parent_{ nullptr };
     std::map<std::string, View> views_;
     std::string hovered_;
+    std::string hoveredRow_;
     bool deviceLost_ = false;
 };
 

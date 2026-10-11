@@ -29,6 +29,7 @@ struct InteractionCallbacks {
     std::function<void(WPARAM key)> onKeyDown;
     std::function<void(wchar_t character)> onChar; // typed text (WM_CHAR), for a focused text field
     std::function<void(float scale)> onDpiChanged; // the display's scale changed (1.0 = 100%)
+    std::function<void(Vec2 point, int steps)> onWheel; // whole wheel notches over the pill; positive = down
     std::function<void(TimerId)> onTimer;
 };
 

@@ -37,6 +37,11 @@ public:
     // Call the provider's onWake() once now() reaches `at` (a phase ending,
     // say). One per provider: a new request replaces the old; nullopt cancels.
     virtual void wakeAt(std::optional<Ms> at) = 0;
+
+    // Asks the user over this provider's card, which must be the one shown
+    // (decision 019). On confirm the provider gets Action{dialog.confirmAction};
+    // Cancel, Esc or the card closing just dismisses it.
+    virtual void ask(Dialog dialog) = 0;
 };
 
 class Provider {
