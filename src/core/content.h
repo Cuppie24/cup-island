@@ -123,6 +123,9 @@ struct Row {
     // full width. Keys number items, then trailing, then leading.
     std::vector<Item> leading;
     std::vector<Item> trailing;
+    // Span only as wide as the row above's content, centred under it, instead
+    // of the slot: a bar exactly as wide as the countdown above it (decision 014).
+    bool matchAbove = false;
     bool operator==(const Row&) const = default;
 };
 

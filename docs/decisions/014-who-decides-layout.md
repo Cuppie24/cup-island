@@ -34,6 +34,10 @@ What this added:
   with the real font), so a centred countdown doesn't jump as it ticks and
   sits snug next to its ring. Digits-style labels keep their fixed column,
   so media's time labels still line up.
+- **`Row::matchAbove`:** a row can span only the row above's content
+  (centred under it) instead of the slot, so a bar is exactly as wide as
+  the countdown above it. A relationship the provider states; the host
+  works out the width.
 - **Steps are bigger** (`stepDotSize`, `stepDotGap`): a host size, the same
   for every provider using them.
 

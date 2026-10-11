@@ -62,6 +62,21 @@ void runItemTests()
     expect(hi && hi->frame.x == t.expandedPadding && hi->frame.width == stack.size.x - 2 * t.expandedPadding,
            "centred card: the centre slot spans the card");
 
+    // matchAbove: a row spans the row above's content instead of the slot.
+    Content matched{ .card = CardLayout::Centred,
+                     .expandedCenter = { row({ Button{ Glyph::Play, "a" }, Button{ Glyph::Stop, "b" } }, Align::Center),
+                                         Row{ .items = { Progress{ .timeline = running } }, .matchAbove = true },
+                                         row({ Progress{ .timeline = running } }) } };
+    Scene matchedScene = layout(reduce(reduce(IslandState{}, ActivityStarted{ { .id = "m", .content = matched } }, Ms{ 0 }), PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    const Placed* firstButton = find(matchedScene, "expandedCenter/0/0");
+    const Placed* lastButton = find(matchedScene, "expandedCenter/0/1");
+    const Placed* narrowBar = find(matchedScene, "expandedCenter/1/0");
+    const Placed* wideBar = find(matchedScene, "expandedCenter/2/0");
+    expect(narrowBar && narrowBar->frame.x == firstButton->frame.x &&
+           narrowBar->frame.x + narrowBar->frame.width == lastButton->frame.x + lastButton->frame.width,
+           "matchAbove: the bar spans exactly the row above's content");
+    expect(wideBar && wideBar->frame.width == matchedScene.size.x - 2 * t.expandedPadding, "without it, the slot's width");
+
     // Large labels are as wide as their widest digits, so they don't jump while ticking.
     MeasureText perChar = [](const Text& text) { return static_cast<float>(text.value.size()) * 10.0f; };
     Content big{ .expandedCenter = { row({ TimeLabel{ .timeline = running, .countdown = true, .style = TextStyle::Display } }) } };

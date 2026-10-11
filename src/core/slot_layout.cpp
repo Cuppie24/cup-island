@@ -125,8 +125,11 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
     total += t.rowSpacing * static_cast<float>(rows.empty() ? 0 : rows.size() - 1);
 
     float y = slot.frame.y + (slot.frame.height - total) / 2; // centred vertically
+    Rect above = slot.frame; // the previous row's content, left to right
     for (size_t r = 0; r < rows.size(); ++r) {
         const Row& row = rows[r];
+        // Where this row lays out: the slot, or (matchAbove) under the row above's content.
+        Rect area = row.matchAbove ? Rect{ above.x, slot.frame.y, above.width, slot.frame.height } : slot.frame;
         float rowHeight = rowHeights[r], ringSide = ringSides[r];
         float gap = row.loose ? t.looseItemSpacing : t.itemSpacing;
 
@@ -154,7 +157,7 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
             return group.empty() ? 0.0f : w - t.itemSpacing + gap;
         };
         float leadingWidth = edgeWidth(row.leading), trailingWidth = edgeWidth(row.trailing);
-        float available = slot.frame.width - leadingWidth - trailingWidth;
+        float available = area.width - leadingWidth - trailingWidth;
 
         float fixed = 0;
         int stretchCount = 0;
@@ -168,12 +171,12 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
         float stretchWidth = stretchCount > 0 ? spare / static_cast<float>(stretchCount) : 0;
 
         Align align = slot.square ? Align::Center : row.align;
-        float x = slot.frame.x + leadingWidth;
+        float x = area.x + leadingWidth;
         if (stretchCount == 0 && align == Align::End) x += spare;
         if (stretchCount == 0 && align == Align::Center) {
             // Centred on the whole row, so edge groups don't pull the middle off
             // centre; nudged sideways only as far as needed to clear them.
-            x = slot.frame.x + std::clamp((slot.frame.width - used) / 2, leadingWidth, leadingWidth + spare);
+            x = area.x + std::clamp((area.width - used) / 2, leadingWidth, leadingWidth + spare);
         }
         for (size_t i = 0; i < row.items.size(); ++i) {
             float w = widthOf(row.items[i]).value_or(stretchWidth);
@@ -187,8 +190,16 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
                 x += w + t.itemSpacing;
             }
         };
-        placeEdge(row.trailing, row.items.size(), slot.frame.x + slot.frame.width - trailingWidth + gap);
-        placeEdge(row.leading, row.items.size() + row.trailing.size(), slot.frame.x);
+        placeEdge(row.trailing, row.items.size(), area.x + area.width - trailingWidth + gap);
+        placeEdge(row.leading, row.items.size() + row.trailing.size(), area.x);
+        if (out.size() > first) {
+            float left = out[first].frame.x, right = left;
+            for (size_t i = first; i < out.size(); ++i) {
+                left = std::min(left, out[i].frame.x);
+                right = std::max(right, out[i].frame.x + out[i].frame.width);
+            }
+            above = { left, y, right - left, rowHeight };
+        }
 
         // Click areas meet halfway between neighbours (no dead strips) and reach
         // half a gap past the row's ends and half the row spacing above and below.

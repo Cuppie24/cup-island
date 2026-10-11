@@ -114,6 +114,7 @@ void runPomodoroTests()
     expect(bar && std::get<Progress>(bar->item).shape == ProgressShape::Bar && bar->frame.y > bigTimer->frame.y + bigTimer->frame.height - 1,
            "a bar below the countdown");
     expect(bar && dots && dots->frame.y > bar->frame.y + bar->frame.height - 1, "above the dots");
+    expect(bar && bar->frame.x == bigTimer->frame.x && bar->frame.width == bigTimer->frame.width, "as wide as the countdown");
     expect(pauseButton && std::holds_alternative<Button>(pauseButton->item), "card: controls on top");
     expect(bigTimer && std::get<Text>(bigTimer->item).style == TextStyle::Display && pauseButton->frame.y < bigTimer->frame.y,
            "card: a big countdown below them");
