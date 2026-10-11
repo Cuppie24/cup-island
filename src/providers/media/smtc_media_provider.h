@@ -15,6 +15,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace cup {
 
@@ -33,6 +34,10 @@ private:
     using Session = wmc::GlobalSystemMediaTransportControlsSession;
 
     winrt::fire_and_forget connect(std::shared_ptr<bool> alive);
+    void onSessionsChanged();
+    void onPlaybackChanged(); // any app started/paused/stopped
+    void watchAllSessions();
+    winrt::fire_and_forget recheckSoon(std::shared_ptr<bool> alive);
     void pickSession();   // which session to show: manual choice, else Windows' current one
     void refresh();       // re-read the shown session
     winrt::fire_and_forget load(std::uint64_t generation, std::shared_ptr<bool> alive);
@@ -46,7 +51,8 @@ private:
 
     Manager manager_{ nullptr };
     Session session_{ nullptr };
-    Session chosen_{ nullptr }; // manual pick via the source button; null = follow Windows
+    Session chosen_{ nullptr };         // manual pick via the source button; null = follow Windows
+    Session windowsCurrent_{ nullptr }; // Windows' main media (what the media keys control), last seen
     std::uint64_t generation_ = 0; // newer refresh wins; stale async reads are dropped
 
     std::string artKey_;   // app|title|artist|album|has-art the art belongs to
@@ -56,8 +62,10 @@ private:
     Manager::CurrentSessionChanged_revoker currentChanged_;
     Manager::SessionsChanged_revoker sessionsChanged_;
     Session::MediaPropertiesChanged_revoker propertiesChanged_;
-    Session::PlaybackInfoChanged_revoker playbackChanged_;
     Session::TimelinePropertiesChanged_revoker timelineChanged_;
+    // Every session's playback: Windows doesn't reliably raise
+    // CurrentSessionChanged when another app starts playing.
+    std::vector<Session::PlaybackInfoChanged_revoker> playbackWatchers_;
 };
 
 } // namespace cup

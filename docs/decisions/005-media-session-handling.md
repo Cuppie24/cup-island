@@ -7,10 +7,16 @@ Status: Accepted
 art and timelines unreliably, and their events arrive on background threads.
 
 **Decision.**
-- **Which session:** a manual pick from the ⇄ button if that session still
-  exists, else Windows' current session, else the first one. The pick is
-  stored as the session object, not the app id, because every Chrome tab
-  shares one app id.
+- **Which session:** Windows' current session (its "main media", the one
+  the media keys control), else the first one. A manual pick from ⇄ overrides
+  it until that session goes away or Windows moves its main media to another
+  app. The pick is stored as the session object, not the app id, because
+  every Chrome tab shares one app id.
+- **Noticing Windows' switch:** `CurrentSessionChanged` doesn't fire reliably
+  when another app starts playing, so every session's PlaybackInfoChanged
+  also triggers a re-check, plus one more `mediaSessionRecheckMs` (300 ms)
+  later, because Windows can update its current session just after the
+  playback event.
 - **Threading:** event handlers only post to the UI thread. All reads happen
   in coroutines started on the UI thread, which resume there. A generation
   counter drops stale reads, and a shared `alive` flag makes callbacks after

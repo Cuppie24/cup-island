@@ -1,5 +1,7 @@
 #include "providers/media/smtc_media_provider.h"
 
+#include "core/tokens.h"
+
 #include <cstdio>
 
 namespace cup {
@@ -27,11 +29,12 @@ void SmtcMediaProvider::stop()
     currentChanged_.revoke();
     sessionsChanged_.revoke();
     propertiesChanged_.revoke();
-    playbackChanged_.revoke();
     timelineChanged_.revoke();
+    playbackWatchers_.clear();
     manager_ = nullptr;
     session_ = nullptr;
     chosen_ = nullptr;
+    windowsCurrent_ = nullptr;
     artKey_.clear();
     artPending_ = false;
     art_.reset();
@@ -53,15 +56,52 @@ winrt::fire_and_forget SmtcMediaProvider::connect(std::shared_ptr<bool> alive)
 
     manager_ = manager;
     currentChanged_ = manager_.CurrentSessionChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::pickSession));
-    sessionsChanged_ = manager_.SessionsChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::pickSession));
+    sessionsChanged_ = manager_.SessionsChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::onSessionsChanged));
     std::printf("[cup-island] media: %u session(s)\n", manager_.GetSessions().Size());
+    onSessionsChanged();
+}
+
+void SmtcMediaProvider::onSessionsChanged()
+{
+    watchAllSessions();
     pickSession();
+}
+
+void SmtcMediaProvider::watchAllSessions()
+{
+    playbackWatchers_.clear(); // revokes the old subscriptions
+    for (auto const& s : manager_.GetSessions())
+        playbackWatchers_.push_back(s.PlaybackInfoChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::onPlaybackChanged)));
+}
+
+void SmtcMediaProvider::onPlaybackChanged()
+{
+    pickSession();
+    recheckSoon(alive_);
+}
+
+winrt::fire_and_forget SmtcMediaProvider::recheckSoon(std::shared_ptr<bool> alive)
+{
+    auto post = post_; // `this` is only touched back on the UI thread, after the alive check
+    co_await winrt::resume_after(tokens().mediaSessionRecheck);
+    post([this, alive] {
+        if (*alive) pickSession();
+    });
 }
 
 void SmtcMediaProvider::pickSession()
 {
     if (!manager_) return;
     auto sessions = manager_.GetSessions();
+
+    // When Windows moves its main media to another app (the one the media keys
+    // now control), follow it, dropping any manual pick.
+    Session current = manager_.GetCurrentSession();
+    if (current != windowsCurrent_) {
+        windowsCurrent_ = current;
+        chosen_ = nullptr;
+        if (current) std::printf("[cup-island] media: Windows' main media is %s\n", appName(current.SourceAppUserModelId()).c_str());
+    }
 
     // By session, not app id: every Chrome tab shares one app id.
     Session chosen{ nullptr };
@@ -70,17 +110,16 @@ void SmtcMediaProvider::pickSession()
             if (s == chosen_) chosen = s;
         if (!chosen) chosen_ = nullptr; // it went away: follow Windows again
     }
-    if (!chosen) chosen = manager_.GetCurrentSession();
+    if (!chosen) chosen = current;
     if (!chosen && sessions.Size() > 0) chosen = sessions.GetAt(0);
 
     if (chosen != session_) {
         session_ = chosen;
         propertiesChanged_.revoke();
-        playbackChanged_.revoke();
         timelineChanged_.revoke();
         if (session_) {
+            // (Playback changes are watched for every session in watchAllSessions.)
             propertiesChanged_ = session_.MediaPropertiesChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::refresh));
-            playbackChanged_ = session_.PlaybackInfoChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::refresh));
             timelineChanged_ = session_.TimelinePropertiesChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::refresh));
             std::printf("[cup-island] media: showing %s\n", appName(session_.SourceAppUserModelId()).c_str());
         }

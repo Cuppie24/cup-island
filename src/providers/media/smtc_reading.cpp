@@ -56,11 +56,15 @@ std::string appName(winrt::hstring const& appUserModelId)
     if (auto it = cache.find(appUserModelId); it != cache.end()) return it->second;
 
     std::string name;
-    try {
-        // Packaged apps (Media Player, browsers from the Store). Win32 apps throw here.
-        name = winrt::to_string(winrt::Windows::ApplicationModel::AppInfo::GetFromAppUserModelId(appUserModelId)
-                                    .DisplayInfo().DisplayName());
-    } catch (winrt::hresult_error const&) {
+    // Only packaged apps ("Family!App") are known to AppInfo; asking about a
+    // Win32 one ("Spotify.exe", "Chrome") just throws, so don't.
+    std::wstring_view id = appUserModelId;
+    if (id.find(L'!') != std::wstring_view::npos) {
+        try {
+            name = winrt::to_string(winrt::Windows::ApplicationModel::AppInfo::GetFromAppUserModelId(appUserModelId)
+                                        .DisplayInfo().DisplayName());
+        } catch (winrt::hresult_error const&) {
+        }
     }
     if (name.empty()) {
         // "Spotify.exe" -> "Spotify"; "Publisher.App_hash!App" -> "App".

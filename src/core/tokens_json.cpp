@@ -61,6 +61,7 @@ const Field kFields[] = {
     { "heldAlertMaxAgeMs", &Tokens::heldAlertMaxAge },
     { "alertQueueCapacity", &Tokens::alertQueueCapacity },
     { "mediaPausedLingerMs", &Tokens::mediaPausedLinger, true },
+    { "mediaSessionRecheckMs", &Tokens::mediaSessionRecheck },
 };
 
 const Field* findField(const std::string& name)
