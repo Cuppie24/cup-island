@@ -15,7 +15,9 @@ float tabStripSpace(const IslandState& state);
 
 // The strip, with each tab's content appended to `elements` (pill coordinates).
 // Nothing unless Expanded with at least two activities.
-std::optional<TabStrip> tabStripFor(const IslandState& state, Vec2 cardSize, float nestedRadius, std::vector<Placed>& elements);
+// `measure` sizes titles so a tab's icon and title can be centred as a group.
+std::optional<TabStrip> tabStripFor(const IslandState& state, Vec2 cardSize, float nestedRadius, const MeasureText& measure,
+                                    std::vector<Placed>& elements);
 
 // The tab under `point` (pill coordinates), if any.
 const Tab* tabAt(const TabStrip& strip, Vec2 point);

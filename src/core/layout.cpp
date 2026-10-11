@@ -270,9 +270,13 @@ BubbleScene bubbleFor(const IslandState& s, Ms now)
     return bubble;
 }
 
+
+// Without the real font: an average glyph is about half the font size wide.
+float estimateTextWidth(const Text& text) { return std::ceil(static_cast<float>(text.value.size()) * fontSize(text.style) * 0.5f); }
+
 } // namespace
 
-Scene layout(const IslandState& state, Ms now)
+Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
 {
     Scene scene;
     scene.now = now;
@@ -296,7 +300,7 @@ Scene layout(const IslandState& state, Ms now)
     float nestedRadius = std::max(0.0f, pillCornerRadius(scene.size) - paddingFor(scene.mode));
     for (const SlotFrame& slot : slotFrames(scene.mode, scene.size, *source.content, tabSpace))
         placeSlot(slot, source, nestedRadius, now, scene.elements);
-    scene.tabs = tabStripFor(state, scene.size, nestedRadius, scene.elements);
+    scene.tabs = tabStripFor(state, scene.size, nestedRadius, measure ? measure : MeasureText{ estimateTextWidth }, scene.elements);
     return scene;
 }
 

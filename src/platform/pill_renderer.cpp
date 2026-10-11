@@ -1,6 +1,7 @@
 #include "platform/pill_renderer.h"
 
 #include "core/tokens.h"
+#include "platform/element_painting.h"
 
 namespace cup::platform {
 
@@ -18,6 +19,17 @@ void PillRenderer::refreshAnimations()
     pill_.refreshAnimations();
     bubble_.refreshAnimations();
     bridge_.refreshAnimations();
+    measured_.clear();
+}
+
+float PillRenderer::measure(const Text& text)
+{
+    if (!device_.dwrite()) return 0; // before build(): nothing laid out needs it yet
+    auto key = std::make_pair(text.value, text.style);
+    auto it = measured_.find(key);
+    if (it != measured_.end()) return it->second;
+    if (measured_.size() > 256) measured_.clear(); // titles change with every track: don't grow forever
+    return measured_[key] = measureText(device_.dwrite(), text);
 }
 
 void PillRenderer::apply(const Scene& scene)

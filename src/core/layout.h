@@ -5,6 +5,7 @@
 #include "core/geometry.h"
 #include "core/island.h"
 
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -59,7 +60,13 @@ struct Scene {
     Ms now{};                      // when the scene was laid out (progress bars animate from here)
 };
 
-Scene layout(const IslandState& state, Ms now);
+// A Text's width in pixels on one line, as it will be drawn. The platform
+// measures with the real font (DirectWrite); core can't, it has no fonts.
+using MeasureText = std::function<float(const Text& text)>;
+
+// `measure` is only needed to centre content of unknown width (Expanded's
+// tabs). Without it, a rough per-character estimate is used (tests).
+Scene layout(const IslandState& state, Ms now, const MeasureText& measure = {});
 
 // What the interaction layer must cover: the pill, plus the bubble at rest in Split.
 Rect interactiveBounds(const Scene& scene);

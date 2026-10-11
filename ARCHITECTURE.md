@@ -58,8 +58,10 @@ Nothing includes "upward". `core/` never includes `platform/`.
 1. Something happens: a click, a timer, a provider update. The platform turns
    it into a core `Event` (`PillClicked`, `AlertPosted`, `Tick`, …).
 2. `reduce(state, event, now)` returns the new `IslandState`.
-3. `layout(state, now)` returns a `Scene`: target size and offset, plus every
+3. `layout(state, now, measure)` returns a `Scene`: target size and offset, plus every
    content item with its frame (time labels already formatted for `now`).
+   `measure` is the platform's text width (DirectWrite), for the few places
+   that centre text of unknown width (Expanded's tabs); core has no fonts.
 4. The renderer sets those targets. **Implicit Composition animations** do the
    actual morph (TR §5), and the interaction layer follows it (decision 001).
 5. `nextDeadline(state)` and `sceneDeadline(scene)` say when the next timed

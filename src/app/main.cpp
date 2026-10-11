@@ -111,7 +111,7 @@ void dispatch(const Event& event, const char* reason)
 {
     Ms t = now();
     g_state = reduce(g_state, event, t);
-    Scene next = layout(g_state, t);
+    Scene next = layout(g_state, t, [](const Text& text) { return g_renderer.measure(text); });
 
     if (next.mode != g_scene.mode) {
         std::printf("[cup-island] %s -> %s (%s) %s\n", toString(g_scene.mode), toString(next.mode), reason, next.label.c_str());

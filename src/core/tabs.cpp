@@ -25,12 +25,14 @@ Text titleOf(const Content& c)
     return Text{ c.label, TextStyle::Body };
 }
 
-// Lead square, then the title. Keys carry the activity id, so a tab's content
-// stays the same visual when tabs come and go.
-void placeTab(const Activity& a, Rect tab, float radius, std::vector<Placed>& out)
+// Lead square and title, centred in the tab as one group (the title as wide
+// as it really is, so the group's width is known). A title too long for the
+// tab gets what's left and ends in "…". Keys carry the activity id, so a
+// tab's content stays the same visual when tabs come and go.
+void placeTab(const Activity& a, Rect tab, float radius, const MeasureText& measure, std::vector<Placed>& out)
 {
     const Tokens& t = tokens();
-    float inset = t.compactInset, side = tab.height - 2 * inset, x = tab.x + inset;
+    float inset = t.compactInset, side = tab.height - 2 * inset, gap = inset;
     auto place = [&](const std::string& part, Item item, Rect frame, float cornerRadius = 0) {
         out.push_back({ .key = "tab/" + a.id + "/" + part, .item = std::move(item), .frame = frame, .hitFrame = frame,
                         .cornerRadius = cornerRadius, .providerId = a.providerId, .activityId = a.id });
@@ -38,6 +40,12 @@ void placeTab(const Activity& a, Rect tab, float radius, std::vector<Placed>& ou
 
     const Item* lead = firstItem(a.content.compactLeading);
     if (!lead) lead = firstItem(a.content.minimal);
+    Text title = titleOf(a.content);
+    float leadWidth = lead ? side + gap : 0;
+    float room = std::max(0.0f, tab.width - 2 * t.itemSpacing - leadWidth); // side margins = item spacing
+    float titleWidth = std::min(measure(title) + 1, room); // +1: rounding never trips the "…"
+    float x = tab.x + (tab.width - (leadWidth + titleWidth)) / 2;
+
     if (lead) {
         if (std::holds_alternative<Image>(*lead)) {
             place("lead", *lead, { x, tab.y + inset, side, side }, std::max(0.0f, std::min(radius - inset, side / 2)));
@@ -45,12 +53,9 @@ void placeTab(const Activity& a, Rect tab, float radius, std::vector<Placed>& ou
             float g = std::min(t.iconSize, side); // glyphs: icon-sized, centred in the square
             place("lead", *lead, { x + (side - g) / 2, tab.y + (tab.height - g) / 2, g, g });
         }
-        x += side + inset;
-    } else {
-        x += t.itemSpacing - inset;
+        x += leadWidth;
     }
-    float right = tab.x + tab.width - t.itemSpacing;
-    place("title", titleOf(a.content), { x, tab.y, std::max(0.0f, right - x), tab.height });
+    place("title", title, { x, tab.y, titleWidth, tab.height });
 }
 
 } // namespace
@@ -60,7 +65,8 @@ float tabStripSpace(const IslandState& s)
     return hasTabs(s) ? tokens().tabHeight + tokens().slotGap : 0;
 }
 
-std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float nestedRadius, std::vector<Placed>& elements)
+std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float nestedRadius, const MeasureText& measure,
+                                    std::vector<Placed>& elements)
 {
     if (!hasTabs(s)) return std::nullopt;
     const Tokens& t = tokens();
@@ -80,7 +86,7 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
         Rect frame{ left + static_cast<float>(i) * (width + t.tabGap), p, width, t.tabHeight };
         if (order[i]->id == s.expandedId) strip.active = i;
         strip.tabs.push_back({ frame, order[i]->id });
-        placeTab(*order[i], frame, strip.radius, elements);
+        placeTab(*order[i], frame, strip.radius, measure, elements);
     }
     return strip;
 }

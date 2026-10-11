@@ -21,7 +21,10 @@ second activity, and sometimes to make it the main one.
   busy). Built from what providers already give for Compact, so they need
   nothing new. Tabs keep the order activities started in, so clicking one
   never reorders them. Every tab is `tabMaxWidth` wide and the group is
-  centred, shrinking only when they don't fit. The active tab has a soft
+  centred, shrinking only when they don't fit. Inside a tab, icon and title
+  are centred as one group; that needs the title's real width, so
+  `layout()` takes a `MeasureText` the platform answers with DirectWrite
+  (tests use a per-character estimate). The active tab has a soft
   background that slides to a newly picked tab; others light up faintly on
   hover. Clicking a tab (`ActivitySwitched`) shows that activity's card *and*
   makes it the pick, so collapsing shows it in the pill.

@@ -9,8 +9,10 @@
 #include "platform/liquid_bridge.h"
 #include "platform/win.h"
 
+#include <map>
 #include <optional>
 #include <string>
+#include <utility>
 
 namespace cup::platform {
 
@@ -21,6 +23,10 @@ public:
 
     // Rebuilds the implicit animations from the current tokens() (after a reload).
     void refreshAnimations();
+
+    // A Text's width with the real font, for layout() (core's MeasureText).
+    // Cached per string and style; a tokens reload clears it (font sizes).
+    float measure(const Text& text);
 
     // Tactile click feedback: squash on press, spring back on release.
     void pressDown(bool bubble) { (bubble ? bubble_ : pill_).pressDown(); }
@@ -41,6 +47,7 @@ private:
     Blob pill_;
     Blob bubble_;
     LiquidBridge bridge_;
+    std::map<std::pair<std::string, TextStyle>, float> measured_;
 };
 
 } // namespace cup::platform

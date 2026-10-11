@@ -7,6 +7,8 @@
 #include "core/tokens.h"
 #include "expect.h"
 
+#include <cmath>
+
 namespace cup::test {
 namespace {
 
@@ -272,6 +274,31 @@ void runContentTests()
                        "tab content stays inside its tab: " + p.key);
     const Placed* body = find(opened, "expandedLeading/0/0");
     expect(!body || body->frame.y >= strip.tabs[0].frame.y + t.tabHeight + t.slotGap, "card content sits below the strip");
+    // Icon and title centred in the tab as one group, the title as wide as the real text.
+    MeasureText fixed = [](const Text&) { return 40.0f; };
+    Scene measured = layout(reduce(three, PillClicked{}, Ms{ 0 }), Ms{ 0 }, fixed);
+    for (const Tab& tab : measured.tabs->tabs) {
+        const Placed* lead = nullptr;
+        const Placed* label = nullptr;
+        for (const auto& p : measured.elements) {
+            if (p.key == "tab/" + tab.activityId + "/lead") lead = &p;
+            if (p.key == "tab/" + tab.activityId + "/title") label = &p;
+        }
+        float groupLeft = lead ? lead->frame.x - (lead->frame.width < t.tabHeight - 2 * t.compactInset
+                                                      ? (t.tabHeight - 2 * t.compactInset - lead->frame.width) / 2 : 0)
+                               : label->frame.x;
+        float groupRight = label->frame.x + label->frame.width;
+        float tabCentre = tab.frame.x + tab.frame.width / 2;
+        expect(label && label->frame.width == 41, "title as wide as the measured text (+1 slack): " + tab.activityId);
+        expect(std::abs((groupLeft + groupRight) / 2 - tabCentre) < 0.01f, "icon + title centred in the tab: " + tab.activityId);
+    }
+    MeasureText huge = [](const Text&) { return 1000.0f; };
+    Scene squeezed = layout(reduce(three, PillClicked{}, Ms{ 0 }), Ms{ 0 }, huge);
+    const Placed* longTitle = find(squeezed, "tab/media/title");
+    const Tab& longTab = squeezed.tabs->tabs[0];
+    expect(longTitle && longTitle->frame.x + longTitle->frame.width <= longTab.frame.x + longTab.frame.width - t.itemSpacing,
+           "a title too long for its tab gets what's left (and ends in an ellipsis)");
+
     Vec2 onTimer{ strip.tabs[1].frame.x + 3, strip.tabs[1].frame.y + 3 };
     expect(tabAt(strip, onTimer) && tabAt(strip, onTimer)->activityId == "timer", "a point finds its tab");
     expect(!tabAt(strip, { 1, 1 }), "outside the strip: no tab");
