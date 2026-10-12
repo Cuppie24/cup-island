@@ -33,10 +33,9 @@ isn't another tile per option.
 
 **The shipped themes.** Each is built from four colours: a near-black base
 for the island, an accent (progress fills, waveform, tile and hover tints, a
-tab's mark), a pale tint of it for text and icons, and a glow for the shadow.
-The glow is softer than Midnight's black shadow (alpha 0.28, not 0.45): a
-coloured shadow reads much stronger than a black one of the same alpha, and
-at full strength it looked like a halo, not a shadow.
+tab's mark), and a pale tint of it for text and icons. The shadow stays
+Midnight's black in every theme: a coloured shadow, even a faint one, reads
+as a halo around the island rather than a shadow under it.
 Grape (purple), Lagoon (teal), Ember (orange), Lime (acid green), Bubblegum
 (hot pink), Sapphire (electric blue). An activity's own accent (Pomodoro's
 red and green, decision 010) still wins over the theme's.
