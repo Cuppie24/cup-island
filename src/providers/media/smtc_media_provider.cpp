@@ -4,7 +4,9 @@
 
 #include "core/tokens.h"
 
+#include <algorithm>
 #include <cstdio>
+#include <utility>
 
 namespace cup {
 
@@ -51,9 +53,9 @@ void SmtcMediaProvider::stop()
     chosen_ = nullptr;
     chosenApp_.clear();
     mainApp_.clear();
-    artKey_.clear();
-    artPending_ = false;
-    art_.reset();
+    art_ = {};
+    propertiesDirty_ = false;
+    readFailures_ = 0;
     presenter_->stop();
     presenter_.reset();
     host_ = nullptr;
@@ -144,10 +146,11 @@ void SmtcMediaProvider::pickSession()
         timelineChanged_.revoke();
         if (session_) {
             // (Playback changes are watched for every session in watchAllSessions.)
-            propertiesChanged_ = session_.MediaPropertiesChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::refresh));
+            propertiesChanged_ = session_.MediaPropertiesChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::onPropertiesChanged));
             timelineChanged_ = session_.TimelinePropertiesChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::refresh));
             platform::logLine("media: showing %s", appName(session_.SourceAppUserModelId()).c_str());
         }
+        propertiesDirty_ = true; // another session: read its picture fresh
     }
     refresh(); // also when only the session count changed (source button)
 }
@@ -155,6 +158,23 @@ void SmtcMediaProvider::pickSession()
 void SmtcMediaProvider::refresh()
 {
     load(++generation_, alive_);
+}
+
+void SmtcMediaProvider::onPropertiesChanged()
+{
+    propertiesDirty_ = true;
+    refresh();
+}
+
+winrt::fire_and_forget SmtcMediaProvider::refreshLater(Ms delay, bool rereadArt, std::shared_ptr<bool> alive)
+{
+    auto post = post_; // `this` is only touched back on the UI thread, after the alive check
+    co_await winrt::resume_after(std::max(delay, Ms{ 0 }));
+    post([this, alive, rereadArt] {
+        if (!*alive) return;
+        if (rereadArt) propertiesDirty_ = true;
+        guarded(&SmtcMediaProvider::refresh);
+    });
 }
 
 winrt::fire_and_forget SmtcMediaProvider::load(std::uint64_t generation, std::shared_ptr<bool> alive)
@@ -171,9 +191,16 @@ winrt::fire_and_forget SmtcMediaProvider::load(std::uint64_t generation, std::sh
         properties = co_await session.TryGetMediaPropertiesAsync();
         if (!*alive || generation != generation_) co_return; // stopped, or a newer refresh started
         media = readNowPlaying(properties, session.GetPlaybackInfo(), session.GetTimelineProperties(), host_->now());
-    } catch (winrt::hresult_error const&) {
-        co_return; // the app closed its session mid-read; SessionsChanged follows
+    } catch (winrt::hresult_error const& e) {
+        // The app closed its session, or is mid-switch (Chrome changing tabs)
+        // and may send nothing more: try again shortly, a few times.
+        if (*alive && generation == generation_ && readFailures_++ < tokens().mediaReadRetries) {
+            platform::logLine("media: read failed (0x%08x), retrying", static_cast<unsigned>(e.code()));
+            refreshLater(tokens().mediaSessionRecheck, false, alive);
+        }
+        co_return;
     }
+    readFailures_ = 0;
 
     winrt::hstring app = session.SourceAppUserModelId();
     media.source = appName(app);
@@ -181,27 +208,26 @@ winrt::fire_and_forget SmtcMediaProvider::load(std::uint64_t generation, std::sh
     media.canOpenSource = true;
     shownTitle_ = winrt::to_hstring(media.title);
 
-    // New track (or its art just appeared): decode the art before showing, so
-    // the track alert carries it. Other refreshes wait for the decode too.
+    // The cover (ArtState): decoded on a new track and on every properties
+    // update (Chrome sends a tab's picture after its title). A new track is
+    // held back until its cover is ready, so its alert carries it, but only
+    // for mediaArtWait: a thumbnail that never loads mustn't hide the track.
+    bool propertiesChanged = std::exchange(propertiesDirty_, false);
     auto thumbnail = properties.Thumbnail();
-    std::string key = winrt::to_string(app) + "|" + media.title + "|" + media.artist + "|" +
-                      winrt::to_string(properties.AlbumTitle()) + "|" + (thumbnail ? "art" : "");
-    if (key != artKey_) {
-        artKey_ = key;
-        art_.reset();
-        artPending_ = thumbnail != nullptr;
-        if (artPending_) {
-            decodeArt(thumbnail, [this, alive, key](std::shared_ptr<const ImageData> image) {
-                if (!*alive || key != artKey_) return; // a newer track took over
-                art_ = std::move(image);
-                artPending_ = false;
-                refresh();
-            });
+    std::string track = winrt::to_string(app) + "|" + media.title + "|" + media.artist + "|" + winrt::to_string(properties.AlbumTitle());
+    Ms now = host_->now();
+    if (auto id = art_.onRead(track, thumbnail != nullptr, propertiesChanged, now)) {
+        decodeArt(thumbnail, [this, alive, id = *id](std::shared_ptr<const ImageData> image) {
+            if (*alive && art_.onDecoded(id, std::move(image))) refresh();
+        });
+        if (art_.holding(now)) {
+            refreshLater(tokens().mediaArtRecheck, true, alive); // the right picture may come in a later update
+            refreshLater(*art_.holdUntil() - now, false, alive);  // show it anyway when the wait runs out
         }
     }
-    if (artPending_) co_return;
+    if (art_.holding(now)) co_return;
 
-    media.art = art_;
+    media.art = art_.art();
     presenter_->show(MediaSnapshot{ winrt::to_string(app), media });
 }
 

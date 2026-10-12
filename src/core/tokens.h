@@ -136,6 +136,14 @@ struct Tokens {
     // After any app starts/stops playing, ask Windows again this much later:
     // its "current session" can switch slightly after the playback event.
     Ms mediaSessionRecheck{ 300 };
+    // A new track waits at most this long for its cover before showing without
+    // it (a thumbnail that never loads must not hide the track).
+    Ms mediaArtWait{ 1000 };
+    // After a track change, the cover is read again this much later: apps
+    // (Chrome) can send the title first and the right picture after.
+    Ms mediaArtRecheck{ 800 };
+    // A session read that fails (an app mid-switch) is retried this many times.
+    std::size_t mediaReadRetries = 3;
 
     // Colours: every colour the island draws. tokens.json writes [r, g, b] or
     // [r, g, b, alpha], channels 0..255 and alpha 0..1, like CSS rgba().

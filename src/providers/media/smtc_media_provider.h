@@ -8,6 +8,7 @@
 // (they resume on the UI thread's apartment), runs on the UI thread.
 
 #include "core/provider.h"
+#include "providers/media/art_state.h"
 #include "providers/media/media_presenter.h"
 #include "providers/media/session_choice.h"
 #include "providers/media/smtc_reading.h"
@@ -41,6 +42,9 @@ private:
     winrt::fire_and_forget recheckSoon(std::shared_ptr<bool> alive);
     void pickSession();   // which session to show: manual choice, else Windows' current one
     void refresh();       // re-read the shown session
+    void onPropertiesChanged(); // the app re-sent title/art: the picture may be new
+    // Re-read after `delay`; `rereadArt` treats it as a properties update (decode the cover again).
+    winrt::fire_and_forget refreshLater(Ms delay, bool rereadArt, std::shared_ptr<bool> alive);
     winrt::fire_and_forget load(std::uint64_t generation, std::shared_ptr<bool> alive);
     void cycleSource();
     std::vector<SessionView> describe(Session const& remembered) const; // the current sessions, for session_choice
@@ -60,9 +64,9 @@ private:
     winrt::hstring shownTitle_; // the title on screen: picks the right browser window when opening the app        // app of Windows' main media (what the media keys control), last seen
     std::uint64_t generation_ = 0; // newer refresh wins; stale async reads are dropped
 
-    std::string artKey_;   // app|title|artist|album|has-art the art belongs to
-    bool artPending_ = false;
-    std::shared_ptr<const ImageData> art_;
+    ArtState art_;                // the cover: when to decode, when to hold a new track back
+    bool propertiesDirty_ = false; // properties re-sent since the last completed read
+    std::size_t readFailures_ = 0; // in a row; retried up to mediaReadRetries
 
     Manager::CurrentSessionChanged_revoker currentChanged_;
     Manager::SessionsChanged_revoker sessionsChanged_;
