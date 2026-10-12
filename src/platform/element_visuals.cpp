@@ -10,7 +10,7 @@
 namespace cup::platform {
 namespace {
 
-// Pixel snapping (decision 017): sizes up to whole pixels, positions to the nearest one.
+// Pixel snapping (decision 024): sizes up to whole pixels, positions to the nearest one.
 Vec2 pixelSize(Vec2 size) { return { std::ceil(size.x), std::ceil(size.y) }; }
 wfn::float3 pixelOffset(float x, float y) { return { std::round(x), std::round(y), 0.0f }; }
 

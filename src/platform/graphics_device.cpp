@@ -55,7 +55,8 @@ void GraphicsDevice::create(wuc::Compositor const& compositor)
 
 // The user's own gamma, no ClearType (the surfaces are transparent),
 // horizontal-only smoothing (NATURAL), and grayscale contrast from the
-// textContrast token: higher darkens thin strokes on light-on-dark text.
+// textContrast token: higher darkens thin strokes on light-on-dark text
+// (decision 024).
 void GraphicsDevice::updateTextParams()
 {
     float contrast = tokens().textContrast;

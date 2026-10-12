@@ -41,6 +41,7 @@ leaves it out cleanly.
 | `DCompositionWaitForCompositorClock` (Windows 11) | `DwmFlush()` | `platform/interaction_layer.cpp`, decision 001 |
 | `AppInfo::GetFromAppUserModelId` (2004) | app name from the exe name | `providers/media/smtc_reading.cpp` |
 | Segoe Fluent Icons, Segoe UI Variable (Windows 11 fonts) | Segoe MDL2 Assets, Segoe UI | `platform/element_painting.cpp` |
+| Font weight axis (`IDWriteTextFormat3`, 1803) and grayscale contrast (`IDWriteFactory1`), queried with `try_as` | the named weight; plain enhanced contrast | `platform/element_painting.cpp`, `graphics_device.cpp`, decision 024 |
 
 **Checking.**
 - On the Release exe, in Developer PowerShell:

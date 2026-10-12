@@ -66,11 +66,11 @@ struct Tokens {
     float rowSpacing = 4;
     float itemSpacing = 8;
     float looseItemSpacing = 24; // Row::loose, e.g. media controls
-    float titleFontSize = 17;   // the type ramp steps 2 px: caption 13, body 15, title 17
+    float titleFontSize = 17;   // the type ramp steps 2 px: caption 13, body 15, title 17 (decision 024)
     float bodyFontSize = 15;
     float captionFontSize = 13; // the smallest text: ~11 px on screen at 100% after islandScale
     float displayFontSize = 34; // TextStyle::Display: a timer as the card's centre
-    // Font weights, 100..900 (400 regular, 600 semibold). Segoe UI Variable
+    // Font weights, 100..900 (400 regular, 600 semibold; decision 024). Segoe UI Variable
     // (Windows 11) takes any value in between; other fonts use the nearest weight they have.
     float titleFontWeight = 600;
     float bodyFontWeight = 500;   // a touch heavier than regular: light text on a dark island reads thin

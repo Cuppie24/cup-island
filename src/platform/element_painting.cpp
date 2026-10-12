@@ -34,7 +34,7 @@ bool hasFont(IDWriteFactory* dw, const wchar_t* family)
 // size they're shown at: Small stays sturdy and open at caption sizes, where
 // the Text cut turns thin and soft; Display is tighter for big numbers. The
 // ranges are physical pixels (sizes here are already scaled), a property of
-// the font, not of the design, so they aren't tokens. Windows 10: Segoe UI.
+// the font, not of the design, so they aren't tokens (decision 024). Windows 10: Segoe UI.
 const wchar_t* textFamily(IDWriteFactory* dw, float pixelSize)
 {
     // (Not named `small`: the Windows SDK's rpcndr.h has `#define small char`.)
