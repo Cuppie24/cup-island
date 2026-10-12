@@ -31,6 +31,8 @@ private:
     winrt::com_ptr<ID2D1Factory1> d2dFactory_;
     winrt::com_ptr<IDWriteFactory> dwrite_;
     winrt::com_ptr<IDWriteRenderingParams> textParams_; // crisp small text (decision 017)
+    float textParamsContrast_ = -1;                     // the textContrast token they were built for
+    void updateTextParams();                            // rebuilds them when textContrast changed
     wuc::CompositionGraphicsDevice device_{ nullptr };
 };
 

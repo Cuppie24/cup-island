@@ -2,6 +2,8 @@
 
 #include "core/tokens.h"
 
+#include <dwrite_3.h>
+
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -84,11 +86,19 @@ const wchar_t* codepoint(Glyph glyph)
 }
 
 winrt::com_ptr<IDWriteTextFormat> format(IDWriteFactory* dw, const wchar_t* family, float size,
-                                         DWRITE_FONT_WEIGHT weight, DWRITE_TEXT_ALIGNMENT align)
+                                         float weight, DWRITE_TEXT_ALIGNMENT align)
 {
+    weight = std::clamp(weight, 1.0f, 999.0f);
     winrt::com_ptr<IDWriteTextFormat> f;
-    winrt::check_hresult(dw->CreateTextFormat(family, nullptr, weight, DWRITE_FONT_STYLE_NORMAL,
-                                              DWRITE_FONT_STRETCH_NORMAL, size, L"", f.put()));
+    winrt::check_hresult(dw->CreateTextFormat(family, nullptr, static_cast<DWRITE_FONT_WEIGHT>(std::lround(weight)),
+                                              DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, size, L"", f.put()));
+    // A variable font (Segoe UI Variable) takes the exact weight on its weight
+    // axis, e.g. 500 between Regular and Semibold. Without IDWriteTextFormat3
+    // (before Windows 10 1803) the nearest weight above is used (decision 015).
+    if (auto variable = f.try_as<IDWriteTextFormat3>()) {
+        DWRITE_FONT_AXIS_VALUE axis{ DWRITE_FONT_AXIS_TAG_WEIGHT, weight };
+        variable->SetFontAxisValues(&axis, 1);
+    }
     f->SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP);
     f->SetTextAlignment(align);
     f->SetParagraphAlignment(DWRITE_PARAGRAPH_ALIGNMENT_CENTER);
@@ -121,20 +131,20 @@ void drawString(ID2D1DeviceContext* dc, IDWriteTextFormat* f, const std::wstring
 struct TextLook {
     float fontSize;
     Color color;
-    DWRITE_FONT_WEIGHT weight;
+    float weight; // 1..999, from tokens
 };
 
 TextLook lookOf(TextStyle style)
 {
     const Tokens& t = tokens();
     switch (style) {
-    case TextStyle::Title: return { t.titleFontSize, t.titleTextColor, DWRITE_FONT_WEIGHT_SEMI_BOLD };
+    case TextStyle::Title: return { t.titleFontSize, t.titleTextColor, t.titleFontWeight };
     case TextStyle::Body: break;
     case TextStyle::Caption:
-    case TextStyle::Digits: return { t.captionFontSize, t.captionTextColor, DWRITE_FONT_WEIGHT_NORMAL };
-    case TextStyle::Display: return { t.displayFontSize, t.titleTextColor, DWRITE_FONT_WEIGHT_SEMI_LIGHT }; // big and light, like a clock face
+    case TextStyle::Digits: return { t.captionFontSize, t.captionTextColor, t.captionFontWeight };
+    case TextStyle::Display: return { t.displayFontSize, t.titleTextColor, t.displayFontWeight };
     }
-    return { t.bodyFontSize, t.bodyTextColor, DWRITE_FONT_WEIGHT_NORMAL };
+    return { t.bodyFontSize, t.bodyTextColor, t.bodyFontWeight };
 }
 
 winrt::com_ptr<IDWriteTextFormat> formatOf(IDWriteFactory* dw, const Text& text)
@@ -178,7 +188,7 @@ void paintInput(ID2D1DeviceContext* dc, IDWriteFactory* dw, const TextInput& inp
     // Its own size (inputFontSize), so the field reads as a field even unfocused and empty;
     // the placeholder is the same size, just dimmer (placeholderTextColor).
     std::wstring value = widen(empty ? input.placeholder : input.value);
-    auto measuring = format(dw, textFamily(dw, t.inputFontSize), t.inputFontSize, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_TEXT_ALIGNMENT_LEADING);
+    auto measuring = format(dw, textFamily(dw, t.inputFontSize), t.inputFontSize, t.bodyFontWeight, DWRITE_TEXT_ALIGNMENT_LEADING);
     winrt::com_ptr<IDWriteTextLayout> line;
     winrt::check_hresult(dw->CreateTextLayout(value.c_str(), static_cast<UINT32>(value.size()), measuring.get(), 100000.0f, 1000.0f, line.put()));
     DWRITE_TEXT_METRICS metrics{};
@@ -186,7 +196,7 @@ void paintInput(ID2D1DeviceContext* dc, IDWriteFactory* dw, const TextInput& inp
     float width = std::ceil(metrics.widthIncludingTrailingWhitespace);
     // Longer than the field while typing: show its end, where the caret is.
     bool tail = !empty && width > room;
-    auto f = format(dw, textFamily(dw, t.inputFontSize), t.inputFontSize, DWRITE_FONT_WEIGHT_NORMAL,
+    auto f = format(dw, textFamily(dw, t.inputFontSize), t.inputFontSize, t.bodyFontWeight,
                     tail ? DWRITE_TEXT_ALIGNMENT_TRAILING : DWRITE_TEXT_ALIGNMENT_LEADING);
     D2D1_RECT_F box = D2D1::RectF(inset, 0, inset + room, size.y);
     drawString(dc, f.get(), value, box, empty ? t.placeholderTextColor : t.bodyTextColor);
@@ -223,7 +233,7 @@ void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, 
 
 void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float fontSize, Vec2 size, const Color& color)
 {
-    auto f = format(dw, iconFamily(dw), fontSize, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_TEXT_ALIGNMENT_CENTER);
+    auto f = format(dw, iconFamily(dw), fontSize, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_TEXT_ALIGNMENT_CENTER); // icons: as designed
     drawString(dc, f.get(), codepoint(glyph), size, color);
 }
 

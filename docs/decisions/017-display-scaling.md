@@ -53,6 +53,10 @@ three things blurred small text, fixed together:
 - **Rendering:** grayscale antialiasing (the surfaces are transparent, so
   ClearType can't apply) in DWrite's NATURAL mode, which smooths
   horizontally only (`graphics_device.cpp`).
+- **Weight:** light text on a dark island reads thinner than dark on light,
+  so body and caption are 500, not 400 (`*FontWeight` tokens; Segoe UI
+  Variable takes in-between weights on its weight axis), and grayscale
+  enhanced contrast (`textContrast`, 1.5) darkens the antialiased edges.
 
 The type ramp steps 2 px, caption 13, body 15, title 17, so the levels read
 as different sizes, not just different greys.

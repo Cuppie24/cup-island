@@ -1,7 +1,10 @@
 #include "platform/graphics_device.h"
+
+#include "core/tokens.h"
 #include "platform/log.h"
 
 #include <d3d11.h>
+#include <dwrite_1.h>
 
 #include <cmath>
 #include <cstdio>
@@ -43,15 +46,33 @@ void GraphicsDevice::create(wuc::Compositor const& compositor)
     winrt::check_hresult(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, __uuidof(ID2D1Factory1), nullptr, d2dFactory_.put_void()));
     winrt::check_hresult(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
                                              reinterpret_cast<IUnknown**>(dwrite_.put())));
-    // The user's own gamma and contrast, but no ClearType and horizontal-only smoothing.
-    winrt::com_ptr<IDWriteRenderingParams> defaults;
-    if (SUCCEEDED(dwrite_->CreateRenderingParams(defaults.put())))
-        dwrite_->CreateCustomRenderingParams(defaults->GetGamma(), defaults->GetEnhancedContrast(), 0.0f,
-                                             DWRITE_PIXEL_GEOMETRY_FLAT, DWRITE_RENDERING_MODE_NATURAL, textParams_.put());
+    updateTextParams();
 
     auto interop = compositor.as<abi::ICompositorInterop>();
     winrt::check_hresult(interop->CreateGraphicsDevice(createD2DDevice().get(),
         reinterpret_cast<abi::ICompositionGraphicsDevice**>(winrt::put_abi(device_))));
+}
+
+// The user's own gamma, no ClearType (the surfaces are transparent),
+// horizontal-only smoothing (NATURAL), and grayscale contrast from the
+// textContrast token: higher darkens thin strokes on light-on-dark text.
+void GraphicsDevice::updateTextParams()
+{
+    float contrast = tokens().textContrast;
+    if (contrast == textParamsContrast_ && textParams_) return;
+    textParamsContrast_ = contrast;
+    winrt::com_ptr<IDWriteRenderingParams> defaults;
+    if (FAILED(dwrite_->CreateRenderingParams(defaults.put()))) return;
+    textParams_ = nullptr;
+    if (auto factory1 = dwrite_.try_as<IDWriteFactory1>()) {
+        winrt::com_ptr<IDWriteRenderingParams1> params;
+        if (SUCCEEDED(factory1->CreateCustomRenderingParams(defaults->GetGamma(), defaults->GetEnhancedContrast(), contrast, 0.0f,
+                                                            DWRITE_PIXEL_GEOMETRY_FLAT, DWRITE_RENDERING_MODE_NATURAL, params.put())))
+            textParams_ = params;
+    }
+    if (!textParams_) // no IDWriteFactory1: no separate grayscale contrast
+        dwrite_->CreateCustomRenderingParams(defaults->GetGamma(), contrast, 0.0f, DWRITE_PIXEL_GEOMETRY_FLAT,
+                                             DWRITE_RENDERING_MODE_NATURAL, textParams_.put());
 }
 
 wuc::CompositionDrawingSurface GraphicsDevice::createSurface(Vec2 size)
@@ -85,6 +106,7 @@ bool GraphicsDevice::draw(wuc::CompositionDrawingSurface const& surface,
     // needs an opaque background). NATURAL smooths horizontally only: crisper
     // than the default symmetric mode at small sizes.
     context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE);
+    updateTextParams(); // textContrast is live-tunable
     if (textParams_) context->SetTextRenderingParams(textParams_.get());
     context->Clear(D2D1::ColorF(0, 0, 0, 0));
     paint(context.get());

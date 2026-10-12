@@ -70,6 +70,15 @@ struct Tokens {
     float bodyFontSize = 15;
     float captionFontSize = 13; // the smallest text: ~11 px on screen at 100% after islandScale
     float displayFontSize = 34; // TextStyle::Display: a timer as the card's centre
+    // Font weights, 100..900 (400 regular, 600 semibold). Segoe UI Variable
+    // (Windows 11) takes any value in between; other fonts use the nearest weight they have.
+    float titleFontWeight = 600;
+    float bodyFontWeight = 500;   // a touch heavier than regular: light text on a dark island reads thin
+    float captionFontWeight = 500;
+    float displayFontWeight = 350; // big and light, like a clock face
+    // Darkens antialiased text strokes (DirectWrite's grayscale enhanced
+    // contrast): 0 = none, 1 = Windows' usual, higher = bolder-looking edges.
+    float textContrast = 1.5f;
     float inputFontSize = 15;   // a TextInput's text and placeholder: noticeable even when it isn't focused
     float iconSize = 18;
     float buttonSize = 36;
