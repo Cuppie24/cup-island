@@ -40,11 +40,11 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 tokens.h (+ tokens_json.h, json_reader.h), easing.h
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
-                per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Start with Windows, Exit), autostart, log (the log file), watchdog (hang/crash dumps), stay_on_top
+                per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules and the media widget, SMTC provider for real Windows media),
                 pomodoro/ (the first panel), system/ (Home's theme, Bluetooth and Settings widgets:
-                app themes, Copy logs)
+                app themes, display, Start with Windows, Copy logs)
 src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload
 assets/         tokens.json: the live-tunable sizes, timings and curves; the app icon (cup_island.rc/.ico)
 installer/      Inno Setup script for the Windows installer (decision 011)
@@ -209,7 +209,8 @@ over the file's, so `tokens()` is always what's on screen.
 | Pomodoro (first panel): focus rounds, breaks, pause/skip/stop, ring, phase dots | done, tested |
 | Progress ring, Steps, accent colour (decision 010) | done; rules tested, drawing needs Windows |
 | Text input (typing, paste) and Pomodoro's to-do list (decision 016) | done; rules tested, typing and drawing need Windows |
-| Release: no-console exe, static C++ runtime, tray icon with Start with Windows + Exit, Inno Setup installer (decision 011) | done; needs a Windows build to verify |
+| Release: no-console exe, static C++ runtime, tray icon with Exit, Inno Setup installer (decision 011) | done; needs a Windows build to verify |
 | MSIX, code signing, StartupTask (TR §9, §10) | not yet |
 | Log file, Copy logs (in Settings), hang/crash minidumps, exit without deadlock (decision 013) | done; button rules tested, the rest needs Windows |
 | Settings widget, app themes (dark and light) from tokens.json, saved per user (decision 022) | done; rules tested, visuals need Windows |
+| Settings as a list: Theme and Display pages of choices, Start with Windows on by default, stays open on a near miss (decision 030) | done; rules tested, visuals need Windows |

@@ -28,41 +28,32 @@ std::string known(const std::string& theme)
     return themes.empty() ? std::string() : themes[indexOf(theme)].name;
 }
 
-} // namespace
-
-// The widget: a gear, like Windows' own Settings. The card, centred: the
-// theme between two arrows (the island recolours at once, so the island is
-// the preview), then Copy logs, which says how it went for a moment, and
-// Centre island, for one that was moved along the edge (decision 026).
-Panel settingsPanel(const std::string& theme, const std::optional<std::string>& display, LogsNote note)
+// The index after a choice's prefix ("theme.pick:3" -> 3), if the action is one.
+std::optional<std::size_t> choiceIndex(const std::string& actionId, const char* prefix)
 {
-    // A setting: its caption, then its value between ‹ › arrows that cycle.
-    Slot card;
-    auto picker = [&](const char* caption, const std::string& value, const char* previous, const char* next) {
-        card.push_back(row({ Text{ .value = caption, .style = TextStyle::Caption, .centred = true } }));
-        card.push_back(Row{ .items = { Text{ .value = value, .style = TextStyle::Title, .centred = true } },
-                            .leading = { Button{ Glyph::ChevronLeft, previous } },
-                            .trailing = { Button{ Glyph::ChevronRight, next } } });
-    };
-    if (!tokens().themes.empty()) picker("Theme", theme, SettingsProvider::kPreviousTheme, SettingsProvider::kNextTheme);
-    if (display) picker("Display", *display, SettingsProvider::kPreviousDisplay, SettingsProvider::kNextDisplay);
-    const char* logs = note == LogsNote::Copied ? "Logs copied" : note == LogsNote::Failed ? "Couldn't copy logs" : "Copy logs";
-    card.push_back(row({ Button{ .glyph = Glyph::Copy, .actionId = SettingsProvider::kCopyLogs, .label = logs },
-                         Button{ .actionId = SettingsProvider::kCentreIsland, .label = "Centre island" } },
-                       Align::Center));
-    Content content{
-        .label = "Settings",
-        .card = CardLayout::Centred,
-        .expandedCenter = card,
-        .tile = { row({ Icon{ Glyph::Settings } }), row({ Text{ "Settings" } }) },
-    };
-    return { .id = SettingsProvider::kPanelId, .content = content };
+    std::string p(prefix);
+    if (actionId.size() <= p.size() || actionId.compare(0, p.size(), p) != 0) return std::nullopt;
+    std::size_t at = 0;
+    for (char c : actionId.substr(p.size())) {
+        if (c < '0' || c > '9') return std::nullopt;
+        at = at * 10 + static_cast<std::size_t>(c - '0');
+    }
+    return at;
 }
+
+} // namespace
 
 void SettingsProvider::start(Host& host)
 {
     host_ = &host;
     note_ = LogsNote::Ready;
+    page_ = SettingsPage::List;
+    // Start with Windows is on until the user turns it off (decision 030):
+    // set once, the first time, so a later "off" (here or in Task Manager) sticks.
+    if (hooks_.setStartsWithWindows && trimmed(host_->load(kAutostartKey)).empty()) {
+        hooks_.setStartsWithWindows(true);
+        host_->save(kAutostartKey, "on");
+    }
     displays_ = hooks_.listDisplays ? hooks_.listDisplays() : std::vector<DisplayChoice>{};
     wantedDisplay_ = trimmed(host_->load(kDisplayKey));
     placeIsland();
@@ -80,28 +71,59 @@ void SettingsProvider::stop()
 void SettingsProvider::onAction(const Action& action)
 {
     if (!host_ || action.activityId != kPanelId) return;
+    const std::string& id = action.actionId;
     const auto& themes = tokens().themes;
-    if ((action.actionId == kNextTheme || action.actionId == kPreviousTheme) && !themes.empty()) {
-        std::size_t n = themes.size(), at = indexOf(theme_);
-        std::size_t next = action.actionId == kNextTheme ? (at + 1) % n : (at + n - 1) % n; // wraps around
-        pick(themes[next].name);
-        host_->save(kThemeKey, theme_);
-    } else if ((action.actionId == kNextDisplay || action.actionId == kPreviousDisplay) && !displays_.empty()) {
-        // "Main display" first, then each monitor; wraps around like the themes.
-        std::vector<std::string> ids{ "" };
-        for (const auto& d : displays_) ids.push_back(d.id);
-        std::size_t n = ids.size();
-        std::size_t at = static_cast<std::size_t>(std::find(ids.begin(), ids.end(), appliedDisplay_) - ids.begin()) % n;
-        wantedDisplay_ = ids[action.actionId == kNextDisplay ? (at + 1) % n : (at + n - 1) % n];
-        host_->save(kDisplayKey, wantedDisplay_);
-        placeIsland();
+    if (id == kOpenThemes && !themes.empty()) open(SettingsPage::Themes);
+    else if (id == kOpenDisplays && displays_.size() >= 2) open(SettingsPage::Displays);
+    else if (id == kBack) {
+        page_ = SettingsPage::List;
         publish();
-    } else if (action.actionId == kCentreIsland) {
+    } else if (auto at = choiceIndex(id, kPickTheme)) {
+        // A pick closes the page, like any select: the island, recoloured, is the preview.
+        if (*at < themes.size()) {
+            page_ = SettingsPage::List;
+            pick(themes[*at].name);
+            host_->save(kThemeKey, theme_);
+        }
+    } else if (auto at = choiceIndex(id, kPickDisplay)) {
+        if (*at <= displays_.size()) pickDisplay(*at == 0 ? std::string() : displays_[*at - 1].id); // 0: "Main display"
+    } else if (id == kToggleAutostart && hooks_.startsWithWindows && hooks_.setStartsWithWindows) {
+        bool on = !hooks_.startsWithWindows();
+        hooks_.setStartsWithWindows(on);
+        host_->save(kAutostartKey, on ? "on" : "off");
+        publish();
+    } else if (id == kCentreIsland) {
         if (hooks_.centreIsland) hooks_.centreIsland();
-    } else if (action.actionId == kCopyLogs) {
+    } else if (id == kCopyLogs) {
         note_ = hooks_.copyLogs && hooks_.copyLogs() ? LogsNote::Copied : LogsNote::Failed;
         publish();
         host_->wakeAt(host_->now() + tokens().logsNote); // a second click restarts the note
+    }
+}
+
+void SettingsProvider::pickDisplay(const std::string& id)
+{
+    wantedDisplay_ = id;
+    host_->save(kDisplayKey, wantedDisplay_);
+    page_ = SettingsPage::List;
+    placeIsland();
+    publish();
+}
+
+void SettingsProvider::open(SettingsPage page)
+{
+    page_ = page;
+    publish();
+    // Scrolled to what's picked: the list may be longer than its window.
+    std::size_t row = 0;
+    if (page == SettingsPage::Themes) {
+        auto rows = themeListRows();
+        std::size_t picked = indexOf(theme_);
+        for (std::size_t i = 0; i < rows.size(); ++i)
+            if (rows[i].heading.empty() && rows[i].theme == picked) row = i;
+        host_->reveal(kPanelId, kThemeList, row);
+    } else {
+        host_->reveal(kPanelId, kDisplayList, view().display);
     }
 }
 
@@ -121,6 +143,7 @@ void SettingsProvider::refreshDisplays()
 {
     if (!host_) return;
     displays_ = hooks_.listDisplays ? hooks_.listDisplays() : std::vector<DisplayChoice>{};
+    if (page_ == SettingsPage::Displays && displays_.size() < 2) page_ = SettingsPage::List; // nothing left to choose
     placeIsland();
     publish();
 }
@@ -133,12 +156,18 @@ void SettingsProvider::placeIsland()
     if (hooks_.applyDisplay) hooks_.applyDisplay(appliedDisplay_);
 }
 
-std::optional<std::string> SettingsProvider::displayLabel() const
+SettingsView SettingsProvider::view() const
 {
-    if (displays_.size() < 2) return std::nullopt; // one monitor: nothing to choose
-    for (const auto& d : displays_)
-        if (d.id == appliedDisplay_) return d.name;
-    return std::string(kMainDisplayName);
+    SettingsView v{ .page = page_, .theme = theme_, .note = note_ };
+    if (displays_.size() >= 2) { // one monitor: nothing to choose
+        v.displays.push_back(kMainDisplayName);
+        for (std::size_t i = 0; i < displays_.size(); ++i) {
+            v.displays.push_back(displays_[i].name);
+            if (displays_[i].id == appliedDisplay_) v.display = i + 1;
+        }
+    }
+    if (hooks_.startsWithWindows) v.startsWithWindows = hooks_.startsWithWindows();
+    return v;
 }
 
 void SettingsProvider::pick(const std::string& theme)
@@ -148,6 +177,6 @@ void SettingsProvider::pick(const std::string& theme)
     publish();
 }
 
-void SettingsProvider::publish() { host_->publishPanel(settingsPanel(theme_, displayLabel(), note_)); }
+void SettingsProvider::publish() { host_->publishPanel(settingsPanel(view())); }
 
 } // namespace cup

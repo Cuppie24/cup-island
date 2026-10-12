@@ -1,6 +1,6 @@
 # 023: Choosing the display the island is on
 
-Status: Accepted
+Status: Accepted; the arrows superseded by 030 (the same page of choices as Theme)
 
 **Context.** The island always sat at the top of the primary display: the
 render layer was centred with `SM_CXSCREEN` at y = 0, and its scale came

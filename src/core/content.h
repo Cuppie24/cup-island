@@ -187,6 +187,10 @@ struct Content {
     std::string label; // accessible name, also used in logs and tests
     std::optional<Color> accent; // none: white (decision 010)
     CardLayout card = CardLayout::Standard;
+    // Its card stays open when a click lands between its controls: a page of
+    // settings, where a near miss shouldn't close it. Esc, a click outside
+    // the island or the idle timeout still do (decision 030).
+    bool keepOpen = false;
     Slot compactLeading;
     Slot compactCenter;  // between the two compact squares, e.g. a swimming title
     Slot compactTrailing;

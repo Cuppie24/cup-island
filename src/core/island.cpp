@@ -66,6 +66,14 @@ bool expandedViewExists(const IslandState& s)
     return findActivity(s, s.expandedId) || findPanel(s, s.expandedId);
 }
 
+// The card shown asks to stay open on a click between its controls (Content::keepOpen).
+bool shownCardKeepsOpen(const IslandState& s)
+{
+    if (const Activity* a = findActivity(s, s.expandedId)) return a->content.keepOpen;
+    const Panel* p = findPanel(s, s.expandedId);
+    return p && p->content.keepOpen;
+}
+
 // Runs after every event: expire timers, drop stale state, show the next alert.
 void settle(IslandState& s, Ms now)
 {
@@ -102,8 +110,8 @@ void onClick(IslandState& s, Ms now)
         break;
     case Mode::Expanded:
         // Home stays: it's where things are started from (decision 009). Cards
-        // close (provisional: until expanded content has its own buttons).
-        if (!s.homeOpen) collapse(s);
+        // close, unless theirs says to stay (Content::keepOpen: Settings, decision 030).
+        if (!s.homeOpen && !shownCardKeepsOpen(s)) collapse(s);
         break;
     case Mode::Idle:
         if (!s.panels.empty()) openHome(s, now); // decision 009

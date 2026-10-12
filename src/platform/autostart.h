@@ -1,7 +1,8 @@
 #pragma once
 // "Start with Windows": a value under HKCU\...\CurrentVersion\Run naming this
-// exe. Only ever set from the tray menu, so it's the user's opt-in (TR §9);
-// the MSIX StartupTask replaces it once we ship MSIX (decision 011).
+// exe. Set from the Settings card: on by default the first time the app runs,
+// then as the user leaves it (decision 030). The MSIX StartupTask replaces it
+// once we ship MSIX (decision 011).
 
 namespace cup::platform {
 

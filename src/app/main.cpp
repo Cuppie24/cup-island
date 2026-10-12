@@ -5,7 +5,7 @@
 //
 // The idle pill shows the time; clicking it opens Home (decisions 009, 019):
 // the media and Pomodoro widgets, then theme, Bluetooth and Settings (the
-// app theme and Copy logs, decision 022). Press and hold the pill to lift it
+// app theme, display, Start with Windows and Copy logs, decisions 022, 030). Press and hold the pill to lift it
 // and move it along the top edge (decision 026).
 //
 // Demo keys (click the pill first so it has keyboard focus):
@@ -14,7 +14,7 @@
 //      it onto the pill to make it the main one.
 //   C  post a critical alert               D  toggle a simulated accepted drag
 //   H  toggle hidden                       Esc collapse when expanded, otherwise quit
-// Quit any time from the tray icon's right-click menu. Everything is logged to
+// Quit any time from the tray icon's right-click menu (Exit). Everything is logged to
 // %LOCALAPPDATA%\CupIsland\logs (platform/log.h); Debug builds also show it in a console.
 
 #include "app/live_tokens.h"
@@ -31,6 +31,7 @@
 #include "platform/log.h"
 #include "platform/interaction_layer.h"
 #include "platform/pill_renderer.h"
+#include "platform/autostart.h"
 #include "platform/displays.h"
 #include "platform/render_layer.h"
 #include "platform/single_instance.h"
@@ -726,6 +727,8 @@ int main()
         },
         .applyDisplay = placeIsland,
         .centreIsland = [] { dispatch(SpotRestored{}, "centre island"); },
+        .startsWithWindows = startsWithWindows,
+        .setStartsWithWindows = setStartsWithWindows,
     });
     g_settings = settings.get();
     g_providers->add(std::move(settings));

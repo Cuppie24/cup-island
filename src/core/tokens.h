@@ -33,6 +33,7 @@ struct ThemeColor {
 struct Theme {
     std::string name;
     std::vector<ThemeColor> colors;
+    bool light = false; // derived when parsed: its island is pale (Settings lists dark and light apart)
     bool operator==(const Theme&) const = default;
 };
 
