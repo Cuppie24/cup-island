@@ -16,7 +16,12 @@ namespace {
 struct Island {
     IslandState state;
     Ms now{ 0 };
-    ProviderRegistry registry{ [this](const Event& e, const char*) { state = reduce(state, e, now); }, [this] { return now; } };
+    ProviderRegistry registry;
+
+    explicit Island(ProviderRegistry::Store store = {})
+        : registry([this](const Event& e, const char*) { state = reduce(state, e, now); }, [this] { return now; }, std::move(store))
+    {
+    }
 
     Scene scene() const { return layout(state, now); }
     void send(const Event& e) { state = reduce(state, e, now); }
@@ -47,8 +52,9 @@ struct Island {
 };
 
 const std::string kTile = std::string("tile/") + PomodoroProvider::kPanelId;
-const std::string kStartOrPause = "expandedCenter/0/0"; // the card's first control: ▶ dormant, ⏸ running
-const std::string kStop = "expandedCenter/0/2";
+const std::string kStart = "expandedCenter/2/0"; // ▶, under the dormant card's time and plan
+const std::string kPause = "expandedCenter/4/0"; // the running card's controls: under the dots, above the to-dos
+const std::string kStop = "expandedCenter/4/2";
 
 const Placed* find(const Scene& scene, const std::string& key)
 {
@@ -88,7 +94,7 @@ void runPomodoroTests()
 
     // Start from the card.
     island.send(TileClicked{ PomodoroProvider::kPanelId });
-    expect(island.press(kStartOrPause), "the dormant card's start button");
+    expect(island.press(kStart), "the dormant card's start button");
     expect(island.focus() && island.focus()->content.label == "Focus", "start: a focus phase is live");
     expect(island.registry.nextWake() == Ms{ t.pomodoroFocus }, "wakes when focus ends");
     expect(island.state.expandedId == PomodoroProvider::kPanelId, "the live card shows");
@@ -132,7 +138,7 @@ void runPomodoroTests()
     };
     expect(stepsShown() == Steps{ static_cast<int>(2 * t.pomodoroRounds), 0 }, "card: a dot per phase, none done yet");
 
-    // The card: centred, controls on top, a big countdown, the phase's bar, then the dots; no ring.
+    // The card: centred, a big countdown, the phase's bar, the dots, then the controls; no ring.
     island.send(PillClicked{});
     Scene card = island.scene();
     island.send(EscapePressed{});
@@ -141,17 +147,22 @@ void runPomodoroTests()
             if (p.key == key) return &p;
         return nullptr;
     };
-    const Placed* pauseButton = at("expandedCenter/0/0");
-    const Placed* bigTimer = at("expandedCenter/1/0");
-    const Placed* bar = at("expandedCenter/2/0");
-    const Placed* dots = at("expandedCenter/3/0");
+    const Placed* bigTimer = at("expandedCenter/0/0");
+    const Placed* bar = at("expandedCenter/1/0");
+    const Placed* dots = at("expandedCenter/2/0");
+    const Placed* caption = at("expandedCenter/3/0");
+    const Placed* pauseButton = at(kPause);
+    const Placed* field = nullptr;
+    for (const Placed& p : card.elements)
+        if (std::holds_alternative<TextInput>(p.item)) field = &p;
     expect(bar && std::get<Progress>(bar->item).shape == ProgressShape::Bar && bar->frame.y > bigTimer->frame.y + bigTimer->frame.height - 1,
            "a bar below the countdown");
     expect(bar && dots && dots->frame.y > bar->frame.y + bar->frame.height - 1, "above the dots");
     expect(bar && dots && bar->frame.x == dots->frame.x && bar->frame.width == dots->frame.width, "as wide as the dots");
-    expect(pauseButton && std::holds_alternative<Button>(pauseButton->item), "card: controls on top");
-    expect(bigTimer && std::get<Text>(bigTimer->item).style == TextStyle::Display && pauseButton->frame.y < bigTimer->frame.y,
-           "card: a big countdown below them");
+    expect(bigTimer && std::get<Text>(bigTimer->item).style == TextStyle::Display, "card: a big countdown on top");
+    expect(pauseButton && std::holds_alternative<Button>(pauseButton->item) && caption &&
+           pauseButton->frame.y > caption->frame.y + caption->frame.height - 1, "the controls below the dots and what they mean");
+    expect(pauseButton && field && field->frame.y > pauseButton->frame.y + pauseButton->frame.height - 1, "and above the to-dos");
     expect(std::abs(bigTimer->frame.x + bigTimer->frame.width / 2 - card.size.x / 2) < 0.51f, "the countdown centred");
     expect(dots && std::abs(dots->frame.x + dots->frame.width / 2 - card.size.x / 2) < 0.51f && dots->frame.y > bigTimer->frame.y,
            "the dots centred, below");
@@ -203,19 +214,83 @@ void runPomodoroTests()
     expect(!island.focus() && lastAlert == "Session done", "the session ends by itself, and says so");
     expect(island.state.panels.size() == 1 && !island.registry.nextWake(), "the panel is dormant again");
 
-    // Manual exit: the stop button on the card.
+    // Manual exit: the stop button on the card, once confirmed (decision 020).
     island.send(PillClicked{});
     island.send(TileClicked{ PomodoroProvider::kPanelId });
-    island.press(kStartOrPause);
+    island.press(kStart);
     expect(island.focus() != nullptr, "started again");
     expect(island.press(kStop), "the running card's stop button");
+    expect(island.focus() && island.state.dialog && island.state.dialog->title == "Stop the session?" &&
+           island.state.dialog->message == "You're in round 1 of " + std::to_string(t.pomodoroRounds) + ". The timer starts over next time." &&
+           island.state.dialog->destructive, "stop asks first; still running");
+    island.send(DialogClosed{}); // Cancel
+    expect(island.focus() && !island.state.dialog, "cancelled: still running");
+    island.press(kStop);
+    Dialog asked = *island.state.dialog;
+    island.registry.route({ asked.providerId, asked.activityId, asked.confirmAction, 0 }); // the app: Stop clicked
+    island.send(DialogClosed{});
     expect(!island.focus() && !island.registry.nextWake() && island.state.expandedId == PomodoroProvider::kPanelId,
-           "stop: dormant, its card still open");
+           "confirmed: dormant, its card still open");
+    PomodoroProvider::Session longBreak{ .phase = PomodoroProvider::Phase::LongBreak, .round = t.pomodoroRounds };
+    expect(stopQuestion(longBreak).message == "You're on the long break. The timer starts over next time.", "on the long break, says so");
 
-    island.press(kStartOrPause);
+    island.press(kStart);
     island.registry.stop("pomodoro");
     expect(island.state.panels.empty() && !island.focus(), "stopping the provider removes the panel and the session");
     expect(mode(island.state) == Mode::Idle, "and closes Home");
+
+    // A restart (decision 027): the session is saved with the wall clock, and
+    // a new run picks it up where it would be now.
+    std::string saved;
+    Ms wall{ 1'700'000'000'000 };
+    auto storage = [&] {
+        return ProviderRegistry::Store{
+            .load = [&](const std::string&, const std::string& key) { return key == PomodoroProvider::kSessionKey ? saved : ""; },
+            .save = [&](const std::string&, const std::string& key, const std::string& s) { if (key == PomodoroProvider::kSessionKey) saved = s; },
+            .wallClock = [&] { return wall; } };
+    };
+    auto run = std::make_unique<Island>(storage());
+    run->registry.add(std::make_unique<PomodoroProvider>());
+    run->registry.start("pomodoro");
+    run->registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kStart, 0 });
+    run->now += Ms{ 60000 };
+    wall += Ms{ 60000 };
+    run->registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kPause, 0 }); // saves: 1 min in, paused
+    run.reset(); // the app quits
+    wall += Ms{ 3'600'000 };
+    auto next = std::make_unique<Island>(storage());
+    next->now = Ms{ 500 }; // a new run: the app's own clock started over
+    next->registry.add(std::make_unique<PomodoroProvider>());
+    next->registry.start("pomodoro");
+    const Activity* resumed = next->focus();
+    expect(resumed && resumed->content.label == "Focus" && !next->registry.nextWake(), "restarted: the paused session is back, still paused");
+    run = std::move(next);
+    run->registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kPause, 0 }); // resume: running again
+    expect(run->registry.nextWake() == run->now + t.pomodoroFocus - Ms{ 60000 }, "an hour closed while paused: the same minute left to go");
+
+    // Running while closed: phases that ended meanwhile pass quietly.
+    run.reset();
+    wall += t.pomodoroFocus - Ms{ 60000 } + Ms{ 30000 }; // focus ended 30 s ago
+    next = std::make_unique<Island>(storage());
+    next->registry.add(std::make_unique<PomodoroProvider>());
+    next->registry.start("pomodoro");
+    expect(next->focus() && next->focus()->content.label == "Break" && !next->state.alert, "focus ended while closed: on the break, no alert");
+    expect(next->registry.nextWake() == next->now + t.pomodoroBreak - Ms{ 30000 }, "30 s into it");
+    next.reset();
+    wall += Ms{ 24 * 3'600'000 };
+    next = std::make_unique<Island>(storage());
+    next->registry.add(std::make_unique<PomodoroProvider>());
+    next->registry.start("pomodoro");
+    expect(!next->focus() && next->state.panels.size() == 1, "a day later: the session ended meanwhile, dormant");
+
+    // Stopping forgets it.
+    next->registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kStart, 0 });
+    expect(!saved.empty(), "a new session is saved");
+    next->registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kStopConfirmed, 0 });
+    expect(saved.empty() && !resumeSession(saved, Ms{ 0 }, wall), "stopped: nothing to resume");
+    expect(!resumeSession("garbage", Ms{ 0 }, wall) && !resumeSession("pomodoro1 7 1 1 0 1000 0", Ms{ 0 }, wall), "unreadable: nothing");
+    PomodoroSession clockBack = *resumeSession("pomodoro1 0 1 1 1000 60000 5000", Ms{ 0 }, Ms{ 1000 });
+    expect(clockBack.timeline.position == Ms{ 1000 }, "a clock set back: no time passed");
 }
 
 } // namespace cup::test

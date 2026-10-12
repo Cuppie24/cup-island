@@ -17,7 +17,7 @@ using Ms = std::chrono::milliseconds;
 
 // Built-in icons; the renderer maps them to font glyphs.
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
-                   Bluetooth, Sun, Moon, Copy, Checked, Unchecked, Delete, OpenApp, Settings, ChevronLeft, ChevronRight };
+                   Bluetooth, Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight };
 
 enum class TextStyle { Title, Body, Caption, Digits, Display }; // Display: a big number, the card's centre (a timer)
 
@@ -61,6 +61,10 @@ struct Text {
     bool marquee = false;  // too long: scrolls ("swims") in a loop instead of ending in "…"
     bool centred = false;  // centred in its frame (wins over alignEnd)
     bool struck = false;   // struck through: a solved to-do
+    // Editable in place (decision 029): a Button with `editsText` and this
+    // actionId turns it into a field holding its text; Enter sends the
+    // provider Action{editAction, text}, Esc leaves it as it was.
+    std::string editAction;
     bool operator==(const Text&) const = default;
 };
 struct Image {
@@ -78,6 +82,7 @@ struct Button {
     bool compact = false;   // smallButtonSize: list rows (a to-do's checkbox), not main controls. Not "small": windows.h #defines it
     bool revealOnHover = false; // hidden until the pointer is on its row: a list item's delete (decision 020)
     bool destructive = false;   // its label in dangerColor: a dialog's "Clear"
+    bool editsText = false;     // starts editing the Text whose editAction is this button's actionId (decision 029)
     bool operator==(const Button&) const = default;
 };
 
@@ -153,10 +158,22 @@ struct Row {
     // The row's button takes clicks anywhere on the row, not just on itself:
     // a list item, where clicking a to-do's text ticks it.
     bool clickAnywhere = false;
-    // The mouse wheel over this row sends this action, Action::value = steps
-    // (positive: down). A list that scrolls: the provider moves its window
-    // and republishes (decision 020).
-    std::string scrollAction;
+    // A list (decision 029): rows with the same `list`, back to back, scroll
+    // together in a window listVisibleRows rows tall; the host scrolls it
+    // with the wheel, smoothly. Host::reveal keeps a row in view.
+    std::string list;
+    // Drag to reorder (decision 029): pressed and dragged, the row moves among
+    // the list's rows of the same `sortGroup`; dropped in a new place, its
+    // provider gets this action with Action::value = the row's new index in the list.
+    std::string moveAction;
+    int sortGroup = 0;
+    // Names the row in element keys instead of its index ("<slot>/<id>/<item>"),
+    // so its visuals follow it when the list reorders. No '/'.
+    std::string id;
+    // A list item (a to-do): listItemPadding above and below, so items stand
+    // apart, its content inset by listItemInset, and a faint background across
+    // the whole row under the pointer.
+    bool listItem = false;
     bool operator==(const Row&) const = default;
 };
 

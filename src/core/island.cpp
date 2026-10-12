@@ -3,6 +3,7 @@
 #include "core/alert_queue.h"
 #include "core/card_overlays.h"
 #include "core/lift.h"
+#include "core/lists.h"
 #include "core/split.h"
 #include "core/tokens.h"
 
@@ -243,7 +244,7 @@ void handle(IslandState& s, const TileClicked& e, Ms now)
     }
 }
 
-// --- Over a card: a text draft, a dialog (card_overlays.h) -----------------------
+// --- Over a card: a text draft, a dialog (card_overlays.h), lists (lists.h) ------
 
 void handle(IslandState& s, const InputFocused& e, Ms now) { focusInput(s, e, now); }
 void handle(IslandState& s, const TextTyped& e, Ms now) { typeText(s, e, now); }
@@ -252,6 +253,11 @@ void handle(IslandState& s, const InputSubmitted&, Ms now) { submitText(s, now);
 void handle(IslandState& s, const InputCancelled&, Ms) { s.draft.reset(); }
 void handle(IslandState& s, const DialogShown& e, Ms now) { showDialog(s, e, now); }
 void handle(IslandState& s, const DialogClosed&, Ms) { s.dialog.reset(); }
+void handle(IslandState& s, const ListScrolled& e, Ms now) { scrollList(s, e, now); } // lists.h, decision 029
+void handle(IslandState& s, const ListRevealed& e, Ms) { revealListRow(s, e); }
+void handle(IslandState& s, const ListDragStarted& e, Ms now) { startListDrag(s, e, now); }
+void handle(IslandState& s, const ListDragMoved& e, Ms now) { moveListDrag(s, e, now); }
+void handle(IslandState& s, const ListDragEnded&, Ms) { s.listDrag.reset(); }
 
 void handle(IslandState& s, const ClockSynced& e, Ms now) { s.clock = WallClock{ e.timeOfDay - now, e.hour24 }; }
 

@@ -28,9 +28,11 @@ add_library(cup_core STATIC
     src/core/home.cpp
     src/core/island.cpp
     src/core/island_queries.cpp
+    src/core/item_metrics.cpp
     src/core/json_reader.cpp
     src/core/layout.cpp
     src/core/lift.cpp
+    src/core/lists.cpp
     src/core/placement.cpp
     src/core/slot_layout.cpp
     src/core/split.cpp
@@ -49,9 +51,11 @@ add_library(cup_providers STATIC
     src/providers/media/session_choice.cpp
     src/providers/media/tab_match.cpp
     src/providers/pomodoro/pomodoro_provider.cpp
+    src/providers/pomodoro/pomodoro_session.cpp
     src/providers/pomodoro/todo_list.cpp
     src/providers/system/settings_provider.cpp
     src/providers/system/system_panels.cpp
+    src/providers/file_store.cpp
     src/providers/provider_registry.cpp
 )
 target_link_libraries(cup_providers PUBLIC cup_core)
@@ -71,6 +75,7 @@ if(CUP_BUILD_TESTS)
         tests/provider_tests.cpp
         tests/unit_tests.cpp
         tests/scenario_runner.cpp
+        tests/store_tests.cpp
         tests/system_tests.cpp
         tests/todo_tests.cpp
         tests/tokens_tests.cpp
@@ -103,6 +108,7 @@ if(WIN32)
         src/platform/element_painting.cpp
         src/platform/element_parts.cpp
         src/platform/element_visuals.cpp
+        src/platform/list_viewports.cpp
         src/platform/file_watcher.cpp
         src/platform/fullscreen_watcher.cpp
         src/platform/graphics_device.cpp

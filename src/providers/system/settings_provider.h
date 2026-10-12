@@ -1,8 +1,9 @@
 #pragma once
 // Settings on Home (decision 022): a widget whose card picks the app theme,
 // the display the island is on (decision 023), puts a moved island back in
-// the centre (decision 026), and copies the log for a bug report. Saving picks, recolouring, moving the island and the clipboard are
-// the app's (handed in), so this stays pure and is tested on Linux.
+// the centre (decision 026), and copies the log for a bug report. Picks are
+// kept in the host's store (decision 028); recolouring, moving the island and
+// the clipboard are the app's (handed in), so this stays pure and is tested on Linux.
 
 #include "core/provider.h"
 
@@ -23,13 +24,9 @@ struct DisplayChoice {
 
 // What the card needs from the app.
 struct SettingsHooks {
-    std::function<std::string()> loadTheme;              // the saved theme's name, "" if none
-    std::function<void(const std::string&)> saveTheme;
     std::function<void(const std::string&)> applyTheme;  // recolours the island (tokens.json's "themes")
     std::function<bool()> copyLogs;                      // true: the log is on the clipboard
     std::function<std::vector<DisplayChoice>()> listDisplays; // connected monitors, in Windows' order
-    std::function<std::string()> loadDisplay;            // the saved pick's id, "" = the main display
-    std::function<void(const std::string&)> saveDisplay;
     std::function<void(const std::string&)> applyDisplay; // moves the island; "" = the main display
     std::function<void()> centreIsland;                  // back to the middle of the top edge (decision 026)
 };
@@ -57,6 +54,10 @@ public:
     void refreshDisplays();
 
     static constexpr const char* kPanelId = "system.settings";
+    // Store keys (Host::load/save): the theme's name, the display's id ("" = the main display).
+    // The app reads the display's too, at startup, to open on the right monitor.
+    static constexpr const char* kThemeKey = "theme";
+    static constexpr const char* kDisplayKey = "display";
     static constexpr const char* kPreviousTheme = "theme.previous";
     static constexpr const char* kNextTheme = "theme.next";
     static constexpr const char* kCopyLogs = "logs.copy";

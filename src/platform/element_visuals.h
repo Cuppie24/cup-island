@@ -7,6 +7,7 @@
 #include "core/layout.h"
 #include "platform/element_art.h"
 #include "platform/graphics_device.h"
+#include "platform/list_viewports.h"
 
 #include <map>
 #include <optional>
@@ -54,11 +55,13 @@ private:
     void animateBars(View& view);
     void showHover(const std::string& key, bool on);
     void fadeOutAndRemove(wuc::Visual const& visual);
+    void place(View& view); // its offset, in its list's scroller or the content
 
     wuc::Compositor compositor_{ nullptr };
     GraphicsDevice* device_ = nullptr;
     wuc::ContainerVisual parent_{ nullptr };
     std::map<std::string, View> views_;
+    ListViewports lists_; // scrolling lists' clipped, eased containers (decision 029)
     std::string hovered_;
     std::string hoveredRow_;
     bool deviceLost_ = false;

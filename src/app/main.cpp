@@ -39,6 +39,7 @@
 #include "platform/tray_icon.h"
 #include "platform/watchdog.h"
 #include "providers/demo/demo_media_provider.h"
+#include "providers/file_store.h"
 #include "providers/media/smtc_media_provider.h"
 #include "providers/pomodoro/pomodoro_provider.h"
 #include "providers/system/bluetooth_provider.h"
@@ -47,6 +48,7 @@
 #include "providers/provider_registry.h"
 
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -86,6 +88,8 @@ struct Pointer {
     std::optional<std::string> tabPress;  // mouse-down on an Expanded tab: its activity ("" = Home)
     std::optional<std::string> tilePress; // mouse-down on a Home tile, off its buttons: its panel
     std::optional<Vec2> islandPress; // mouse-down on the pill that may lift it (decision 026): where it went down
+    std::optional<Placed> listPress; // mouse-down on a list row that can be dragged (decision 029)
+    float listPressY = 0;            // ...where, pill coordinates: dragged dragStartDistance, it's picked up
 } g_pointer;
 
 // Pointer callbacks get render-layer points; content works in pill coordinates.
@@ -99,12 +103,28 @@ Ms now()
 }
 
 // A small text file in %LOCALAPPDATA%\CupIsland, next to the logs folder:
-// the to-dos (decision 016), the app theme (decision 022), the island's
-// place on each monitor (decision 026). "" if unknown.
+// the island's place on each monitor (decision 026). "" if unknown.
 std::filesystem::path dataFile(const wchar_t* name)
 {
     return logFolder().empty() ? std::filesystem::path() : logFolder().parent_path() / name;
 }
+
+// What providers keep between runs (Host::load/save, decision 028), in
+// %LOCALAPPDATA%\CupIsland\store. Files from before it move in on first use.
+const FileStore& store()
+{
+    static const FileStore files = [] {
+        FileStore s(dataFile(L"store"));
+        s.adopt(dataFile(L"todos.txt"), "pomodoro", PomodoroProvider::kTodosKey);
+        s.adopt(dataFile(L"theme.txt"), "system.settings", SettingsProvider::kThemeKey);
+        s.adopt(dataFile(L"display.txt"), "system.settings", SettingsProvider::kDisplayKey);
+        return s;
+    }();
+    return files;
+}
+
+// Wall time, not now(): what a provider saves has to mean the same moment after a restart.
+Ms wallClock() { return std::chrono::duration_cast<Ms>(std::chrono::system_clock::now().time_since_epoch()); }
 
 std::string readTextFile(const std::filesystem::path& file)
 {
@@ -144,11 +164,17 @@ bool isCurrent(const Tab& tab)
 
 // Re-run on every pointer move and every new scene: content can move under a still pointer.
 // "<slot>/<row>" of whatever content is under a pill-coordinate point, "" if none.
-std::string rowUnder(Vec2 point)
+const Placed* contentUnder(Vec2 point)
 {
     for (const Placed& p : g_scene.elements)
-        if (p.hitFrame.contains(point) && p.key.rfind("tab/", 0) != 0) return p.key.substr(0, p.key.rfind('/'));
-    return {};
+        if (p.hitFrame.contains(point) && p.key.rfind("tab/", 0) != 0) return &p;
+    return nullptr;
+}
+
+std::string rowUnder(Vec2 point)
+{
+    const Placed* p = contentUnder(point);
+    return p ? p->key.substr(0, p->key.rfind('/')) : std::string();
 }
 
 void updateHover()
@@ -168,8 +194,11 @@ void updateHover()
     if (tab && isCurrent(*tab)) tab = nullptr;
     const Tile* tile = g_pointer.at && key.empty() ? tileAt(g_scene, *g_pointer.at) : nullptr;
     if (tile && !tile->clickable()) tile = nullptr; // widgets without a card or tap action don't react
+    // A list item (a to-do) lights up as a whole row, like a tab (Row::listItem).
+    const Placed* item = g_pointer.at && !g_pointer.scrub ? contentUnder(*g_pointer.at) : nullptr;
     if (tab) g_renderer.setAreaHovered(tab->frame, g_scene.tabs->radius);
     else if (tile) g_renderer.setAreaHovered(tile->frame, g_scene.tileRadius);
+    else if (item && item->listRow) g_renderer.setAreaHovered(item->listRow, item->listRowRadius);
     else g_renderer.setAreaHovered(std::nullopt, 0);
 }
 
@@ -256,16 +285,36 @@ void act(const Action& action)
     dispatch(PointerMoved{}, "action"); // the user is busy here: keep Expanded open
 }
 
-// The wheel over a row that scrolls (Row::scrollAction): its provider moves the list (decision 020).
-void onWheel(Vec2 canvasPoint, int steps)
+// The wheel over a list scrolls it, from what's shown (decision 029); the renderer eases it there.
+void onWheel(Vec2 canvasPoint, float notches)
 {
-    Vec2 point = toPill(canvasPoint);
-    for (const Placed& p : g_scene.elements) {
-        if (p.scrollAction.empty() || !p.hitFrame.contains(point)) continue;
-        g_providers->route({ p.providerId, p.activityId, p.scrollAction, static_cast<float>(steps) });
-        dispatch(PointerMoved{}, "scroll");
-        return;
-    }
+    const Placed* p = listAt(g_scene, toPill(canvasPoint));
+    if (!p) return;
+    dispatch(ListScrolled{ p->activityId, p->list->id, p->list->offset, notches * tokens().scrollStep, p->list->max }, "scroll");
+}
+
+// An edit button (Button::editsText): its row's text becomes a field holding it (decision 029).
+bool startEditing(const Placed& element)
+{
+    auto* button = std::get_if<Button>(&element.item);
+    if (!button || !button->editsText) return false;
+    const Text* text = editedText(g_scene, element.activityId, button->actionId);
+    if (!text) return true; // nothing to edit on screen: the click does nothing
+    SetFocus(g_inputHwnd);
+    dispatch(InputFocused{ element.providerId, element.activityId, button->actionId, text->value, /* editing */ true }, "edit");
+    return true;
+}
+
+// A list row let go after a drag: the drag ends first (the row glides back),
+// then its provider moves it, so the glide carries on to the new place.
+void dropListRow(bool commit)
+{
+    std::optional<Placed> dragged;
+    for (const Placed& p : g_scene.elements)
+        if (p.list && p.list->dragged) dragged = p;
+    dispatch(ListDragEnded{}, commit ? "drop row" : "drag cancelled");
+    if (commit && dragged && dragged->list->dropAt != dragged->list->row)
+        g_providers->route({ dragged->providerId, dragged->activityId, dragged->list->moveAction, static_cast<float>(dragged->list->dropAt) });
 }
 
 // Mouse-down: the bubble may become a drag, a progress bar starts scrubbing,
@@ -305,6 +354,11 @@ void onPressDown(Vec2 canvasPoint)
     } else if (element) {
         g_pointer.pressedKey = hit->key;
         g_renderer.pressElement(hit->key);
+        // A row that can be reordered: dragged far enough, it's picked up instead of clicked.
+        if (element->list && !element->list->moveAction.empty() && !std::holds_alternative<TextInput>(element->item)) {
+            g_pointer.listPress = *element;
+            g_pointer.listPressY = point.y;
+        }
     } else {
         g_renderer.pressDown(false);
     }
@@ -329,6 +383,17 @@ void onPointerMoved(Vec2 canvasPoint, bool inside)
     }
     Vec2 point = toPill(canvasPoint);
     g_pointer.at = inside && onPill(canvasPoint) ? std::optional<Vec2>(point) : std::nullopt;
+    if (g_pointer.listPress) {
+        const Placed& row = *g_pointer.listPress;
+        if (!g_state.listDrag && std::abs(point.y - g_pointer.listPressY) >= tokens().dragStartDistance) {
+            if (!g_pointer.pressedKey.empty()) g_renderer.releaseElement(std::exchange(g_pointer.pressedKey, std::string{})); // not a click now
+            dispatch(ListDragStarted{ row.activityId, row.list->id, row.list->row, g_pointer.listPressY }, "pick up row");
+        }
+        if (g_state.listDrag) {
+            dispatch(ListDragMoved{ point.y }, "carry row");
+            return;
+        }
+    }
     if (g_pointer.scrub) {
         g_pointer.scrubFraction = seekFraction(*g_pointer.scrub, point.x);
         g_renderer.scrubElement(g_pointer.scrub->key, g_pointer.scrubFraction);
@@ -369,6 +434,10 @@ void onPressRelease(Vec2 canvasPoint, Release how)
         else if (!g_pointer.dragged && how == Release::Inside && onBubble(canvasPoint)) dispatch(BubbleClicked{}, "bubble click");
         return;
     }
+    if (std::exchange(g_pointer.listPress, std::nullopt) && g_state.listDrag) {
+        dropListRow(how != Release::Cancelled); // dropped anywhere: it lands where it shows it would
+        return;
+    }
     Vec2 point = toPill(canvasPoint);
     if (g_pointer.scrub) {
         // A scrub seeks wherever it's let go, even off the pill; only a lost capture cancels it.
@@ -390,7 +459,7 @@ void onPressRelease(Vec2 canvasPoint, Release how)
                 // A field: focus it for typing (decision 016); nothing is sent until Enter.
                 SetFocus(g_inputHwnd);
                 dispatch(InputFocused{ hit->action.providerId, hit->action.activityId, hit->action.actionId }, "focus field");
-            } else {
+            } else if (!element || !startEditing(*element)) {
                 act(hit->action);
             }
         }
@@ -573,8 +642,7 @@ int main()
 
     // Start on the saved monitor straight away (decision 023), at its scaling:
     // tokens.json is in logical pixels, every length is multiplied by it.
-    std::filesystem::path displayFile = dataFile(L"display.txt");
-    g_displayId = readTextFile(displayFile);
+    g_displayId = store().load("system.settings", SettingsProvider::kDisplayKey); // the Settings provider's pick
     g_displayId.erase(g_displayId.find_last_not_of(" \t\r\n") + 1);
     Display display = displayFor(g_displayId);
     app::setDisplayScale(display.scale);
@@ -636,20 +704,17 @@ int main()
     auto uiQueue = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
     auto postToUi = [uiQueue](std::function<void()> work) { uiQueue.TryEnqueue([work = std::move(work)] { work(); }); };
 
-    g_providers = std::make_unique<ProviderRegistry>(dispatch, now);
+    g_providers = std::make_unique<ProviderRegistry>(dispatch, now, ProviderRegistry::Store{
+        .load = [](const std::string& provider, const std::string& key) { return store().load(provider, key); },
+        .save = [](const std::string& provider, const std::string& key, const std::string& text) { store().save(provider, key, text); },
+        .wallClock = wallClock,
+    });
     g_providers->add(std::make_unique<SmtcMediaProvider>(postToUi));
     g_providers->add(std::make_unique<DemoMediaProvider>()); // M key
     g_providers->add(std::make_unique<BluetoothProvider>(postToUi));
     g_providers->add(std::make_unique<ThemeProvider>(postToUi));
-    std::filesystem::path todos = dataFile(L"todos.txt");
-    g_providers->add(std::make_unique<PomodoroProvider>(TodoStorage{
-        [todos] { return readTextFile(todos); },
-        [todos](const std::string& text) { writeTextFile(todos, text); },
-    }));
-    std::filesystem::path theme = dataFile(L"theme.txt");
+    g_providers->add(std::make_unique<PomodoroProvider>());
     auto settings = std::make_unique<SettingsProvider>(SettingsHooks{
-        .loadTheme = [theme] { return readTextFile(theme); },
-        .saveTheme = [theme](const std::string& name) { writeTextFile(theme, name); },
         .applyTheme = applyTheme,
         .copyLogs = [] { return copyLogToClipboard(g_inputHwnd); },
         .listDisplays = [] {
@@ -657,8 +722,6 @@ int main()
             for (const Display& d : listDisplays()) choices.push_back({ d.id, d.name });
             return choices;
         },
-        .loadDisplay = [displayFile] { return readTextFile(displayFile); },
-        .saveDisplay = [displayFile](const std::string& id) { writeTextFile(displayFile, id); },
         .applyDisplay = placeIsland,
         .centreIsland = [] { dispatch(SpotRestored{}, "centre island"); },
     });

@@ -86,7 +86,10 @@ struct Tokens {
     float iconSize = 18;
     float buttonSize = 36;
     float smallButtonSize = 24;   // Button::compact: list rows (a to-do's checkbox)
+    float revealGlyphSize = 14;   // Button::revealOnHover (a to-do's delete): a smaller glyph, the same button and hover shape
     float inputHeight = 30;       // a TextInput: a little taller than the rows, easy to click into
+    float listItemPadding = 4;    // Row::listItem: above and below its content, so list items stand apart
+    float listItemInset = 6;      // Row::listItem: its content in from the hover background's edges
     float buttonLabelPadding = 10; // a text button: its label plus this on each side        // hover circle; the click area also takes in half the gaps around it
     float buttonGlyphSize = 16;
     float buttonPressScale = 0.85f;
@@ -214,7 +217,12 @@ struct Tokens {
     Ms pomodoroBreak{ 300000 };
     Ms pomodoroLongBreak{ 900000 };
     std::size_t pomodoroRounds = 4;
-    std::size_t todoVisibleItems = 4; // Pomodoro's to-dos shown in its card; the rest as "+n more"
+    // Lists (Row::list, decision 029): the window shows this many rows (the
+    // half says there's more), the wheel moves scrollStep per notch, easing
+    // over scrollDuration; a press dragged dragStartDistance picks a row up.
+    float listVisibleRows = 4.5f;
+    float scrollStep = 40;
+    Ms scrollDuration{ 180 };
 
     // The Settings card's "Copy logs" button: how long it says "Copied" after a click.
     Ms logsNote{ 2000 };

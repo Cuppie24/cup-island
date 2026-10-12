@@ -10,7 +10,7 @@ bool shown(const IslandState& s, const std::string& activityId) { return !s.home
 void focusInput(IslandState& s, const InputFocused& e, Ms now)
 {
     if (!shown(s, e.activityId) || s.dialog) return;
-    if (!s.draft || s.draft->actionId != e.actionId) s.draft = Draft{ e.providerId, e.activityId, e.actionId, "" };
+    if (!s.draft || s.draft->actionId != e.actionId) s.draft = Draft{ e.providerId, e.activityId, e.actionId, e.text, e.editing };
     s.lastPointerAt = now;
 }
 
@@ -36,7 +36,8 @@ void eraseText(IslandState& s, Ms now)
 void submitText(IslandState& s, Ms now)
 {
     if (!s.draft) return;
-    s.draft->text.clear(); // focus stays: add the next one
+    if (s.draft->editing) s.draft.reset(); // an edit is done once sent
+    else s.draft->text.clear();            // a field keeps focus: add the next one
     s.lastPointerAt = now;
 }
 
@@ -52,6 +53,7 @@ void dropStaleOverlays(IslandState& s)
 {
     if (s.draft && !shown(s, s.draft->activityId)) s.draft.reset();
     if (s.dialog && !shown(s, s.dialog->activityId)) s.dialog.reset();
+    if (s.listDrag && (!shown(s, s.listDrag->activityId) || s.dialog)) s.listDrag.reset();
 }
 
 } // namespace cup

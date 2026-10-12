@@ -5,6 +5,7 @@
 #include "core/provider.h"
 
 #include <functional>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -17,7 +18,15 @@ public:
     using Dispatch = std::function<void(const Event& event, const char* reason)>;
     using Clock = std::function<Ms()>;
 
-    ProviderRegistry(Dispatch dispatch, Clock clock);
+    // Where providers' saved text lives (Host::load/save, decision 028). Unset
+    // parts fall back to memory and to `clock` (tests).
+    struct Store {
+        std::function<std::string(const std::string& providerId, const std::string& key)> load;
+        std::function<void(const std::string& providerId, const std::string& key, const std::string& text)> save;
+        Clock wallClock;
+    };
+
+    ProviderRegistry(Dispatch dispatch, Clock clock, Store store = {});
     ~ProviderRegistry(); // stops everything still running
 
     void add(std::unique_ptr<Provider> provider);
@@ -46,6 +55,8 @@ private:
 
     Dispatch dispatch_;
     Clock clock_;
+    Store store_;
+    std::map<std::string, std::string> memory_; // "<provider>/<key>", without a store
     std::vector<Entry> entries_;
 };
 

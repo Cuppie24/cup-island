@@ -12,11 +12,15 @@
 //            panel <id> [static]  unpanel <id>  home  tile <id>     (static: a widget with no card)
 //            focus <card> <action>  type <text...>  erase  submit  cancel-input   (a TextInput, decision 016)
 //            ask <card>  close-dialog                                               (a provider's dialog, decision 020)
+//            edit <card> <action> <text>                                            (a Text edited in place, decision 029)
+//            wheel <card> <list> <from> <delta> <max>  reveal <card> <list> <row>    (lists, decision 029)
+//            pick <card> <list> <row> <y>  carry <y>  put-down
 //            screen <width>  hold  move <dx>  let-go  restore <dock> [fraction]      (lifting the island, decision 026)
 // Checks after "->":  <Mode>  queue=<n>  top=<activity>  bubble=<activity>  alert=<name>
 //                     expanded=<activity|panel|home>  pinned=<activity>  dragging=yes|no  preview=yes|no
 //                     draft=<text>|empty|none  (no spaces in <text>)  dialog=<card>|none
 //                     lifted=yes|no  spot=centre|left|right|free
+//                     scroll=<card>/<list>:<offset>[+reveal]  carried=<row>|none
 // Levels: passive active timeSensitive critical.  '#' starts a comment.
 
 #include "core/island.h"
@@ -141,6 +145,12 @@ struct Runner {
         else if (cmd == "cancel-input") apply(InputCancelled{});
         else if (cmd == "ask") apply(DialogShown{ { .providerId = "p", .activityId = arg(1), .title = "Sure?", .confirmAction = "yes" } });
         else if (cmd == "close-dialog") apply(DialogClosed{});
+        else if (cmd == "edit") apply(InputFocused{ "p", arg(1), arg(2), arg(3), /* editing */ true });
+        else if (cmd == "wheel") apply(ListScrolled{ arg(1), arg(2), std::stof(arg(3)), std::stof(arg(4)), std::stof(arg(5)) });
+        else if (cmd == "reveal") apply(ListRevealed{ arg(1), arg(2), std::stoul(arg(3)) });
+        else if (cmd == "pick") apply(ListDragStarted{ arg(1), arg(2), std::stoul(arg(3)), std::stof(arg(4)) });
+        else if (cmd == "carry") apply(ListDragMoved{ std::stof(arg(1)) });
+        else if (cmd == "put-down") apply(ListDragEnded{});
         else if (cmd == "screen") apply(ScreenResized{ std::stof(arg(1)) });
         else if (cmd == "hold") apply(IslandPressed{});
         else if (cmd == "move") apply(IslandDragged{ { std::stof(arg(1)), 0 } });
@@ -190,6 +200,15 @@ struct Runner {
                 const char* names[] = { "centre", "left", "right", "free" };
                 std::string got = names[static_cast<int>(state.spot.dock)];
                 if (got != *v) fail("spot=" + *v + ", got " + got);
+            } else if (auto v = option(word, "scroll")) {
+                std::string key = v->substr(0, v->find(':'));
+                auto it = state.scrolls.find(key);
+                std::string got = it == state.scrolls.end() ? "none"
+                                                            : std::to_string(static_cast<int>(it->second.offset)) + (it->second.reveal ? "+reveal" : "");
+                if (key + ":" + got != *v) fail("scroll=" + *v + ", got " + got);
+            } else if (auto v = option(word, "carried")) {
+                std::string got = state.listDrag ? std::to_string(state.listDrag->row) : "none";
+                if (got != *v) fail("carried=" + *v + ", got " + got);
             } else if (auto v = option(word, "expanded")) {
                 std::string id = state.homeOpen ? "home" : state.expandedId.empty() ? "none" : state.expandedId;
                 if (id != *v) fail("expanded=" + *v + ", got " + id);

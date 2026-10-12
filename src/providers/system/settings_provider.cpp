@@ -64,9 +64,9 @@ void SettingsProvider::start(Host& host)
     host_ = &host;
     note_ = LogsNote::Ready;
     displays_ = hooks_.listDisplays ? hooks_.listDisplays() : std::vector<DisplayChoice>{};
-    wantedDisplay_ = trimmed(hooks_.loadDisplay ? hooks_.loadDisplay() : std::string());
+    wantedDisplay_ = trimmed(host_->load(kDisplayKey));
     placeIsland();
-    pick(known(trimmed(hooks_.loadTheme ? hooks_.loadTheme() : std::string())));
+    pick(known(trimmed(host_->load(kThemeKey))));
 }
 
 void SettingsProvider::stop()
@@ -85,7 +85,7 @@ void SettingsProvider::onAction(const Action& action)
         std::size_t n = themes.size(), at = indexOf(theme_);
         std::size_t next = action.actionId == kNextTheme ? (at + 1) % n : (at + n - 1) % n; // wraps around
         pick(themes[next].name);
-        if (hooks_.saveTheme) hooks_.saveTheme(theme_);
+        host_->save(kThemeKey, theme_);
     } else if ((action.actionId == kNextDisplay || action.actionId == kPreviousDisplay) && !displays_.empty()) {
         // "Main display" first, then each monitor; wraps around like the themes.
         std::vector<std::string> ids{ "" };
@@ -93,7 +93,7 @@ void SettingsProvider::onAction(const Action& action)
         std::size_t n = ids.size();
         std::size_t at = static_cast<std::size_t>(std::find(ids.begin(), ids.end(), appliedDisplay_) - ids.begin()) % n;
         wantedDisplay_ = ids[action.actionId == kNextDisplay ? (at + 1) % n : (at + n - 1) % n];
-        if (hooks_.saveDisplay) hooks_.saveDisplay(wantedDisplay_);
+        host_->save(kDisplayKey, wantedDisplay_);
         placeIsland();
         publish();
     } else if (action.actionId == kCentreIsland) {
