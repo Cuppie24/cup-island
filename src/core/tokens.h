@@ -156,6 +156,7 @@ struct Tokens {
     float tileHeight = 60;        // fits a title and a caption line inside tilePadding
     float tileGap = 8;
     float tilePadding = 8;        // inside a tile, on every side
+    float focusRingWidth = 2;     // the keyboard's focus ring (decision 033), drawn inside what has focus
 
     // Morph between modes: ease-out, 250-350 ms budget (TR §5).
     Ms morphDuration{ 300 };
@@ -214,6 +215,7 @@ struct Tokens {
     Color tabSelectedColor{ 255, 255, 255, 41 };
     Color hoverColor{ 255, 255, 255, 20 };         // a tab or tile under the pointer
     Color tileColor{ 255, 255, 255, 20 };          // Home's tile backgrounds
+    Color focusRingColor{ 255, 255, 255, 153 };    // around what the keyboard has focus on (decision 033): a theme's accent
     Color inputColor{ 255, 255, 255, 26 };         // a text field's background (decision 016)
     Color placeholderTextColor{ 255, 255, 255, 128 }; // "Add a to-do…": like body text, a little dimmer
     Color dangerColor{ 255, 69, 58 };              // a destructive button's label: a dialog's "Clear all" (decision 020)

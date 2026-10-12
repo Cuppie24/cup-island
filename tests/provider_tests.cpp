@@ -104,6 +104,15 @@ void runProviderTests()
     island.registry.route({ "other", DemoMediaProvider::kActivityId, "next", 0 });
     expect(island.state.activities[0].content.label == "Midnight Tea - The Placeholders", "actions for other providers are ignored");
 
+    // Ctrl+W (decision 034): a provider that doesn't handle it, like a
+    // player, ignores it: the activity stays, nothing is asked.
+    island.state = reduce(island.state, ClickedOutside{}, island.now);
+    island.state = reduce(island.state, PillClicked{}, island.now);
+    auto shown = shownActivity(island.state);
+    expect(shown && shown->activityId == DemoMediaProvider::kActivityId, "ctrl+w: the open card is the player's");
+    island.registry.closeRequested(*shown);
+    expect(findActivity(island.state, DemoMediaProvider::kActivityId) && !island.state.dialog, "ctrl+w: the player ignores it");
+
     island.registry.stop("demo");
     expect(island.state.activities.empty() && !island.registry.isRunning("demo"), "stopping ends the activity");
 }

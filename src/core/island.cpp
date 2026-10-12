@@ -39,6 +39,7 @@ void expand(IslandState& s, const std::string& id, Ms now)
 {
     s.expandedId = id;
     s.homeOpen = false;
+    s.cardFromHome = false; // opened some other way; TileClicked sets it after
     s.lastPointerAt = now;
 }
 
@@ -46,6 +47,7 @@ void openHome(IslandState& s, Ms now)
 {
     s.expandedId.clear();
     s.homeOpen = true;
+    s.cardFromHome = false;
     s.lastPointerAt = now;
 }
 
@@ -53,6 +55,7 @@ void collapse(IslandState& s)
 {
     s.expandedId.clear();
     s.homeOpen = false;
+    s.cardFromHome = false;
 }
 
 // Unsent text in a field: Expanded doesn't time out under it (decision 016).
@@ -153,7 +156,13 @@ void handle(IslandState& s, const AlertPosted& e, Ms now)
 }
 void handle(IslandState& s, const PillClicked&, Ms now) { onClick(s, now); }
 void handle(IslandState& s, const ClickedOutside&, Ms) { collapse(s); }
-void handle(IslandState& s, const EscapePressed&, Ms) { collapse(s); }
+// Esc steps back one level (decision 033): a card opened from a Home widget
+// goes back to Home; anything else closes.
+void handle(IslandState& s, const EscapePressed&, Ms now)
+{
+    if (s.cardFromHome && !s.homeOpen && !s.panels.empty()) openHome(s, now);
+    else collapse(s);
+}
 void handle(IslandState& s, const PointerMoved&, Ms now) { s.lastPointerAt = now; }
 
 void handle(IslandState& s, const DragEntered& e, Ms)
@@ -244,11 +253,14 @@ void handle(IslandState& s, const HomeOpened&, Ms now)
 // A running panel opens like its tab (and becomes the pick); a dormant one shows its card.
 void handle(IslandState& s, const TileClicked& e, Ms now)
 {
+    bool fromHome = s.homeOpen;
     if (findActivity(s, e.id)) {
         handle(s, ActivityPromoted{ e.id }, now);
         expand(s, e.id, now);
+        s.cardFromHome = fromHome;
     } else if (const Panel* p = findPanel(s, e.id); p && p->tapAction.empty() && hasCard(p->content)) {
         expand(s, e.id, now); // static widgets have no card; a toggle's tap goes to its provider
+        s.cardFromHome = fromHome;
     }
 }
 

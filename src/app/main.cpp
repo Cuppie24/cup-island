@@ -72,6 +72,16 @@ using namespace cup::platform;
 
 namespace {
 
+// The demo keys (M, T, C, D, H) fake states without a real source: a
+// player, a second activity, an alert, a drag. Debug builds only (decision
+// 033): in Release a stray key on the island shouldn't do anything. NDEBUG
+// is the one build switch C++ already has; CMake sets it for Release.
+#ifdef NDEBUG
+constexpr bool kDemoKeys = false;
+#else
+constexpr bool kDemoKeys = true;
+#endif
+
 const auto g_startTime = std::chrono::steady_clock::now();
 IslandState g_state;
 Scene g_scene;
@@ -190,7 +200,7 @@ std::string rowUnder(Vec2 point)
 std::optional<Vec2> hoverPoint()
 {
     if (!g_pointer.scrub)
-        if (auto focused = app::keyFocusPoint()) return focused;
+        if (auto focused = app::keyFocus()) return focused->point;
     return g_pointer.at;
 }
 
@@ -218,6 +228,13 @@ void updateHover()
     else if (tile) g_renderer.setAreaHovered(tile->frame, g_scene.tileRadius);
     else if (item && item->listRow) g_renderer.setAreaHovered(item->listRow, item->listRowRadius);
     else g_renderer.setAreaHovered(std::nullopt, 0);
+
+    // The keyboard's focus also gets a ring (decision 033): hover alone can't
+    // tell it from the pointer's, and a static widget has no hover at all.
+    std::optional<cup::Focusable> focused;
+    if (!g_pointer.scrub) focused = app::keyFocus();
+    if (focused && inView(*focused)) g_renderer.setFocusRing(focused->frame, focused->radius);
+    else g_renderer.setFocusRing(std::nullopt, 0);
 }
 
 // The Expanded tab under a pill-coordinate point, if any.
@@ -541,9 +558,14 @@ void onChar(wchar_t c)
 void onKey(WPARAM key)
 {
     if (app::recordKey(key)) return; // Settings is recording a shortcut's new keys (decision 032)
-    // A dialog: Esc cancels it, the card stays (decision 020).
+    bool ctrl = GetKeyState(VK_CONTROL) < 0, alt = GetKeyState(VK_MENU) < 0;
+    // A dialog: Esc cancels it, the card stays (decision 020). The arrows,
+    // Tab and Enter move between its buttons and press one (decision 033);
+    // the first press shows focus on Cancel, so a stray Enter answers nothing.
+    // No Ctrl or Alt keys: switching tabs or closing would leave it hanging.
     if (g_state.dialog) {
         if (key == VK_ESCAPE) answerDialog(false);
+        else if (!ctrl && !alt) app::navigationKey(key);
         return;
     }
     // A focused field gets the keys (onChar): no demo keys while typing. Esc
@@ -553,16 +575,32 @@ void onKey(WPARAM key)
         return;
     }
     // Alt combinations (WM_SYSKEYDOWN) are only for recording a shortcut; Windows handles the rest (Alt+F4).
-    bool ctrl = GetKeyState(VK_CONTROL) < 0, alt = GetKeyState(VK_MENU) < 0;
     if (alt) return;
-    if (app::navigationKey(key)) return; // the arrows, Enter and Space (decision 031)
+    if (app::navigationKey(key)) return; // the arrows, Tab, Home/End, 1 to 9, Enter and Space (decisions 031, 033)
     switch (key) {
-    case VK_ESCAPE:
-        // Closes what's open, never the app: quitting is the tray's Exit.
-        if (mode(g_state) == Mode::Expanded) dispatch(EscapePressed{}, "esc");
+    case VK_ESCAPE: {
+        // One step back, never out of the app: quitting is the tray's Exit. A
+        // card's own page goes back to its list, a card opened from Home back
+        // to Home, anything else closes (decision 033).
+        if (mode(g_state) != Mode::Expanded) return;
+        std::string back = backAction(g_state);
+        if (auto card = shownCard(g_state); card && !back.empty()) act({ card->providerId, card->activityId, back });
+        else dispatch(EscapePressed{}, "esc");
         return;
     }
-    if (ctrl) return; // the demo keys are plain letters: Ctrl+M isn't M
+    }
+    // Ctrl+W: asks the shown activity's provider to close it, which may end
+    // it, ask first or ignore it (decision 034). Home and a dormant card have
+    // no activity to close.
+    if (ctrl && key == 'W') {
+        auto card = shownActivity(g_state);
+        if (mode(g_state) == Mode::Expanded && card) {
+            g_providers->closeRequested(*card);
+            dispatch(PointerMoved{}, "close request"); // busy here: keep the card open for an answer
+        }
+        return;
+    }
+    if (ctrl || !kDemoKeys) return; // the demo keys are plain letters (Ctrl+M isn't M), in Debug builds only
     switch (key) {
     case 'M': toggleProvider("demo"); break;
     case 'T': toggleTimer(); break;
@@ -790,7 +828,6 @@ int main()
             g_renderer.releaseElement(hit.key);
             clickElement(hit);
         },
-        .updateHover = updateHover,
         .window = g_inputHwnd,
         .settings = g_settings,
     });

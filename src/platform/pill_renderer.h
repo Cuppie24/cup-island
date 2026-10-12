@@ -44,6 +44,8 @@ public:
 
     // Expanded's tabs and Home's tiles: light up the one under the pointer (pill coordinates), or none.
     void setAreaHovered(std::optional<Rect> area, float cornerRadius) { pill_.setHovered(area, cornerRadius); }
+    // The keyboard's focus ring (decision 033): around what has focus (pill coordinates), or none.
+    void setFocusRing(std::optional<Rect> area, float cornerRadius) { pill_.setFocusRing(area, cornerRadius); }
 
 private:
     void applyContent(); // the latest pending scene's content, for both blobs

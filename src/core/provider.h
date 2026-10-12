@@ -57,6 +57,9 @@ public:
     virtual Ms wallClock() const = 0;
 };
 
+// Keys never reach a provider (decision 035): the host owns focus and
+// navigation. What a key means for a card comes as a hint in its content
+// (Content::backAction) or a request (onCloseRequested).
 class Provider {
 public:
     virtual ~Provider() = default;
@@ -68,6 +71,11 @@ public:
     // Its card stopped being shown (closed, or Home or another card took its
     // place). A card with pages within it goes back to its first (Settings).
     virtual void onCardClosed(const std::string& /*activityId*/) {}
+    // Ctrl+W on its activity's card (decision 034): the user asks to close it.
+    // The provider decides: end it (Host::endActivity), ask first (Host::ask),
+    // or ignore it (what a media player does: it closes when the music
+    // does). Ignoring is the default: nothing ends behind a provider's back.
+    virtual void onCloseRequested(const std::string& /*activityId*/) {}
 };
 
 } // namespace cup

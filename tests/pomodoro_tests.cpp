@@ -234,6 +234,22 @@ void runPomodoroTests()
     PomodoroProvider::Session longBreak{ .phase = PomodoroProvider::Phase::LongBreak, .round = t.pomodoroRounds };
     expect(stopQuestion(longBreak).message == "You're on the long break. The timer starts over next time.", "on the long break, says so");
 
+    // Ctrl+W (decision 034): only a live activity's card has something to
+    // close; on Pomodoro's it asks like the stop button, then stops.
+    expect(!shownActivity(island.state), "ctrl+w: the dormant card has no activity to close");
+    island.press(kStart);
+    auto shown = shownActivity(island.state);
+    expect(shown && shown->activityId == PomodoroProvider::kPanelId, "ctrl+w: the running card's activity");
+    island.registry.closeRequested(*shown);
+    expect(island.focus() && island.state.dialog && island.state.dialog->title == "Stop the session?", "ctrl+w: asks first; still running");
+    asked = *island.state.dialog;
+    island.registry.route({ asked.providerId, asked.activityId, asked.confirmAction, 0 });
+    island.send(DialogClosed{});
+    expect(!island.focus() && island.state.expandedId == PomodoroProvider::kPanelId, "ctrl+w: confirmed, stopped; its card still open");
+    island.send(HomeOpened{});
+    expect(!shownActivity(island.state), "ctrl+w: Home has no activity to close");
+    island.send(TileClicked{ PomodoroProvider::kPanelId });
+
     island.press(kStart);
     island.registry.stop("pomodoro");
     expect(island.state.panels.empty() && !island.focus(), "stopping the provider removes the panel and the session");

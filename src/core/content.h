@@ -202,6 +202,10 @@ struct Content {
     // settings, where a near miss shouldn't close it. Esc, a click outside
     // the island or the idle timeout still do (decision 030).
     bool keepOpen = false;
+    // A card on one of its own pages (Settings' Theme page): the action Esc
+    // sends, as a click on its back arrow would. Empty: Esc goes back to
+    // Home or closes, as anywhere else (decision 033).
+    std::string backAction;
     Slot compactLeading;
     Slot compactCenter;  // between the two compact squares, e.g. a swimming title
     Slot compactTrailing;

@@ -149,6 +149,13 @@ void PomodoroProvider::stop()
     host_ = nullptr;
 }
 
+// Ctrl+W on the running card (decision 034): the stop button's question,
+// so a stray key can't lose the session either.
+void PomodoroProvider::onCloseRequested(const std::string& activityId)
+{
+    if (activityId == kPanelId) onAction({ id(), kPanelId, act::kStop });
+}
+
 void PomodoroProvider::onAction(const Action& action)
 {
     if (!host_ || action.activityId != kPanelId) return;

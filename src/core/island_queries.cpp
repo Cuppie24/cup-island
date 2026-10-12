@@ -34,6 +34,21 @@ std::optional<ShownCard> shownCard(const IslandState& s)
     return std::nullopt;
 }
 
+std::optional<ShownCard> shownActivity(const IslandState& s)
+{
+    if (!isExpanded(s) || s.homeOpen) return std::nullopt;
+    if (const Activity* a = findActivity(s, s.expandedId)) return ShownCard{ a->providerId, a->id };
+    return std::nullopt;
+}
+
+std::string backAction(const IslandState& s)
+{
+    if (!isExpanded(s) || s.homeOpen) return "";
+    if (const Activity* a = findActivity(s, s.expandedId)) return a->content.backAction;
+    if (const Panel* p = findPanel(s, s.expandedId)) return p->content.backAction;
+    return "";
+}
+
 std::optional<Ms> timeOfDay(const IslandState& s, Ms now)
 {
     if (!s.clock) return std::nullopt;

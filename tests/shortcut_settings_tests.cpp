@@ -67,11 +67,11 @@ void runShortcutSettingsTests()
            noteOf() == "Ctrl+Alt+K is taken by another app", "keys: one another app has aborts, the old keys registered again");
     pressKeys(std::string(settings_action::kEditShortcut) + "0");
     editor.keysPressed(std::nullopt);
-    expect(!capturing && keysOf() == "Ctrl+Alt+J" && noteOf() == "Close",
+    expect(!capturing && keysOf() == "Ctrl+Alt+J" && noteOf() == fixedKeys().back().does,
            "keys: Esc leaves them as they were, no note");
     pressKeys(std::string(settings_action::kEditShortcut) + "0");
     editor.shortcutPressed(Command::OpenHome);
-    expect(!capturing && keysOf() == "Ctrl+Alt+J" && noteOf() == "Close", "keys: its own keys (arriving as the hotkey) change nothing");
+    expect(!capturing && keysOf() == "Ctrl+Alt+J" && noteOf() == fixedKeys().back().does, "keys: its own keys (arriving as the hotkey) change nothing");
     pressKeys(std::string(settings_action::kEditShortcut) + "0");
     pressKeys(settings_action::kBack);
     expect(!capturing, "keys: leaving the page stops waiting");

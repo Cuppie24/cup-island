@@ -78,7 +78,8 @@ Slot displaysPage(const SettingsView& v)
 }
 
 // The shortcuts (decision 032): the system-wide ones, each a row that takes
-// new keys when clicked, then the fixed keys on the island, then a note
+// new keys when clicked, then the fixed keys on the island, in one list that
+// scrolls (there are more than fit), then a note under it, always in view
 // (waiting for keys, or why a change was refused).
 Slot shortcutsPage(const SettingsView& v)
 {
@@ -97,6 +98,7 @@ Slot shortcutsPage(const SettingsView& v)
     heading("On the island");
     for (const FixedKey& k : fixedKeys())
         card.push_back(row({ Text{ k.does }, Text{ .value = k.keys, .style = TextStyle::Caption, .alignEnd = true } }));
+    for (std::size_t i = 1; i < card.size(); ++i) card[i].list = P::kShortcutList; // all but the title
     if (!v.shortcutNote.empty()) card.push_back(row({ Text{ .value = v.shortcutNote, .style = TextStyle::Caption, .centred = true } }));
     return card;
 }
@@ -122,12 +124,14 @@ std::vector<ThemeListRow> themeListRows()
 // The widget: a gear, like Windows' own Settings. The card: a list of
 // settings, or one setting's choices. It stays open on a click between rows
 // (Content::keepOpen): a near miss on a page of controls shouldn't close it.
+// Esc on one setting's page goes back to the list, like its back arrow.
 Panel settingsPanel(const SettingsView& view)
 {
     Content content{
         .label = "Settings",
         .card = CardLayout::List, // wider sides than Centred: rows edge to edge
         .keepOpen = true,
+        .backAction = view.page == SettingsPage::List ? "" : P::kBack, // Esc on a page: back to the list (decision 033)
         .expandedCenter = view.page == SettingsPage::Themes      ? themesPage(view)
                           : view.page == SettingsPage::Displays  ? displaysPage(view)
                           : view.page == SettingsPage::Shortcuts ? shortcutsPage(view)

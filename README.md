@@ -57,6 +57,6 @@ The island hides itself over fullscreen apps (games, F11 browsers, fullscreen
 video) on its monitor, and comes back when they leave fullscreen. Normal
 maximized windows don't hide it.
 
-Demo keys (once the pill has focus): **M** fake music player on/off,
-**T** second activity, **C** critical alert, **D** simulated drag, **H** hide,
-**Esc** collapse/quit.
+Demo keys (Debug builds only, once the pill has focus): **M** fake music
+player on/off, **T** second activity, **C** critical alert, **D** simulated
+drag, **H** hide.

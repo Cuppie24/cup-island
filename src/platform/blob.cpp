@@ -179,6 +179,43 @@ void Blob::setSelectedTab(std::optional<Rect> tab, float cornerRadius) { showMar
 
 void Blob::setHovered(std::optional<Rect> area, float cornerRadius) { showMark(hovered_, area, cornerRadius, tokens().hoverColor, false); }
 
+void Blob::setFocusRing(std::optional<Rect> area, float cornerRadius)
+{
+    Ring& ring = focusRing_;
+    if (!ring.visual) {
+        ring.shape = compositor_.CreateRoundedRectangleGeometry();
+        ring.stroke = compositor_.CreateSpriteShape(ring.shape);
+        ring.brush = compositor_.CreateColorBrush();
+        ring.stroke.StrokeBrush(ring.brush);
+        ring.visual = compositor_.CreateShapeVisual();
+        ring.visual.Shapes().Append(ring.stroke);
+        ring.visual.Opacity(0.0f);
+        // Above the content, which adds its visuals at the top of content_ as
+        // they come: a sibling over it stays over them all.
+        body_.Children().InsertAbove(ring.visual, content_);
+    }
+    float width = tokens().focusRingWidth;
+    ring.brush.Color(toUiColor(tokens().focusRingColor)); // every time: tokens.json may have changed them
+    ring.stroke.StrokeThickness(width);
+    if (area == ring.at && cornerRadius == ring.radius) return;
+    ring.at = area;
+    ring.radius = cornerRadius;
+    if (!area) {
+        fadeTo(compositor_, ring.visual, 0.0f, tokens().hoverFadeDuration);
+        return;
+    }
+    // A stroke is centred on its outline: inset by half its width, it's drawn
+    // inside the frame and never clipped by the card's edge or a neighbour.
+    float half = width / 2;
+    ring.visual.Size({ area->width, area->height });
+    ring.visual.Offset({ area->x, area->y, 0 });
+    ring.shape.Offset({ half, half });
+    ring.shape.Size({ std::max(0.0f, area->width - width), std::max(0.0f, area->height - width) });
+    ring.shape.CornerRadius({ std::max(0.0f, cornerRadius - half), std::max(0.0f, cornerRadius - half) });
+    // It moves at once, like hover, and only fades: no glide to hand off (decision 008).
+    fadeTo(compositor_, ring.visual, 1.0f, tokens().hoverFadeDuration);
+}
+
 void Blob::setTiles(const std::vector<Rect>& tiles, float cornerRadius)
 {
     if (tiles_.size() < tiles.size()) tiles_.resize(tiles.size());
