@@ -15,6 +15,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace cup {
 
@@ -50,6 +51,12 @@ public:
     void onAction(const Action& action) override; // Install, Try again, What's new
     void onWake() override;                       // time for a check
 
+    // "Check for updates" (Settings): checks now, then tells `reply` what it
+    // found (Available: `version` is the offer's). A check already under way
+    // answers it too. An offer is shown as after any check.
+    using Reply = std::function<void(CheckOutcome, const std::string& version)>;
+    void checkNow(Reply reply);
+
     static constexpr const char* kPanelId = "system.update";
     // Store keys: the wall-clock time (ms) of the last check that got an
     // answer, and the last version an alert was posted for (one per version).
@@ -59,6 +66,7 @@ public:
 private:
     void check();
     void checked(const std::optional<GitHubRelease>& release);
+    void answer(CheckOutcome outcome, const std::string& version); // every waiting Reply
     void publish();
 
     UpdateHooks hooks_;
@@ -68,6 +76,7 @@ private:
     UpdateStage stage_ = UpdateStage::Offered;
     std::string problem_;
     bool checking_ = false;
+    std::vector<Reply> replies_;
     std::shared_ptr<bool> alive_ = std::make_shared<bool>(true); // false once stopped: late callbacks do nothing
 };
 

@@ -112,6 +112,15 @@ void SettingsProvider::onAction(const Action& action)
         hooks_.setStartsWithWindows(on);
         host_->save(kAutostartKey, on ? "on" : "off");
         publish();
+    } else if (id == settings_action::kCheckUpdates) {
+        if (!hooks_.checkForUpdates || updateNote_.checking) return;
+        updateNote_ = { .checking = true };
+        publish();
+        hooks_.checkForUpdates([this](CheckOutcome found, const std::string& version) {
+            if (!host_) return; // stopped meanwhile
+            updateNote_ = { .found = found, .version = version };
+            publish();
+        });
     } else if (id == settings_action::kCentreIsland) {
         if (hooks_.centreIsland) hooks_.centreIsland();
     } else if (id == settings_action::kCopyLogs) {
@@ -203,7 +212,13 @@ void SettingsProvider::stopRecording()
 // it was left on, and a shortcut waiting for keys stops waiting.
 void SettingsProvider::onCardClosed(const std::string& activityId)
 {
-    if (!host_ || activityId != kPanelId || (page_ == SettingsPage::List && !recording_)) return;
+    if (!host_ || activityId != kPanelId) return;
+    bool noted = updateNote_.found.has_value();
+    if (!updateNote_.checking) updateNote_ = {}; // reopened: "Check for updates" says nothing until clicked again
+    if (page_ == SettingsPage::List && !recording_) {
+        if (noted) publish();
+        return;
+    }
     stopRecording();
     shortcutNote_.clear();
     page_ = SettingsPage::List;
@@ -243,6 +258,7 @@ SettingsView SettingsProvider::view() const
 {
     SettingsView v{ .page = page_, .theme = theme_, .note = note_, .shortcuts = shortcuts_, .recording = recording_,
                     .shortcutNote = shortcutNote_, .version = hooks_.version };
+    if (hooks_.checkForUpdates) v.update = updateNote_;
     if (displays_.size() >= 2) { // one monitor: nothing to choose
         v.displays.push_back(kMainDisplayName);
         for (std::size_t i = 0; i < displays_.size(); ++i) {
