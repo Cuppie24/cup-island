@@ -34,7 +34,9 @@ shelf, notifications), so each is a host feature, not a Pomodoro trick.
   under the pointer (`hoverColor`, the same mark as a hovered tab or tile).
   Layout gives each item its row's frame (`Placed::listRow`); the app aims
   the mark. A row's mark survives a re-layout of the same card, or it would
-  blink with every tick of a countdown beside it.
+  blink with every tick of a countdown beside it. The row's tick button
+  (the checkbox) has no hover shape of its own (`Placed::litByRow`): the
+  lit row already says it's clickable. The delete button keeps its own.
 
 **The to-do list uses them:** a window of `todoVisibleItems` tasks that
 scrolls with the wheel, a caption for what's out of it ("2 above · 3

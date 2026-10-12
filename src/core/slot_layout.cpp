@@ -282,7 +282,10 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
                 if (row.listItem) left = std::min(left, background.x); // from the background's edge
                 Rect whole{ left, y - t.rowSpacing / 2, right - left, rowHeight + t.rowSpacing };
                 for (std::size_t i = first; i < first + middle; ++i)
-                    if (std::holds_alternative<Button>(target[i].item)) target[i].hitFrame = whole;
+                    if (std::holds_alternative<Button>(target[i].item)) {
+                        target[i].hitFrame = whole;
+                        target[i].litByRow = row.listItem; // the lit row says it's clickable; a box inside it would double it
+                    }
             }
             y += rowHeight + t.rowSpacing;
         }

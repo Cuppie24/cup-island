@@ -22,6 +22,7 @@ struct Placed {
     std::string scrollAction;    // its row's (Row::scrollAction): the wheel over it sends this
     std::optional<Rect> listRow; // its row is a list item (Row::listItem): lit here while the pointer is on the row
     float listRowRadius = 0;
+    bool litByRow = false;       // the row's background is its hover: no shape of its own (a to-do's checkbox)
     std::string providerId;
     std::string activityId;
     std::optional<Timeline> ticking; // time labels: the text changes as playback moves

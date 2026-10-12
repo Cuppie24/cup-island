@@ -86,6 +86,7 @@ void runTodoTests()
     expect(onText && hitTest(card, { lit.x + 1, lit.y + lit.height / 2 })->action.actionId == onText->action.actionId,
            "its whole background ticks it");
     expect(!field->listRow, "the field isn't a list item");
+    expect(openBox->litByRow, "the checkbox has no hover shape of its own: the row is lit instead");
     std::string fieldRow = field->key.substr(0, field->key.rfind('/') + 1);
     std::size_t inFieldRow = 0;
     for (const Placed& p : card.elements)
@@ -144,7 +145,7 @@ void runTodoTests()
     // A delete button per row, revealed on hover, outside the row's tick area; no question.
     Scene top = layout(state, now);
     const Placed* bin = firstOf(top, [](const Placed& p) { auto* b = std::get_if<Button>(&p.item); return b && b->glyph == Glyph::Delete; });
-    expect(bin && std::get<Button>(bin->item).revealOnHover, "each to-do has a delete button, shown on hover");
+    expect(bin && std::get<Button>(bin->item).revealOnHover && !bin->litByRow, "each to-do has a delete button, shown on hover");
     auto onBin = hitTest(top, { bin->frame.x + bin->frame.width / 2, bin->frame.y + bin->frame.height / 2 });
     expect(onBin && onBin->action.actionId.rfind(todo_action::kDelete, 0) == 0, "the delete button gets its clicks, not the row's tick");
     registry.route(onBin->action);

@@ -129,7 +129,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now)
         view.surface = device_->createSurface(size);
         ButtonParts parts = createButton(compositor_, size, placed.cornerRadius, view.surface, field ? t.inputColor : t.buttonHoverColor);
         view.visual = parts.visual;
-        view.highlight = parts.highlight;
+        view.highlight = placed.litByRow ? nullptr : parts.highlight; // lit by its row instead (Placed::litByRow): stays hidden
     } else if (clickableArt(placed.item)) {
         view.surface = device_->createSurface(size);
         view.glyphSurface = device_->createSurface(size);
