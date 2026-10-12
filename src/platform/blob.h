@@ -40,7 +40,7 @@ public:
 
 private:
     void playScale(float scale, Ms duration, Bezier curve);
-    void showEars(bool on); // the flared top corners: hidden while dragged off the edge
+    void setAttached(bool on); // to the screen edge: flared top corners; off it (dragged): round
 
     wuc::Compositor compositor_{ nullptr };
     wuc::ShapeVisual body_{ nullptr };             // Size/Offset morph implicitly
@@ -52,7 +52,7 @@ private:
     wuc::DropShadow shadow_{ nullptr };
     void buildShadow(wuc::Compositor const& compositor, wuc::ContainerVisual const& parent);
     void applyShadow(); // colour, blur, offset from tokens
-    wuc::CompositionPropertySet shape_{ nullptr }; // MaxRadius, FlareRadius, Ears: read by the corner expressions
+    wuc::CompositionPropertySet shape_{ nullptr }; // MaxRadius, FlareRadius, Attached: read by the corner expressions
     wuc::CompositionPropertySet drag_{ nullptr };  // Centre: the cursor, while following
     wuc::CompositionColorBrush fill_{ nullptr };
     wuc::ImplicitAnimationCollection implicit_{ nullptr }; // the Size/Offset morph

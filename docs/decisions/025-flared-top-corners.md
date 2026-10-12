@@ -22,13 +22,17 @@ and the Split bubble, subtle by default.
   - The ears share the body's fill brush, so themes and the drop-target
     highlight (decision 007) colour them too.
   - The pill's own geometry, corner expressions and morph are untouched.
-- **E = `flareRadius`, capped by the shape's height,** times an `Ears`
-  factor. It's an expression over the body's live size, like the bottom
+- **E = `flareRadius`, capped by the shape's height,** times an
+  `Attached` factor (1 at the screen edge). It's an expression over the body's live size, like the bottom
   corners (decision 006), so it holds mid-morph. A Hidden pill (height 0)
   and the tucked bubble have none. `flareRadius` 0 turns them off.
-- **A dragged bubble folds its ears away** (`Ears` animates to 0): away from
-  the screen edge there is nothing to flare into. They come back as it
-  glides home.
+- **A dragged bubble becomes a circle** (`Attached` animates to 0): away
+  from the screen edge there is nothing to flare into, and a straight top
+  makes no sense in the air. Its ears fold away, and the same factor
+  rounds its top corners: the background is no longer made taller and
+  shifted up, so every corner has the bottom's radius, half the height.
+  The bubble is square, so that's a circle. The shadow follows, being a
+  snapshot. All of it reverses as it glides home.
 - **The shadow includes them** (decision 018): the snapshot and its caster
   are E wider on each side, so the shadow follows the curve.
 

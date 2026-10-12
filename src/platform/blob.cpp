@@ -68,21 +68,23 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     shape_ = c.CreatePropertySet();
     shape_.InsertScalar(L"MaxRadius", tokens().maxCornerRadius);
     shape_.InsertScalar(L"FlareRadius", tokens().flareRadius);
-    shape_.InsertScalar(L"Ears", 1.0f);
+    shape_.InsertScalar(L"Attached", 1.0f); // hanging from the screen edge
     bind(c, body_, L"CenterPoint", L"Vector3(pill.Size.X / 2, 0, 0)", body_, shape_);
 
     // Background: only the bottom corners are rounded (a notch hanging from the
     // screen edge). The geometry has one radius for all corners, so it's made
     // a radius taller and shifted up; ShapeVisual clips the top corners away.
     // Radius = half the height, capped by maxCornerRadius: the same curve as
-    // core pillCornerRadius(), which content radii are nested in.
+    // core pillCornerRadius(), which content radii are nested in. Dragged off
+    // the edge (Attached 0) the top corners round too: the square bubble
+    // becomes a circle (decision 025).
     auto background = c.CreateRoundedRectangleGeometry();
     bind(c, background, L"CornerRadius",
         L"Vector2(Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius), Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))",
         body_, shape_);
-    bind(c, background, L"Offset", L"Vector2(0, -Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))", body_, shape_);
+    bind(c, background, L"Offset", L"Vector2(0, -shape.Attached * Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))", body_, shape_);
     bind(c, background, L"Size",
-        L"Vector2(pill.Size.X, pill.Size.Y + Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))", body_, shape_);
+        L"Vector2(pill.Size.X, pill.Size.Y + shape.Attached * Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))", body_, shape_);
     auto backgroundShape = c.CreateSpriteShape(background);
     fill_ = c.CreateColorBrush(fillColor(false));
     backgroundShape.FillBrush(fill_);
@@ -175,7 +177,7 @@ void Blob::follow(std::optional<Vec2> centre)
         anim.SetReferenceParameter(L"pill", body_);
         anim.SetReferenceParameter(L"drag", drag_);
         body_.StartAnimation(L"Offset", anim);
-        showEars(false); // away from the screen edge, there's nothing to flare into
+        setAttached(false); // off the screen edge: round, no ears (decision 025)
         return;
     }
     if (!following_) return;
@@ -192,15 +194,15 @@ void Blob::follow(std::optional<Vec2> centre)
     home.InsertKeyFrame(1.0f, toFloat3(offset_), easingFor(compositor_, tokens().morphEase));
     home.Duration(tokens().morphDuration);
     body_.StartAnimation(L"Offset", home); // replaces the cursor expression
-    showEars(true);
+    setAttached(true);
 }
 
-void Blob::showEars(bool on)
+void Blob::setAttached(bool on)
 {
     auto anim = compositor_.CreateScalarKeyFrameAnimation();
     anim.InsertKeyFrame(1.0f, on ? 1.0f : 0.0f, easingFor(compositor_, tokens().morphEase));
     anim.Duration(tokens().morphDuration);
-    shape_.StartAnimation(L"Ears", anim);
+    shape_.StartAnimation(L"Attached", anim);
 }
 
 void Blob::setHighlighted(bool on)
