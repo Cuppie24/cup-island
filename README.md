@@ -26,11 +26,17 @@ In Visual Studio: **File → Open → Folder**, pick the *Windows x64 Debug* or
 cmake --preset core && cmake --build --preset core && ctest --preset core   # Linux/macOS: core + tests
 ```
 
-**Release:** bump `AppVersion` in [`installer/cup-island.iss`](installer/cup-island.iss),
-run `.\build.ps1 -Installer`, tag the commit (`git tag v0.1.0`) and attach the
-setup exe to a GitHub release. The exe has the C++ runtime built in, so users
-need nothing else. The Release build has no console: quit from the tray icon
-(right-click → Exit; *Start with Windows* is there too). See [decision 011](docs/decisions/011-installer-before-msix.md).
+**Release:** on GitHub, **Actions → Release → Run workflow**, type the version
+(`0.4.0`: X.Y.Z, higher than the last release) and run it. It builds and tests
+`main`, makes the installer, tags the commit `v0.4.0` and publishes the release
+with the installer attached. Tick *Dry run* to build and test without
+publishing; the installer is then in the run's artifacts. No file holds the
+version: it's the tag. Installed islands see the release at their next daily
+check and offer it on Home. See [decision 036](docs/decisions/036-releases-and-updates.md).
+
+The exe has the C++ runtime built in, so users need nothing else. The Release
+build has no console: quit from the tray icon (right-click → Exit). See
+[decision 011](docs/decisions/011-installer-before-msix.md).
 
 **Something wrong?** Open Home (click the idle pill), open **Settings** and
 click **Copy logs**: the recent log is copied to the clipboard, ready to paste into a bug report. The

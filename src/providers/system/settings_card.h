@@ -49,6 +49,7 @@ struct SettingsView {
     Bindings shortcuts = defaultBindings(); // what each command is bound to
     std::optional<Command> recording;       // waiting for new keys for this one
     std::string shortcutNote;               // under the shortcuts: "Press the new keys…", or why one wasn't changed
+    std::string version;                    // the running build's; empty: no line for it
 };
 
 // The widget and its card.

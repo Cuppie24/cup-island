@@ -40,6 +40,7 @@ struct SettingsHooks {
     // On: the app sends the next key pressed on the island to keysPressed()
     // instead of acting on it. Off again once one arrives, or on cancel.
     std::function<void(bool)> captureKeys;
+    std::string version; // the running build's, shown under the list (decision 036); empty: no line
 };
 
 class SettingsProvider : public Provider {

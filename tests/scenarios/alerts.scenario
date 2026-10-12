@@ -47,3 +47,13 @@ alert a3                            -> queue=5
 alert a4                            -> queue=5   # a1 dropped
 wait 3000                           -> alert=t1
 wait 3000                           -> alert=a2
+
+scenario: an alert for a panel opens the panel's card (an update offer, decision 036)
+panel update
+alert offer for=update              -> Alert alert=offer
+click                               -> Expanded expanded=update
+
+scenario: an alert for a panel with no card opens nothing
+panel clock static
+alert note for=clock                -> Alert
+click                               -> Idle

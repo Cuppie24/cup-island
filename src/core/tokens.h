@@ -239,6 +239,13 @@ struct Tokens {
     // The Settings card's "Copy logs" button: how long it says "Copied" after a click.
     Ms logsNote{ 2000 };
 
+    // Updates (decision 036): the first check this long after start (not in
+    // the middle of starting up), then one per interval, kept across restarts;
+    // a check that failed (offline) tries again after updateRetry.
+    Ms updateFirstCheckDelay{ 15000 };
+    Ms updateCheckInterval{ 86400000 };
+    Ms updateRetry{ 3600000 };
+
     // The app themes the Settings card offers, in its order; the first is the
     // default (decision 022). tokens() already has the picked one applied.
     std::vector<Theme> themes;

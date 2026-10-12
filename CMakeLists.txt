@@ -12,6 +12,10 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 if(MSVC)
     add_compile_options(/W3 /EHsc /utf-8 /permissive-)
     add_compile_definitions(UNICODE _UNICODE)
+    # Release builds keep debug info too (in each .obj: no shared .pdb for
+    # parallel compiles to fight over), so the linker writes CupIsland.pdb:
+    # what reads a crash or hang dump from an installed copy (decisions 013, 036).
+    add_compile_options($<$<AND:$<COMPILE_LANGUAGE:CXX>,$<NOT:$<CONFIG:Debug>>>:/Z7>) # C++ only, not the .rc
 else()
     add_compile_options(-Wall -Wextra -Wno-missing-field-initializers)
 endif()
@@ -59,6 +63,8 @@ add_library(cup_providers STATIC
     src/providers/system/settings_provider.cpp
     src/providers/system/system_panels.cpp
     src/providers/file_store.cpp
+    src/providers/update/release.cpp
+    src/providers/update/update_provider.cpp
     src/providers/provider_registry.cpp
 )
 target_link_libraries(cup_providers PUBLIC cup_core)
@@ -78,6 +84,7 @@ if(CUP_BUILD_TESTS)
         tests/pomodoro_tests.cpp
         tests/provider_tests.cpp
         tests/unit_tests.cpp
+        tests/update_tests.cpp
         tests/scenario_runner.cpp
         tests/settings_tests.cpp
         tests/shortcut_settings_tests.cpp
@@ -101,6 +108,34 @@ if(WIN32)
         message(FATAL_ERROR "32-bit compiler detected. Use .\\build.ps1, or an x64 developer environment, then delete ${CMAKE_BINARY_DIR} and configure again.")
     endif()
     enable_language(RC)
+
+    # The version (decision 036). The Release workflow passes its own through
+    # build.ps1 (-DCUP_VERSION=0.4.0); build.ps1 passes git's for a local build.
+    # Configured without one (an IDE), it asks git here: "0.3.0" on a release
+    # tag, "0.3.0-5-gabc1234" five commits on, "-dirty" with local changes.
+    # Anything but X.Y.Z is a dev build, which never offers updates.
+    set(CUP_VERSION "" CACHE STRING "The app's version, X.Y.Z (empty: ask git)")
+    set(CUP_APP_VERSION "${CUP_VERSION}")
+    if(NOT CUP_APP_VERSION)
+        execute_process(COMMAND git describe --tags --match "v[0-9]*" --dirty
+                        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}" OUTPUT_VARIABLE CUP_APP_VERSION
+                        OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET RESULT_VARIABLE describeFailed)
+        if(describeFailed OR NOT CUP_APP_VERSION)
+            set(CUP_APP_VERSION "0.0.0-dev") # no git, or no release tag yet
+        endif()
+    endif()
+    string(REGEX REPLACE "^v" "" CUP_APP_VERSION "${CUP_APP_VERSION}")
+    set(CUP_VERSION_MAJOR 0)
+    set(CUP_VERSION_MINOR 0)
+    set(CUP_VERSION_PATCH 0)
+    if(CUP_APP_VERSION MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+)")
+        set(CUP_VERSION_MAJOR ${CMAKE_MATCH_1})
+        set(CUP_VERSION_MINOR ${CMAKE_MATCH_2})
+        set(CUP_VERSION_PATCH ${CMAKE_MATCH_3})
+    endif()
+    configure_file(src/app/cup_version.h.in "${CMAKE_BINARY_DIR}/generated/cup_version.h" @ONLY)
+    message(STATUS "Cup Island version: ${CUP_APP_VERSION}")
+
     add_executable(CupIsland
         assets/cup_island.rc
         src/app/keyboard_input.cpp
@@ -138,15 +173,21 @@ if(WIN32)
         src/providers/media/smtc_reading.cpp
         src/providers/system/bluetooth_provider.cpp
         src/providers/system/theme_provider.cpp
+        src/providers/update/github.cpp
     )
     # The icon isn't an #include, so the build doesn't see it change on its own.
     set_source_files_properties(assets/cup_island.rc PROPERTIES OBJECT_DEPENDS ${CMAKE_SOURCE_DIR}/assets/cup_island.ico)
+    target_include_directories(CupIsland PRIVATE "${CMAKE_BINARY_DIR}/generated") # cup_version.h, for the code and the .rc
     target_link_libraries(CupIsland PRIVATE cup_providers WindowsApp CoreMessaging User32 Advapi32 Ole32 Dbghelp d3d11 d2d1 dwrite dxgi dwmapi shell32 Shcore wevtapi)
     # Release: a GUI app, no console window (quit from the tray icon). Debug keeps
     # the console for the log. mainCRTStartup lets main() stay the entry point.
+    # /DEBUG writes the pdb; it would turn off /OPT:REF and /OPT:ICF, so they're asked back.
     target_link_options(CupIsland PRIVATE
         $<$<NOT:$<CONFIG:Debug>>:/SUBSYSTEM:WINDOWS>
-        $<$<NOT:$<CONFIG:Debug>>:/ENTRY:mainCRTStartup>)
+        $<$<NOT:$<CONFIG:Debug>>:/ENTRY:mainCRTStartup>
+        $<$<NOT:$<CONFIG:Debug>>:/DEBUG>
+        $<$<NOT:$<CONFIG:Debug>>:/OPT:REF>
+        $<$<NOT:$<CONFIG:Debug>>:/OPT:ICF>)
     # Dev builds read and live-reload the source tree's tokens.json directly.
     target_compile_definitions(CupIsland PRIVATE CUP_TOKENS_SOURCE_PATH=L"${CMAKE_SOURCE_DIR}/assets/tokens.json")
 

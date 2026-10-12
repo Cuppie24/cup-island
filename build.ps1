@@ -2,15 +2,18 @@
 # Enters the Visual Studio developer environment first, which puts the MSVC
 # compiler, CMake and Ninja (all shipped with Visual Studio) on PATH.
 #
-# Usage: .\build.ps1 [-Run] [-Test] [-Debug] [-Installer]
+# Usage: .\build.ps1 [-Run] [-Test] [-Debug] [-Installer] [-Version X.Y.Z]
 #   -Installer  also builds dist\CupIsland-Setup-<version>.exe (Release only;
 #               needs Inno Setup 6.3+, see installer\cup-island.iss)
+#   -Version    the release's version; only the Release workflow passes it
+#               (decision 036). Without it the version is git's: a dev build.
 
 param(
     [switch]$Run,
     [switch]$Test,
     [switch]$Debug,
-    [switch]$Installer
+    [switch]$Installer,
+    [string]$Version
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,6 +42,17 @@ if ($Installer -and $Debug) { throw "-Installer packages the Release build; drop
 
 $preset = if ($Debug) { "windows-debug" } else { "windows" }
 
+# The version (decision 036): the Release workflow's, else git's description,
+# e.g. 0.3.0-5-gabc1234 (five commits after v0.3.0): a dev build.
+if (-not $Version) {
+    $described = & {
+        $ErrorActionPreference = "Continue" # git's "no tags" message must not stop the build
+        try { git describe --tags --match "v[0-9]*" --dirty 2>$null } catch { $null }
+    }
+    $Version = if ($described) { $described -replace '^v', '' } else { "0.0.0-dev" }
+}
+Write-Host "Version: $Version"
+
 # A build folder configured with the 32-bit compiler keeps using it: start it fresh.
 $cache = "build\$preset\CMakeCache.txt"
 $fresh = @()
@@ -53,7 +67,7 @@ Get-Process CupIsland -ErrorAction SilentlyContinue |
     Where-Object { $_.Path -and $_.Path.StartsWith("$PSScriptRoot\build\", [StringComparison]::OrdinalIgnoreCase) } |
     Stop-Process -Force
 
-cmake --preset $preset @fresh
+cmake --preset $preset @fresh "-DCUP_VERSION=$Version"
 if ($LASTEXITCODE -ne 0) { throw "Configure failed (exit $LASTEXITCODE)" }
 cmake --build --preset $preset
 if ($LASTEXITCODE -ne 0) { throw "Build failed (exit $LASTEXITCODE)" }
@@ -76,7 +90,7 @@ if ($Installer) {
             Where-Object { Test-Path $_ } | Select-Object -First 1
     }
     if (-not $iscc) { throw "Inno Setup not found. Install it (winget install JRSoftware.InnoSetup, or https://jrsoftware.org/isdl.php), then open a new terminal and re-run." }
-    & $iscc /Qp "installer\cup-island.iss"
+    & $iscc /Qp "/DAppVersion=$Version" "installer\cup-island.iss"
     if ($LASTEXITCODE -ne 0) { throw "Installer build failed (exit $LASTEXITCODE)" }
     Write-Host "Installer: $(Get-ChildItem dist\CupIsland-Setup-*.exe | Sort-Object LastWriteTime | Select-Object -Last 1)"
 }

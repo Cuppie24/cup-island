@@ -5,7 +5,7 @@
 //   <command> [args] [-> <Mode> [key=value ...]]
 //
 // Commands:  start <id> [level] [relevance] [expires=<ms>]   update <id>   end <id>
-//            alert <name> [level] [for=<activity>] [key=<coalesceKey>]
+//            alert <name> [level] [for=<activity|panel>] [key=<coalesceKey>]
 //            click  outside  esc  pointer  drag-enter  drag-rejected
 //            drag-leave  drop  hide  show  wait <ms>
 //            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel

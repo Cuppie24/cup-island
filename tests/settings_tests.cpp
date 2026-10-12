@@ -105,6 +105,16 @@ void runSettingsTests()
            "settings: no themes in tokens.json, no theme row");
     settings.stop();
 
+    // The running version, under the list (decision 036).
+    {
+        PanelHost vh;
+        SettingsProvider versioned({ .version = "0.4.0" });
+        versioned.start(vh);
+        const Slot& card = vh.published.back().content.expandedCenter;
+        expect(cardText(vh.published.back(), card.size() - 1) == "Cup Island 0.4.0", "settings: the version, last");
+        versioned.stop();
+    }
+
     // Start with Windows (decision 030): on the first time, then as the user leaves it.
     bool autostart = false;
     int autostartWrites = 0;

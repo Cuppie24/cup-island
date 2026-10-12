@@ -1,0 +1,82 @@
+# Publishes a release (decision 036). Actions -> Release -> Run workflow, type
+# the version (X.Y.Z, no "v"). It builds and tests main on Windows, makes the
+# installer, then tags the commit vX.Y.Z and publishes the GitHub release with
+# the installer and the pdb (for crash dumps, decision 013). Installed islands
+# find it at their next daily check.
+#
+# Nothing is tagged or published unless every step before it passed. A dry run
+# stops before that: the installer is under the run's artifacts to try.
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release: X.Y.Z, higher than the last release"
+        required: true
+        type: string
+      dry_run:
+        description: "Dry run: build and test, but don't tag or publish"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # the tag and the release
+
+concurrency:
+  group: release # one release at a time
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ inputs.version }} # read as $env:VERSION, never pasted into a script
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Only from main
+        if: github.ref != 'refs/heads/main'
+        run: |
+          Write-Host "::error::Releases are made from main; this run is on $env:GITHUB_REF_NAME."
+          exit 1
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # every tag, to compare against the last release
+
+      - name: Check the version
+        run: |
+          if ($env:VERSION -notmatch '^\d+\.\d+\.\d+$') { throw "'$env:VERSION' isn't X.Y.Z (e.g. 0.4.0, without a v)." }
+          if (git tag --list "v$env:VERSION") { throw "v$env:VERSION already exists." }
+          $last = git tag --list 'v*' | Where-Object { $_ -match '^v\d+\.\d+\.\d+$' } |
+              ForEach-Object { [version]$_.Substring(1) } | Sort-Object -Descending | Select-Object -First 1
+          if ($last -and [version]$env:VERSION -le $last) { throw "$env:VERSION isn't higher than the last release, $last." }
+          Write-Host "Releasing $env:VERSION (last: $last)"
+
+      - name: Install Inno Setup
+        run: |
+          $found = @("${env:ProgramFiles(x86)}", "$env:ProgramFiles") |
+              ForEach-Object { Get-ChildItem -Path $_ -Filter "Inno Setup *" -Directory -ErrorAction SilentlyContinue }
+          if (-not $found) { choco install innosetup --yes --no-progress }
+
+      - name: Build, test, make the installer
+        run: ./build.ps1 -Test -Installer -Version $env:VERSION
+
+      - name: Keep the installer and pdb with the run
+        uses: actions/upload-artifact@v4
+        with:
+          name: CupIsland-${{ inputs.version }}
+          path: |
+            dist/CupIsland-Setup-${{ inputs.version }}.exe
+            build/windows/CupIsland.pdb
+          if-no-files-found: error
+
+      - name: Tag and publish
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v$env:VERSION" "dist/CupIsland-Setup-$env:VERSION.exe" "build/windows/CupIsland.pdb" `
+            --target "$env:GITHUB_SHA" --title "Cup Island $env:VERSION" --generate-notes

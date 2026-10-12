@@ -82,6 +82,7 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Settings: return L"\uE713";
     case Glyph::ChevronLeft: return L"\uE76B";
     case Glyph::ChevronRight: return L"\uE76C";
+    case Glyph::Download: return L"\uE896";
     }
     return L"?";
 }

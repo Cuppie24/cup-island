@@ -45,11 +45,13 @@ src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interacti
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules and the media widget, SMTC provider for real Windows media),
                 pomodoro/ (the first panel), system/ (Home's theme, Bluetooth and Settings widgets:
-                app themes, display, Start with Windows, Copy logs)
+                app themes, display, Start with Windows, Copy logs), update/ (updates from GitHub
+                Releases: versions and offers, pure; github.cpp fetches and installs, decision 036)
 src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload; keyboard_input.cpp: keyboard focus,
                 Enter/Space, system-wide shortcuts and recording new keys (decisions 031, 032)
 assets/         tokens.json: the live-tunable sizes, timings and curves; the app icon (cup_island.rc/.ico)
-installer/      Inno Setup script for the Windows installer (decision 011)
+installer/      Inno Setup script for the Windows installer (decision 011); its version comes from build.ps1
+.github/        workflows/release.yml: the Release button (build, test, tag, publish; decision 036)
 tests/          unit tests + scenarios/*.scenario (state rules in plain text)
 docs/           specs (TR, PS) and decisions/ (why things are the way they are)
 ```
@@ -185,7 +187,7 @@ over the file's, so `tokens()` is always what's on screen.
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing),
   `home_tests.cpp` (tiles, Home tab, idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop),
-  `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme and Bluetooth presenters), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end).**
+  `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme and Bluetooth presenters), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end), `update_tests.cpp` (versions, offers, the updater's checks and install).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
 
@@ -228,3 +230,4 @@ over the file's, so `tokens()` is always what's on screen.
 | Keyboard: Tab/Shift+Tab, Home/End, Ctrl+Tab switches tabs, 1–9 open Home's widgets, Esc one step back, a focus ring (decision 033) | done; navigation and Esc tested, keys and ring need Windows |
 | Ctrl+W asks the activity's provider to close it: Pomodoro confirms, media ignores (decision 034) | done; tested, the key needs Windows |
 | System-wide shortcuts (Ctrl+X: Home), off while a fullscreen app hides the island, rebindable in Settings, a change aborted on any conflict (decision 032) | done; rules tested, registration needs Windows |
+| Releases from a workflow, version from the tag, updates from GitHub Releases: daily check, widget + alert, SHA-256-checked silent install (decision 036) | rules tested; the workflow and the Windows side need a run |

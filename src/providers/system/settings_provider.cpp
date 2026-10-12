@@ -241,7 +241,8 @@ void SettingsProvider::placeIsland()
 
 SettingsView SettingsProvider::view() const
 {
-    SettingsView v{ .page = page_, .theme = theme_, .note = note_, .shortcuts = shortcuts_, .recording = recording_, .shortcutNote = shortcutNote_ };
+    SettingsView v{ .page = page_, .theme = theme_, .note = note_, .shortcuts = shortcuts_, .recording = recording_,
+                    .shortcutNote = shortcutNote_, .version = hooks_.version };
     if (displays_.size() >= 2) { // one monitor: nothing to choose
         v.displays.push_back(kMainDisplayName);
         for (std::size_t i = 0; i < displays_.size(); ++i) {

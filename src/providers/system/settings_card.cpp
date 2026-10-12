@@ -54,6 +54,8 @@ Slot listPage(const SettingsView& v)
     card.push_back(row({ Button{ .glyph = Glyph::Copy, .actionId = P::kCopyLogs, .label = logs },
                          Button{ .actionId = P::kCentreIsland, .label = "Centre island" } },
                        Align::Center));
+    // Which build this is: what a bug report needs, and what an update replaces (decision 036).
+    if (!v.version.empty()) card.push_back(row({ Text{ .value = "Cup Island " + v.version, .style = TextStyle::Caption, .centred = true } }));
     return card;
 }
 
