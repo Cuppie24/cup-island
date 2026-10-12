@@ -16,6 +16,7 @@ the shape. So:
   follows every morph, drag and press squash with no app code, and an idle
   island still costs nothing (TR §8);
 - Hidden (height 0) casts nothing.
+- The flared top corners are in the snapshot, which is wider by them (decision 025).
 - The liquid neck casts none: it's thin and short-lived.
 
 `CreateVisualSurface` is Windows 10 1903+. It's looked up at runtime

@@ -31,6 +31,7 @@ const Field kFields[] = {
     { "receptiveSize", &Tokens::receptiveSize },
     { "hiddenSize", &Tokens::hiddenSize },
     { "maxCornerRadius", &Tokens::maxCornerRadius },
+    { "flareRadius", &Tokens::flareRadius },
     { "compactInset", &Tokens::compactInset, true },
     { "alertPadding", &Tokens::alertPadding },
     { "expandedPadding", &Tokens::expandedPadding },

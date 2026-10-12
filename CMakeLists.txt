@@ -93,6 +93,7 @@ if(WIN32)
         src/app/main.cpp
         src/platform/autostart.cpp
         src/platform/blob.cpp
+        src/platform/blob_shape.cpp
         src/platform/displays.cpp
         src/platform/element_art.cpp
         src/platform/element_painting.cpp
