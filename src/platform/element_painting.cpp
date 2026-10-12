@@ -256,6 +256,16 @@ void paintSteps(ID2D1DeviceContext* dc, const Steps& steps, Vec2 size, const Col
     }
 }
 
+void paintSwatch(ID2D1DeviceContext* dc, const Swatch& swatch, Vec2 size)
+{
+    float r = std::min(size.x, size.y) / 2, ring = std::max(1.0f, r / 9); // a hairline at any scale
+    auto centre = D2D1::Point2F(size.x / 2, size.y / 2);
+    dc->FillEllipse(D2D1::Ellipse(centre, r, r), brushOf(dc, swatch.fill).get());
+    dc->DrawEllipse(D2D1::Ellipse(centre, r - ring / 2, r - ring / 2), brushOf(dc, tokens().trackColor).get(), ring);
+    float dot = r * 0.4f; // the accent: a dot, like a theme's live colour on its island
+    dc->FillEllipse(D2D1::Ellipse(centre, dot, dot), brushOf(dc, swatch.mark).get());
+}
+
 void paintImage(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float cornerRadius)
 {
     D2D1_ROUNDED_RECT shape{ D2D1::RectF(0, 0, size.x, size.y), cornerRadius, cornerRadius };

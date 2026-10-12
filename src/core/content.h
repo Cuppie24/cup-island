@@ -128,7 +128,16 @@ struct Steps {
     bool operator==(const Steps&) const = default;
 };
 
-using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput>;
+// A colour sample: a circle of `fill` with a dot of `mark` in it, ringed
+// faintly so a pale one still shows on a pale island. A theme in Settings'
+// list (its island and accent, decision 030).
+struct Swatch {
+    Color fill;
+    Color mark;
+    bool operator==(const Swatch&) const = default;
+};
+
+using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch>;
 
 enum class Align { Start, Center, End };
 
@@ -142,7 +151,9 @@ enum class RowSpan { Slot, MatchAbove, MatchBelow };
 //  Standard: art square left, title centre, corner button, bottom rows (media).
 //  Centred:  only `expandedCenter`, full width, rows stacked and centred: a
 //            control panel or a timer, nothing to put in an art square.
-enum class CardLayout { Standard, Centred };
+//  List:     like Centred, with wider sides (listCardInset): a page of
+//            settings, rows edge to edge (decision 030).
+enum class CardLayout { Standard, Centred, List };
 
 // A horizontal row of items. Text and Progress stretch; everything else has a fixed size.
 struct Row {

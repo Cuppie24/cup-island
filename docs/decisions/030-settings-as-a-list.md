@@ -23,6 +23,19 @@ threw the user out.
   The card stays one card: pages are what the provider publishes, so
   nothing new in the host. The page isn't reset when the card closes (the
   provider isn't told); the back arrow is one click.
+- **A List card** (`CardLayout::List`): a Centred stack with
+  `listCardInset` more on the left and right, so the rows don't run to the
+  island's edge. A list item's text at an edge sits `listItemTextInset` in
+  from its background (a button there keeps `listItemInset`): the
+  background's ends are fully rounded, and text at 6 px looked jammed
+  against the curve. That applies to every list, the to-dos included
+  (theirs start with a checkbox, so nothing moves).
+- **A theme shows what it looks like**: each choice starts with a `Swatch`
+  (a new item), a circle of the theme's island with a dot of its accent,
+  ringed faintly so a pale theme shows on a pale island. The colours are
+  derived when tokens.json is parsed (`Theme::island`, `Theme::accent`),
+  for the same reason as `light`: a theme that changes nothing (Midnight)
+  only knows its colours from the file.
 - **Themes are grouped**, Dark then Light, under captions in the same list.
   Which group is derived, not declared: `Theme::light` is set when
   tokens.json is parsed, from the brightness of the island the theme ends

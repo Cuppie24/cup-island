@@ -25,13 +25,16 @@ Row pageTitle(const char* title)
 }
 
 // One choice: its name, and a tick on the one picked. The whole row picks it.
-Row choiceRow(const std::string& name, bool picked, std::string action, const char* list)
+// A theme's starts with a swatch of it: its island, and its accent in the middle.
+Row choiceRow(const std::string& name, bool picked, std::string action, const char* list, const Theme* theme = nullptr)
 {
-    return Row{ .items = { Text{ name }, Button{ .glyph = picked ? Glyph::Checked : Glyph::Unchecked,
-                                                 .actionId = std::move(action), .compact = true } },
-                .clickAnywhere = true,
-                .list = list,
-                .listItem = true };
+    Row r{ .items = { Text{ name }, Button{ .glyph = picked ? Glyph::Checked : Glyph::Unchecked,
+                                            .actionId = std::move(action), .compact = true } },
+           .clickAnywhere = true,
+           .list = list,
+           .listItem = true };
+    if (theme) r.items.insert(r.items.begin(), Swatch{ .fill = theme->island, .mark = theme->accent });
+    return r;
 }
 
 Slot listPage(const SettingsView& v)
@@ -59,7 +62,7 @@ Slot themesPage(const SettingsView& v)
     for (const ThemeListRow& r : themeListRows()) {
         if (!r.heading.empty()) card.push_back(Row{ .items = { Text{ .value = r.heading, .style = TextStyle::Caption } }, .list = P::kThemeList });
         else card.push_back(choiceRow(themes[r.theme].name, themes[r.theme].name == v.theme,
-                                      P::kPickTheme + std::to_string(r.theme), P::kThemeList));
+                                      P::kPickTheme + std::to_string(r.theme), P::kThemeList, &themes[r.theme]));
     }
     return card;
 }
@@ -97,7 +100,7 @@ Panel settingsPanel(const SettingsView& view)
 {
     Content content{
         .label = "Settings",
-        .card = CardLayout::Centred,
+        .card = CardLayout::List, // wider sides than Centred: rows edge to edge
         .keepOpen = true,
         .expandedCenter = view.page == SettingsPage::Themes     ? themesPage(view)
                           : view.page == SettingsPage::Displays ? displaysPage(view)

@@ -107,7 +107,15 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
             if (spans && row.span != RowSpan::Slot && neighbour < rows.size() && (*spans)[neighbour].width > 0)
                 area = { (*spans)[neighbour].x, slot.frame.y, (*spans)[neighbour].width, slot.frame.height };
             Rect background = area; // a list item's hover background spans the row; its content sits inside
-            if (row.listItem) area = { area.x + t.listItemInset, area.y, std::max(0.0f, area.width - 2 * t.listItemInset), area.height };
+            if (row.listItem) {
+                // Text at an edge sits further in, clear of the background's rounded end (decision 030).
+                auto inset = [&](const std::vector<Item>& edge, const Item* outer) {
+                    return edge.empty() && outer && std::holds_alternative<Text>(*outer) ? t.listItemTextInset : t.listItemInset;
+                };
+                float left = inset(row.leading, row.items.empty() ? nullptr : &row.items.front());
+                float right = inset(row.trailing, row.items.empty() ? nullptr : &row.items.back());
+                area = { area.x + left, area.y, std::max(0.0f, area.width - left - right), area.height };
+            }
             float rowHeight = sizes.heights[r], ringSide = sizes.ringSides[r];
             float gap = row.loose ? t.looseItemSpacing : t.itemSpacing;
 

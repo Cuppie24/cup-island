@@ -88,7 +88,7 @@ A provider (`core/provider.h`) publishes activities and alerts through a
 the renderer. `ProviderRegistry` gives each provider its own Host, which
 stamps the provider id on everything it posts, and routes actions back.
 Content is declarative (`core/content.h`, decision 004): slots of rows of
-items (text, image, icon, button, progress, time label, waveform). Layout and
+items (text, image, icon, button, progress, time label, waveform, swatch). Layout and
 drawing are the host's job, so every provider looks native.
 
 A provider can also publish **panels** (decision 009): always-available

@@ -24,6 +24,9 @@ void paintInput(ID2D1DeviceContext* dc, IDWriteFactory* dw, const TextInput& inp
 // Steps (decision 010): a dot per step, centred vertically; done and to-do
 // ones in their token colours, the current one in `accent`.
 void paintSteps(ID2D1DeviceContext* dc, const Steps& steps, Vec2 size, const Color& accent);
+// A Swatch (decision 030): a circle of its fill, ringed in trackColor so a
+// pale one shows on a pale island, with a dot of its mark in the middle.
+void paintSwatch(ID2D1DeviceContext* dc, const Swatch& swatch, Vec2 size);
 // Fills a rounded rect with the image scaled to cover it; a neutral tile if `data` is null.
 void paintImage(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float cornerRadius);
 

@@ -113,7 +113,8 @@ void runSystemTests()
     // Settings (decisions 022, 030): a widget whose card is a list of settings.
     Tokens saved = tokens();
     Tokens themed = saved;
-    themed.themes = { { "Midnight", {} }, { "Paper", {}, true }, { "Grape", { { "islandColor", { 24, 9, 42 } } } }, { "Lime", {} } };
+    Theme grape{ .name = "Grape", .colors = { { "islandColor", { 24, 9, 42 } } }, .island = { 24, 9, 42 }, .accent = { 191, 90, 242 } };
+    themed.themes = { { "Midnight", {} }, { .name = "Paper", .island = { 246, 246, 248 }, .light = true }, grape, { "Lime", {} } };
     setTokens(themed);
     PanelHost sh;
     std::string& stored = sh.store[SettingsProvider::kThemeKey];
@@ -128,8 +129,8 @@ void runSystemTests()
     settings.start(sh);
     const Panel& widget = sh.published.back();
     expect(widget.id == SettingsProvider::kPanelId && widget.tapAction.empty() && hasCard(widget.content) &&
-           widget.content.card == CardLayout::Centred && widget.content.keepOpen,
-           "settings: a widget that opens a centred card, which a click between rows doesn't close");
+           widget.content.card == CardLayout::List && widget.content.keepOpen,
+           "settings: a widget that opens a list card, which a click between rows doesn't close");
     expect(glyphAt(widget, 0) == Glyph::Settings && textAt(widget, 1, 0) == "Settings", "settings: the gear");
     expect(applied == "Lime" && saves == 0 && cardText(widget, 0) == "Theme" && cardItem(widget, 0, 1) == "Lime",
            "settings: the saved theme applies at start, and its row says so");
@@ -142,11 +143,13 @@ void runSystemTests()
     const Slot& page = sh.published.back().content.expandedCenter;
     expect(page.size() == 7 && cardText(sh.published.back(), 0) == "Theme" &&
            std::get<Button>(page[0].leading[0]).actionId == SettingsProvider::kBack, "themes: a page with a back arrow");
-    expect(cardText(sh.published.back(), 1) == "Dark" && cardText(sh.published.back(), 2) == "Midnight" &&
-           cardText(sh.published.back(), 3) == "Grape" && cardText(sh.published.back(), 4) == "Lime" &&
-           cardText(sh.published.back(), 5) == "Light" && cardText(sh.published.back(), 6) == "Paper",
+    expect(cardText(sh.published.back(), 1) == "Dark" && cardItem(sh.published.back(), 2, 1) == "Midnight" &&
+           cardItem(sh.published.back(), 3, 1) == "Grape" && cardItem(sh.published.back(), 4, 1) == "Lime" &&
+           cardText(sh.published.back(), 5) == "Light" && cardItem(sh.published.back(), 6, 1) == "Paper",
            "themes: dark ones, then light ones, each under its heading");
-    expect(std::get<Button>(page[4].items[1]).glyph == Glyph::Checked && std::get<Button>(page[2].items[1]).glyph == Glyph::Unchecked &&
+    expect(std::get<Swatch>(page[3].items[0]) == Swatch{ .fill = { 24, 9, 42 }, .mark = { 191, 90, 242 } },
+           "themes: each starts with a swatch of its island and accent");
+    expect(std::get<Button>(page[4].items[2]).glyph == Glyph::Checked && std::get<Button>(page[2].items[2]).glyph == Glyph::Unchecked &&
            page[4].list == SettingsProvider::kThemeList && page[1].list == SettingsProvider::kThemeList,
            "themes: one scrolling list, the picked one ticked");
     expect(sh.revealed == std::string(SettingsProvider::kThemeList) + "@3", "themes: scrolled to the picked one");

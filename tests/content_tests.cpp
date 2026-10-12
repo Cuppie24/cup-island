@@ -326,6 +326,22 @@ void runContentTests()
     expect(busyCard.tabs && busyPlay && busyPlay->frame.y + busyPlay->frame.height <= busyCard.tabs->tabs[0].frame.y - t.slotGap,
            "controls sit above the tab strip");
     expect(busyPlay && busyPlay->frame == play->frame, "and exactly where they are without tabs");
+
+    // A List card (decision 030): a Centred stack with wider sides; a list
+    // item's text at an edge sits further in than its buttons.
+    Content settings{ .card = CardLayout::List,
+                      .expandedCenter = { Row{ .items = { Text{ "Theme" }, Button{ Glyph::ChevronRight, "open" } }, .listItem = true },
+                                          Row{ .items = { Swatch{}, Text{ "Grape" } }, .listItem = true } } };
+    Scene listCard = layout(expandedWith(settings), Ms{ 0 });
+    const Placed* name = find(listCard, "expandedCenter/0/0");
+    const Placed* chevron = find(listCard, "expandedCenter/0/1");
+    const Placed* swatch = find(listCard, "expandedCenter/1/0");
+    float listSide = t.expandedPadding + t.listCardInset;
+    expect(name && name->listRow && name->listRow->x == listSide && name->listRow->width == listCard.size.x - 2 * listSide,
+           "a List card's rows keep wider sides");
+    expect(name->frame.x == listSide + t.listItemTextInset, "text at a list item's edge clears its rounded end");
+    expect(chevron && chevron->frame.x + chevron->frame.width == listCard.size.x - listSide - t.listItemInset, "a button there keeps the usual inset");
+    expect(swatch && swatch->frame.x == listSide + t.listItemInset && swatch->frame.width == t.swatchSize, "a swatch: a square of swatchSize");
 }
 
 } // namespace cup::test

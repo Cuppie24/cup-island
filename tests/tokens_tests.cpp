@@ -109,6 +109,8 @@ void runTokensTests()
     TokensParse paleFile = parseTokens(R"({ "islandColor": [250, 250, 250], "themes": { "Plain": {}, "Night": { "islandColor": [0, 0, 0] } } })");
     expect(paleFile.ok() && paleFile.tokens.themes[0].light && !paleFile.tokens.themes[1].light,
            "a theme that keeps the file's island is as light as the file");
+    expect(paleFile.tokens.themes[0].island == Color{ 250, 250, 250 } && paleFile.tokens.themes[1].island == Color{ 0, 0, 0 } &&
+           paleFile.tokens.themes[1].accent == Tokens{}.liveColor, "each theme's island and accent, for its swatch");
     TokensParse themes = parseTokens(R"({ "themes": {
         "Plain": {},
         "Grape": { "islandColor": [24, 9, 42], "liveColor": [191, 90, 242, 0.5] } } })");
