@@ -336,9 +336,11 @@ void runContentTests()
     const Placed* name = find(listCard, "expandedCenter/0/0");
     const Placed* chevron = find(listCard, "expandedCenter/0/1");
     const Placed* swatch = find(listCard, "expandedCenter/1/0");
-    float listSide = t.expandedPadding + t.listCardInset;
-    expect(name && name->listRow && name->listRow->x == listSide && name->listRow->width == listCard.size.x - 2 * listSide,
-           "a List card's rows keep wider sides");
+    float listWidth = std::min(listCard.size.x - 2 * (t.expandedPadding + t.listCardInset), t.listCardWidth);
+    float listSide = (listCard.size.x - listWidth) / 2;
+    expect(listWidth < listCard.size.x - 2 * (t.expandedPadding + t.listCardInset), "the shipped listCardWidth narrows the rows");
+    expect(name && name->listRow && name->listRow->x == listSide && name->listRow->width == listWidth,
+           "a List card's rows: no wider than listCardWidth, centred");
     expect(name->frame.x == listSide + t.listItemTextInset, "text at a list item's edge clears its rounded end");
     expect(chevron && chevron->frame.x + chevron->frame.width == listCard.size.x - listSide - t.listItemInset, "a button there keeps the usual inset");
     expect(swatch && swatch->frame.x == listSide + t.listItemInset && swatch->frame.width == t.swatchSize, "a swatch: a square of swatchSize");

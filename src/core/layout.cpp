@@ -30,12 +30,15 @@ Source sourceFor(const IslandState& s, Mode mode)
 // Centred and List cards are one stack of rows across the card (decision 014).
 bool stacked(const Content& c) { return c.card == CardLayout::Centred || c.card == CardLayout::List; }
 
-// That stack's frame: the card less its padding, and a List card's wider sides (decision 030).
+// That stack's frame: the card less its padding. A List card's is narrower
+// and centred (decision 030): a few short rows don't need the island's width.
 Rect stackFrame(const Content& c, Vec2 size)
 {
     const Tokens& t = tokens();
-    float p = t.expandedPadding, side = p + (c.card == CardLayout::List ? t.listCardInset : 0);
-    return { side, p, std::max(0.0f, size.x - 2 * side), size.y - 2 * p };
+    float p = t.expandedPadding;
+    if (c.card != CardLayout::List) return { p, p, std::max(0.0f, size.x - 2 * p), size.y - 2 * p };
+    float width = std::min(std::max(0.0f, size.x - 2 * (p + t.listCardInset)), t.listCardWidth);
+    return { (size.x - width) / 2, p, width, size.y - 2 * p };
 }
 
 // A stacked card grows to fit its rows (a to-do list), never below Expanded's

@@ -68,7 +68,8 @@ struct Tokens {
     float compactInset = 4;     // compact padding
     float alertPadding = 8;
     float expandedPadding = 12;
-    float listCardInset = 8;      // CardLayout::List: this much more on the left and right (decision 030)
+    float listCardInset = 8;      // CardLayout::List: at least this much more on the left and right (decision 030)
+    float listCardWidth = 280;    // ...and its rows no wider than this, centred: a few short settings
     float expandedArtSize = 68; // expanded leading square: as tall as title + artist + caption beside it
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;
@@ -106,7 +107,7 @@ struct Tokens {
     float ringThickness = 3;      // progress ring stroke (decision 010)
     float stepDotSize = 9;        // Steps: one dot per step
     float stepDotGap = 8;
-    float swatchSize = 18;        // Swatch: a colour sample (a theme on Settings' list, decision 030)
+    float swatchSize = 24;        // Swatch: a colour sample (a theme on Settings' list, decision 030)
 
     // Hover on buttons and the progress bar (decision 002: content only, not the pill).
     Ms hoverFadeDuration{ 120 };
