@@ -1,7 +1,7 @@
 #pragma once
 // Versions and GitHub releases, as the updater sees them (decision 036).
 // Pure: parsing and choosing, tested on Linux. The app only fetches the
-// release (platform/updater.h) and hands it over as a Release.
+// release (github.h) and hands it over as a GitHubRelease.
 
 #include <compare>
 #include <optional>
@@ -34,11 +34,11 @@ struct ReleaseAsset {
 };
 
 // GitHub's latest release (never a draft or a pre-release).
-struct Release {
+struct GitHubRelease {
     std::string tag;  // "v0.4.0"
     std::string page; // its page on GitHub: what's new
     std::vector<ReleaseAsset> assets;
-    bool operator==(const Release&) const = default;
+    bool operator==(const GitHubRelease&) const = default;
 };
 
 struct UpdateOffer {
@@ -54,6 +54,6 @@ struct UpdateOffer {
 // installer with a SHA-256, downloaded from https://github.com/. Without a
 // checksum there's nothing to check the download against, so nothing is
 // offered; a page that isn't on GitHub is dropped (no "What's new").
-std::optional<UpdateOffer> offerFor(const Version& running, const Release& latest);
+std::optional<UpdateOffer> offerFor(const Version& running, const GitHubRelease& latest);
 
 } // namespace cup

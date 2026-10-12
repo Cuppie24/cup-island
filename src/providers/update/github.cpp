@@ -47,11 +47,11 @@ std::string field(const json::JsonObject& o, const wchar_t* name)
     return value.ValueType() == json::JsonValueType::String ? winrt::to_string(value.GetString()) : std::string();
 }
 
-std::optional<Release> parseRelease(const winrt::hstring& text)
+std::optional<GitHubRelease> parseRelease(const winrt::hstring& text)
 {
     json::JsonObject o{ nullptr };
     if (!json::JsonObject::TryParse(text, o)) return std::nullopt;
-    Release r{ .tag = field(o, L"tag_name"), .page = field(o, L"html_url") };
+    GitHubRelease r{ .tag = field(o, L"tag_name"), .page = field(o, L"html_url") };
     if (o.HasKey(L"assets") && o.GetNamedValue(L"assets").ValueType() == json::JsonValueType::Array) {
         for (const auto& value : o.GetNamedArray(L"assets")) {
             if (value.ValueType() != json::JsonValueType::Object) continue;
@@ -85,10 +85,10 @@ bool runInstaller(const std::filesystem::path& installer)
     return false;
 }
 
-winrt::fire_and_forget fetch(std::string appVersion, std::function<void(std::optional<Release>)> done)
+winrt::fire_and_forget fetch(std::string appVersion, std::function<void(std::optional<GitHubRelease>)> done)
 {
     winrt::apartment_context ui; // `done` runs back on this (the UI) thread
-    std::optional<Release> release;
+    std::optional<GitHubRelease> release;
     try {
         auto response = co_await client(appVersion, true).GetAsync(winrt::Windows::Foundation::Uri(kLatestRelease));
         if (response.IsSuccessStatusCode()) {
@@ -157,7 +157,7 @@ winrt::fire_and_forget install(UpdateOffer offer, std::string appVersion, std::f
 
 } // namespace
 
-void fetchLatestRelease(const std::string& appVersion, std::function<void(std::optional<Release>)> done)
+void fetchLatestRelease(const std::string& appVersion, std::function<void(std::optional<GitHubRelease>)> done)
 {
     fetch(appVersion, std::move(done));
 }
