@@ -50,7 +50,7 @@ struct Tokens {
     Vec2 idleSize{ 160, 28 };
     Vec2 compactSize{ 260, 32 };
     Vec2 alertSize{ 320, 64 };
-    Vec2 expandedSize{ 380, 155 };
+    Vec2 expandedSize{ 380, 159 };
     Vec2 receptiveSize{ 380, 84 };
     Vec2 hiddenSize{ 160, 0 };
     float maxCornerRadius = 28; // bottom corners: half the height, capped, so big shapes aren't blobs
@@ -61,15 +61,24 @@ struct Tokens {
     float compactInset = 4;     // compact padding
     float alertPadding = 8;
     float expandedPadding = 12;
-    float expandedArtSize = 64; // expanded leading square
+    float expandedArtSize = 68; // expanded leading square: as tall as title + artist + caption beside it
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;
     float itemSpacing = 8;
     float looseItemSpacing = 24; // Row::loose, e.g. media controls
-    float titleFontSize = 15;
-    float bodyFontSize = 13;
+    float titleFontSize = 17;   // the type ramp steps 2 px: caption 13, body 15, title 17 (decision 024)
+    float bodyFontSize = 15;
     float captionFontSize = 13; // the smallest text: ~11 px on screen at 100% after islandScale
     float displayFontSize = 34; // TextStyle::Display: a timer as the card's centre
+    // Font weights, 100..900 (400 regular, 600 semibold; decision 024). Segoe UI Variable
+    // (Windows 11) takes any value in between; other fonts use the nearest weight they have.
+    float titleFontWeight = 600;
+    float bodyFontWeight = 500;   // a touch heavier than regular: light text on a dark island reads thin
+    float captionFontWeight = 500;
+    float displayFontWeight = 350; // big and light, like a clock face
+    // Darkens antialiased text strokes (DirectWrite's grayscale enhanced
+    // contrast): 0 = none, 1 = Windows' usual, higher = bolder-looking edges.
+    float textContrast = 1.5f;
     float inputFontSize = 15;   // a TextInput's text and placeholder: noticeable even when it isn't focused
     float iconSize = 18;
     float buttonSize = 36;
@@ -121,7 +130,7 @@ struct Tokens {
 
     // Home: a grid of panel tiles in the Expanded card (decision 009).
     std::size_t homeColumns = 4;  // columns' worth per Home row; a widget takes one, or two (Panel::wide); rows stretch to full width
-    float tileHeight = 58;
+    float tileHeight = 60;        // fits a title and a caption line inside tilePadding
     float tileGap = 8;
     float tilePadding = 8;        // inside a tile, on every side
 

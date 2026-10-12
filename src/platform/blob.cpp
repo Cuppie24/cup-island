@@ -4,6 +4,7 @@
 
 #include <winrt/Windows.Foundation.Metadata.h>
 
+#include <cmath>
 #include <algorithm>
 #include <utility>
 
@@ -149,6 +150,10 @@ void Blob::refreshAnimations()
 
 void Blob::place(Vec2 size, Vec2 offset)
 {
+    // At rest on whole pixels, so content inside isn't drawn between pixels
+    // (blurry text). Rounded before the comparison below, so an unchanged
+    // position still isn't re-set (decision 008).
+    offset = { std::round(offset.x), std::round(offset.y) };
     // Only touch geometry on a real change: re-setting a property restarts
     // its implicit animation, which would stall a morph in flight. While
     // following, Offset belongs to the cursor expression; it lands later.

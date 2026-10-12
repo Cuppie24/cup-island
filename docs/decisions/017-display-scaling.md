@@ -41,6 +41,10 @@ simpler and can't drift out of sync.)
 interaction layer. Values in tokens.json don't change; at 100% nothing
 looks different.
 
+**Crisp text.** Scaled lengths are fractional, which blurs text unless
+visuals are snapped to whole pixels. That, and the type ramp, weights and
+text rendering, are in decision 024.
+
 **Resolved (decision 023).** The island can be put on any display from
 Settings, at that display's scale. Any display change, a resolution change
 included, re-places it.

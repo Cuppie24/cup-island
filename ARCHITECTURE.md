@@ -147,6 +147,8 @@ Durations are in milliseconds and named `…Ms`. Sizes are `[width, height]`,
 in logical pixels: the app multiplies every length by the display's scale
 and by `islandScale`, the one knob for the island's overall size (decision
 017). At 150% with `islandScale` 0.85, a 380 card is 485 physical pixels.
+Font weights (`…FontWeight`, 100..900) and `textContrast` are not scaled;
+decision 024 says what each text token does and which way to turn it.
 Colours are `[r, g, b]` or `[r, g, b, alpha]` (0..255, alpha 0..1, like CSS `rgba()`).
 Curves are `[x1, y1, x2, y2]`, the same as CSS `cubic-bezier()`, so you can
 paste from cubic-bezier.com. A new `canvasSize` (or `islandScale`) resizes the render layer. Watching

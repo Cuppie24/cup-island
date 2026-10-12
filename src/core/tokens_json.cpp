@@ -44,6 +44,11 @@ const Field kFields[] = {
     { "captionFontSize", &Tokens::captionFontSize },
     { "displayFontSize", &Tokens::displayFontSize },
     { "inputFontSize", &Tokens::inputFontSize },
+    { "titleFontWeight", &Tokens::titleFontWeight },
+    { "bodyFontWeight", &Tokens::bodyFontWeight },
+    { "captionFontWeight", &Tokens::captionFontWeight },
+    { "displayFontWeight", &Tokens::displayFontWeight },
+    { "textContrast", &Tokens::textContrast },
     { "iconSize", &Tokens::iconSize },
     { "buttonSize", &Tokens::buttonSize },
     { "smallButtonSize", &Tokens::smallButtonSize },
@@ -279,10 +284,12 @@ TokensParse parseTokens(std::string_view json)
 Tokens scaleTokens(const Tokens& t, float displayScale)
 {
     float scale = displayScale * t.islandScale;
-    // Factors, not lengths: a press squashes to 96% at any scale, and the size knob isn't a size.
+    // Factors, not lengths: a press squashes to 96% at any scale, and the size
+    // knob isn't a size. Nor are font weights or text contrast.
     auto unitless = [](const char* name) {
         std::string_view n(name);
-        return n == "pressScale" || n == "buttonPressScale" || n == "islandScale";
+        return n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" ||
+               (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
     };
     Tokens out = t;
     for (const Field& field : kFields) {
