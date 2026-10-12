@@ -4,6 +4,7 @@
 #include "core/tokens.h"
 #include "platform/element_painting.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 
@@ -54,7 +55,11 @@ void PillRenderer::apply(const Scene& scene)
     pill_.setHighlighted(scene.dropTarget);
     const TabStrip* tabs = scene.tabs ? &*scene.tabs : nullptr;
     pill_.setSelectedTab(tabs && tabs->active ? std::optional<Rect>(tabs->tabs[*tabs->active].frame) : std::nullopt, tabs ? tabs->radius : 0);
-    if (!tabs && scene.tiles.empty()) pill_.setHovered(std::nullopt, 0);
+    // Nothing left that lights up as an area: drop a stale hover. A list row's
+    // stays: the app re-aims it after every scene, and clearing it here would
+    // blink it on each tick of a countdown on the same card.
+    bool listRows = std::any_of(scene.elements.begin(), scene.elements.end(), [](const Placed& p) { return p.listRow.has_value(); });
+    if (!tabs && scene.tiles.empty() && !listRows) pill_.setHovered(std::nullopt, 0);
     std::vector<Rect> tiles;
     for (const Tile& tile : scene.tiles) tiles.push_back(tile.frame);
     pill_.setTiles(tiles, scene.tileRadius);

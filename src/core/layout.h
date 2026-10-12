@@ -20,6 +20,8 @@ struct Placed {
     float cornerRadius = 0; // nested in the pill's corner (pill radius - padding), capped at half the frame
     std::optional<Color> accent; // the content's accent, for the renderer to tint live data (decision 010)
     std::string scrollAction;    // its row's (Row::scrollAction): the wheel over it sends this
+    std::optional<Rect> listRow; // its row is a list item (Row::listItem): lit here while the pointer is on the row
+    float listRowRadius = 0;
     std::string providerId;
     std::string activityId;
     std::optional<Timeline> ticking; // time labels: the text changes as playback moves

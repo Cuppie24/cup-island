@@ -104,6 +104,9 @@ float radiusFor(const Item& item, Rect frame, float nestedRadius)
 }
 
 
+// A list item's extra height: room above and below its content (Row::listItem).
+float listPadding(const Row& row) { return row.listItem ? 2 * tokens().listItemPadding : 0; }
+
 } // namespace
 
 float fontSize(TextStyle style)
@@ -129,7 +132,7 @@ float slotHeight(const Slot& slot, Rect frame)
                 if (isRing(item)) rings = std::max(rings, std::min(frame.width, frame.height));
                 else others = std::max(others, heightOf(item, frame, 0));
             }
-        total += others > 0 ? others : rings;
+        total += (others > 0 ? others : rings) + listPadding(r);
     }
     return total + tokens().rowSpacing * static_cast<float>(slot.empty() ? 0 : slot.size() - 1);
 }
@@ -158,6 +161,7 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
         float h = 0;
         for (const auto* items : { &rows[i].items, &rows[i].leading, &rows[i].trailing })
             for (const Item& item : *items) h = std::max(h, heightOf(item, slot.frame, ringSides[i]));
+        h += listPadding(rows[i]);
         rowHeights.push_back(h);
         total += h;
     }
@@ -175,6 +179,8 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
             std::size_t neighbour = row.span == RowSpan::MatchAbove ? r - 1 : r + 1;
             if (spans && row.span != RowSpan::Slot && neighbour < rows.size() && (*spans)[neighbour].width > 0)
                 area = { (*spans)[neighbour].x, slot.frame.y, (*spans)[neighbour].width, slot.frame.height };
+            Rect background = area; // a list item's hover background spans the row; its content sits inside
+            if (row.listItem) area = { area.x + t.listItemInset, area.y, std::max(0.0f, area.width - 2 * t.listItemInset), area.height };
             float rowHeight = rowHeights[r], ringSide = ringSides[r];
             float gap = row.loose ? t.looseItemSpacing : t.itemSpacing;
 
@@ -189,6 +195,10 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
                 placed.cornerRadius = radiusFor(item, placed.frame, nestedRadius);
                 placed.accent = source.content ? source.content->accent : std::nullopt;
                 placed.scrollAction = row.scrollAction;
+                if (row.listItem) {
+                    placed.listRow = Rect{ background.x, y, background.width, rowHeight };
+                    placed.listRowRadius = std::min(nestedRadius, rowHeight / 2);
+                }
                 placed.providerId = source.providerId;
                 placed.activityId = source.activityId;
                 if (auto* label = std::get_if<TimeLabel>(&item)) placed.ticking = label->timeline;
@@ -269,6 +279,7 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
                     left = std::min(left, target[i].hitFrame.x);
                     right = std::max(right, target[i].hitFrame.x + target[i].hitFrame.width);
                 }
+                if (row.listItem) left = std::min(left, background.x); // from the background's edge
                 Rect whole{ left, y - t.rowSpacing / 2, right - left, rowHeight + t.rowSpacing };
                 for (std::size_t i = first; i < first + middle; ++i)
                     if (std::holds_alternative<Button>(target[i].item)) target[i].hitFrame = whole;

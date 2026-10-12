@@ -63,9 +63,19 @@ Alert phaseAlert(const std::string& title, const std::string& detail, const std:
 
 } // namespace
 
+Dialog stopQuestion(const PomodoroProvider::Session& s)
+{
+    std::string rounds = std::to_string(tokens().pomodoroRounds);
+    std::string where = s.phase == Phase::LongBreak ? "You're on the long break."
+                                                    : "You're in round " + std::to_string(s.round) + " of " + rounds + ".";
+    return { .activityId = PomodoroProvider::kPanelId, .title = "Stop the session?",
+             .message = where + " The timer starts over next time.", .confirmLabel = "Stop",
+             .confirmAction = act::kStopConfirmed, .destructive = true };
+}
+
 // Dormant: a centred card like the running one, so starting changes as
-// little as possible: ▶ where the controls go, the full focus time big, the
-// plan, then the to-dos (decision 016). The widget is laid out like the
+// little as possible: the full focus time big, the plan, ▶ where the
+// controls go, then the to-dos (decision 016). The widget is laid out like the
 // running one too: the timer icon where the ring goes, the focus time, the plan.
 Panel pomodoroPanel(const TodoList& todos, std::size_t scroll)
 {
@@ -76,9 +86,9 @@ Panel pomodoroPanel(const TodoList& todos, std::size_t scroll)
         .label = "Focus",
         .accent = accentOf(Phase::Focus),
         .card = CardLayout::Centred,
-        .expandedCenter = { row({ Button{ Glyph::Play, act::kStart } }, Align::Center),
-                            row({ Text{ .value = formatDuration(t.pomodoroFocus), .style = TextStyle::Display, .centred = true } }),
-                            row({ Text{ .value = plan, .style = TextStyle::Caption, .centred = true } }) },
+        .expandedCenter = { row({ Text{ .value = formatDuration(t.pomodoroFocus), .style = TextStyle::Display, .centred = true } }),
+                            row({ Text{ .value = plan, .style = TextStyle::Caption, .centred = true } }),
+                            row({ Button{ Glyph::Play, act::kStart } }, Align::Center) },
         .tileLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
         .tile = { row({ Text{ formatDuration(t.pomodoroFocus), TextStyle::Title } }), row({ Text{ rounds, TextStyle::Caption } }) },
     };
@@ -87,9 +97,10 @@ Panel pomodoroPanel(const TodoList& todos, std::size_t scroll)
 }
 
 // Compact: the countdown centred, the ring filling on the right; no phase
-// name (the colour says it). Expanded, a centred card (decision 014): the
-// controls on top, a big countdown in the middle, a bar for the phase under
-// it (as wide as the dots), then a dot per phase and what they mean. The ring is for compact,
+// name (the colour says it). Expanded, a centred card (decision 014): a big
+// countdown on top, a bar for the phase under it (as wide as the dots), a
+// dot per phase and what they mean, then the controls, right above the
+// to-dos they're about. The ring is for compact,
 // the bubble and the widget, where there's no room for a big countdown.
 // The widget (decision 019): the ring filling, the time left, the phase and round.
 Content pomodoroContent(const PomodoroProvider::Session& s, const TodoList& todos, std::size_t scroll)
@@ -115,11 +126,11 @@ Content pomodoroContent(const PomodoroProvider::Session& s, const TodoList& todo
         .compactTrailing = { row({ ring }, Align::Center) },
         .minimal = { row({ ring }, Align::Center) },
         .expandedCenter = {
-            Row{ .items = { pause, Button{ Glyph::Next, act::kSkip }, stop }, .align = Align::Center, .loose = true },
             row({ bigLeft }, Align::Center),
             Row{ .items = { Progress{ .timeline = s.timeline } }, .span = RowSpan::MatchBelow }, // as wide as the dots
             row({ Steps{ total, done } }, Align::Center),
             row({ Text{ .value = caption, .style = TextStyle::Caption, .centred = true } }, Align::Center),
+            Row{ .items = { pause, Button{ Glyph::Next, act::kSkip }, stop }, .align = Align::Center, .loose = true },
         },
         // Same place on Home as the dormant tile, now live (decision 009).
         .tileLeading = { row({ ring }, Align::Center) },
@@ -180,6 +191,8 @@ void PomodoroProvider::onAction(const Action& action)
     } else if (action.actionId == act::kSkip && session_) {
         advance(/* alert */ false);
     } else if (action.actionId == act::kStop && session_) {
+        host_->ask(stopQuestion(*session_)); // a misclick shouldn't lose the session (decision 020)
+    } else if (action.actionId == act::kStopConfirmed && session_) {
         finish();
     }
 }

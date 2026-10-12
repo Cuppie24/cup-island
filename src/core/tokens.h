@@ -87,6 +87,8 @@ struct Tokens {
     float buttonSize = 36;
     float smallButtonSize = 24;   // Button::compact: list rows (a to-do's checkbox)
     float inputHeight = 30;       // a TextInput: a little taller than the rows, easy to click into
+    float listItemPadding = 4;    // Row::listItem: above and below its content, so list items stand apart
+    float listItemInset = 6;      // Row::listItem: its content in from the hover background's edges
     float buttonLabelPadding = 10; // a text button: its label plus this on each side        // hover circle; the click area also takes in half the gaps around it
     float buttonGlyphSize = 16;
     float buttonPressScale = 0.85f;

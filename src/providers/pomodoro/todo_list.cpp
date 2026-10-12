@@ -137,7 +137,8 @@ void appendTodoRows(Slot& slot, const TodoList& list, std::size_t first)
         Button box{ .glyph = t.done ? Glyph::Checked : Glyph::Unchecked, .actionId = act::kToggle + id, .compact = true };
         Text text{ .value = t.text, .style = t.done ? TextStyle::Caption : TextStyle::Body, .struck = t.done };
         Button remove{ .glyph = Glyph::Delete, .actionId = act::kDelete + id, .compact = true, .revealOnHover = true };
-        slot.push_back(Row{ .items = { box, text }, .trailing = { remove }, .clickAnywhere = true, .scrollAction = act::kScroll });
+        slot.push_back(Row{ .items = { box, text }, .trailing = { remove }, .clickAnywhere = true,
+                              .scrollAction = act::kScroll, .listItem = true });
     }
 
     // What's out of the window, so it's clear the list scrolls (the wheel works here too).

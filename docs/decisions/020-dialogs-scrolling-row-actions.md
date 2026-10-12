@@ -29,12 +29,20 @@ shelf, notifications), so each is a host feature, not a Pomodoro trick.
   pointer is anywhere on its row, then faded in. A to-do's delete button.
 - **`Row::clickAnywhere`** now spans only the row's `items`, so a button at
   the row's edge (the delete) gets its own clicks instead of ticking the task.
+- **List items** (`Row::listItem`): `listItemPadding` above and below, so
+  items stand apart, content inset by `listItemInset`, and the whole row lit
+  under the pointer (`hoverColor`, the same mark as a hovered tab or tile).
+  Layout gives each item its row's frame (`Placed::listRow`); the app aims
+  the mark. A row's mark survives a re-layout of the same card, or it would
+  blink with every tick of a countdown beside it.
 
 **The to-do list uses them:** a window of `todoVisibleItems` tasks that
 scrolls with the wheel, a caption for what's out of it ("2 above · 3
 below"), adding scrolls to the new task; a delete button per task on hover
 that deletes at once; Clear solved and Clear all ask first ("Clear all
-tasks? All 5 tasks will be removed." · Cancel · Clear all).
+tasks? All 5 tasks will be removed." · Cancel · Clear all). Each task is a
+list item. Pomodoro's stop button asks too ("Stop the session?"): ending
+loses the session's progress, and it sits next to pause.
 
 **Consequences.** Rules in core (`card_overlays`, `dialog`, `slot_layout`),
 tested by `tests/scenarios/dialog.scenario` and `tests/todo_tests.cpp`.

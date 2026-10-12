@@ -157,6 +157,10 @@ struct Row {
     // (positive: down). A list that scrolls: the provider moves its window
     // and republishes (decision 020).
     std::string scrollAction;
+    // A list item (a to-do): listItemPadding above and below, so items stand
+    // apart, its content inset by listItemInset, and a faint background across
+    // the whole row under the pointer.
+    bool listItem = false;
     bool operator==(const Row&) const = default;
 };
 

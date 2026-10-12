@@ -9,6 +9,7 @@
 #include "providers/pomodoro/pomodoro_provider.h"
 #include "providers/provider_registry.h"
 
+#include <cmath>
 #include <functional>
 
 namespace cup::test {
@@ -73,6 +74,18 @@ void runTodoTests()
     const Placed* openText = firstOf(card, [](const Placed& p) { auto* t = std::get_if<Text>(&p.item); return t && t->value == "Old open"; });
     auto onText = hitTest(card, { openText->frame.x + openText->frame.width - 2, openText->frame.y + openText->frame.height / 2 });
     expect(onText && onText->action.actionId.rfind(todo_action::kToggle, 0) == 0, "clicking a to-do's text ticks it");
+    // A list item: lit across the whole row under the pointer, its content
+    // inset from that background, and padding between items.
+    const Placed* openBox = firstOf(card, [&](const Placed& p) { return p.key == openText->key.substr(0, openText->key.rfind('/')) + "/0"; });
+    expect(openText->listRow && openBox && openBox->listRow == openText->listRow, "the row's items share its hover background");
+    const Rect& lit = *openText->listRow;
+    expect(lit.x == field->frame.x && lit.width == field->frame.width, "as wide as the field");
+    expect(openBox->frame.x == lit.x + tokens().listItemInset, "the checkbox inset from its edge");
+    expect(lit.height == tokens().smallButtonSize + 2 * tokens().listItemPadding &&
+           std::abs(openBox->frame.y + openBox->frame.height / 2 - (lit.y + lit.height / 2)) < 0.01f, "padded above and below, content centred");
+    expect(onText && hitTest(card, { lit.x + 1, lit.y + lit.height / 2 })->action.actionId == onText->action.actionId,
+           "its whole background ticks it");
+    expect(!field->listRow, "the field isn't a list item");
     std::string fieldRow = field->key.substr(0, field->key.rfind('/') + 1);
     std::size_t inFieldRow = 0;
     for (const Placed& p : card.elements)

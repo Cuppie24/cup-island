@@ -144,11 +144,17 @@ bool isCurrent(const Tab& tab)
 
 // Re-run on every pointer move and every new scene: content can move under a still pointer.
 // "<slot>/<row>" of whatever content is under a pill-coordinate point, "" if none.
-std::string rowUnder(Vec2 point)
+const Placed* contentUnder(Vec2 point)
 {
     for (const Placed& p : g_scene.elements)
-        if (p.hitFrame.contains(point) && p.key.rfind("tab/", 0) != 0) return p.key.substr(0, p.key.rfind('/'));
-    return {};
+        if (p.hitFrame.contains(point) && p.key.rfind("tab/", 0) != 0) return &p;
+    return nullptr;
+}
+
+std::string rowUnder(Vec2 point)
+{
+    const Placed* p = contentUnder(point);
+    return p ? p->key.substr(0, p->key.rfind('/')) : std::string();
 }
 
 void updateHover()
@@ -168,8 +174,11 @@ void updateHover()
     if (tab && isCurrent(*tab)) tab = nullptr;
     const Tile* tile = g_pointer.at && key.empty() ? tileAt(g_scene, *g_pointer.at) : nullptr;
     if (tile && !tile->clickable()) tile = nullptr; // widgets without a card or tap action don't react
+    // A list item (a to-do) lights up as a whole row, like a tab (Row::listItem).
+    const Placed* item = g_pointer.at && !g_pointer.scrub ? contentUnder(*g_pointer.at) : nullptr;
     if (tab) g_renderer.setAreaHovered(tab->frame, g_scene.tabs->radius);
     else if (tile) g_renderer.setAreaHovered(tile->frame, g_scene.tileRadius);
+    else if (item && item->listRow) g_renderer.setAreaHovered(item->listRow, item->listRowRadius);
     else g_renderer.setAreaHovered(std::nullopt, 0);
 }
 

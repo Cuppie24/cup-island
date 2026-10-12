@@ -54,6 +54,8 @@ const Field kFields[] = {
     { "buttonSize", &Tokens::buttonSize },
     { "smallButtonSize", &Tokens::smallButtonSize },
     { "inputHeight", &Tokens::inputHeight },
+    { "listItemPadding", &Tokens::listItemPadding },
+    { "listItemInset", &Tokens::listItemInset },
     { "buttonLabelPadding", &Tokens::buttonLabelPadding },
     { "buttonGlyphSize", &Tokens::buttonGlyphSize },
     { "buttonPressScale", &Tokens::buttonPressScale },

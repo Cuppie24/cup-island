@@ -2,7 +2,7 @@
 // Pomodoro: the first panel (decision 009). Dormant, its Home widget opens
 // a card that starts a session; running, it's an activity that counts down
 // focus rounds and breaks. It ends by itself after the long break, or with
-// its card's stop button. The widget only informs (decision 019).
+// its card's stop button, once confirmed. The widget only informs (decision 019).
 // Pure: the countdown is host-driven (a Timeline), phase ends come from
 // Host::wakeAt, so it builds and tests on any OS. It keeps a to-do list
 // under the timer (decision 016); saving it is handed in, so it stays out of
@@ -22,7 +22,8 @@ namespace pomodoro_action {
 inline constexpr const char* kStart = "start";
 inline constexpr const char* kPause = "pause"; // toggles pause / resume
 inline constexpr const char* kSkip = "skip";   // ends the current phase early, without an alert
-inline constexpr const char* kStop = "stop";
+inline constexpr const char* kStop = "stop";                   // only asks (stopQuestion); the dialog's confirm sends:
+inline constexpr const char* kStopConfirmed = "stop.confirmed";
 } // namespace pomodoro_action
 
 // Where the to-do list lives between runs: the whole list as text (TodoList::save).
@@ -68,5 +69,7 @@ private:
 // `scroll`: the first to-do in the list's window.
 Panel pomodoroPanel(const TodoList& todos = {}, std::size_t scroll = 0);
 Content pomodoroContent(const PomodoroProvider::Session& session, const TodoList& todos = {}, std::size_t scroll = 0);
+// The question the stop button asks before ending a running session.
+Dialog stopQuestion(const PomodoroProvider::Session& session);
 
 } // namespace cup
