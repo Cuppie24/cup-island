@@ -1,7 +1,7 @@
 #pragma once
 // Settings on Home (decision 022): a widget whose card picks the app theme,
-// the display the island is on (decision 023), and copies the log for a bug
-// report. Saving picks, recolouring, moving the island and the clipboard are
+// the display the island is on (decision 023), puts a moved island back in
+// the centre (decision 026), and copies the log for a bug report. Saving picks, recolouring, moving the island and the clipboard are
 // the app's (handed in), so this stays pure and is tested on Linux.
 
 #include "core/provider.h"
@@ -31,6 +31,7 @@ struct SettingsHooks {
     std::function<std::string()> loadDisplay;            // the saved pick's id, "" = the main display
     std::function<void(const std::string&)> saveDisplay;
     std::function<void(const std::string&)> applyDisplay; // moves the island; "" = the main display
+    std::function<void()> centreIsland;                  // back to the middle of the top edge (decision 026)
 };
 
 enum class LogsNote { Ready, Copied, Failed }; // what the Copy logs button says
@@ -59,6 +60,7 @@ public:
     static constexpr const char* kPreviousTheme = "theme.previous";
     static constexpr const char* kNextTheme = "theme.next";
     static constexpr const char* kCopyLogs = "logs.copy";
+    static constexpr const char* kCentreIsland = "island.centre";
     static constexpr const char* kPreviousDisplay = "display.previous";
     static constexpr const char* kNextDisplay = "display.next";
     static constexpr const char* kMainDisplayName = "Main display";

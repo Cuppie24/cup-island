@@ -307,6 +307,12 @@ void followMorph(Vec2 toSize, Vec2 toOffset)
     SetEvent(g_morphStartedEvent);
 }
 
+void jumpTo(Vec2 size, Vec2 offset)
+{
+    g_morph.active = false;
+    snap(size, offset);
+}
+
 void setTimer(TimerId id, std::optional<std::chrono::milliseconds> delay)
 {
     auto timerId = static_cast<UINT_PTR>(id);

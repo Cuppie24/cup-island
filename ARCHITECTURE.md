@@ -36,8 +36,9 @@ So "why did X happen?" is always answered in `core/`, by a scenario test.
 ```
 src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (what providers show), layout.h
                 (+ slot_layout.h), split.h, tabs.h, home.h, hit_test.h, provider.h (Provider/Host API),
+                lift.h + placement.h (moving the island along the top edge, decision 026),
                 tokens.h (+ tokens_json.h, json_reader.h), easing.h
-src/platform/   Win32 + C++/WinRT + Composition: render/interaction layers, pill_renderer (two blobs:
+src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
                 per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Start with Windows, Exit), autostart, log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,

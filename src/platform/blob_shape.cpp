@@ -4,6 +4,11 @@ namespace cup::platform {
 
 using namespace winrt::Windows::UI::Composition;
 
+CubicBezierEasingFunction easingFor(Compositor const& c, Bezier curve)
+{
+    return c.CreateCubicBezierEasingFunction(toFloat2(curve.c1), toFloat2(curve.c2));
+}
+
 void bindToBlob(Compositor const& c, CompositionObject const& target, std::wstring const& property,
                 std::wstring const& expression, ShapeVisual const& body, CompositionPropertySet const& shape)
 {
@@ -25,8 +30,8 @@ void addEars(Compositor const& c, ShapeVisual const& body, CompositionPropertySe
     // tessellated at the size it's shown. Each ear reaches 1 px into the body
     // (the island's colours are opaque), so no seam shows where two
     // antialiased edges would meet at a fractional size.
-    const std::wstring e = kEarSize;
     for (bool left : { true, false }) {
+        const std::wstring e = earSize(left);
         auto ring = c.CreateEllipseGeometry();
         bindToBlob(c, ring, L"Center", left ? L"Vector2(0, " + e + L")" : L"Vector2(Min(" + e + L", 1) + " + e + L", " + e + L")", body, shape);
         bindToBlob(c, ring, L"Radius", L"Vector2(1.5 * " + e + L", 1.5 * " + e + L")", body, shape); // the stroke's middle

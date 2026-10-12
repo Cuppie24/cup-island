@@ -22,17 +22,25 @@ and the Split bubble, subtle by default.
   - The ears share the body's fill brush, so themes and the drop-target
     highlight (decision 007) colour them too.
   - The pill's own geometry, corner expressions and morph are untouched.
-- **E = `flareRadius`, capped by the shape's height,** times an
-  `Attached` factor (1 at the screen edge). It's an expression over the body's live size, like the bottom
-  corners (decision 006), so it holds mid-morph. A Hidden pill (height 0)
-  and the tucked bubble have none. `flareRadius` 0 turns them off.
-- **A dragged bubble becomes a circle** (`Attached` animates to 0): away
-  from the screen edge there is nothing to flare into, and a straight top
-  makes no sense in the air. Its ears fold away, and the same factor
-  rounds its top corners: the background is no longer made taller and
-  shifted up, so every corner has the bottom's radius, half the height.
-  The bubble is square, so that's a circle. The shadow follows, being a
-  snapshot. All of it reverses as it glides home.
+- **E = `flareRadius`, capped by the shape's height,** times a `Flare`
+  factor (1 at the screen edge), and per side by `LeftEar`/`RightEar` (0
+  where that side is flush with the screen's edge, decision 026). It's an
+  expression over the body's live size, like the bottom corners (decision
+  006), so it holds mid-morph. A Hidden pill (height 0) and the tucked
+  bubble have none. `flareRadius` 0 turns them off.
+- **A dragged bubble becomes a circle** (and a lifted island a capsule,
+  decision 026): away from the screen edge there is nothing to flare into,
+  and a straight top makes no sense in the air. Its ears fold away
+  (`Flare` to 0), then `Attached` goes to 0 and rounds its top corners:
+  the background is no longer made taller and shifted up, so every corner
+  has the bottom's radius, half the height. The bubble is square, so
+  that's a circle. The shadow follows, being a snapshot. All of it
+  reverses as it glides home: corners square first, then the ears grow.
+- **One after the other, never together** (`Blob::setAttached`): the ears
+  sit on the top corners, so rounding them while an ear is still there
+  left a sliver of the ear floating off the shape in the last frames. The
+  ears take the first 40% of `morphDuration`, drawing back from the screen
+  edge into the body; the corners round in the rest.
 - **The shadow includes them** (decision 018): the snapshot and its caster
   are E wider on each side, so the shadow follows the curve.
 

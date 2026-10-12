@@ -2,6 +2,7 @@
 
 #include "core/dialog.h"
 #include "core/home.h"
+#include "core/lift.h"
 #include "core/slot_layout.h"
 #include "core/split.h"
 #include "core/tabs.h"
@@ -12,21 +13,6 @@
 
 namespace cup {
 namespace {
-
-Vec2 sizeFor(Mode mode)
-{
-    const Tokens& t = tokens();
-    switch (mode) {
-    case Mode::Idle: return t.idleSize;
-    case Mode::Compact: return t.compactSize;
-    case Mode::Split: return t.compactSize;
-    case Mode::Alert: return t.alertSize;
-    case Mode::Expanded: return t.expandedSize;
-    case Mode::Receptive: return t.receptiveSize;
-    case Mode::Hidden: return t.hiddenSize;
-    }
-    return t.idleSize;
-}
 
 Source sourceFor(const IslandState& s, Mode mode)
 {
@@ -106,7 +92,7 @@ BubbleScene bubbleFor(const IslandState& s, Ms now)
 {
     const Activity& a = s.activities[1];
     BubbleScene bubble;
-    bubble.frame = bubbleHomeFrame();
+    bubble.frame = bubbleHomeFrame(s);
     bubble.activityId = a.id;
     if (s.bubbleDrag) {
         Rect f = bubble.frame;
@@ -143,19 +129,28 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     scene.now = now;
     scene.mode = mode(state);
     float tabSpace = tabStripSpace(state);
-    scene.size = sizeFor(scene.mode);
+    scene.size = modeSize(scene.mode);
     Source source = sourceFor(state, scene.mode);
     if (scene.mode == Mode::Expanded && source.content && source.content->card == CardLayout::Centred)
         scene.size.y = centredCardHeight(*source.content, scene.size, tabSpace);
     if (scene.mode == Mode::Expanded && state.homeOpen) scene.size.y = homeCardHeight(state, tokens().canvas.y - tabSpace);
     scene.size.y += tabSpace;
-    scene.offset = { (tokens().canvas.x - scene.size.x) / 2, 0 };
+    // Where the island rests along the top edge, or lifted under the pointer (decision 026).
+    if (isLifted(state)) {
+        scene.lifted = true;
+        scene.offset = { liftedCentre(state) - scene.size.x / 2, tokens().liftDrop };
+    } else {
+        Placement at = placementOf(state, scene.mode);
+        scene.offset = { at.pillX, 0 };
+        scene.flushLeft = at.flushLeft;
+        scene.flushRight = at.flushRight;
+    }
     // On the top edge, inside the pill's right end: the bubble shrinks into it
     // and buds back out of it hanging from the edge, like the pill, never
     // floating up from the middle of a tall card.
     float tuckInset = std::min(scene.size.x, tokens().bubbleSize) / 2;
     scene.bubbleTuck = { scene.offset.x + scene.size.x - tuckInset, scene.offset.y };
-    if (scene.mode == Mode::Split) scene.bubble = bubbleFor(state, now);
+    if (scene.mode == Mode::Split && !scene.lifted) scene.bubble = bubbleFor(state, now); // lifted: tucked into the pill
     scene.dropTarget = swapPreview(state);
 
     MeasureText measureText = measure ? measure : MeasureText{ estimateTextWidth };

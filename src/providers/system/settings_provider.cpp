@@ -32,7 +32,8 @@ std::string known(const std::string& theme)
 
 // The widget: a gear, like Windows' own Settings. The card, centred: the
 // theme between two arrows (the island recolours at once, so the island is
-// the preview), then Copy logs, which says how it went for a moment.
+// the preview), then Copy logs, which says how it went for a moment, and
+// Centre island, for one that was moved along the edge (decision 026).
 Panel settingsPanel(const std::string& theme, const std::optional<std::string>& display, LogsNote note)
 {
     // A setting: its caption, then its value between ‹ › arrows that cycle.
@@ -46,7 +47,9 @@ Panel settingsPanel(const std::string& theme, const std::optional<std::string>& 
     if (!tokens().themes.empty()) picker("Theme", theme, SettingsProvider::kPreviousTheme, SettingsProvider::kNextTheme);
     if (display) picker("Display", *display, SettingsProvider::kPreviousDisplay, SettingsProvider::kNextDisplay);
     const char* logs = note == LogsNote::Copied ? "Logs copied" : note == LogsNote::Failed ? "Couldn't copy logs" : "Copy logs";
-    card.push_back(row({ Button{ .glyph = Glyph::Copy, .actionId = SettingsProvider::kCopyLogs, .label = logs } }, Align::Center));
+    card.push_back(row({ Button{ .glyph = Glyph::Copy, .actionId = SettingsProvider::kCopyLogs, .label = logs },
+                         Button{ .actionId = SettingsProvider::kCentreIsland, .label = "Centre island" } },
+                       Align::Center));
     Content content{
         .label = "Settings",
         .card = CardLayout::Centred,
@@ -93,6 +96,8 @@ void SettingsProvider::onAction(const Action& action)
         if (hooks_.saveDisplay) hooks_.saveDisplay(wantedDisplay_);
         placeIsland();
         publish();
+    } else if (action.actionId == kCentreIsland) {
+        if (hooks_.centreIsland) hooks_.centreIsland();
     } else if (action.actionId == kCopyLogs) {
         note_ = hooks_.copyLogs && hooks_.copyLogs() ? LogsNote::Copied : LogsNote::Failed;
         publish();

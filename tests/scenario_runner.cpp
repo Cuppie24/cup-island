@@ -12,12 +12,15 @@
 //            panel <id> [static]  unpanel <id>  home  tile <id>     (static: a widget with no card)
 //            focus <card> <action>  type <text...>  erase  submit  cancel-input   (a TextInput, decision 016)
 //            ask <card>  close-dialog                                               (a provider's dialog, decision 020)
+//            screen <width>  hold  move <dx>  let-go  restore <dock> [fraction]      (lifting the island, decision 026)
 // Checks after "->":  <Mode>  queue=<n>  top=<activity>  bubble=<activity>  alert=<name>
 //                     expanded=<activity|panel|home>  pinned=<activity>  dragging=yes|no  preview=yes|no
 //                     draft=<text>|empty|none  (no spaces in <text>)  dialog=<card>|none
+//                     lifted=yes|no  spot=centre|left|right|free
 // Levels: passive active timeSensitive critical.  '#' starts a comment.
 
 #include "core/island.h"
+#include "core/lift.h"
 #include "expect.h"
 
 #include <algorithm>
@@ -138,6 +141,15 @@ struct Runner {
         else if (cmd == "cancel-input") apply(InputCancelled{});
         else if (cmd == "ask") apply(DialogShown{ { .providerId = "p", .activityId = arg(1), .title = "Sure?", .confirmAction = "yes" } });
         else if (cmd == "close-dialog") apply(DialogClosed{});
+        else if (cmd == "screen") apply(ScreenResized{ std::stof(arg(1)) });
+        else if (cmd == "hold") apply(IslandPressed{});
+        else if (cmd == "move") apply(IslandDragged{ { std::stof(arg(1)), 0 } });
+        else if (cmd == "let-go") apply(IslandReleased{});
+        else if (cmd == "restore") {
+            Spot spot{ arg(1) == "left" ? Dock::Left : arg(1) == "right" ? Dock::Right : arg(1) == "free" ? Dock::Free : Dock::Centre };
+            if (spot.dock == Dock::Free) spot.fraction = std::stof(arg(2));
+            apply(SpotRestored{ spot });
+        }
         else fail("unknown command '" + cmd + "'");
     }
 
@@ -171,6 +183,13 @@ struct Runner {
             } else if (auto v = option(word, "draft")) {
                 std::string got = !state.draft ? "none" : state.draft->text.empty() ? "empty" : state.draft->text;
                 if (got != *v) fail("draft=" + *v + ", got " + got);
+            } else if (auto v = option(word, "lifted")) {
+                std::string got = isLifted(state) ? "yes" : "no";
+                if (got != *v) fail("lifted=" + *v + ", got " + got);
+            } else if (auto v = option(word, "spot")) {
+                const char* names[] = { "centre", "left", "right", "free" };
+                std::string got = names[static_cast<int>(state.spot.dock)];
+                if (got != *v) fail("spot=" + *v + ", got " + got);
             } else if (auto v = option(word, "expanded")) {
                 std::string id = state.homeOpen ? "home" : state.expandedId.empty() ? "none" : state.expandedId;
                 if (id != *v) fail("expanded=" + *v + ", got " + id);

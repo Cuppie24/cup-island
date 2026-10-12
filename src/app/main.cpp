@@ -5,7 +5,8 @@
 //
 // The idle pill shows the time; clicking it opens Home (decisions 009, 019):
 // the media and Pomodoro widgets, then theme, Bluetooth and Settings (the
-// app theme and Copy logs, decision 022).
+// app theme and Copy logs, decision 022). Press and hold the pill to lift it
+// and move it along the top edge (decision 026).
 //
 // Demo keys (click the pill first so it has keyboard focus):
 //   M  toggle the demo music player (real media shows by itself)
@@ -21,6 +22,7 @@
 #include "core/hit_test.h"
 #include "core/island.h"
 #include "core/layout.h"
+#include "core/placement.h"
 #include "core/tabs.h"
 #include "core/tokens.h"
 #include "platform/file_watcher.h"
@@ -47,6 +49,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -66,6 +69,8 @@ HWND g_inputHwnd{};
 std::filesystem::path g_tokensFile;
 RenderLayer g_render;
 std::string g_displayId; // the monitor the island is on (decision 023); "" = the main display
+std::filesystem::path g_spotsFile;     // where the island rests on each monitor (decision 026)
+std::map<std::string, Spot> g_spots;   // ...as last saved, by display id
 std::unique_ptr<ProviderRegistry> g_providers;
 SettingsProvider* g_settings = nullptr; // owned by g_providers; told when tokens.json reloads
 
@@ -80,6 +85,7 @@ struct Pointer {
     bool dragged = false;            // ...and core took it as a drag (BubbleDragged): not a click
     std::optional<std::string> tabPress;  // mouse-down on an Expanded tab: its activity ("" = Home)
     std::optional<std::string> tilePress; // mouse-down on a Home tile, off its buttons: its panel
+    std::optional<Vec2> islandPress; // mouse-down on the pill that may lift it (decision 026): where it went down
 } g_pointer;
 
 // Pointer callbacks get render-layer points; content works in pill coordinates.
@@ -90,6 +96,29 @@ bool onBubble(Vec2 point) { return g_scene.bubble && g_scene.bubble->frame.conta
 Ms now()
 {
     return std::chrono::duration_cast<Ms>(std::chrono::steady_clock::now() - g_startTime);
+}
+
+// A small text file in %LOCALAPPDATA%\CupIsland, next to the logs folder:
+// the to-dos (decision 016), the app theme (decision 022), the island's
+// place on each monitor (decision 026). "" if unknown.
+std::filesystem::path dataFile(const wchar_t* name)
+{
+    return logFolder().empty() ? std::filesystem::path() : logFolder().parent_path() / name;
+}
+
+std::string readTextFile(const std::filesystem::path& file)
+{
+    std::ifstream in(file, std::ios::binary);
+    std::stringstream text;
+    text << in.rdbuf();
+    return text.str();
+}
+
+void writeTextFile(const std::filesystem::path& file, const std::string& text)
+{
+    if (file.empty()) return;
+    std::ofstream out(file, std::ios::binary | std::ios::trunc);
+    out << text;
 }
 
 bool hasActivity(const std::string& id)
@@ -154,9 +183,13 @@ std::optional<Ms> earliest(std::optional<Ms> a, std::optional<Ms> b)
     return std::min(*a, *b);
 }
 
+void saveSpot();
+void onLifted();
+
 void dispatch(const Event& event, const char* reason)
 {
     Ms t = now();
+    Spot spot = g_state.spot;
     g_state = reduce(g_state, event, t);
     Scene next = layout(g_state, t, [](const Text& text) { return g_renderer.measure(text); });
 
@@ -164,9 +197,16 @@ void dispatch(const Event& event, const char* reason)
         logLine("%s -> %s (%s) %s", toString(g_scene.mode), toString(next.mode), reason, next.label.c_str());
     }
     g_renderer.apply(next);
-    Rect bounds = interactiveBounds(next);
-    if (bounds != interactiveBounds(g_scene)) followMorph({ bounds.width, bounds.height }, { bounds.x, bounds.y });
+    Rect bounds = interactiveBounds(next), was = interactiveBounds(g_scene);
+    // Lifted, the window stays where the press went down: it has capture, so
+    // every move arrives anyway. Let go, it's over the drop point at once and
+    // follows the glide to where the island lands (decision 026).
+    if (g_scene.lifted && !next.lifted) jumpTo({ was.width, was.height }, { was.x, was.y });
+    if (!next.lifted && (bounds != was || g_scene.lifted)) followMorph({ bounds.width, bounds.height }, { bounds.x, bounds.y });
+    bool lifted = next.lifted && !g_scene.lifted;
     g_scene = next;
+    if (lifted) onLifted();
+    if (g_state.spot != spot) saveSpot();
     updateHover();
 
     // One timer for everything time-based: core deadlines, ticking labels and provider wake-ups.
@@ -232,6 +272,12 @@ void onWheel(Vec2 canvasPoint, int steps)
 // a button gets its own press feedback, anything else squashes the pill.
 void onPressDown(Vec2 canvasPoint)
 {
+    if (!onBubble(canvasPoint)) {
+        // Held still, the island lifts (decision 026). Core ignores it where
+        // it can't (Expanded), and then the press is only what it always was.
+        dispatch(IslandPressed{}, "press");
+        if (g_state.pressedAt) g_pointer.islandPress = canvasPoint;
+    }
     if (onBubble(canvasPoint)) {
         g_pointer.bubblePress = canvasPoint;
         g_pointer.dragged = false;
@@ -267,6 +313,11 @@ void onPressDown(Vec2 canvasPoint)
 
 void onPointerMoved(Vec2 canvasPoint, bool inside)
 {
+    if (g_pointer.islandPress) {
+        Vec2 start = *g_pointer.islandPress;
+        dispatch(IslandDragged{ { canvasPoint.x - start.x, canvasPoint.y - start.y } }, "lift drag");
+        if (g_state.lift) return; // carried: nothing under it reacts
+    }
     if (g_pointer.bubblePress) {
         Vec2 start = *g_pointer.bubblePress;
         dispatch(BubbleDragged{ { canvasPoint.x - start.x, canvasPoint.y - start.y } }, "drag");
@@ -287,6 +338,12 @@ void onPointerMoved(Vec2 canvasPoint, bool inside)
 
 void onPressRelease(Vec2 canvasPoint, Release how)
 {
+    if (g_pointer.islandPress) {
+        g_pointer.islandPress.reset();
+        bool lifted = g_state.lift.has_value();
+        dispatch(IslandReleased{}, lifted ? "landed" : "release");
+        if (lifted) return; // it was carried, not clicked; lost capture lands it too
+    }
     if (g_pointer.tabPress) {
         std::string id = *std::exchange(g_pointer.tabPress, std::nullopt);
         const Tab* tab = how == Release::Inside && onPill(canvasPoint) ? tabUnder(toPill(canvasPoint)) : nullptr;
@@ -416,6 +473,33 @@ void positionLayers()
 {
     resizeRenderLayer(g_render, tokens().canvas, displayFor(g_displayId).bounds);
     setRenderOrigin(g_render.left, g_render.top);
+    dispatch(ScreenResized{ static_cast<float>(g_render.width) }, "screen");
+}
+
+// The lift began (decision 026): what the press started on gives up (a
+// button isn't clicked, a scrub doesn't seek) and the pill un-squashes.
+void onLifted()
+{
+    if (!g_pointer.pressedKey.empty()) g_renderer.releaseElement(std::exchange(g_pointer.pressedKey, std::string{}));
+    if (g_pointer.scrub) g_renderer.endScrub(std::exchange(g_pointer.scrub, std::nullopt)->key, std::nullopt, now());
+    g_renderer.pressRelease(false);
+    g_pointer.at.reset();
+    updateHover();
+}
+
+// Where the island rests on this monitor, kept for the next start (decision 026).
+void saveSpot()
+{
+    auto it = g_spots.find(g_displayId);
+    if (it != g_spots.end() && it->second == g_state.spot) return;
+    g_spots[g_displayId] = g_state.spot;
+    writeTextFile(g_spotsFile, formatSpots(g_spots));
+}
+
+Spot savedSpot(const std::string& displayId)
+{
+    auto it = g_spots.find(displayId);
+    return it == g_spots.end() ? Spot{} : it->second;
 }
 
 void tokensChanged(Vec2 oldCanvas, const char* reason)
@@ -448,28 +532,6 @@ void onTimer(TimerId id)
     }
 }
 
-// A small text file in %LOCALAPPDATA%\CupIsland, next to the logs folder:
-// the to-dos (decision 016), the app theme (decision 022). "" if unknown.
-std::filesystem::path dataFile(const wchar_t* name)
-{
-    return logFolder().empty() ? std::filesystem::path() : logFolder().parent_path() / name;
-}
-
-std::string readTextFile(const std::filesystem::path& file)
-{
-    std::ifstream in(file, std::ios::binary);
-    std::stringstream text;
-    text << in.rdbuf();
-    return text.str();
-}
-
-void writeTextFile(const std::filesystem::path& file, const std::string& text)
-{
-    if (file.empty()) return;
-    std::ofstream out(file, std::ios::binary | std::ios::trunc);
-    out << text;
-}
-
 // Put the island on this monitor ("" = the main display, also the fallback
 // for one that isn't connected), at that monitor's scaling (decisions 017, 023).
 // Also re-run on any display change: the same monitor may have moved or resized.
@@ -479,6 +541,7 @@ void placeIsland(const std::string& displayId)
     Display display = displayFor(displayId);
     Vec2 oldCanvas = tokens().canvas;
     bool rescaled = app::rescaleTokens(g_tokensFile, display.scale);
+    dispatch(SpotRestored{ savedSpot(displayId) }, "display"); // each monitor keeps its own (decision 026)
     positionLayers();
     if (rescaled) tokensChanged(oldCanvas, "display");
     logLine("island on %s (%.0f%%)", display.name.c_str(), display.scale * 100);
@@ -526,6 +589,11 @@ int main()
         return 1;
     }
 
+    // Where the island rested on this monitor last time (decision 026).
+    g_spotsFile = dataFile(L"position.txt");
+    g_spots = parseSpots(readTextFile(g_spotsFile));
+    g_state = reduce(g_state, ScreenResized{ static_cast<float>(render.width) }, now());
+    g_state = reduce(g_state, SpotRestored{ savedSpot(g_displayId) }, now());
     g_scene = layout(g_state, now());
     g_renderer.build(render.compositor, render.root, g_scene);
 
@@ -592,6 +660,7 @@ int main()
         .loadDisplay = [displayFile] { return readTextFile(displayFile); },
         .saveDisplay = [displayFile](const std::string& id) { writeTextFile(displayFile, id); },
         .applyDisplay = placeIsland,
+        .centreIsland = [] { dispatch(SpotRestored{}, "centre island"); },
     });
     g_settings = settings.get();
     g_providers->add(std::move(settings));

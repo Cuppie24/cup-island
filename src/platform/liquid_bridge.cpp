@@ -43,7 +43,7 @@ void bind(Compositor const& c, CompositionObject const& target, wchar_t const* p
 
 } // namespace
 
-void LiquidBridge::build(wuc::Compositor const& c, wuc::ContainerVisual const& parent, Vec2 canvas, const Blob& a, const Blob& b)
+void LiquidBridge::build(wuc::Compositor const& c, wuc::ContainerVisual const& parent, const Blob& a, const Blob& b)
 {
     params_ = c.CreatePropertySet();
     params_.InsertScalar(L"On", 1.0f);
@@ -52,7 +52,7 @@ void LiquidBridge::build(wuc::Compositor const& c, wuc::ContainerVisual const& p
 
     visual_ = c.CreateShapeVisual();
     auto& visual = visual_;
-    visual.Size(toFloat2(canvas));
+    visual.RelativeSizeAdjustment({ 1.0f, 1.0f }); // the whole render layer, whatever its size (decision 026)
     auto geometry = c.CreateRoundedRectangleGeometry();
     auto strand = c.CreateSpriteShape(geometry);
     strand.FillBrush(brush_); // the island's colour, so it reads as one shape
@@ -73,7 +73,6 @@ void LiquidBridge::refreshAnimations()
     params_.InsertScalar(L"Thickness", tokens().bridgeThickness);
     params_.InsertScalar(L"Reach", std::max(tokens().bridgeReach, 0.01f)); // divided by
     brush_.Color(toUiColor(tokens().islandColor));
-    if (visual_) visual_.Size(toFloat2(tokens().canvas)); // the canvas grows with the display's scale
 }
 
 void LiquidBridge::setEnabled(bool on)

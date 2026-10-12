@@ -65,7 +65,10 @@ struct Tile {
 struct Scene {
     Mode mode = Mode::Idle;
     Vec2 size;                     // pill target size, render-layer coordinates
-    Vec2 offset;                   // pill target top-left: centered, flush with the top edge
+    Vec2 offset;                   // pill target top-left: on the top edge where the island rests (decision 026)
+    bool lifted = false;           // held and dragged: floats liftDrop below the edge, all corners round, no flares
+    bool flushLeft = false;        // the pill touches the screen's left edge: no flare on that side (decision 026)
+    bool flushRight = false;       // the rightmost shape (the bubble in Split) touches the right edge
     std::vector<Placed> elements;  // content of the activity/alert being shown
     std::string activityId;        // whose content the pill shows (empty: none, or a standalone alert)
     std::optional<BubbleScene> bubble;
