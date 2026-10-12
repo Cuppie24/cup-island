@@ -53,9 +53,13 @@ std::optional<GitHubRelease> parseRelease(const winrt::hstring& text)
     if (!json::JsonObject::TryParse(text, o)) return std::nullopt;
     GitHubRelease r{ .tag = field(o, L"tag_name"), .page = field(o, L"html_url") };
     if (o.HasKey(L"assets") && o.GetNamedValue(L"assets").ValueType() == json::JsonValueType::Array) {
-        for (const auto& value : o.GetNamedArray(L"assets")) {
-            if (value.ValueType() != json::JsonValueType::Object) continue;
-            auto a = value.as<json::JsonObject>(); // not GetObject(): windows.h #defines that to GetObjectW
+        // GetObjectAt, not as<JsonObject>(): an array's items are JsonValues,
+        // which don't QI to JsonObject (E_NOINTERFACE: every check failed).
+        // Not GetObject() either: windows.h #defines that to GetObjectW.
+        auto assets = o.GetNamedArray(L"assets");
+        for (uint32_t i = 0; i < assets.Size(); ++i) {
+            if (assets.GetAt(i).ValueType() != json::JsonValueType::Object) continue;
+            auto a = assets.GetObjectAt(i);
             r.assets.push_back({ field(a, L"name"), field(a, L"browser_download_url"), field(a, L"digest") });
         }
     }
