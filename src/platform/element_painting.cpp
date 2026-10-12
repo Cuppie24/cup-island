@@ -28,11 +28,20 @@ bool hasFont(IDWriteFactory* dw, const wchar_t* family)
     return exists;
 }
 
-// Windows 11 fonts first, Windows 10 equivalents as fallback.
-const wchar_t* textFamily(IDWriteFactory* dw)
+// Windows 11's Segoe UI Variable comes in optical sizes, cut for the pixel
+// size they're shown at: Small stays sturdy and open at caption sizes, where
+// the Text cut turns thin and soft; Display is tighter for big numbers. The
+// ranges are physical pixels (sizes here are already scaled), a property of
+// the font, not of the design, so they aren't tokens. Windows 10: Segoe UI.
+const wchar_t* textFamily(IDWriteFactory* dw, float pixelSize)
 {
-    static const wchar_t* family = hasFont(dw, L"Segoe UI Variable Text") ? L"Segoe UI Variable Text" : L"Segoe UI";
-    return family;
+    static const bool variable = hasFont(dw, L"Segoe UI Variable Text");
+    static const bool small = hasFont(dw, L"Segoe UI Variable Small");
+    static const bool display = hasFont(dw, L"Segoe UI Variable Display");
+    if (!variable) return L"Segoe UI";
+    if (small && pixelSize <= 12.5f) return L"Segoe UI Variable Small";
+    if (display && pixelSize >= 28.0f) return L"Segoe UI Variable Display";
+    return L"Segoe UI Variable Text";
 }
 
 const wchar_t* iconFamily(IDWriteFactory* dw)
@@ -130,7 +139,7 @@ TextLook lookOf(TextStyle style)
 winrt::com_ptr<IDWriteTextFormat> formatOf(IDWriteFactory* dw, const Text& text)
 {
     TextLook look = lookOf(text.style);
-    return format(dw, textFamily(dw), look.fontSize, look.weight,
+    return format(dw, textFamily(dw, look.fontSize), look.fontSize, look.weight,
                   text.centred ? DWRITE_TEXT_ALIGNMENT_CENTER
                   : text.alignEnd ? DWRITE_TEXT_ALIGNMENT_TRAILING : DWRITE_TEXT_ALIGNMENT_LEADING);
 }
@@ -168,7 +177,7 @@ void paintInput(ID2D1DeviceContext* dc, IDWriteFactory* dw, const TextInput& inp
     // Its own size (inputFontSize), so the field reads as a field even unfocused and empty;
     // the placeholder is the same size, just dimmer (placeholderTextColor).
     std::wstring value = widen(empty ? input.placeholder : input.value);
-    auto measuring = format(dw, textFamily(dw), t.inputFontSize, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_TEXT_ALIGNMENT_LEADING);
+    auto measuring = format(dw, textFamily(dw, t.inputFontSize), t.inputFontSize, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_TEXT_ALIGNMENT_LEADING);
     winrt::com_ptr<IDWriteTextLayout> line;
     winrt::check_hresult(dw->CreateTextLayout(value.c_str(), static_cast<UINT32>(value.size()), measuring.get(), 100000.0f, 1000.0f, line.put()));
     DWRITE_TEXT_METRICS metrics{};
@@ -176,7 +185,7 @@ void paintInput(ID2D1DeviceContext* dc, IDWriteFactory* dw, const TextInput& inp
     float width = std::ceil(metrics.widthIncludingTrailingWhitespace);
     // Longer than the field while typing: show its end, where the caret is.
     bool tail = !empty && width > room;
-    auto f = format(dw, textFamily(dw), t.inputFontSize, DWRITE_FONT_WEIGHT_NORMAL,
+    auto f = format(dw, textFamily(dw, t.inputFontSize), t.inputFontSize, DWRITE_FONT_WEIGHT_NORMAL,
                     tail ? DWRITE_TEXT_ALIGNMENT_TRAILING : DWRITE_TEXT_ALIGNMENT_LEADING);
     D2D1_RECT_F box = D2D1::RectF(inset, 0, inset + room, size.y);
     drawString(dc, f.get(), value, box, empty ? t.placeholderTextColor : t.bodyTextColor);

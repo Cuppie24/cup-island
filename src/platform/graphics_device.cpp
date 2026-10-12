@@ -43,6 +43,11 @@ void GraphicsDevice::create(wuc::Compositor const& compositor)
     winrt::check_hresult(D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, __uuidof(ID2D1Factory1), nullptr, d2dFactory_.put_void()));
     winrt::check_hresult(DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory),
                                              reinterpret_cast<IUnknown**>(dwrite_.put())));
+    // The user's own gamma and contrast, but no ClearType and horizontal-only smoothing.
+    winrt::com_ptr<IDWriteRenderingParams> defaults;
+    if (SUCCEEDED(dwrite_->CreateRenderingParams(defaults.put())))
+        dwrite_->CreateCustomRenderingParams(defaults->GetGamma(), defaults->GetEnhancedContrast(), 0.0f,
+                                             DWRITE_PIXEL_GEOMETRY_FLAT, DWRITE_RENDERING_MODE_NATURAL, textParams_.put());
 
     auto interop = compositor.as<abi::ICompositorInterop>();
     winrt::check_hresult(interop->CreateGraphicsDevice(createD2DDevice().get(),
@@ -76,6 +81,11 @@ bool GraphicsDevice::draw(wuc::CompositionDrawingSurface const& surface,
 
     // The surface may live in a shared atlas: draw relative to its offset.
     context->SetTransform(D2D1::Matrix3x2F::Translation(static_cast<float>(offset.x), static_cast<float>(offset.y)));
+    // Surfaces are transparent, so text is grayscale-antialiased (ClearType
+    // needs an opaque background). NATURAL smooths horizontally only: crisper
+    // than the default symmetric mode at small sizes.
+    context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE);
+    if (textParams_) context->SetTextRenderingParams(textParams_.get());
     context->Clear(D2D1::ColorF(0, 0, 0, 0));
     paint(context.get());
     winrt::check_hresult(interop->EndDraw());

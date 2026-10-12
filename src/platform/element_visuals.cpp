@@ -5,9 +5,14 @@
 #include "platform/element_parts.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace cup::platform {
 namespace {
+
+// Pixel snapping (decision 017): sizes up to whole pixels, positions to the nearest one.
+Vec2 pixelSize(Vec2 size) { return { std::ceil(size.x), std::ceil(size.y) }; }
+wfn::float3 pixelOffset(float x, float y) { return { std::round(x), std::round(y), 0.0f }; }
 
 Vec2 sizeOf(const Placed& p) { return { p.frame.width, p.frame.height }; }
 
@@ -98,7 +103,9 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now)
     const Tokens& t = tokens();
     View view;
     view.placed = placed;
-    Vec2 size = sizeOf(placed), visualSize = size;
+    // Whole pixels: frames are fractional (islandScale x display scale), and a
+    // surface stretched into a fractional box is resampled, which blurs text.
+    Vec2 size = pixelSize(sizeOf(placed)), visualSize = size;
 
     if (isRing(placed.item)) {
         RingParts parts = createRing(compositor_, size, accentOf(placed));
@@ -145,8 +152,8 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now)
         }
         view.visual = sprite;
     }
-    view.visual.Offset({ placed.frame.x - view.lead, placed.frame.y, 0 });
-    view.visual.Size(toFloat2(visualSize));
+    view.visual.Offset(pixelOffset(placed.frame.x - view.lead, placed.frame.y));
+    view.visual.Size(toFloat2(pixelSize(visualSize)));
     view.visual.CenterPoint({ visualSize.x / 2, visualSize.y / 2, 0 });
     parent_.Children().InsertAtTop(view.visual);
 
@@ -177,7 +184,7 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     }
     bool wasFocused = focusedField(view.placed.item);
     view.placed = placed;
-    if (moved) view.visual.Offset({ placed.frame.x - view.lead, placed.frame.y, 0 });
+    if (moved) view.visual.Offset(pixelOffset(placed.frame.x - view.lead, placed.frame.y));
     if (!changed) return false;
     if (view.highlight && focusedField(placed.item) != wasFocused) // focus came or went: background follows (or hover keeps it)
         fadeTo(compositor_, view.highlight, focusedField(placed.item) || placed.key == hovered_ ? 1.0f : 0.0f, tokens().hoverFadeDuration);

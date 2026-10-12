@@ -41,6 +41,22 @@ simpler and can't drift out of sync.)
 interaction layer. Values in tokens.json don't change; at 100% nothing
 looks different.
 
+**Crisp text.** Scaled lengths are fractional (12 px × 0.85 = 10.2), and
+three things blurred small text, fixed together:
+- **Pixel snapping:** element visuals sit at whole-pixel offsets and are
+  exactly as big as their whole-pixel surfaces (`element_visuals.cpp`), and
+  the pill rests on a whole pixel (`Blob::place`). A surface stretched into
+  a fractional box, or drawn between pixels, is resampled, which is blur.
+- **Optical sizes:** Segoe UI Variable *Small* up to 12.5 px, *Text* above,
+  and *Display* from 28 px (`element_painting.cpp`). The Text cut turns thin
+  and soft at caption sizes.
+- **Rendering:** grayscale antialiasing (the surfaces are transparent, so
+  ClearType can't apply) in DWrite's NATURAL mode, which smooths
+  horizontally only (`graphics_device.cpp`).
+
+The type ramp steps 2 px, caption 13, body 15, title 17, so the levels read
+as different sizes, not just different greys.
+
 **Resolved (decision 023).** The island can be put on any display from
 Settings, at that display's scale. Any display change, a resolution change
 included, re-places it.

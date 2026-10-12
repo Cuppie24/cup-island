@@ -30,6 +30,7 @@ private:
 
     winrt::com_ptr<ID2D1Factory1> d2dFactory_;
     winrt::com_ptr<IDWriteFactory> dwrite_;
+    winrt::com_ptr<IDWriteRenderingParams> textParams_; // crisp small text (decision 017)
     wuc::CompositionGraphicsDevice device_{ nullptr };
 };
 
