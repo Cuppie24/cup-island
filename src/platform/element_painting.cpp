@@ -35,12 +35,13 @@ bool hasFont(IDWriteFactory* dw, const wchar_t* family)
 // the font, not of the design, so they aren't tokens. Windows 10: Segoe UI.
 const wchar_t* textFamily(IDWriteFactory* dw, float pixelSize)
 {
-    static const bool variable = hasFont(dw, L"Segoe UI Variable Text");
-    static const bool small = hasFont(dw, L"Segoe UI Variable Small");
-    static const bool display = hasFont(dw, L"Segoe UI Variable Display");
-    if (!variable) return L"Segoe UI";
-    if (small && pixelSize <= 12.5f) return L"Segoe UI Variable Small";
-    if (display && pixelSize >= 28.0f) return L"Segoe UI Variable Display";
+    // (Not named `small`: the Windows SDK's rpcndr.h has `#define small char`.)
+    static const bool hasVariable = hasFont(dw, L"Segoe UI Variable Text");
+    static const bool hasSmallCut = hasFont(dw, L"Segoe UI Variable Small");
+    static const bool hasDisplayCut = hasFont(dw, L"Segoe UI Variable Display");
+    if (!hasVariable) return L"Segoe UI";
+    if (hasSmallCut && pixelSize <= 12.5f) return L"Segoe UI Variable Small";
+    if (hasDisplayCut && pixelSize >= 28.0f) return L"Segoe UI Variable Display";
     return L"Segoe UI Variable Text";
 }
 
