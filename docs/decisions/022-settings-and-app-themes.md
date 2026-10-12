@@ -49,7 +49,10 @@ The look of each theme needs a Windows run.
 a watermelon accent) flip the recipe: a pale island, dark ink for text and
 icons, the accent for fills and faint tints of it behind tiles and tabs, a
 deeper red for `dangerColor`, and dark ink for the progress knob (white
-would vanish). The shadow stays black. The one thing that had to change:
+would vanish). The shadow stays black but fainter, 20% instead of 45%: it
+falls on whatever is behind the island, not on the island, and a pale island
+over a white page at 45% reads as a dark smudge. Light interfaces use faint
+shadows for the same reason. Black is the rule; only the strength changes. The one thing that had to change:
 clickable art's "open" glyph sits on art dimmed with black, so it got its own
 `artHoverGlyphColor` (light in every theme) instead of `buttonColor`. The
 test checks every shipped theme's text against its island (WCAG contrast:

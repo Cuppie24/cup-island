@@ -96,7 +96,9 @@ void runTokensTests()
                contrast(themed.captionTextColor, themed.islandColor) >= 3, "readable text: " + theme.name);
         expect(themed.artHoverGlyphColor == fromFile.tokens.artHoverGlyphColor, "the art's open glyph stays light: " + theme.name);
         // The shadow stays black in every theme: a coloured one reads as a halo.
-        expect(themed.shadowColor == fromFile.tokens.shadowColor, "a black shadow: " + theme.name);
+        // Light themes may only make it fainter (decision 022).
+        Color shadow = themed.shadowColor, base = fromFile.tokens.shadowColor;
+        expect(shadow.r == 0 && shadow.g == 0 && shadow.b == 0 && shadow.a <= base.a, "a black shadow: " + theme.name);
     }
     TokensParse themes = parseTokens(R"({ "themes": {
         "Plain": {},
