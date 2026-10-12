@@ -4,6 +4,7 @@
 #include "core/layout.h"
 #include "core/tokens.h"
 #include "expect.h"
+#include "providers/media/art_state.h"
 #include "providers/media/media_presenter.h"
 #include "providers/media/now_playing.h"
 #include "providers/media/session_choice.h"
@@ -201,6 +202,42 @@ void runMediaTests()
     expect(findMediaTab(tabs, "Lo-fi beats") == 1u, "no audio marker: the first tab with the title");
     expect(!findMediaTab(tabs, "Something else") && !findMediaTab(tabs, "") && !findMediaTab(tabs, "a"),
            "no match, or a title too short to trust: nothing");
+
+    // Cover art (decision 005): when to decode, when to hold a track back for it.
+    auto pixel = [](std::uint8_t shade) {
+        auto image = std::make_shared<ImageData>();
+        image->width = image->height = 1;
+        image->bgra = { shade, shade, shade, 255 };
+        return std::shared_ptr<const ImageData>(image);
+    };
+    ArtState covers;
+    Ms wait = tokens().mediaArtWait;
+    auto first = covers.onRead("Chrome|Song A", true, true, Ms{ 0 });
+    expect(first && covers.holding(Ms{ 0 }), "new track with a thumbnail: decode, hold the track back");
+    expect(!covers.holding(wait) && covers.holdUntil() == wait, "a thumbnail that never loads holds it back only mediaArtWait");
+    expect(covers.onDecoded(*first, pixel(10)) && covers.art() && !covers.holding(Ms{ 1 }), "decoded: show it, with the cover");
+
+    // Chrome, two tabs: the title switches first, the picture in a later update.
+    auto stale = covers.onRead("Chrome|Song B", true, true, Ms{ 2000 });
+    expect(stale && !covers.art(), "title changed: the old cover is dropped at once");
+    expect(covers.onDecoded(*stale, pixel(10)), "decoded (still the old tab's picture)");
+    auto fresh = covers.onRead("Chrome|Song B", true, true, Ms{ 2100 });
+    expect(fresh.has_value(), "same title, re-sent properties: decode again (the picture may be new)");
+    expect(!covers.holding(Ms{ 2100 }), "a re-decode doesn't hold the track back");
+    expect(covers.onDecoded(*fresh, pixel(20)) && covers.art()->bgra[0] == 20, "the right picture replaces the stale one");
+    expect(!covers.onRead("Chrome|Song B", true, false, Ms{ 2200 }), "timeline/playback reads don't decode");
+    auto same = covers.onRead("Chrome|Song B", true, true, Ms{ 2300 });
+    expect(!covers.onDecoded(*same, pixel(20)), "identical pixels: nothing to update");
+
+    // Out-of-order and failed decodes.
+    auto older = covers.onRead("Chrome|Song B", true, true, Ms{ 2400 });
+    auto newer = covers.onRead("Chrome|Song B", true, true, Ms{ 2500 });
+    expect(!covers.onDecoded(*older, pixel(30)) && covers.art()->bgra[0] == 20, "a superseded decode is ignored");
+    expect(!covers.onDecoded(*newer, nullptr) && covers.art(), "a failed re-decode keeps the cover we have");
+    auto broken = covers.onRead("Chrome|Song C", true, true, Ms{ 3000 });
+    expect(covers.onDecoded(*broken, nullptr) && !covers.art() && !covers.holding(Ms{ 3000 }),
+           "a failed first decode shows the track without a cover");
+    expect(!covers.onRead("Chrome|Song D", false, true, Ms{ 4000 }) && !covers.holding(Ms{ 4000 }), "no thumbnail: show at once");
 }
 
 } // namespace cup::test

@@ -40,6 +40,7 @@ target_include_directories(cup_core PUBLIC src)
 # --- providers: data sources; the pure parts build on any OS -------------------
 add_library(cup_providers STATIC
     src/providers/demo/demo_media_provider.cpp
+    src/providers/media/art_state.cpp
     src/providers/media/media_presenter.cpp
     src/providers/media/now_playing.cpp
     src/providers/media/session_choice.cpp

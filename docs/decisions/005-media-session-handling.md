@@ -26,9 +26,17 @@ art and timelines unreliably, and their events arrive on background threads.
   counter drops stale reads, and a shared `alive` flag makes callbacks after
   `stop()` no-ops.
 - **Art before alert:** on a new track the art is decoded (≤ 128 px) *before*
-  the snapshot is shown, so the track alert carries its picture. Apps that
-  send the title first and art later are covered: the art key includes
-  "has thumbnail".
+  the snapshot is shown, so the track alert carries its picture, but only for
+  `mediaArtWaitMs` (1 s): a thumbnail that never loads (seen with Chrome)
+  once hid the track entirely. The cover is decoded again on every
+  properties update and once more `mediaArtRecheckMs` after a track change,
+  because Chrome reports all its tabs through one session and sends a tab's
+  title before its picture: keyed on the title alone, the previous tab's
+  cover stuck. Only the latest decode counts; identical pixels change
+  nothing. Rules in `ArtState`, tested.
+- **Failed reads** (an app mid-switch) are retried after
+  `mediaSessionRecheckMs`, up to `mediaReadRetries` times in a row, since
+  no further event may come.
 - **Art opens the app:** clicking the expanded art brings the session's app
   forward (`app_activation`). It looks for the app's window by its taskbar
   app id, else by exe name ("Spotify.exe", "Chrome", "MSEdge"), preferring a
