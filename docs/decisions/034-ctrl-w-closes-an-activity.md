@@ -30,5 +30,4 @@ the island doesn't own and can't end.
 **Consequences.** Tested in `tests/pomodoro_tests.cpp` (asks, then stops;
 nothing on Home or a dormant card) and `tests/provider_tests.cpp` (a
 provider that doesn't handle it keeps its activity). Settings' "On the
-island" list gains it; that page is now nearly as tall as the canvas, so
-the next keys there will need it to scroll.
+island" list gains it; that list now scrolls (decision 033).

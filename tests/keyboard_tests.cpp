@@ -105,6 +105,36 @@ void runKeyboardTests()
            "esc: a Settings page goes back to the list");
     expect(escOn(SettingsPage::List).empty(), "esc: the list has no page to leave (Esc goes back to Home)");
 
+    // The list of keys scrolls (most rows have nothing to click): down from
+    // its last stop scrolls it, focus staying, until its end is in view;
+    // then down leaves it. Up scrolls it back the same way (decision 033).
+    {
+        IslandState s;
+        Panel p = settingsPanel({ .page = SettingsPage::Shortcuts });
+        p.providerId = "system.settings";
+        s = reduce(s, PanelPublished{ p }, Ms{ 0 });
+        s = reduce(s, HomeOpened{}, Ms{ 0 });
+        s = reduce(s, TileClicked{ p.id }, Ms{ 0 });
+        Scene keys = layout(s, Ms{ 0 });
+        auto back = moveFocus(keys, "", Arrow::Down);
+        auto edit = moveFocus(keys, back->id, Arrow::Down);
+        expect(clicks(keys, edit) == std::string(P::kEditShortcut) + "0" && edit->list, "keys page: down from the back arrow, Open Home's row, in the list");
+        int scrolls = 0;
+        while (auto scroll = scrollInstead(keys, edit->id, Arrow::Down)) {
+            expect(scroll->delta > 0 && scroll->list == P::kShortcutList, "keys page: down at the list's last stop scrolls it");
+            s = reduce(s, *scroll, Ms{ 0 });
+            keys = layout(s, Ms{ 0 });
+            if (++scrolls > 50) break;
+        }
+        auto list = findFocusable(keys, edit->id)->list;
+        expect(scrolls > 0 && list->offset >= list->max - 0.5f, "keys page: scrolled to the end, focus still on Open Home");
+        expect(!inView(*findFocusable(keys, edit->id)), "keys page: Open Home scrolled out of view: no ring");
+        auto out = moveFocus(keys, edit->id, Arrow::Down);
+        expect(!out || !out->list, "keys page: at the end, down leaves the list");
+        expect(!scrollInstead(keys, back->id, Arrow::Up) && scrollInstead(keys, edit->id, Arrow::Up)->delta < 0,
+               "keys page: up scrolls it back; outside the list, nothing to scroll");
+    }
+
     // Home: tiles side by side and in rows.
     IslandState home;
     for (const char* id : { "a", "b", "c", "d", "e" }) {

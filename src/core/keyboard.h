@@ -37,6 +37,16 @@ std::optional<Focusable> findFocusable(const Scene& scene, const std::string& id
 // (or empty): the first, so the first press shows where focus is.
 std::optional<Focusable> moveFocus(const Scene& scene, const std::string& current, Arrow arrow);
 
+// Up or down from the last stop that way in a scrolling list that can still
+// scroll that way: the list's scroll (a scrollStep), with focus staying put,
+// so rows with nothing to click (Settings' list of keys) come into view.
+// Nothing: move focus instead (moveFocus).
+std::optional<ListScrolled> scrollInstead(const Scene& scene, const std::string& current, Arrow arrow);
+
+// It's in view: not a list row scrolled out of its window. The focus ring
+// shows only then; it would be drawn outside the list.
+bool inView(const Focusable& focusable);
+
 // Tab: the next one in reading order, round to the first after the last.
 // Shift+Tab: the one before, round to the last before the first.
 // `current` not on screen (or empty): the first, either way.

@@ -233,7 +233,7 @@ void updateHover()
     // tell it from the pointer's, and a static widget has no hover at all.
     std::optional<cup::Focusable> focused;
     if (!g_pointer.scrub) focused = app::keyFocus();
-    if (focused) g_renderer.setFocusRing(focused->frame, focused->radius);
+    if (focused && inView(*focused)) g_renderer.setFocusRing(focused->frame, focused->radius);
     else g_renderer.setFocusRing(std::nullopt, 0);
 }
 

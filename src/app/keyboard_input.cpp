@@ -150,8 +150,19 @@ bool navigationKey(WPARAM key)
     // starts at the first item when nothing has focus.
     std::optional<Focusable> to;
     switch (key) {
-    case VK_UP: to = moveFocus(scene(), g_focus, Arrow::Up); break;
-    case VK_DOWN: to = moveFocus(scene(), g_focus, Arrow::Down); break;
+    case VK_UP:
+    case VK_DOWN: {
+        Arrow arrow = key == VK_UP ? Arrow::Up : Arrow::Down;
+        // At a list's last stop, rows with nothing to click may still be out
+        // of view: scroll them in before leaving (decision 033).
+        if (auto scroll = expanded ? scrollInstead(scene(), g_focus, arrow) : std::nullopt) {
+            dispatch(*scroll, "keys: scroll the list");
+            dispatch(PointerMoved{}, "keys");
+            return true;
+        }
+        to = moveFocus(scene(), g_focus, arrow);
+        break;
+    }
     case VK_LEFT: to = moveFocus(scene(), g_focus, Arrow::Left); break;
     case VK_RIGHT: to = moveFocus(scene(), g_focus, Arrow::Right); break;
     case VK_TAB: to = shift ? previousFocus(scene(), g_focus) : nextFocus(scene(), g_focus); break;

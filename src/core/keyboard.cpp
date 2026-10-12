@@ -1,5 +1,7 @@
 #include "core/keyboard.h"
 
+#include "core/tokens.h"
+
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -109,6 +111,30 @@ std::optional<Focusable> moveFocus(const Scene& scene, const std::string& curren
         }
     }
     return best;
+}
+
+std::optional<ListScrolled> scrollInstead(const Scene& scene, const std::string& current, Arrow arrow)
+{
+    if (arrow != Arrow::Up && arrow != Arrow::Down) return std::nullopt;
+    std::vector<Focusable> all = focusables(scene);
+    auto from = std::find_if(all.begin(), all.end(), [&](const Focusable& f) { return f.id == current; });
+    if (from == all.end() || !from->list) return std::nullopt;
+    const InList& list = *from->list;
+    bool down = arrow == Arrow::Down;
+    for (const Focusable& f : all) // another stop in the list that way: go to it
+        if (f.list && f.list->id == list.id && f.activityId == from->activityId && (down ? f.list->row > list.row : f.list->row < list.row))
+            return std::nullopt;
+    bool canScroll = down ? list.offset < list.max - 0.5f : list.offset > 0.5f;
+    if (!canScroll) return std::nullopt;
+    float step = tokens().scrollStep;
+    return ListScrolled{ from->activityId, list.id, list.offset, down ? step : -step, list.max };
+}
+
+bool inView(const Focusable& f)
+{
+    if (!f.list) return true;
+    const Rect& v = f.list->viewport;
+    return f.frame.y + f.frame.height > v.y + 1 && f.frame.y < v.y + v.height - 1; // at least partly
 }
 
 std::optional<Focusable> nextFocus(const Scene& scene, const std::string& current)

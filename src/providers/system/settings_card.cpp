@@ -78,7 +78,8 @@ Slot displaysPage(const SettingsView& v)
 }
 
 // The shortcuts (decision 032): the system-wide ones, each a row that takes
-// new keys when clicked, then the fixed keys on the island, then a note
+// new keys when clicked, then the fixed keys on the island, in one list that
+// scrolls (there are more than fit), then a note under it, always in view
 // (waiting for keys, or why a change was refused).
 Slot shortcutsPage(const SettingsView& v)
 {
@@ -97,6 +98,7 @@ Slot shortcutsPage(const SettingsView& v)
     heading("On the island");
     for (const FixedKey& k : fixedKeys())
         card.push_back(row({ Text{ k.does }, Text{ .value = k.keys, .style = TextStyle::Caption, .alignEnd = true } }));
+    for (std::size_t i = 1; i < card.size(); ++i) card[i].list = P::kShortcutList; // all but the title
     if (!v.shortcutNote.empty()) card.push_back(row({ Text{ .value = v.shortcutNote, .style = TextStyle::Caption, .centred = true } }));
     return card;
 }
