@@ -32,15 +32,17 @@ std::vector<Focusable> focusables(const Scene& scene)
         Rect frame = p.listRow ? *p.listRow : p.frame;
         if (p.list) frame = p.frame.height > 0 ? Rect{ frame.x, p.frame.y, frame.width, p.frame.height } : frame; // where the row is, scrolled
         Vec2 point = empty(p.hitFrame) ? centre(p.frame) : centre(p.hitFrame);
-        found.push_back({ "el:" + p.key, frame, point, p.list, p.activityId });
+        float radius = p.listRow ? p.listRowRadius : p.cornerRadius;
+        found.push_back({ "el:" + p.key, frame, point, p.list, p.activityId, radius });
     }
-    for (const Tile& tile : scene.tiles)
-        if (tile.clickable()) found.push_back({ "tile:" + tile.id, tile.frame, centre(tile.frame), std::nullopt, tile.id });
+    // Every tile, clickable or not: a static one (Bluetooth) is still a stop,
+    // or down from above it would jump a row (decision 033).
+    for (const Tile& tile : scene.tiles) found.push_back({ "tile:" + tile.id, tile.frame, centre(tile.frame), std::nullopt, tile.id, scene.tileRadius });
     if (scene.tabs)
         for (std::size_t i = 0; i < scene.tabs->tabs.size(); ++i) {
             const Tab& tab = scene.tabs->tabs[i];
             if (scene.tabs->active == i) continue; // shown already: nothing to switch to
-            found.push_back({ "tab:" + tab.id, tab.frame, centre(tab.hitFrame), std::nullopt, tab.id });
+            found.push_back({ "tab:" + tab.id, tab.frame, centre(tab.hitFrame), std::nullopt, tab.id, scene.tabs->radius });
         }
     std::stable_sort(found.begin(), found.end(), [](const Focusable& a, const Focusable& b) {
         float ay = centre(a.frame).y, by = centre(b.frame).y;
@@ -88,6 +90,44 @@ std::optional<Focusable> moveFocus(const Scene& scene, const std::string& curren
         }
     }
     return best;
+}
+
+std::optional<Focusable> nextFocus(const Scene& scene, const std::string& current)
+{
+    std::vector<Focusable> all = focusables(scene);
+    if (all.empty()) return std::nullopt;
+    auto from = std::find_if(all.begin(), all.end(), [&](const Focusable& f) { return f.id == current; });
+    if (from == all.end() || std::next(from) == all.end()) return all.front();
+    return *std::next(from);
+}
+
+std::optional<Focusable> firstFocus(const Scene& scene)
+{
+    std::vector<Focusable> all = focusables(scene);
+    if (all.empty()) return std::nullopt;
+    return all.front();
+}
+
+std::optional<Focusable> lastFocus(const Scene& scene)
+{
+    std::vector<Focusable> all = focusables(scene);
+    if (all.empty()) return std::nullopt;
+    return all.back();
+}
+
+std::optional<Focusable> homeWidget(const Scene& scene, std::size_t n)
+{
+    if (n == 0 || n > scene.tiles.size()) return std::nullopt;
+    return findFocusable(scene, "tile:" + scene.tiles[n - 1].id); // tiles are laid out in publish order
+}
+
+std::optional<std::string> nextTab(const Scene& scene)
+{
+    if (!scene.tabs || scene.tabs->tabs.empty()) return std::nullopt;
+    const std::vector<Tab>& tabs = scene.tabs->tabs;
+    std::size_t next = scene.tabs->active ? (*scene.tabs->active + 1) % tabs.size() : 0;
+    if (scene.tabs->active == next) return std::nullopt; // only the one shown: nowhere to go
+    return tabs[next].id;
 }
 
 } // namespace cup

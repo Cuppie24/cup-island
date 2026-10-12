@@ -190,7 +190,7 @@ std::string rowUnder(Vec2 point)
 std::optional<Vec2> hoverPoint()
 {
     if (!g_pointer.scrub)
-        if (auto focused = app::keyFocusPoint()) return focused;
+        if (auto focused = app::keyFocus()) return focused->point;
     return g_pointer.at;
 }
 
@@ -218,6 +218,13 @@ void updateHover()
     else if (tile) g_renderer.setAreaHovered(tile->frame, g_scene.tileRadius);
     else if (item && item->listRow) g_renderer.setAreaHovered(item->listRow, item->listRowRadius);
     else g_renderer.setAreaHovered(std::nullopt, 0);
+
+    // The keyboard's focus also gets a ring (decision 033): hover alone can't
+    // tell it from the pointer's, and a static widget has no hover at all.
+    std::optional<cup::Focusable> focused;
+    if (!g_pointer.scrub) focused = app::keyFocus();
+    if (focused) g_renderer.setFocusRing(focused->frame, focused->radius);
+    else g_renderer.setFocusRing(std::nullopt, 0);
 }
 
 // The Expanded tab under a pill-coordinate point, if any.

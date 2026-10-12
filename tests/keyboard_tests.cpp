@@ -93,6 +93,42 @@ void runKeyboardTests()
     expect(!toTab || toTab->id.rfind("tab:", 0) == 0, "home: below the tiles, only the tabs");
     expect(tileAt(grid, f->point) && tileAt(grid, f->point)->id == "b", "home: a tile's point is on the tile");
 
+    // Tab goes on in reading order and round; Home and End jump to the ends.
+    expect(nextFocus(grid, "")->id == "tile:a" && nextFocus(grid, "tile:d")->id == "tile:e", "tab: the first, then on into the next row");
+    auto last = lastFocus(grid);
+    expect(last && firstFocus(grid)->id == "tile:a" && nextFocus(grid, last->id)->id == "tile:a", "tab: after the last, round to the first");
+    // 1 to 9: the widgets in publish order.
+    expect(homeWidget(grid, 2) && homeWidget(grid, 2)->id == "tile:b" && homeWidget(grid, 5)->id == "tile:e", "digits: the nth widget");
+    expect(!homeWidget(grid, 6) && !homeWidget(grid, 0), "digits: past the last, nothing");
+
+    // Static widgets (no card, no tap action: Bluetooth) are stops too, so
+    // down from a row of cards lands on the row under it, not the one after.
+    IslandState mixed;
+    for (const char* id : { "a", "b", "c", "d", "e", "f", "g", "h", "i" }) {
+        bool card = std::string("abcdi").find(id) != std::string::npos;
+        Panel p{ .id = id, .content = { .label = id, .tile = { row({ Text{ id } }) } } };
+        if (card) p.content.expandedCenter = { row({ Text{ id } }) };
+        mixed = reduce(mixed, PanelPublished{ p }, Ms{ 0 });
+    }
+    mixed = reduce(mixed, HomeOpened{}, Ms{ 0 });
+    Scene rows = layout(mixed, Ms{ 0 });
+    auto onStatic = moveFocus(rows, "tile:b", Arrow::Down);
+    expect(onStatic && onStatic->id == "tile:f", "home: down onto a static widget, not past it");
+    expect(tileAt(rows, onStatic->point) && !tileAt(rows, onStatic->point)->clickable(), "home: ...which a click does nothing with");
+    expect(moveFocus(rows, "tile:f", Arrow::Right)->id == "tile:g" && moveFocus(rows, "tile:f", Arrow::Down)->id == "tile:i",
+           "home: and on from it, along the row and down");
+    expect(onStatic->radius == rows.tileRadius, "home: a tile's ring has the tile's corners");
+
+    // Shift+Tab switches tabs: Home, then each activity, then round.
+    IslandState tabbed = reduce(home, ActivityStarted{ { .id = "music", .content = { .label = "music", .expandedCenter = { row({ Text{ "m" } }) } } } }, Ms{ 0 });
+    tabbed = reduce(tabbed, HomeOpened{}, Ms{ 0 });
+    Scene onHome = layout(tabbed, Ms{ 0 });
+    expect(nextTab(onHome) == std::optional<std::string>("music"), "shift+tab: from Home, the activity");
+    tabbed = reduce(tabbed, ActivitySwitched{ "music" }, Ms{ 0 });
+    expect(nextTab(layout(tabbed, Ms{ 0 })) == std::optional<std::string>(""), "shift+tab: from the last tab, round to Home");
+    expect(nextTab(list) == std::optional<std::string>(""), "shift+tab: on a dormant panel's card (no tab shown), Home");
+    expect(!nextTab(grid), "shift+tab: no tabs, nothing");
+
     // Shortcuts (decision 032): system-wide, rebindable, saved as text.
     Chord openHome = chordOf(defaultBindings(), Command::OpenHome);
     expect(chordText(openHome) == "Ctrl+X", "shortcuts: Open Home is Ctrl+X");

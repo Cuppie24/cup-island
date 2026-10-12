@@ -95,6 +95,10 @@ const std::vector<FixedKey>& fixedKeys()
 {
     static const std::vector<FixedKey> all{
         { "Arrows", "Move between items" },
+        { "Tab", "Next item" },
+        { "Home or End", "First or last item" },
+        { "Shift+Tab", "Next tab" },
+        { "1 to 9", "Open a widget on Home" },
         { "Enter or Space", "Select" },
         { "Esc", "Close" },
     };

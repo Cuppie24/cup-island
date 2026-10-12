@@ -34,6 +34,9 @@ public:
     // background slides to a newly picked tab; hover is fainter and just fades.
     void setSelectedTab(std::optional<Rect> tab, float cornerRadius);
     void setHovered(std::optional<Rect> area, float cornerRadius); // a tab or a Home tile under the pointer
+    // The keyboard's focus (decision 033): a ring inside `area`, over the
+    // content, so it shows which one Enter clicks even with the pointer elsewhere.
+    void setFocusRing(std::optional<Rect> area, float cornerRadius);
     // Home's tiles (decision 009): a faint background under each, like a hovered tab.
     void setTiles(const std::vector<Rect>& tiles, float cornerRadius);
 
@@ -72,6 +75,14 @@ private:
     };
     void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide);
     Mark selectedTab_, hovered_;
+    struct Ring { // the focus ring: stroked, not filled; over content_, not under it
+        wuc::ShapeVisual visual{ nullptr };
+        wuc::CompositionRoundedRectangleGeometry shape{ nullptr };
+        wuc::CompositionSpriteShape stroke{ nullptr };
+        wuc::CompositionColorBrush brush{ nullptr };
+        std::optional<Rect> at;
+        float radius = 0;
+    } focusRing_;
     std::vector<Mark> tiles_; // grows to the most tiles shown; spare ones stay faded out
     ElementVisuals elements_;
     Vec2 size_, offset_;

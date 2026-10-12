@@ -19,21 +19,30 @@ const IslandState& state() { return g_hooks.state(); }
 const Scene& scene() { return g_hooks.scene(); }
 void dispatch(const Event& event, const char* reason) { g_hooks.dispatch(event, reason); }
 
-// The arrows (decision 031): move focus on the card or Home that's open. A
-// row out of its list's window is scrolled in first. Pressing keys counts as
-// using the island, like moving the pointer: Expanded doesn't time out.
-void move(Arrow arrow)
+// Focus lands on `f`: a row out of its list's window is scrolled in first.
+// Pressing keys counts as using the island, like moving the pointer:
+// Expanded doesn't time out.
+void land(const std::optional<Focusable>& f)
 {
-    if (mode(state()) != Mode::Expanded) return;
-    if (auto next = moveFocus(scene(), g_focus, arrow)) {
-        g_focus = next->id;
-        if (next->list) dispatch(ListRevealed{ next->activityId, next->list->id, next->list->row }, "keys: scroll to focus");
+    if (f) {
+        g_focus = f->id;
+        if (f->list) dispatch(ListRevealed{ f->activityId, f->list->id, f->list->row }, "keys: scroll to focus");
     }
     dispatch(PointerMoved{}, "keys");
 }
 
-// Enter or Space: a click on what has focus. If that opened something else
-// (a card, a page), focus goes to its first item, so the keys carry on there.
+// What has focus is gone (a card or page opened, a tab switched): focus goes
+// to the new one's first item, so the keys carry on there. Not while typing.
+void refocus()
+{
+    if (g_focus.empty() || state().draft || findFocusable(scene(), g_focus)) return;
+    auto first = firstFocus(scene());
+    g_focus = first ? first->id : std::string();
+    g_hooks.updateHover();
+}
+
+// Enter or Space: a click on what has focus. A static widget takes it and
+// nothing happens, as with a click.
 void activate()
 {
     std::optional<Focusable> focused;
@@ -46,11 +55,26 @@ void activate()
     } else if (auto hit = hitTest(scene(), focused->point)) {
         g_hooks.clickElement(*hit);
     }
-    if (!state().draft && !findFocusable(scene(), g_focus)) {
-        auto first = moveFocus(scene(), "", Arrow::Down);
-        g_focus = first ? first->id : std::string();
-        g_hooks.updateHover();
-    }
+    refocus();
+}
+
+// Shift+Tab (decision 033): the next tab, Home and the activities in turn.
+void switchTab()
+{
+    auto next = nextTab(scene());
+    if (!next) return;
+    g_hooks.clickTab(*next);
+    refocus();
+}
+
+// 1 to 9 on Home (decision 033): its nth widget gets focus and is clicked,
+// as if arrowed to and Enter pressed. A static one just shows focus.
+void openWidget(std::size_t n)
+{
+    auto widget = homeWidget(scene(), n);
+    if (!widget) return;
+    land(widget);
+    activate();
 }
 
 // A system-wide shortcut was pressed (decision 032). The island comes to
@@ -74,11 +98,13 @@ void run(Command command)
 
 void setKeyboardHooks(KeyboardHooks hooks) { g_hooks = std::move(hooks); }
 
-std::optional<Vec2> keyFocusPoint()
+std::optional<Focusable> keyFocus()
 {
+    // Focus is on an open card or Home: once it closes, the next one starts afresh,
+    // and the pill's own buttons in Compact never light up from an old focus.
+    if (mode(state()) != Mode::Expanded) g_focus.clear();
     if (g_focus.empty()) return std::nullopt;
-    auto focused = findFocusable(scene(), g_focus);
-    return focused ? std::optional<Vec2>(focused->point) : std::nullopt;
+    return findFocusable(scene(), g_focus);
 }
 
 void pointerMoved(Vec2 canvasPoint)
@@ -108,15 +134,37 @@ bool recordKey(WPARAM key)
 
 bool navigationKey(WPARAM key)
 {
-    switch (key) {
-    case VK_UP: move(Arrow::Up); return true;
-    case VK_DOWN: move(Arrow::Down); return true;
-    case VK_LEFT: move(Arrow::Left); return true;
-    case VK_RIGHT: move(Arrow::Right); return true;
-    case VK_RETURN:
-    case VK_SPACE: activate(); return true;
-    default: return false;
+    bool shift = GetKeyState(VK_SHIFT) < 0, ctrl = GetKeyState(VK_CONTROL) < 0;
+    bool expanded = mode(state()) == Mode::Expanded; // focus only moves on an open card or Home
+    if (key == VK_RETURN || key == VK_SPACE) {
+        activate();
+        return true;
     }
+    if (key == VK_TAB && shift) {
+        if (expanded) switchTab();
+        return true;
+    }
+    // The rest move focus. The first press of any shows where it is: each
+    // starts at the first item when nothing has focus.
+    std::optional<Focusable> to;
+    switch (key) {
+    case VK_UP: to = moveFocus(scene(), g_focus, Arrow::Up); break;
+    case VK_DOWN: to = moveFocus(scene(), g_focus, Arrow::Down); break;
+    case VK_LEFT: to = moveFocus(scene(), g_focus, Arrow::Left); break;
+    case VK_RIGHT: to = moveFocus(scene(), g_focus, Arrow::Right); break;
+    case VK_TAB: to = nextFocus(scene(), g_focus); break;
+    case VK_HOME: to = firstFocus(scene()); break;
+    case VK_END: to = lastFocus(scene()); break;
+    default: {
+        // 1 to 9, on the top row or the number pad: Home's widgets, bare keys only.
+        bool digit = (key >= '1' && key <= '9') || (key >= VK_NUMPAD1 && key <= VK_NUMPAD9);
+        if (!digit || ctrl || !expanded || !state().homeOpen) return false;
+        openWidget(key >= VK_NUMPAD1 ? key - VK_NUMPAD1 + 1 : key - '0');
+        return true;
+    }
+    }
+    if (expanded) land(to);
+    return true;
 }
 
 void hotkeyPressed(WPARAM id)

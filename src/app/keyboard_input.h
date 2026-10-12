@@ -6,6 +6,7 @@
 
 #include "core/hit_test.h"
 #include "core/island.h"
+#include "core/keyboard.h"
 #include "core/layout.h"
 #include "platform/win.h"
 
@@ -35,8 +36,9 @@ struct KeyboardHooks {
 // Set before the message loop runs.
 void setKeyboardHooks(KeyboardHooks hooks);
 
-// Where focus is, for the hover code. Nothing: the pointer leads.
-std::optional<Vec2> keyFocusPoint();
+// What has focus, for the hover code (its point) and the focus ring (its
+// frame). Nothing: the pointer leads, or no card is open.
+std::optional<Focusable> keyFocus();
 
 // The pointer moved (render-layer point). A real move takes the lead back;
 // Windows repeats one when windows change under a still pointer.
@@ -49,7 +51,9 @@ void captureKeys(bool on);
 // was recording, so nothing else may act on the key.
 bool recordKey(WPARAM key);
 
-// The arrows and Enter/Space on the island. True if `key` was one.
+// The keys that move around the island (decisions 031, 033): the arrows,
+// Tab, Home/End, Shift+Tab (the next tab), 1 to 9 (Home's widgets), and
+// Enter/Space. True if `key` was one.
 bool navigationKey(WPARAM key);
 
 // WM_HOTKEY: runs its command, or while recording, counts as those keys.

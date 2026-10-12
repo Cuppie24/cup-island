@@ -37,7 +37,7 @@ So "why did X happen?" is always answered in `core/`, by a scenario test.
 src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (what providers show), layout.h
                 (+ slot_layout.h), split.h, tabs.h, home.h, hit_test.h, provider.h (Provider/Host API),
                 lift.h + placement.h (moving the island along the top edge, decision 026),
-                keyboard.h (arrow-key focus) + shortcuts.h (the shortcut table, decision 031),
+                keyboard.h (arrow, Tab and digit focus, decisions 031, 033) + shortcuts.h (the shortcut table, decision 031),
                 tokens.h (+ tokens_json.h, json_reader.h), easing.h
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
@@ -219,4 +219,5 @@ over the file's, so `tokens()` is always what's on screen.
 | Settings widget, app themes (dark and light) from tokens.json, saved per user (decision 022) | done; rules tested, visuals need Windows |
 | Settings as a list: Theme and Display pages of choices, Start with Windows on by default, stays open on a near miss (decision 030) | done; rules tested, visuals need Windows |
 | Keyboard: arrows move focus on cards and Home, Enter/Space click (decision 031) | done; navigation tested, key handling needs Windows |
+| Keyboard: Tab, Home/End, Shift+Tab switches tabs, 1–9 open Home's widgets, a focus ring (decision 033) | done; navigation tested, keys and ring need Windows |
 | System-wide shortcuts (Ctrl+X: Home), off while a fullscreen app hides the island, rebindable in Settings, a change aborted on any conflict (decision 032) | done; rules tested, registration needs Windows |

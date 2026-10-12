@@ -1,6 +1,6 @@
 # 031: Keyboard navigation and shortcuts
 
-Status: Accepted; shortcuts superseded by 032 (system-wide, rebindable, Ctrl+Alt+Space)
+Status: Accepted; shortcuts superseded by 032 (system-wide, rebindable, Ctrl+Alt+Space); extended by 033 (Tab, digits, focus ring, static widgets as stops)
 
 **Context.** Everything on the island needed the pointer. Settings (decision
 030) became a list of rows and a page of themes, which people expect to walk
@@ -49,5 +49,4 @@ list past its window, Home's grid), the Settings page in
 `tests/system_tests.cpp`, Home from anywhere in `home.scenario`. The key
 handling and the look of focus need a Windows run.
 
-**Open.** Tab and Shift+Tab don't move focus; there's no focus ring
-distinct from hover.
+**Open.** Tab, Shift+Tab and a focus ring distinct from hover: done in 033.
