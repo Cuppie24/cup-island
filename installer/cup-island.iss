@@ -22,8 +22,8 @@ PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-; TR §3: Windows 10 2004 or later.
-MinVersion=10.0.19041
+; Windows 10 1809 or later (decision 015).
+MinVersion=10.0.17763
 OutputDir=..\dist
 OutputBaseFilename=CupIsland-Setup-{#AppVersion}
 SetupIconFile=..\assets\cup_island.ico

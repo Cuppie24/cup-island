@@ -10,6 +10,7 @@ publish to.
 
 Runs on Windows 10 (version 1809 or later) and Windows 11. Both are supported
 platforms; see [decision 015](docs/decisions/015-windows-10-support.md).
+Only one island runs at a time: launching it again opens the running one.
 
 ## Build
 

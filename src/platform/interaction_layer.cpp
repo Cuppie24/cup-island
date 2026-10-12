@@ -1,5 +1,6 @@
 #include "platform/interaction_layer.h"
 #include "platform/log.h"
+#include "platform/single_instance.h"
 
 #include "core/easing.h"
 #include "core/tokens.h"
@@ -16,7 +17,7 @@
 namespace cup::platform {
 namespace {
 
-constexpr wchar_t kClassName[] = L"CupIslandInputWindow";
+constexpr const wchar_t* kClassName = kInteractionWindowClass;
 
 // Posted by the tick thread once per composed frame while a morph is running.
 constexpr UINT WM_APP_COMPOSITOR_TICK = WM_APP + 1;
@@ -141,6 +142,11 @@ void call(const F& callback, Args... args)
 
 LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 try {
+    // A registered message isn't a compile-time constant, so it can't be a case.
+    if (message == showYourselfMessage()) {
+        call(g_callbacks.onShowRequested);
+        return 0;
+    }
     switch (message) {
     case WM_APP_COMPOSITOR_TICK:
         onCompositorTick();

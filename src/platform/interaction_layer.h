@@ -11,6 +11,9 @@
 
 namespace cup::platform {
 
+// The window's class: also how a second launch finds the running island (single_instance.h).
+inline constexpr wchar_t kInteractionWindowClass[] = L"CupIslandInputWindow";
+
 enum class TimerId : UINT_PTR { Deadline = 1, TokensReload = 2 };
 
 // How a press ended. Inside/Outside: released over this window or off it.
@@ -31,6 +34,7 @@ struct InteractionCallbacks {
     std::function<void(float scale)> onDpiChanged; // the display's scale changed (1.0 = 100%)
     std::function<void(Vec2 point, int steps)> onWheel; // whole wheel notches over the pill; positive = down
     std::function<void(TimerId)> onTimer;
+    std::function<void()> onShowRequested; // the app was launched again (single_instance.h)
 };
 
 // Creates the window over the pill's initial bounds and starts the
