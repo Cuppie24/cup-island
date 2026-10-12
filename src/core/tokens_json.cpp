@@ -157,6 +157,9 @@ const Field kFields[] = {
     { "scrollStep", &Tokens::scrollStep },
     { "scrollDurationMs", &Tokens::scrollDuration },
     { "logsNoteMs", &Tokens::logsNote, true },
+    { "updateFirstCheckDelayMs", &Tokens::updateFirstCheckDelay, true },
+    { "updateCheckIntervalMs", &Tokens::updateCheckInterval },
+    { "updateRetryMs", &Tokens::updateRetry },
 };
 
 const Field* findField(std::string_view name)

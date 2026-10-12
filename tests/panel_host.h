@@ -17,7 +17,8 @@ struct PanelHost : Host {
 
     void startActivity(Activity) override {}
     void endActivity(const std::string&) override {}
-    void postAlert(Alert) override {}
+    std::vector<Alert> alerts;
+    void postAlert(Alert a) override { alerts.push_back(std::move(a)); }
     Ms clock{ 0 };
     std::optional<Ms> wake;
     Ms now() const override { return clock; }

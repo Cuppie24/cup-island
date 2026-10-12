@@ -100,9 +100,14 @@ void onClick(IslandState& s, Ms now)
 {
     switch (mode(s)) {
     case Mode::Alert: {
-        // Clicking an alert opens its activity, or the top one if it has none.
-        std::string target = findActivity(s, s.alert->activityId) ? s.alert->activityId : "";
-        if (target.empty() && !s.activities.empty()) target = s.activities.front().id;
+        // Clicking an alert opens its activity, or the card of the panel it
+        // names (an update offer is a panel, never live: decision 036), else
+        // the top activity.
+        std::string target = s.alert->activityId;
+        if (!findActivity(s, target)) {
+            const Panel* p = findPanel(s, target);
+            if (!p || !p->tapAction.empty() || !hasCard(p->content)) target = s.activities.empty() ? "" : s.activities.front().id;
+        }
         s.alert.reset();
         if (!target.empty()) expand(s, target, now);
         break;
