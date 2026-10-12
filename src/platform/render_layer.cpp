@@ -1,7 +1,5 @@
 #include "platform/render_layer.h"
 
-#include <shellscalingapi.h>
-
 namespace cup::platform {
 namespace {
 
@@ -37,7 +35,17 @@ winrt::Windows::System::DispatcherQueueController createDispatcherQueueForCurren
     return controller;
 }
 
-RenderLayer createRenderLayer(HINSTANCE instance, Vec2 canvas)
+namespace {
+
+void centreOn(RenderLayer& layer, int width, Rect monitor)
+{
+    layer.left = static_cast<int>(monitor.x) + (static_cast<int>(monitor.width) - width) / 2;
+    layer.top = static_cast<int>(monitor.y);
+}
+
+} // namespace
+
+RenderLayer createRenderLayer(HINSTANCE instance, Vec2 canvas, Rect monitor)
 {
     WNDCLASSEXW windowClass{ sizeof(windowClass) };
     windowClass.lpfnWndProc = DefWindowProcW; // input never reaches it (WS_EX_TRANSPARENT)
@@ -48,7 +56,7 @@ RenderLayer createRenderLayer(HINSTANCE instance, Vec2 canvas)
     RenderLayer layer;
     int width = static_cast<int>(canvas.x);
     int height = static_cast<int>(canvas.y);
-    layer.left = (GetSystemMetrics(SM_CXSCREEN) - width) / 2;
+    centreOn(layer, width, monitor);
 
     // NOREDIRECTIONBITMAP: DirectComposition owns every pixel, unpainted areas
     // are simply transparent. LAYERED | TRANSPARENT: excluded from hit-testing,
@@ -58,7 +66,7 @@ RenderLayer createRenderLayer(HINSTANCE instance, Vec2 canvas)
         WS_EX_NOREDIRECTIONBITMAP | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
         kClassName, L"Cup Island Render",
         WS_POPUP,
-        layer.left, 0, width, height,
+        layer.left, layer.top, width, height,
         nullptr, nullptr, instance, nullptr);
     if (!layer.hwnd) return layer;
 
@@ -70,19 +78,12 @@ RenderLayer createRenderLayer(HINSTANCE instance, Vec2 canvas)
     return layer;
 }
 
-void resizeRenderLayer(RenderLayer& layer, Vec2 canvas)
+void resizeRenderLayer(RenderLayer& layer, Vec2 canvas, Rect monitor)
 {
     int width = static_cast<int>(canvas.x), height = static_cast<int>(canvas.y);
-    layer.left = (GetSystemMetrics(SM_CXSCREEN) - width) / 2;
-    SetWindowPos(layer.hwnd, nullptr, layer.left, 0, width, height, SWP_NOZORDER | SWP_NOACTIVATE);
+    centreOn(layer, width, monitor);
+    SetWindowPos(layer.hwnd, nullptr, layer.left, layer.top, width, height, SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
-float primaryDisplayScale()
-{
-    HMONITOR primary = MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY);
-    UINT dpiX = 96, dpiY = 96;
-    if (FAILED(GetDpiForMonitor(primary, MDT_EFFECTIVE_DPI, &dpiX, &dpiY))) return 1.0f;
-    return static_cast<float>(dpiX) / 96.0f;
-}
 
 } // namespace cup::platform

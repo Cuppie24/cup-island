@@ -29,6 +29,7 @@
 #include "platform/log.h"
 #include "platform/interaction_layer.h"
 #include "platform/pill_renderer.h"
+#include "platform/displays.h"
 #include "platform/render_layer.h"
 #include "platform/single_instance.h"
 #include "platform/stay_on_top.h"
@@ -64,6 +65,7 @@ PillRenderer g_renderer;
 HWND g_inputHwnd{};
 std::filesystem::path g_tokensFile;
 RenderLayer g_render;
+std::string g_displayId; // the monitor the island is on (decision 023); "" = the main display
 std::unique_ptr<ProviderRegistry> g_providers;
 SettingsProvider* g_settings = nullptr; // owned by g_providers; told when tokens.json reloads
 
@@ -409,12 +411,16 @@ void onKey(WPARAM key)
 
 // New tokens are active (a tokens.json save, or a new display scale): resize
 // the render layer if the canvas changed, rebuild the content, re-layout.
+// The render layer and the interaction layer, centred at the top of the island's monitor.
+void positionLayers()
+{
+    resizeRenderLayer(g_render, tokens().canvas, displayFor(g_displayId).bounds);
+    setRenderOrigin(g_render.left, g_render.top);
+}
+
 void tokensChanged(Vec2 oldCanvas, const char* reason)
 {
-    if (tokens().canvas != oldCanvas) {
-        resizeRenderLayer(g_render, tokens().canvas);
-        setRenderLeft(g_render.left);
-    }
+    if (tokens().canvas != oldCanvas) positionLayers();
     g_renderer.refreshAnimations(); // also drops content visuals, so they're redrawn at the new sizes
     dispatch(Tick{}, reason);
 }
@@ -464,6 +470,20 @@ void writeTextFile(const std::filesystem::path& file, const std::string& text)
     out << text;
 }
 
+// Put the island on this monitor ("" = the main display, also the fallback
+// for one that isn't connected), at that monitor's scaling (decisions 017, 023).
+// Also re-run on any display change: the same monitor may have moved or resized.
+void placeIsland(const std::string& displayId)
+{
+    g_displayId = displayId;
+    Display display = displayFor(displayId);
+    Vec2 oldCanvas = tokens().canvas;
+    bool rescaled = app::rescaleTokens(g_tokensFile, display.scale);
+    positionLayers();
+    if (rescaled) tokensChanged(oldCanvas, "display");
+    logLine("island on %s (%.0f%%)", display.name.c_str(), display.scale * 100);
+}
+
 // The Settings card picked a theme: recolour everything (decision 022).
 void applyTheme(const std::string& name)
 {
@@ -488,13 +508,18 @@ int main()
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     auto queueController = createDispatcherQueueForCurrentThread();
 
-    // tokens.json is in logical pixels: lengths are multiplied by the display's scale.
-    app::setDisplayScale(primaryDisplayScale());
+    // Start on the saved monitor straight away (decision 023), at its scaling:
+    // tokens.json is in logical pixels, every length is multiplied by it.
+    std::filesystem::path displayFile = dataFile(L"display.txt");
+    g_displayId = readTextFile(displayFile);
+    g_displayId.erase(g_displayId.find_last_not_of(" \t\r\n") + 1);
+    Display display = displayFor(g_displayId);
+    app::setDisplayScale(display.scale);
     g_tokensFile = app::findTokensFile();
     app::loadTokens(g_tokensFile, /* startup */ true);
 
     HINSTANCE instance = GetModuleHandleW(nullptr);
-    g_render = createRenderLayer(instance, tokens().canvas);
+    g_render = createRenderLayer(instance, tokens().canvas, display.bounds);
     RenderLayer& render = g_render;
     if (!render.hwnd) {
         logLine("failed to create the render window (0x%08lx)", GetLastError());
@@ -518,13 +543,17 @@ int main()
     callbacks.onDpiChanged = onDpiChanged;
     callbacks.onWheel = onWheel;
     callbacks.onTimer = onTimer;
+    callbacks.onDisplaysChanged = [] {
+        // Re-lists the monitors and puts the island back where it was picked.
+        if (g_settings) g_settings->refreshDisplays();
+    };
     callbacks.onShowRequested = [] {
         logLine("launched again: opening Home");
         dispatch(HomeOpened{}, "launched again");
     };
 
     Rect bounds = interactiveBounds(g_scene);
-    g_inputHwnd = createInteractionLayer(instance, render.left, { bounds.width, bounds.height }, { bounds.x, bounds.y }, callbacks);
+    g_inputHwnd = createInteractionLayer(instance, render.left, render.top, { bounds.width, bounds.height }, { bounds.x, bounds.y }, callbacks);
     if (!g_inputHwnd) {
         logLine("failed to create the interaction window (0x%08lx)", GetLastError());
         return 1;
@@ -555,6 +584,14 @@ int main()
         .saveTheme = [theme](const std::string& name) { writeTextFile(theme, name); },
         .applyTheme = applyTheme,
         .copyLogs = [] { return copyLogToClipboard(g_inputHwnd); },
+        .listDisplays = [] {
+            std::vector<DisplayChoice> choices;
+            for (const Display& d : listDisplays()) choices.push_back({ d.id, d.name });
+            return choices;
+        },
+        .loadDisplay = [displayFile] { return readTextFile(displayFile); },
+        .saveDisplay = [displayFile](const std::string& id) { writeTextFile(displayFile, id); },
+        .applyDisplay = placeIsland,
     });
     g_settings = settings.get();
     g_providers->add(std::move(settings));

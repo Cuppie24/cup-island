@@ -1,15 +1,25 @@
 #pragma once
-// Settings on Home (decision 022): a widget whose card picks the app theme
-// and copies the log for a bug report. Saving the pick, recolouring the
-// island and the clipboard are the app's (handed in), so this stays pure
-// and is tested on Linux.
+// Settings on Home (decision 022): a widget whose card picks the app theme,
+// the display the island is on (decision 023), and copies the log for a bug
+// report. Saving picks, recolouring, moving the island and the clipboard are
+// the app's (handed in), so this stays pure and is tested on Linux.
 
 #include "core/provider.h"
 
+#include <optional>
+
 #include <functional>
 #include <string>
+#include <vector>
 
 namespace cup {
+
+// A connected monitor the island can be put on.
+struct DisplayChoice {
+    std::string id;   // stable across reboots and replugging (its device path)
+    std::string name; // what the card shows, e.g. "DELL U2720Q"
+    bool operator==(const DisplayChoice&) const = default;
+};
 
 // What the card needs from the app.
 struct SettingsHooks {
@@ -17,12 +27,17 @@ struct SettingsHooks {
     std::function<void(const std::string&)> saveTheme;
     std::function<void(const std::string&)> applyTheme;  // recolours the island (tokens.json's "themes")
     std::function<bool()> copyLogs;                      // true: the log is on the clipboard
+    std::function<std::vector<DisplayChoice>()> listDisplays; // connected monitors, in Windows' order
+    std::function<std::string()> loadDisplay;            // the saved pick's id, "" = the main display
+    std::function<void(const std::string&)> saveDisplay;
+    std::function<void(const std::string&)> applyDisplay; // moves the island; "" = the main display
 };
 
 enum class LogsNote { Ready, Copied, Failed }; // what the Copy logs button says
 
-// The widget and its card, for the theme shown and the button's note.
-Panel settingsPanel(const std::string& theme, LogsNote note);
+// The widget and its card. `display`: the display row's label, or nothing
+// to leave the row out (one monitor: nothing to choose).
+Panel settingsPanel(const std::string& theme, const std::optional<std::string>& display, LogsNote note);
 
 class SettingsProvider : public Provider {
 public:
@@ -36,19 +51,30 @@ public:
 
     // tokens.json was reloaded: its themes may have changed (one renamed, removed).
     void refresh();
+    // Monitors were plugged, unplugged or rearranged: re-list them and put the
+    // island back where it was picked (or on the main display if that's gone).
+    void refreshDisplays();
 
     static constexpr const char* kPanelId = "system.settings";
     static constexpr const char* kPreviousTheme = "theme.previous";
     static constexpr const char* kNextTheme = "theme.next";
     static constexpr const char* kCopyLogs = "logs.copy";
+    static constexpr const char* kPreviousDisplay = "display.previous";
+    static constexpr const char* kNextDisplay = "display.next";
+    static constexpr const char* kMainDisplayName = "Main display";
 
 private:
     void pick(const std::string& theme); // apply it, show it
+    void placeIsland();                   // apply the wanted display if connected, else the main one
+    std::optional<std::string> displayLabel() const;
     void publish();
 
     SettingsHooks hooks_;
     Host* host_ = nullptr;
     std::string theme_;
+    std::vector<DisplayChoice> displays_;
+    std::string wantedDisplay_;  // the user's pick, kept while its monitor is unplugged
+    std::string appliedDisplay_; // where the island is: wantedDisplay_ if connected, else "" (main)
     LogsNote note_ = LogsNote::Ready;
 };
 

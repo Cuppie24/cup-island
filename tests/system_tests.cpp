@@ -149,6 +149,41 @@ void runSystemTests()
     expect(sh.published.back().content.expandedCenter.size() == 1 && cardText(sh.published.back(), 0) == "Copy logs",
            "settings: no themes in tokens.json, no theme picker");
     settings.stop();
+
+    // Display picker (decision 023): "Main display", then each monitor, by name.
+    std::vector<DisplayChoice> monitors{ { "A", "Home LCD" } };
+    std::string savedDisplay = "B\r\n", placed = "?";
+    int displaySaves = 0;
+    SettingsProvider picker({ .copyLogs = [] { return true; },
+                              .listDisplays = [&] { return monitors; },
+                              .loadDisplay = [&] { return savedDisplay; },
+                              .saveDisplay = [&](const std::string& id) { savedDisplay = id; ++displaySaves; },
+                              .applyDisplay = [&](const std::string& id) { placed = id; } });
+    picker.start(sh);
+    expect(sh.published.back().content.expandedCenter.size() == 1 && placed.empty(),
+           "display: one monitor, no picker; the saved one is unplugged, so the island is on the main display");
+
+    monitors.push_back({ "B", "DELL U2720Q" });
+    picker.refreshDisplays();
+    expect(placed == "B" && cardText(sh.published.back(), 0) == "Display" && cardText(sh.published.back(), 1) == "DELL U2720Q",
+           "display: the saved monitor plugged back in: the island returns to it");
+
+    auto pressDisplay = [&](const char* actionId) { picker.onAction({ "system.settings", SettingsProvider::kPanelId, actionId, 0 }); };
+    pressDisplay(SettingsProvider::kNextDisplay);
+    expect(placed.empty() && savedDisplay.empty() && cardText(sh.published.back(), 1) == "Main display",
+           "display: next wraps to Main display, saved");
+    pressDisplay(SettingsProvider::kNextDisplay);
+    expect(placed == "A" && savedDisplay == "A" && cardText(sh.published.back(), 1) == "Home LCD", "display: then the first monitor");
+    pressDisplay(SettingsProvider::kPreviousDisplay);
+    pressDisplay(SettingsProvider::kPreviousDisplay);
+    expect(placed == "B" && displaySaves == 4, "display: previous wraps backwards");
+
+    monitors.pop_back(); // B unplugged
+    monitors.push_back({ "C", "Projector" });
+    picker.refreshDisplays();
+    expect(placed.empty() && cardText(sh.published.back(), 1) == "Main display" && savedDisplay == "B",
+           "display: the picked monitor unplugged: main display, but the pick is kept");
+    picker.stop();
     setTokens(saved);
 }
 
