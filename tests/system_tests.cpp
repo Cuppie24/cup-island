@@ -1,63 +1,11 @@
 // Home's system widgets (decision 009): which Host calls each theme and
-// Bluetooth reading produces, and what the tiles say. Plus the Settings widget.
+// Bluetooth reading produces, and what the tiles say. Settings: settings_tests.cpp.
 
 #include "expect.h"
-#include "core/tokens.h"
-#include "providers/system/settings_provider.h"
+#include "panel_host.h"
 #include "providers/system/system_panels.h"
 
-#include <map>
-#include <vector>
-
 namespace cup::test {
-namespace {
-
-struct PanelHost : Host {
-    std::vector<Panel> published;
-    std::vector<std::string> removed;
-
-    void startActivity(Activity) override {}
-    void endActivity(const std::string&) override {}
-    void postAlert(Alert) override {}
-    Ms clock{ 0 };
-    std::optional<Ms> wake;
-    Ms now() const override { return clock; }
-    void publishPanel(Panel p) override { published.push_back(std::move(p)); }
-    void removePanel(const std::string& id) override { removed.push_back(id); }
-    void wakeAt(std::optional<Ms> at) override { wake = at; }
-    void ask(Dialog) override {}
-    void reveal(const std::string&, const std::string&, std::size_t) override {}
-    std::map<std::string, std::string> store; // Host::load/save
-    std::map<std::string, int> saves;         // per key
-    std::string load(const std::string& key) const override { auto it = store.find(key); return it == store.end() ? "" : it->second; }
-    void save(const std::string& key, const std::string& text) override { store[key] = text; ++saves[key]; }
-    Ms wallClock() const override { return clock; }
-};
-
-std::string textAt(const Panel& p, std::size_t row, std::size_t item)
-{
-    if (row >= p.content.tile.size() || item >= p.content.tile[row].items.size()) return "?";
-    auto* text = std::get_if<Text>(&p.content.tile[row].items[item]);
-    return text ? text->value : "?";
-}
-
-// A card row's text, or its button's label.
-std::string cardText(const Panel& p, std::size_t row)
-{
-    const Slot& card = p.content.expandedCenter;
-    if (row >= card.size() || card[row].items.empty()) return "?";
-    if (auto* text = std::get_if<Text>(&card[row].items[0])) return text->value;
-    if (auto* button = std::get_if<Button>(&card[row].items[0])) return button->label;
-    return "?";
-}
-
-Glyph glyphAt(const Panel& p, std::size_t row)
-{
-    auto* icon = std::get_if<Icon>(&p.content.tile[row].items[0]);
-    return icon ? icon->glyph : Glyph::Warning;
-}
-
-} // namespace
 
 void runSystemTests()
 {
@@ -99,105 +47,6 @@ void runSystemTests()
     expect(bt.removed.size() == 1 && bt.removed[0] == BluetoothPresenter::kPanelId, "disconnected: panel removed");
     bluetooth.show({});
     expect(bt.removed.size() == 1, "and removed once");
-
-    // Settings (decision 022): a widget whose card picks the theme and copies the logs.
-    Tokens saved = tokens();
-    Tokens themed = saved;
-    themed.themes = { { "Midnight", {} }, { "Grape", { { "islandColor", { 24, 9, 42 } } } }, { "Lime", {} } };
-    setTokens(themed);
-    PanelHost sh;
-    std::string& stored = sh.store[SettingsProvider::kThemeKey];
-    stored = "Lime\r\n";
-    std::string applied;
-    bool copyWorks = true;
-    int copies = 0, centred = 0;
-    const int& saves = sh.saves[SettingsProvider::kThemeKey];
-    SettingsProvider settings({ .applyTheme = [&](const std::string& name) { applied = name; },
-                                .copyLogs = [&] { ++copies; return copyWorks; },
-                                .centreIsland = [&] { ++centred; } });
-    settings.start(sh);
-    const Panel& widget = sh.published.back();
-    expect(widget.id == SettingsProvider::kPanelId && widget.tapAction.empty() && hasCard(widget.content) &&
-           widget.content.card == CardLayout::Centred, "settings: a widget that opens a centred card");
-    expect(glyphAt(widget, 0) == Glyph::Settings && textAt(widget, 1, 0) == "Settings", "settings: the gear");
-    expect(applied == "Lime" && saves == 0 && cardText(widget, 1) == "Lime", "settings: the saved theme applies at start");
-
-    auto press = [&](const char* actionId) { settings.onAction({ "system.settings", SettingsProvider::kPanelId, actionId, 0 }); };
-    press(SettingsProvider::kNextTheme);
-    expect(applied == "Midnight" && stored == "Midnight" && cardText(sh.published.back(), 1) == "Midnight", "settings: next wraps to the first, saved");
-    press(SettingsProvider::kPreviousTheme);
-    press(SettingsProvider::kPreviousTheme);
-    expect(applied == "Grape" && stored == "Grape" && saves == 3, "settings: previous wraps to the last, then back");
-
-    stored = "Renamed";
-    settings.stop();
-    settings.start(sh);
-    expect(applied == "Midnight", "settings: a saved theme tokens.json no longer has falls back to the default");
-    themed.themes.erase(themed.themes.begin());
-    setTokens(themed);
-    settings.refresh();
-    expect(applied == "Grape" && cardText(sh.published.back(), 1) == "Grape", "settings: a reload that drops the theme moves to the new first");
-
-    // Copy logs moved here from its own tile: says how the copy went, then resets.
-    expect(cardText(sh.published.back(), 2) == "Copy logs" && !sh.wake, "logs: idle, nothing scheduled");
-    sh.clock = Ms{ 1000 };
-    press(SettingsProvider::kCopyLogs);
-    expect(copies == 1 && cardText(sh.published.back(), 2) == "Logs copied", "logs: a click copies and says so");
-    expect(sh.wake == Ms{ 1000 } + tokens().logsNote, "logs: the note lasts logsNoteMs");
-    settings.onWake();
-    expect(cardText(sh.published.back(), 2) == "Copy logs", "logs: then back to Copy logs");
-    press(SettingsProvider::kCentreIsland);
-    const Row& buttons = sh.published.back().content.expandedCenter[2];
-    expect(centred == 1 && buttons.items.size() == 2 && std::get<Button>(buttons.items[1]).label == "Centre island",
-           "settings: Centre island beside Copy logs puts a moved island back (decision 026)");
-    copyWorks = false;
-    press(SettingsProvider::kCopyLogs);
-    expect(cardText(sh.published.back(), 2) == "Couldn't copy logs", "logs: a failed copy says so");
-    settings.stop();
-    expect(sh.removed.back() == SettingsProvider::kPanelId && !sh.wake, "settings: stop removes the widget and the wake-up");
-
-    themed.themes.clear();
-    setTokens(themed);
-    settings.start(sh);
-    expect(sh.published.back().content.expandedCenter.size() == 1 && cardText(sh.published.back(), 0) == "Copy logs",
-           "settings: no themes in tokens.json, no theme picker");
-    settings.stop();
-
-    // Display picker (decision 023): "Main display", then each monitor, by name.
-    std::vector<DisplayChoice> monitors{ { "A", "Home LCD" } };
-    std::string& savedDisplay = sh.store[SettingsProvider::kDisplayKey];
-    savedDisplay = "B\r\n";
-    std::string placed = "?";
-    const int& displaySaves = sh.saves[SettingsProvider::kDisplayKey];
-    SettingsProvider picker({ .copyLogs = [] { return true; },
-                              .listDisplays = [&] { return monitors; },
-                              .applyDisplay = [&](const std::string& id) { placed = id; } });
-    picker.start(sh);
-    expect(sh.published.back().content.expandedCenter.size() == 1 && placed.empty(),
-           "display: one monitor, no picker; the saved one is unplugged, so the island is on the main display");
-
-    monitors.push_back({ "B", "DELL U2720Q" });
-    picker.refreshDisplays();
-    expect(placed == "B" && cardText(sh.published.back(), 0) == "Display" && cardText(sh.published.back(), 1) == "DELL U2720Q",
-           "display: the saved monitor plugged back in: the island returns to it");
-
-    auto pressDisplay = [&](const char* actionId) { picker.onAction({ "system.settings", SettingsProvider::kPanelId, actionId, 0 }); };
-    pressDisplay(SettingsProvider::kNextDisplay);
-    expect(placed.empty() && savedDisplay.empty() && cardText(sh.published.back(), 1) == "Main display",
-           "display: next wraps to Main display, saved");
-    pressDisplay(SettingsProvider::kNextDisplay);
-    expect(placed == "A" && savedDisplay == "A" && cardText(sh.published.back(), 1) == "Home LCD", "display: then the first monitor");
-    pressDisplay(SettingsProvider::kPreviousDisplay);
-    pressDisplay(SettingsProvider::kPreviousDisplay);
-    expect(placed == "B" && displaySaves == 4, "display: previous wraps backwards");
-
-    monitors.pop_back(); // B unplugged
-    monitors.push_back({ "C", "Projector" });
-    picker.refreshDisplays();
-    expect(placed.empty() && cardText(sh.published.back(), 1) == "Main display" && savedDisplay == "B",
-           "display: the picked monitor unplugged: main display, but the pick is kept");
-    picker.stop();
-    setTokens(saved);
 }
 
 } // namespace cup::test

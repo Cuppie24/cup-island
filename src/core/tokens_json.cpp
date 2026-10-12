@@ -35,6 +35,10 @@ const Field kFields[] = {
     { "compactInset", &Tokens::compactInset, true },
     { "alertPadding", &Tokens::alertPadding },
     { "expandedPadding", &Tokens::expandedPadding },
+    { "listCardInset", &Tokens::listCardInset },
+    { "listCardWidth", &Tokens::listCardWidth },
+    { "listCardVerticalInset", &Tokens::listCardVerticalInset },
+    { "listCardMinHeight", &Tokens::listCardMinHeight },
     { "expandedArtSize", &Tokens::expandedArtSize },
     { "slotGap", &Tokens::slotGap },
     { "rowSpacing", &Tokens::rowSpacing },
@@ -57,6 +61,7 @@ const Field kFields[] = {
     { "inputHeight", &Tokens::inputHeight },
     { "listItemPadding", &Tokens::listItemPadding },
     { "listItemInset", &Tokens::listItemInset },
+    { "listItemTextInset", &Tokens::listItemTextInset },
     { "buttonLabelPadding", &Tokens::buttonLabelPadding },
     { "buttonGlyphSize", &Tokens::buttonGlyphSize },
     { "buttonPressScale", &Tokens::buttonPressScale },
@@ -67,6 +72,7 @@ const Field kFields[] = {
     { "ringThickness", &Tokens::ringThickness },
     { "stepDotSize", &Tokens::stepDotSize },
     { "stepDotGap", &Tokens::stepDotGap },
+    { "swatchSize", &Tokens::swatchSize },
     { "hoverFadeDurationMs", &Tokens::hoverFadeDuration, true },
     { "artHoverGlyphSize", &Tokens::artHoverGlyphSize },
     { "marqueeSpeed", &Tokens::marqueeSpeed, true },
@@ -288,6 +294,15 @@ TokensParse parseTokens(std::string_view json)
     }
     in.expect('}');
     if (!in.failed() && !in.atEnd()) in.fail("unexpected text after the closing '}'");
+    // What each theme looks like, for Settings' list: its island and accent,
+    // and light or dark by that island (a theme that keeps the file's
+    // islandColor is as light as the file). Perceived brightness, 0..255.
+    for (Theme& theme : result.tokens.themes) {
+        Tokens themed = withTheme(result.tokens, theme.name);
+        theme.island = themed.islandColor;
+        theme.accent = themed.liveColor;
+        theme.light = 0.2126f * theme.island.r + 0.7152f * theme.island.g + 0.0722f * theme.island.b > 127.5f;
+    }
     return result;
 }
 

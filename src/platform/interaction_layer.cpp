@@ -220,6 +220,14 @@ try {
         call(g_callbacks.onKeyDown, wParam);
         return 0;
 
+    case WM_SYSKEYDOWN: // with Alt held: a shortcut being recorded needs it (decision 032)
+        call(g_callbacks.onKeyDown, wParam);
+        break;           // and Windows' own handling (Alt+F4) still runs
+
+    case WM_HOTKEY:
+        call(g_callbacks.onHotkey, wParam);
+        return 0;
+
     case WM_CHAR:
         call(g_callbacks.onChar, static_cast<wchar_t>(wParam));
         return 0;

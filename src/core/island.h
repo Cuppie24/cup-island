@@ -210,6 +210,15 @@ bool isExpanded(const IslandState& state);
 const Activity* findActivity(const IslandState& state, const std::string& id);
 const Panel* findPanel(const IslandState& state, const std::string& id);
 
+// The card Expanded shows (an activity's, or a dormant panel's): whose it is.
+// Nothing on Home, or when nothing is expanded. A change from one is the
+// card closing for its provider (Provider::onCardClosed).
+struct ShownCard {
+    std::string providerId, activityId;
+    bool operator==(const ShownCard&) const = default;
+};
+std::optional<ShownCard> shownCard(const IslandState& state);
+
 // Local time of day at `now`, once the platform has synced the clock.
 std::optional<Ms> timeOfDay(const IslandState& state, Ms now);
 

@@ -21,8 +21,11 @@ float planList(const Slot& slot, const std::vector<float>& heights, const ListSt
         natural[i] = content;
         content += heights[first + i] + (i + 1 < count ? t.rowSpacing : 0);
     }
-    // The window: listVisibleRows rows of the first one's height (half a row more hints there's more).
-    float window = std::min(content, t.listVisibleRows * (heights[first] + t.rowSpacing) - t.rowSpacing);
+    // The window: listVisibleRows rows of its tallest row's height (half a row more hints there's more).
+    // The tallest, not the first: a list may open with a shorter heading (Settings' "Dark").
+    float tallest = *std::max_element(heights.begin() + static_cast<std::ptrdiff_t>(first),
+                                      heights.begin() + static_cast<std::ptrdiff_t>(first + count));
+    float window = std::min(content, t.listVisibleRows * (tallest + t.rowSpacing) - t.rowSpacing);
     float max = std::max(0.0f, content - window);
 
     const std::string& id = slot[first].list;

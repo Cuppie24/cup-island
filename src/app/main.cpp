@@ -5,18 +5,22 @@
 //
 // The idle pill shows the time; clicking it opens Home (decisions 009, 019):
 // the media and Pomodoro widgets, then theme, Bluetooth and Settings (the
-// app theme and Copy logs, decision 022). Press and hold the pill to lift it
+// app theme, display, Start with Windows and Copy logs, decisions 022, 030). Press and hold the pill to lift it
 // and move it along the top edge (decision 026).
 //
-// Demo keys (click the pill first so it has keyboard focus):
+// Keys (decision 031): Ctrl+X opens Home from anywhere (system-wide, off
+// while a fullscreen app hides the island, changeable in Settings, decision 032). On the island, the arrows move
+// between a card's controls and Home's widgets, Enter or Space clicks.
+// Demo keys:
 //   M  toggle the demo music player (real media shows by itself)
 //   T  toggle a second activity (Split). Click the bubble to open it, or drag
 //      it onto the pill to make it the main one.
 //   C  post a critical alert               D  toggle a simulated accepted drag
-//   H  toggle hidden                       Esc collapse when expanded, otherwise quit
-// Quit any time from the tray icon's right-click menu. Everything is logged to
+//   H  toggle hidden                       Esc closes what's open (never the app)
+// Quit any time from the tray icon's right-click menu (Exit). Everything is logged to
 // %LOCALAPPDATA%\CupIsland\logs (platform/log.h); Debug builds also show it in a console.
 
+#include "app/keyboard_input.h"
 #include "app/live_tokens.h"
 #include "core/dialog.h"
 #include "core/hit_test.h"
@@ -26,11 +30,13 @@
 #include "core/tabs.h"
 #include "core/tokens.h"
 #include "platform/file_watcher.h"
+#include "platform/hotkeys.h"
 #include "platform/wall_clock.h"
 #include "platform/fullscreen_watcher.h"
 #include "platform/log.h"
 #include "platform/interaction_layer.h"
 #include "platform/pill_renderer.h"
+#include "platform/autostart.h"
 #include "platform/displays.h"
 #include "platform/render_layer.h"
 #include "platform/single_instance.h"
@@ -61,6 +67,8 @@
 
 using namespace cup;
 using namespace cup::platform;
+// Something in the Windows SDK headers declares a global Chord, so with these using-directives an
+// unqualified Chord is ambiguous (MSVC C2872): core types that clash are written cup:: here.
 
 namespace {
 
@@ -178,25 +186,34 @@ std::string rowUnder(Vec2 point)
     return p ? p->key.substr(0, p->key.rfind('/')) : std::string();
 }
 
+// Where hover feedback comes from: the keyboard's focus while it leads (decision 031), else the pointer.
+std::optional<Vec2> hoverPoint()
+{
+    if (!g_pointer.scrub)
+        if (auto focused = app::keyFocusPoint()) return focused;
+    return g_pointer.at;
+}
+
 void updateHover()
 {
+    std::optional<Vec2> at = hoverPoint();
     std::string key;
     if (g_pointer.scrub) {
         key = g_pointer.scrub->key; // stays lit while dragged, even off the bar
-    } else if (g_pointer.at) {
-        if (auto hit = hitTest(g_scene, *g_pointer.at)) key = hit->key;
+    } else if (at) {
+        if (auto hit = hitTest(g_scene, *at)) key = hit->key;
     }
     g_renderer.setHovered(key);
-    g_renderer.setHoveredRow(g_pointer.at ? rowUnder(*g_pointer.at) : std::string()); // reveals a to-do's delete button
+    g_renderer.setHoveredRow(at ? rowUnder(*at) : std::string()); // reveals a to-do's delete button
 
     // Tabs light up as a whole, except the active one, which is already marked (decision 007).
     // Home's tiles too, unless the pointer is on one of their buttons (decision 009).
-    const Tab* tab = g_scene.tabs && g_pointer.at ? tabAt(*g_scene.tabs, *g_pointer.at) : nullptr;
+    const Tab* tab = g_scene.tabs && at ? tabAt(*g_scene.tabs, *at) : nullptr;
     if (tab && isCurrent(*tab)) tab = nullptr;
-    const Tile* tile = g_pointer.at && key.empty() ? tileAt(g_scene, *g_pointer.at) : nullptr;
+    const Tile* tile = at && key.empty() ? tileAt(g_scene, *at) : nullptr;
     if (tile && !tile->clickable()) tile = nullptr; // widgets without a card or tap action don't react
     // A list item (a to-do) lights up as a whole row, like a tab (Row::listItem).
-    const Placed* item = g_pointer.at && !g_pointer.scrub ? contentUnder(*g_pointer.at) : nullptr;
+    const Placed* item = at && !g_pointer.scrub ? contentUnder(*at) : nullptr;
     if (tab) g_renderer.setAreaHovered(tab->frame, g_scene.tabs->radius);
     else if (tile) g_renderer.setAreaHovered(tile->frame, g_scene.tileRadius);
     else if (item && item->listRow) g_renderer.setAreaHovered(item->listRow, item->listRowRadius);
@@ -220,6 +237,8 @@ void dispatch(const Event& event, const char* reason)
 {
     Ms t = now();
     Spot spot = g_state.spot;
+    bool wasHidden = g_state.hidden;
+    std::optional<ShownCard> wasCard = shownCard(g_state);
     g_state = reduce(g_state, event, t);
     Scene next = layout(g_state, t, [](const Text& text) { return g_renderer.measure(text); });
 
@@ -243,6 +262,12 @@ void dispatch(const Event& event, const char* reason)
     auto deadline = earliest(nextDeadline(g_state), sceneDeadline(g_scene));
     if (g_providers) deadline = earliest(deadline, g_providers->nextWake());
     setTimer(TimerId::Deadline, deadline ? std::optional<Ms>(std::max(*deadline - t, Ms{ 0 })) : std::nullopt);
+
+    // Hidden (a fullscreen app, decision 032): the shortcuts let go of their keys, so that app gets them.
+    // Last: Settings republishes, which dispatches again.
+    if (g_state.hidden != wasHidden && g_settings) g_settings->setHotkeysActive(!g_state.hidden);
+    // A card went: its provider may reset it (Settings opens at its list again).
+    if (wasCard && shownCard(g_state) != wasCard && g_providers) g_providers->cardClosed(*wasCard);
 }
 
 void toggleProvider(const char* id)
@@ -368,6 +393,7 @@ void onPressDown(Vec2 canvasPoint)
 
 void onPointerMoved(Vec2 canvasPoint, bool inside)
 {
+    app::pointerMoved(canvasPoint); // a real move takes the lead back from the keyboard
     if (g_pointer.islandPress) {
         Vec2 start = *g_pointer.islandPress;
         dispatch(IslandDragged{ { canvasPoint.x - start.x, canvasPoint.y - start.y } }, "lift drag");
@@ -402,6 +428,31 @@ void onPointerMoved(Vec2 canvasPoint, bool inside)
     dispatch(PointerMoved{}, "pointer"); // keeps Expanded open while in use; refreshes hover
 }
 
+// What a click does, by what it's on. The pointer's release and the keyboard's Enter share them.
+void clickTab(const std::string& id) { dispatch(id.empty() ? Event{ HomeOpened{} } : Event{ ActivitySwitched{ id } }, "tab"); }
+
+void clickTile(const Tile& tile)
+{
+    if (!tile.tapAction.empty()) {
+        g_providers->route({ tile.providerId, tile.id, tile.tapAction, 0 }); // a toggle: no card
+        dispatch(PointerMoved{}, "tile action");                              // the user is busy here: keep Home open
+    } else if (tile.opens) {
+        dispatch(TileClicked{ tile.id }, "tile");
+    }
+}
+
+void clickElement(const Hit& hit)
+{
+    const Placed* element = findElement(hit.key);
+    if (element && std::holds_alternative<TextInput>(element->item)) {
+        // A field: focus it for typing (decision 016); nothing is sent until Enter.
+        SetFocus(g_inputHwnd);
+        dispatch(InputFocused{ hit.action.providerId, hit.action.activityId, hit.action.actionId }, "focus field");
+    } else if (!element || !startEditing(*element)) {
+        act(hit.action);
+    }
+}
+
 void onPressRelease(Vec2 canvasPoint, Release how)
 {
     if (g_pointer.islandPress) {
@@ -413,19 +464,13 @@ void onPressRelease(Vec2 canvasPoint, Release how)
     if (g_pointer.tabPress) {
         std::string id = *std::exchange(g_pointer.tabPress, std::nullopt);
         const Tab* tab = how == Release::Inside && onPill(canvasPoint) ? tabUnder(toPill(canvasPoint)) : nullptr;
-        if (tab && tab->id == id && !isCurrent(*tab)) dispatch(id.empty() ? Event{ HomeOpened{} } : Event{ ActivitySwitched{ id } }, "tab");
+        if (tab && tab->id == id && !isCurrent(*tab)) clickTab(id);
         return;
     }
     if (g_pointer.tilePress) {
         std::string id = *std::exchange(g_pointer.tilePress, std::nullopt);
         const Tile* tile = how == Release::Inside && onPill(canvasPoint) ? tileAt(g_scene, toPill(canvasPoint)) : nullptr;
-        if (!tile || tile->id != id) return;
-        if (!tile->tapAction.empty()) {
-            g_providers->route({ tile->providerId, tile->id, tile->tapAction, 0 }); // a toggle: no card
-            dispatch(PointerMoved{}, "tile action");                                  // the user is busy here: keep Home open
-        } else if (tile->opens) {
-            dispatch(TileClicked{ id }, "tile");
-        }
+        if (tile && tile->id == id) clickTile(*tile);
         return;
     }
     if (g_pointer.bubblePress) {
@@ -454,16 +499,7 @@ void onPressRelease(Vec2 canvasPoint, Release how)
         g_renderer.releaseElement(key);
         // Only a release on the same button counts: sliding off cancels, like any button.
         auto hit = how == Release::Inside && onPill(canvasPoint) ? hitTest(g_scene, point) : std::nullopt;
-        if (hit && hit->key == key) {
-            const Placed* element = findElement(key);
-            if (element && std::holds_alternative<TextInput>(element->item)) {
-                // A field: focus it for typing (decision 016); nothing is sent until Enter.
-                SetFocus(g_inputHwnd);
-                dispatch(InputFocused{ hit->action.providerId, hit->action.activityId, hit->action.actionId }, "focus field");
-            } else if (!element || !startEditing(*element)) {
-                act(hit->action);
-            }
-        }
+        if (hit && hit->key == key) clickElement(*hit);
         return;
     }
     g_renderer.pressRelease(false);
@@ -504,6 +540,7 @@ void onChar(wchar_t c)
 
 void onKey(WPARAM key)
 {
+    if (app::recordKey(key)) return; // Settings is recording a shortcut's new keys (decision 032)
     // A dialog: Esc cancels it, the card stays (decision 020).
     if (g_state.dialog) {
         if (key == VK_ESCAPE) answerDialog(false);
@@ -515,11 +552,18 @@ void onKey(WPARAM key)
         if (key == VK_ESCAPE) dispatch(InputCancelled{}, "esc");
         return;
     }
+    // Alt combinations (WM_SYSKEYDOWN) are only for recording a shortcut; Windows handles the rest (Alt+F4).
+    bool ctrl = GetKeyState(VK_CONTROL) < 0, alt = GetKeyState(VK_MENU) < 0;
+    if (alt) return;
+    if (app::navigationKey(key)) return; // the arrows, Enter and Space (decision 031)
     switch (key) {
     case VK_ESCAPE:
+        // Closes what's open, never the app: quitting is the tray's Exit.
         if (mode(g_state) == Mode::Expanded) dispatch(EscapePressed{}, "esc");
-        else DestroyWindow(g_inputHwnd);
-        break;
+        return;
+    }
+    if (ctrl) return; // the demo keys are plain letters: Ctrl+M isn't M
+    switch (key) {
     case 'M': toggleProvider("demo"); break;
     case 'T': toggleTimer(); break;
     case 'C': {
@@ -677,6 +721,7 @@ int main()
         updateHover();
     };
     callbacks.onKeyDown = onKey;
+    callbacks.onHotkey = app::hotkeyPressed;
     callbacks.onChar = onChar;
     callbacks.onDpiChanged = onDpiChanged;
     callbacks.onWheel = onWheel;
@@ -698,7 +743,7 @@ int main()
     }
     createTrayIcon(instance, [] {
         logLine("exit from the tray");
-        DestroyWindow(g_inputHwnd); // same as Esc
+        DestroyWindow(g_inputHwnd); // ends the message loop
     });
     watchForHangs(g_inputHwnd);
 
@@ -726,8 +771,29 @@ int main()
         },
         .applyDisplay = placeIsland,
         .centreIsland = [] { dispatch(SpotRestored{}, "centre island"); },
+        .startsWithWindows = startsWithWindows,
+        .setStartsWithWindows = setStartsWithWindows,
+        .bindHotkey = [](cup::Command command, const cup::Chord& chord) { return registerHotkey(g_inputHwnd, command, chord); },
+        .unbindHotkeys = [] { unregisterHotkeys(g_inputHwnd); },
+        .captureKeys = app::captureKeys,
     });
     g_settings = settings.get();
+    g_settings->setHotkeysActive(!g_state.hidden); // started under a fullscreen app: none until it's gone
+    app::setKeyboardHooks({
+        .state = []() -> const IslandState& { return g_state; },
+        .scene = []() -> const Scene& { return g_scene; },
+        .dispatch = dispatch,
+        .clickTab = clickTab,
+        .clickTile = clickTile,
+        .clickElement = [](const Hit& hit) {
+            g_renderer.pressElement(hit.key); // the same squash a click gives
+            g_renderer.releaseElement(hit.key);
+            clickElement(hit);
+        },
+        .updateHover = updateHover,
+        .window = g_inputHwnd,
+        .settings = g_settings,
+    });
     g_providers->add(std::move(settings));
     // Home's widgets follow the order panels first appear: media and Pomodoro
     // first (decision 019), then the system tiles.

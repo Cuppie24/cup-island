@@ -29,11 +29,13 @@ add_library(cup_core STATIC
     src/core/island.cpp
     src/core/island_queries.cpp
     src/core/item_metrics.cpp
+    src/core/keyboard.cpp
     src/core/json_reader.cpp
     src/core/layout.cpp
     src/core/lift.cpp
     src/core/lists.cpp
     src/core/placement.cpp
+    src/core/shortcuts.cpp
     src/core/slot_layout.cpp
     src/core/split.cpp
     src/core/tabs.cpp
@@ -53,6 +55,7 @@ add_library(cup_providers STATIC
     src/providers/pomodoro/pomodoro_provider.cpp
     src/providers/pomodoro/pomodoro_session.cpp
     src/providers/pomodoro/todo_list.cpp
+    src/providers/system/settings_card.cpp
     src/providers/system/settings_provider.cpp
     src/providers/system/system_panels.cpp
     src/providers/file_store.cpp
@@ -68,6 +71,7 @@ if(CUP_BUILD_TESTS)
         tests/fullscreen_tests.cpp
         tests/home_tests.cpp
         tests/item_tests.cpp
+        tests/keyboard_tests.cpp
         tests/main.cpp
         tests/media_tests.cpp
         tests/placement_tests.cpp
@@ -75,6 +79,8 @@ if(CUP_BUILD_TESTS)
         tests/provider_tests.cpp
         tests/unit_tests.cpp
         tests/scenario_runner.cpp
+        tests/settings_tests.cpp
+        tests/shortcut_settings_tests.cpp
         tests/store_tests.cpp
         tests/system_tests.cpp
         tests/todo_tests.cpp
@@ -97,6 +103,7 @@ if(WIN32)
     enable_language(RC)
     add_executable(CupIsland
         assets/cup_island.rc
+        src/app/keyboard_input.cpp
         src/app/live_tokens.cpp
         src/app/main.cpp
         src/platform/autostart.cpp
@@ -113,6 +120,7 @@ if(WIN32)
         src/platform/file_watcher.cpp
         src/platform/fullscreen_watcher.cpp
         src/platform/graphics_device.cpp
+        src/platform/hotkeys.cpp
         src/platform/interaction_layer.cpp
         src/platform/log.cpp
         src/platform/liquid_bridge.cpp

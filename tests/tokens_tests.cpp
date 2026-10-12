@@ -100,6 +100,17 @@ void runTokensTests()
         Color shadow = themed.shadowColor, base = fromFile.tokens.shadowColor;
         expect(shadow.r == 0 && shadow.g == 0 && shadow.b == 0 && shadow.a <= base.a, "a black shadow: " + theme.name);
     }
+    // Settings lists them in two groups (decision 030), by how pale the island ends up.
+    auto lightCount = std::count_if(shippedThemes.begin(), shippedThemes.end(), [](const Theme& t) { return t.light; });
+    expect(!shippedThemes[0].light && lightCount >= 6 && shippedThemes.size() - lightCount >= 6, "dark and light themes ship, several of each");
+    for (const char* light : { "Paper", "Sorbet", "Mint", "Lavender", "Sand", "Sky" })
+        expect(std::any_of(shippedThemes.begin(), shippedThemes.end(), [&](const Theme& t) { return t.name == light && t.light; }),
+               std::string("a light theme: ") + light);
+    TokensParse paleFile = parseTokens(R"({ "islandColor": [250, 250, 250], "themes": { "Plain": {}, "Night": { "islandColor": [0, 0, 0] } } })");
+    expect(paleFile.ok() && paleFile.tokens.themes[0].light && !paleFile.tokens.themes[1].light,
+           "a theme that keeps the file's island is as light as the file");
+    expect(paleFile.tokens.themes[0].island == Color{ 250, 250, 250 } && paleFile.tokens.themes[1].island == Color{ 0, 0, 0 } &&
+           paleFile.tokens.themes[1].accent == Tokens{}.liveColor, "each theme's island and accent, for its swatch");
     TokensParse themes = parseTokens(R"({ "themes": {
         "Plain": {},
         "Grape": { "islandColor": [24, 9, 42], "liveColor": [191, 90, 242, 0.5] } } })");

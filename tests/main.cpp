@@ -22,6 +22,9 @@ void runItemTests();
 void runTodoTests();
 void runPlacementTests();
 void runStoreTests();
+void runKeyboardTests();
+void runSettingsTests();
+void runShortcutSettingsTests();
 int runScenarioFile(const std::filesystem::path& file); // returns scenarios run
 }
 
@@ -43,6 +46,9 @@ int main(int argc, char** argv)
     runTodoTests();
     runPlacementTests();
     runStoreTests();
+    runKeyboardTests();
+    runSettingsTests();
+    runShortcutSettingsTests();
 
     fs::path dir = argc > 1 ? fs::path(argv[1]) : fs::path(CUP_SCENARIO_DIR);
     std::vector<fs::path> files;

@@ -29,7 +29,8 @@ struct InteractionCallbacks {
     std::function<void()> onClickOutside; // something else was activated
     std::function<void(Vec2 point, bool inside)> onPointerMoved;
     std::function<void()> onPointerLeft;
-    std::function<void(WPARAM key)> onKeyDown;
+    std::function<void(WPARAM key)> onKeyDown; // WM_KEYDOWN, and WM_SYSKEYDOWN (keys pressed with Alt)
+    std::function<void(WPARAM id)> onHotkey;   // a system-wide shortcut (WM_HOTKEY, platform/hotkeys.h)
     std::function<void(wchar_t character)> onChar; // typed text (WM_CHAR), for a focused text field
     std::function<void(float scale)> onDpiChanged; // the display's scale changed (1.0 = 100%)
     std::function<void(Vec2 point, float notches)> onWheel; // wheel notches over the pill (fractions from touchpads); positive = down

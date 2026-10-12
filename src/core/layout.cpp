@@ -27,14 +27,31 @@ Source sourceFor(const IslandState& s, Mode mode)
     return {};
 }
 
-// A Centred card grows to fit its rows (a to-do list), never below Expanded's
+// Centred and List cards are one stack of rows across the card (decision 014).
+bool stacked(const Content& c) { return c.card == CardLayout::Centred || c.card == CardLayout::List; }
+
+// That stack's frame: the card less its padding. A List card's is narrower
+// and centred (decision 030): a few short rows don't need the island's width.
+Rect stackFrame(const Content& c, Vec2 size)
+{
+    const Tokens& t = tokens();
+    float p = t.expandedPadding;
+    if (c.card != CardLayout::List) return { p, p, std::max(0.0f, size.x - 2 * p), size.y - 2 * p };
+    float width = std::min(std::max(0.0f, size.x - 2 * (p + t.listCardInset)), t.listCardWidth);
+    float top = p + t.listCardVerticalInset; // room above and below: a page of settings, not a packed activity card
+    return { (size.x - width) / 2, top, width, std::max(0.0f, size.y - 2 * top) };
+}
+
+// A stacked card grows to fit its rows (a to-do list), never below Expanded's
 // size and never past the canvas (decision 016).
 float centredCardHeight(const Content& c, Vec2 size, float tabSpace)
 {
     const Tokens& t = tokens();
-    float p = t.expandedPadding;
-    float needed = slotHeight(c.expandedCenter, { p, p, size.x - 2 * p, size.y }) + 2 * p;
-    return std::clamp(needed, t.expandedSize.y, std::max(t.expandedSize.y, t.canvas.y - tabSpace));
+    Rect frame = stackFrame(c, size);
+    float needed = slotHeight(c.expandedCenter, { frame.x, frame.y, frame.width, size.y }) + 2 * frame.y;
+    // A List card (Settings) is never as squeezed as an activity's: listCardMinHeight at least.
+    float least = c.card == CardLayout::List ? std::max(t.expandedSize.y, t.listCardMinHeight) : t.expandedSize.y;
+    return std::clamp(needed, least, std::max(least, t.canvas.y - tabSpace));
 }
 
 // The padding a mode keeps on every side of its content.
@@ -71,8 +88,7 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
                  { "alertCenter", &c.alertCenter, { centerX, p, size.x - centerX - p, side } } };
     }
     case Mode::Expanded: {
-        if (c.card == CardLayout::Centred) // one stack across the whole card (decision 014)
-            return { { "expandedCenter", &c.expandedCenter, { p, p, size.x - 2 * p, size.y - 2 * p } } };
+        if (stacked(c)) return { { "expandedCenter", &c.expandedCenter, stackFrame(c, size) } };
         float art = t.expandedArtSize, y = p, centerX = p + art + t.slotGap, bottomY = y + art + t.slotGap;
         float corner = t.buttonSize, cornerX = size.x - p - corner;
         float centerRight = c.expandedTrailing.empty() ? size.x - p : cornerX - t.slotGap;
@@ -132,7 +148,7 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     float tabSpace = tabStripSpace(state);
     scene.size = modeSize(scene.mode);
     Source source = sourceFor(state, scene.mode);
-    if (scene.mode == Mode::Expanded && source.content && source.content->card == CardLayout::Centred)
+    if (scene.mode == Mode::Expanded && source.content && stacked(*source.content))
         scene.size.y = centredCardHeight(*source.content, scene.size, tabSpace);
     if (scene.mode == Mode::Expanded && state.homeOpen) scene.size.y = homeCardHeight(state, tokens().canvas.y - tabSpace);
     scene.size.y += tabSpace;

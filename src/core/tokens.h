@@ -33,6 +33,10 @@ struct ThemeColor {
 struct Theme {
     std::string name;
     std::vector<ThemeColor> colors;
+    // Derived when parsed, from the colours it ends up with (decision 030):
+    Color island{ 0, 0, 0 }; // its islandColor
+    Color accent;            // its liveColor (progress fills, the waveform)
+    bool light = false;      // its island is pale: Settings lists dark and light apart
     bool operator==(const Theme&) const = default;
 };
 
@@ -64,6 +68,10 @@ struct Tokens {
     float compactInset = 4;     // compact padding
     float alertPadding = 8;
     float expandedPadding = 12;
+    float listCardInset = 8;      // CardLayout::List: at least this much more on the left and right (decision 030)
+    float listCardWidth = 280;    // ...and its rows no wider than this, centred: a few short settings
+    float listCardVerticalInset = 12; // ...this much more above and below its rows
+    float listCardMinHeight = 240;    // ...and never shorter than this: room to breathe (decision 030)
     float expandedArtSize = 68; // expanded leading square: as tall as title + artist + caption beside it
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;
@@ -90,6 +98,7 @@ struct Tokens {
     float inputHeight = 30;       // a TextInput: a little taller than the rows, easy to click into
     float listItemPadding = 4;    // Row::listItem: above and below its content, so list items stand apart
     float listItemInset = 6;      // Row::listItem: its content in from the hover background's edges
+    float listItemTextInset = 14; // ...where the edge item is text: clear of the background's rounded end (decision 030)
     float buttonLabelPadding = 10; // a text button: its label plus this on each side        // hover circle; the click area also takes in half the gaps around it
     float buttonGlyphSize = 16;
     float buttonPressScale = 0.85f;
@@ -100,6 +109,7 @@ struct Tokens {
     float ringThickness = 3;      // progress ring stroke (decision 010)
     float stepDotSize = 9;        // Steps: one dot per step
     float stepDotGap = 8;
+    float swatchSize = 24;        // Swatch: a colour sample (a theme on Settings' list, decision 030)
 
     // Hover on buttons and the progress bar (decision 002: content only, not the pill).
     Ms hoverFadeDuration{ 120 };

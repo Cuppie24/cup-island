@@ -65,6 +65,9 @@ public:
     virtual void stop() = 0;
     virtual void onAction(const Action& action) = 0;
     virtual void onWake() {} // the time asked for with Host::wakeAt() has come
+    // Its card stopped being shown (closed, or Home or another card took its
+    // place). A card with pages within it goes back to its first (Settings).
+    virtual void onCardClosed(const std::string& /*activityId*/) {}
 };
 
 } // namespace cup

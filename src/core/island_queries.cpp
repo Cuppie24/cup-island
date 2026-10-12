@@ -26,6 +26,14 @@ const Panel* findPanel(const IslandState& s, const std::string& id)
     return nullptr;
 }
 
+std::optional<ShownCard> shownCard(const IslandState& s)
+{
+    if (!isExpanded(s) || s.homeOpen) return std::nullopt;
+    if (const Activity* a = findActivity(s, s.expandedId)) return ShownCard{ a->providerId, a->id };
+    if (const Panel* p = findPanel(s, s.expandedId)) return ShownCard{ p->providerId, p->id };
+    return std::nullopt;
+}
+
 std::optional<Ms> timeOfDay(const IslandState& s, Ms now)
 {
     if (!s.clock) return std::nullopt;

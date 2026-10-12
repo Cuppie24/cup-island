@@ -250,6 +250,8 @@ void ElementVisuals::paint(View& view)
             paintInput(dc, dw, *input, size, view.placed.cornerRadius); // nested, like a button's hover shape
         } else if (auto* steps = std::get_if<Steps>(&item)) {
             paintSteps(dc, *steps, size, accentOf(view.placed));
+        } else if (auto* swatch = std::get_if<Swatch>(&item)) {
+            paintSwatch(dc, *swatch, size);
         }
     });
     if (drawn && view.glyphSurface)

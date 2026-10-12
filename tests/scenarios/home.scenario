@@ -92,3 +92,26 @@ panel focus
 click
 alert copied                        -> Expanded queue=1
 esc                                 -> Alert alert=copied
+
+scenario: a card that keeps open stays on a click between its controls (decision 030)
+panel settings keep
+click
+tile settings                       -> Expanded expanded=settings
+click                               -> Expanded expanded=settings
+esc                                 -> Idle
+click
+tile settings
+outside                             -> Idle
+click
+tile settings
+wait 8000                           -> Idle
+
+scenario: the Open Home shortcut (Ctrl+X) opens Home from anywhere (decision 032)
+panel focus
+home                                -> Expanded expanded=home
+esc                                 -> Idle
+start media
+click                               -> Expanded expanded=media
+home                                -> Expanded expanded=home
+esc                                 -> Compact
+home                                -> Expanded expanded=home
