@@ -36,13 +36,14 @@ So "why did X happen?" is always answered in `core/`, by a scenario test.
 ```
 src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (what providers show), layout.h
                 (+ slot_layout.h), split.h, tabs.h, home.h, hit_test.h, provider.h (Provider/Host API),
-                tokens.h (+ tokens_json.h), easing.h
+                tokens.h (+ tokens_json.h, json_reader.h), easing.h
 src/platform/   Win32 + C++/WinRT + Composition: render/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
                 per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Start with Windows, Exit), autostart, log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules and the media widget, SMTC provider for real Windows media),
-                pomodoro/ (the first panel), system/ (Home's theme and Bluetooth widgets, Copy logs)
+                pomodoro/ (the first panel), system/ (Home's theme, Bluetooth and Settings widgets:
+                app themes, Copy logs)
 src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload
 assets/         tokens.json: the live-tunable sizes, timings and curves; the app icon (cup_island.rc/.ico)
 installer/      Inno Setup script for the Windows installer (decision 011)
@@ -155,6 +156,10 @@ Adding a token: add the field to `Tokens` in `core/tokens.h`, add one line to
 the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 (the tests fail if the file has unknown names).
 
+Themes (decision 022) are the one nested object in tokens.json: `"themes"`
+maps a name to the colour tokens it changes. The picked theme's colours go
+over the file's, so `tokens()` is always what's on screen.
+
 ## Testing
 
 - **State rules → `tests/scenarios/*.scenario`.** One line per step, with the
@@ -163,7 +168,7 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing),
   `home_tests.cpp` (tiles, Home tab, idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop),
-  `media_tests.cpp` (media presenter and widget), `system_tests.cpp` (theme and Bluetooth presenters), `todo_tests.cpp` (the to-do list end to end).**
+  `media_tests.cpp` (media presenter and widget), `system_tests.cpp` (theme and Bluetooth presenters, Settings), `todo_tests.cpp` (the to-do list end to end).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
 
@@ -196,4 +201,5 @@ the field table in `core/tokens_json.cpp`, then add it to `assets/tokens.json`
 | Text input (typing, paste) and Pomodoro's to-do list (decision 016) | done; rules tested, typing and drawing need Windows |
 | Release: no-console exe, static C++ runtime, tray icon with Start with Windows + Exit, Inno Setup installer (decision 011) | done; needs a Windows build to verify |
 | MSIX, code signing, StartupTask (TR §9, §10) | not yet |
-| Log file, Copy logs tile, hang/crash minidumps, exit without deadlock (decision 013) | done; tile rules tested, the rest needs Windows |
+| Log file, Copy logs (in Settings), hang/crash minidumps, exit without deadlock (decision 013) | done; button rules tested, the rest needs Windows |
+| Settings widget, app themes (dark only) from tokens.json, saved per user (decision 022) | done; rules tested, visuals need Windows |

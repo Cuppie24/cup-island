@@ -1,9 +1,8 @@
 #include "core/tokens_json.h"
 
-#include <cctype>
+#include "core/json_reader.h"
+
 #include <cmath>
-#include <cstdlib>
-#include <optional>
 #include <set>
 #include <sstream>
 #include <type_traits>
@@ -136,110 +135,17 @@ const Field kFields[] = {
     { "logsNoteMs", &Tokens::logsNote, true },
 };
 
-const Field* findField(const std::string& name)
+const Field* findField(std::string_view name)
 {
     for (const auto& f : kFields)
         if (name == f.name) return &f;
     return nullptr;
 }
 
-// --- Minimal JSON reader: one flat object of numbers / number arrays -------
-
-struct Value {
-    std::vector<float> numbers;
-    bool isArray = false;
-};
-
-class Reader {
-public:
-    Reader(std::string_view text, std::vector<std::string>& problems) : text_(text), problems_(problems) {}
-
-    int line() const { return line_; }
-    bool failed() const { return failed_; }
-
-    void fail(const std::string& message)
-    {
-        if (!failed_) problems_.push_back("line " + std::to_string(line_) + ": " + message);
-        failed_ = true;
-    }
-
-    void skipSpace()
-    {
-        while (pos_ < text_.size() && std::isspace(static_cast<unsigned char>(text_[pos_]))) {
-            if (text_[pos_] == '\n') ++line_;
-            ++pos_;
-        }
-    }
-
-    bool peek(char c) { skipSpace(); return pos_ < text_.size() && text_[pos_] == c; }
-    bool atEnd() { skipSpace(); return pos_ >= text_.size(); }
-
-    bool expect(char c)
-    {
-        if (peek(c)) { ++pos_; return true; }
-        fail(std::string("expected '") + c + "'");
-        return false;
-    }
-
-    std::string string()
-    {
-        std::string out;
-        if (!expect('"')) return out;
-        while (pos_ < text_.size() && text_[pos_] != '"') {
-            if (text_[pos_] == '\\' && pos_ + 1 < text_.size()) ++pos_;
-            if (text_[pos_] == '\n') { fail("unterminated string"); return out; }
-            out += text_[pos_++];
-        }
-        expect('"');
-        return out;
-    }
-
-    float number()
-    {
-        skipSpace();
-        size_t start = pos_;
-        while (pos_ < text_.size() && std::string_view("+-.0123456789eE").find(text_[pos_]) != std::string_view::npos) ++pos_;
-        std::string digits(text_.substr(start, pos_ - start));
-        char* end = nullptr;
-        double value = std::strtod(digits.c_str(), &end);
-        if (digits.empty() || end != digits.c_str() + digits.size() || !std::isfinite(value)) {
-            fail("expected a number");
-            return 0;
-        }
-        return static_cast<float>(value);
-    }
-
-    Value value()
-    {
-        Value v;
-        if (!peek('[')) {
-            v.numbers.push_back(number());
-            return v;
-        }
-        ++pos_;
-        v.isArray = true;
-        if (peek(']')) { ++pos_; return v; }
-        while (true) {
-            v.numbers.push_back(number());
-            if (failed_ || !peek(',')) break;
-            ++pos_;
-        }
-        expect(']');
-        return v;
-    }
-
-private:
-    std::string_view text_;
-    std::vector<std::string>& problems_;
-    size_t pos_ = 0;
-    int line_ = 1;
-    bool failed_ = false;
-};
-
 // --- Applying one value to one member, with shape and range checks ----------
 
 // Returns a problem description, or empty if applied.
-std::string apply(Tokens& t, const Field& field, const Value& v)
+std::string apply(Tokens& t, const Field& field, const JsonValue& v)
 {
     auto allNonNegative = [&] {
         for (float n : v.numbers) if (n < 0) return false;
@@ -281,12 +187,62 @@ std::string apply(Tokens& t, const Field& field, const Value& v)
     }, field.member);
 }
 
+// [r, g, b], or [r, g, b, alpha] when it isn't opaque.
+void writeColor(std::ostringstream& out, Color c)
+{
+    out << "[" << int(c.r) << ", " << int(c.g) << ", " << int(c.b);
+    if (c.a != 255) out << ", " << c.a / 255.0;
+    out << "]";
+}
+
+// "themes": { "Grape": { "islandColor": [24, 9, 42], ... }, ... } (decision 022).
+// Each theme names only colour tokens: a theme recolours, it never resizes.
+void readThemes(JsonReader& in, TokensParse& result)
+{
+    auto report = [&](int line, const std::string& where, const std::string& message) {
+        result.problems.push_back("line " + std::to_string(line) + ": \"themes\" > " + where + ": " + message);
+    };
+    std::set<std::string> names;
+    in.expect('{');
+    while (!in.failed() && !in.peek('}')) {
+        int line = in.line();
+        Theme theme{ in.string() };
+        if (theme.name.empty()) report(line, "\"\"", "a theme needs a name");
+        else if (!names.insert(theme.name).second) report(line, "\"" + theme.name + "\"", "appears twice");
+        in.expect(':');
+        in.expect('{');
+        std::set<std::string> seen;
+        while (!in.failed() && !in.peek('}')) {
+            int colorLine = in.line();
+            std::string key = in.string();
+            in.expect(':');
+            JsonValue v = in.value();
+            if (in.failed()) break;
+            std::string where = "\"" + theme.name + "\" > \"" + key + "\"";
+            const Field* field = findField(key);
+            auto* color = field ? std::get_if<Color Tokens::*>(&field->member) : nullptr;
+            Tokens scratch;
+            if (!seen.insert(key).second) report(colorLine, where, "appears twice");
+            else if (!color) report(colorLine, where, field ? "not a colour token" : "unknown token (typo?)");
+            else if (std::string problem = apply(scratch, *field, v); !problem.empty()) report(colorLine, where, problem);
+            else theme.colors.push_back({ key, scratch.**color });
+            if (!in.peek(',')) break;
+            in.expect(',');
+        }
+        in.expect('}');
+        result.tokens.themes.push_back(std::move(theme));
+        if (!in.peek(',')) break;
+        in.expect(',');
+    }
+    in.expect('}');
+}
+
 } // namespace
 
 TokensParse parseTokens(std::string_view json)
 {
     TokensParse result;
-    Reader in(json, result.problems);
+    JsonReader in(json, result.problems);
     std::set<std::string> seen;
 
     in.expect('{');
@@ -294,16 +250,22 @@ TokensParse parseTokens(std::string_view json)
         int line = in.line();
         std::string key = in.string();
         in.expect(':');
-        Value v = in.value();
-        if (in.failed()) break;
-
         auto report = [&](const std::string& message) {
             result.problems.push_back("line " + std::to_string(line) + ": \"" + key + "\": " + message);
         };
-        if (!seen.insert(key).second) report("appears twice");
-        else if (const Field* field = findField(key)) {
-            if (std::string problem = apply(result.tokens, *field, v); !problem.empty()) report(problem);
-        } else report("unknown token (typo?)");
+        bool twice = !seen.insert(key).second;
+        if (key == "themes") {
+            readThemes(in, result);
+            if (twice) report("appears twice");
+        } else {
+            JsonValue v = in.value();
+            if (in.failed()) break;
+            if (twice) report("appears twice");
+            else if (const Field* field = findField(key)) {
+                if (std::string problem = apply(result.tokens, *field, v); !problem.empty()) report(problem);
+            } else report("unknown token (typo?)");
+        }
+        if (in.failed()) break;
 
         if (!in.peek(',')) break;
         in.expect(',');
@@ -330,6 +292,19 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
     return out;
 }
 
+Tokens withTheme(const Tokens& t, const std::string& name)
+{
+    Tokens out = t;
+    for (const Theme& theme : t.themes) {
+        if (theme.name != name) continue;
+        for (const ThemeColor& c : theme.colors) {
+            const Field* field = findField(c.token);
+            if (auto* color = field ? std::get_if<Color Tokens::*>(&field->member) : nullptr) out.**color = c.color;
+        }
+    }
+    return out;
+}
+
 std::string toJson(const Tokens& t)
 {
     std::ostringstream out;
@@ -346,15 +321,21 @@ std::string toJson(const Tokens& t)
             if constexpr (std::is_same_v<T, Vec2>) out << "[" << v.x << ", " << v.y << "]";
             else if constexpr (std::is_same_v<T, Bezier>) out << "[" << v.c1.x << ", " << v.c1.y << ", " << v.c2.x << ", " << v.c2.y << "]";
             else if constexpr (std::is_same_v<T, Ms>) out << v.count();
-            else if constexpr (std::is_same_v<T, Color>) {
-                out << "[" << int(v.r) << ", " << int(v.g) << ", " << int(v.b);
-                if (v.a != 255) out << ", " << v.a / 255.0;
-                out << "]";
-            }
+            else if constexpr (std::is_same_v<T, Color>) writeColor(out, v);
             else out << v;
         }, field.member);
     }
-    out << "\n}\n";
+    out << ",\n\n  \"themes\": {";
+    for (std::size_t i = 0; i < t.themes.size(); ++i) {
+        const Theme& theme = t.themes[i];
+        out << (i ? ",\n" : "\n") << "    \"" << theme.name << "\": {";
+        for (std::size_t j = 0; j < theme.colors.size(); ++j) {
+            out << (j ? ", " : " ") << "\"" << theme.colors[j].token << "\": ";
+            writeColor(out, theme.colors[j].color);
+        }
+        out << (theme.colors.empty() ? "}" : " }");
+    }
+    out << (t.themes.empty() ? "}" : "\n  }") << "\n}\n";
     return out.str();
 }
 

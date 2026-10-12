@@ -1,8 +1,10 @@
 #pragma once
 // Loads tokens.json at startup and on every save, so sizes, timings and
-// curves can be tuned while the island runs.
+// curves can be tuned while the island runs. The picked app theme's colours
+// go on top (decision 022).
 
 #include <filesystem>
+#include <string>
 
 namespace cup::app {
 
@@ -24,5 +26,9 @@ void setDisplayScale(float scale);
 // monitor): re-applies tokens.json at the new scale, canvasSize included.
 // Returns true if tokens changed; the caller resizes the render layer.
 bool rescaleTokens(const std::filesystem::path& file, float scale);
+
+// The app theme (a name in tokens.json's "themes"): its colours go over the
+// file's, now and after every reload. Returns true if tokens changed.
+bool setTheme(const std::string& name);
 
 } // namespace cup::app

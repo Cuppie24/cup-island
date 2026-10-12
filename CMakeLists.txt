@@ -28,6 +28,7 @@ add_library(cup_core STATIC
     src/core/home.cpp
     src/core/island.cpp
     src/core/island_queries.cpp
+    src/core/json_reader.cpp
     src/core/layout.cpp
     src/core/slot_layout.cpp
     src/core/split.cpp
@@ -47,7 +48,7 @@ add_library(cup_providers STATIC
     src/providers/media/tab_match.cpp
     src/providers/pomodoro/pomodoro_provider.cpp
     src/providers/pomodoro/todo_list.cpp
-    src/providers/system/logs_provider.cpp
+    src/providers/system/settings_provider.cpp
     src/providers/system/system_panels.cpp
     src/providers/provider_registry.cpp
 )

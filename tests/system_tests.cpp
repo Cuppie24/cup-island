@@ -1,9 +1,9 @@
 // Home's system widgets (decision 009): which Host calls each theme and
-// Bluetooth reading produces, and what the tiles say. Plus the Copy logs tile.
+// Bluetooth reading produces, and what the tiles say. Plus the Settings widget.
 
 #include "expect.h"
 #include "core/tokens.h"
-#include "providers/system/logs_provider.h"
+#include "providers/system/settings_provider.h"
 #include "providers/system/system_panels.h"
 
 #include <vector>
@@ -32,6 +32,16 @@ std::string textAt(const Panel& p, std::size_t row, std::size_t item)
     if (row >= p.content.tile.size() || item >= p.content.tile[row].items.size()) return "?";
     auto* text = std::get_if<Text>(&p.content.tile[row].items[item]);
     return text ? text->value : "?";
+}
+
+// A card row's text, or its button's label.
+std::string cardText(const Panel& p, std::size_t row)
+{
+    const Slot& card = p.content.expandedCenter;
+    if (row >= card.size() || card[row].items.empty()) return "?";
+    if (auto* text = std::get_if<Text>(&card[row].items[0])) return text->value;
+    if (auto* button = std::get_if<Button>(&card[row].items[0])) return button->label;
+    return "?";
 }
 
 Glyph glyphAt(const Panel& p, std::size_t row)
@@ -83,29 +93,63 @@ void runSystemTests()
     bluetooth.show({});
     expect(bt.removed.size() == 1, "and removed once");
 
-    // Copy logs: a tap-action tile that says how the copy went, then resets.
-    PanelHost lh;
+    // Settings (decision 022): a widget whose card picks the theme and copies the logs.
+    Tokens saved = tokens();
+    Tokens themed = saved;
+    themed.themes = { { "Midnight", {} }, { "Grape", { { "islandColor", { 24, 9, 42 } } } }, { "Lime", {} } };
+    setTokens(themed);
+    PanelHost sh;
+    std::string stored = "Lime\r\n", applied;
     bool copyWorks = true;
-    int copies = 0;
-    LogsProvider logs([&] { ++copies; return copyWorks; });
-    logs.start(lh);
-    const Panel& ready = lh.published.back();
-    expect(ready.id == LogsProvider::kPanelId && ready.tapAction == LogsProvider::kCopy && !hasCard(ready.content),
-           "logs: a tap-action tile, no card");
-    expect(glyphAt(ready, 0) == Glyph::Copy && textAt(ready, 1, 0) == "Logs" && !lh.wake, "logs: idle, nothing scheduled");
-    logs.onAction({ "system.logs", LogsProvider::kPanelId, "other", 0 });
-    expect(copies == 0, "logs: other actions don't copy");
-    lh.clock = Ms{ 1000 };
-    logs.onAction({ "system.logs", LogsProvider::kPanelId, LogsProvider::kCopy, 0 });
-    expect(copies == 1 && textAt(lh.published.back(), 1, 0) == "Copied", "logs: tap copies and says so");
-    expect(lh.wake == Ms{ 1000 } + tokens().logsNote, "logs: the note lasts logsNoteMs");
-    logs.onWake();
-    expect(textAt(lh.published.back(), 1, 0) == "Logs", "logs: then back to Logs");
+    int copies = 0, saves = 0;
+    SettingsProvider settings({ .loadTheme = [&] { return stored; },
+                                .saveTheme = [&](const std::string& name) { stored = name; ++saves; },
+                                .applyTheme = [&](const std::string& name) { applied = name; },
+                                .copyLogs = [&] { ++copies; return copyWorks; } });
+    settings.start(sh);
+    const Panel& widget = sh.published.back();
+    expect(widget.id == SettingsProvider::kPanelId && widget.tapAction.empty() && hasCard(widget.content) &&
+           widget.content.card == CardLayout::Centred, "settings: a widget that opens a centred card");
+    expect(glyphAt(widget, 0) == Glyph::Settings && textAt(widget, 1, 0) == "Settings", "settings: the gear");
+    expect(applied == "Lime" && saves == 0 && cardText(widget, 1) == "Lime", "settings: the saved theme applies at start");
+
+    auto press = [&](const char* actionId) { settings.onAction({ "system.settings", SettingsProvider::kPanelId, actionId, 0 }); };
+    press(SettingsProvider::kNextTheme);
+    expect(applied == "Midnight" && stored == "Midnight" && cardText(sh.published.back(), 1) == "Midnight", "settings: next wraps to the first, saved");
+    press(SettingsProvider::kPreviousTheme);
+    press(SettingsProvider::kPreviousTheme);
+    expect(applied == "Grape" && stored == "Grape" && saves == 3, "settings: previous wraps to the last, then back");
+
+    stored = "Renamed";
+    settings.stop();
+    settings.start(sh);
+    expect(applied == "Midnight", "settings: a saved theme tokens.json no longer has falls back to the default");
+    themed.themes.erase(themed.themes.begin());
+    setTokens(themed);
+    settings.refresh();
+    expect(applied == "Grape" && cardText(sh.published.back(), 1) == "Grape", "settings: a reload that drops the theme moves to the new first");
+
+    // Copy logs moved here from its own tile: says how the copy went, then resets.
+    expect(cardText(sh.published.back(), 2) == "Copy logs" && !sh.wake, "logs: idle, nothing scheduled");
+    sh.clock = Ms{ 1000 };
+    press(SettingsProvider::kCopyLogs);
+    expect(copies == 1 && cardText(sh.published.back(), 2) == "Logs copied", "logs: a click copies and says so");
+    expect(sh.wake == Ms{ 1000 } + tokens().logsNote, "logs: the note lasts logsNoteMs");
+    settings.onWake();
+    expect(cardText(sh.published.back(), 2) == "Copy logs", "logs: then back to Copy logs");
     copyWorks = false;
-    logs.onAction({ "system.logs", LogsProvider::kPanelId, LogsProvider::kCopy, 0 });
-    expect(textAt(lh.published.back(), 1, 0) == "Failed", "logs: a failed copy says so");
-    logs.stop();
-    expect(lh.removed.back() == LogsProvider::kPanelId && !lh.wake, "logs: stop removes the tile and the wake-up");
+    press(SettingsProvider::kCopyLogs);
+    expect(cardText(sh.published.back(), 2) == "Couldn't copy logs", "logs: a failed copy says so");
+    settings.stop();
+    expect(sh.removed.back() == SettingsProvider::kPanelId && !sh.wake, "settings: stop removes the widget and the wake-up");
+
+    themed.themes.clear();
+    setTokens(themed);
+    settings.start(sh);
+    expect(sh.published.back().content.expandedCenter.size() == 1 && cardText(sh.published.back(), 0) == "Copy logs",
+           "settings: no themes in tokens.json, no theme picker");
+    settings.stop();
+    setTokens(saved);
 }
 
 } // namespace cup::test
