@@ -22,7 +22,7 @@ struct UpdateHooks {
     std::string version; // the running build's (cup_version.h): only X.Y.Z checks
     // Asks GitHub for the latest release, then calls `done` on the UI thread:
     // the release, or nothing on any failure (offline, rate-limited, bad reply).
-    std::function<void(std::function<void(std::optional<Release>)> done)> fetchLatest;
+    std::function<void(std::function<void(std::optional<GitHubRelease>)> done)> fetchLatest;
     // Downloads the offer's installer, checks it and starts it; the app then
     // quits. If that fails, calls `failed` on the UI thread with what to tell the user.
     std::function<void(const UpdateOffer&, std::function<void(std::string)> failed)> install;
@@ -58,7 +58,7 @@ public:
 
 private:
     void check();
-    void checked(const std::optional<Release>& release);
+    void checked(const std::optional<GitHubRelease>& release);
     void publish();
 
     UpdateHooks hooks_;

@@ -96,12 +96,12 @@ void UpdateProvider::check()
     if (checking_ || !running_) return;
     checking_ = true;
     std::shared_ptr<bool> alive = alive_;
-    hooks_.fetchLatest([this, alive](std::optional<Release> release) {
+    hooks_.fetchLatest([this, alive](std::optional<GitHubRelease> release) {
         if (*alive) checked(release);
     });
 }
 
-void UpdateProvider::checked(const std::optional<Release>& release)
+void UpdateProvider::checked(const std::optional<GitHubRelease>& release)
 {
     checking_ = false;
     const Tokens& t = tokens();

@@ -840,7 +840,7 @@ int main()
     // Updates from GitHub Releases (decision 036); a dev build never checks.
     g_providers->add(std::make_unique<UpdateProvider>(UpdateHooks{
         .version = CUP_VERSION_STRING,
-        .fetchLatest = [](std::function<void(std::optional<Release>)> done) { fetchLatestRelease(CUP_VERSION_STRING, std::move(done)); },
+        .fetchLatest = [](std::function<void(std::optional<GitHubRelease>)> done) { fetchLatestRelease(CUP_VERSION_STRING, std::move(done)); },
         .install = [](const UpdateOffer& offer, std::function<void(std::string)> failed) {
             downloadAndInstall(offer, CUP_VERSION_STRING, [] { DestroyWindow(g_inputHwnd); }, std::move(failed)); // quit: the installer replaces us
         },

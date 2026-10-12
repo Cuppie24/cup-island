@@ -26,6 +26,10 @@ knowing. There's no server, and none is wanted.
   run stops before tagging; its installer is in the run's artifacts.
   Tagging and publishing are one job because a tag pushed with the
   workflow's own token starts no other workflow.
+- **Every pull request is built on Windows** (`build.yml`: `build.ps1 -Test`
+  on `windows-latest`, also on pushes to main). Linux sessions only build the
+  core, and the first release run broke on a name clash in `main.cpp` that only
+  MSVC could see; a PR now shows that before it's merged.
 - **The updater** (`providers/update`): `UpdateProvider` is pure and tested;
   `github.cpp` is its Windows side.
   - A release build asks `api.github.com/repos/Cuppie24/cup-island/releases/latest`

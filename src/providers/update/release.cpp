@@ -57,7 +57,7 @@ std::string versionText(const Version& v)
 
 std::string installerName(const Version& v) { return "CupIsland-Setup-" + versionText(v) + ".exe"; }
 
-std::optional<UpdateOffer> offerFor(const Version& running, const Release& latest)
+std::optional<UpdateOffer> offerFor(const Version& running, const GitHubRelease& latest)
 {
     auto version = parseVersion(latest.tag);
     if (!version || *version <= running) return std::nullopt;

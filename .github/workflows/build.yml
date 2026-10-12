@@ -1,0 +1,32 @@
+# Builds and tests the whole app on Windows for every pull request and every
+# push to main (decision 036). Linux sessions can only build the core: this
+# is where platform/, app/ and the WinRT parts compile before anything ships.
+
+name: Build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true # a newer push makes the older run moot
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # tags, for the version (git describe)
+
+      - name: Build and test
+        run: ./build.ps1 -Test

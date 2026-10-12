@@ -14,7 +14,7 @@ namespace cup {
 
 // GET https://api.github.com/repos/Cuppie24/cup-island/releases/latest.
 // Call on the UI thread; `done` runs there too: the release, or nothing.
-void fetchLatestRelease(const std::string& appVersion, std::function<void(std::optional<Release>)> done);
+void fetchLatestRelease(const std::string& appVersion, std::function<void(std::optional<GitHubRelease>)> done);
 
 // Downloads the installer into %LOCALAPPDATA%\CupIsland\updates, checks its
 // SHA-256 against the offer and starts it silently, then calls `quit` (the

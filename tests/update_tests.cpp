@@ -9,12 +9,12 @@
 namespace cup::test {
 namespace {
 
-using Done = std::function<void(std::optional<Release>)>;
+using Done = std::function<void(std::optional<GitHubRelease>)>;
 using Failed = std::function<void(std::string)>;
 
 const std::string kSha = std::string(64, 'A'); // GitHub's digest, upper case to check it's lowered
 
-Release releaseOf(const std::string& version, std::string digest = "sha256:" + kSha)
+GitHubRelease releaseOf(const std::string& version, std::string digest = "sha256:" + kSha)
 {
     std::string name = "CupIsland-Setup-" + version + ".exe";
     return { .tag = "v" + version,
@@ -39,7 +39,7 @@ struct Updater {
     {
     }
     void act(const char* action) { provider.onAction({ "system.update", UpdateProvider::kPanelId, action, 0 }); }
-    void wakeAndAnswer(std::optional<Release> release)
+    void wakeAndAnswer(std::optional<GitHubRelease> release)
     {
         host.clock = *host.wake;
         provider.onWake();
@@ -63,15 +63,15 @@ void versionTests()
     expect(!offerFor(running, releaseOf("0.3.0")) && !offerFor(running, releaseOf("0.2.9")), "offer: never the same or older");
     expect(!offerFor(running, releaseOf("0.4.0", "")) && !offerFor(running, releaseOf("0.4.0", "sha256:123")) &&
            !offerFor(running, releaseOf("0.4.0", "md5:" + kSha)), "offer: no usable checksum, no offer");
-    Release noInstaller = releaseOf("0.4.0");
+    GitHubRelease noInstaller = releaseOf("0.4.0");
     noInstaller.assets.pop_back();
-    Release oddTag = releaseOf("0.4.0");
+    GitHubRelease oddTag = releaseOf("0.4.0");
     oddTag.tag = "nightly";
     expect(!offerFor(running, noInstaller) && !offerFor(running, oddTag), "offer: no installer, or a tag that's no version");
-    Release elsewhere = releaseOf("0.4.0");
+    GitHubRelease elsewhere = releaseOf("0.4.0");
     elsewhere.assets.back().url = "https://evil.example/CupIsland-Setup-0.4.0.exe";
     expect(!offerFor(running, elsewhere), "offer: an installer from anywhere but GitHub isn't");
-    Release oddPage = releaseOf("0.4.0");
+    GitHubRelease oddPage = releaseOf("0.4.0");
     oddPage.page = "file:///C:/Windows/System32/calc.exe";
     expect(offerFor(running, oddPage) && offerFor(running, oddPage)->page.empty(), "offer: a page off GitHub is dropped");
 }

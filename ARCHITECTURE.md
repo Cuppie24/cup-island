@@ -51,7 +51,7 @@ src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload;
                 Enter/Space, system-wide shortcuts and recording new keys (decisions 031, 032)
 assets/         tokens.json: the live-tunable sizes, timings and curves; the app icon (cup_island.rc/.ico)
 installer/      Inno Setup script for the Windows installer (decision 011); its version comes from build.ps1
-.github/        workflows/release.yml: the Release button (build, test, tag, publish; decision 036)
+.github/        workflows/release.yml: the Release button (build, test, tag, publish); build.yml: every PR built and tested on Windows (decision 036)
 tests/          unit tests + scenarios/*.scenario (state rules in plain text)
 docs/           specs (TR, PS) and decisions/ (why things are the way they are)
 ```
