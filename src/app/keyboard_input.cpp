@@ -49,12 +49,12 @@ void activate()
     }
 }
 
-// Shift+Tab (decision 033): the next tab, Home and the activities in turn.
-void switchTab()
+// Ctrl+Tab and Ctrl+Shift+Tab (decision 033): the next or previous tab,
+// Home and the activities in turn, as a click on it.
+void switchTab(bool back)
 {
-    auto next = nextTab(scene());
-    if (!next) return;
-    g_hooks.clickTab(*next);
+    auto to = back ? previousTab(scene()) : nextTab(scene());
+    if (to) g_hooks.clickTab(*to);
 }
 
 // 1 to 9 on Home (decision 033): its nth widget gets focus and is clicked,
@@ -142,8 +142,8 @@ bool navigationKey(WPARAM key)
         activate();
         return true;
     }
-    if (key == VK_TAB && shift) {
-        if (expanded) switchTab();
+    if (key == VK_TAB && ctrl) {
+        if (expanded) switchTab(shift);
         return true;
     }
     // The rest move focus. The first press of any shows where it is: each
@@ -154,7 +154,7 @@ bool navigationKey(WPARAM key)
     case VK_DOWN: to = moveFocus(scene(), g_focus, Arrow::Down); break;
     case VK_LEFT: to = moveFocus(scene(), g_focus, Arrow::Left); break;
     case VK_RIGHT: to = moveFocus(scene(), g_focus, Arrow::Right); break;
-    case VK_TAB: to = nextFocus(scene(), g_focus); break;
+    case VK_TAB: to = shift ? previousFocus(scene(), g_focus) : nextFocus(scene(), g_focus); break;
     case VK_HOME: to = firstFocus(scene()); break;
     case VK_END: to = lastFocus(scene()); break;
     default: {

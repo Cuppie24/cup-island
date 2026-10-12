@@ -220,6 +220,10 @@ struct ShownCard {
 };
 std::optional<ShownCard> shownCard(const IslandState& state);
 
+// The shown card, if it's a live activity's (not Home, not a dormant
+// panel's): what Ctrl+W asks to close (decision 034).
+std::optional<ShownCard> shownActivity(const IslandState& state);
+
 // What Esc sends to the shown card's provider first: its Content::backAction,
 // so a page goes back to its list before anything closes (decision 033). "" = none.
 std::string backAction(const IslandState& state);

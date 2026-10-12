@@ -33,6 +33,7 @@ public:
     void stop() override;            // ends a running session, removes the panel
     void onAction(const Action& action) override;
     void onWake() override;          // the current phase's time is up
+    void onCloseRequested(const std::string& activityId) override; // Ctrl+W: like the stop button, asks first
 
     static constexpr const char* kPanelId = "pomodoro.focus"; // the panel and its activity
     // Its store keys (Host::load/save): the list (TodoList::save), the session (saveSession; "" = none).

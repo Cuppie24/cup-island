@@ -1,4 +1,4 @@
-# 033: Tab, the digits, Esc one step back, a focus ring
+# 033: Tab, Ctrl+Tab, the digits, Esc one step back, a focus ring
 
 Status: Accepted (extends 031)
 
@@ -14,11 +14,12 @@ whole row.
   does nothing, like a click. It still gets no hover fill (it doesn't
   react to the pointer); the ring shows it has focus.
 - **Tab** goes to the next item in reading order (`nextFocus`), round to
-  the first after the last. **Home** and **End** go to the first and last.
-- **Shift+Tab switches tabs**, not focus backwards: Home, then each
-  activity in strip order, round again (`nextTab`). On a dormant panel's
-  card (no tab shown) it goes to Home. It's what people reach for most on
-  the card, and the arrows already go backwards.
+  the first after the last; **Shift+Tab** to the one before
+  (`previousFocus`). **Home** and **End** go to the first and last.
+- **Ctrl+Tab switches tabs**: Home, then each activity in strip order,
+  round again (`nextTab`); **Ctrl+Shift+Tab** the other way
+  (`previousTab`). On a dormant panel's card (no tab shown) both go to
+  Home. As in a browser, Ctrl+Tab is tabs and Tab is items.
 - **1 to 9 on Home** click its widgets in publish order (`homeWidget`):
   focus lands on the widget, then it's clicked as if Enter were pressed,
   so a static one just shows focus. Top row or number pad, without Ctrl;
@@ -52,7 +53,7 @@ whole row.
   for development; in Release a stray key on the island did odd things.
 
 **Consequences.** The pure parts are tested in `tests/keyboard_tests.cpp`
-(static stops, Tab round, Home/End, digits, Shift+Tab, walking the theme
+(static stops, Tab and Shift+Tab round, Home/End, digits, Ctrl+Tab both ways, walking the theme
 list, Settings' back action); Esc back to Home in `home.scenario`.
 Settings' "On the island" list gains the new keys. The ring, returning to
 the widget and the key handling need a Windows run.

@@ -98,6 +98,8 @@ entries shown as widgets on Expanded's Home, not ranked into the pill.
 Widgets only inform (decision 019): no buttons; a click opens the card. Starting
 an activity with a panel's id makes it live; ending it makes it dormant again.
 Providers that change on a schedule ask `Host::wakeAt` and get `onWake()`.
+Ctrl+W on an activity's card calls `onCloseRequested()`: the provider ends
+it, asks first, or ignores it (the default; decision 034).
 What a provider keeps between runs goes through `Host::load/save` (decision
 028): text under its own keys, in its own format; never its own files.
 Lists (`Row::list`, decision 029) are scrolled, reordered and edited by the
@@ -219,5 +221,6 @@ over the file's, so `tokens()` is always what's on screen.
 | Settings widget, app themes (dark and light) from tokens.json, saved per user (decision 022) | done; rules tested, visuals need Windows |
 | Settings as a list: Theme and Display pages of choices, Start with Windows on by default, stays open on a near miss (decision 030) | done; rules tested, visuals need Windows |
 | Keyboard: arrows move focus on cards and Home, Enter/Space click (decision 031) | done; navigation tested, key handling needs Windows |
-| Keyboard: Tab, Home/End, Shift+Tab switches tabs, 1–9 open Home's widgets, Esc one step back, a focus ring (decision 033) | done; navigation and Esc tested, keys and ring need Windows |
+| Keyboard: Tab/Shift+Tab, Home/End, Ctrl+Tab switches tabs, 1–9 open Home's widgets, Esc one step back, a focus ring (decision 033) | done; navigation and Esc tested, keys and ring need Windows |
+| Ctrl+W asks the activity's provider to close it: Pomodoro confirms, media ignores (decision 034) | done; tested, the key needs Windows |
 | System-wide shortcuts (Ctrl+X: Home), off while a fullscreen app hides the island, rebindable in Settings, a change aborted on any conflict (decision 032) | done; rules tested, registration needs Windows |

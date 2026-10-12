@@ -38,8 +38,10 @@ std::optional<Focusable> findFocusable(const Scene& scene, const std::string& id
 std::optional<Focusable> moveFocus(const Scene& scene, const std::string& current, Arrow arrow);
 
 // Tab: the next one in reading order, round to the first after the last.
-// `current` not on screen (or empty): the first.
+// Shift+Tab: the one before, round to the last before the first.
+// `current` not on screen (or empty): the first, either way.
 std::optional<Focusable> nextFocus(const Scene& scene, const std::string& current);
+std::optional<Focusable> previousFocus(const Scene& scene, const std::string& current);
 
 // Home and End: the first or the last one in reading order.
 std::optional<Focusable> firstFocus(const Scene& scene);
@@ -48,9 +50,11 @@ std::optional<Focusable> lastFocus(const Scene& scene);
 // The keys 1 to 9 on Home: its `n`th widget (from 1), in publish order. Nothing past the last.
 std::optional<Focusable> homeWidget(const Scene& scene, std::size_t n);
 
-// Shift+Tab: the id of the tab after the one shown ("" = Home), round to
-// the first after the last; the first when none is shown (a dormant
-// panel's card). Nothing without a tab strip.
+// Ctrl+Tab: the id of the tab after the one shown ("" = Home), round to
+// the first after the last; Ctrl+Shift+Tab: the one before, round to the
+// last. Home when none is shown (a dormant panel's card). Nothing without
+// a tab strip.
 std::optional<std::string> nextTab(const Scene& scene);
+std::optional<std::string> previousTab(const Scene& scene);
 
 } // namespace cup

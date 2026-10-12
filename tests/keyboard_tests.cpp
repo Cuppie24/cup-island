@@ -128,6 +128,8 @@ void runKeyboardTests()
     expect(nextFocus(grid, "")->id == "tile:a" && nextFocus(grid, "tile:d")->id == "tile:e", "tab: the first, then on into the next row");
     auto last = lastFocus(grid);
     expect(last && firstFocus(grid)->id == "tile:a" && nextFocus(grid, last->id)->id == "tile:a", "tab: after the last, round to the first");
+    expect(previousFocus(grid, "tile:e")->id == "tile:d" && previousFocus(grid, "tile:a")->id == last->id && previousFocus(grid, "")->id == "tile:a",
+           "shift+tab: the one before, round to the last; nothing focused, the first");
     // 1 to 9: the widgets in publish order.
     expect(homeWidget(grid, 2) && homeWidget(grid, 2)->id == "tile:b" && homeWidget(grid, 5)->id == "tile:e", "digits: the nth widget");
     expect(!homeWidget(grid, 6) && !homeWidget(grid, 0), "digits: past the last, nothing");
@@ -150,15 +152,21 @@ void runKeyboardTests()
            "home: and on from it, along the row and down");
     expect(onStatic->radius == rows.tileRadius, "home: a tile's ring has the tile's corners");
 
-    // Shift+Tab switches tabs: Home, then each activity, then round.
+    // Ctrl+Tab switches tabs: Home, then each activity, then round;
+    // Ctrl+Shift+Tab the other way.
     IslandState tabbed = reduce(home, ActivityStarted{ { .id = "music", .content = { .label = "music", .expandedCenter = { row({ Text{ "m" } }) } } } }, Ms{ 0 });
+    tabbed = reduce(tabbed, ActivityStarted{ { .id = "timer", .content = { .label = "timer", .expandedCenter = { row({ Text{ "t" } }) } } } }, Ms{ 0 });
     tabbed = reduce(tabbed, HomeOpened{}, Ms{ 0 });
     Scene onHome = layout(tabbed, Ms{ 0 });
-    expect(nextTab(onHome) == std::optional<std::string>("music"), "shift+tab: from Home, the activity");
-    tabbed = reduce(tabbed, ActivitySwitched{ "music" }, Ms{ 0 });
-    expect(nextTab(layout(tabbed, Ms{ 0 })) == std::optional<std::string>(""), "shift+tab: from the last tab, round to Home");
-    expect(nextTab(list) == std::optional<std::string>(""), "shift+tab: on a dormant panel's card (no tab shown), Home");
-    expect(!nextTab(grid), "shift+tab: no tabs, nothing");
+    expect(nextTab(onHome) == std::optional<std::string>("music"), "ctrl+tab: from Home, the first activity");
+    expect(previousTab(onHome) == std::optional<std::string>("timer"), "ctrl+shift+tab: from Home, round to the last activity");
+    tabbed = reduce(tabbed, ActivitySwitched{ "timer" }, Ms{ 0 });
+    Scene onLast = layout(tabbed, Ms{ 0 });
+    expect(nextTab(onLast) == std::optional<std::string>(""), "ctrl+tab: from the last tab, round to Home");
+    expect(previousTab(onLast) == std::optional<std::string>("music"), "ctrl+shift+tab: the one before");
+    expect(nextTab(list) == std::optional<std::string>("") && previousTab(list) == std::optional<std::string>(""),
+           "ctrl+tab: on a dormant panel's card (no tab shown), Home either way");
+    expect(!nextTab(grid) && !previousTab(grid), "ctrl+tab: no tabs, nothing");
 
     // Shortcuts (decision 032): system-wide, rebindable, saved as text.
     Chord openHome = chordOf(defaultBindings(), Command::OpenHome);

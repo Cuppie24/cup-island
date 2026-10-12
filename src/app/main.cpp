@@ -572,7 +572,7 @@ void onKey(WPARAM key)
     // Alt combinations (WM_SYSKEYDOWN) are only for recording a shortcut; Windows handles the rest (Alt+F4).
     bool ctrl = GetKeyState(VK_CONTROL) < 0, alt = GetKeyState(VK_MENU) < 0;
     if (alt) return;
-    if (app::navigationKey(key)) return; // the arrows, Enter and Space (decision 031)
+    if (app::navigationKey(key)) return; // the arrows, Tab, Home/End, 1 to 9, Enter and Space (decisions 031, 033)
     switch (key) {
     case VK_ESCAPE: {
         // One step back, never out of the app: quitting is the tray's Exit. A
@@ -584,6 +584,17 @@ void onKey(WPARAM key)
         else dispatch(EscapePressed{}, "esc");
         return;
     }
+    }
+    // Ctrl+W: asks the shown activity's provider to close it, which may end
+    // it, ask first or ignore it (decision 034). Home and a dormant card have
+    // no activity to close.
+    if (ctrl && key == 'W') {
+        auto card = shownActivity(g_state);
+        if (mode(g_state) == Mode::Expanded && card) {
+            g_providers->closeRequested(*card);
+            dispatch(PointerMoved{}, "close request"); // busy here: keep the card open for an answer
+        }
+        return;
     }
     if (ctrl || !kDemoKeys) return; // the demo keys are plain letters (Ctrl+M isn't M), in Debug builds only
     switch (key) {

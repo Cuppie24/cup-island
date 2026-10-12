@@ -120,6 +120,16 @@ std::optional<Focusable> nextFocus(const Scene& scene, const std::string& curren
     return *std::next(from);
 }
 
+std::optional<Focusable> previousFocus(const Scene& scene, const std::string& current)
+{
+    std::vector<Focusable> all = focusables(scene);
+    if (all.empty()) return std::nullopt;
+    auto from = std::find_if(all.begin(), all.end(), [&](const Focusable& f) { return f.id == current; });
+    if (from == all.end()) return all.front();
+    if (from == all.begin()) return all.back();
+    return *std::prev(from);
+}
+
 std::optional<Focusable> firstFocus(const Scene& scene)
 {
     std::vector<Focusable> all = focusables(scene);
@@ -140,13 +150,23 @@ std::optional<Focusable> homeWidget(const Scene& scene, std::size_t n)
     return findFocusable(scene, "tile:" + scene.tiles[n - 1].id); // tiles are laid out in publish order
 }
 
-std::optional<std::string> nextTab(const Scene& scene)
+namespace {
+
+// The tab `step` places from the one shown, round the strip; Home with none shown.
+std::optional<std::string> tabFrom(const Scene& scene, std::size_t step)
 {
     if (!scene.tabs || scene.tabs->tabs.empty()) return std::nullopt;
     const std::vector<Tab>& tabs = scene.tabs->tabs;
-    std::size_t next = scene.tabs->active ? (*scene.tabs->active + 1) % tabs.size() : 0;
+    std::size_t next = scene.tabs->active ? (*scene.tabs->active + step) % tabs.size() : 0;
     if (scene.tabs->active == next) return std::nullopt; // only the one shown: nowhere to go
     return tabs[next].id;
 }
+
+} // namespace
+
+std::optional<std::string> nextTab(const Scene& scene) { return tabFrom(scene, 1); }
+
+// One back is all the way round but one.
+std::optional<std::string> previousTab(const Scene& scene) { return scene.tabs ? tabFrom(scene, scene.tabs->tabs.size() - 1) : std::nullopt; }
 
 } // namespace cup

@@ -51,7 +51,8 @@ void captureKeys(bool on);
 bool recordKey(WPARAM key);
 
 // The keys that move around the island (decisions 031, 033): the arrows,
-// Tab, Home/End, Shift+Tab (the next tab), 1 to 9 (Home's widgets), and
+// Tab and Shift+Tab, Home/End, Ctrl+Tab and Ctrl+Shift+Tab (the next and
+// previous tab), 1 to 9 (Home's widgets), and
 // Enter/Space. True if `key` was one.
 bool navigationKey(WPARAM key);
 
