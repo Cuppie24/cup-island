@@ -37,8 +37,10 @@ struct Theme {
 };
 
 struct Tokens {
-    // Render layer: sized to the largest pill plus press-overshoot room (TR §5,
-    // §9.1). Resized only when this changes (an edit, islandScale, the display's scale).
+    // Render layer: as wide as the island's monitor, so the island can move
+    // along its top edge (decision 026), and this tall (TR §5, §9.1). The
+    // width here is only a minimum, and the width layout() uses until the
+    // platform says (tests).
     Vec2 canvas{ 440, 420 }; // room for the largest pill (a Centred card at its tallest, with tabs) and its shadow
 
     // One knob for the island's overall size: every length below is
@@ -118,6 +120,13 @@ struct Tokens {
     float dragStartDistance = 4;  // a press on the bubble that moves less is a click
     float bridgeThickness = 20;   // liquid neck between pill and bubble, at its thickest
     float bridgeReach = 6;        // edge gap at which the neck has thinned to nothing (< bubbleGap: none at rest)
+
+    // Moving the island along the top edge (decision 026): press and hold to
+    // lift it, drag sideways, let go. Snap distances are from where it's let go.
+    Ms liftHold{ 400 };           // a press held this long without moving lifts the island
+    float liftDrop = 6;           // lifted, it floats this far below the screen edge
+    float centreSnap = 48;        // let go this close to the screen's centre: back to dead centre
+    float edgeSnap = 24;          // ...this close to a side edge: flush with it (never less than flareRadius)
 
     // The island's shadow, under the pill and the bubble (decision 018); colour in shadowColor.
     float shadowBlur = 16;

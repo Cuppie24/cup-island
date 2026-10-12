@@ -19,11 +19,6 @@ using namespace winrt::Windows::UI::Composition;
 // without app code running per frame (blob_shape.h).
 constexpr auto bind = bindToBlob;
 
-CubicBezierEasingFunction easingFor(Compositor const& c, Bezier curve)
-{
-    return c.CreateCubicBezierEasingFunction(toFloat2(curve.c1), toFloat2(curve.c2));
-}
-
 ImplicitAnimationCollection morphAnimations(Compositor const& c)
 {
     auto easing = easingFor(c, tokens().morphEase);
@@ -62,13 +57,17 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     body_.Offset(toFloat3(offset));
     drag_ = c.CreatePropertySet();
     drag_.InsertVector2(L"Centre", { offset.x + size.x / 2, offset.y + size.y / 2 });
+    drag_.InsertScalar(L"Drop", 0.0f); // lifted: how far below the screen edge (decision 026)
 
     // Press-scale pivots on the middle of the top edge, so the shape stays
     // glued to the screen edge while its sides and bottom squash in.
     shape_ = c.CreatePropertySet();
     shape_.InsertScalar(L"MaxRadius", tokens().maxCornerRadius);
     shape_.InsertScalar(L"FlareRadius", tokens().flareRadius);
-    shape_.InsertScalar(L"Attached", 1.0f); // hanging from the screen edge
+    shape_.InsertScalar(L"Attached", 1.0f); // hanging from the screen edge: a straight top
+    shape_.InsertScalar(L"Flare", 1.0f);    // ...and flared into it (decision 025)
+    shape_.InsertScalar(L"LeftEar", 1.0f);  // per side: 0 when flush with the screen's edge (decision 026)
+    shape_.InsertScalar(L"RightEar", 1.0f);
     bind(c, body_, L"CenterPoint", L"Vector3(pill.Size.X / 2, 0, 0)", body_, shape_);
 
     // Background: only the bottom corners are rounded (a notch hanging from the
@@ -164,45 +163,6 @@ void Blob::place(Vec2 size, Vec2 offset)
     if (offset != offset_ && !following_) body_.Offset(toFloat3(offset));
     size_ = size;
     offset_ = offset;
-}
-
-void Blob::follow(std::optional<Vec2> centre)
-{
-    if (centre) {
-        centre_ = *centre;
-        drag_.InsertVector2(L"Centre", toFloat2(*centre));
-        if (following_) return;
-        following_ = true;
-        auto anim = compositor_.CreateExpressionAnimation(L"Vector3(drag.Centre.X - pill.Size.X / 2, drag.Centre.Y - pill.Size.Y / 2, 0)");
-        anim.SetReferenceParameter(L"pill", body_);
-        anim.SetReferenceParameter(L"drag", drag_);
-        body_.StartAnimation(L"Offset", anim);
-        setAttached(false); // off the screen edge: round, no ears (decision 025)
-        return;
-    }
-    if (!following_) return;
-    // Let go: glide from where it was dropped to where it belongs. An explicit
-    // animation with both ends, because stopping the cursor expression and
-    // setting Offset left it stuck at the drop point on a real build.
-    following_ = false;
-    Vec2 from{ centre_.x - size_.x / 2, centre_.y - size_.y / 2 };
-    body_.ImplicitAnimations(nullptr); // so setting the resting value below doesn't start a morph of its own
-    body_.Offset(toFloat3(offset_));
-    body_.ImplicitAnimations(implicit_);
-    auto home = compositor_.CreateVector3KeyFrameAnimation();
-    home.InsertKeyFrame(0.0f, toFloat3(from));
-    home.InsertKeyFrame(1.0f, toFloat3(offset_), easingFor(compositor_, tokens().morphEase));
-    home.Duration(tokens().morphDuration);
-    body_.StartAnimation(L"Offset", home); // replaces the cursor expression
-    setAttached(true);
-}
-
-void Blob::setAttached(bool on)
-{
-    auto anim = compositor_.CreateScalarKeyFrameAnimation();
-    anim.InsertKeyFrame(1.0f, on ? 1.0f : 0.0f, easingFor(compositor_, tokens().morphEase));
-    anim.Duration(tokens().morphDuration);
-    shape_.StartAnimation(L"Attached", anim);
 }
 
 void Blob::setHighlighted(bool on)

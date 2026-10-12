@@ -1,5 +1,7 @@
 #include "platform/render_layer.h"
 
+#include <algorithm>
+
 namespace cup::platform {
 namespace {
 
@@ -37,9 +39,13 @@ winrt::Windows::System::DispatcherQueueController createDispatcherQueueForCurren
 
 namespace {
 
-void centreOn(RenderLayer& layer, int width, Rect monitor)
+// As wide as the monitor, so the island can sit anywhere along its top edge
+// and move there in Composition alone, without moving windows (decision 026).
+// Never narrower than the canvas: the widest pill must fit.
+void spanTop(RenderLayer& layer, Vec2 canvas, Rect monitor)
 {
-    layer.left = static_cast<int>(monitor.x) + (static_cast<int>(monitor.width) - width) / 2;
+    layer.width = std::max(static_cast<int>(monitor.width), static_cast<int>(canvas.x));
+    layer.left = static_cast<int>(monitor.x) + (static_cast<int>(monitor.width) - layer.width) / 2;
     layer.top = static_cast<int>(monitor.y);
 }
 
@@ -54,9 +60,7 @@ RenderLayer createRenderLayer(HINSTANCE instance, Vec2 canvas, Rect monitor)
     RegisterClassExW(&windowClass);
 
     RenderLayer layer;
-    int width = static_cast<int>(canvas.x);
-    int height = static_cast<int>(canvas.y);
-    centreOn(layer, width, monitor);
+    spanTop(layer, canvas, monitor);
 
     // NOREDIRECTIONBITMAP: DirectComposition owns every pixel, unpainted areas
     // are simply transparent. LAYERED | TRANSPARENT: excluded from hit-testing,
@@ -66,7 +70,7 @@ RenderLayer createRenderLayer(HINSTANCE instance, Vec2 canvas, Rect monitor)
         WS_EX_NOREDIRECTIONBITMAP | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
         kClassName, L"Cup Island Render",
         WS_POPUP,
-        layer.left, layer.top, width, height,
+        layer.left, layer.top, layer.width, static_cast<int>(canvas.y),
         nullptr, nullptr, instance, nullptr);
     if (!layer.hwnd) return layer;
 
@@ -80,9 +84,8 @@ RenderLayer createRenderLayer(HINSTANCE instance, Vec2 canvas, Rect monitor)
 
 void resizeRenderLayer(RenderLayer& layer, Vec2 canvas, Rect monitor)
 {
-    int width = static_cast<int>(canvas.x), height = static_cast<int>(canvas.y);
-    centreOn(layer, width, monitor);
-    SetWindowPos(layer.hwnd, nullptr, layer.left, layer.top, width, height, SWP_NOZORDER | SWP_NOACTIVATE);
+    spanTop(layer, canvas, monitor);
+    SetWindowPos(layer.hwnd, nullptr, layer.left, layer.top, layer.width, static_cast<int>(canvas.y), SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 

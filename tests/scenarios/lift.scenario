@@ -1,0 +1,120 @@
+# Lifting the island and moving it along the top edge (decision 026).
+# Default tokens: liftHold 400 ms, idle pill 160 wide, compact 260,
+# centreSnap 48, edgeSnap 24. A 1000-wide screen: its centre is x = 500.
+
+scenario: holding the pill still lifts it, and it lands where it's let go
+screen 1000
+hold
+wait 399                            -> Idle lifted=no
+wait 1                              -> Idle lifted=yes
+move -200                           -> lifted=yes               # follows the pointer sideways
+let-go                              -> Idle lifted=no spot=free
+
+scenario: a quick press is a click, never a lift
+screen 1000
+start a
+hold
+let-go
+wait 1000                           -> Compact lifted=no spot=centre
+
+scenario: moving before the hold is a click or a scrub, not a lift
+screen 1000
+start a
+hold
+move 5
+wait 1000                           -> Compact lifted=no
+
+scenario: a small wobble during the hold still lifts
+screen 1000
+hold
+move 3
+wait 400                            -> lifted=yes
+
+scenario: alerts lift too; Expanded never does
+screen 1000
+start a
+alert ping
+hold
+wait 400                            -> Alert lifted=yes
+let-go
+click                               -> Expanded
+hold
+wait 1000                           -> Expanded lifted=no
+
+scenario: let go near the centre, it snaps back to the centre
+screen 1000
+hold
+wait 400
+move -40
+let-go                              -> spot=centre
+hold
+wait 400
+move -49
+let-go                              -> spot=free
+
+scenario: let go near an edge, it docks flush with it
+screen 1000
+hold
+wait 400
+move -400                           # the pill's left edge 20 from the screen's
+let-go                              -> spot=left
+hold
+wait 400
+move 1000                           # past the right edge: held on the screen
+let-go                              -> spot=right
+hold
+wait 400
+move -30                            # 30 from the right edge: outside the snap zone
+let-go                              -> spot=free
+
+scenario: in Split the bubble counts: docking right puts the bubble at the edge
+screen 1000
+start a
+start b
+hold
+wait 400                            -> Split lifted=yes
+move 180                            # pill's right at 810, bubble's right at 850: 150 from the edge
+let-go                              -> spot=free
+hold
+wait 400
+move 130                            # the bubble 20 from the edge
+let-go                              -> spot=right
+
+scenario: the bubble can't be dragged while the island is lifted
+screen 1000
+start a
+start b
+hold
+wait 400
+drag -60 0                          -> Split dragging=no lifted=yes
+
+scenario: an alert arriving while lifted morphs it but keeps it lifted
+screen 1000
+start a
+hold
+wait 400
+alert ping                          -> Alert lifted=yes
+let-go                              -> Alert lifted=no
+
+scenario: opening Home or hiding while lifted lands the island where it is
+screen 1000
+panel p
+hold
+wait 400
+move -200
+home                                -> Expanded lifted=no spot=free
+outside
+hold
+wait 400
+move 300
+hide                                -> Hidden lifted=no spot=free
+show                                -> Idle
+
+scenario: a restored spot replaces the current one
+screen 1000
+hold
+wait 400
+move -450
+let-go                              -> spot=left
+restore free 0.25                   -> spot=free
+restore centre                      -> spot=centre

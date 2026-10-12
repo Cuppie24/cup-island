@@ -15,7 +15,7 @@ void PillRenderer::build(wuc::Compositor const& c, wuc::ContainerVisual const& r
     device_.create(c);
     pill_.build(c, device_, root, initial.size, initial.offset);
     bubble_.build(c, device_, root, {}, initial.bubbleTuck); // above the pill: it's dragged over it
-    bridge_.build(c, root, tokens().canvas, pill_, bubble_);
+    bridge_.build(c, root, pill_, bubble_);
     apply(initial);
 }
 
@@ -43,7 +43,14 @@ void PillRenderer::apply(const Scene& scene)
     // surfaces and Direct2D drawing for every element that appears, and while
     // this handler runs, Composition can't commit the new Size: the morph
     // would start only after all of it, which reads as lag on mouse-up.
+    // Lifted (decision 026): it follows the pointer sideways at once, no
+    // morph; let go, it glides to where it lands, snapping. Placed first, so
+    // the glide knows where that is.
     pill_.place(scene.size, scene.offset);
+    pill_.lift(scene.lifted ? std::optional<float>(scene.offset.x + scene.size.x / 2) : std::nullopt);
+    // A side flush with the screen's edge has no ear: it would hang off the
+    // monitor. In Split the right edge is the bubble's.
+    pill_.setEars(!scene.flushLeft, !(scene.flushRight && !scene.bubble));
     pill_.setHighlighted(scene.dropTarget);
     const TabStrip* tabs = scene.tabs ? &*scene.tabs : nullptr;
     pill_.setSelectedTab(tabs && tabs->active ? std::optional<Rect>(tabs->tabs[*tabs->active].frame) : std::nullopt, tabs ? tabs->radius : 0);
@@ -58,6 +65,7 @@ void PillRenderer::apply(const Scene& scene)
     bridge_.setEnabled(!(bubble && bubble->dragCentre));
     if (bubble) {
         bubble_.place({ bubble->frame.width, bubble->frame.height }, { bubble->frame.x, bubble->frame.y });
+        bubble_.setEars(true, !scene.flushRight);
         bubble_.follow(bubble->dragCentre);
     } else {
         // No bubble: shrink into the pill (it buds back out of the same spot).

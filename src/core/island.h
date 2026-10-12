@@ -6,6 +6,7 @@
 
 #include "core/content.h"
 #include "core/geometry.h"
+#include "core/placement.h"
 
 #include <chrono>
 #include <cstdint>
@@ -100,6 +101,11 @@ struct ActivitySwitched { std::string id; }; // Expanded tab: make it the pick a
 struct BubbleDragged { Vec2 drag; };    // pressed bubble moved: offset from its home (counts once past dragStartDistance)
 struct BubbleReleased {};               // drag let go: over the pill = swap (promote the bubble's activity)
 struct BubbleDragCancelled {};          // drag interrupted (capture lost): no swap
+struct IslandPressed {};                // mouse-down on the pill (not the bubble): held still, it lifts (decision 026)
+struct IslandDragged { Vec2 drag; };    // that press moved: offset from where it went down
+struct IslandReleased {};               // that press ended (let go, or capture lost): lifted, it lands there
+struct ScreenResized { float width; };  // the island's monitor is this wide, in render-layer pixels
+struct SpotRestored { Spot spot; };     // its saved place on this monitor, or Spot{} to centre it (decision 026)
 struct PanelPublished { Panel panel; }; // existing id = replace, keeping its place on Home
 struct PanelRemoved { std::string id; };
 struct HomeOpened {};                   // Home tab (decision 009)
@@ -122,6 +128,7 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            DragEntered, DragLeft, Dropped, HiddenChanged, Tick,
                            BubbleClicked, ActivityPromoted, ActivitySwitched,
                            BubbleDragged, BubbleReleased, BubbleDragCancelled,
+                           IslandPressed, IslandDragged, IslandReleased, ScreenResized, SpotRestored,
                            PanelPublished, PanelRemoved, HomeOpened, TileClicked, ClockSynced,
                            InputFocused, TextTyped, TextErased, InputSubmitted, InputCancelled,
                            DialogShown, DialogClosed>;
@@ -137,6 +144,11 @@ struct IslandState {
     std::vector<Panel> panels;         // in publish order: Home's tile order (decision 009)
     std::string pinnedId;              // the user's pick for the pill; cleared when it ends (decision 007)
     std::optional<Vec2> bubbleDrag;    // the Split bubble is being dragged, this far from home
+    float screenWidth = 0;             // the island's monitor, render-layer pixels; 0 = not told (canvas width)
+    Spot spot;                         // where the island rests along the top edge (decision 026)
+    std::optional<Ms> pressedAt;       // the pill is held down and hasn't moved: it lifts at pressedAt + liftHold
+    Vec2 pressDrag;                    // how far that press has moved
+    std::optional<float> lift;         // lifted: the pill's centre x is this + pressDrag.x (lift.h)
     std::optional<Alert> alert;        // the alert on screen
     Ms alertUntil{};
     std::deque<Alert> alertQueue;      // waiting alerts, oldest first (PS §6.3)

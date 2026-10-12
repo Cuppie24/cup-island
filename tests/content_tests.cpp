@@ -193,7 +193,7 @@ void runContentTests()
     split = reduce(split, ActivityStarted{ { .id = "timer", .content = { .compactLeading = { row({ Icon{ Glyph::Warning } }) } } } }, Ms{ 0 });
     Scene rest = layout(split, Ms{ 0 });
     expect(rest.bubble && rest.bubble->activityId == "music" && rest.activityId == "timer", "bubble shows the 2nd activity");
-    expect(rest.bubble->frame == bubbleHomeFrame() && rest.bubble->frame.x > rest.offset.x + rest.size.x, "bubble sits right of the pill");
+    expect(rest.bubble->frame == bubbleHomeFrame(split) && rest.bubble->frame.x > rest.offset.x + rest.size.x, "bubble sits right of the pill");
     const Placed* bubbleArt = rest.bubble->elements.empty() ? nullptr : &rest.bubble->elements[0];
     expect(bubbleArt && std::holds_alternative<Image>(bubbleArt->item), "bubble uses the minimal slot");
     expect(bubbleArt && bubbleArt->frame == Rect{ t.compactInset, t.compactInset, t.bubbleSize - 2 * t.compactInset, t.bubbleSize - 2 * t.compactInset },
@@ -218,7 +218,7 @@ void runContentTests()
            "and in the pill's compact square");
 
     // Dragging: only the bubble moves. Over the pill, the pill is marked as the drop target; nothing swaps until release.
-    Rect home = bubbleHomeFrame();
+    Rect home = bubbleHomeFrame(split);
     Scene dragged = layout(reduce(split, BubbleDragged{ { -10, 5 } }, Ms{ 0 }), Ms{ 0 });
     expect(dragged.bubble->dragCentre == Vec2{ home.x + home.width / 2 - 10, home.y + home.height / 2 + 5 } &&
            dragged.activityId == "timer" && !dragged.dropTarget, "dragging: bubble follows the cursor, pill unchanged");
@@ -230,7 +230,7 @@ void runContentTests()
     Rect bounds = interactiveBounds(rest);
     expect(bounds.x == rest.offset.x && bounds.x + bounds.width == rest.bubble->frame.x + rest.bubble->frame.width,
            "interaction layer covers pill and bubble");
-    expect(Rect{ rest.offset.x, rest.offset.y, rest.size.x, rest.size.y } == splitPillFrame(), "split pill frame matches layout");
+    expect(Rect{ rest.offset.x, rest.offset.y, rest.size.x, rest.size.y } == splitPillFrame(split), "split pill frame matches layout");
 
     // Expanded tabs (decision 007): one per activity along the top of the card.
     IslandState three;

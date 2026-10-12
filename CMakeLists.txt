@@ -30,6 +30,8 @@ add_library(cup_core STATIC
     src/core/island_queries.cpp
     src/core/json_reader.cpp
     src/core/layout.cpp
+    src/core/lift.cpp
+    src/core/placement.cpp
     src/core/slot_layout.cpp
     src/core/split.cpp
     src/core/tabs.cpp
@@ -64,6 +66,7 @@ if(CUP_BUILD_TESTS)
         tests/item_tests.cpp
         tests/main.cpp
         tests/media_tests.cpp
+        tests/placement_tests.cpp
         tests/pomodoro_tests.cpp
         tests/provider_tests.cpp
         tests/unit_tests.cpp
@@ -93,6 +96,7 @@ if(WIN32)
         src/app/main.cpp
         src/platform/autostart.cpp
         src/platform/blob.cpp
+        src/platform/blob_motion.cpp
         src/platform/blob_shape.cpp
         src/platform/displays.cpp
         src/platform/element_art.cpp

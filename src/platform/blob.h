@@ -11,6 +11,7 @@
 #include "platform/win.h"
 
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace cup::platform {
@@ -22,6 +23,10 @@ public:
 
     void place(Vec2 size, Vec2 offset);      // morphs there; no-op if unchanged. Following: lands there later
     void follow(std::optional<Vec2> centre); // stay centred on the cursor (dragged); nullopt eases back to place()
+    // Lifted (decision 026): its centre at this x, its top liftDrop below the
+    // edge, round and without ears; nullopt lands it at place(), like follow().
+    void lift(std::optional<float> centreX);
+    void setEars(bool left, bool right);     // false: that side is flush with the screen edge, no ear (decision 026)
     void setHighlighted(bool on);            // drop target: the background lightens (decision 007)
     void setContent(const std::vector<Placed>& elements, Ms now) { elements_.apply(elements, now); }
     ElementVisuals& elements() { return elements_; } // hover, press, scrub feedback on content
@@ -41,6 +46,8 @@ public:
 private:
     void playScale(float scale, Ms duration, Bezier curve);
     void setAttached(bool on); // to the screen edge: flared top corners; off it (dragged): round
+    void startFollowing(std::wstring const& expression); // Offset follows drag_ (the cursor)
+    void land();                                         // ...until let go: glides to offset_
 
     wuc::Compositor compositor_{ nullptr };
     wuc::ShapeVisual body_{ nullptr };             // Size/Offset morph implicitly
@@ -52,8 +59,8 @@ private:
     wuc::DropShadow shadow_{ nullptr };
     void buildShadow(wuc::Compositor const& compositor, wuc::ContainerVisual const& parent);
     void applyShadow(); // colour, blur, offset from tokens
-    wuc::CompositionPropertySet shape_{ nullptr }; // MaxRadius, FlareRadius, Attached: read by the corner expressions
-    wuc::CompositionPropertySet drag_{ nullptr };  // Centre: the cursor, while following
+    wuc::CompositionPropertySet shape_{ nullptr }; // MaxRadius, FlareRadius, Attached, Flare, Left/RightEar: read by the shape expressions
+    wuc::CompositionPropertySet drag_{ nullptr };  // Centre: the cursor, while following; Drop: lifted, below the edge
     wuc::CompositionColorBrush fill_{ nullptr };
     wuc::ImplicitAnimationCollection implicit_{ nullptr }; // the Size/Offset morph
     wuc::ContainerVisual content_{ nullptr };
@@ -70,6 +77,8 @@ private:
     Vec2 size_, offset_;
     Vec2 centre_;            // last cursor position while following
     bool following_ = false; // Offset is driven by the cursor expression, not set directly
+    bool lifted_ = false;    // ...the lift's (top at liftDrop), not follow()'s (centred on the cursor)
+    bool leftEar_ = true, rightEar_ = true;
     bool highlighted_ = false;
 };
 

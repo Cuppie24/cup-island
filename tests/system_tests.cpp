@@ -101,11 +101,12 @@ void runSystemTests()
     PanelHost sh;
     std::string stored = "Lime\r\n", applied;
     bool copyWorks = true;
-    int copies = 0, saves = 0;
+    int copies = 0, saves = 0, centred = 0;
     SettingsProvider settings({ .loadTheme = [&] { return stored; },
                                 .saveTheme = [&](const std::string& name) { stored = name; ++saves; },
                                 .applyTheme = [&](const std::string& name) { applied = name; },
-                                .copyLogs = [&] { ++copies; return copyWorks; } });
+                                .copyLogs = [&] { ++copies; return copyWorks; },
+                                .centreIsland = [&] { ++centred; } });
     settings.start(sh);
     const Panel& widget = sh.published.back();
     expect(widget.id == SettingsProvider::kPanelId && widget.tapAction.empty() && hasCard(widget.content) &&
@@ -137,6 +138,10 @@ void runSystemTests()
     expect(sh.wake == Ms{ 1000 } + tokens().logsNote, "logs: the note lasts logsNoteMs");
     settings.onWake();
     expect(cardText(sh.published.back(), 2) == "Copy logs", "logs: then back to Copy logs");
+    press(SettingsProvider::kCentreIsland);
+    const Row& buttons = sh.published.back().content.expandedCenter[2];
+    expect(centred == 1 && buttons.items.size() == 2 && std::get<Button>(buttons.items[1]).label == "Centre island",
+           "settings: Centre island beside Copy logs puts a moved island back (decision 026)");
     copyWorks = false;
     press(SettingsProvider::kCopyLogs);
     expect(cardText(sh.published.back(), 2) == "Couldn't copy logs", "logs: a failed copy says so");

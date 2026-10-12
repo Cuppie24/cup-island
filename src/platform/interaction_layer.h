@@ -50,6 +50,10 @@ void setRenderOrigin(int renderLeft, int renderTop);
 // plus the bubble in Split), frame by frame (decision 001).
 void followMorph(Vec2 toSize, Vec2 toOffset);
 
+// Be over these bounds now, with no morph: where a lifted island was let go,
+// so the glide to where it lands is followed from there (decision 026).
+void jumpTo(Vec2 size, Vec2 offset);
+
 // One-shot timer: fires onTimer(id) once after `delay`, replacing an earlier
 // request with the same id. nullopt cancels.
 void setTimer(TimerId id, std::optional<std::chrono::milliseconds> delay);

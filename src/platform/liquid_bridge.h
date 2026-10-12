@@ -12,7 +12,7 @@ namespace cup::platform {
 
 class LiquidBridge {
 public:
-    void build(wuc::Compositor const& compositor, wuc::ContainerVisual const& parent, Vec2 canvas, const Blob& a, const Blob& b);
+    void build(wuc::Compositor const& compositor, wuc::ContainerVisual const& parent, const Blob& a, const Blob& b);
     void refreshAnimations(); // after a tokens.json reload
     void setEnabled(bool on); // off while the bubble is dragged
 
@@ -20,7 +20,7 @@ private:
     wuc::CompositionPropertySet params_{ nullptr }; // Thickness, Reach, On
     bool on_ = true;
     wuc::CompositionColorBrush brush_{ nullptr }; // the island's colour
-    wuc::ShapeVisual visual_{ nullptr };          // as big as the canvas
+    wuc::ShapeVisual visual_{ nullptr };          // as big as the render layer
 };
 
 } // namespace cup::platform

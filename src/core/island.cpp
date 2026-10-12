@@ -2,6 +2,7 @@
 
 #include "core/alert_queue.h"
 #include "core/card_overlays.h"
+#include "core/lift.h"
 #include "core/split.h"
 #include "core/tokens.h"
 
@@ -80,6 +81,7 @@ void settle(IslandState& s, Ms now)
 
     // The bubble left the screen mid-drag (an alert, an activity ended): drop the drag.
     if (s.bubbleDrag && mode(s) != Mode::Split) s.bubbleDrag.reset();
+    settleLift(s, now); // a held press lifts; a lift that can't stay lifted lands (decision 026)
 }
 
 void onClick(IslandState& s, Ms now)
@@ -182,7 +184,7 @@ void handle(IslandState& s, const ActivityPromoted& e, Ms now)
 
 void handle(IslandState& s, const BubbleDragged& e, Ms)
 {
-    if (mode(s) != Mode::Split) return;
+    if (mode(s) != Mode::Split || s.lift) return;
     if (s.bubbleDrag || isDrag(e.drag)) s.bubbleDrag = e.drag; // small wobbles stay a click
 }
 
@@ -194,6 +196,13 @@ void handle(IslandState& s, const BubbleReleased&, Ms now)
 }
 
 void handle(IslandState& s, const BubbleDragCancelled&, Ms) { s.bubbleDrag.reset(); }
+
+// Moving the island along the top edge (lift.h, decision 026).
+void handle(IslandState& s, const IslandPressed&, Ms now) { pressIsland(s, now); }
+void handle(IslandState& s, const IslandDragged& e, Ms) { dragIsland(s, e.drag); }
+void handle(IslandState& s, const IslandReleased&, Ms) { releaseIsland(s); }
+void handle(IslandState& s, const ScreenResized& e, Ms) { s.screenWidth = e.width; }
+void handle(IslandState& s, const SpotRestored& e, Ms) { s.spot = e.spot; }
 
 void handle(IslandState& s, const ActivitySwitched& e, Ms now)
 {
@@ -267,7 +276,7 @@ Mode restingMode(const IslandState& s)
 
 bool swapPreview(const IslandState& s)
 {
-    return s.bubbleDrag && mode(s) == Mode::Split && bubbleOverPill(*s.bubbleDrag);
+    return s.bubbleDrag && mode(s) == Mode::Split && bubbleOverPill(s, *s.bubbleDrag);
 }
 
 Mode mode(const IslandState& s)
@@ -289,6 +298,7 @@ std::optional<Ms> nextDeadline(const IslandState& s)
         if (a.expiresAt) consider(*a.expiresAt);
     if (isExpanded(s) && !typing(s)) consider(s.lastPointerAt + tokens().expandedIdleTimeout);
     for (const auto& a : s.alertQueue) consider(a.postedAt + tokens().heldAlertMaxAge + Ms{ 1 });
+    if (auto lift = liftDeadline(s)) consider(*lift);
     return next;
 }
 
