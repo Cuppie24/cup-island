@@ -105,3 +105,13 @@ outside                             -> Idle
 click
 tile settings
 wait 8000                           -> Idle
+
+scenario: Ctrl+X opens Home from anywhere the island has focus (decision 031)
+panel focus
+home                                -> Expanded expanded=home
+esc                                 -> Idle
+start media
+click                               -> Expanded expanded=media
+home                                -> Expanded expanded=home
+esc                                 -> Compact
+home                                -> Expanded expanded=home

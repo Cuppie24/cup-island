@@ -75,6 +75,10 @@ void SettingsProvider::onAction(const Action& action)
     const auto& themes = tokens().themes;
     if (id == kOpenThemes && !themes.empty()) open(SettingsPage::Themes);
     else if (id == kOpenDisplays && displays_.size() >= 2) open(SettingsPage::Displays);
+    else if (id == kOpenShortcuts) {
+        page_ = SettingsPage::Shortcuts;
+        publish();
+    }
     else if (id == kBack) {
         page_ = SettingsPage::List;
         publish();

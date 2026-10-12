@@ -29,11 +29,13 @@ add_library(cup_core STATIC
     src/core/island.cpp
     src/core/island_queries.cpp
     src/core/item_metrics.cpp
+    src/core/keyboard.cpp
     src/core/json_reader.cpp
     src/core/layout.cpp
     src/core/lift.cpp
     src/core/lists.cpp
     src/core/placement.cpp
+    src/core/shortcuts.cpp
     src/core/slot_layout.cpp
     src/core/split.cpp
     src/core/tabs.cpp
@@ -69,6 +71,7 @@ if(CUP_BUILD_TESTS)
         tests/fullscreen_tests.cpp
         tests/home_tests.cpp
         tests/item_tests.cpp
+        tests/keyboard_tests.cpp
         tests/main.cpp
         tests/media_tests.cpp
         tests/placement_tests.cpp

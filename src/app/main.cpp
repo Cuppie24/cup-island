@@ -8,7 +8,10 @@
 // app theme, display, Start with Windows and Copy logs, decisions 022, 030). Press and hold the pill to lift it
 // and move it along the top edge (decision 026).
 //
-// Demo keys (click the pill first so it has keyboard focus):
+// Keys (click the pill first so it has keyboard focus; decision 031): the
+// arrows move between a card's controls and Home's widgets, Enter or Space
+// clicks, Ctrl+X opens Home (core/shortcuts.h, listed in Settings).
+// Demo keys:
 //   M  toggle the demo music player (real media shows by itself)
 //   T  toggle a second activity (Split). Click the bubble to open it, or drag
 //      it onto the pill to make it the main one.
@@ -21,8 +24,10 @@
 #include "core/dialog.h"
 #include "core/hit_test.h"
 #include "core/island.h"
+#include "core/keyboard.h"
 #include "core/layout.h"
 #include "core/placement.h"
+#include "core/shortcuts.h"
 #include "core/tabs.h"
 #include "core/tokens.h"
 #include "platform/file_watcher.h"
@@ -93,6 +98,12 @@ struct Pointer {
     std::optional<Placed> listPress; // mouse-down on a list row that can be dragged (decision 029)
     float listPressY = 0;            // ...where, pill coordinates: dragged dragStartDistance, it's picked up
 } g_pointer;
+
+// Keyboard focus (decision 031): what the arrows landed on (a Focusable's id),
+// lit as if the pointer were on it. "" = none: the pointer leads. A real
+// pointer move hands the lead back.
+std::string g_keyFocus;
+std::optional<Vec2> g_lastPointer; // render-layer point of the last move, to tell a real move from a repeat
 
 // Pointer callbacks get render-layer points; content works in pill coordinates.
 Vec2 toPill(Vec2 point) { return { point.x - g_scene.offset.x, point.y - g_scene.offset.y }; }
@@ -179,25 +190,34 @@ std::string rowUnder(Vec2 point)
     return p ? p->key.substr(0, p->key.rfind('/')) : std::string();
 }
 
+// Where hover feedback comes from: the keyboard's focus while it leads (decision 031), else the pointer.
+std::optional<Vec2> hoverPoint()
+{
+    if (!g_keyFocus.empty() && !g_pointer.scrub)
+        if (auto focused = findFocusable(g_scene, g_keyFocus)) return focused->point;
+    return g_pointer.at;
+}
+
 void updateHover()
 {
+    std::optional<Vec2> at = hoverPoint();
     std::string key;
     if (g_pointer.scrub) {
         key = g_pointer.scrub->key; // stays lit while dragged, even off the bar
-    } else if (g_pointer.at) {
-        if (auto hit = hitTest(g_scene, *g_pointer.at)) key = hit->key;
+    } else if (at) {
+        if (auto hit = hitTest(g_scene, *at)) key = hit->key;
     }
     g_renderer.setHovered(key);
-    g_renderer.setHoveredRow(g_pointer.at ? rowUnder(*g_pointer.at) : std::string()); // reveals a to-do's delete button
+    g_renderer.setHoveredRow(at ? rowUnder(*at) : std::string()); // reveals a to-do's delete button
 
     // Tabs light up as a whole, except the active one, which is already marked (decision 007).
     // Home's tiles too, unless the pointer is on one of their buttons (decision 009).
-    const Tab* tab = g_scene.tabs && g_pointer.at ? tabAt(*g_scene.tabs, *g_pointer.at) : nullptr;
+    const Tab* tab = g_scene.tabs && at ? tabAt(*g_scene.tabs, *at) : nullptr;
     if (tab && isCurrent(*tab)) tab = nullptr;
-    const Tile* tile = g_pointer.at && key.empty() ? tileAt(g_scene, *g_pointer.at) : nullptr;
+    const Tile* tile = at && key.empty() ? tileAt(g_scene, *at) : nullptr;
     if (tile && !tile->clickable()) tile = nullptr; // widgets without a card or tap action don't react
     // A list item (a to-do) lights up as a whole row, like a tab (Row::listItem).
-    const Placed* item = g_pointer.at && !g_pointer.scrub ? contentUnder(*g_pointer.at) : nullptr;
+    const Placed* item = at && !g_pointer.scrub ? contentUnder(*at) : nullptr;
     if (tab) g_renderer.setAreaHovered(tab->frame, g_scene.tabs->radius);
     else if (tile) g_renderer.setAreaHovered(tile->frame, g_scene.tileRadius);
     else if (item && item->listRow) g_renderer.setAreaHovered(item->listRow, item->listRowRadius);
@@ -369,6 +389,9 @@ void onPressDown(Vec2 canvasPoint)
 
 void onPointerMoved(Vec2 canvasPoint, bool inside)
 {
+    // Windows repeats a move when windows change under a still pointer: only a real one takes the lead back.
+    if (g_lastPointer != canvasPoint) g_keyFocus.clear();
+    g_lastPointer = canvasPoint;
     if (g_pointer.islandPress) {
         Vec2 start = *g_pointer.islandPress;
         dispatch(IslandDragged{ { canvasPoint.x - start.x, canvasPoint.y - start.y } }, "lift drag");
@@ -403,6 +426,31 @@ void onPointerMoved(Vec2 canvasPoint, bool inside)
     dispatch(PointerMoved{}, "pointer"); // keeps Expanded open while in use; refreshes hover
 }
 
+// What a click does, by what it's on. The pointer's release and the keyboard's Enter share them.
+void clickTab(const std::string& id) { dispatch(id.empty() ? Event{ HomeOpened{} } : Event{ ActivitySwitched{ id } }, "tab"); }
+
+void clickTile(const Tile& tile)
+{
+    if (!tile.tapAction.empty()) {
+        g_providers->route({ tile.providerId, tile.id, tile.tapAction, 0 }); // a toggle: no card
+        dispatch(PointerMoved{}, "tile action");                              // the user is busy here: keep Home open
+    } else if (tile.opens) {
+        dispatch(TileClicked{ tile.id }, "tile");
+    }
+}
+
+void clickElement(const Hit& hit)
+{
+    const Placed* element = findElement(hit.key);
+    if (element && std::holds_alternative<TextInput>(element->item)) {
+        // A field: focus it for typing (decision 016); nothing is sent until Enter.
+        SetFocus(g_inputHwnd);
+        dispatch(InputFocused{ hit.action.providerId, hit.action.activityId, hit.action.actionId }, "focus field");
+    } else if (!element || !startEditing(*element)) {
+        act(hit.action);
+    }
+}
+
 void onPressRelease(Vec2 canvasPoint, Release how)
 {
     if (g_pointer.islandPress) {
@@ -414,19 +462,13 @@ void onPressRelease(Vec2 canvasPoint, Release how)
     if (g_pointer.tabPress) {
         std::string id = *std::exchange(g_pointer.tabPress, std::nullopt);
         const Tab* tab = how == Release::Inside && onPill(canvasPoint) ? tabUnder(toPill(canvasPoint)) : nullptr;
-        if (tab && tab->id == id && !isCurrent(*tab)) dispatch(id.empty() ? Event{ HomeOpened{} } : Event{ ActivitySwitched{ id } }, "tab");
+        if (tab && tab->id == id && !isCurrent(*tab)) clickTab(id);
         return;
     }
     if (g_pointer.tilePress) {
         std::string id = *std::exchange(g_pointer.tilePress, std::nullopt);
         const Tile* tile = how == Release::Inside && onPill(canvasPoint) ? tileAt(g_scene, toPill(canvasPoint)) : nullptr;
-        if (!tile || tile->id != id) return;
-        if (!tile->tapAction.empty()) {
-            g_providers->route({ tile->providerId, tile->id, tile->tapAction, 0 }); // a toggle: no card
-            dispatch(PointerMoved{}, "tile action");                                  // the user is busy here: keep Home open
-        } else if (tile->opens) {
-            dispatch(TileClicked{ id }, "tile");
-        }
+        if (tile && tile->id == id) clickTile(*tile);
         return;
     }
     if (g_pointer.bubblePress) {
@@ -455,16 +497,7 @@ void onPressRelease(Vec2 canvasPoint, Release how)
         g_renderer.releaseElement(key);
         // Only a release on the same button counts: sliding off cancels, like any button.
         auto hit = how == Release::Inside && onPill(canvasPoint) ? hitTest(g_scene, point) : std::nullopt;
-        if (hit && hit->key == key) {
-            const Placed* element = findElement(key);
-            if (element && std::holds_alternative<TextInput>(element->item)) {
-                // A field: focus it for typing (decision 016); nothing is sent until Enter.
-                SetFocus(g_inputHwnd);
-                dispatch(InputFocused{ hit->action.providerId, hit->action.activityId, hit->action.actionId }, "focus field");
-            } else if (!element || !startEditing(*element)) {
-                act(hit->action);
-            }
-        }
+        if (hit && hit->key == key) clickElement(*hit);
         return;
     }
     g_renderer.pressRelease(false);
@@ -503,6 +536,49 @@ void onChar(wchar_t c)
     }
 }
 
+// The arrows (decision 031): move focus on the card or Home that's open. A
+// row out of its list's window is scrolled in first. Pressing keys counts as
+// using the island, like moving the pointer: Expanded doesn't time out.
+void moveKeyFocus(Arrow arrow)
+{
+    if (mode(g_state) != Mode::Expanded) return;
+    if (auto next = moveFocus(g_scene, g_keyFocus, arrow)) {
+        g_keyFocus = next->id;
+        if (next->list) dispatch(ListRevealed{ next->activityId, next->list->id, next->list->row }, "keys: scroll to focus");
+    }
+    dispatch(PointerMoved{}, "keys");
+}
+
+// Enter or Space: a click on what has focus. If that opened something else
+// (a card, a page), focus goes to its first item, so the keys carry on there.
+void activateKeyFocus()
+{
+    std::optional<Focusable> focused;
+    if (!g_keyFocus.empty()) focused = findFocusable(g_scene, g_keyFocus);
+    if (!focused) return;
+    if (focused->id.rfind("tab:", 0) == 0) {
+        clickTab(focused->activityId);
+    } else if (focused->id.rfind("tile:", 0) == 0) {
+        if (const Tile* tile = tileAt(g_scene, focused->point)) clickTile(*tile);
+    } else if (auto hit = hitTest(g_scene, focused->point)) {
+        g_renderer.pressElement(hit->key); // the same squash a click gives
+        g_renderer.releaseElement(hit->key);
+        clickElement(*hit);
+    }
+    if (!g_state.draft && !findFocusable(g_scene, g_keyFocus)) {
+        auto first = moveFocus(g_scene, "", Arrow::Down);
+        g_keyFocus = first ? first->id : std::string();
+        updateHover();
+    }
+}
+
+void runCommand(Command command)
+{
+    switch (command) {
+    case Command::OpenHome: dispatch(HomeOpened{}, "shortcut"); break;
+    }
+}
+
 void onKey(WPARAM key)
 {
     // A dialog: Esc cancels it, the card stays (decision 020).
@@ -516,11 +592,28 @@ void onKey(WPARAM key)
         if (key == VK_ESCAPE) dispatch(InputCancelled{}, "esc");
         return;
     }
+    // Shortcuts (decision 031): one table in core, also listed in Settings.
+    bool ctrl = GetKeyState(VK_CONTROL) < 0, shift = GetKeyState(VK_SHIFT) < 0, alt = GetKeyState(VK_MENU) < 0;
+    bool letterOrDigit = (key >= 'A' && key <= 'Z') || (key >= '0' && key <= '9');
+    if (letterOrDigit)
+        if (auto command = commandFor({ .key = static_cast<char>(key), .ctrl = ctrl, .shift = shift, .alt = alt })) {
+            runCommand(*command);
+            return;
+        }
     switch (key) {
+    case VK_UP: moveKeyFocus(Arrow::Up); return;
+    case VK_DOWN: moveKeyFocus(Arrow::Down); return;
+    case VK_LEFT: moveKeyFocus(Arrow::Left); return;
+    case VK_RIGHT: moveKeyFocus(Arrow::Right); return;
+    case VK_RETURN:
+    case VK_SPACE: activateKeyFocus(); return;
     case VK_ESCAPE:
         if (mode(g_state) == Mode::Expanded) dispatch(EscapePressed{}, "esc");
         else DestroyWindow(g_inputHwnd);
-        break;
+        return;
+    }
+    if (ctrl || alt) return; // the demo keys are plain letters: Ctrl+M isn't M
+    switch (key) {
     case 'M': toggleProvider("demo"); break;
     case 'T': toggleTimer(); break;
     case 'C': {

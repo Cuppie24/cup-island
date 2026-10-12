@@ -1,7 +1,7 @@
 #pragma once
 // Settings on Home (decisions 022, 030): a widget whose card is a list of
 // settings: the app theme, the display the island is on (decision 023),
-// Start with Windows, then Copy logs and Centre island (decision 026). Theme
+// Start with Windows, the keyboard shortcuts (decision 031), then Copy logs and Centre island (decision 026). Theme
 // and Display open a page that lists every choice. Picks are kept in the
 // host's store (decision 028); recolouring, moving the island, the Run key
 // and the clipboard are the app's (handed in), so this stays pure and is tested on Linux.
@@ -36,7 +36,7 @@ struct SettingsHooks {
 enum class LogsNote { Ready, Copied, Failed }; // what the Copy logs button says
 
 // Which page the card shows: the list of settings, or one setting's choices.
-enum class SettingsPage { List, Themes, Displays };
+enum class SettingsPage { List, Themes, Displays, Shortcuts };
 
 // Everything the card shows, so building it is one pure function.
 struct SettingsView {
@@ -85,6 +85,7 @@ public:
     // Actions. A choice's action is its prefix and its index in the page's list.
     static constexpr const char* kOpenThemes = "theme.open";
     static constexpr const char* kOpenDisplays = "display.open";
+    static constexpr const char* kOpenShortcuts = "shortcuts.open"; // a page listing the keyboard shortcuts (decision 031)
     static constexpr const char* kBack = "settings.back";
     static constexpr const char* kPickTheme = "theme.pick:";
     static constexpr const char* kPickDisplay = "display.pick:";

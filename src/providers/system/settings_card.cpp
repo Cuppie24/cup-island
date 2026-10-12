@@ -1,5 +1,6 @@
 #include "providers/system/settings_provider.h"
 
+#include "core/shortcuts.h"
 #include "core/tokens.h"
 
 namespace cup {
@@ -48,6 +49,7 @@ Slot listPage(const SettingsView& v)
                                                .actionId = P::kToggleAutostart, .compact = true } },
                             .clickAnywhere = true,
                             .listItem = true });
+    card.push_back(settingRow("Keyboard shortcuts", "", P::kOpenShortcuts));
     const char* logs = v.note == LogsNote::Copied ? "Logs copied" : v.note == LogsNote::Failed ? "Couldn't copy logs" : "Copy logs";
     card.push_back(row({ Button{ .glyph = Glyph::Copy, .actionId = P::kCopyLogs, .label = logs },
                          Button{ .actionId = P::kCentreIsland, .label = "Centre island" } },
@@ -72,6 +74,15 @@ Slot displaysPage(const SettingsView& v)
     Slot card{ pageTitle("Display") };
     for (std::size_t i = 0; i < v.displays.size(); ++i)
         card.push_back(choiceRow(v.displays[i], i == v.display, P::kPickDisplay + std::to_string(i), P::kDisplayList));
+    return card;
+}
+
+// The keys, and what each does: read-only, from core's one table.
+Slot shortcutsPage()
+{
+    Slot card{ pageTitle("Keyboard shortcuts") };
+    for (const Shortcut& s : shortcuts())
+        card.push_back(row({ Text{ s.keys }, Text{ .value = s.does, .style = TextStyle::Caption, .alignEnd = true } }));
     return card;
 }
 
@@ -102,9 +113,10 @@ Panel settingsPanel(const SettingsView& view)
         .label = "Settings",
         .card = CardLayout::List, // wider sides than Centred: rows edge to edge
         .keepOpen = true,
-        .expandedCenter = view.page == SettingsPage::Themes     ? themesPage(view)
-                          : view.page == SettingsPage::Displays ? displaysPage(view)
-                                                                : listPage(view),
+        .expandedCenter = view.page == SettingsPage::Themes      ? themesPage(view)
+                          : view.page == SettingsPage::Displays  ? displaysPage(view)
+                          : view.page == SettingsPage::Shortcuts ? shortcutsPage()
+                                                                 : listPage(view),
         .tile = { row({ Icon{ Glyph::Settings } }), row({ Text{ "Settings" } }) },
     };
     return { .id = SettingsProvider::kPanelId, .content = content };

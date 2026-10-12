@@ -2,6 +2,7 @@
 // Bluetooth reading produces, and what the tiles say. Plus the Settings widget.
 
 #include "expect.h"
+#include "core/shortcuts.h"
 #include "core/tokens.h"
 #include "providers/system/settings_provider.h"
 #include "providers/system/system_panels.h"
@@ -175,28 +176,37 @@ void runSystemTests()
     settings.refresh();
     expect(applied == "Paper" && cardItem(sh.published.back(), 0, 1) == "Paper", "settings: a reload that drops the theme moves to the new first");
 
+    // The keyboard shortcuts (decision 031): a row, then a page listing core's table.
+    expect(cardText(sh.published.back(), 1) == "Keyboard shortcuts", "settings: a Keyboard shortcuts row under the settings");
+    press(SettingsProvider::kOpenShortcuts);
+    const Slot& keys = sh.published.back().content.expandedCenter;
+    expect(cardText(sh.published.back(), 0) == "Keyboard shortcuts" && keys.size() == shortcuts().size() + 1 &&
+           cardItem(sh.published.back(), 1, 0) == "Ctrl+X" && cardItem(sh.published.back(), 1, 1) == "Open Home",
+           "shortcuts: a page with each one's keys and what they do");
+    press(SettingsProvider::kBack);
+
     // Copy logs moved here from its own tile: says how the copy went, then resets.
-    expect(cardText(sh.published.back(), 1) == "Copy logs" && !sh.wake, "logs: idle, nothing scheduled");
+    expect(cardText(sh.published.back(), 2) == "Copy logs" && !sh.wake, "logs: idle, nothing scheduled");
     sh.clock = Ms{ 1000 };
     press(SettingsProvider::kCopyLogs);
-    expect(copies == 1 && cardText(sh.published.back(), 1) == "Logs copied", "logs: a click copies and says so");
+    expect(copies == 1 && cardText(sh.published.back(), 2) == "Logs copied", "logs: a click copies and says so");
     expect(sh.wake == Ms{ 1000 } + tokens().logsNote, "logs: the note lasts logsNoteMs");
     settings.onWake();
-    expect(cardText(sh.published.back(), 1) == "Copy logs", "logs: then back to Copy logs");
+    expect(cardText(sh.published.back(), 2) == "Copy logs", "logs: then back to Copy logs");
     press(SettingsProvider::kCentreIsland);
-    const Row& buttons = sh.published.back().content.expandedCenter[1];
+    const Row& buttons = sh.published.back().content.expandedCenter[2];
     expect(centred == 1 && buttons.items.size() == 2 && std::get<Button>(buttons.items[1]).label == "Centre island",
            "settings: Centre island beside Copy logs puts a moved island back (decision 026)");
     copyWorks = false;
     press(SettingsProvider::kCopyLogs);
-    expect(cardText(sh.published.back(), 1) == "Couldn't copy logs", "logs: a failed copy says so");
+    expect(cardText(sh.published.back(), 2) == "Couldn't copy logs", "logs: a failed copy says so");
     settings.stop();
     expect(sh.removed.back() == SettingsProvider::kPanelId && !sh.wake, "settings: stop removes the widget and the wake-up");
 
     themed.themes.clear();
     setTokens(themed);
     settings.start(sh);
-    expect(sh.published.back().content.expandedCenter.size() == 1 && cardText(sh.published.back(), 0) == "Copy logs",
+    expect(sh.published.back().content.expandedCenter.size() == 2 && cardText(sh.published.back(), 1) == "Copy logs",
            "settings: no themes in tokens.json, no theme row");
     settings.stop();
 
@@ -234,7 +244,7 @@ void runSystemTests()
                               .listDisplays = [&] { return monitors; },
                               .applyDisplay = [&](const std::string& id) { placed = id; } });
     picker.start(sh);
-    expect(sh.published.back().content.expandedCenter.size() == 1 && placed.empty(),
+    expect(sh.published.back().content.expandedCenter.size() == 2 && placed.empty(),
            "display: one monitor, no row; the saved one is unplugged, so the island is on the main display");
 
     monitors.push_back({ "B", "DELL U2720Q" });
@@ -268,7 +278,7 @@ void runSystemTests()
            "display: the picked monitor unplugged: main display, but the pick is kept");
     monitors.pop_back();
     picker.refreshDisplays();
-    expect(cardText(sh.published.back(), 0) == "Copy logs", "display: down to one monitor, the page closes");
+    expect(cardText(sh.published.back(), 0) == "Keyboard shortcuts", "display: down to one monitor, the page closes");
     picker.stop();
     setTokens(saved);
 }

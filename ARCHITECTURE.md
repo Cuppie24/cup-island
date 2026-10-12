@@ -37,6 +37,7 @@ So "why did X happen?" is always answered in `core/`, by a scenario test.
 src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (what providers show), layout.h
                 (+ slot_layout.h), split.h, tabs.h, home.h, hit_test.h, provider.h (Provider/Host API),
                 lift.h + placement.h (moving the island along the top edge, decision 026),
+                keyboard.h (arrow-key focus) + shortcuts.h (the shortcut table, decision 031),
                 tokens.h (+ tokens_json.h, json_reader.h), easing.h
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
@@ -175,7 +176,7 @@ over the file's, so `tokens()` is always what's on screen.
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing),
   `home_tests.cpp` (tiles, Home tab, idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop),
-  `media_tests.cpp` (media presenter and widget), `system_tests.cpp` (theme and Bluetooth presenters, Settings), `todo_tests.cpp` (the to-do list end to end).**
+  `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme and Bluetooth presenters, Settings), `todo_tests.cpp` (the to-do list end to end).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
 
@@ -214,3 +215,4 @@ over the file's, so `tokens()` is always what's on screen.
 | Log file, Copy logs (in Settings), hang/crash minidumps, exit without deadlock (decision 013) | done; button rules tested, the rest needs Windows |
 | Settings widget, app themes (dark and light) from tokens.json, saved per user (decision 022) | done; rules tested, visuals need Windows |
 | Settings as a list: Theme and Display pages of choices, Start with Windows on by default, stays open on a near miss (decision 030) | done; rules tested, visuals need Windows |
+| Keyboard: arrows move focus on cards and Home, Enter/Space click, shortcut table (Ctrl+X: Home) listed in Settings (decision 031) | done; navigation tested, key handling needs Windows |
