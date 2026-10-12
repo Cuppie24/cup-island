@@ -57,6 +57,9 @@ public:
     virtual Ms wallClock() const = 0;
 };
 
+// Keys never reach a provider (decision 035): the host owns focus and
+// navigation. What a key means for a card comes as a hint in its content
+// (Content::backAction) or a request (onCloseRequested).
 class Provider {
 public:
     virtual ~Provider() = default;

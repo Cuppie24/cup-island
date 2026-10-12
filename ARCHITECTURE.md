@@ -100,6 +100,10 @@ an activity with a panel's id makes it live; ending it makes it dormant again.
 Providers that change on a schedule ask `Host::wakeAt` and get `onWake()`.
 Ctrl+W on an activity's card calls `onCloseRequested()`: the provider ends
 it, asks first, or ignores it (the default; decision 034).
+Keyboard navigation is the host's: providers never see keys or move
+focus. Focus follows the layout's reading order, and where the host
+can't tell, a provider gives a hint (`Content::backAction`), not a key
+handler (decision 035).
 What a provider keeps between runs goes through `Host::load/save` (decision
 028): text under its own keys, in its own format; never its own files.
 Lists (`Row::list`, decision 029) are scrolled, reordered and edited by the
