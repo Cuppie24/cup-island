@@ -202,4 +202,4 @@ over the file's, so `tokens()` is always what's on screen.
 | Release: no-console exe, static C++ runtime, tray icon with Start with Windows + Exit, Inno Setup installer (decision 011) | done; needs a Windows build to verify |
 | MSIX, code signing, StartupTask (TR §9, §10) | not yet |
 | Log file, Copy logs (in Settings), hang/crash minidumps, exit without deadlock (decision 013) | done; button rules tested, the rest needs Windows |
-| Settings widget, app themes (dark only) from tokens.json, saved per user (decision 022) | done; rules tested, visuals need Windows |
+| Settings widget, app themes (dark and light) from tokens.json, saved per user (decision 022) | done; rules tested, visuals need Windows |

@@ -4,6 +4,8 @@
 #include "core/tokens_json.h"
 #include "expect.h"
 
+#include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <iterator>
 #include <string>
@@ -16,6 +18,19 @@ bool mentions(const TokensParse& p, const std::string& text)
     for (const auto& problem : p.problems)
         if (problem.find(text) != std::string::npos) return true;
     return false;
+}
+
+// WCAG contrast ratio of a (possibly translucent) colour drawn over an opaque one.
+double contrast(Color fg, Color bg)
+{
+    auto luminance = [](double r, double g, double b) {
+        auto linear = [](double v) { v /= 255; return v <= 0.03928 ? v / 12.92 : std::pow((v + 0.055) / 1.055, 2.4); };
+        return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+    };
+    double a = fg.a / 255.0;
+    auto blend = [&](std::uint8_t f, std::uint8_t b) { return f * a + b * (1 - a); };
+    double l1 = luminance(blend(fg.r, bg.r), blend(fg.g, bg.g), blend(fg.b, bg.b)), l2 = luminance(bg.r, bg.g, bg.b);
+    return (std::max(l1, l2) + 0.05) / (std::min(l1, l2) + 0.05);
 }
 
 } // namespace
@@ -71,14 +86,15 @@ void runTokensTests()
     shippedPlain.themes.clear();
     expect(shippedPlain == Tokens{}, "the shipped file matches the defaults in tokens.h");
 
-    // Themes (decision 022): name -> the colour tokens it changes. Dark only, so
-    // every shipped one but the plain default darkens the island and keeps text light.
+    // Themes (decision 022): name -> the colour tokens it changes. Dark or light,
+    // every shipped one keeps its text readable on its island.
     const auto& shippedThemes = fromFile.tokens.themes;
     expect(shippedThemes.size() >= 2 && shippedThemes[0].name == "Midnight" && shippedThemes[0].colors.empty(), "the default theme is the colours as written");
     for (const Theme& theme : shippedThemes) {
         Tokens themed = withTheme(fromFile.tokens, theme.name);
-        auto light = [](Color c) { return c.r + c.g + c.b; };
-        expect(light(themed.islandColor) < 150 && light(themed.titleTextColor) > 600, "a dark theme: " + theme.name);
+        expect(contrast(themed.titleTextColor, themed.islandColor) >= 7 && contrast(themed.bodyTextColor, themed.islandColor) >= 4.5 &&
+               contrast(themed.captionTextColor, themed.islandColor) >= 3, "readable text: " + theme.name);
+        expect(themed.artHoverGlyphColor == fromFile.tokens.artHoverGlyphColor, "the art's open glyph stays light: " + theme.name);
         // The shadow stays black in every theme: a coloured one reads as a halo.
         expect(themed.shadowColor == fromFile.tokens.shadowColor, "a black shadow: " + theme.name);
     }

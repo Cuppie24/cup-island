@@ -18,7 +18,7 @@ isn't another tile per option.
   the colour tokens it changes from the file's own values. Only colour tokens
   (a theme recolours, never resizes), checked like any token, with line
   numbers. The first is the default; "Midnight" changes nothing, so it's the
-  colours as written. Dark themes only for now.
+  colours as written. Dark themes first, then light ones.
 - **The pick is applied over the file** (`withTheme`, then display scaling),
   by `app/live_tokens`. `tokens()` is always what's on screen, so the
   renderer needs nothing new: a theme change is a token change, recoloured
@@ -43,5 +43,14 @@ red and green, decision 010) still wins over the theme's.
 **Consequences.** Parsing in `core/tokens_json.cpp` (the reader moved to
 `core/json_reader.cpp`), tested in `tests/tokens_tests.cpp`, which also
 checks every shipped theme is dark. The card in `tests/system_tests.cpp`.
-The look of each theme needs a Windows run. Light themes later would need
-dark text tokens checked against every surface (art hover, dialogs).
+The look of each theme needs a Windows run.
+
+**Light themes** (Paper: white with a blue accent; Sorbet: pastel peach with
+a watermelon accent) flip the recipe: a pale island, dark ink for text and
+icons, the accent for fills and faint tints of it behind tiles and tabs, a
+deeper red for `dangerColor`, and dark ink for the progress knob (white
+would vanish). The shadow stays black. The one thing that had to change:
+clickable art's "open" glyph sits on art dimmed with black, so it got its own
+`artHoverGlyphColor` (light in every theme) instead of `buttonColor`. The
+test checks every shipped theme's text against its island (WCAG contrast:
+title 7:1, body 4.5:1, caption 3:1), dark or light.

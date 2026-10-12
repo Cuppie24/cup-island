@@ -112,6 +112,7 @@ const Field kFields[] = {
     { "buttonDisabledColor", &Tokens::buttonDisabledColor },
     { "buttonHoverColor", &Tokens::buttonHoverColor },
     { "artHoverColor", &Tokens::artHoverColor },
+    { "artHoverGlyphColor", &Tokens::artHoverGlyphColor },
     { "trackColor", &Tokens::trackColor },
     { "liveColor", &Tokens::liveColor },
     { "knobColor", &Tokens::knobColor },

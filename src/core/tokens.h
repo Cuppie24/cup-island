@@ -24,7 +24,7 @@ struct Bezier {
 };
 
 // An app theme (decision 022): a name, and the colour tokens it changes from
-// the values below; every other colour stays as written. Dark themes only.
+// the values below; every other colour stays as written. Dark and light.
 struct ThemeColor {
     std::string token; // a colour token's name: "islandColor"
     Color color;
@@ -173,6 +173,7 @@ struct Tokens {
     Color buttonDisabledColor{ 255, 255, 255, 77 };
     Color buttonHoverColor{ 255, 255, 255, 41 };   // the shape behind a hovered button
     Color artHoverColor{ 0, 0, 0, 115 };           // dims clickable art under the pointer, behind its "open" glyph
+    Color artHoverGlyphColor{ 255, 255, 255, 242 }; // that glyph: over dimmed art, so light in every theme (decision 022)
     Color trackColor{ 255, 255, 255, 61 };         // a progress bar's or ring's empty part
     Color liveColor{ 255, 255, 255, 230 };         // progress fill, waveform: when the content has no accent
     Color knobColor{ 255, 255, 255 };
