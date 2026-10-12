@@ -39,6 +39,9 @@ do what.
   (`RegisterHotKey`) would take Cut from every other app. A system-wide
   shortcut, if wanted, needs a chord nothing else uses.
 - The demo keys (M, T, C, D, H) now only fire without Ctrl or Alt.
+- **Esc never quits.** It closes what's open (a dialog, typing, the card);
+  with nothing open it does nothing. Quitting is the tray's Exit: one Esc
+  too many shouldn't end the app.
 
 **Consequences.** Navigation and the table are tested in
 `tests/keyboard_tests.cpp` (Settings' rows and buttons, the theme page's

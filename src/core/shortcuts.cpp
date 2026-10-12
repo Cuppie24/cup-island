@@ -86,7 +86,7 @@ std::optional<Chord> parseChord(std::string_view text)
 const std::vector<CommandInfo>& commands()
 {
     static const std::vector<CommandInfo> all{
-        { Command::OpenHome, "home", "Open Home", Chord{ .key = kSpace, .ctrl = true, .alt = true } },
+        { Command::OpenHome, "home", "Open Home", Chord{ .key = 'X', .ctrl = true } }, // takes Cut from other apps: the user's pick (decision 032)
     };
     return all;
 }

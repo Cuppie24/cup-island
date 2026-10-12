@@ -79,6 +79,8 @@ if(CUP_BUILD_TESTS)
         tests/provider_tests.cpp
         tests/unit_tests.cpp
         tests/scenario_runner.cpp
+        tests/settings_tests.cpp
+        tests/shortcut_settings_tests.cpp
         tests/store_tests.cpp
         tests/system_tests.cpp
         tests/todo_tests.cpp
@@ -101,6 +103,7 @@ if(WIN32)
     enable_language(RC)
     add_executable(CupIsland
         assets/cup_island.rc
+        src/app/keyboard_input.cpp
         src/app/live_tokens.cpp
         src/app/main.cpp
         src/platform/autostart.cpp

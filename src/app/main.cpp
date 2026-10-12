@@ -8,26 +8,25 @@
 // app theme, display, Start with Windows and Copy logs, decisions 022, 030). Press and hold the pill to lift it
 // and move it along the top edge (decision 026).
 //
-// Keys (decision 031): Ctrl+Alt+Space opens Home from anywhere (system-wide,
-// changeable in Settings, decision 032). On the island, the arrows move
+// Keys (decision 031): Ctrl+X opens Home from anywhere (system-wide, off
+// while a fullscreen app hides the island, changeable in Settings, decision 032). On the island, the arrows move
 // between a card's controls and Home's widgets, Enter or Space clicks.
 // Demo keys:
 //   M  toggle the demo music player (real media shows by itself)
 //   T  toggle a second activity (Split). Click the bubble to open it, or drag
 //      it onto the pill to make it the main one.
 //   C  post a critical alert               D  toggle a simulated accepted drag
-//   H  toggle hidden                       Esc collapse when expanded, otherwise quit
+//   H  toggle hidden                       Esc closes what's open (never the app)
 // Quit any time from the tray icon's right-click menu (Exit). Everything is logged to
 // %LOCALAPPDATA%\CupIsland\logs (platform/log.h); Debug builds also show it in a console.
 
+#include "app/keyboard_input.h"
 #include "app/live_tokens.h"
 #include "core/dialog.h"
 #include "core/hit_test.h"
 #include "core/island.h"
-#include "core/keyboard.h"
 #include "core/layout.h"
 #include "core/placement.h"
-#include "core/shortcuts.h"
 #include "core/tabs.h"
 #include "core/tokens.h"
 #include "platform/file_watcher.h"
@@ -69,7 +68,7 @@
 using namespace cup;
 using namespace cup::platform;
 // Something in the Windows SDK headers declares a global Chord, so with these using-directives an
-// unqualified Chord is ambiguous (MSVC C2872): the keyboard types are written cup::.
+// unqualified Chord is ambiguous (MSVC C2872): core types that clash are written cup:: here.
 
 namespace {
 
@@ -101,13 +100,6 @@ struct Pointer {
     std::optional<Placed> listPress; // mouse-down on a list row that can be dragged (decision 029)
     float listPressY = 0;            // ...where, pill coordinates: dragged dragStartDistance, it's picked up
 } g_pointer;
-
-// Keyboard focus (decision 031): what the arrows landed on (a Focusable's id),
-// lit as if the pointer were on it. "" = none: the pointer leads. A real
-// pointer move hands the lead back.
-std::string g_keyFocus;
-std::optional<Vec2> g_lastPointer; // render-layer point of the last move, to tell a real move from a repeat
-bool g_capturingKeys = false;      // Settings is waiting for a shortcut's new keys (decision 032)
 
 // Pointer callbacks get render-layer points; content works in pill coordinates.
 Vec2 toPill(Vec2 point) { return { point.x - g_scene.offset.x, point.y - g_scene.offset.y }; }
@@ -197,8 +189,8 @@ std::string rowUnder(Vec2 point)
 // Where hover feedback comes from: the keyboard's focus while it leads (decision 031), else the pointer.
 std::optional<Vec2> hoverPoint()
 {
-    if (!g_keyFocus.empty() && !g_pointer.scrub)
-        if (auto focused = findFocusable(g_scene, g_keyFocus)) return focused->point;
+    if (!g_pointer.scrub)
+        if (auto focused = app::keyFocusPoint()) return focused;
     return g_pointer.at;
 }
 
@@ -245,6 +237,8 @@ void dispatch(const Event& event, const char* reason)
 {
     Ms t = now();
     Spot spot = g_state.spot;
+    bool wasHidden = g_state.hidden;
+    std::optional<ShownCard> wasCard = shownCard(g_state);
     g_state = reduce(g_state, event, t);
     Scene next = layout(g_state, t, [](const Text& text) { return g_renderer.measure(text); });
 
@@ -268,6 +262,12 @@ void dispatch(const Event& event, const char* reason)
     auto deadline = earliest(nextDeadline(g_state), sceneDeadline(g_scene));
     if (g_providers) deadline = earliest(deadline, g_providers->nextWake());
     setTimer(TimerId::Deadline, deadline ? std::optional<Ms>(std::max(*deadline - t, Ms{ 0 })) : std::nullopt);
+
+    // Hidden (a fullscreen app, decision 032): the shortcuts let go of their keys, so that app gets them.
+    // Last: Settings republishes, which dispatches again.
+    if (g_state.hidden != wasHidden && g_settings) g_settings->setHotkeysActive(!g_state.hidden);
+    // A card went: its provider may reset it (Settings opens at its list again).
+    if (wasCard && shownCard(g_state) != wasCard && g_providers) g_providers->cardClosed(*wasCard);
 }
 
 void toggleProvider(const char* id)
@@ -393,9 +393,7 @@ void onPressDown(Vec2 canvasPoint)
 
 void onPointerMoved(Vec2 canvasPoint, bool inside)
 {
-    // Windows repeats a move when windows change under a still pointer: only a real one takes the lead back.
-    if (g_lastPointer != canvasPoint) g_keyFocus.clear();
-    g_lastPointer = canvasPoint;
+    app::pointerMoved(canvasPoint); // a real move takes the lead back from the keyboard
     if (g_pointer.islandPress) {
         Vec2 start = *g_pointer.islandPress;
         dispatch(IslandDragged{ { canvasPoint.x - start.x, canvasPoint.y - start.y } }, "lift drag");
@@ -540,98 +538,9 @@ void onChar(wchar_t c)
     }
 }
 
-// The arrows (decision 031): move focus on the card or Home that's open. A
-// row out of its list's window is scrolled in first. Pressing keys counts as
-// using the island, like moving the pointer: Expanded doesn't time out.
-void moveKeyFocus(cup::Arrow arrow)
-{
-    if (mode(g_state) != Mode::Expanded) return;
-    if (auto next = moveFocus(g_scene, g_keyFocus, arrow)) {
-        g_keyFocus = next->id;
-        if (next->list) dispatch(ListRevealed{ next->activityId, next->list->id, next->list->row }, "keys: scroll to focus");
-    }
-    dispatch(PointerMoved{}, "keys");
-}
-
-// Enter or Space: a click on what has focus. If that opened something else
-// (a card, a page), focus goes to its first item, so the keys carry on there.
-void activateKeyFocus()
-{
-    std::optional<cup::Focusable> focused;
-    if (!g_keyFocus.empty()) focused = findFocusable(g_scene, g_keyFocus);
-    if (!focused) return;
-    if (focused->id.rfind("tab:", 0) == 0) {
-        clickTab(focused->activityId);
-    } else if (focused->id.rfind("tile:", 0) == 0) {
-        if (const Tile* tile = tileAt(g_scene, focused->point)) clickTile(*tile);
-    } else if (auto hit = hitTest(g_scene, focused->point)) {
-        g_renderer.pressElement(hit->key); // the same squash a click gives
-        g_renderer.releaseElement(hit->key);
-        clickElement(*hit);
-    }
-    if (!g_state.draft && !findFocusable(g_scene, g_keyFocus)) {
-        auto first = moveFocus(g_scene, "", cup::Arrow::Down);
-        g_keyFocus = first ? first->id : std::string();
-        updateHover();
-    }
-}
-
-// A system-wide shortcut was pressed (decision 032). The island comes to
-// the front with it (Windows allows that to whoever gets a hotkey), so the
-// arrows work at once and a click elsewhere closes it like any other time.
-void runCommand(cup::Command command)
-{
-    switch (command) {
-    case cup::Command::OpenHome:
-        if (g_state.homeOpen) { // pressed again: it closes, like Esc
-            dispatch(EscapePressed{}, "shortcut");
-            return;
-        }
-        dispatch(HomeOpened{}, "shortcut");
-        if (g_state.homeOpen) SetForegroundWindow(g_inputHwnd);
-        return;
-    }
-}
-
-void onHotkey(WPARAM id)
-{
-    auto command = hotkeyCommand(id);
-    if (!command) return;
-    // Recording a shortcut, a registered one's keys arrive here instead of
-    // onKey: they're what was pressed (its own: no change; another's: a conflict).
-    if (g_capturingKeys && g_settings) {
-        g_settings->shortcutPressed(*command);
-        dispatch(PointerMoved{}, "shortcut keys");
-        return;
-    }
-    runCommand(*command);
-}
-
-// Settings is recording a shortcut: the next key is its new keys, Esc leaves
-// it. A modifier on its own is part of what's being pressed: wait for more.
-void recordKey(WPARAM key)
-{
-    if (!g_settings) {
-        g_capturingKeys = false;
-        return;
-    }
-    bool settingsShown = !g_state.homeOpen && g_state.expandedId == SettingsProvider::kPanelId;
-    if (!settingsShown || key == VK_ESCAPE) {
-        g_settings->keysPressed(std::nullopt);
-    } else if (auto chord = chordPressed(key)) {
-        g_settings->keysPressed(chord);
-    } else {
-        return;
-    }
-    dispatch(PointerMoved{}, "shortcut keys"); // busy here: keep the card open
-}
-
 void onKey(WPARAM key)
 {
-    if (g_capturingKeys) {
-        recordKey(key);
-        return;
-    }
+    if (app::recordKey(key)) return; // Settings is recording a shortcut's new keys (decision 032)
     // A dialog: Esc cancels it, the card stays (decision 020).
     if (g_state.dialog) {
         if (key == VK_ESCAPE) answerDialog(false);
@@ -646,16 +555,11 @@ void onKey(WPARAM key)
     // Alt combinations (WM_SYSKEYDOWN) are only for recording a shortcut; Windows handles the rest (Alt+F4).
     bool ctrl = GetKeyState(VK_CONTROL) < 0, alt = GetKeyState(VK_MENU) < 0;
     if (alt) return;
+    if (app::navigationKey(key)) return; // the arrows, Enter and Space (decision 031)
     switch (key) {
-    case VK_UP: moveKeyFocus(cup::Arrow::Up); return;
-    case VK_DOWN: moveKeyFocus(cup::Arrow::Down); return;
-    case VK_LEFT: moveKeyFocus(cup::Arrow::Left); return;
-    case VK_RIGHT: moveKeyFocus(cup::Arrow::Right); return;
-    case VK_RETURN:
-    case VK_SPACE: activateKeyFocus(); return;
     case VK_ESCAPE:
+        // Closes what's open, never the app: quitting is the tray's Exit.
         if (mode(g_state) == Mode::Expanded) dispatch(EscapePressed{}, "esc");
-        else DestroyWindow(g_inputHwnd);
         return;
     }
     if (ctrl) return; // the demo keys are plain letters: Ctrl+M isn't M
@@ -817,7 +721,7 @@ int main()
         updateHover();
     };
     callbacks.onKeyDown = onKey;
-    callbacks.onHotkey = onHotkey;
+    callbacks.onHotkey = app::hotkeyPressed;
     callbacks.onChar = onChar;
     callbacks.onDpiChanged = onDpiChanged;
     callbacks.onWheel = onWheel;
@@ -839,7 +743,7 @@ int main()
     }
     createTrayIcon(instance, [] {
         logLine("exit from the tray");
-        DestroyWindow(g_inputHwnd); // same as Esc
+        DestroyWindow(g_inputHwnd); // ends the message loop
     });
     watchForHangs(g_inputHwnd);
 
@@ -870,9 +774,26 @@ int main()
         .startsWithWindows = startsWithWindows,
         .setStartsWithWindows = setStartsWithWindows,
         .bindHotkey = [](cup::Command command, const cup::Chord& chord) { return registerHotkey(g_inputHwnd, command, chord); },
-        .captureKeys = [](bool on) { g_capturingKeys = on; },
+        .unbindHotkeys = [] { unregisterHotkeys(g_inputHwnd); },
+        .captureKeys = app::captureKeys,
     });
     g_settings = settings.get();
+    g_settings->setHotkeysActive(!g_state.hidden); // started under a fullscreen app: none until it's gone
+    app::setKeyboardHooks({
+        .state = []() -> const IslandState& { return g_state; },
+        .scene = []() -> const Scene& { return g_scene; },
+        .dispatch = dispatch,
+        .clickTab = clickTab,
+        .clickTile = clickTile,
+        .clickElement = [](const Hit& hit) {
+            g_renderer.pressElement(hit.key); // the same squash a click gives
+            g_renderer.releaseElement(hit.key);
+            clickElement(hit);
+        },
+        .updateHover = updateHover,
+        .window = g_inputHwnd,
+        .settings = g_settings,
+    });
     g_providers->add(std::move(settings));
     // Home's widgets follow the order panels first appear: media and Pomodoro
     // first (decision 019), then the system tiles.

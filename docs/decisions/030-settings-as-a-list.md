@@ -23,12 +23,18 @@ threw the user out.
   list (there's nothing to compare). The back arrow changes nothing. The page is a host list (`Row::list`, decision 029),
   so it scrolls, and it opens scrolled to what's picked (`Host::reveal`).
   The card stays one card: pages are what the provider publishes, so
-  nothing new in the host. The page isn't reset when the card closes (the
-  provider isn't told); the back arrow is one click.
+  nothing new in the host. Reopened, the card starts at the list: when
+  the shown card changes (`shownCard`), the app tells its provider
+  (`Provider::onCardClosed`, a host feature any card with pages can use),
+  and Settings goes back to its list and stops waiting for keys.
 - **A List card** (`CardLayout::List`): a Centred stack whose rows are no
   wider than `listCardWidth`, centred, and at least `listCardInset` further
   in than a Centred card's. A few short settings stretched across the
-  island read as a form with gaps; narrower, they read as a list. A list item's text at an edge sits `listItemTextInset` in
+  island read as a form with gaps; narrower, they read as a list. It also
+  has `listCardVerticalInset` more above and below its rows and is never
+  shorter than `listCardMinHeight`: an activity's card is sized to be
+  glanced at, a page of settings to be read. The width stays
+  `expandedSize`'s, so the island doesn't move along the edge when it opens. A list item's text at an edge sits `listItemTextInset` in
   from its background (a button there keeps `listItemInset`): the
   background's ends are fully rounded, and text at 6 px looked jammed
   against the curve. That applies to every list, the to-dos included

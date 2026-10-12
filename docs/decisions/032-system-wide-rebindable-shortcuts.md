@@ -10,9 +10,17 @@ People want to reach Home from any app, with keys of their choosing.
 - **Commands are system-wide hotkeys** (`RegisterHotKey`, Windows 2000+,
   so fine for decision 015), registered on the interaction window, one id
   per command (`platform/hotkeys`). `MOD_NOREPEAT`: held down, one press.
-- **Open Home is Ctrl+Alt+Space** by default. Ctrl+X was dropped: system
-  wide, it would take Cut from every app. Pressed again while Home is open,
-  it closes it. The island comes to the front with it (Windows lets the app
+- **Open Home is Ctrl+X** by default. That's the user's pick, knowing the
+  cost: registered system-wide, Ctrl+X no longer cuts in any other app while
+  the island runs (Ctrl+Alt+Space was the first default, and is a fine
+  choice for whoever wants Cut back). Pressed again while Home is open, it
+  closes it.
+- **Off while the island is hidden** (a borderless or exclusive fullscreen
+  app, TR §9.2, or any other hiding): the shortcuts are unregistered, so a
+  game or a fullscreen video player gets its keys, and registered again when
+  the island shows (`SettingsProvider::setHotkeysActive`, from the app on
+  every change of `IslandState::hidden`). Started under a fullscreen app,
+  none are registered until it's gone. The island comes to the front with it (Windows lets the app
   that gets a hotkey do that), so the arrows work straight away.
 - **Every command's keys can be changed** on Settings' Keyboard shortcuts
   page: a click on its row says "Press keys…", and the next key pressed on
@@ -31,14 +39,15 @@ People want to reach Home from any app, with keys of their choosing.
   not a key press; it's handled the same as pressing them (own keys: no
   change; another command's: the conflict note).
 - **Saved** in the Settings provider's store (`shortcuts`), a line per
-  command, `home=Ctrl+Alt+Space`, the same text Settings shows. A line
+  command, `home=Ctrl+X`, the same text Settings shows. A line
   that can't be read, or bound, keeps the default. One that another app
   has at startup stays as saved, and the page says it's taken.
 - Alt combinations now reach the app as `WM_SYSKEYDOWN` too, only for
   recording; Windows' own handling (Alt+F4) still runs.
 
 **Consequences.** Chords, the saved form and the conflict rules in
-`core/shortcuts`, tested in `tests/keyboard_tests.cpp`; recording and
-aborting in `tests/system_tests.cpp`. Registration and the hotkey arriving
+`core/shortcuts`, tested in `tests/keyboard_tests.cpp`; recording,
+aborting and going off while hidden in `tests/shortcut_settings_tests.cpp`.
+The app's side (focus, Enter, recording, WM_HOTKEY) is `app/keyboard_input`. Registration and the hotkey arriving
 need a Windows run. With one command today, two commands clashing can only
 be tested once there's a second; the rule is in place.

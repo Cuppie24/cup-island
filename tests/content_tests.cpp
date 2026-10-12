@@ -344,6 +344,9 @@ void runContentTests()
     expect(name->frame.x == listSide + t.listItemTextInset, "text at a list item's edge clears its rounded end");
     expect(chevron && chevron->frame.x + chevron->frame.width == listCard.size.x - listSide - t.listItemInset, "a button there keeps the usual inset");
     expect(swatch && swatch->frame.x == listSide + t.listItemInset && swatch->frame.width == t.swatchSize, "a swatch: a square of swatchSize");
+    expect(listCard.size.y >= t.listCardMinHeight && listCard.size.y > t.expandedSize.y,
+           "a List card is roomier than an activity's: listCardMinHeight at least");
+    expect(name->listRow->y >= t.expandedPadding + t.listCardVerticalInset, "its rows sit listCardVerticalInset further in from the top");
 }
 
 } // namespace cup::test

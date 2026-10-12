@@ -35,7 +35,7 @@ std::string clicks(const Scene& scene, const std::optional<Focusable>& f)
 
 void runKeyboardTests()
 {
-    using P = SettingsProvider;
+    namespace P = settings_action;
     Tokens saved = tokens();
     Tokens themed = saved;
     themed.themes.clear();
@@ -95,8 +95,8 @@ void runKeyboardTests()
 
     // Shortcuts (decision 032): system-wide, rebindable, saved as text.
     Chord openHome = chordOf(defaultBindings(), Command::OpenHome);
-    expect(chordText(openHome) == "Ctrl+Alt+Space", "shortcuts: Open Home is Ctrl+Alt+Space");
-    expect(parseChord("Ctrl+Alt+Space") == openHome && parseChord(" ctrl + shift + f5 ") == Chord{ .key = kF1 + 4, .ctrl = true, .shift = true } &&
+    expect(chordText(openHome) == "Ctrl+X", "shortcuts: Open Home is Ctrl+X");
+    expect(parseChord("Ctrl+Alt+Space") == Chord{ .key = kSpace, .ctrl = true, .alt = true } && parseChord("ctrl+x") == openHome && parseChord(" ctrl + shift + f5 ") == Chord{ .key = kF1 + 4, .ctrl = true, .shift = true } &&
            parseChord("Win+K") == Chord{ .key = 'K', .win = true }, "shortcuts: the text form reads back");
     expect(!parseChord("Ctrl+Enter") && !parseChord("Hyper+X") && !parseChord("Ctrl+") && !parseChord(""), "shortcuts: anything else isn't a chord");
     Bindings reloaded = loadBindings(saveBindings({ { Command::OpenHome, { .key = 'H', .ctrl = true, .alt = true } } }));

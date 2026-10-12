@@ -1,13 +1,14 @@
 #pragma once
-// Settings on Home (decisions 022, 030): a widget whose card is a list of
-// settings: the app theme, the display the island is on (decision 023),
-// Start with Windows, the keyboard shortcuts (decision 031), then Copy logs and Centre island (decision 026). Theme
-// and Display open a page that lists every choice. Picks are kept in the
-// host's store (decision 028); recolouring, moving the island, the Run key
-// and the clipboard are the app's (handed in), so this stays pure and is tested on Linux.
+// Settings on Home (decisions 022, 030): what the card's actions do. The
+// app theme, the display (decision 023), Start with Windows, the keyboard
+// shortcuts (decisions 031, 032), Copy logs and Centre island (decision 026).
+// Picks are kept in the host's store (decision 028); recolouring, moving the
+// island, the Run key, hotkeys and the clipboard are the app's (handed in),
+// so this stays pure and is tested on Linux. The card itself: settings_card.h.
 
 #include "core/provider.h"
 #include "core/shortcuts.h"
+#include "providers/system/settings_card.h"
 
 #include <functional>
 #include <optional>
@@ -35,39 +36,11 @@ struct SettingsHooks {
     // System-wide shortcuts (decision 032): registers `chord` for `command`
     // in place of what it had; false if Windows refused (another app has it).
     std::function<bool(Command, const Chord&)> bindHotkey;
+    std::function<void()> unbindHotkeys; // every command's, until bound again
     // On: the app sends the next key pressed on the island to keysPressed()
     // instead of acting on it. Off again once one arrives, or on cancel.
     std::function<void(bool)> captureKeys;
 };
-
-enum class LogsNote { Ready, Copied, Failed }; // what the Copy logs button says
-
-// Which page the card shows: the list of settings, or one setting's choices.
-enum class SettingsPage { List, Themes, Displays, Shortcuts };
-
-// Everything the card shows, so building it is one pure function.
-struct SettingsView {
-    SettingsPage page = SettingsPage::List;
-    std::string theme;                  // the applied theme's name
-    std::vector<std::string> displays;  // "Main display", then each monitor; empty: one monitor, no Display row
-    std::size_t display = 0;            // the one the island is on
-    std::optional<bool> startsWithWindows; // nothing: the app can't tell, no row
-    LogsNote note = LogsNote::Ready;
-    Bindings shortcuts = defaultBindings(); // what each command is bound to
-    std::optional<Command> recording;       // waiting for new keys for this one
-    std::string shortcutNote;               // under the shortcuts: "Press the new keys…", or why one wasn't changed
-};
-
-// The widget and its card.
-Panel settingsPanel(const SettingsView& view);
-
-// The theme page's list, top to bottom: dark themes under "Dark", then light
-// ones under "Light" (Theme::light), each in tokens.json's order.
-struct ThemeListRow {
-    std::string heading;   // a group's heading, or empty for a theme
-    std::size_t theme = 0; // a theme: its index in tokens().themes
-};
-std::vector<ThemeListRow> themeListRows();
 
 class SettingsProvider : public Provider {
 public:
@@ -78,6 +51,7 @@ public:
     void stop() override;
     void onAction(const Action& action) override; // the card's rows, choices and buttons
     void onWake() override;                       // the note has shown for logsNoteMs: back to "Copy logs"
+    void onCardClosed(const std::string& activityId) override; // reopened, it starts at the list
 
     // tokens.json was reloaded: its themes may have changed (one renamed, removed).
     void refresh();
@@ -88,11 +62,15 @@ public:
     // While recording, a command's own registered keys were pressed (they
     // reach the app as that hotkey, not as keys): the same as pressing them.
     void shortcutPressed(Command command) { keysPressed(chordOf(shortcuts_, command)); }
+    // Off while a fullscreen app hides the island (decision 032): the
+    // shortcuts are let go, so their keys reach that app; on again after.
+    // Before start(), it only says whether start() registers them.
+    void setHotkeysActive(bool on);
     // Monitors were plugged, unplugged or rearranged: re-list them and put the
     // island back where it was picked (or on the main display if that's gone).
     void refreshDisplays();
 
-    static constexpr const char* kPanelId = "system.settings";
+    static constexpr const char* kPanelId = kSettingsPanelId;
     // Store keys (Host::load/save): the theme's name, the display's id ("" = the main display),
     // and Start with Windows as last set ("on"/"off"; "" = never: it starts on, decision 030).
     // The app reads the display's too, at startup, to open on the right monitor.
@@ -100,21 +78,6 @@ public:
     static constexpr const char* kDisplayKey = "display";
     static constexpr const char* kAutostartKey = "autostart";
     static constexpr const char* kShortcutsKey = "shortcuts"; // saveBindings' text
-    // Actions. A choice's action is its prefix and its index in the page's list.
-    static constexpr const char* kOpenThemes = "theme.open";
-    static constexpr const char* kOpenDisplays = "display.open";
-    static constexpr const char* kOpenShortcuts = "shortcuts.open"; // a page listing the keyboard shortcuts (decision 031)
-    static constexpr const char* kBack = "settings.back";
-    static constexpr const char* kPickTheme = "theme.pick:";
-    static constexpr const char* kPickDisplay = "display.pick:";
-    static constexpr const char* kEditShortcut = "shortcut.edit:"; // + its index in commands()
-    static constexpr const char* kToggleAutostart = "autostart.toggle";
-    static constexpr const char* kCopyLogs = "logs.copy";
-    static constexpr const char* kCentreIsland = "island.centre";
-    static constexpr const char* kMainDisplayName = "Main display";
-    // The choice pages' lists (Row::list), for Host::reveal.
-    static constexpr const char* kThemeList = "themes";
-    static constexpr const char* kDisplayList = "displays";
 
 private:
     void pick(const std::string& theme); // apply it, show it
@@ -124,6 +87,7 @@ private:
     SettingsView view() const;
     void publish();
     void stopRecording();
+    void bindAll(); // registers every shortcut; one another app has stays, the page says so
 
     SettingsHooks hooks_;
     Host* host_ = nullptr;
@@ -135,6 +99,7 @@ private:
     LogsNote note_ = LogsNote::Ready;
     Bindings shortcuts_;
     std::optional<Command> recording_;
+    bool hotkeysActive_ = true;
     std::string shortcutNote_;
 };
 

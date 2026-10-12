@@ -46,7 +46,8 @@ src/providers/  data sources + provider_registry. demo/ (fake player), media/ (n
                 MediaPresenter rules and the media widget, SMTC provider for real Windows media),
                 pomodoro/ (the first panel), system/ (Home's theme, Bluetooth and Settings widgets:
                 app themes, display, Start with Windows, Copy logs)
-src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload
+src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload; keyboard_input.cpp: keyboard focus,
+                Enter/Space, system-wide shortcuts and recording new keys (decisions 031, 032)
 assets/         tokens.json: the live-tunable sizes, timings and curves; the app icon (cup_island.rc/.ico)
 installer/      Inno Setup script for the Windows installer (decision 011)
 tests/          unit tests + scenarios/*.scenario (state rules in plain text)
@@ -178,7 +179,7 @@ over the file's, so `tokens()` is always what's on screen.
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing),
   `home_tests.cpp` (tiles, Home tab, idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop),
-  `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme and Bluetooth presenters, Settings), `todo_tests.cpp` (the to-do list end to end).**
+  `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme and Bluetooth presenters), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
 
@@ -218,4 +219,4 @@ over the file's, so `tokens()` is always what's on screen.
 | Settings widget, app themes (dark and light) from tokens.json, saved per user (decision 022) | done; rules tested, visuals need Windows |
 | Settings as a list: Theme and Display pages of choices, Start with Windows on by default, stays open on a near miss (decision 030) | done; rules tested, visuals need Windows |
 | Keyboard: arrows move focus on cards and Home, Enter/Space click (decision 031) | done; navigation tested, key handling needs Windows |
-| System-wide shortcuts (Ctrl+Alt+Space: Home), rebindable in Settings, a change aborted on any conflict (decision 032) | done; rules tested, registration needs Windows |
+| System-wide shortcuts (Ctrl+X: Home), off while a fullscreen app hides the island, rebindable in Settings, a change aborted on any conflict (decision 032) | done; rules tested, registration needs Windows |

@@ -1,4 +1,4 @@
-#include "providers/system/settings_provider.h"
+#include "providers/system/settings_card.h"
 
 #include "core/shortcuts.h"
 #include "core/tokens.h"
@@ -6,7 +6,7 @@
 namespace cup {
 namespace {
 
-using P = SettingsProvider;
+namespace P = settings_action;
 
 // A setting on the list page (decision 030): its name, what it's set to, and
 // a chevron that says a click opens its choices. The whole row is the button.
@@ -134,7 +134,7 @@ Panel settingsPanel(const SettingsView& view)
                                                                  : listPage(view),
         .tile = { row({ Icon{ Glyph::Settings } }), row({ Text{ "Settings" } }) },
     };
-    return { .id = SettingsProvider::kPanelId, .content = content };
+    return { .id = kSettingsPanelId, .content = content };
 }
 
 } // namespace cup

@@ -26,7 +26,7 @@ constexpr int kSpace = 0x20;
 constexpr int kF1 = 0x70;
 
 bool shortcutKey(int key);                         // a key a shortcut may end in (not a modifier, not Enter or the arrows)
-std::string chordText(const Chord& chord);         // "Ctrl+Alt+Space"
+std::string chordText(const Chord& chord);         // "Ctrl+Alt+Space", "Ctrl+X"
 std::optional<Chord> parseChord(std::string_view text); // chordText's inverse; nothing if it isn't one
 
 // A command: its name in the saved file, what Settings calls it, and its default keys.
@@ -53,7 +53,7 @@ struct Binding {
 using Bindings = std::vector<Binding>;
 
 Bindings defaultBindings();
-std::string saveBindings(const Bindings& bindings);    // "home=Ctrl+Alt+Space", a line each
+std::string saveBindings(const Bindings& bindings);    // "home=Ctrl+X", a line each
 Bindings loadBindings(std::string_view text);          // defaults for whatever is missing or unreadable
 
 // Why `chord` can't be bound to `command`, for Settings to say; empty: it can.

@@ -59,9 +59,7 @@ void SettingsProvider::start(Host& host)
     shortcuts_ = loadBindings(host_->load(kShortcutsKey));
     recording_.reset();
     shortcutNote_.clear();
-    if (hooks_.bindHotkey)
-        for (const Binding& b : shortcuts_)
-            if (!hooks_.bindHotkey(b.command, b.chord)) shortcutNote_ = chordText(b.chord) + " is taken by another app";
+    if (hotkeysActive_) bindAll();
     displays_ = hooks_.listDisplays ? hooks_.listDisplays() : std::vector<DisplayChoice>{};
     wantedDisplay_ = trimmed(host_->load(kDisplayKey));
     placeIsland();
@@ -82,41 +80,41 @@ void SettingsProvider::onAction(const Action& action)
     if (!host_ || action.activityId != kPanelId) return;
     const std::string& id = action.actionId;
     const auto& themes = tokens().themes;
-    if (id == kOpenThemes && !themes.empty()) open(SettingsPage::Themes);
-    else if (id == kOpenDisplays && displays_.size() >= 2) open(SettingsPage::Displays);
-    else if (id == kOpenShortcuts) {
+    if (id == settings_action::kOpenThemes && !themes.empty()) open(SettingsPage::Themes);
+    else if (id == settings_action::kOpenDisplays && displays_.size() >= 2) open(SettingsPage::Displays);
+    else if (id == settings_action::kOpenShortcuts) {
         page_ = SettingsPage::Shortcuts;
         publish();
     }
-    else if (id == kBack) {
+    else if (id == settings_action::kBack) {
         stopRecording();
         shortcutNote_.clear();
         page_ = SettingsPage::List;
         publish();
-    } else if (auto at = choiceIndex(id, kPickTheme)) {
+    } else if (auto at = choiceIndex(id, settings_action::kPickTheme)) {
         // The page stays: the island, recoloured at once, is the preview, so
         // trying one theme after another is a click each (decision 030).
         if (*at < themes.size()) {
             pick(themes[*at].name);
             host_->save(kThemeKey, theme_);
         }
-    } else if (auto at = choiceIndex(id, kPickDisplay)) {
+    } else if (auto at = choiceIndex(id, settings_action::kPickDisplay)) {
         if (*at <= displays_.size()) pickDisplay(*at == 0 ? std::string() : displays_[*at - 1].id); // 0: "Main display"
-    } else if (auto at = choiceIndex(id, kEditShortcut)) {
+    } else if (auto at = choiceIndex(id, settings_action::kEditShortcut)) {
         if (*at < commands().size() && hooks_.captureKeys) {
             recording_ = commands()[*at].command;
             shortcutNote_ = "Press the new keys, or Esc to cancel";
             hooks_.captureKeys(true);
             publish();
         }
-    } else if (id == kToggleAutostart && hooks_.startsWithWindows && hooks_.setStartsWithWindows) {
+    } else if (id == settings_action::kToggleAutostart && hooks_.startsWithWindows && hooks_.setStartsWithWindows) {
         bool on = !hooks_.startsWithWindows();
         hooks_.setStartsWithWindows(on);
         host_->save(kAutostartKey, on ? "on" : "off");
         publish();
-    } else if (id == kCentreIsland) {
+    } else if (id == settings_action::kCentreIsland) {
         if (hooks_.centreIsland) hooks_.centreIsland();
-    } else if (id == kCopyLogs) {
+    } else if (id == settings_action::kCopyLogs) {
         note_ = hooks_.copyLogs && hooks_.copyLogs() ? LogsNote::Copied : LogsNote::Failed;
         publish();
         host_->wakeAt(host_->now() + tokens().logsNote); // a second click restarts the note
@@ -143,9 +141,9 @@ void SettingsProvider::open(SettingsPage page)
         std::size_t picked = indexOf(theme_);
         for (std::size_t i = 0; i < rows.size(); ++i)
             if (rows[i].heading.empty() && rows[i].theme == picked) row = i;
-        host_->reveal(kPanelId, kThemeList, row);
+        host_->reveal(kPanelId, settings_action::kThemeList, row);
     } else {
-        host_->reveal(kPanelId, kDisplayList, view().display);
+        host_->reveal(kPanelId, settings_action::kDisplayList, view().display);
     }
 }
 
@@ -172,11 +170,44 @@ void SettingsProvider::keysPressed(const std::optional<Chord>& chord)
     publish();
 }
 
+void SettingsProvider::bindAll()
+{
+    if (!hooks_.bindHotkey) return;
+    shortcutNote_.clear(); // a "taken" from before is told again if it still is
+    for (const Binding& b : shortcuts_)
+        if (!hooks_.bindHotkey(b.command, b.chord)) shortcutNote_ = chordText(b.chord) + " is taken by another app";
+}
+
+void SettingsProvider::setHotkeysActive(bool on)
+{
+    if (on == hotkeysActive_) return;
+    hotkeysActive_ = on;
+    if (!host_) return; // start() registers them, or not
+    if (!on) {
+        stopRecording(); // the island is going: so is the page waiting for keys
+        if (hooks_.unbindHotkeys) hooks_.unbindHotkeys();
+        return;
+    }
+    bindAll();
+    publish();
+}
+
 void SettingsProvider::stopRecording()
 {
     if (!recording_) return;
     recording_.reset();
     if (hooks_.captureKeys) hooks_.captureKeys(false);
+}
+
+// The card closed: next time it opens at the list of settings, not the page
+// it was left on, and a shortcut waiting for keys stops waiting.
+void SettingsProvider::onCardClosed(const std::string& activityId)
+{
+    if (!host_ || activityId != kPanelId || (page_ == SettingsPage::List && !recording_)) return;
+    stopRecording();
+    shortcutNote_.clear();
+    page_ = SettingsPage::List;
+    publish();
 }
 
 void SettingsProvider::onWake()

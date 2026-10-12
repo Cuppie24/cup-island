@@ -38,7 +38,8 @@ Rect stackFrame(const Content& c, Vec2 size)
     float p = t.expandedPadding;
     if (c.card != CardLayout::List) return { p, p, std::max(0.0f, size.x - 2 * p), size.y - 2 * p };
     float width = std::min(std::max(0.0f, size.x - 2 * (p + t.listCardInset)), t.listCardWidth);
-    return { (size.x - width) / 2, p, width, size.y - 2 * p };
+    float top = p + t.listCardVerticalInset; // room above and below: a page of settings, not a packed activity card
+    return { (size.x - width) / 2, top, width, std::max(0.0f, size.y - 2 * top) };
 }
 
 // A stacked card grows to fit its rows (a to-do list), never below Expanded's
@@ -46,10 +47,11 @@ Rect stackFrame(const Content& c, Vec2 size)
 float centredCardHeight(const Content& c, Vec2 size, float tabSpace)
 {
     const Tokens& t = tokens();
-    float p = t.expandedPadding;
     Rect frame = stackFrame(c, size);
-    float needed = slotHeight(c.expandedCenter, { frame.x, p, frame.width, size.y }) + 2 * p;
-    return std::clamp(needed, t.expandedSize.y, std::max(t.expandedSize.y, t.canvas.y - tabSpace));
+    float needed = slotHeight(c.expandedCenter, { frame.x, frame.y, frame.width, size.y }) + 2 * frame.y;
+    // A List card (Settings) is never as squeezed as an activity's: listCardMinHeight at least.
+    float least = c.card == CardLayout::List ? std::max(t.expandedSize.y, t.listCardMinHeight) : t.expandedSize.y;
+    return std::clamp(needed, least, std::max(least, t.canvas.y - tabSpace));
 }
 
 // The padding a mode keeps on every side of its content.
