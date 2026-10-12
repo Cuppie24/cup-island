@@ -12,6 +12,7 @@ namespace {
 
 KeyboardHooks g_hooks;
 std::string g_focus;               // a Focusable's id; "" = none, the pointer leads
+std::string g_homeTile;            // the Home widget the keys last clicked: focus goes back to it on Home (decision 033)
 std::optional<Vec2> g_lastPointer; // the last move's point, to tell a real move from a repeat
 bool g_capturing = false;
 
@@ -31,16 +32,6 @@ void land(const std::optional<Focusable>& f)
     dispatch(PointerMoved{}, "keys");
 }
 
-// What has focus is gone (a card or page opened, a tab switched): focus goes
-// to the new one's first item, so the keys carry on there. Not while typing.
-void refocus()
-{
-    if (g_focus.empty() || state().draft || findFocusable(scene(), g_focus)) return;
-    auto first = firstFocus(scene());
-    g_focus = first ? first->id : std::string();
-    g_hooks.updateHover();
-}
-
 // Enter or Space: a click on what has focus. A static widget takes it and
 // nothing happens, as with a click.
 void activate()
@@ -51,11 +42,11 @@ void activate()
     if (focused->id.rfind("tab:", 0) == 0) {
         g_hooks.clickTab(focused->activityId);
     } else if (focused->id.rfind("tile:", 0) == 0) {
+        g_homeTile = focused->id;
         if (const Tile* tile = tileAt(scene(), focused->point)) g_hooks.clickTile(*tile);
     } else if (auto hit = hitTest(scene(), focused->point)) {
         g_hooks.clickElement(*hit);
     }
-    refocus();
 }
 
 // Shift+Tab (decision 033): the next tab, Home and the activities in turn.
@@ -64,7 +55,6 @@ void switchTab()
     auto next = nextTab(scene());
     if (!next) return;
     g_hooks.clickTab(*next);
-    refocus();
 }
 
 // 1 to 9 on Home (decision 033): its nth widget gets focus and is clicked,
@@ -102,9 +92,21 @@ std::optional<Focusable> keyFocus()
 {
     // Focus is on an open card or Home: once it closes, the next one starts afresh,
     // and the pill's own buttons in Compact never light up from an old focus.
-    if (mode(state()) != Mode::Expanded) g_focus.clear();
+    if (mode(state()) != Mode::Expanded) {
+        g_focus.clear();
+        g_homeTile.clear();
+    }
     if (g_focus.empty()) return std::nullopt;
-    return findFocusable(scene(), g_focus);
+    if (auto focused = findFocusable(scene(), g_focus)) return focused;
+    if (state().draft) return std::nullopt; // typing: the field has the keys
+    // What had focus is gone: a card or page opened, a tab switched, Esc went
+    // back. The keys carry on there: back on Home, at the widget they last
+    // clicked (decision 033); anywhere else, at the first item.
+    std::optional<Focusable> next;
+    if (state().homeOpen && !g_homeTile.empty()) next = findFocusable(scene(), g_homeTile);
+    if (!next) next = firstFocus(scene());
+    g_focus = next ? next->id : std::string();
+    return next;
 }
 
 void pointerMoved(Vec2 canvasPoint)

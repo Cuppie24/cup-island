@@ -219,5 +219,5 @@ over the file's, so `tokens()` is always what's on screen.
 | Settings widget, app themes (dark and light) from tokens.json, saved per user (decision 022) | done; rules tested, visuals need Windows |
 | Settings as a list: Theme and Display pages of choices, Start with Windows on by default, stays open on a near miss (decision 030) | done; rules tested, visuals need Windows |
 | Keyboard: arrows move focus on cards and Home, Enter/Space click (decision 031) | done; navigation tested, key handling needs Windows |
-| Keyboard: Tab, Home/End, Shift+Tab switches tabs, 1–9 open Home's widgets, a focus ring (decision 033) | done; navigation tested, keys and ring need Windows |
+| Keyboard: Tab, Home/End, Shift+Tab switches tabs, 1–9 open Home's widgets, Esc one step back, a focus ring (decision 033) | done; navigation and Esc tested, keys and ring need Windows |
 | System-wide shortcuts (Ctrl+X: Home), off while a fullscreen app hides the island, rebindable in Settings, a change aborted on any conflict (decision 032) | done; rules tested, registration needs Windows |

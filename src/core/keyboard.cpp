@@ -72,6 +72,25 @@ std::optional<Focusable> moveFocus(const Scene& scene, const std::string& curren
     float sign = arrow == Arrow::Down || arrow == Arrow::Right ? 1.0f : -1.0f;
     std::optional<Focusable> best;
     float bestScore = std::numeric_limits<float>::max();
+
+    // In a scrolling list, up and down walk its rows to the end before
+    // leaving it (decision 033). Rows out of its window sit where they would
+    // be scrolled in, which can be under the tabs: by position alone, down
+    // from the last row in view would land on a tab.
+    if (vertical && from->list) {
+        for (const Focusable& f : all) {
+            if (!f.list || f.list->id != from->list->id || f.activityId != from->activityId) continue;
+            float rows = sign * (static_cast<float>(f.list->row) - static_cast<float>(from->list->row));
+            if (rows <= 0) continue;
+            // The nearest row that way; on it, what's most in line.
+            float score = rows * 100000.0f + gap(a.x, a.x + a.width, f.frame.x, f.frame.x + f.frame.width);
+            if (score < bestScore) {
+                bestScore = score;
+                best = f;
+            }
+        }
+        if (best) return best;
+    }
     for (const Focusable& f : all) {
         if (f.id == current) continue;
         const Rect& b = f.frame;

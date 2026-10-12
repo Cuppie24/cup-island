@@ -73,6 +73,37 @@ void runKeyboardTests()
            "themes: down past the window reaches rows out of view (the app scrolls them in)");
     f = moveFocus(themes, f->id, Arrow::Down);
     expect(f && f->list, "themes: on past the headings, into the light ones");
+    // Down walks the whole list, past its window and the tabs beside it,
+    // and only leaves it after the last row (decision 033).
+    f = moveFocus(themes, moveFocus(themes, "", Arrow::Down)->id, Arrow::Down);
+    std::size_t walked = 1, lastRow = f->list->row;
+    bool inOrder = true;
+    for (auto next = moveFocus(themes, f->id, Arrow::Down); next && next->list; next = moveFocus(themes, f->id, Arrow::Down)) {
+        inOrder = inOrder && next->list->row > lastRow;
+        lastRow = next->list->row;
+        f = next;
+        ++walked;
+    }
+    expect(inOrder && walked == themed.themes.size(), "themes: down visits every theme in order, none skipped for a tab");
+    auto after = moveFocus(themes, f->id, Arrow::Down);
+    expect(!after || after->id.rfind("tab:", 0) == 0, "themes: after the last theme, the tabs");
+    auto up = moveFocus(themes, f->id, Arrow::Up);
+    expect(up && up->list && up->list->row < f->list->row, "themes: up from the last, the one before it");
+
+    // Esc on one of Settings' pages goes back to its list, like the back
+    // arrow; on the list itself there's no page to leave (decision 033).
+    auto escOn = [](SettingsPage page) {
+        IslandState s;
+        Panel p = settingsPanel({ .page = page });
+        p.providerId = "system.settings";
+        s = reduce(s, PanelPublished{ p }, Ms{ 0 });
+        s = reduce(s, HomeOpened{}, Ms{ 0 });
+        s = reduce(s, TileClicked{ p.id }, Ms{ 0 });
+        return backAction(s);
+    };
+    expect(escOn(SettingsPage::Themes) == P::kBack && escOn(SettingsPage::Shortcuts) == P::kBack && escOn(SettingsPage::Displays) == P::kBack,
+           "esc: a Settings page goes back to the list");
+    expect(escOn(SettingsPage::List).empty(), "esc: the list has no page to leave (Esc goes back to Home)");
 
     // Home: tiles side by side and in rows.
     IslandState home;

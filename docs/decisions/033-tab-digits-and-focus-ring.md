@@ -1,4 +1,4 @@
-# 033: Tab, Home/End, the digits, Shift+Tab for tabs, and a focus ring
+# 033: Tab, the digits, Esc one step back, a focus ring
 
 Status: Accepted (extends 031)
 
@@ -34,9 +34,25 @@ whole row.
   fades, like hover: there is no glide to hand off (decision 008).
 - Focus is dropped when the card closes, so it never lights the pill's own
   buttons in Compact and the next card starts afresh.
+- **Back on Home, focus returns to the widget the keys last clicked**, not
+  the first one, so a row of widgets can be looked through one by one.
+  Wherever else what had focus goes away (a page opened, a tab switched),
+  focus moves to the first item, as 031 did after Enter.
+- **Esc steps back one level** instead of always closing (031): a card's
+  own page goes back to its list (`Content::backAction`, sent like a click
+  on its back arrow: Settings' pages); a card opened from a Home widget
+  goes back to Home (`IslandState::cardFromHome`); anything else closes. A
+  card reached another way (the pill, a tab, an alert) has no Home to go
+  back to, and switching tabs forgets it came from Home.
+- **Up and down walk a scrolling list to its end** before leaving it. Rows
+  out of a list's window sit where they would be scrolled in, which can be
+  under the tab strip; by position alone, down from the last theme in view
+  went to the Home tab.
+- **The demo keys (M, T, C, D, H) are Debug builds only.** They fake states
+  for development; in Release a stray key on the island did odd things.
 
 **Consequences.** The pure parts are tested in `tests/keyboard_tests.cpp`
-(static stops, Tab round, Home/End, digits, Shift+Tab). Settings' "On the
-island" list gains the new keys. The ring and the key handling need a
-Windows run. No state rule changed: `reduce` sees the same events a click
-sends.
+(static stops, Tab round, Home/End, digits, Shift+Tab, walking the theme
+list, Settings' back action); Esc back to Home in `home.scenario`.
+Settings' "On the island" list gains the new keys. The ring, returning to
+the widget and the key handling need a Windows run.

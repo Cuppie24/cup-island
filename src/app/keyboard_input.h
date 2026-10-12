@@ -28,7 +28,6 @@ struct KeyboardHooks {
     std::function<void(const std::string& id)> clickTab; // "" = Home
     std::function<void(const Tile&)> clickTile;
     std::function<void(const Hit&)> clickElement;        // with the press feedback a click gives
-    std::function<void()> updateHover;
     HWND window{};                                       // the interaction window: comes to the front with a shortcut
     SettingsProvider* settings = nullptr;                // records new keys for a shortcut
 };

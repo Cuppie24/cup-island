@@ -122,12 +122,14 @@ std::vector<ThemeListRow> themeListRows()
 // The widget: a gear, like Windows' own Settings. The card: a list of
 // settings, or one setting's choices. It stays open on a click between rows
 // (Content::keepOpen): a near miss on a page of controls shouldn't close it.
+// Esc on one setting's page goes back to the list, like its back arrow.
 Panel settingsPanel(const SettingsView& view)
 {
     Content content{
         .label = "Settings",
         .card = CardLayout::List, // wider sides than Centred: rows edge to edge
         .keepOpen = true,
+        .backAction = view.page == SettingsPage::List ? "" : P::kBack, // Esc on a page: back to the list (decision 033)
         .expandedCenter = view.page == SettingsPage::Themes      ? themesPage(view)
                           : view.page == SettingsPage::Displays  ? displaysPage(view)
                           : view.page == SettingsPage::Shortcuts ? shortcutsPage(view)

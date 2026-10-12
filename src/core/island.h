@@ -183,6 +183,7 @@ struct IslandState {
     std::deque<Alert> alertQueue;      // waiting alerts, oldest first (PS §6.3)
     std::string expandedId;            // Expanded, showing this activity's card, or a dormant panel's
     bool homeOpen = false;             // Expanded, showing Home (expandedId empty)
+    bool cardFromHome = false;         // that card was opened from a Home widget: Esc goes back to Home (decision 033)
     Ms lastPointerAt{};
     bool dragging = false;             // an accepted drag is over the island
     bool hidden = false;
@@ -218,6 +219,10 @@ struct ShownCard {
     bool operator==(const ShownCard&) const = default;
 };
 std::optional<ShownCard> shownCard(const IslandState& state);
+
+// What Esc sends to the shown card's provider first: its Content::backAction,
+// so a page goes back to its list before anything closes (decision 033). "" = none.
+std::string backAction(const IslandState& state);
 
 // Local time of day at `now`, once the platform has synced the clock.
 std::optional<Ms> timeOfDay(const IslandState& state, Ms now);
