@@ -97,6 +97,7 @@ std::filesystem::path g_spotsFile;     // where the island rests on each monitor
 std::map<std::string, Spot> g_spots;   // ...as last saved, by display id
 std::unique_ptr<ProviderRegistry> g_providers;
 SettingsProvider* g_settings = nullptr; // owned by g_providers; told when tokens.json reloads
+UpdateProvider* g_update = nullptr;     // owned by g_providers; Settings' "Check for updates" asks it
 
 // The pointer over the pill. Feedback is the renderer's; what a click means is
 // core's (hitTest). Content reacts to hover, the pill never does (decision 002).
@@ -819,6 +820,9 @@ int main()
         .unbindHotkeys = [] { unregisterHotkeys(g_inputHwnd); },
         .captureKeys = app::captureKeys,
         .version = CUP_VERSION_STRING,
+        .checkForUpdates = [](std::function<void(CheckOutcome, const std::string&)> reply) {
+            if (g_update) g_update->checkNow(std::move(reply)); // added just below; there by the first click
+        },
     });
     g_settings = settings.get();
     g_settings->setHotkeysActive(!g_state.hidden); // started under a fullscreen app: none until it's gone
@@ -838,14 +842,16 @@ int main()
     });
     g_providers->add(std::move(settings));
     // Updates from GitHub Releases (decision 036); a dev build never checks.
-    g_providers->add(std::make_unique<UpdateProvider>(UpdateHooks{
+    auto update = std::make_unique<UpdateProvider>(UpdateHooks{
         .version = CUP_VERSION_STRING,
         .fetchLatest = [](std::function<void(std::optional<GitHubRelease>)> done) { fetchLatestRelease(CUP_VERSION_STRING, std::move(done)); },
         .install = [](const UpdateOffer& offer, std::function<void(std::string)> failed) {
             downloadAndInstall(offer, CUP_VERSION_STRING, [] { DestroyWindow(g_inputHwnd); }, std::move(failed)); // quit: the installer replaces us
         },
         .openPage = openInBrowser,
-    }));
+    });
+    g_update = update.get();
+    g_providers->add(std::move(update));
     // Home's widgets follow the order panels first appear: media and Pomodoro
     // first (decision 019), then the system tiles.
     g_providers->start("media");

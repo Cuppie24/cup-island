@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <utility>
 
 namespace cup {
 namespace {
@@ -79,6 +80,7 @@ void UpdateProvider::stop()
     *alive_ = false;
     alive_ = std::make_shared<bool>(true);
     checking_ = false;
+    replies_.clear(); // nobody to tell any more
     host_->wakeAt(std::nullopt);
     if (offer_) host_->removePanel(kPanelId);
     offer_.reset();
@@ -89,6 +91,23 @@ void UpdateProvider::stop()
 void UpdateProvider::onWake()
 {
     if (host_) check();
+}
+
+void UpdateProvider::checkNow(Reply reply)
+{
+    if (!host_) return;
+    if (!running_ || !hooks_.fetchLatest) {
+        reply(CheckOutcome::DevBuild, "");
+        return;
+    }
+    replies_.push_back(std::move(reply));
+    check(); // no-op while one is under way: its answer goes to this reply too
+}
+
+void UpdateProvider::answer(CheckOutcome outcome, const std::string& version)
+{
+    std::vector<Reply> waiting = std::exchange(replies_, {});
+    for (const Reply& reply : waiting) reply(outcome, version);
 }
 
 void UpdateProvider::check()
@@ -107,6 +126,7 @@ void UpdateProvider::checked(const std::optional<GitHubRelease>& release)
     const Tokens& t = tokens();
     if (!release) { // offline, or GitHub didn't answer: try again sooner than a day
         host_->wakeAt(host_->now() + t.updateRetry);
+        answer(CheckOutcome::Failed, "");
         return;
     }
     host_->save(kLastCheckKey, std::to_string(host_->wallClock().count()));
@@ -116,20 +136,25 @@ void UpdateProvider::checked(const std::optional<GitHubRelease>& release)
     if (!offer) {
         if (offer_) host_->removePanel(kPanelId); // withdrawn, or nothing newer after all
         offer_.reset();
+        answer(CheckOutcome::UpToDate, "");
         return;
     }
-    if (stage_ == UpdateStage::Installing) return; // mid-download: leave it be
+    std::string v = versionText(offer->version);
+    if (stage_ == UpdateStage::Installing) { // mid-download: leave it be
+        answer(CheckOutcome::Available, versionText(offer_->version));
+        return;
+    }
     if (!offer_ || offer_->version != offer->version) {
         stage_ = UpdateStage::Offered;
         problem_.clear();
     }
     offer_ = offer;
     publish();
-    std::string v = versionText(offer->version);
     if (host_->load(kAnnouncedKey) != v) { // once per version: a daily check doesn't nag
         host_->postAlert(offerAlert(*offer));
         host_->save(kAnnouncedKey, v);
     }
+    answer(CheckOutcome::Available, v);
 }
 
 void UpdateProvider::onAction(const Action& action)

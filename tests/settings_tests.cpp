@@ -105,6 +105,50 @@ void runSettingsTests()
            "settings: no themes in tokens.json, no theme row");
     settings.stop();
 
+    // Check for updates (decision 036): a row that checks and says what it found.
+    {
+        PanelHost uh;
+        std::function<void(CheckOutcome, const std::string&)> pending;
+        int checks = 0;
+        SettingsProvider s({ .checkForUpdates = [&](std::function<void(CheckOutcome, const std::string&)> reply) {
+            ++checks;
+            pending = std::move(reply);
+        } });
+        s.start(uh);
+        auto updateRow = [&]() -> const Row* {
+            for (const Row& r : uh.published.back().content.expandedCenter)
+                if (!r.items.empty() && std::holds_alternative<Text>(r.items[0]) && std::get<Text>(r.items[0]).value == "Check for updates") return &r;
+            return nullptr;
+        };
+        auto said = [&] { return std::get<Text>(updateRow()->items[1]).value; };
+        expect(updateRow() && updateRow()->listItem && updateRow()->clickAnywhere && said().empty(), "updates: a row that says nothing yet");
+        auto press = [&] { s.onAction({ "system.settings", SettingsProvider::kPanelId, settings_action::kCheckUpdates, 0 }); };
+        press();
+        expect(checks == 1 && said() == "Checking…" && !std::get<Button>(updateRow()->items[2]).enabled, "updates: checking");
+        press();
+        expect(checks == 1, "updates: a second click while checking does nothing");
+        pending(CheckOutcome::Available, "0.5.1");
+        expect(said() == "0.5.1 on Home", "updates: found, and where it is");
+        press();
+        pending(CheckOutcome::UpToDate, "");
+        expect(said() == "Up to date", "updates: up to date");
+        press();
+        pending(CheckOutcome::Failed, "");
+        expect(said() == "Couldn't check", "updates: offline");
+        s.onCardClosed(SettingsProvider::kPanelId);
+        expect(said().empty(), "updates: reopened, the row starts fresh");
+        s.stop();
+
+        PanelHost nh;
+        SettingsProvider none({});
+        none.start(nh);
+        bool any = false;
+        for (const Row& r : nh.published.back().content.expandedCenter)
+            any = any || (!r.items.empty() && std::holds_alternative<Text>(r.items[0]) && std::get<Text>(r.items[0]).value == "Check for updates");
+        expect(!any, "updates: no way to check, no row");
+        none.stop();
+    }
+
     // The running version, under the list (decision 036).
     {
         PanelHost vh;

@@ -41,6 +41,9 @@ struct SettingsHooks {
     // instead of acting on it. Off again once one arrives, or on cancel.
     std::function<void(bool)> captureKeys;
     std::string version; // the running build's, shown under the list (decision 036); empty: no line
+    // "Check for updates" (decision 036): checks now, then calls back on the
+    // UI thread with what it found (Available: the offer's version). Empty: no row.
+    std::function<void(std::function<void(CheckOutcome, const std::string&)>)> checkForUpdates;
 };
 
 class SettingsProvider : public Provider {
@@ -102,6 +105,7 @@ private:
     std::optional<Command> recording_;
     bool hotkeysActive_ = true;
     std::string shortcutNote_;
+    UpdateNote updateNote_;
 };
 
 } // namespace cup

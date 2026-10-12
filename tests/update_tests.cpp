@@ -132,6 +132,40 @@ void providerTests()
     expect(u.host.published.size() == shown && !u.host.wake && u.host.removed.back() == UpdateProvider::kPanelId,
            "stopped: the widget goes, a late callback does nothing");
 
+    // "Check for updates" (Settings): checks now and says what it found.
+    {
+        std::vector<std::pair<CheckOutcome, std::string>> said;
+        auto note = [&](CheckOutcome o, const std::string& v) { said.push_back({ o, v }); };
+        Updater dev("0.0.0-dev");
+        dev.provider.start(dev.host);
+        dev.provider.checkNow(note);
+        expect(said.size() == 1 && said[0].first == CheckOutcome::DevBuild && dev.fetches.empty(), "check now: a dev build says so, asks nobody");
+
+        Updater c("0.3.0");
+        c.provider.start(c.host);
+        said.clear();
+        c.provider.checkNow(note);
+        c.provider.checkNow(note);
+        expect(c.fetches.size() == 1 && said.empty(), "check now: one request, however many clicks");
+        c.fetches.back()(std::nullopt);
+        expect(said.size() == 2 && said[0].first == CheckOutcome::Failed && said[1].first == CheckOutcome::Failed, "check now: offline, both told");
+        said.clear();
+        c.provider.checkNow(note);
+        c.fetches.back()(releaseOf("0.3.0"));
+        expect(said.size() == 1 && said[0].first == CheckOutcome::UpToDate && c.host.published.empty(), "check now: up to date");
+        said.clear();
+        c.provider.checkNow(note);
+        c.fetches.back()(releaseOf("0.5.1"));
+        expect(said.size() == 1 && said[0] == std::pair{ CheckOutcome::Available, std::string("0.5.1") } && !c.host.published.empty() &&
+               c.host.alerts.size() == 1, "check now: found, offered on Home as any check would");
+        expect(c.host.wake == c.host.clock + t.updateCheckInterval, "check now: the daily check counts from it");
+        said.clear();
+        c.provider.checkNow(note);
+        c.provider.stop();
+        c.fetches.back()(releaseOf("0.5.1"));
+        expect(said.empty(), "check now: stopped before the answer, nobody is told");
+    }
+
     // A restart soon after a check waits out the rest of the day.
     Updater again("0.3.0");
     again.host.store[UpdateProvider::kLastCheckKey] = "0";

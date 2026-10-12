@@ -50,6 +50,9 @@ struct UpdateOffer {
     bool operator==(const UpdateOffer&) const = default;
 };
 
+// What a check found, for a "Check for updates" button (Settings).
+enum class CheckOutcome { UpToDate, Available, Failed, DevBuild };
+
 // What to offer: `latest` if it's newer than `running` and carries its
 // installer with a SHA-256, downloaded from https://github.com/. Without a
 // checksum there's nothing to check the download against, so nothing is

@@ -5,6 +5,7 @@
 
 #include "core/island.h"
 #include "core/shortcuts.h"
+#include "providers/update/release.h"
 
 #include <optional>
 #include <string>
@@ -24,6 +25,7 @@ inline constexpr const char* kEditShortcut = "shortcut.edit:"; // + its index in
 inline constexpr const char* kToggleAutostart = "autostart.toggle";
 inline constexpr const char* kCopyLogs = "logs.copy";
 inline constexpr const char* kCentreIsland = "island.centre";
+inline constexpr const char* kCheckUpdates = "updates.check";
 // The choice pages' lists (Row::list), for Host::reveal.
 inline constexpr const char* kThemeList = "themes";
 inline constexpr const char* kDisplayList = "displays";
@@ -34,6 +36,13 @@ inline constexpr const char* kSettingsPanelId = "system.settings"; // the widget
 inline constexpr const char* kMainDisplayName = "Main display";    // the first display choice
 
 enum class LogsNote { Ready, Copied, Failed }; // what the Copy logs button says
+
+// What "Check for updates" says (decision 036): nothing yet, checking, or what it found.
+struct UpdateNote {
+    bool checking = false;
+    std::optional<CheckOutcome> found;
+    std::string version; // Available: the offer's
+};
 
 // Which page the card shows: the list of settings, or one setting's choices.
 enum class SettingsPage { List, Themes, Displays, Shortcuts };
@@ -50,6 +59,7 @@ struct SettingsView {
     std::optional<Command> recording;       // waiting for new keys for this one
     std::string shortcutNote;               // under the shortcuts: "Press the new keys…", or why one wasn't changed
     std::string version;                    // the running build's; empty: no line for it
+    std::optional<UpdateNote> update;       // nothing: the app can't check, no row
 };
 
 // The widget and its card.

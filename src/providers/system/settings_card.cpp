@@ -38,6 +38,20 @@ Row choiceRow(const std::string& name, bool picked, std::string action, const ch
     return r;
 }
 
+// "Check for updates" (decision 036): the whole row checks; its value says
+// what the last check found. An update found is offered on Home, as always.
+Row updateRow(const UpdateNote& note)
+{
+    std::string said = note.checking ? "Checking…" : !note.found ? "" : *note.found == CheckOutcome::UpToDate ? "Up to date"
+                     : *note.found == CheckOutcome::Available ? note.version + " on Home"
+                     : *note.found == CheckOutcome::Failed    ? "Couldn't check"
+                                                              : "Not in dev builds";
+    return Row{ .items = { Text{ "Check for updates" }, Text{ .value = said, .style = TextStyle::Caption, .alignEnd = true },
+                           Button{ .glyph = Glyph::Download, .actionId = P::kCheckUpdates, .enabled = !note.checking, .compact = true } },
+                .clickAnywhere = true,
+                .listItem = true };
+}
+
 Slot listPage(const SettingsView& v)
 {
     Slot card;
@@ -50,6 +64,7 @@ Slot listPage(const SettingsView& v)
                             .clickAnywhere = true,
                             .listItem = true });
     card.push_back(settingRow("Keyboard shortcuts", "", P::kOpenShortcuts));
+    if (v.update) card.push_back(updateRow(*v.update));
     const char* logs = v.note == LogsNote::Copied ? "Logs copied" : v.note == LogsNote::Failed ? "Couldn't copy logs" : "Copy logs";
     card.push_back(row({ Button{ .glyph = Glyph::Copy, .actionId = P::kCopyLogs, .label = logs },
                          Button{ .actionId = P::kCentreIsland, .label = "Centre island" } },
