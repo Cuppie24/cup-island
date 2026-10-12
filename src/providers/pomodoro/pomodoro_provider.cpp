@@ -23,17 +23,6 @@ const char* nameOf(Phase phase)
     return "";
 }
 
-Ms durationOf(Phase phase)
-{
-    const Tokens& t = tokens();
-    switch (phase) {
-    case Phase::Focus: return t.pomodoroFocus;
-    case Phase::Break: return t.pomodoroBreak;
-    case Phase::LongBreak: return t.pomodoroLongBreak;
-    }
-    return t.pomodoroFocus;
-}
-
 // Focus and breaks have their own colours (decision 010), in tokens.json.
 Color accentOf(Phase phase) { return phase == Phase::Focus ? tokens().pomodoroFocusColor : tokens().pomodoroBreakColor; }
 
@@ -143,8 +132,11 @@ Content pomodoroContent(const PomodoroProvider::Session& s, const TodoList& todo
 void PomodoroProvider::start(Host& host)
 {
     host_ = &host;
-    if (storage_.load) todos_ = TodoList::load(storage_.load());
+    if (storage_.loadTodos) todos_ = TodoList::load(storage_.loadTodos());
     host_->publishPanel(pomodoroPanel(todos_));
+    // A session from before a restart carries on where it would be now (decision 027).
+    if (storage_.loadSession && storage_.wallClock) session_ = resumeSession(storage_.loadSession(), host_->now(), storage_.wallClock());
+    if (session_) publish();
 }
 
 void PomodoroProvider::stop()
@@ -209,43 +201,43 @@ void PomodoroProvider::onWake()
 
 void PomodoroProvider::begin(Phase phase, std::size_t round)
 {
-    Ms duration = durationOf(phase);
+    Ms duration = phaseDuration(phase);
     session_ = Session{ phase, round, { .duration = duration, .anchoredAt = host_->now(), .playing = true } };
     publish();
 }
 
-// Focus -> break -> focus ... -> long break after the last round -> done.
+// The next phase (followingPhase), or the end after the long break.
 void PomodoroProvider::advance(bool alert)
 {
     const Tokens& t = tokens();
-    Session s = *session_;
-    if (s.phase == Phase::LongBreak) {
+    std::optional<Session> next = followingPhase(*session_, host_->now());
+    if (!next) {
         finish();
         if (alert) host_->postAlert(phaseAlert("Session done", std::to_string(t.pomodoroRounds) + " rounds of focus", "", accentOf(Phase::Break)));
         return;
     }
-    if (s.phase == Phase::Focus) {
-        Phase next = s.round >= t.pomodoroRounds ? Phase::LongBreak : Phase::Break;
-        begin(next, s.round);
-        if (alert) host_->postAlert(phaseAlert(next == Phase::LongBreak ? "Long break" : "Break time",
-                                               minutes(durationOf(next)), kPanelId, accentOf(next)));
-        return;
-    }
-    begin(Phase::Focus, s.round + 1);
-    if (alert) host_->postAlert(phaseAlert("Back to focus", "Round " + std::to_string(s.round + 1) + " of " +
-                                                                std::to_string(t.pomodoroRounds), kPanelId, accentOf(Phase::Focus)));
+    session_ = next;
+    publish();
+    if (!alert) return;
+    if (next->phase == Phase::Focus)
+        host_->postAlert(phaseAlert("Back to focus", "Round " + std::to_string(next->round) + " of " + std::to_string(t.pomodoroRounds),
+                                    kPanelId, accentOf(Phase::Focus)));
+    else
+        host_->postAlert(phaseAlert(next->phase == Phase::LongBreak ? "Long break" : "Break time", minutes(phaseDuration(next->phase)),
+                                    kPanelId, accentOf(next->phase)));
 }
 
 void PomodoroProvider::finish()
 {
     session_.reset();
+    if (storage_.saveSession) storage_.saveSession("");
     host_->wakeAt(std::nullopt);
     host_->endActivity(kPanelId);
 }
 
 void PomodoroProvider::showTodos(bool save)
 {
-    if (save && storage_.save) storage_.save(todos_.save());
+    if (save && storage_.saveTodos) storage_.saveTodos(todos_.save());
     if (session_) publish();
     else host_->publishPanel(pomodoroPanel(todos_, todoScroll_));
 }
@@ -253,6 +245,7 @@ void PomodoroProvider::showTodos(bool save)
 void PomodoroProvider::publish()
 {
     const Timeline& tl = session_->timeline;
+    if (storage_.saveSession && storage_.wallClock) storage_.saveSession(saveSession(*session_, host_->now(), storage_.wallClock()));
     host_->startActivity({ .id = kPanelId, .relevance = 0.4f, .content = pomodoroContent(*session_, todos_, todoScroll_) });
     host_->wakeAt(tl.playing ? std::optional<Ms>(tl.anchoredAt + (tl.duration - tl.position)) : std::nullopt);
 }

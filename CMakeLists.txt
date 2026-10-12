@@ -49,6 +49,7 @@ add_library(cup_providers STATIC
     src/providers/media/session_choice.cpp
     src/providers/media/tab_match.cpp
     src/providers/pomodoro/pomodoro_provider.cpp
+    src/providers/pomodoro/pomodoro_session.cpp
     src/providers/pomodoro/todo_list.cpp
     src/providers/system/settings_provider.cpp
     src/providers/system/system_panels.cpp

@@ -233,6 +233,57 @@ void runPomodoroTests()
     island.registry.stop("pomodoro");
     expect(island.state.panels.empty() && !island.focus(), "stopping the provider removes the panel and the session");
     expect(mode(island.state) == Mode::Idle, "and closes Home");
+
+    // A restart (decision 027): the session is saved with the wall clock, and
+    // a new run picks it up where it would be now.
+    std::string saved;
+    Ms wall{ 1'700'000'000'000 };
+    auto storage = [&] {
+        return PomodoroStorage{ .loadSession = [&] { return saved; }, .saveSession = [&](const std::string& s) { saved = s; },
+                                .wallClock = [&] { return wall; } };
+    };
+    auto run = std::make_unique<Island>();
+    run->registry.add(std::make_unique<PomodoroProvider>(storage()));
+    run->registry.start("pomodoro");
+    run->registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kStart, 0 });
+    run->now += Ms{ 60000 };
+    wall += Ms{ 60000 };
+    run->registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kPause, 0 }); // saves: 1 min in, paused
+    run.reset(); // the app quits
+    wall += Ms{ 3'600'000 };
+    auto next = std::make_unique<Island>();
+    next->now = Ms{ 500 }; // a new run: the app's own clock started over
+    next->registry.add(std::make_unique<PomodoroProvider>(storage()));
+    next->registry.start("pomodoro");
+    const Activity* resumed = next->focus();
+    expect(resumed && resumed->content.label == "Focus" && !next->registry.nextWake(), "restarted: the paused session is back, still paused");
+    run = std::move(next);
+    run->registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kPause, 0 }); // resume: running again
+    expect(run->registry.nextWake() == run->now + t.pomodoroFocus - Ms{ 60000 }, "an hour closed while paused: the same minute left to go");
+
+    // Running while closed: phases that ended meanwhile pass quietly.
+    run.reset();
+    wall += t.pomodoroFocus - Ms{ 60000 } + Ms{ 30000 }; // focus ended 30 s ago
+    next = std::make_unique<Island>();
+    next->registry.add(std::make_unique<PomodoroProvider>(storage()));
+    next->registry.start("pomodoro");
+    expect(next->focus() && next->focus()->content.label == "Break" && !next->state.alert, "focus ended while closed: on the break, no alert");
+    expect(next->registry.nextWake() == next->now + t.pomodoroBreak - Ms{ 30000 }, "30 s into it");
+    next.reset();
+    wall += Ms{ 24 * 3'600'000 };
+    next = std::make_unique<Island>();
+    next->registry.add(std::make_unique<PomodoroProvider>(storage()));
+    next->registry.start("pomodoro");
+    expect(!next->focus() && next->state.panels.size() == 1, "a day later: the session ended meanwhile, dormant");
+
+    // Stopping forgets it.
+    next->registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kStart, 0 });
+    expect(!saved.empty(), "a new session is saved");
+    next->registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kStopConfirmed, 0 });
+    expect(saved.empty() && !resumeSession(saved, Ms{ 0 }, wall), "stopped: nothing to resume");
+    expect(!resumeSession("garbage", Ms{ 0 }, wall) && !resumeSession("pomodoro1 7 1 1 0 1000 0", Ms{ 0 }, wall), "unreadable: nothing");
+    PomodoroSession clockBack = *resumeSession("pomodoro1 0 1 1 1000 60000 5000", Ms{ 0 }, Ms{ 1000 });
+    expect(clockBack.timeline.position == Ms{ 1000 }, "a clock set back: no time passed");
 }
 
 } // namespace cup::test

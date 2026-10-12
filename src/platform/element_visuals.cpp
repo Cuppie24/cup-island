@@ -32,6 +32,15 @@ bool revealsOnHover(const Item& item)
     return button && button->revealOnHover;
 }
 
+// A row's secondary action (revealed on hover) is quieter than its checkbox;
+// the button around it, and its hover shape, stay the row's size.
+float glyphSizeOf(const Button& button)
+{
+    const Tokens& t = tokens();
+    if (button.revealOnHover) return t.revealGlyphSize;
+    return button.compact ? t.iconSize : t.buttonGlyphSize;
+}
+
 // "<slot>/<row>/<item>" -> "<slot>/<row>"
 std::string rowOf(const std::string& key) { return key.substr(0, key.rfind('/')); }
 
@@ -214,7 +223,7 @@ void ElementVisuals::paint(View& view)
                         : button->destructive         ? t.dangerColor
                                                       : t.buttonColor;
             if (!button->label.empty()) paintLabel(dc, dw, button->label, size, color);
-            else paintGlyph(dc, dw, button->glyph, button->compact ? t.iconSize : t.buttonGlyphSize, size, color);
+            else paintGlyph(dc, dw, button->glyph, glyphSizeOf(*button), size, color);
             if (button->on && *button->on) paintToggleDot(dc, size, t.buttonGlyphSize);
         } else if (auto* image = std::get_if<Image>(&item)) {
             paintImage(dc, image->data.get(), size, view.placed.cornerRadius);

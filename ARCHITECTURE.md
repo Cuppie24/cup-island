@@ -186,6 +186,7 @@ over the file's, so `tokens()` is always what's on screen.
 | Display scaling: tokens in logical pixels, scaled per the primary display, live on a scale change (decision 017) | done; scaling tested, Windows side needs a run |
 | Island shadow: a DropShadow under the pill and the bubble, masked by a live snapshot of each (decision 018) | done; needs a Windows run to judge |
 | Dialogs over a card, scrolling lists, buttons shown on hover (decision 020) | done; rules tested, Windows side needs a run |
+| Pomodoro session survives a restart: saved with the wall clock, caught up on start (decision 027) | done; tested |
 | Renderer: alert pulse, receptive drop zones, matched geometry | not yet |
 | Fullscreen detection (TR §9.2): borderless + exclusive, per monitor, maximized windows excluded | done; rules tested (`core/fullscreen`), hooks need Windows |
 | Real input for drag (OLE drop target) | not yet; the D key simulates it |

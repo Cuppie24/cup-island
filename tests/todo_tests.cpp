@@ -55,7 +55,8 @@ void runTodoTests()
     IslandState state;
     Ms now{ 0 };
     ProviderRegistry registry{ [&](const Event& e, const char*) { state = reduce(state, e, now); }, [&] { return now; } };
-    registry.add(std::make_unique<PomodoroProvider>(TodoStorage{ [&] { return saved; }, [&](const std::string& s) { saved = s; } }));
+    registry.add(std::make_unique<PomodoroProvider>(PomodoroStorage{ .loadTodos = [&] { return saved; },
+                                                                       .saveTodos = [&](const std::string& s) { saved = s; } }));
     registry.start("pomodoro");
     auto send = [&](const Event& e) { state = reduce(state, e, now); };
     send(PillClicked{});

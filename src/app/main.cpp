@@ -650,10 +650,14 @@ int main()
     g_providers->add(std::make_unique<DemoMediaProvider>()); // M key
     g_providers->add(std::make_unique<BluetoothProvider>(postToUi));
     g_providers->add(std::make_unique<ThemeProvider>(postToUi));
-    std::filesystem::path todos = dataFile(L"todos.txt");
-    g_providers->add(std::make_unique<PomodoroProvider>(TodoStorage{
-        [todos] { return readTextFile(todos); },
-        [todos](const std::string& text) { writeTextFile(todos, text); },
+    std::filesystem::path todos = dataFile(L"todos.txt"), session = dataFile(L"pomodoro.txt");
+    g_providers->add(std::make_unique<PomodoroProvider>(PomodoroStorage{
+        .loadTodos = [todos] { return readTextFile(todos); },
+        .saveTodos = [todos](const std::string& text) { writeTextFile(todos, text); },
+        .loadSession = [session] { return readTextFile(session); },
+        .saveSession = [session](const std::string& text) { writeTextFile(session, text); },
+        // Wall time, not now(): a session's end has to mean the same moment after a restart (decision 027).
+        .wallClock = [] { return std::chrono::duration_cast<Ms>(std::chrono::system_clock::now().time_since_epoch()); },
     }));
     std::filesystem::path theme = dataFile(L"theme.txt");
     auto settings = std::make_unique<SettingsProvider>(SettingsHooks{
