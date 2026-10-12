@@ -79,6 +79,9 @@ void runTokensTests()
         Tokens themed = withTheme(fromFile.tokens, theme.name);
         auto light = [](Color c) { return c.r + c.g + c.b; };
         expect(light(themed.islandColor) < 150 && light(themed.titleTextColor) > 600, "a dark theme: " + theme.name);
+        // A coloured shadow reads stronger than a black one: keep it softer, a hint of glow.
+        if (!theme.colors.empty())
+            expect(themed.shadowColor.a < fromFile.tokens.shadowColor.a, "a softer shadow: " + theme.name);
     }
     TokensParse themes = parseTokens(R"({ "themes": {
         "Plain": {},
