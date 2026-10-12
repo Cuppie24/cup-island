@@ -16,7 +16,12 @@ namespace {
 struct Island {
     IslandState state;
     Ms now{ 0 };
-    ProviderRegistry registry{ [this](const Event& e, const char*) { state = reduce(state, e, now); }, [this] { return now; } };
+    ProviderRegistry registry;
+
+    explicit Island(ProviderRegistry::Store store = {})
+        : registry([this](const Event& e, const char*) { state = reduce(state, e, now); }, [this] { return now; }, std::move(store))
+    {
+    }
 
     Scene scene() const { return layout(state, now); }
     void send(const Event& e) { state = reduce(state, e, now); }
@@ -239,11 +244,13 @@ void runPomodoroTests()
     std::string saved;
     Ms wall{ 1'700'000'000'000 };
     auto storage = [&] {
-        return PomodoroStorage{ .loadSession = [&] { return saved; }, .saveSession = [&](const std::string& s) { saved = s; },
-                                .wallClock = [&] { return wall; } };
+        return ProviderRegistry::Store{
+            .load = [&](const std::string&, const std::string& key) { return key == PomodoroProvider::kSessionKey ? saved : ""; },
+            .save = [&](const std::string&, const std::string& key, const std::string& s) { if (key == PomodoroProvider::kSessionKey) saved = s; },
+            .wallClock = [&] { return wall; } };
     };
-    auto run = std::make_unique<Island>();
-    run->registry.add(std::make_unique<PomodoroProvider>(storage()));
+    auto run = std::make_unique<Island>(storage());
+    run->registry.add(std::make_unique<PomodoroProvider>());
     run->registry.start("pomodoro");
     run->registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kStart, 0 });
     run->now += Ms{ 60000 };
@@ -251,9 +258,9 @@ void runPomodoroTests()
     run->registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kPause, 0 }); // saves: 1 min in, paused
     run.reset(); // the app quits
     wall += Ms{ 3'600'000 };
-    auto next = std::make_unique<Island>();
+    auto next = std::make_unique<Island>(storage());
     next->now = Ms{ 500 }; // a new run: the app's own clock started over
-    next->registry.add(std::make_unique<PomodoroProvider>(storage()));
+    next->registry.add(std::make_unique<PomodoroProvider>());
     next->registry.start("pomodoro");
     const Activity* resumed = next->focus();
     expect(resumed && resumed->content.label == "Focus" && !next->registry.nextWake(), "restarted: the paused session is back, still paused");
@@ -264,15 +271,15 @@ void runPomodoroTests()
     // Running while closed: phases that ended meanwhile pass quietly.
     run.reset();
     wall += t.pomodoroFocus - Ms{ 60000 } + Ms{ 30000 }; // focus ended 30 s ago
-    next = std::make_unique<Island>();
-    next->registry.add(std::make_unique<PomodoroProvider>(storage()));
+    next = std::make_unique<Island>(storage());
+    next->registry.add(std::make_unique<PomodoroProvider>());
     next->registry.start("pomodoro");
     expect(next->focus() && next->focus()->content.label == "Break" && !next->state.alert, "focus ended while closed: on the break, no alert");
     expect(next->registry.nextWake() == next->now + t.pomodoroBreak - Ms{ 30000 }, "30 s into it");
     next.reset();
     wall += Ms{ 24 * 3'600'000 };
-    next = std::make_unique<Island>();
-    next->registry.add(std::make_unique<PomodoroProvider>(storage()));
+    next = std::make_unique<Island>(storage());
+    next->registry.add(std::make_unique<PomodoroProvider>());
     next->registry.start("pomodoro");
     expect(!next->focus() && next->state.panels.size() == 1, "a day later: the session ended meanwhile, dormant");
 

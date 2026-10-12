@@ -145,7 +145,9 @@ const Field kFields[] = {
     { "pomodoroBreakMs", &Tokens::pomodoroBreak },
     { "pomodoroLongBreakMs", &Tokens::pomodoroLongBreak },
     { "pomodoroRounds", &Tokens::pomodoroRounds },
-    { "todoVisibleItems", &Tokens::todoVisibleItems },
+    { "listVisibleRows", &Tokens::listVisibleRows },
+    { "scrollStep", &Tokens::scrollStep },
+    { "scrollDurationMs", &Tokens::scrollDuration },
     { "logsNoteMs", &Tokens::logsNote, true },
 };
 
@@ -296,7 +298,7 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
     // knob isn't a size. Nor are font weights or text contrast.
     auto unitless = [](const char* name) {
         std::string_view n(name);
-        return n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" ||
+        return n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" ||
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
     };
     Tokens out = t;

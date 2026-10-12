@@ -2,6 +2,7 @@
 
 #include "core/tokens.h"
 
+#include <algorithm>
 #include <cmath>
 #include <string>
 
@@ -66,7 +67,7 @@ Dialog stopQuestion(const PomodoroProvider::Session& s)
 // little as possible: the full focus time big, the plan, ▶ where the
 // controls go, then the to-dos (decision 016). The widget is laid out like the
 // running one too: the timer icon where the ring goes, the focus time, the plan.
-Panel pomodoroPanel(const TodoList& todos, std::size_t scroll)
+Panel pomodoroPanel(const TodoList& todos)
 {
     const Tokens& t = tokens();
     std::string plan = minutes(t.pomodoroFocus) + " focus, " + minutes(t.pomodoroBreak) + " breaks";
@@ -81,7 +82,7 @@ Panel pomodoroPanel(const TodoList& todos, std::size_t scroll)
         .tileLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
         .tile = { row({ Text{ formatDuration(t.pomodoroFocus), TextStyle::Title } }), row({ Text{ rounds, TextStyle::Caption } }) },
     };
-    appendTodoRows(content.expandedCenter, todos, scroll);
+    appendTodoRows(content.expandedCenter, todos);
     return { .id = PomodoroProvider::kPanelId, .content = content, .wide = true };
 }
 
@@ -92,7 +93,7 @@ Panel pomodoroPanel(const TodoList& todos, std::size_t scroll)
 // to-dos they're about. The ring is for compact,
 // the bubble and the widget, where there's no room for a big countdown.
 // The widget (decision 019): the ring filling, the time left, the phase and round.
-Content pomodoroContent(const PomodoroProvider::Session& s, const TodoList& todos, std::size_t scroll)
+Content pomodoroContent(const PomodoroProvider::Session& s, const TodoList& todos)
 {
     std::string name = nameOf(s.phase);
     int done = phasesDone(s), total = phaseCount();
@@ -125,17 +126,17 @@ Content pomodoroContent(const PomodoroProvider::Session& s, const TodoList& todo
         .tileLeading = { row({ ring }, Align::Center) },
         .tile = { row({ tileLeft }), row({ Text{ glance, TextStyle::Caption } }) },
     };
-    appendTodoRows(content.expandedCenter, todos, scroll); // what to work on, under the timer (decision 016)
+    appendTodoRows(content.expandedCenter, todos); // what to work on, under the timer (decision 016)
     return content;
 }
 
 void PomodoroProvider::start(Host& host)
 {
     host_ = &host;
-    if (storage_.loadTodos) todos_ = TodoList::load(storage_.loadTodos());
+    todos_ = TodoList::load(host_->load(kTodosKey));
     host_->publishPanel(pomodoroPanel(todos_));
     // A session from before a restart carries on where it would be now (decision 027).
-    if (storage_.loadSession && storage_.wallClock) session_ = resumeSession(storage_.loadSession(), host_->now(), storage_.wallClock());
+    session_ = resumeSession(host_->load(kSessionKey), host_->now(), host_->wallClock());
     if (session_) publish();
 }
 
@@ -156,19 +157,12 @@ void PomodoroProvider::onAction(const Action& action)
         host_->ask(clearQuestion(action.actionId, todos_, kPanelId)); // clears only once confirmed (decision 020)
         return;
     }
-    if (action.actionId == todo::kScroll) {
-        std::size_t next = clampScroll(static_cast<long long>(todoScroll_) + std::llround(action.value), todos_);
-        if (next != todoScroll_) {
-            todoScroll_ = next;
-            showTodos(/* save */ false);
-        }
-        return;
-    }
-    if (todos_.apply(action.actionId, action.text)) {
-        // A new to-do scrolls into view (the end); otherwise keep the window, within the list.
-        long long want = action.actionId == todo::kAdd ? static_cast<long long>(todos_.items().size()) : static_cast<long long>(todoScroll_);
-        todoScroll_ = clampScroll(want, todos_);
+    if (todos_.apply(action.actionId, action.text, action.value)) {
         showTodos();
+        if (action.actionId == todo::kAdd) { // the newest open one: keep it in view (decision 029)
+            auto open = std::count_if(todos_.items().begin(), todos_.items().end(), [](const Todo& t) { return !t.done; });
+            if (open > 0) host_->reveal(kPanelId, todo::kList, static_cast<std::size_t>(open - 1));
+        }
         return;
     }
     Ms now = host_->now();
@@ -230,23 +224,23 @@ void PomodoroProvider::advance(bool alert)
 void PomodoroProvider::finish()
 {
     session_.reset();
-    if (storage_.saveSession) storage_.saveSession("");
+    host_->save(kSessionKey, "");
     host_->wakeAt(std::nullopt);
     host_->endActivity(kPanelId);
 }
 
-void PomodoroProvider::showTodos(bool save)
+void PomodoroProvider::showTodos()
 {
-    if (save && storage_.saveTodos) storage_.saveTodos(todos_.save());
+    host_->save(kTodosKey, todos_.save());
     if (session_) publish();
-    else host_->publishPanel(pomodoroPanel(todos_, todoScroll_));
+    else host_->publishPanel(pomodoroPanel(todos_));
 }
 
 void PomodoroProvider::publish()
 {
     const Timeline& tl = session_->timeline;
-    if (storage_.saveSession && storage_.wallClock) storage_.saveSession(saveSession(*session_, host_->now(), storage_.wallClock()));
-    host_->startActivity({ .id = kPanelId, .relevance = 0.4f, .content = pomodoroContent(*session_, todos_, todoScroll_) });
+    host_->save(kSessionKey, saveSession(*session_, host_->now(), host_->wallClock()));
+    host_->startActivity({ .id = kPanelId, .relevance = 0.4f, .content = pomodoroContent(*session_, todos_) });
     host_->wakeAt(tl.playing ? std::optional<Ms>(tl.anchoredAt + (tl.duration - tl.position)) : std::nullopt);
 }
 

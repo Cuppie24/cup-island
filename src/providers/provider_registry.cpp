@@ -1,5 +1,7 @@
 #include "providers/provider_registry.h"
 
+#include "providers/file_store.h"
+
 namespace cup {
 
 class ProviderRegistry::Handle : public Host {
@@ -42,17 +44,42 @@ public:
         registry_.dispatch_(DialogShown{ std::move(dialog) }, providerId_.c_str());
     }
 
+    void reveal(const std::string& activityId, const std::string& list, std::size_t row) override
+    {
+        registry_.dispatch_(ListRevealed{ activityId, list, row }, providerId_.c_str());
+    }
+
     void wakeAt(std::optional<Ms> at) override
     {
         if (Entry* e = registry_.find(providerId_)) e->wake = at;
     }
+
+    std::string load(const std::string& key) const override
+    {
+        if (!validStoreKey(key)) return {};
+        if (registry_.store_.load) return registry_.store_.load(providerId_, key);
+        auto it = registry_.memory_.find(providerId_ + "/" + key);
+        return it == registry_.memory_.end() ? std::string() : it->second;
+    }
+
+    void save(const std::string& key, const std::string& text) override
+    {
+        if (!validStoreKey(key)) return;
+        if (registry_.store_.save) registry_.store_.save(providerId_, key, text);
+        else registry_.memory_[providerId_ + "/" + key] = text;
+    }
+
+    Ms wallClock() const override { return registry_.store_.wallClock ? registry_.store_.wallClock() : registry_.clock_(); }
 
 private:
     ProviderRegistry& registry_;
     std::string providerId_;
 };
 
-ProviderRegistry::ProviderRegistry(Dispatch dispatch, Clock clock) : dispatch_(std::move(dispatch)), clock_(std::move(clock)) {}
+ProviderRegistry::ProviderRegistry(Dispatch dispatch, Clock clock, Store store)
+    : dispatch_(std::move(dispatch)), clock_(std::move(clock)), store_(std::move(store))
+{
+}
 
 ProviderRegistry::~ProviderRegistry()
 {

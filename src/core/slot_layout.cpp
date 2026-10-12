@@ -1,5 +1,7 @@
 #include "core/slot_layout.h"
 
+#include "core/item_metrics.h"
+#include "core/lists.h"
 #include "core/tokens.h"
 
 #include <algorithm>
@@ -7,76 +9,6 @@
 
 namespace cup {
 namespace {
-
-float lineHeight(TextStyle style) { return std::ceil(fontSize(style) * 1.3f); }
-
-bool isRing(const Item& item)
-{
-    auto* progress = std::get_if<Progress>(&item);
-    return progress && progress->shape == ProgressShape::Ring;
-}
-
-// Natural height of an item. Images fill the slot's square; a ring is
-// `ringSide` (its row's height, or the slot's square when alone).
-float heightOf(const Item& item, Rect slot, float ringSide)
-{
-    const Tokens& t = tokens();
-    if (auto* text = std::get_if<Text>(&item)) return lineHeight(text->style);
-    if (std::holds_alternative<Image>(item)) return std::min(slot.width, slot.height);
-    if (isRing(item)) return ringSide;
-    if (std::holds_alternative<Steps>(item)) return t.stepDotSize;
-    if (auto* button = std::get_if<Button>(&item)) return button->compact ? t.smallButtonSize : t.buttonSize;
-    if (std::holds_alternative<TextInput>(item)) return t.inputHeight;
-    // Seekable bars get a taller row to be easy to click; a bar nobody clicks is just its line.
-    if (auto* bar = std::get_if<Progress>(&item)) return bar->seekable ? t.progressHitHeight : t.progressHeight;
-    if (auto* label = std::get_if<TimeLabel>(&item)) return lineHeight(label->style);
-    return t.iconSize; // Icon, Waveform
-}
-
-// The widest the label can get, so its frame never changes while it ticks:
-// its shape ("25:00") with every digit replaced by the widest digit in this
-// font and style. Windows' UI font has proportional digits ("4" is wider
-// than "0"), so "00:00" alone isn't enough: "24:44" got cut to "2…".
-std::string widestDigits(std::string s, TextStyle style, const MeasureText& measure)
-{
-    char widest = '0';
-    float widestWidth = -1;
-    for (char d = '0'; d <= '9'; ++d) {
-        Text digit{ std::string(1, d), style };
-        float w = measure ? measure(digit) : estimateTextWidth(digit);
-        if (w > widestWidth) widestWidth = w, widest = d;
-    }
-    for (char& c : s)
-        if (c >= '0' && c <= '9') c = widest;
-    return s;
-}
-
-// Fixed width, or nothing for items that stretch (Text, Progress).
-std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureText& measure)
-{
-    const Tokens& t = tokens();
-    if (std::holds_alternative<Text>(item) || std::holds_alternative<TextInput>(item) ||
-        (std::holds_alternative<Progress>(item) && !isRing(item)))
-        return std::nullopt;
-    if (std::holds_alternative<Image>(item) || isRing(item)) return height;
-    if (auto* steps = std::get_if<Steps>(&item)) {
-        float n = static_cast<float>(std::max(steps->count, 0));
-        return std::max(0.0f, n * t.stepDotSize + (n - 1) * t.stepDotGap);
-    }
-    if (auto* button = std::get_if<Button>(&item)) {
-        if (button->label.empty()) return button->compact ? t.smallButtonSize : t.buttonSize;
-        Text text{ button->label, TextStyle::Body };
-        return (measure ? measure(text) : estimateTextWidth(text)) + 2 * t.buttonLabelPadding;
-    }
-    if (auto* label = std::get_if<TimeLabel>(&item)) {
-        if (label->style == TextStyle::Digits) return t.timeLabelWidth; // a column, so rows of labels line up
-        std::string widest = widestDigits(formatDuration(label->timeline.duration), label->style, measure);
-        if (label->remaining && !label->countdown) widest = "-" + widest;
-        Text text{ widest, label->style };
-        return (measure ? measure(text) : estimateTextWidth(text)) + 1; // +1: rounding never trips the "…"
-    }
-    return t.iconSize; // Icon, Waveform
-}
 
 Item resolve(const Item& item, Ms now, const Source& source)
 {
@@ -93,7 +25,21 @@ Item resolve(const Item& item, Ms now, const Source& source)
         std::string value = label->countdown ? left : label->remaining ? "-" + left : formatDuration(position);
         return Text{ .value = value, .style = label->style, .alignEnd = label->remaining, .marquee = false, .centred = label->countdown };
     }
+    // A Text being edited in place is a focused field with the draft (decision 029).
+    if (auto* text = std::get_if<Text>(&item); text && !text->editAction.empty()) {
+        const Draft* d = source.draft;
+        if (d && d->activityId == source.activityId && d->actionId == text->editAction)
+            return TextInput{ .actionId = text->editAction, .value = d->text, .focused = true };
+    }
     return item;
+}
+
+// The part of `r` inside `clip` (nothing left: zero size at its corner).
+Rect clipped(Rect r, Rect clip)
+{
+    float left = std::max(r.x, clip.x), top = std::max(r.y, clip.y);
+    float right = std::min(r.x + r.width, clip.x + clip.width), bottom = std::min(r.y + r.height, clip.y + clip.height);
+    return { left, top, std::max(0.0f, right - left), std::max(0.0f, bottom - top) };
 }
 
 // Rounded content (art, button hover shapes, text fields) only.
@@ -107,37 +53,33 @@ float radiusFor(const Item& item, Rect frame, float nestedRadius)
 // A list item's extra height: room above and below its content (Row::listItem).
 float listPadding(const Row& row) { return row.listItem ? 2 * tokens().listItemPadding : 0; }
 
+// Each row's ring side (a ring matches the other items in its row; alone, it
+// fills the slot's square) and natural height.
+struct RowSizes {
+    std::vector<float> ringSides, heights;
+};
+
+RowSizes rowSizes(const Slot& rows, Rect frame)
+{
+    RowSizes sizes;
+    for (const Row& r : rows) {
+        float others = 0;
+        for (const auto* items : { &r.items, &r.leading, &r.trailing })
+            for (const Item& item : *items)
+                if (!isRing(item)) others = std::max(others, heightOf(item, frame, 0));
+        float ringSide = others > 0 ? others : std::min(frame.width, frame.height);
+        float h = 0;
+        for (const auto* items : { &r.items, &r.leading, &r.trailing })
+            for (const Item& item : *items) h = std::max(h, heightOf(item, frame, ringSide));
+        sizes.ringSides.push_back(ringSide);
+        sizes.heights.push_back(h + listPadding(r));
+    }
+    return sizes;
+}
+
 } // namespace
 
-float fontSize(TextStyle style)
-{
-    const Tokens& t = tokens();
-    switch (style) {
-    case TextStyle::Title: return t.titleFontSize;
-    case TextStyle::Body: return t.bodyFontSize;
-    case TextStyle::Caption:
-    case TextStyle::Digits: return t.captionFontSize;
-    case TextStyle::Display: return t.displayFontSize;
-    }
-    return t.bodyFontSize;
-}
-
-float slotHeight(const Slot& slot, Rect frame)
-{
-    float total = 0;
-    for (const Row& r : slot) {
-        float others = 0, rings = 0;
-        for (const auto* items : { &r.items, &r.leading, &r.trailing })
-            for (const Item& item : *items) {
-                if (isRing(item)) rings = std::max(rings, std::min(frame.width, frame.height));
-                else others = std::max(others, heightOf(item, frame, 0));
-            }
-        total += (others > 0 ? others : rings) + listPadding(r);
-    }
-    return total + tokens().rowSpacing * static_cast<float>(slot.empty() ? 0 : slot.size() - 1);
-}
-
-float estimateTextWidth(const Text& text) { return std::ceil(static_cast<float>(text.value.size()) * fontSize(text.style) * 0.5f); }
+float slotHeight(const Slot& slot, Rect frame) { return planRows(slot, rowSizes(slot, frame).heights, {}).height; }
 
 void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, Ms now, std::vector<Placed>& out,
                const MeasureText& measure)
@@ -145,35 +87,20 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
     const Tokens& t = tokens();
     const Slot& rows = *slot.slot;
 
-    // A ring matches the other items in its row; alone, it fills the slot's square.
-    std::vector<float> ringSides;
-    for (const Row& r : rows) {
-        float others = 0;
-        for (const auto* items : { &r.items, &r.leading, &r.trailing })
-            for (const Item& item : *items)
-                if (!isRing(item)) others = std::max(others, heightOf(item, slot.frame, 0));
-        ringSides.push_back(others > 0 ? others : std::min(slot.frame.width, slot.frame.height));
-    }
-
-    std::vector<float> rowHeights;
-    float total = 0;
-    for (std::size_t i = 0; i < rows.size(); ++i) {
-        float h = 0;
-        for (const auto* items : { &rows[i].items, &rows[i].leading, &rows[i].trailing })
-            for (const Item& item : *items) h = std::max(h, heightOf(item, slot.frame, ringSides[i]));
-        h += listPadding(rows[i]);
-        rowHeights.push_back(h);
-        total += h;
-    }
-    total += t.rowSpacing * static_cast<float>(rows.empty() ? 0 : rows.size() - 1);
+    RowSizes sizes = rowSizes(rows, slot.frame);
+    // Lists windowed, scrolled, a row dragged (decision 029); the rest stacked.
+    RowPlan plan = planRows(rows, sizes.heights, { source.activityId, source.scrolls, source.listDrag });
+    float contentTop = slot.frame.y + (slot.frame.height - plan.height) / 2; // centred vertically
 
     // Places every row into `target` and returns each row's content span.
     // `spans`: the first pass's spans, for rows that match a neighbour's width.
     auto placeRows = [&](std::vector<Placed>& target, const std::vector<Rect>* spans) {
         std::vector<Rect> contentSpans;
-        float y = slot.frame.y + (slot.frame.height - total) / 2; // centred vertically
         for (size_t r = 0; r < rows.size(); ++r) {
             const Row& row = rows[r];
+            float y = contentTop + plan.rows[r].y;
+            std::optional<InList> list = plan.rows[r].list;
+            if (list) list->viewport = { slot.frame.x, contentTop + list->viewport.y, slot.frame.width, list->viewport.height };
             // Where this row lays out: the slot, or a neighbour's content span.
             Rect area = slot.frame;
             std::size_t neighbour = row.span == RowSpan::MatchAbove ? r - 1 : r + 1;
@@ -181,20 +108,22 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
                 area = { (*spans)[neighbour].x, slot.frame.y, (*spans)[neighbour].width, slot.frame.height };
             Rect background = area; // a list item's hover background spans the row; its content sits inside
             if (row.listItem) area = { area.x + t.listItemInset, area.y, std::max(0.0f, area.width - 2 * t.listItemInset), area.height };
-            float rowHeight = rowHeights[r], ringSide = ringSides[r];
+            float rowHeight = sizes.heights[r], ringSide = sizes.ringSides[r];
             float gap = row.loose ? t.looseItemSpacing : t.itemSpacing;
 
             // Keys number `items`, then `trailing`, then `leading`, so they stay stable as rows grow.
+            // A row with an id is named by it, so its visuals follow it when a list reorders.
+            std::string rowName = row.id.empty() ? std::to_string(r) : row.id;
             size_t first = target.size();
             auto place = [&](const Item& item, size_t index, float x, float w) {
                 float h = heightOf(item, slot.frame, ringSide);
                 Placed placed;
-                placed.key = slot.name + "/" + std::to_string(r) + "/" + std::to_string(index);
+                placed.key = slot.name + "/" + rowName + "/" + std::to_string(index);
                 placed.item = resolve(item, now, source);
                 placed.frame = { x, y + (rowHeight - h) / 2, w, h };
                 placed.cornerRadius = radiusFor(item, placed.frame, nestedRadius);
                 placed.accent = source.content ? source.content->accent : std::nullopt;
-                placed.scrollAction = row.scrollAction;
+                placed.list = list;
                 if (row.listItem) {
                     placed.listRow = Rect{ background.x, y, background.width, rowHeight };
                     placed.listRowRadius = std::min(nestedRadius, rowHeight / 2);
@@ -273,7 +202,9 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
             // A list item: its button takes clicks anywhere across the row's
             // `items` (Row::clickAnywhere). Edge items (a delete button) keep their own.
             std::size_t middle = row.items.size();
-            if (row.clickAnywhere && middle > 0) {
+            bool editing = std::any_of(target.begin() + static_cast<std::ptrdiff_t>(first), target.end(),
+                                       [](const Placed& p) { return std::holds_alternative<TextInput>(p.item); });
+            if (row.clickAnywhere && middle > 0 && !editing) { // while its text is edited, clicks go to the field
                 float left = target[first].hitFrame.x, right = left;
                 for (std::size_t i = first; i < first + middle; ++i) {
                     left = std::min(left, target[i].hitFrame.x);
@@ -287,7 +218,12 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
                         target[i].litByRow = row.listItem; // the lit row says it's clickable; a box inside it would double it
                     }
             }
-            y += rowHeight + t.rowSpacing;
+            // In a list: only what's inside its window can be pointed at.
+            if (list)
+                for (std::size_t i = first; i < target.size(); ++i) {
+                    target[i].hitFrame = clipped(target[i].hitFrame, list->viewport);
+                    if (target[i].listRow) target[i].listRow = clipped(*target[i].listRow, list->viewport);
+                }
         }
         return contentSpans;
     };

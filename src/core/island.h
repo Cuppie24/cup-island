@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cstdint>
 #include <deque>
+#include <map>
 #include <optional>
 #include <string>
 #include <variant>
@@ -62,9 +63,25 @@ struct Alert {
 struct Draft {
     std::string providerId;
     std::string activityId; // the card it's on (an activity's, or a dormant panel's)
-    std::string actionId;   // the TextInput's
+    std::string actionId;   // the TextInput's, or the edited Text's editAction
     std::string text;
+    bool editing = false;   // a Text edited in place (decision 029): Enter ends it, instead of emptying a field
     bool operator==(const Draft&) const = default;
+};
+
+// A card's scrolling list (decision 029), by "<activityId>/<list>".
+struct ListScroll {
+    float offset = 0;                  // px down from the list's top (clamped when shown)
+    std::optional<std::size_t> reveal; // a row the provider asked to keep in view (Host::reveal); the wheel clears it
+    bool operator==(const ListScroll&) const = default;
+};
+
+// A list row being dragged to a new place (decision 029).
+struct ListDrag {
+    std::string activityId, list;
+    std::size_t row = 0;   // its index in the list
+    float grabY = 0, y = 0; // the pointer's y (pill coordinates) when it was picked up, and now
+    bool operator==(const ListDrag&) const = default;
 };
 
 // A question a provider asks over its card (decision 020): "Clear all
@@ -110,13 +127,24 @@ struct PanelPublished { Panel panel; }; // existing id = replace, keeping its pl
 struct PanelRemoved { std::string id; };
 struct HomeOpened {};                   // Home tab (decision 009)
 struct TileClicked { std::string id; }; // a Home tile, not on a button: open its card
-struct InputFocused { std::string providerId, activityId, actionId; }; // a TextInput was clicked
+struct InputFocused {    // a TextInput was clicked, or an edit button (then `text` is what's edited)
+    std::string providerId, activityId, actionId;
+    std::string text;      // the draft starts with this
+    bool editing = false;  // a Text edited in place: Enter ends it
+};
 struct TextTyped { std::string text; };  // UTF-8, appended to the draft
 struct TextErased {};                    // Backspace: the last character
 struct InputSubmitted {};                // Enter: the app sent the text; the field empties and keeps focus
 struct InputCancelled {};                // Esc: stop typing, drop the draft
 struct DialogShown { Dialog dialog; };   // a provider asked (Host::ask)
 struct DialogClosed {};                  // answered or dismissed: the app sends confirmAction first if confirmed
+// The wheel over a list (decision 029): `from` is the offset shown (a reveal
+// included), `max` how far it can go (both from the scene).
+struct ListScrolled { std::string activityId, list; float from = 0, delta = 0, max = 0; };
+struct ListRevealed { std::string activityId, list; std::size_t row = 0; }; // Host::reveal
+struct ListDragStarted { std::string activityId, list; std::size_t row = 0; float y = 0; };
+struct ListDragMoved { float y = 0; };
+struct ListDragEnded {};                 // dropped (the app sends the move first) or cancelled
 // Local wall time at `now`, from the platform (the idle clock).
 struct ClockSynced {
     Ms timeOfDay;
@@ -131,7 +159,8 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            IslandPressed, IslandDragged, IslandReleased, ScreenResized, SpotRestored,
                            PanelPublished, PanelRemoved, HomeOpened, TileClicked, ClockSynced,
                            InputFocused, TextTyped, TextErased, InputSubmitted, InputCancelled,
-                           DialogShown, DialogClosed>;
+                           DialogShown, DialogClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,
+                           ListDragEnded>;
 
 // --- State --------------------------------------------------------------
 struct WallClock {
@@ -160,6 +189,8 @@ struct IslandState {
     std::optional<WallClock> clock;    // unknown until the platform syncs it
     std::optional<Draft> draft;        // a TextInput has focus (decision 016)
     std::optional<Dialog> dialog;      // a question over the shown card (decision 020)
+    std::map<std::string, ListScroll> scrolls; // lists' scroll, by "<activityId>/<list>" (decision 029)
+    std::optional<ListDrag> listDrag;  // a list row being dragged
     std::uint64_t nextStartOrder = 1;
 };
 

@@ -191,14 +191,12 @@ try {
 
     case WM_MOUSEWHEEL: {
         // Notches, positive = towards the user (down). Touchpads send fractions
-        // of a notch: they add up until a whole one is reached.
-        static int pending = 0;
-        pending -= GET_WHEEL_DELTA_WPARAM(wParam);
-        int steps = pending / WHEEL_DELTA;
-        pending -= steps * WHEEL_DELTA;
+        // of a notch as they go: passed on as they come, so lists glide with
+        // the fingers (decision 029).
+        float notches = -static_cast<float>(GET_WHEEL_DELTA_WPARAM(wParam)) / WHEEL_DELTA;
         POINT pt{ GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) }; // screen coordinates, unlike the other mouse messages
         ScreenToClient(hwnd, &pt);
-        if (steps != 0) call(g_callbacks.onWheel, pointFrom(MAKELPARAM(pt.x, pt.y)), steps);
+        if (notches != 0) call(g_callbacks.onWheel, pointFrom(MAKELPARAM(pt.x, pt.y)), notches);
         return 0;
     }
 

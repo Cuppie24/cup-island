@@ -5,6 +5,7 @@
 
 #include "core/layout.h"
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -16,6 +17,8 @@ struct Source {
     std::string providerId;
     std::string activityId;
     const Draft* draft = nullptr; // text being typed: fills a matching TextInput (decision 016)
+    const std::map<std::string, ListScroll>* scrolls = nullptr; // how its lists are scrolled (decision 029)
+    const ListDrag* listDrag = nullptr;                          // a list row being dragged
 };
 
 struct SlotFrame {

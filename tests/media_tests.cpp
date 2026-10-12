@@ -31,6 +31,10 @@ struct FakeHost : Host {
     void removePanel(const std::string& id) override { removedPanels.push_back(id); }
     void wakeAt(std::optional<Ms>) override {}
     void ask(Dialog) override {}
+    void reveal(const std::string&, const std::string&, std::size_t) override {}
+    std::string load(const std::string&) const override { return {}; }
+    void save(const std::string&, const std::string&) override {}
+    Ms wallClock() const override { return clock; }
 };
 
 MediaSnapshot track(const char* app, const char* title, bool playing = true)

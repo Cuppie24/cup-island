@@ -77,6 +77,7 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Checked: return L"\uE73A";   // CheckboxComposite
     case Glyph::Unchecked: return L"\uE739"; // Checkbox
     case Glyph::Delete: return L"\uE74D";
+    case Glyph::Edit: return L"\uE70F";
     case Glyph::OpenApp: return L"\uE8A7"; // OpenInNewWindow
     case Glyph::Settings: return L"\uE713";
     case Glyph::ChevronLeft: return L"\uE76B";

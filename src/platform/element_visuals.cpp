@@ -73,6 +73,7 @@ void ElementVisuals::init(wuc::Compositor const& compositor, GraphicsDevice& dev
     compositor_ = compositor;
     device_ = &device;
     parent_ = parent;
+    lists_.init(compositor, parent);
 }
 
 void ElementVisuals::apply(const std::vector<Placed>& elements, Ms now)
@@ -95,6 +96,8 @@ void ElementVisuals::apply(const std::vector<Placed>& elements, Ms now)
         if (fresh && placed.key == hovered_) showHover(hovered_, true); // rebuilt under the pointer
     }
 
+    lists_.prune(elements);
+
     // The GPU was reset mid-apply: the device is rebuilt, but every surface lost its pixels.
     if (deviceLost_)
         for (auto& [key, view] : views_)
@@ -103,8 +106,10 @@ void ElementVisuals::apply(const std::vector<Placed>& elements, Ms now)
 
 void ElementVisuals::refresh()
 {
-    for (auto& [key, view] : views_) parent_.Children().Remove(view.visual);
+    for (auto& [key, view] : views_)
+        if (auto parent = view.visual.Parent()) parent.Children().Remove(view.visual);
     views_.clear();
+    lists_.clear();
 }
 
 ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now)
@@ -161,10 +166,11 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now)
         }
         view.visual = sprite;
     }
-    view.visual.Offset(pixelOffset(placed.frame.x - view.lead, placed.frame.y));
+    place(view);
     view.visual.Size(toFloat2(pixelSize(visualSize)));
     view.visual.CenterPoint({ visualSize.x / 2, visualSize.y / 2, 0 });
-    parent_.Children().InsertAtTop(view.visual);
+    lists_.parentFor(placed).Children().InsertAtTop(view.visual);
+    if (placed.list) lists_.setGliding(view.visual, !placed.list->dragged); // after its first place: it appears there
 
     if (view.surface) paint(view);
     if (view.fill) armProgress(compositor_, view.fill, std::get<Progress>(placed.item).timeline, size.x, now);
@@ -183,17 +189,30 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     bool retyped = view.placed.item.index() != placed.item.index() || isRing(view.placed.item) != isRing(placed.item) ||
                    clickableArt(view.placed.item) != clickableArt(placed.item) ||
                    view.placed.accent != placed.accent;
-    bool moved = view.placed.frame.x != placed.frame.x || view.placed.frame.y != placed.frame.y;
+    // In a list, its place is in the list's scroller: scrolling moves the scroller, not it.
+    Vec2 was = lists_.positionOf(view.placed), at = lists_.positionOf(placed);
+    bool moved = was.x != at.x || was.y != at.y;
     bool changed = !(view.placed.item == placed.item);
-    if (resized || retyped || (changed && (swims(view.placed.item) || swims(placed.item)))) {
-        // A different kind of visual, a new size (tokens.json edits) or a new swimming string: rebuild it.
-        parent_.Children().Remove(view.visual);
+    bool relisted = view.placed.list.has_value() != placed.list.has_value() ||
+                    (placed.list && (view.placed.list->id != placed.list->id || view.placed.activityId != placed.activityId));
+    if (resized || retyped || relisted || (changed && (swims(view.placed.item) || swims(placed.item)))) {
+        // A different kind of visual, a new size (tokens.json edits), another list or a new swimming string: rebuild it.
+        if (auto parent = view.visual.Parent()) parent.Children().Remove(view.visual);
         view = create(placed, now);
         return true;
     }
     bool wasFocused = focusedField(view.placed.item);
+    bool wasDragged = view.placed.list && view.placed.list->dragged, dragged = placed.list && placed.list->dragged;
+    auto parent = lists_.parentFor(placed); // keeps the list's window and scroll in step
+    if (dragged != wasDragged) {
+        lists_.setGliding(view.visual, !dragged); // picked up: follows the pointer; let go: glides to its place
+        if (dragged) { // carried over the others
+            parent.Children().Remove(view.visual);
+            parent.Children().InsertAtTop(view.visual);
+        }
+    }
     view.placed = placed;
-    if (moved) view.visual.Offset(pixelOffset(placed.frame.x - view.lead, placed.frame.y));
+    if (moved) place(view);
     if (!changed) return false;
     if (view.highlight && focusedField(placed.item) != wasFocused) // focus came or went: background follows (or hover keeps it)
         fadeTo(compositor_, view.highlight, focusedField(placed.item) || placed.key == hovered_ ? 1.0f : 0.0f, tokens().hoverFadeDuration);
@@ -251,7 +270,15 @@ void ElementVisuals::fadeOutAndRemove(wuc::Visual const& visual)
     auto batch = compositor_.CreateScopedBatch(wuc::CompositionBatchTypes::Animation);
     fadeTo(compositor_, visual, 0.0f, tokens().contentFadeDuration / 2);
     batch.End();
-    batch.Completed([parent = parent_, visual](auto&&, auto&&) { parent.Children().Remove(visual); });
+    batch.Completed([visual](auto&&, auto&&) {
+        if (auto parent = visual.Parent()) parent.Children().Remove(visual); // the content, or a list's scroller
+    });
+}
+
+void ElementVisuals::place(View& view)
+{
+    Vec2 at = lists_.positionOf(view.placed);
+    view.visual.Offset(pixelOffset(at.x - view.lead, at.y));
 }
 
 // --- Pointer feedback ---------------------------------------------------------

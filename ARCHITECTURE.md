@@ -96,6 +96,10 @@ entries shown as widgets on Expanded's Home, not ranked into the pill.
 Widgets only inform (decision 019): no buttons; a click opens the card. Starting
 an activity with a panel's id makes it live; ending it makes it dormant again.
 Providers that change on a schedule ask `Host::wakeAt` and get `onWake()`.
+What a provider keeps between runs goes through `Host::load/save` (decision
+028): text under its own keys, in its own format; never its own files.
+Lists (`Row::list`, decision 029) are scrolled, reordered and edited by the
+host; the provider publishes every row and gets the result as actions.
 `providers/pomodoro/` is the reference panel.
 
 Providers decide *what* goes where (items, rows, order, alignment, which
@@ -187,6 +191,8 @@ over the file's, so `tokens()` is always what's on screen.
 | Island shadow: a DropShadow under the pill and the bubble, masked by a live snapshot of each (decision 018) | done; needs a Windows run to judge |
 | Dialogs over a card, scrolling lists, buttons shown on hover (decision 020) | done; rules tested, Windows side needs a run |
 | Pomodoro session survives a restart: saved with the wall clock, caught up on start (decision 027) | done; tested |
+| Providers' store: `Host::load/save/wallClock`, a file per key, legacy files moved in (decision 028) | done; tested |
+| Host lists: smooth scrolling, keep-in-view, drag to reorder, edit in place (decision 029) | done; rules tested, compositor side needs a Windows run |
 | Renderer: alert pulse, receptive drop zones, matched geometry | not yet |
 | Fullscreen detection (TR §9.2): borderless + exclusive, per monitor, maximized windows excluded | done; rules tested (`core/fullscreen`), hooks need Windows |
 | Real input for drag (OLE drop target) | not yet; the D key simulates it |

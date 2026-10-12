@@ -217,7 +217,12 @@ struct Tokens {
     Ms pomodoroBreak{ 300000 };
     Ms pomodoroLongBreak{ 900000 };
     std::size_t pomodoroRounds = 4;
-    std::size_t todoVisibleItems = 4; // Pomodoro's to-dos shown in its card; the rest as "+n more"
+    // Lists (Row::list, decision 029): the window shows this many rows (the
+    // half says there's more), the wheel moves scrollStep per notch, easing
+    // over scrollDuration; a press dragged dragStartDistance picks a row up.
+    float listVisibleRows = 4.5f;
+    float scrollStep = 40;
+    Ms scrollDuration{ 180 };
 
     // The Settings card's "Copy logs" button: how long it says "Copied" after a click.
     Ms logsNote{ 2000 };

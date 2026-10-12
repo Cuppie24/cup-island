@@ -1,6 +1,6 @@
 # 020: Dialogs, scrolling lists, and buttons shown on hover
 
-Status: Accepted
+Status: Accepted; scrolling superseded by 029 (the host scrolls lists)
 
 **Context.** Pomodoro's to-do list needed four things the island didn't
 have: scrolling past the first few tasks, a way to ask "are you sure?"

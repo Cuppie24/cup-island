@@ -6,6 +6,7 @@
 #include "providers/system/settings_provider.h"
 #include "providers/system/system_panels.h"
 
+#include <map>
 #include <vector>
 
 namespace cup::test {
@@ -25,6 +26,12 @@ struct PanelHost : Host {
     void removePanel(const std::string& id) override { removed.push_back(id); }
     void wakeAt(std::optional<Ms> at) override { wake = at; }
     void ask(Dialog) override {}
+    void reveal(const std::string&, const std::string&, std::size_t) override {}
+    std::map<std::string, std::string> store; // Host::load/save
+    std::map<std::string, int> saves;         // per key
+    std::string load(const std::string& key) const override { auto it = store.find(key); return it == store.end() ? "" : it->second; }
+    void save(const std::string& key, const std::string& text) override { store[key] = text; ++saves[key]; }
+    Ms wallClock() const override { return clock; }
 };
 
 std::string textAt(const Panel& p, std::size_t row, std::size_t item)
@@ -99,12 +106,13 @@ void runSystemTests()
     themed.themes = { { "Midnight", {} }, { "Grape", { { "islandColor", { 24, 9, 42 } } } }, { "Lime", {} } };
     setTokens(themed);
     PanelHost sh;
-    std::string stored = "Lime\r\n", applied;
+    std::string& stored = sh.store[SettingsProvider::kThemeKey];
+    stored = "Lime\r\n";
+    std::string applied;
     bool copyWorks = true;
-    int copies = 0, saves = 0, centred = 0;
-    SettingsProvider settings({ .loadTheme = [&] { return stored; },
-                                .saveTheme = [&](const std::string& name) { stored = name; ++saves; },
-                                .applyTheme = [&](const std::string& name) { applied = name; },
+    int copies = 0, centred = 0;
+    const int& saves = sh.saves[SettingsProvider::kThemeKey];
+    SettingsProvider settings({ .applyTheme = [&](const std::string& name) { applied = name; },
                                 .copyLogs = [&] { ++copies; return copyWorks; },
                                 .centreIsland = [&] { ++centred; } });
     settings.start(sh);
@@ -157,12 +165,12 @@ void runSystemTests()
 
     // Display picker (decision 023): "Main display", then each monitor, by name.
     std::vector<DisplayChoice> monitors{ { "A", "Home LCD" } };
-    std::string savedDisplay = "B\r\n", placed = "?";
-    int displaySaves = 0;
+    std::string& savedDisplay = sh.store[SettingsProvider::kDisplayKey];
+    savedDisplay = "B\r\n";
+    std::string placed = "?";
+    const int& displaySaves = sh.saves[SettingsProvider::kDisplayKey];
     SettingsProvider picker({ .copyLogs = [] { return true; },
                               .listDisplays = [&] { return monitors; },
-                              .loadDisplay = [&] { return savedDisplay; },
-                              .saveDisplay = [&](const std::string& id) { savedDisplay = id; ++displaySaves; },
                               .applyDisplay = [&](const std::string& id) { placed = id; } });
     picker.start(sh);
     expect(sh.published.back().content.expandedCenter.size() == 1 && placed.empty(),

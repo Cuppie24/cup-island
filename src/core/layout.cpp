@@ -21,8 +21,9 @@ Source sourceFor(const IslandState& s, Mode mode)
     if (mode != Mode::Expanded) return { &s.activities[0].content, s.activities[0].providerId, s.activities[0].id }; // the top one
     // Expanded shows the card that was opened: an activity's, else a dormant panel's (decision 009). Home has none.
     const Draft* draft = s.draft ? &*s.draft : nullptr; // fills its TextInput (decision 016)
-    if (const Activity* a = findActivity(s, s.expandedId)) return { &a->content, a->providerId, a->id, draft };
-    if (const Panel* p = findPanel(s, s.expandedId)) return { &p->content, p->providerId, p->id, draft };
+    const ListDrag* drag = s.listDrag ? &*s.listDrag : nullptr; // lists: decision 029
+    if (const Activity* a = findActivity(s, s.expandedId)) return { &a->content, a->providerId, a->id, draft, &s.scrolls, drag };
+    if (const Panel* p = findPanel(s, s.expandedId)) return { &p->content, p->providerId, p->id, draft, &s.scrolls, drag };
     return {};
 }
 
@@ -202,6 +203,20 @@ const Tile* tileAt(const Scene& scene, Vec2 point)
 {
     for (const Tile& tile : scene.tiles)
         if (tile.frame.contains(point)) return &tile;
+    return nullptr;
+}
+
+const Text* editedText(const Scene& scene, const std::string& activityId, const std::string& actionId)
+{
+    for (const Placed& p : scene.elements)
+        if (auto* text = std::get_if<Text>(&p.item); text && p.activityId == activityId && text->editAction == actionId) return text;
+    return nullptr;
+}
+
+const Placed* listAt(const Scene& scene, Vec2 point)
+{
+    for (const Placed& p : scene.elements)
+        if (p.list && p.list->viewport.contains(point)) return &p;
     return nullptr;
 }
 

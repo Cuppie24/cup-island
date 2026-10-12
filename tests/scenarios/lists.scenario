@@ -1,0 +1,45 @@
+# Lists on a card (decision 029): the wheel scrolls within what the scene
+# says is possible, a provider can ask to keep a row in view, a row is picked
+# up and carried only on the card that's shown, and an edit in place ends on Enter.
+
+scenario: the wheel scrolls from what's shown, within bounds
+start timer
+click
+wheel timer todos 0 30 100            -> scroll=timer/todos:30
+wheel timer todos 30 500 100          -> scroll=timer/todos:100   # no further than the end
+wheel timer todos 100 -400 100        -> scroll=timer/todos:0     # nor past the top
+
+scenario: a reveal holds until the wheel takes over
+start timer
+click
+reveal timer todos 7                  -> scroll=timer/todos:0+reveal
+wheel timer todos 120 -40 200         -> scroll=timer/todos:80   # from what the reveal showed
+
+scenario: a row is carried only on the card that's shown, and not under a dialog
+start timer
+pick timer todos 2 50                 -> carried=none            # not expanded
+click
+pick other todos 2 50                 -> carried=none            # not this card
+pick timer todos 2 50                 -> carried=2
+carry 90                              -> carried=2
+put-down                              -> carried=none Expanded
+pick timer todos 1 50
+ask timer                             -> carried=none dialog=timer
+
+scenario: the carried row goes with its card
+start timer
+start media
+click
+switch timer
+pick timer todos 0 10                 -> carried=0
+switch media                          -> carried=none
+
+scenario: an edit starts with the text, and Enter ends it
+start timer
+click
+edit timer todo.edit.3 Call           -> draft=Call
+type mum                              -> draft=Callmum
+submit                                -> draft=none Expanded     # a field would stay focused; an edit is done
+focus timer todo.add
+type next
+submit                                -> draft=empty             # the add field keeps focus

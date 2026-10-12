@@ -40,13 +40,13 @@ can't draw (PS §5.3), and nothing typed reached the island.
   row. A to-do ticks from its text too: the checkbox alone was a small
   target. Hovering anywhere on the row lights the checkbox.
 - **Centred cards grow to fit** their rows, from Expanded's size up to the
-  canvas (now 420×400). The provider caps its list (`todoVisibleItems`,
-  then "+n more"), so the tallest card still fits.
+  canvas (now 420×400). The list shows a window of a few rows, so the
+  tallest card still fits (now the host's scrolling list, decision 029).
 - **Pomodoro's list** (`providers/pomodoro/todo_list`): pure, tested. Under
   the timer on the running card, and on the dormant card too (now a
   centred card: ▶, the full focus time, the plan), so the list can be
-  made before starting. Saved on every change to
-  `%LOCALAPPDATA%\CupIsland\todos.txt`, one per line ("[x] " / "[ ] ").
+  made before starting. Saved on every change, one per line ("[x] " /
+  "[ ] "), now in the host's store (decision 028).
 
 **Consequences.** Rules in core (`island.cpp`, `slot_layout.cpp`), tested by
 `tests/scenarios/input.scenario` and `tests/todo_tests.cpp`. The platform

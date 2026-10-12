@@ -12,6 +12,19 @@
 
 namespace cup {
 
+// Where a Placed sits in a scrolling list (Row::list, decision 029).
+struct InList {
+    std::string id;          // the list's (Row::list)
+    std::size_t row = 0;     // its row's index in the list
+    Rect viewport;           // the list's window, pill coordinates: the renderer clips to it, smoothly scrolled
+    float offset = 0;        // how far the list is scrolled, as shown
+    float max = 0;           // how far it can scroll
+    std::string moveAction;  // its row's (Row::moveAction): it can be dragged to a new place
+    bool dragged = false;    // its row is being dragged: it follows the pointer at once, the rest ease aside
+    std::size_t dropAt = 0;  // dragged: the index it would land at if let go now
+    bool operator==(const InList&) const = default;
+};
+
 struct Placed {
     std::string key;    // "<slot>/<row>/<item>": stable across updates, so the renderer can diff
     Item item;          // TimeLabels arrive already formatted as Text
@@ -19,7 +32,7 @@ struct Placed {
     Rect hitFrame;      // clickable area: the frame plus half the gap to each neighbour, so there are no dead strips
     float cornerRadius = 0; // nested in the pill's corner (pill radius - padding), capped at half the frame
     std::optional<Color> accent; // the content's accent, for the renderer to tint live data (decision 010)
-    std::string scrollAction;    // its row's (Row::scrollAction): the wheel over it sends this
+    std::optional<InList> list;  // in a scrolling list: its frame and hit area are already scrolled (and clipped)
     std::optional<Rect> listRow; // its row is a list item (Row::listItem): lit here while the pointer is on the row
     float listRowRadius = 0;
     bool litByRow = false;       // the row's background is its hover: no shape of its own (a to-do's checkbox)
@@ -99,6 +112,12 @@ Rect interactiveBounds(const Scene& scene);
 // The pill's bottom corner radius at `size`: half the height, capped by
 // tokens().maxCornerRadius. The renderer draws the same curve.
 float pillCornerRadius(Vec2 size);
+
+// The text an edit button (Button::editsText, `actionId`) edits, if it's on the scene (decision 029).
+const Text* editedText(const Scene& scene, const std::string& activityId, const std::string& actionId);
+
+// The list element under `point` (pill coordinates), if any: what the wheel scrolls.
+const Placed* listAt(const Scene& scene, Vec2 point);
 
 // The Home tile under `point` (pill coordinates), if any.
 const Tile* tileAt(const Scene& scene, Vec2 point);

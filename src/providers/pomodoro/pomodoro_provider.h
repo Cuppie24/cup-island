@@ -6,14 +6,13 @@
 // Pure: the countdown is host-driven (a Timeline), phase ends come from
 // Host::wakeAt, so it builds and tests on any OS. It keeps a to-do list
 // under the timer (decision 016), and a running session survives a restart
-// (decision 027); saving both is handed in, so it stays out of the pure code.
+// (decision 027); both are kept in the host's store (decision 028).
 
 #include "core/provider.h"
 #include "providers/pomodoro/pomodoro_session.h"
 #include "providers/pomodoro/todo_list.h"
 
 #include <cstddef>
-#include <functional>
 #include <optional>
 #include <string>
 
@@ -27,21 +26,8 @@ inline constexpr const char* kStop = "stop";                   // only asks (sto
 inline constexpr const char* kStopConfirmed = "stop.confirmed";
 } // namespace pomodoro_action
 
-// Where Pomodoro keeps things between runs, as text: the to-do list
-// (TodoList::save), and the session (saveSession: "" when there's none),
-// with the wall clock it's stamped with. Any part may be missing (tests).
-struct PomodoroStorage {
-    std::function<std::string()> loadTodos;
-    std::function<void(const std::string&)> saveTodos;
-    std::function<std::string()> loadSession;
-    std::function<void(const std::string&)> saveSession;
-    std::function<Ms()> wallClock; // ms since the epoch
-};
-
 class PomodoroProvider : public Provider {
 public:
-    explicit PomodoroProvider(PomodoroStorage storage = {}) : storage_(std::move(storage)) {}
-
     const char* id() const override { return "pomodoro"; }
     void start(Host& host) override; // publishes the dormant panel, and resumes a saved session
     void stop() override;            // ends a running session, removes the panel
@@ -49,6 +35,9 @@ public:
     void onWake() override;          // the current phase's time is up
 
     static constexpr const char* kPanelId = "pomodoro.focus"; // the panel and its activity
+    // Its store keys (Host::load/save): the list (TodoList::save), the session (saveSession; "" = none).
+    static constexpr const char* kTodosKey = "todos";
+    static constexpr const char* kSessionKey = "session";
 
     using Phase = PomodoroPhase;
     using Session = PomodoroSession;
@@ -58,19 +47,16 @@ private:
     void advance(bool alert);                   // to the next phase, or the end
     void finish();                              // no session any more: dormant panel
     void publish();                             // activity content + the wake-up for the phase end; saves the session
-    void showTodos(bool save = true);           // the list (or its scroll) changed: save it, show it on whichever card is up
+    void showTodos();                           // the list changed: save it, show it on whichever card is up
 
     Host* host_ = nullptr;
     std::optional<Session> session_;
     TodoList todos_;
-    std::size_t todoScroll_ = 0; // the first to-do in the card's window (decision 020)
-    PomodoroStorage storage_;
 };
 
 // Content, pure (tested on its own): the dormant panel, and a running session.
-// `scroll`: the first to-do in the list's window.
-Panel pomodoroPanel(const TodoList& todos = {}, std::size_t scroll = 0);
-Content pomodoroContent(const PomodoroProvider::Session& session, const TodoList& todos = {}, std::size_t scroll = 0);
+Panel pomodoroPanel(const TodoList& todos = {});
+Content pomodoroContent(const PomodoroProvider::Session& session, const TodoList& todos = {});
 // The question the stop button asks before ending a running session.
 Dialog stopQuestion(const PomodoroProvider::Session& session);
 

@@ -21,13 +21,12 @@ clock, which starts over every run, so it can't simply be written down.
   - A clock set back counts as no time passed. Unreadable text is ignored.
 - The phase sequence (`followingPhase`) is shared by the live timer and the
   catch-up, so they can't disagree.
-- Storage and the wall clock are handed in by the app (`PomodoroStorage`,
-  `pomodoro.txt` next to `todos.txt`), like the to-do list, so the provider
-  stays pure and the catch-up is tested on Linux.
+- It's kept in the host's store under "session", with the store's wall
+  clock (`Host::load/save/wallClock`, decision 028), so the provider stays
+  pure and the catch-up is tested on Linux.
 
 **Consequences.** `tests/pomodoro_tests.cpp` runs two app lifetimes with a
 fake wall clock. The current phase keeps its saved duration; phases after it
 use tokens.json's at the time.
 
-**Open.** No "while you were away" summary. If more providers need to save
-things, a shared store on `Host` could replace each one's hand-in.
+**Open.** No "while you were away" summary.

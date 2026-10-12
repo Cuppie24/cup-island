@@ -42,6 +42,19 @@ public:
     // (decision 020). On confirm the provider gets Action{dialog.confirmAction};
     // Cancel, Esc or the card closing just dismisses it.
     virtual void ask(Dialog dialog) = 0;
+
+    // Scrolls a list on this provider's card (Row::list) just enough to show
+    // its `row`th row, now and as long as the user doesn't scroll it (decision 029).
+    virtual void reveal(const std::string& activityId, const std::string& list, std::size_t row) = 0;
+
+    // Whatever the provider keeps between runs (decision 028): text under a
+    // key, its own (keys are per provider; the format is the provider's).
+    // Keys: letters, digits, '-', '_'. "" = nothing saved.
+    virtual std::string load(const std::string& key) const = 0;
+    virtual void save(const std::string& key, const std::string& text) = 0;
+    // Wall time (ms since the epoch), for what must mean the same moment
+    // after a restart; now() starts over with each run.
+    virtual Ms wallClock() const = 0;
 };
 
 class Provider {
