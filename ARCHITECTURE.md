@@ -41,7 +41,7 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 tokens.h (+ tokens_json.h, json_reader.h), easing.h
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
-                per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
+                per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules and the media widget, SMTC provider for real Windows media),
                 pomodoro/ (the first panel), system/ (Home's theme, Bluetooth and Settings widgets:
@@ -215,4 +215,5 @@ over the file's, so `tokens()` is always what's on screen.
 | Log file, Copy logs (in Settings), hang/crash minidumps, exit without deadlock (decision 013) | done; button rules tested, the rest needs Windows |
 | Settings widget, app themes (dark and light) from tokens.json, saved per user (decision 022) | done; rules tested, visuals need Windows |
 | Settings as a list: Theme and Display pages of choices, Start with Windows on by default, stays open on a near miss (decision 030) | done; rules tested, visuals need Windows |
-| Keyboard: arrows move focus on cards and Home, Enter/Space click, shortcut table (Ctrl+X: Home) listed in Settings (decision 031) | done; navigation tested, key handling needs Windows |
+| Keyboard: arrows move focus on cards and Home, Enter/Space click (decision 031) | done; navigation tested, key handling needs Windows |
+| System-wide shortcuts (Ctrl+Alt+Space: Home), rebindable in Settings, a change aborted on any conflict (decision 032) | done; rules tested, registration needs Windows |

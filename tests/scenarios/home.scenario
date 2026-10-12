@@ -106,7 +106,7 @@ click
 tile settings
 wait 8000                           -> Idle
 
-scenario: Ctrl+X opens Home from anywhere the island has focus (decision 031)
+scenario: the Open Home shortcut (Ctrl+Alt+Space) opens Home from anywhere (decision 032)
 panel focus
 home                                -> Expanded expanded=home
 esc                                 -> Idle

@@ -1,6 +1,6 @@
 # 031: Keyboard navigation and shortcuts
 
-Status: Accepted
+Status: Accepted; shortcuts superseded by 032 (system-wide, rebindable, Ctrl+Alt+Space)
 
 **Context.** Everything on the island needed the pointer. Settings (decision
 030) became a list of rows and a page of themes, which people expect to walk

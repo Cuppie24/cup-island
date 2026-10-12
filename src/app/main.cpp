@@ -8,9 +8,9 @@
 // app theme, display, Start with Windows and Copy logs, decisions 022, 030). Press and hold the pill to lift it
 // and move it along the top edge (decision 026).
 //
-// Keys (click the pill first so it has keyboard focus; decision 031): the
-// arrows move between a card's controls and Home's widgets, Enter or Space
-// clicks, Ctrl+X opens Home (core/shortcuts.h, listed in Settings).
+// Keys (decision 031): Ctrl+Alt+Space opens Home from anywhere (system-wide,
+// changeable in Settings, decision 032). On the island, the arrows move
+// between a card's controls and Home's widgets, Enter or Space clicks.
 // Demo keys:
 //   M  toggle the demo music player (real media shows by itself)
 //   T  toggle a second activity (Split). Click the bubble to open it, or drag
@@ -31,6 +31,7 @@
 #include "core/tabs.h"
 #include "core/tokens.h"
 #include "platform/file_watcher.h"
+#include "platform/hotkeys.h"
 #include "platform/wall_clock.h"
 #include "platform/fullscreen_watcher.h"
 #include "platform/log.h"
@@ -104,6 +105,7 @@ struct Pointer {
 // pointer move hands the lead back.
 std::string g_keyFocus;
 std::optional<Vec2> g_lastPointer; // render-layer point of the last move, to tell a real move from a repeat
+bool g_capturingKeys = false;      // Settings is waiting for a shortcut's new keys (decision 032)
 
 // Pointer callbacks get render-layer points; content works in pill coordinates.
 Vec2 toPill(Vec2 point) { return { point.x - g_scene.offset.x, point.y - g_scene.offset.y }; }
@@ -572,15 +574,62 @@ void activateKeyFocus()
     }
 }
 
+// A system-wide shortcut was pressed (decision 032). The island comes to
+// the front with it (Windows allows that to whoever gets a hotkey), so the
+// arrows work at once and a click elsewhere closes it like any other time.
 void runCommand(Command command)
 {
     switch (command) {
-    case Command::OpenHome: dispatch(HomeOpened{}, "shortcut"); break;
+    case Command::OpenHome:
+        if (g_state.homeOpen) { // pressed again: it closes, like Esc
+            dispatch(EscapePressed{}, "shortcut");
+            return;
+        }
+        dispatch(HomeOpened{}, "shortcut");
+        if (g_state.homeOpen) SetForegroundWindow(g_inputHwnd);
+        return;
     }
+}
+
+void onHotkey(WPARAM id)
+{
+    auto command = hotkeyCommand(id);
+    if (!command) return;
+    // Recording a shortcut, a registered one's keys arrive here instead of
+    // onKey: they're what was pressed (its own: no change; another's: a conflict).
+    if (g_capturingKeys && g_settings) {
+        g_settings->shortcutPressed(*command);
+        dispatch(PointerMoved{}, "shortcut keys");
+        return;
+    }
+    runCommand(*command);
+}
+
+// Settings is recording a shortcut: the next key is its new keys, Esc leaves
+// it. A modifier on its own is part of what's being pressed: wait for more.
+void recordKey(WPARAM key)
+{
+    if (!g_settings) {
+        g_capturingKeys = false;
+        return;
+    }
+    bool settingsShown = !g_state.homeOpen && g_state.expandedId == SettingsProvider::kPanelId;
+    if (!settingsShown || key == VK_ESCAPE) {
+        g_settings->keysPressed(std::nullopt);
+    } else if (auto chord = chordPressed(key)) {
+        g_settings->keysPressed(chord);
+    } else {
+        return;
+    }
+    dispatch(PointerMoved{}, "shortcut keys"); // busy here: keep the card open
 }
 
 void onKey(WPARAM key)
 {
+    if (g_capturingKeys) {
+        recordKey(key);
+        return;
+    }
     // A dialog: Esc cancels it, the card stays (decision 020).
     if (g_state.dialog) {
         if (key == VK_ESCAPE) answerDialog(false);
@@ -592,14 +641,9 @@ void onKey(WPARAM key)
         if (key == VK_ESCAPE) dispatch(InputCancelled{}, "esc");
         return;
     }
-    // Shortcuts (decision 031): one table in core, also listed in Settings.
-    bool ctrl = GetKeyState(VK_CONTROL) < 0, shift = GetKeyState(VK_SHIFT) < 0, alt = GetKeyState(VK_MENU) < 0;
-    bool letterOrDigit = (key >= 'A' && key <= 'Z') || (key >= '0' && key <= '9');
-    if (letterOrDigit)
-        if (auto command = commandFor({ .key = static_cast<char>(key), .ctrl = ctrl, .shift = shift, .alt = alt })) {
-            runCommand(*command);
-            return;
-        }
+    // Alt combinations (WM_SYSKEYDOWN) are only for recording a shortcut; Windows handles the rest (Alt+F4).
+    bool ctrl = GetKeyState(VK_CONTROL) < 0, alt = GetKeyState(VK_MENU) < 0;
+    if (alt) return;
     switch (key) {
     case VK_UP: moveKeyFocus(Arrow::Up); return;
     case VK_DOWN: moveKeyFocus(Arrow::Down); return;
@@ -612,7 +656,7 @@ void onKey(WPARAM key)
         else DestroyWindow(g_inputHwnd);
         return;
     }
-    if (ctrl || alt) return; // the demo keys are plain letters: Ctrl+M isn't M
+    if (ctrl) return; // the demo keys are plain letters: Ctrl+M isn't M
     switch (key) {
     case 'M': toggleProvider("demo"); break;
     case 'T': toggleTimer(); break;
@@ -771,6 +815,7 @@ int main()
         updateHover();
     };
     callbacks.onKeyDown = onKey;
+    callbacks.onHotkey = onHotkey;
     callbacks.onChar = onChar;
     callbacks.onDpiChanged = onDpiChanged;
     callbacks.onWheel = onWheel;
@@ -822,6 +867,8 @@ int main()
         .centreIsland = [] { dispatch(SpotRestored{}, "centre island"); },
         .startsWithWindows = startsWithWindows,
         .setStartsWithWindows = setStartsWithWindows,
+        .bindHotkey = [](Command command, const Chord& chord) { return registerHotkey(g_inputHwnd, command, chord); },
+        .captureKeys = [](bool on) { g_capturingKeys = on; },
     });
     g_settings = settings.get();
     g_providers->add(std::move(settings));

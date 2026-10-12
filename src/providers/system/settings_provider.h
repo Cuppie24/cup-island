@@ -7,6 +7,7 @@
 // and the clipboard are the app's (handed in), so this stays pure and is tested on Linux.
 
 #include "core/provider.h"
+#include "core/shortcuts.h"
 
 #include <functional>
 #include <optional>
@@ -31,6 +32,12 @@ struct SettingsHooks {
     std::function<void()> centreIsland;                  // back to the middle of the top edge (decision 026)
     std::function<bool()> startsWithWindows;             // read each time: Task Manager may have changed it
     std::function<void(bool)> setStartsWithWindows;
+    // System-wide shortcuts (decision 032): registers `chord` for `command`
+    // in place of what it had; false if Windows refused (another app has it).
+    std::function<bool(Command, const Chord&)> bindHotkey;
+    // On: the app sends the next key pressed on the island to keysPressed()
+    // instead of acting on it. Off again once one arrives, or on cancel.
+    std::function<void(bool)> captureKeys;
 };
 
 enum class LogsNote { Ready, Copied, Failed }; // what the Copy logs button says
@@ -46,6 +53,9 @@ struct SettingsView {
     std::size_t display = 0;            // the one the island is on
     std::optional<bool> startsWithWindows; // nothing: the app can't tell, no row
     LogsNote note = LogsNote::Ready;
+    Bindings shortcuts = defaultBindings(); // what each command is bound to
+    std::optional<Command> recording;       // waiting for new keys for this one
+    std::string shortcutNote;               // under the shortcuts: "Press the new keys…", or why one wasn't changed
 };
 
 // The widget and its card.
@@ -71,6 +81,13 @@ public:
 
     // tokens.json was reloaded: its themes may have changed (one renamed, removed).
     void refresh();
+    // A key pressed while captureKeys is on: the new keys for the shortcut
+    // being changed, or nothing (Esc) to leave it. A chord that can't be bound
+    // (no Ctrl/Alt/Win, another command's, taken by another app) changes nothing.
+    void keysPressed(const std::optional<Chord>& chord);
+    // While recording, a command's own registered keys were pressed (they
+    // reach the app as that hotkey, not as keys): the same as pressing them.
+    void shortcutPressed(Command command) { keysPressed(chordOf(shortcuts_, command)); }
     // Monitors were plugged, unplugged or rearranged: re-list them and put the
     // island back where it was picked (or on the main display if that's gone).
     void refreshDisplays();
@@ -82,6 +99,7 @@ public:
     static constexpr const char* kThemeKey = "theme";
     static constexpr const char* kDisplayKey = "display";
     static constexpr const char* kAutostartKey = "autostart";
+    static constexpr const char* kShortcutsKey = "shortcuts"; // saveBindings' text
     // Actions. A choice's action is its prefix and its index in the page's list.
     static constexpr const char* kOpenThemes = "theme.open";
     static constexpr const char* kOpenDisplays = "display.open";
@@ -89,6 +107,7 @@ public:
     static constexpr const char* kBack = "settings.back";
     static constexpr const char* kPickTheme = "theme.pick:";
     static constexpr const char* kPickDisplay = "display.pick:";
+    static constexpr const char* kEditShortcut = "shortcut.edit:"; // + its index in commands()
     static constexpr const char* kToggleAutostart = "autostart.toggle";
     static constexpr const char* kCopyLogs = "logs.copy";
     static constexpr const char* kCentreIsland = "island.centre";
@@ -104,6 +123,7 @@ private:
     void open(SettingsPage page);         // a choice page, scrolled to what's picked
     SettingsView view() const;
     void publish();
+    void stopRecording();
 
     SettingsHooks hooks_;
     Host* host_ = nullptr;
@@ -113,6 +133,9 @@ private:
     std::string wantedDisplay_;  // the user's pick, kept while its monitor is unplugged
     std::string appliedDisplay_; // where the island is: wantedDisplay_ if connected, else "" (main)
     LogsNote note_ = LogsNote::Ready;
+    Bindings shortcuts_;
+    std::optional<Command> recording_;
+    std::string shortcutNote_;
 };
 
 } // namespace cup

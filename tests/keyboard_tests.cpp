@@ -1,5 +1,5 @@
 // Keyboard navigation and shortcuts (decision 031): where the arrows go on
-// the Settings card, its theme page and Home, and what Ctrl+X means.
+// the Settings card, its theme page and Home, and the shortcuts (decision 032).
 
 #include "core/hit_test.h"
 #include "core/keyboard.h"
@@ -93,10 +93,21 @@ void runKeyboardTests()
     expect(!toTab || toTab->id.rfind("tab:", 0) == 0, "home: below the tiles, only the tabs");
     expect(tileAt(grid, f->point) && tileAt(grid, f->point)->id == "b", "home: a tile's point is on the tile");
 
-    // Shortcuts: one table for what keys do and what Settings lists.
-    expect(commandFor({ .key = 'X', .ctrl = true }) == Command::OpenHome, "shortcuts: Ctrl+X opens Home");
-    expect(!commandFor({ .key = 'X' }) && !commandFor({ .key = 'X', .ctrl = true, .shift = true }), "shortcuts: only the exact chord");
-    expect(!shortcuts().empty() && shortcuts()[0].keys == "Ctrl+X", "shortcuts: listed for Settings");
+    // Shortcuts (decision 032): system-wide, rebindable, saved as text.
+    Chord openHome = chordOf(defaultBindings(), Command::OpenHome);
+    expect(chordText(openHome) == "Ctrl+Alt+Space", "shortcuts: Open Home is Ctrl+Alt+Space");
+    expect(parseChord("Ctrl+Alt+Space") == openHome && parseChord(" ctrl + shift + f5 ") == Chord{ .key = kF1 + 4, .ctrl = true, .shift = true } &&
+           parseChord("Win+K") == Chord{ .key = 'K', .win = true }, "shortcuts: the text form reads back");
+    expect(!parseChord("Ctrl+Enter") && !parseChord("Hyper+X") && !parseChord("Ctrl+") && !parseChord(""), "shortcuts: anything else isn't a chord");
+    Bindings reloaded = loadBindings(saveBindings({ { Command::OpenHome, { .key = 'H', .ctrl = true, .alt = true } } }));
+    expect(chordText(chordOf(reloaded, Command::OpenHome)) == "Ctrl+Alt+H", "shortcuts: saved and loaded");
+    expect(loadBindings("home=Nonsense\nother=Ctrl+Alt+X\n") == defaultBindings() && loadBindings("home=K") == defaultBindings(),
+           "shortcuts: what can't be read, or bound, stays the default");
+    expect(bindingProblem(defaultBindings(), Command::OpenHome, { .key = 'K' }) == "A shortcut needs Ctrl, Alt or Win" &&
+           bindingProblem(defaultBindings(), Command::OpenHome, { .key = 'K', .shift = true }) == "A shortcut needs Ctrl, Alt or Win" &&
+           bindingProblem(defaultBindings(), Command::OpenHome, { .key = 'K', .win = true }).empty() &&
+           bindingProblem(defaultBindings(), Command::OpenHome, openHome).empty(),
+           "shortcuts: system-wide needs Ctrl, Alt or Win; its own keys are no conflict");
 
     setTokens(saved);
 }

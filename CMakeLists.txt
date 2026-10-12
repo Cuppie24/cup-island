@@ -117,6 +117,7 @@ if(WIN32)
         src/platform/file_watcher.cpp
         src/platform/fullscreen_watcher.cpp
         src/platform/graphics_device.cpp
+        src/platform/hotkeys.cpp
         src/platform/interaction_layer.cpp
         src/platform/log.cpp
         src/platform/liquid_bridge.cpp

@@ -54,6 +54,14 @@ void SettingsProvider::start(Host& host)
         hooks_.setStartsWithWindows(true);
         host_->save(kAutostartKey, "on");
     }
+    // Shortcuts (decision 032): the saved keys, registered system-wide. One
+    // another app already has stays as saved, and the page says so.
+    shortcuts_ = loadBindings(host_->load(kShortcutsKey));
+    recording_.reset();
+    shortcutNote_.clear();
+    if (hooks_.bindHotkey)
+        for (const Binding& b : shortcuts_)
+            if (!hooks_.bindHotkey(b.command, b.chord)) shortcutNote_ = chordText(b.chord) + " is taken by another app";
     displays_ = hooks_.listDisplays ? hooks_.listDisplays() : std::vector<DisplayChoice>{};
     wantedDisplay_ = trimmed(host_->load(kDisplayKey));
     placeIsland();
@@ -63,6 +71,7 @@ void SettingsProvider::start(Host& host)
 void SettingsProvider::stop()
 {
     if (!host_) return;
+    stopRecording();
     host_->wakeAt(std::nullopt);
     host_->removePanel(kPanelId);
     host_ = nullptr;
@@ -80,6 +89,8 @@ void SettingsProvider::onAction(const Action& action)
         publish();
     }
     else if (id == kBack) {
+        stopRecording();
+        shortcutNote_.clear();
         page_ = SettingsPage::List;
         publish();
     } else if (auto at = choiceIndex(id, kPickTheme)) {
@@ -91,6 +102,13 @@ void SettingsProvider::onAction(const Action& action)
         }
     } else if (auto at = choiceIndex(id, kPickDisplay)) {
         if (*at <= displays_.size()) pickDisplay(*at == 0 ? std::string() : displays_[*at - 1].id); // 0: "Main display"
+    } else if (auto at = choiceIndex(id, kEditShortcut)) {
+        if (*at < commands().size() && hooks_.captureKeys) {
+            recording_ = commands()[*at].command;
+            shortcutNote_ = "Press the new keys, or Esc to cancel";
+            hooks_.captureKeys(true);
+            publish();
+        }
     } else if (id == kToggleAutostart && hooks_.startsWithWindows && hooks_.setStartsWithWindows) {
         bool on = !hooks_.startsWithWindows();
         hooks_.setStartsWithWindows(on);
@@ -131,6 +149,36 @@ void SettingsProvider::open(SettingsPage page)
     }
 }
 
+void SettingsProvider::keysPressed(const std::optional<Chord>& chord)
+{
+    if (!host_ || !recording_) return;
+    Command command = *recording_;
+    stopRecording();
+    shortcutNote_.clear();
+    Chord was = chordOf(shortcuts_, command);
+    if (chord && *chord != was) {
+        // Abort on any conflict: the old keys stay, and the note says why.
+        if (std::string problem = bindingProblem(shortcuts_, command, *chord); !problem.empty()) {
+            shortcutNote_ = problem;
+        } else if (hooks_.bindHotkey && !hooks_.bindHotkey(command, *chord)) {
+            hooks_.bindHotkey(command, was); // back to the old keys
+            shortcutNote_ = chordText(*chord) + " is taken by another app";
+        } else {
+            for (Binding& b : shortcuts_)
+                if (b.command == command) b.chord = *chord;
+            host_->save(kShortcutsKey, saveBindings(shortcuts_));
+        }
+    }
+    publish();
+}
+
+void SettingsProvider::stopRecording()
+{
+    if (!recording_) return;
+    recording_.reset();
+    if (hooks_.captureKeys) hooks_.captureKeys(false);
+}
+
 void SettingsProvider::onWake()
 {
     if (!host_) return;
@@ -162,7 +210,7 @@ void SettingsProvider::placeIsland()
 
 SettingsView SettingsProvider::view() const
 {
-    SettingsView v{ .page = page_, .theme = theme_, .note = note_ };
+    SettingsView v{ .page = page_, .theme = theme_, .note = note_, .shortcuts = shortcuts_, .recording = recording_, .shortcutNote = shortcutNote_ };
     if (displays_.size() >= 2) { // one monitor: nothing to choose
         v.displays.push_back(kMainDisplayName);
         for (std::size_t i = 0; i < displays_.size(); ++i) {

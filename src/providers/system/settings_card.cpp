@@ -77,12 +77,27 @@ Slot displaysPage(const SettingsView& v)
     return card;
 }
 
-// The keys, and what each does: read-only, from core's one table.
-Slot shortcutsPage()
+// The shortcuts (decision 032): the system-wide ones, each a row that takes
+// new keys when clicked, then the fixed keys on the island, then a note
+// (waiting for keys, or why a change was refused).
+Slot shortcutsPage(const SettingsView& v)
 {
     Slot card{ pageTitle("Keyboard shortcuts") };
-    for (const Shortcut& s : shortcuts())
-        card.push_back(row({ Text{ s.keys }, Text{ .value = s.does, .style = TextStyle::Caption, .alignEnd = true } }));
+    auto heading = [&](const char* text) { card.push_back(row({ Text{ .value = text, .style = TextStyle::Caption } })); };
+    heading("Anywhere");
+    const auto& all = commands();
+    for (std::size_t i = 0; i < all.size(); ++i) {
+        bool waiting = v.recording == all[i].command;
+        std::string keys = waiting ? "Press keys…" : chordText(chordOf(v.shortcuts, all[i].command));
+        card.push_back(Row{ .items = { Text{ all[i].does }, Text{ .value = keys, .style = TextStyle::Caption, .alignEnd = true },
+                                       Button{ .glyph = Glyph::Edit, .actionId = P::kEditShortcut + std::to_string(i), .compact = true } },
+                            .clickAnywhere = true,
+                            .listItem = true });
+    }
+    heading("On the island");
+    for (const FixedKey& k : fixedKeys())
+        card.push_back(row({ Text{ k.does }, Text{ .value = k.keys, .style = TextStyle::Caption, .alignEnd = true } }));
+    if (!v.shortcutNote.empty()) card.push_back(row({ Text{ .value = v.shortcutNote, .style = TextStyle::Caption, .centred = true } }));
     return card;
 }
 
@@ -115,7 +130,7 @@ Panel settingsPanel(const SettingsView& view)
         .keepOpen = true,
         .expandedCenter = view.page == SettingsPage::Themes      ? themesPage(view)
                           : view.page == SettingsPage::Displays  ? displaysPage(view)
-                          : view.page == SettingsPage::Shortcuts ? shortcutsPage()
+                          : view.page == SettingsPage::Shortcuts ? shortcutsPage(view)
                                                                  : listPage(view),
         .tile = { row({ Icon{ Glyph::Settings } }), row({ Text{ "Settings" } }) },
     };
