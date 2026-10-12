@@ -17,8 +17,10 @@ threw the user out.
   and Centre island stay as buttons under it.
 - **Theme and Display open a page of choices**, one shared look (a select):
   a title with a back arrow, then every choice as a list item, the current
-  one ticked. A pick applies, is saved and goes back to the list; the back
-  arrow changes nothing. The page is a host list (`Row::list`, decision 029),
+  one ticked. A pick applies and is saved. A theme's page stays open, the
+  tick moved: the island recolours at once, so it's the preview, and trying
+  themes one after another is a click each. A display pick goes back to the
+  list (there's nothing to compare). The back arrow changes nothing. The page is a host list (`Row::list`, decision 029),
   so it scrolls, and it opens scrolled to what's picked (`Host::reveal`).
   The card stays one card: pages are what the provider publishes, so
   nothing new in the host. The page isn't reset when the card closes (the

@@ -154,8 +154,12 @@ void runSystemTests()
            "themes: one scrolling list, the picked one ticked");
     expect(sh.revealed == std::string(SettingsProvider::kThemeList) + "@3", "themes: scrolled to the picked one");
     press(std::string(SettingsProvider::kPickTheme) + "1");
-    expect(applied == "Paper" && stored == "Paper" && saves == 1 && cardText(sh.published.back(), 0) == "Theme" &&
-           cardItem(sh.published.back(), 0, 1) == "Paper", "themes: a pick applies, saves and goes back to the list");
+    const Slot& picked = sh.published.back().content.expandedCenter;
+    expect(applied == "Paper" && stored == "Paper" && saves == 1 && picked.size() == 7 &&
+           std::get<Button>(picked[6].items[2]).glyph == Glyph::Checked && std::get<Button>(picked[4].items[2]).glyph == Glyph::Unchecked,
+           "themes: a pick applies and saves, and the page stays, the tick moved: the island is the preview");
+    press(SettingsProvider::kBack);
+    expect(cardText(sh.published.back(), 0) == "Theme" && cardItem(sh.published.back(), 0, 1) == "Paper", "themes: back shows the list, with the pick");
     press(SettingsProvider::kOpenThemes);
     press(SettingsProvider::kBack);
     press(std::string(SettingsProvider::kPickTheme) + "9");

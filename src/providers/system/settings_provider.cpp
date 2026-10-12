@@ -79,9 +79,9 @@ void SettingsProvider::onAction(const Action& action)
         page_ = SettingsPage::List;
         publish();
     } else if (auto at = choiceIndex(id, kPickTheme)) {
-        // A pick closes the page, like any select: the island, recoloured, is the preview.
+        // The page stays: the island, recoloured at once, is the preview, so
+        // trying one theme after another is a click each (decision 030).
         if (*at < themes.size()) {
-            page_ = SettingsPage::List;
             pick(themes[*at].name);
             host_->save(kThemeKey, theme_);
         }
