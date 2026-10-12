@@ -54,11 +54,18 @@ whole row.
   leaves it. Rows with nothing to click (Settings' list of keys, which now
   scrolls: it had grown to the canvas's height) come into view this way.
   A focused row scrolled out of its window has no ring.
+- **Dialogs take the keys** (decision 020 had only Esc): the arrows, Tab,
+  Home/End and Enter/Space move between Cancel and the answer and press
+  one. Focus stays in the dialog, as in any dialog: the tabs and Home
+  behind it aren't stops, and Ctrl and Alt keys do nothing while it's up.
+  The first press shows focus on Cancel, the first button, so a stray
+  Enter answers nothing; Pomodoro's Ctrl+W (decision 034) is answered
+  without the pointer.
 - **The demo keys (M, T, C, D, H) are Debug builds only.** They fake states
   for development; in Release a stray key on the island did odd things.
 
 **Consequences.** The pure parts are tested in `tests/keyboard_tests.cpp`
 (static stops, Tab and Shift+Tab round, Home/End, digits, Ctrl+Tab both ways, walking the theme
-list, scrolling the list of keys, Settings' back action); Esc back to Home in `home.scenario`.
+list, scrolling the list of keys, dialogs, Settings' back action); Esc back to Home in `home.scenario`.
 Settings' "On the island" list gains the new keys. The ring, returning to
 the widget and the key handling need a Windows run.

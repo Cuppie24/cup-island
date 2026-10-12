@@ -558,9 +558,14 @@ void onChar(wchar_t c)
 void onKey(WPARAM key)
 {
     if (app::recordKey(key)) return; // Settings is recording a shortcut's new keys (decision 032)
-    // A dialog: Esc cancels it, the card stays (decision 020).
+    bool ctrl = GetKeyState(VK_CONTROL) < 0, alt = GetKeyState(VK_MENU) < 0;
+    // A dialog: Esc cancels it, the card stays (decision 020). The arrows,
+    // Tab and Enter move between its buttons and press one (decision 033);
+    // the first press shows focus on Cancel, so a stray Enter answers nothing.
+    // No Ctrl or Alt keys: switching tabs or closing would leave it hanging.
     if (g_state.dialog) {
         if (key == VK_ESCAPE) answerDialog(false);
+        else if (!ctrl && !alt) app::navigationKey(key);
         return;
     }
     // A focused field gets the keys (onChar): no demo keys while typing. Esc
@@ -570,7 +575,6 @@ void onKey(WPARAM key)
         return;
     }
     // Alt combinations (WM_SYSKEYDOWN) are only for recording a shortcut; Windows handles the rest (Alt+F4).
-    bool ctrl = GetKeyState(VK_CONTROL) < 0, alt = GetKeyState(VK_MENU) < 0;
     if (alt) return;
     if (app::navigationKey(key)) return; // the arrows, Tab, Home/End, 1 to 9, Enter and Space (decisions 031, 033)
     switch (key) {

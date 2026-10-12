@@ -1,5 +1,6 @@
 #include "core/keyboard.h"
 
+#include "core/dialog.h"
 #include "core/tokens.h"
 
 #include <algorithm>
@@ -20,6 +21,13 @@ bool clickable(const Item& item)
     return std::holds_alternative<TextInput>(item);
 }
 
+// A dialog's own buttons (decision 020): while one is up, nothing else is focusable.
+bool dialogButton(const Item& item)
+{
+    auto* button = std::get_if<Button>(&item);
+    return button && (button->actionId == kDialogCancel || button->actionId == kDialogConfirm);
+}
+
 // How far apart two ranges are along one axis: 0 when they overlap.
 float gap(float a0, float a1, float b0, float b1) { return std::max({ 0.0f, b0 - a1, a0 - b1 }); }
 
@@ -28,8 +36,11 @@ float gap(float a0, float a1, float b0, float b1) { return std::max({ 0.0f, b0 -
 std::vector<Focusable> focusables(const Scene& scene)
 {
     std::vector<Focusable> found;
+    // A dialog keeps focus to itself (decision 033): Cancel and its answer,
+    // not the tabs or Home behind it, as a dialog does anywhere.
+    bool dialog = std::any_of(scene.elements.begin(), scene.elements.end(), [](const Placed& p) { return dialogButton(p.item); });
     for (const Placed& p : scene.elements) {
-        if (!clickable(p.item)) continue;
+        if (!clickable(p.item) || (dialog && !dialogButton(p.item))) continue;
         // A whole-row button (Row::clickAnywhere) is aimed at by its row, which is what lights up.
         Rect frame = p.listRow ? *p.listRow : p.frame;
         if (p.list) frame = p.frame.height > 0 ? Rect{ frame.x, p.frame.y, frame.width, p.frame.height } : frame; // where the row is, scrolled
@@ -37,6 +48,7 @@ std::vector<Focusable> focusables(const Scene& scene)
         float radius = p.listRow ? p.listRowRadius : p.cornerRadius;
         found.push_back({ "el:" + p.key, frame, point, p.list, p.activityId, radius });
     }
+    if (dialog) return found; // in reading order already: one row, Cancel first
     // Every tile, clickable or not: a static one (Bluetooth) is still a stop,
     // or down from above it would jump a row (decision 033).
     for (const Tile& tile : scene.tiles) found.push_back({ "tile:" + tile.id, tile.frame, centre(tile.frame), std::nullopt, tile.id, scene.tileRadius });

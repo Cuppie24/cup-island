@@ -27,6 +27,7 @@ struct Focusable {
 };
 
 // Everything focusable in reading order (top to bottom, then left to right).
+// With a dialog up, only its buttons: Cancel, then its answer.
 std::vector<Focusable> focusables(const Scene& scene);
 
 std::optional<Focusable> findFocusable(const Scene& scene, const std::string& id);

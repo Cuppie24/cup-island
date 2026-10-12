@@ -1,6 +1,7 @@
 // Keyboard navigation and shortcuts (decision 031): where the arrows go on
 // the Settings card, its theme page and Home, and the shortcuts (decision 032).
 
+#include "core/dialog.h"
 #include "core/hit_test.h"
 #include "core/keyboard.h"
 #include "core/shortcuts.h"
@@ -133,6 +134,28 @@ void runKeyboardTests()
         expect(!out || !out->list, "keys page: at the end, down leaves the list");
         expect(!scrollInstead(keys, back->id, Arrow::Up) && scrollInstead(keys, edit->id, Arrow::Up)->delta < 0,
                "keys page: up scrolls it back; outside the list, nothing to scroll");
+    }
+
+    // A dialog keeps focus to its buttons (decision 033): the first press
+    // shows it on Cancel, right goes to the answer, Tab wraps; the tabs and
+    // the card behind it can't be reached.
+    {
+        IslandState s;
+        Panel p{ .id = "asks", .content = { .label = "asks", .expandedCenter = { row({ Button{ Glyph::Stop, "stop" } }) } } };
+        s = reduce(s, PanelPublished{ p }, Ms{ 0 });
+        s = reduce(s, HomeOpened{}, Ms{ 0 });
+        s = reduce(s, TileClicked{ "asks" }, Ms{ 0 });
+        Scene card = layout(s, Ms{ 0 });
+        expect(card.tabs && findFocusable(card, "tab:"), "dialog: before it, the card's tabs are stops");
+        s = reduce(s, DialogShown{ { .activityId = "asks", .title = "Stop?", .confirmLabel = "Stop", .confirmAction = "stop.yes", .destructive = true } }, Ms{ 0 });
+        Scene asked = layout(s, Ms{ 0 });
+        std::vector<Focusable> stops = focusables(asked);
+        auto cancel = moveFocus(asked, "", Arrow::Down);
+        expect(stops.size() == 2 && clicks(asked, cancel) == kDialogCancel, "dialog: only its two buttons; the first press lands on Cancel");
+        auto confirm = moveFocus(asked, cancel->id, Arrow::Right);
+        expect(clicks(asked, confirm) == kDialogConfirm && clicks(asked, nextFocus(asked, confirm->id)) == kDialogCancel,
+               "dialog: right to the answer, Tab round to Cancel");
+        expect(!moveFocus(asked, cancel->id, Arrow::Down) && !findFocusable(asked, "tab:"), "dialog: nothing below it, not even the tabs");
     }
 
     // Home: tiles side by side and in rows.
