@@ -4,6 +4,7 @@
 #include "core/easing.h"
 #include "core/island.h"
 #include "core/layout.h"
+#include "core/split.h"
 #include "core/tokens.h"
 #include "expect.h"
 
@@ -39,6 +40,16 @@ void runUnitTests()
     // The flared top corners stick out beside the widest pill (decision 025): still on the canvas.
     float widest = std::max({ tokens().expandedSize.x, tokens().receptiveSize.x, tokens().alertSize.x, tokens().compactSize.x });
     expect(widest + 2 * tokens().flareRadius <= tokens().canvas.x, "the widest pill's flared corners fit the canvas");
+
+    // Split: the gap is the two flares, so they meet in one arch (decision 025).
+    expect(splitGap() == 2 * tokens().flareRadius, "the bubble sits two flares from the pill");
+    {
+        Tokens saved = tokens(), flat = saved;
+        flat.flareRadius = 0;
+        setTokens(flat);
+        expect(splitGap() == flat.bubbleGap, "without flares the gap is bubbleGap");
+        setTokens(saved);
+    }
 
     // Expanded shows the opened activity's content.
     IslandState s;

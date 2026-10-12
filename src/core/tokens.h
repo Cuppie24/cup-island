@@ -119,7 +119,7 @@ struct Tokens {
 
     // Split bubble (PS §3.1) and dragging it onto the pill to swap (decision 007).
     float bubbleSize = 32;        // width and height; shaped like the pill (straight top, rounded bottom)
-    float bubbleGap = 8;          // between the pill's right edge and the bubble at rest
+    float bubbleGap = 8;          // pill to bubble at rest without flares; with them, the gap is both flares (decision 025)
     float dragStartDistance = 4;  // a press on the bubble that moves less is a click
     float bridgeThickness = 20;   // liquid neck between pill and bubble, at its thickest
     float bridgeReach = 6;        // edge gap at which the neck has thinned to nothing (< bubbleGap: none at rest)

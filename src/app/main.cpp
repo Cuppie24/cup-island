@@ -37,6 +37,7 @@
 #include "platform/stay_on_top.h"
 #include "platform/text_input.h"
 #include "platform/tray_icon.h"
+#include "platform/crash_report.h"
 #include "platform/watchdog.h"
 #include "providers/demo/demo_media_provider.h"
 #include "providers/file_store.h"
@@ -635,6 +636,7 @@ int main()
     wchar_t exePath[MAX_PATH]{};
     GetModuleFileNameW(nullptr, exePath, MAX_PATH);
     logLine("Cup Island starting: %ls (pid %lu)", exePath, GetCurrentProcessId());
+    reportPreviousCrash(); // a crash too abrupt for watchForCrashes() still shows up here
 
     winrt::init_apartment(winrt::apartment_type::single_threaded);
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
@@ -754,6 +756,7 @@ int main()
 
     int exitCode = static_cast<int>(msg.wParam);
     logLine("exiting");
+    markCleanExit();
     // Safety net: if anything below blocks (a provider's WinRT teardown, a
     // static destructor), the process still ends instead of lingering unseen.
     std::thread([] {

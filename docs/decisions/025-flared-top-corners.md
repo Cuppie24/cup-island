@@ -45,9 +45,11 @@ and the Split bubble, subtle by default.
   are E wider on each side, so the shadow follows the curve.
 
 **Consequences.**
-- At rest in Split, the pill's right ear and the bubble's left ear meet
-  across the gap (`bubbleGap` ≈ `flareRadius`), so the edge pours into
-  both. That's intended.
+- **In Split, the gap is the two flares** (`splitGap()` in `core/split.cpp`,
+  each capped by its shape's height as drawn), so the pill's right ear and
+  the bubble's left ear meet at the screen edge, both tangent to it: one
+  arch, not two curves crossing in a point. The placement footprint
+  (decision 026) uses the same gap. `bubbleGap` is the gap without flares.
 - The ears are decoration: hit areas stay the pill's rectangle.
 - The ears stick out by E on each side, so the widest pill plus 2 E must
   fit the canvas (a unit test checks it).
