@@ -22,8 +22,8 @@ TR §9 asks for correct scaling per display.
   feel too big next to the taskbar and tray; one factor keeps every
   proportion while making it more compact. Tunable live: a changed canvas
   resizes the render layer.
-- **The island lives on the primary display**, so that display's scale is
-  the one used (`GetDpiForMonitor`).
+- **The island's own display's scale is used** (`GetDpiForMonitor`): the
+  primary display at first, any display since decision 023.
 - **Changing the scale while it runs** (Settings › Display › Scale, or a
   new primary display) arrives as `WM_DPICHANGED`: tokens.json is
   re-applied at the new scale, the render layer is resized and re-centred,
@@ -37,10 +37,10 @@ simpler and can't drift out of sync.)
 
 **Consequences.** `core/tokens_json` (`scaleTokens`, tested), `app/live_tokens`
 (`setDisplayScale`, `rescaleTokens`), `platform/render_layer`
-(`primaryDisplayScale`, `resizeRenderLayer`), and WM_DPICHANGED in the
+(`resizeRenderLayer`; the scale now comes from `platform/displays`), and WM_DPICHANGED in the
 interaction layer. Values in tokens.json don't change; at 100% nothing
 looks different.
 
-**Open.** The island stays on the primary display (TR §9 multi-monitor
-placement isn't built). A resolution change (`WM_DISPLAYCHANGE`) doesn't
-re-centre it yet.
+**Resolved (decision 023).** The island can be put on any display from
+Settings, at that display's scale. Any display change, a resolution change
+included, re-places it.

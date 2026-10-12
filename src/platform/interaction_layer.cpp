@@ -26,6 +26,7 @@ constexpr UINT WM_APP_SET_TIMER = WM_APP + 2;
 
 HWND g_hwnd{};
 int g_renderLeft = 0;
+int g_renderTop = 0; // monitors above or below the primary don't start at y = 0
 InteractionCallbacks g_callbacks;
 bool g_pressed = false;
 bool g_trackingLeave = false; // TrackMouseEvent armed: WM_MOUSELEAVE will come
@@ -48,7 +49,7 @@ void snap(Vec2 size, Vec2 offset)
     g_morph.offset = offset;
     SetWindowPos(g_hwnd, nullptr,
         g_renderLeft + static_cast<int>(std::lround(offset.x)),
-        static_cast<int>(std::lround(offset.y)),
+        g_renderTop + static_cast<int>(std::lround(offset.y)),
         static_cast<int>(std::lround(size.x)),
         static_cast<int>(std::lround(size.y)),
         SWP_NOZORDER | SWP_NOACTIVATE);
@@ -231,6 +232,10 @@ try {
         call(g_callbacks.onDpiChanged, static_cast<float>(LOWORD(wParam)) / 96.0f);
         return 0;
 
+    case WM_DISPLAYCHANGE: // sent to every top-level window
+        call(g_callbacks.onDisplaysChanged);
+        return 0;
+
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;
@@ -251,9 +256,10 @@ catch (...) {
 
 } // namespace
 
-HWND createInteractionLayer(HINSTANCE instance, int renderLeft, Vec2 size, Vec2 offset, InteractionCallbacks callbacks)
+HWND createInteractionLayer(HINSTANCE instance, int renderLeft, int renderTop, Vec2 size, Vec2 offset, InteractionCallbacks callbacks)
 {
     g_renderLeft = renderLeft;
+    g_renderTop = renderTop;
     g_callbacks = std::move(callbacks);
     g_morph.size = size;
     g_morph.offset = offset;
@@ -271,7 +277,7 @@ HWND createInteractionLayer(HINSTANCE instance, int renderLeft, Vec2 size, Vec2 
         WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
         kClassName, L"Cup Island",
         WS_POPUP,
-        renderLeft + static_cast<int>(offset.x), static_cast<int>(offset.y),
+        renderLeft + static_cast<int>(offset.x), renderTop + static_cast<int>(offset.y),
         static_cast<int>(size.x), static_cast<int>(size.y),
         nullptr, nullptr, instance, nullptr);
     if (!g_hwnd) return nullptr;
@@ -281,9 +287,10 @@ HWND createInteractionLayer(HINSTANCE instance, int renderLeft, Vec2 size, Vec2 
     return g_hwnd;
 }
 
-void setRenderLeft(int renderLeft)
+void setRenderOrigin(int renderLeft, int renderTop)
 {
     g_renderLeft = renderLeft;
+    g_renderTop = renderTop;
     snap(g_morph.size, g_morph.offset);
 }
 

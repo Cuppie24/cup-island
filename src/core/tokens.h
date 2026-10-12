@@ -50,7 +50,7 @@ struct Tokens {
     Vec2 idleSize{ 160, 28 };
     Vec2 compactSize{ 260, 32 };
     Vec2 alertSize{ 320, 64 };
-    Vec2 expandedSize{ 380, 154 };
+    Vec2 expandedSize{ 380, 155 };
     Vec2 receptiveSize{ 380, 84 };
     Vec2 hiddenSize{ 160, 0 };
     float maxCornerRadius = 28; // bottom corners: half the height, capped, so big shapes aren't blobs
@@ -68,7 +68,7 @@ struct Tokens {
     float looseItemSpacing = 24; // Row::loose, e.g. media controls
     float titleFontSize = 15;
     float bodyFontSize = 13;
-    float captionFontSize = 11;
+    float captionFontSize = 13; // the smallest text: ~11 px on screen at 100% after islandScale
     float displayFontSize = 34; // TextStyle::Display: a timer as the card's centre
     float inputFontSize = 15;   // a TextInput's text and placeholder: noticeable even when it isn't focused
     float iconSize = 18;
@@ -81,7 +81,7 @@ struct Tokens {
     float progressHeight = 4;
     float progressHitHeight = 16; // taller than drawn, so it's easy to click
     float progressKnobSize = 12;  // the scrub handle shown on hover
-    float timeLabelWidth = 48;
+    float timeLabelWidth = 56;  // fits "-1:02:05" at captionFontSize
     float ringThickness = 3;      // progress ring stroke (decision 010)
     float stepDotSize = 9;        // Steps: one dot per step
     float stepDotGap = 8;

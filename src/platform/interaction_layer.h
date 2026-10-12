@@ -35,15 +35,16 @@ struct InteractionCallbacks {
     std::function<void(Vec2 point, int steps)> onWheel; // whole wheel notches over the pill; positive = down
     std::function<void(TimerId)> onTimer;
     std::function<void()> onShowRequested; // the app was launched again (single_instance.h)
+    std::function<void()> onDisplaysChanged; // a monitor was plugged, unplugged, resized or rearranged
 };
 
 // Creates the window over the pill's initial bounds and starts the
 // compositor-tick thread. Closing it (DestroyWindow) ends the message loop.
-HWND createInteractionLayer(HINSTANCE instance, int renderLeft, Vec2 size, Vec2 offset, InteractionCallbacks callbacks);
+HWND createInteractionLayer(HINSTANCE instance, int renderLeft, int renderTop, Vec2 size, Vec2 offset, InteractionCallbacks callbacks);
 
-// The render layer moved (resized for a new display scale): points and the
-// window's position are relative to it.
-void setRenderLeft(int renderLeft);
+// The render layer moved (another monitor, or resized for a new display
+// scale): points and the window's position are relative to it.
+void setRenderOrigin(int renderLeft, int renderTop);
 
 // Follow the morph the renderer just started toward these bounds (the pill,
 // plus the bubble in Split), frame by frame (decision 001).
