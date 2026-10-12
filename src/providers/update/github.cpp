@@ -99,7 +99,9 @@ winrt::fire_and_forget fetch(std::string appVersion, std::function<void(std::opt
             logLine("update check: GitHub answered %d", static_cast<int>(response.StatusCode()));
         }
     } catch (const winrt::hresult_error& e) {
-        logLine("update check failed (offline?): 0x%08x %ls", static_cast<unsigned>(e.code()), e.message().c_str());
+        // The code on its own line: Windows' message is localised, and a line it breaks must not take the code with it.
+        logLine("update check failed: 0x%08x", static_cast<unsigned>(e.code()));
+        logLine("  %ls", e.message().c_str());
     }
     try {
         co_await ui;
@@ -136,7 +138,8 @@ winrt::fire_and_forget install(UpdateOffer offer, std::string appVersion, std::f
             }
         }
     } catch (const winrt::hresult_error& e) {
-        logLine("update: download failed: 0x%08x %ls", static_cast<unsigned>(e.code()), e.message().c_str());
+        logLine("update: download failed: 0x%08x", static_cast<unsigned>(e.code()));
+        logLine("  %ls", e.message().c_str());
         problem = "Couldn't download the update";
     }
     try {

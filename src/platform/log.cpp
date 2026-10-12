@@ -4,6 +4,7 @@
 
 #include <shlobj.h>
 
+#include <clocale>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
@@ -62,6 +63,13 @@ std::filesystem::path logFolder()
 
 void startLog()
 {
+    // %ls (Windows' messages, window titles, paths) is converted with the C
+    // locale's code page, and the default "C" one can't encode Cyrillic, CJK,
+    // emoji: vsnprintf fails and the whole line came out "(unprintable)",
+    // error code included. UTF-8 for text only (LC_CTYPE): numbers keep their
+    // "." whatever the user's region says.
+    std::setlocale(LC_CTYPE, ".UTF-8");
+    SetConsoleOutputCP(CP_UTF8); // the Debug console shows the same text; no console: does nothing
     std::filesystem::path folder = logFolder();
     if (folder.empty()) return;
     std::error_code error;
