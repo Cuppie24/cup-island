@@ -7,6 +7,8 @@
 #include "core/tokens.h"
 #include "expect.h"
 
+#include <algorithm>
+
 namespace cup::test {
 
 void runUnitTests()
@@ -34,6 +36,9 @@ void runUnitTests()
     expect(scene.size == tokens().idleSize, "idle uses idle size");
     expect(scene.offset.x * 2 + scene.size.x == tokens().canvas.x, "pill is horizontally centered");
     expect(scene.offset.y == 0, "pill is flush with the top edge");
+    // The flared top corners stick out beside the widest pill (decision 025): still on the canvas.
+    float widest = std::max({ tokens().expandedSize.x, tokens().receptiveSize.x, tokens().alertSize.x, tokens().compactSize.x });
+    expect(widest + 2 * tokens().flareRadius <= tokens().canvas.x, "the widest pill's flared corners fit the canvas");
 
     // Expanded shows the opened activity's content.
     IslandState s;

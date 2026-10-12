@@ -54,6 +54,7 @@ struct Tokens {
     Vec2 receptiveSize{ 380, 84 };
     Vec2 hiddenSize{ 160, 0 };
     float maxCornerRadius = 28; // bottom corners: half the height, capped, so big shapes aren't blobs
+    float flareRadius = 8;      // top corners curve outward into the screen edge (decision 025); 0 = square
 
     // Content layout inside the pill (PS §5.1 slots). Fonts are in pixels.
     // Each mode has one padding, used on every side; rounded content inside

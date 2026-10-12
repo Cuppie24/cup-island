@@ -1,7 +1,7 @@
 #pragma once
 // One black island shape with its content: the pill, or the Split bubble.
-// Both hang from the top edge (straight top, rounded bottom), so content
-// nests in their corners the same way. Sets targets only; implicit
+// Both hang from the top edge (straight top flaring into the edge, rounded
+// bottom; decision 025), so content nests in their corners the same way. Sets targets only; implicit
 // animations do the motion (TR §5).
 
 #include "core/layout.h"
@@ -40,6 +40,7 @@ public:
 
 private:
     void playScale(float scale, Ms duration, Bezier curve);
+    void showEars(bool on); // the flared top corners: hidden while dragged off the edge
 
     wuc::Compositor compositor_{ nullptr };
     wuc::ShapeVisual body_{ nullptr };             // Size/Offset morph implicitly
@@ -51,7 +52,7 @@ private:
     wuc::DropShadow shadow_{ nullptr };
     void buildShadow(wuc::Compositor const& compositor, wuc::ContainerVisual const& parent);
     void applyShadow(); // colour, blur, offset from tokens
-    wuc::CompositionPropertySet shape_{ nullptr }; // MaxRadius, read by the corner expressions
+    wuc::CompositionPropertySet shape_{ nullptr }; // MaxRadius, FlareRadius, Ears: read by the corner expressions
     wuc::CompositionPropertySet drag_{ nullptr };  // Centre: the cursor, while following
     wuc::CompositionColorBrush fill_{ nullptr };
     wuc::ImplicitAnimationCollection implicit_{ nullptr }; // the Size/Offset morph

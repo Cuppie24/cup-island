@@ -1,11 +1,13 @@
 #include "platform/blob.h"
 
+#include "platform/blob_shape.h"
 #include "platform/element_parts.h"
 
 #include <winrt/Windows.Foundation.Metadata.h>
 
 #include <cmath>
 #include <algorithm>
+#include <string>
 #include <utility>
 
 namespace cup::platform {
@@ -13,16 +15,9 @@ namespace {
 
 using namespace winrt::Windows::UI::Composition;
 
-// Binds a property to an expression over the body's live (animating) size,
-// so it follows every morph without app code running per frame.
-void bind(Compositor const& c, CompositionObject const& target, wchar_t const* property, wchar_t const* expression,
-          ShapeVisual const& body, CompositionPropertySet const& shape)
-{
-    auto anim = c.CreateExpressionAnimation(expression);
-    anim.SetReferenceParameter(L"pill", body);
-    anim.SetReferenceParameter(L"shape", shape);
-    target.StartAnimation(property, anim);
-}
+// Properties bound to the body's live (animating) size follow every morph
+// without app code running per frame (blob_shape.h).
+constexpr auto bind = bindToBlob;
 
 CubicBezierEasingFunction easingFor(Compositor const& c, Bezier curve)
 {
@@ -72,6 +67,8 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     // glued to the screen edge while its sides and bottom squash in.
     shape_ = c.CreatePropertySet();
     shape_.InsertScalar(L"MaxRadius", tokens().maxCornerRadius);
+    shape_.InsertScalar(L"FlareRadius", tokens().flareRadius);
+    shape_.InsertScalar(L"Ears", 1.0f);
     bind(c, body_, L"CenterPoint", L"Vector3(pill.Size.X / 2, 0, 0)", body_, shape_);
 
     // Background: only the bottom corners are rounded (a notch hanging from the
@@ -90,6 +87,7 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     fill_ = c.CreateColorBrush(fillColor(false));
     backgroundShape.FillBrush(fill_);
     body_.Shapes().Append(backgroundShape);
+    addEars(c, body_, shape_, fill_); // the flared top corners (decision 025)
 
     // Content lives in a container clipped to the shape's live size, so new
     // content fading in during a grow morph never shows outside it.
@@ -115,15 +113,17 @@ void Blob::buildShadow(Compositor const& c, ContainerVisual const& parent)
 
     auto snapshot = c.CreateVisualSurface(); // live: re-rendered as the body changes, on the compositor
     snapshot.SourceVisual(body_);
-    bind(c, snapshot, L"SourceSize", L"pill.Size", body_, shape_);
+    // As wide as the body plus its ears (decision 025), so the shadow follows their curve.
+    bind(c, snapshot, L"SourceOffset", L"Vector2(-" + kEarSize + L", 0)", body_, shape_);
+    bind(c, snapshot, L"SourceSize", L"Vector2(pill.Size.X + 2 * " + kEarSize + L", pill.Size.Y)", body_, shape_);
     shadow_ = c.CreateDropShadow();
     shadow_.Mask(c.CreateSurfaceBrush(snapshot)); // the body's alpha: its rounded shape, not its rectangle
     applyShadow();
 
     caster_ = c.CreateSpriteVisual(); // no brush: only its shadow shows
-    bind(c, caster_, L"Size", L"pill.Size", body_, shape_);
-    bind(c, caster_, L"Offset", L"pill.Offset", body_, shape_);
-    bind(c, caster_, L"CenterPoint", L"pill.CenterPoint", body_, shape_);
+    bind(c, caster_, L"Size", L"Vector2(pill.Size.X + 2 * " + kEarSize + L", pill.Size.Y)", body_, shape_);
+    bind(c, caster_, L"Offset", L"pill.Offset - Vector3(" + kEarSize + L", 0, 0)", body_, shape_);
+    bind(c, caster_, L"CenterPoint", L"pill.CenterPoint + Vector3(" + kEarSize + L", 0, 0)", body_, shape_);
     bind(c, caster_, L"Scale", L"pill.Scale", body_, shape_);
     caster_.Shadow(shadow_);
     parent.Children().InsertAtTop(caster_);
@@ -144,6 +144,7 @@ void Blob::refreshAnimations()
     body_.ImplicitAnimations(implicit_);
     applyShadow();
     shape_.InsertScalar(L"MaxRadius", tokens().maxCornerRadius);
+    shape_.InsertScalar(L"FlareRadius", tokens().flareRadius);
     if (fill_) fill_.Color(fillColor(highlighted_)); // colours are tokens too
     elements_.refresh();
 }
@@ -174,6 +175,7 @@ void Blob::follow(std::optional<Vec2> centre)
         anim.SetReferenceParameter(L"pill", body_);
         anim.SetReferenceParameter(L"drag", drag_);
         body_.StartAnimation(L"Offset", anim);
+        showEars(false); // away from the screen edge, there's nothing to flare into
         return;
     }
     if (!following_) return;
@@ -190,6 +192,15 @@ void Blob::follow(std::optional<Vec2> centre)
     home.InsertKeyFrame(1.0f, toFloat3(offset_), easingFor(compositor_, tokens().morphEase));
     home.Duration(tokens().morphDuration);
     body_.StartAnimation(L"Offset", home); // replaces the cursor expression
+    showEars(true);
+}
+
+void Blob::showEars(bool on)
+{
+    auto anim = compositor_.CreateScalarKeyFrameAnimation();
+    anim.InsertKeyFrame(1.0f, on ? 1.0f : 0.0f, easingFor(compositor_, tokens().morphEase));
+    anim.Duration(tokens().morphDuration);
+    shape_.StartAnimation(L"Ears", anim);
 }
 
 void Blob::setHighlighted(bool on)
