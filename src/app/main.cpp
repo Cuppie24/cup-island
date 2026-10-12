@@ -68,6 +68,8 @@
 
 using namespace cup;
 using namespace cup::platform;
+// Something in the Windows SDK headers declares a global Chord, so with these using-directives an
+// unqualified Chord is ambiguous (MSVC C2872): the keyboard types are written cup::.
 
 namespace {
 
@@ -541,7 +543,7 @@ void onChar(wchar_t c)
 // The arrows (decision 031): move focus on the card or Home that's open. A
 // row out of its list's window is scrolled in first. Pressing keys counts as
 // using the island, like moving the pointer: Expanded doesn't time out.
-void moveKeyFocus(Arrow arrow)
+void moveKeyFocus(cup::Arrow arrow)
 {
     if (mode(g_state) != Mode::Expanded) return;
     if (auto next = moveFocus(g_scene, g_keyFocus, arrow)) {
@@ -555,7 +557,7 @@ void moveKeyFocus(Arrow arrow)
 // (a card, a page), focus goes to its first item, so the keys carry on there.
 void activateKeyFocus()
 {
-    std::optional<Focusable> focused;
+    std::optional<cup::Focusable> focused;
     if (!g_keyFocus.empty()) focused = findFocusable(g_scene, g_keyFocus);
     if (!focused) return;
     if (focused->id.rfind("tab:", 0) == 0) {
@@ -568,7 +570,7 @@ void activateKeyFocus()
         clickElement(*hit);
     }
     if (!g_state.draft && !findFocusable(g_scene, g_keyFocus)) {
-        auto first = moveFocus(g_scene, "", Arrow::Down);
+        auto first = moveFocus(g_scene, "", cup::Arrow::Down);
         g_keyFocus = first ? first->id : std::string();
         updateHover();
     }
@@ -577,10 +579,10 @@ void activateKeyFocus()
 // A system-wide shortcut was pressed (decision 032). The island comes to
 // the front with it (Windows allows that to whoever gets a hotkey), so the
 // arrows work at once and a click elsewhere closes it like any other time.
-void runCommand(Command command)
+void runCommand(cup::Command command)
 {
     switch (command) {
-    case Command::OpenHome:
+    case cup::Command::OpenHome:
         if (g_state.homeOpen) { // pressed again: it closes, like Esc
             dispatch(EscapePressed{}, "shortcut");
             return;
@@ -645,10 +647,10 @@ void onKey(WPARAM key)
     bool ctrl = GetKeyState(VK_CONTROL) < 0, alt = GetKeyState(VK_MENU) < 0;
     if (alt) return;
     switch (key) {
-    case VK_UP: moveKeyFocus(Arrow::Up); return;
-    case VK_DOWN: moveKeyFocus(Arrow::Down); return;
-    case VK_LEFT: moveKeyFocus(Arrow::Left); return;
-    case VK_RIGHT: moveKeyFocus(Arrow::Right); return;
+    case VK_UP: moveKeyFocus(cup::Arrow::Up); return;
+    case VK_DOWN: moveKeyFocus(cup::Arrow::Down); return;
+    case VK_LEFT: moveKeyFocus(cup::Arrow::Left); return;
+    case VK_RIGHT: moveKeyFocus(cup::Arrow::Right); return;
     case VK_RETURN:
     case VK_SPACE: activateKeyFocus(); return;
     case VK_ESCAPE:
@@ -867,7 +869,7 @@ int main()
         .centreIsland = [] { dispatch(SpotRestored{}, "centre island"); },
         .startsWithWindows = startsWithWindows,
         .setStartsWithWindows = setStartsWithWindows,
-        .bindHotkey = [](Command command, const Chord& chord) { return registerHotkey(g_inputHwnd, command, chord); },
+        .bindHotkey = [](cup::Command command, const cup::Chord& chord) { return registerHotkey(g_inputHwnd, command, chord); },
         .captureKeys = [](bool on) { g_capturingKeys = on; },
     });
     g_settings = settings.get();

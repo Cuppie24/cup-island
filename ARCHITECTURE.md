@@ -127,6 +127,8 @@ example: thin WinRT reading, with every decision in a pure presenter (decision 0
 - **No names `windows.h` defines as macros** (`small`, `near`, `far`,
   `hyper`, `interface`, `IN`, `OUT`, `OPTIONAL`…), even in core: core is
   included after it on Windows, and Linux builds won't catch it.
+  The SDK also declares some global types (`Chord`): in `app/main.cpp`,
+  which has `using namespace cup`, write such core types as `cup::Chord`.
 - **`winrt::` / Win32 types stay in `platform/` and `app/`.** Providers
   translate at the edge.
 - **One concept per file, ~300 lines max.** Headers are the table of contents:
