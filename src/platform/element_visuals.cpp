@@ -219,7 +219,7 @@ void ElementVisuals::paint(View& view)
     });
     if (drawn && view.glyphSurface)
         drawn = device_->draw(view.glyphSurface, [&](ID2D1DeviceContext* dc) {
-            paintGlyph(dc, dw, Glyph::OpenApp, t.artHoverGlyphSize, size, t.buttonColor);
+            paintGlyph(dc, dw, Glyph::OpenApp, t.artHoverGlyphSize, size, t.artHoverGlyphColor);
         });
     if (!drawn) deviceLost_ = true;
 }

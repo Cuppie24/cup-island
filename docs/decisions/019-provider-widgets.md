@@ -12,11 +12,11 @@ used most, wasn't on Home at all unless something was already playing.
 - **A widget per activity provider.** An activity provider shows on Home as
   a widget: its panel's tile (decision 009), there whether or not anything
   is live. Media and Pomodoro come first (they're started first), then the
-  system tiles (theme, Bluetooth, Copy logs).
+  system tiles (theme, Bluetooth, Settings: decision 022).
 - **Information only.** A widget shows state, never controls. The host
   leaves out any `Button` or `TextInput` a tile slot carries, so a click
   anywhere on a widget means one thing: open its card, where the controls
-  are. Toggles (theme, Copy logs) keep their tap action: the whole tile is
+  are. Toggles (the Windows theme) keep their tap action: the whole tile is
   the control.
 - **A leading square.** `Content::tileLeading` is a square at the widget's
   left, as tall as the tile's inside (art, an icon, a ring), with the

@@ -2,7 +2,7 @@
 // The app's log: one line per event, timestamped, to
 // %LOCALAPPDATA%\CupIsland\logs\cup-island.log and to the console (Debug
 // builds have one). Kept on disk so a freeze or crash in Release, where
-// there's no console, can still be reported: Home's "Copy logs" tile copies it.
+// there's no console, can still be reported: Settings' "Copy logs" button copies it (decision 022).
 // No Windows types here: the Windows-only provider files log too.
 
 #include <filesystem>

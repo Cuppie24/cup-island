@@ -10,8 +10,9 @@ it needs the frozen thread's stack.
 **Decision.**
 - `platform/log.h`: every message goes to
   `%LOCALAPPDATA%\CupIsland\logs\cup-island.log` (one 2 MB generation
-  kept), flushed per line, and to the console when there is one. Home's
-  "Copy logs" tile (`providers/system/logs_provider.h`, pure) puts its last
+  kept), flushed per line, and to the console when there is one. The
+  Settings card's "Copy logs" button (`providers/system/settings_provider.h`,
+  pure; a Home tile of its own until decision 022) puts its last
   64 KB on the clipboard. The Windows-only provider files log through it
   too: they're platform code in all but folder.
 - `platform/watchdog.h`: every 5 s a background thread sends the UI thread

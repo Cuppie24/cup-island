@@ -4,6 +4,8 @@
 #include "core/tokens_json.h"
 #include "expect.h"
 
+#include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <iterator>
 #include <string>
@@ -16,6 +18,19 @@ bool mentions(const TokensParse& p, const std::string& text)
     for (const auto& problem : p.problems)
         if (problem.find(text) != std::string::npos) return true;
     return false;
+}
+
+// WCAG contrast ratio of a (possibly translucent) colour drawn over an opaque one.
+double contrast(Color fg, Color bg)
+{
+    auto luminance = [](double r, double g, double b) {
+        auto linear = [](double v) { v /= 255; return v <= 0.03928 ? v / 12.92 : std::pow((v + 0.055) / 1.055, 2.4); };
+        return 0.2126 * linear(r) + 0.7152 * linear(g) + 0.0722 * linear(b);
+    };
+    double a = fg.a / 255.0;
+    auto blend = [&](std::uint8_t f, std::uint8_t b) { return f * a + b * (1 - a); };
+    double l1 = luminance(blend(fg.r, bg.r), blend(fg.g, bg.g), blend(fg.b, bg.b)), l2 = luminance(bg.r, bg.g, bg.b);
+    return (std::max(l1, l2) + 0.05) / (std::min(l1, l2) + 0.05);
 }
 
 } // namespace
@@ -66,7 +81,45 @@ void runTokensTests()
     expect(mentions(parseTokens(R"({"islandColor": [0, 0, 256]})"), "0..255"), "channel out of range rejected");
     expect(mentions(parseTokens(R"({"islandColor": [0, 0, 1.5]})"), "0..255"), "fractional channel rejected");
     expect(mentions(parseTokens(R"({"islandColor": [0, 0, 0, 2]})"), "alpha must be within 0..1"), "alpha out of range rejected");
-    expect(fromFile.tokens == Tokens{}, "the shipped file matches the defaults in tokens.h");
+    // The themes live only in tokens.json: tokens.h has no copy of their colours.
+    Tokens shippedPlain = fromFile.tokens;
+    shippedPlain.themes.clear();
+    expect(shippedPlain == Tokens{}, "the shipped file matches the defaults in tokens.h");
+
+    // Themes (decision 022): name -> the colour tokens it changes. Dark or light,
+    // every shipped one keeps its text readable on its island.
+    const auto& shippedThemes = fromFile.tokens.themes;
+    expect(shippedThemes.size() >= 2 && shippedThemes[0].name == "Midnight" && shippedThemes[0].colors.empty(), "the default theme is the colours as written");
+    for (const Theme& theme : shippedThemes) {
+        Tokens themed = withTheme(fromFile.tokens, theme.name);
+        expect(contrast(themed.titleTextColor, themed.islandColor) >= 7 && contrast(themed.bodyTextColor, themed.islandColor) >= 4.5 &&
+               contrast(themed.captionTextColor, themed.islandColor) >= 3, "readable text: " + theme.name);
+        expect(themed.artHoverGlyphColor == fromFile.tokens.artHoverGlyphColor, "the art's open glyph stays light: " + theme.name);
+        // The shadow stays black in every theme: a coloured one reads as a halo.
+        // Light themes may only make it fainter (decision 022).
+        Color shadow = themed.shadowColor, base = fromFile.tokens.shadowColor;
+        expect(shadow.r == 0 && shadow.g == 0 && shadow.b == 0 && shadow.a <= base.a, "a black shadow: " + theme.name);
+    }
+    TokensParse themes = parseTokens(R"({ "themes": {
+        "Plain": {},
+        "Grape": { "islandColor": [24, 9, 42], "liveColor": [191, 90, 242, 0.5] } } })");
+    expect(themes.ok() && themes.tokens.themes.size() == 2 && themes.tokens.themes[1].name == "Grape", "themes parse, in order");
+    Tokens grape = withTheme(themes.tokens, "Grape");
+    expect(grape.islandColor == Color{ 24, 9, 42 } && grape.liveColor == Color{ 191, 90, 242, 128 }, "a theme's colours apply");
+    expect(grape.titleTextColor == Tokens{}.titleTextColor && grape.themes == themes.tokens.themes, "the rest stay as written");
+    expect(withTheme(themes.tokens, "Nope") == themes.tokens && withTheme(themes.tokens, "Plain") == themes.tokens,
+           "an unknown or empty theme changes nothing");
+    TokensParse themesBack = parseTokens(toJson(themes.tokens));
+    expect(themesBack.ok() && themesBack.tokens == themes.tokens, "themes round-trip through toJson");
+    expect(mentions(parseTokens("{\n\"themes\": {\n\"A\": { \"tileHeight\": 4 } } }"), "line 3") &&
+           mentions(parseTokens(R"({"themes": {"A": {"tileHeight": 4}}})"), "not a colour token"), "a theme only recolours");
+    expect(mentions(parseTokens(R"({"themes": {"A": {"islandColr": [0, 0, 0]}}})"), "unknown token"), "a typo in a theme is reported");
+    expect(mentions(parseTokens(R"({"themes": {"A": {"islandColor": [0, 0, 300]}}})"), "0..255"), "a theme's colours are checked");
+    expect(mentions(parseTokens(R"({"themes": {"A": {}, "A": {}}})"), "appears twice"), "theme names are unique");
+    expect(mentions(parseTokens(R"({"themes": {"": {}}})"), "needs a name"), "a theme needs a name");
+    expect(mentions(parseTokens(R"({"themes": {"A": {"islandColor": [0, 0, 0], "islandColor": [1, 1, 1]}}})"), "appears twice"),
+           "a colour appears once per theme");
+    expect(!parseTokens(R"({"themes": [1, 2]})").ok(), "themes must be an object");
 
     // Display scaling: lengths grow with the display's scale times islandScale; nothing else does.
     Tokens d{};

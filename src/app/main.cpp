@@ -4,7 +4,8 @@
 // Tuning: edit assets/tokens.json while it runs; saving applies it live.
 //
 // The idle pill shows the time; clicking it opens Home (decisions 009, 019):
-// the media and Pomodoro widgets, then theme, Bluetooth and Copy logs.
+// the media and Pomodoro widgets, then theme, Bluetooth and Settings (the
+// app theme and Copy logs, decision 022).
 //
 // Demo keys (click the pill first so it has keyboard focus):
 //   M  toggle the demo music player (real media shows by itself)
@@ -38,7 +39,7 @@
 #include "providers/media/smtc_media_provider.h"
 #include "providers/pomodoro/pomodoro_provider.h"
 #include "providers/system/bluetooth_provider.h"
-#include "providers/system/logs_provider.h"
+#include "providers/system/settings_provider.h"
 #include "providers/system/theme_provider.h"
 #include "providers/provider_registry.h"
 
@@ -64,6 +65,7 @@ HWND g_inputHwnd{};
 std::filesystem::path g_tokensFile;
 RenderLayer g_render;
 std::unique_ptr<ProviderRegistry> g_providers;
+SettingsProvider* g_settings = nullptr; // owned by g_providers; told when tokens.json reloads
 
 // The pointer over the pill. Feedback is the renderer's; what a click means is
 // core's (hitTest). Content reacts to hover, the pill never does (decision 002).
@@ -434,8 +436,39 @@ void onTimer(TimerId id)
         dispatch(readWallClock(), "timer");
     } else if (id == TimerId::TokensReload) {
         Vec2 oldCanvas = tokens().canvas;
-        if (app::loadTokens(g_tokensFile, /* startup */ false)) tokensChanged(oldCanvas, "tokens.json");
+        if (!app::loadTokens(g_tokensFile, /* startup */ false)) return;
+        tokensChanged(oldCanvas, "tokens.json");
+        g_settings->refresh(); // the themes may have changed
     }
+}
+
+// A small text file in %LOCALAPPDATA%\CupIsland, next to the logs folder:
+// the to-dos (decision 016), the app theme (decision 022). "" if unknown.
+std::filesystem::path dataFile(const wchar_t* name)
+{
+    return logFolder().empty() ? std::filesystem::path() : logFolder().parent_path() / name;
+}
+
+std::string readTextFile(const std::filesystem::path& file)
+{
+    std::ifstream in(file, std::ios::binary);
+    std::stringstream text;
+    text << in.rdbuf();
+    return text.str();
+}
+
+void writeTextFile(const std::filesystem::path& file, const std::string& text)
+{
+    if (file.empty()) return;
+    std::ofstream out(file, std::ios::binary | std::ios::trunc);
+    out << text;
+}
+
+// The Settings card picked a theme: recolour everything (decision 022).
+void applyTheme(const std::string& name)
+{
+    Vec2 oldCanvas = tokens().canvas;
+    if (app::setTheme(name)) tokensChanged(oldCanvas, "theme");
 }
 
 } // namespace
@@ -511,30 +544,27 @@ int main()
     g_providers->add(std::make_unique<DemoMediaProvider>()); // M key
     g_providers->add(std::make_unique<BluetoothProvider>(postToUi));
     g_providers->add(std::make_unique<ThemeProvider>(postToUi));
-    // Pomodoro's to-dos live next to the logs: %LOCALAPPDATA%\CupIsland\todos.txt (decision 016).
-    std::filesystem::path todos = logFolder().empty() ? std::filesystem::path() : logFolder().parent_path() / L"todos.txt";
-    TodoStorage storage{
-        [todos] {
-            std::ifstream in(todos, std::ios::binary);
-            std::stringstream text;
-            text << in.rdbuf();
-            return text.str();
-        },
-        [todos](const std::string& text) {
-            if (todos.empty()) return;
-            std::ofstream out(todos, std::ios::binary | std::ios::trunc);
-            out << text;
-        },
-    };
-    g_providers->add(std::make_unique<PomodoroProvider>(storage));
-    g_providers->add(std::make_unique<LogsProvider>([] { return copyLogToClipboard(g_inputHwnd); }));
+    std::filesystem::path todos = dataFile(L"todos.txt");
+    g_providers->add(std::make_unique<PomodoroProvider>(TodoStorage{
+        [todos] { return readTextFile(todos); },
+        [todos](const std::string& text) { writeTextFile(todos, text); },
+    }));
+    std::filesystem::path theme = dataFile(L"theme.txt");
+    auto settings = std::make_unique<SettingsProvider>(SettingsHooks{
+        .loadTheme = [theme] { return readTextFile(theme); },
+        .saveTheme = [theme](const std::string& name) { writeTextFile(theme, name); },
+        .applyTheme = applyTheme,
+        .copyLogs = [] { return copyLogToClipboard(g_inputHwnd); },
+    });
+    g_settings = settings.get();
+    g_providers->add(std::move(settings));
     // Home's widgets follow the order panels first appear: media and Pomodoro
     // first (decision 019), then the system tiles.
     g_providers->start("media");
     g_providers->start("pomodoro");
     g_providers->start("system.theme");
     g_providers->start("system.bluetooth");
-    g_providers->start("system.logs");
+    g_providers->start("system.settings");
     dispatch(readWallClock(), "clock");
 
     // TR §9.2: hide over borderless/exclusive fullscreen apps on this monitor.

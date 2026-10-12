@@ -9,6 +9,8 @@
 
 #include <chrono>
 #include <cstddef>
+#include <string>
+#include <vector>
 
 namespace cup {
 
@@ -19,6 +21,19 @@ struct Bezier {
     Vec2 c1;
     Vec2 c2;
     constexpr bool operator==(const Bezier&) const = default;
+};
+
+// An app theme (decision 022): a name, and the colour tokens it changes from
+// the values below; every other colour stays as written. Dark and light.
+struct ThemeColor {
+    std::string token; // a colour token's name: "islandColor"
+    Color color;
+    bool operator==(const ThemeColor&) const = default;
+};
+struct Theme {
+    std::string name;
+    std::vector<ThemeColor> colors;
+    bool operator==(const Theme&) const = default;
 };
 
 struct Tokens {
@@ -158,6 +173,7 @@ struct Tokens {
     Color buttonDisabledColor{ 255, 255, 255, 77 };
     Color buttonHoverColor{ 255, 255, 255, 41 };   // the shape behind a hovered button
     Color artHoverColor{ 0, 0, 0, 115 };           // dims clickable art under the pointer, behind its "open" glyph
+    Color artHoverGlyphColor{ 255, 255, 255, 242 }; // that glyph: over dimmed art, so light in every theme (decision 022)
     Color trackColor{ 255, 255, 255, 61 };         // a progress bar's or ring's empty part
     Color liveColor{ 255, 255, 255, 230 };         // progress fill, waveform: when the content has no accent
     Color knobColor{ 255, 255, 255 };
@@ -181,8 +197,12 @@ struct Tokens {
     std::size_t pomodoroRounds = 4;
     std::size_t todoVisibleItems = 4; // Pomodoro's to-dos shown in its card; the rest as "+n more"
 
-    // Home's "Copy logs" tile: how long it says "Copied" after a tap.
+    // The Settings card's "Copy logs" button: how long it says "Copied" after a click.
     Ms logsNote{ 2000 };
+
+    // The app themes the Settings card offers, in its order; the first is the
+    // default (decision 022). tokens() already has the picked one applied.
+    std::vector<Theme> themes;
 
     bool operator==(const Tokens&) const = default;
 };
