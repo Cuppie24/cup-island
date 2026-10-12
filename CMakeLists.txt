@@ -103,6 +103,7 @@ if(WIN32)
         src/platform/blob.cpp
         src/platform/blob_motion.cpp
         src/platform/blob_shape.cpp
+        src/platform/crash_report.cpp
         src/platform/displays.cpp
         src/platform/element_art.cpp
         src/platform/element_painting.cpp
@@ -132,7 +133,7 @@ if(WIN32)
     )
     # The icon isn't an #include, so the build doesn't see it change on its own.
     set_source_files_properties(assets/cup_island.rc PROPERTIES OBJECT_DEPENDS ${CMAKE_SOURCE_DIR}/assets/cup_island.ico)
-    target_link_libraries(CupIsland PRIVATE cup_providers WindowsApp CoreMessaging User32 Advapi32 Ole32 Dbghelp d3d11 d2d1 dwrite dxgi dwmapi shell32 Shcore)
+    target_link_libraries(CupIsland PRIVATE cup_providers WindowsApp CoreMessaging User32 Advapi32 Ole32 Dbghelp d3d11 d2d1 dwrite dxgi dwmapi shell32 Shcore wevtapi)
     # Release: a GUI app, no console window (quit from the tray icon). Debug keeps
     # the console for the log. mainCRTStartup lets main() stay the entry point.
     target_link_options(CupIsland PRIVATE

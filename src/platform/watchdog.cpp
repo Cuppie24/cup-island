@@ -4,7 +4,9 @@
 
 #include <dbghelp.h>
 
+#include <atomic>
 #include <chrono>
+#include <csignal>
 #include <cstdlib>
 #include <exception>
 #include <string>
@@ -45,8 +47,14 @@ void writeDump(const char* kind, EXCEPTION_POINTERS* exception)
     else logLine("dump failed (0x%08lx)", GetLastError());
 }
 
+// The first handler to see a crash reports it; others it trips on the way
+// down (terminate -> abort -> SIGABRT) stay quiet.
+std::atomic<bool> g_reported{ false };
+bool firstReport() { return !g_reported.exchange(true); }
+
 LONG WINAPI onUnhandledException(EXCEPTION_POINTERS* exception)
 {
+    if (!firstReport()) return EXCEPTION_CONTINUE_SEARCH;
     logLine("CRASH: exception 0x%08lx at %p", exception->ExceptionRecord->ExceptionCode, exception->ExceptionRecord->ExceptionAddress);
     writeDump("crash", exception);
     return EXCEPTION_CONTINUE_SEARCH; // then Windows' own crash handling
@@ -55,8 +63,37 @@ LONG WINAPI onUnhandledException(EXCEPTION_POINTERS* exception)
 // An exception escaping a noexcept function or a fire_and_forget coroutine ends up here.
 void onTerminate()
 {
-    logLine("CRASH: std::terminate (an uncaught C++ exception)");
-    writeDump("terminate", nullptr);
+    if (firstReport()) {
+        logLine("CRASH: std::terminate (an uncaught C++ exception)");
+        writeDump("terminate", nullptr);
+    }
+    std::abort();
+}
+
+// These three end the process without passing the unhandled-exception
+// filter: before, they left no trace at all.
+void onAbort(int)
+{
+    if (!firstReport()) return;
+    logLine("CRASH: abort()");
+    writeDump("abort", nullptr);
+} // returning lets abort() end the process
+
+void onPureCall()
+{
+    if (firstReport()) {
+        logLine("CRASH: pure virtual function call");
+        writeDump("purecall", nullptr);
+    }
+    std::abort();
+}
+
+void onInvalidParameter(const wchar_t*, const wchar_t*, const wchar_t*, unsigned, uintptr_t)
+{
+    if (firstReport()) {
+        logLine("CRASH: invalid parameter passed to a C runtime function");
+        writeDump("invalid-parameter", nullptr);
+    }
     std::abort();
 }
 
@@ -66,6 +103,13 @@ void watchForCrashes()
 {
     SetUnhandledExceptionFilter(onUnhandledException);
     std::set_terminate(onTerminate);
+    std::signal(SIGABRT, onAbort);
+    _set_purecall_handler(onPureCall);
+    _set_invalid_parameter_handler(onInvalidParameter);
+    // Keeps room on this (the UI) thread's stack after an overflow, so the
+    // filter above can still log and dump instead of dying silently.
+    ULONG reserve = 64 * 1024;
+    SetThreadStackGuarantee(&reserve);
 }
 
 void watchForHangs(HWND uiWindow)

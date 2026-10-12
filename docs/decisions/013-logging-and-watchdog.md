@@ -27,6 +27,24 @@ it needs the frozen thread's stack.
   shutdown completes, and a 3 s safety net terminates the process if
   anything else in teardown blocks.
 
+**Silent crashes.** Some crashes end the process before any handler above
+runs, leaving no log line and no dump. They are covered two ways:
+- **More handlers** (`watchdog.cpp`): `abort()` (SIGABRT), pure virtual
+  calls and C runtime invalid parameters now log and dump too, and the UI
+  thread keeps 64 KB of stack after an overflow
+  (`SetThreadStackGuarantee`) so the filter still has room to run. Only the
+  first handler reports; the others it trips on the way down stay quiet.
+- **Next start** (`crash_report.cpp`): a fail-fast (a WinRT exception
+  escaping a callback, `0xC000027B`; heap corruption) can't be caught
+  in-process at all. So `running.txt` in the log folder marks a running
+  island, and a deliberate exit deletes it. If it's still there at start,
+  the log says `PREVIOUS RUN ENDED UNEXPECTEDLY` and copies Windows' own
+  Application event log records for CupIsland.exe since that run started
+  (Application Error 1000: exception code, faulting module and offset;
+  Application Hang 1002). It reads the event log with `wevtapi`, on a
+  background thread, once. No record means it was ended from outside
+  (Task Manager, sign-out, power loss).
+
 **Consequences.** Freeze reports come with a `.dmp`: open it in Visual
 Studio with the build's `CupIsland.pdb` (Debug → Windows → Parallel Stacks
 shows the UI thread's stack). Dumps are only useful with the pdb of the

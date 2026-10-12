@@ -12,6 +12,11 @@ namespace cup {
 Rect splitPillFrame(const IslandState& s);
 Rect bubbleHomeFrame(const IslandState& s);
 
+// Pill to bubble at rest. With flared top corners it's the two flares, so
+// their curves meet at the screen edge in one arch (decision 025); without,
+// bubbleGap.
+float splitGap();
+
 // Dragged this far from its home, is the bubble over the pill? (Its centre
 // is inside the pill: then letting go swaps them.)
 bool bubbleOverPill(const IslandState& s, Vec2 drag);
