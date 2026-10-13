@@ -298,7 +298,11 @@ void dispatch(const Event& event, const char* reason)
     // Last: Settings republishes, which dispatches again.
     if (g_state.hidden != wasHidden && g_settings) g_settings->setHotkeysActive(!g_state.hidden);
     // A card went: its provider may reset it (Settings opens at its list again).
-    if (wasCard && shownCard(g_state) != wasCard && g_providers) g_providers->cardClosed(*wasCard);
+    // ...and one came: what's on it is seen now (Settings' "New" tags, decision 048).
+    std::optional<ShownCard> nowCard = shownCard(g_state);
+    if (nowCard == wasCard || !g_providers) return;
+    if (wasCard) g_providers->cardClosed(*wasCard);
+    if (nowCard) g_providers->cardShown(*nowCard);
 }
 
 void toggleProvider(const char* id)
@@ -946,6 +950,7 @@ int main()
             if (g_update) g_update->checkNow(std::move(reply)); // added just below; there by the first click
         },
         .installUpdate = [] { if (g_update) g_update->install(); }, // the same as Home's Update card (decision 037)
+        .placeTabRow = [](bool top) { dispatch(TabRowPlaced{ top }, top ? "tab row on top" : "tab row at the bottom"); }, // decision 048
     });
     g_settings = settings.get();
     g_settings->setHotkeysActive(!g_state.hidden); // started under a fullscreen app: none until it's gone

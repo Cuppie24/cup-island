@@ -92,6 +92,7 @@ if(CUP_BUILD_TESTS)
         tests/update_tests.cpp
         tests/scenario_runner.cpp
         tests/settings_tests.cpp
+        tests/settings_new_tests.cpp
         tests/shortcut_settings_tests.cpp
         tests/store_tests.cpp
         tests/system_tests.cpp

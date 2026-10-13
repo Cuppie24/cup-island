@@ -121,8 +121,8 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     std::vector<const Activity*> started;
     for (const Activity& a : s.activities) started.push_back(&a);
     std::sort(started.begin(), started.end(), [](const Activity* a, const Activity* b) { return a->startOrder < b->startOrder; });
-    // Along the top, over the card's content (decision 047).
-    float p = t.expandedPadding, y = p;
+    // Along the top, over the card's content (decision 047), or the bottom, under it: the user's pick (decision 048).
+    float p = t.expandedPadding, y = s.tabsOnTop ? p : cardSize.y - p - t.tabHeight;
     TabStrip strip;
     strip.radius = std::min(nestedRadius, t.tabHeight / 2);
     // What's shown: Home, an activity's card, or (a dormant panel's card) neither,
@@ -137,16 +137,18 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     };
 
     // Home: an icon-only button on its own at the left edge. Its click area
-    // takes in the card's top-left corner, so it's hard to miss. The pin
+    // takes in the card's corner on the strip's side, so it's hard to miss. The pin
     // mirrors it at the right edge (decision 046), so the activity tabs stay
-    // centred on the card. Every click area reaches half the gap below the strip.
-    float bottom = y + t.tabHeight + t.slotGap / 2, reach = p + t.homeButtonWidth + t.slotGap / 2;
+    // centred on the card.
+    // Click areas reach the card's edge on the strip's side and half the gap on the content's.
+    float top = s.tabsOnTop ? 0 : y - t.slotGap / 2, bottom = s.tabsOnTop ? y + t.tabHeight + t.slotGap / 2 : cardSize.y;
+    float reach = p + t.homeButtonWidth + t.slotGap / 2;
     if (!s.panels.empty()) {
         Rect button{ p, y, t.homeButtonWidth, t.tabHeight };
-        add({ .id = "", .lead = &kHomeIcon, .iconOnly = true, .badge = homeBadged(s) }, button, { 0, 0, reach, bottom });
+        add({ .id = "", .lead = &kHomeIcon, .iconOnly = true, .badge = homeBadged(s) }, button, { 0, top, reach, bottom - top });
     }
     Rect pin{ cardSize.x - p - t.homeButtonWidth, y, t.homeButtonWidth, t.tabHeight };
-    strip.pin = Tab{ pin, { cardSize.x - reach, 0, reach, bottom }, kPinTab };
+    strip.pin = Tab{ pin, { cardSize.x - reach, top, reach, bottom - top }, kPinTab };
     strip.pinned = s.stayOpen;
     placeTab({ .id = kPinTab, .lead = s.stayOpen ? &kPinnedIcon : &kPinIcon, .iconOnly = true }, pin, strip.radius, measure, elements);
     float reserved = t.homeButtonWidth + t.slotGap;
@@ -158,8 +160,8 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     for (std::size_t i = 0; i < started.size() && n > 0; ++i)
     {
         Rect frame{ left + static_cast<float>(i) * (width + t.tabGap), y, width, t.tabHeight };
-        // Clickable from the card's top edge to half the gap below, like Home's button: easy to hit.
-        add(faceOf(*started[i]), frame, { frame.x - t.tabGap / 2, 0, width + t.tabGap, bottom });
+        // Clickable from the card's edge to half the gap toward the content, like Home's button: easy to hit.
+        add(faceOf(*started[i]), frame, { frame.x - t.tabGap / 2, top, width + t.tabGap, bottom - top });
     }
     return strip;
 }

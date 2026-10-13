@@ -9,6 +9,7 @@
 #include "providers/update/update_provider.h"
 
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -19,6 +20,8 @@ namespace settings_action {
 inline constexpr const char* kOpenThemes = "theme.open";
 inline constexpr const char* kOpenDisplays = "display.open";
 inline constexpr const char* kOpenShortcuts = "shortcuts.open";
+inline constexpr const char* kOpenTabRow = "tabrow.open";
+inline constexpr const char* kPickTabRow = "tabrow.pick:";     // + 0 (top) or 1 (bottom)
 inline constexpr const char* kBack = "settings.back";
 inline constexpr const char* kPickTheme = "theme.pick:";       // + its index in tokens().themes
 inline constexpr const char* kPickDisplay = "display.pick:";   // + its index in SettingsView::displays
@@ -32,6 +35,7 @@ inline constexpr const char* kInstallUpdate = "updates.install"; // the offer: i
 inline constexpr const char* kThemeList = "themes";
 inline constexpr const char* kDisplayList = "displays";
 inline constexpr const char* kShortcutList = "shortcuts"; // the keys: more than fit on the card
+inline constexpr const char* kTabRowList = "tabrow";
 inline constexpr const char* kSettingsList = "settings";  // the root page: may be more than fit (decision 037)
 } // namespace settings_action
 
@@ -48,7 +52,20 @@ struct UpdateNote {
 };
 
 // Which page the card shows: the list of settings, or one setting's choices.
-enum class SettingsPage { List, Themes, Displays, Shortcuts };
+enum class SettingsPage { List, Themes, Displays, Shortcuts, TabRow };
+
+// A setting added after people already had the app (decision 048): shown
+// with a "New" tag until it's been seen, and a dot on its parent's row while
+// it hasn't. Ids never change: they're what the store remembers.
+struct SettingItem {
+    std::string id;     // also its row's Row::id
+    std::string parent; // the row whose page it's on; "" on the list itself
+};
+
+// Every announced setting, oldest first: add a line when adding a setting.
+// Rows' ids: "theme", "display", "tabrow" (and "tabrow.top", "tabrow.bottom"
+// on its page), "centre", "autostart", "shortcuts", "logs", "updates".
+std::vector<SettingItem> announcedSettings();
 
 // Everything the card shows, so building it is one pure function.
 struct SettingsView {
@@ -64,7 +81,13 @@ struct SettingsView {
     std::string version;                    // the running build's; empty: no line for it
     std::optional<UpdateNote> update;       // nothing: the app can't check, no row
     std::optional<UpdateStatus> offer;      // an update offered (by any check): an "Update and restart" row
+    bool tabsOnTop = true;                  // the tab row's place (decision 048)
+    std::vector<SettingItem> announced;     // what can be new (announcedSettings)...
+    std::set<std::string> unseen;           // ...and which of those haven't been seen yet: tagged "New"
 };
+
+// The announced settings shown on this card, by their rows' ids: what the user sees of them now.
+std::vector<std::string> shownSettings(const Panel& panel, const std::vector<SettingItem>& announced);
 
 // The widget and its card.
 Panel settingsPanel(const SettingsView& view);

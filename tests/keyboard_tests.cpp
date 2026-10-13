@@ -52,6 +52,8 @@ void runKeyboardTests()
     auto above = moveFocus(list, f->id, Arrow::Up);
     expect(above && above->id.rfind("tab:", 0) == 0, "keys: up from the first row: the tabs, on top (decision 047)");
     f = moveFocus(list, f->id, Arrow::Down);
+    expect(clicks(list, f) == P::kOpenTabRow, "keys: down, the next row (Tab row, decision 048)");
+    f = moveFocus(list, f->id, Arrow::Down);
     expect(clicks(list, f) == P::kCentreIsland, "keys: down, the next row (Appearance's last)");
     f = moveFocus(list, f->id, Arrow::Down);
     expect(clicks(list, f) == P::kToggleAutostart, "keys: down past General's heading to its first row");

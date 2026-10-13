@@ -27,6 +27,8 @@ void paintSteps(ID2D1DeviceContext* dc, const Steps& steps, Vec2 size, const Col
 // A Swatch (decision 030): a circle of its fill, ringed in trackColor so a
 // pale one shows on a pale island, with a dot of its mark in the middle.
 void paintSwatch(ID2D1DeviceContext* dc, const Swatch& swatch, Vec2 size);
+// A Tag (decision 048): a pill of tagColor, its text centred in tagTextColor, heavier than captions.
+void paintTag(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Tag& tag, Vec2 size);
 // Fills a rounded rect with the image scaled to cover it; a neutral tile if `data` is null.
 void paintImage(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float cornerRadius);
 

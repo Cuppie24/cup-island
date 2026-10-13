@@ -203,7 +203,7 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
             placeSlot(slot, source, nestedRadius, now, scene.elements, measureText);
     }
     // Laid out as if from the card's top, then moved down under the strip.
-    if (tabSpace > 0) {
+    if (tabSpace > 0 && state.tabsOnTop) { // at the bottom, the strip only adds room under the content
         for (std::size_t i = contentFrom; i < scene.elements.size(); ++i) {
             Placed& p = scene.elements[i];
             p.frame.y += tabSpace;

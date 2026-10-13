@@ -289,6 +289,16 @@ void paintSwatch(ID2D1DeviceContext* dc, const Swatch& swatch, Vec2 size)
     dc->FillEllipse(D2D1::Ellipse(centre, dot, dot), brushOf(dc, swatch.mark).get());
 }
 
+void paintTag(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Tag& tag, Vec2 size)
+{
+    const Tokens& t = tokens();
+    float r = size.y / 2;
+    dc->FillRoundedRectangle(D2D1_ROUNDED_RECT{ D2D1::RectF(0, 0, size.x, size.y), r, r }, brushOf(dc, t.tagColor).get());
+    float fontSize = std::min(t.captionFontSize, size.y * 0.75f);
+    auto f = format(dw, textFamily(dw, fontSize), fontSize, t.titleFontWeight, DWRITE_TEXT_ALIGNMENT_CENTER);
+    drawString(dc, f.get(), widen(tag.text), size, t.tagTextColor);
+}
+
 void paintImage(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float cornerRadius)
 {
     D2D1_ROUNDED_RECT shape{ D2D1::RectF(0, 0, size.x, size.y), cornerRadius, cornerRadius };

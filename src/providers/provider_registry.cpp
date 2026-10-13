@@ -126,6 +126,11 @@ void ProviderRegistry::cardClosed(const ShownCard& card)
     if (Entry* e = find(card.providerId); e && e->running) e->provider->onCardClosed(card.activityId);
 }
 
+void ProviderRegistry::cardShown(const ShownCard& card)
+{
+    if (Entry* e = find(card.providerId); e && e->running) e->provider->onCardShown(card.activityId);
+}
+
 void ProviderRegistry::closeRequested(const ShownCard& card)
 {
     if (Entry* e = find(card.providerId); e && e->running) e->provider->onCloseRequested(card.activityId);

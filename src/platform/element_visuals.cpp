@@ -253,6 +253,8 @@ void ElementVisuals::paint(View& view)
             paintInput(dc, dw, *input, size); // its background is the hover shape, nested like a button's
         } else if (auto* steps = std::get_if<Steps>(&item)) {
             paintSteps(dc, *steps, size, accentOf(view.placed));
+        } else if (auto* tag = std::get_if<Tag>(&item)) {
+            paintTag(dc, dw, *tag, size);
         } else if (auto* swatch = std::get_if<Swatch>(&item)) {
             paintSwatch(dc, *swatch, size);
         }

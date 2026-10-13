@@ -166,6 +166,7 @@ void handle(IslandState& s, const ClickedOutside&, Ms)
 {
     if (!s.stayOpen) collapse(s); // pinned: it stays over whatever was clicked (decision 046)
 }
+void handle(IslandState& s, const TabRowPlaced& e, Ms) { s.tabsOnTop = e.top; }
 void handle(IslandState& s, const StayOpenToggled&, Ms now)
 {
     if (!isExpanded(s)) return;

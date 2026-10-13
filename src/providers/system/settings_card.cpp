@@ -3,6 +3,8 @@
 #include "core/shortcuts.h"
 #include "core/tokens.h"
 
+#include <algorithm>
+
 namespace cup {
 namespace {
 
@@ -83,6 +85,30 @@ Row actionRow(const std::string& name, Glyph glyph, const char* action)
                 .listItem = true };
 }
 
+// Marks an announced setting's row (decision 048): its id, a "New" tag after
+// its name while unseen, and a dot on its chevron while something on its
+// page is. An empty Text after the tag keeps it beside the name, not pushed
+// to the far end (the texts' widths, decision 037).
+Row marked(Row r, const std::string& id, const SettingsView& v)
+{
+    bool announced = std::any_of(v.announced.begin(), v.announced.end(), [&](const SettingItem& s) { return s.id == id; });
+    bool childUnseen = std::any_of(v.announced.begin(), v.announced.end(), [&](const SettingItem& s) { return s.parent == id && v.unseen.count(s.id); });
+    if (!announced && !childUnseen) return r;
+    r.id = id;
+    if (v.unseen.count(id)) {
+        auto name = std::find_if(r.items.begin(), r.items.end(), [](const Item& item) { return std::holds_alternative<Text>(item); });
+        if (name != r.items.end()) {
+            bool aloneText = std::count_if(r.items.begin(), r.items.end(), [](const Item& item) { return std::holds_alternative<Text>(item); }) == 1;
+            auto after = r.items.insert(name + 1, Tag{ "New" });
+            if (aloneText) r.items.insert(after + 1, Text{ "" });
+        }
+    }
+    if (childUnseen)
+        for (Item& item : r.items)
+            if (auto* b = std::get_if<Button>(&item); b && b->glyph == Glyph::ChevronRight) b->badge = true;
+    return r;
+}
+
 // The list of settings, in groups under headings (decision 037): how the
 // island looks and where it is, how it behaves, and updates. A group with
 // nothing to show (no way to check for updates) has no heading.
@@ -95,25 +121,27 @@ Slot listPage(const SettingsView& v)
         for (Row& r : rows) card.push_back(std::move(r));
     };
     std::vector<Row> appearance;
-    if (!tokens().themes.empty()) appearance.push_back(settingRow("Theme", v.theme, P::kOpenThemes));
-    if (!v.displays.empty()) appearance.push_back(settingRow("Display", v.displays[v.display], P::kOpenDisplays));
-    appearance.push_back(actionRow("Centre island", Glyph::Centre, P::kCentreIsland));
+    if (!tokens().themes.empty()) appearance.push_back(marked(settingRow("Theme", v.theme, P::kOpenThemes), "theme", v));
+    if (!v.displays.empty()) appearance.push_back(marked(settingRow("Display", v.displays[v.display], P::kOpenDisplays), "display", v));
+    appearance.push_back(marked(settingRow("Tab row", v.tabsOnTop ? "Top" : "Bottom", P::kOpenTabRow), "tabrow", v));
+    appearance.push_back(marked(actionRow("Centre island", Glyph::Centre, P::kCentreIsland), "centre", v));
     group("Appearance", std::move(appearance));
 
     std::vector<Row> general;
     if (v.startsWithWindows)
-        general.push_back(Row{ .items = { Text{ "Start with Windows" },
-                                          Button{ .glyph = *v.startsWithWindows ? Glyph::Checked : Glyph::Unchecked,
-                                                  .actionId = P::kToggleAutostart, .compact = true } },
-                               .clickAnywhere = true,
-                               .listItem = true });
-    general.push_back(settingRow("Keyboard shortcuts", "", P::kOpenShortcuts));
+        general.push_back(marked(Row{ .items = { Text{ "Start with Windows" },
+                                                 Button{ .glyph = *v.startsWithWindows ? Glyph::Checked : Glyph::Unchecked,
+                                                         .actionId = P::kToggleAutostart, .compact = true } },
+                                      .clickAnywhere = true,
+                                      .listItem = true },
+                                 "autostart", v));
+    general.push_back(marked(settingRow("Keyboard shortcuts", "", P::kOpenShortcuts), "shortcuts", v));
     const char* logs = v.note == LogsNote::Copied ? "Logs copied" : v.note == LogsNote::Failed ? "Couldn't copy logs" : "Copy logs";
-    general.push_back(actionRow(logs, Glyph::Copy, P::kCopyLogs));
+    general.push_back(marked(actionRow(logs, Glyph::Copy, P::kCopyLogs), "logs", v));
     group("General", std::move(general));
 
     std::vector<Row> updates;
-    if (v.update) updates.push_back(updateRow(*v.update, v.version));
+    if (v.update) updates.push_back(marked(updateRow(*v.update, v.version), "updates", v));
     if (v.update && v.offer) updates.push_back(installRow(*v.offer));
     group("Updates", std::move(updates));
     // One list, sized to the card: with every row there (two monitors, an
@@ -137,6 +165,16 @@ Slot themesPage(const SettingsView& v)
         else card.push_back(choiceRow(themes[r.theme].name, themes[r.theme].name == v.theme,
                                       P::kPickTheme + std::to_string(r.theme), P::kThemeList, &themes[r.theme]));
     }
+    return card;
+}
+
+// Where the tab row goes (decision 048). Picking one moves it at once: the
+// card behind the page is the preview, so the page stays.
+Slot tabRowPage(const SettingsView& v)
+{
+    Slot card{ pageTitle("Tab row") };
+    card.push_back(marked(choiceRow("Top", v.tabsOnTop, std::string(P::kPickTabRow) + "0", P::kTabRowList), "tabrow.top", v));
+    card.push_back(marked(choiceRow("Bottom", !v.tabsOnTop, std::string(P::kPickTabRow) + "1", P::kTabRowList), "tabrow.bottom", v));
     return card;
 }
 
@@ -176,6 +214,21 @@ Slot shortcutsPage(const SettingsView& v)
 
 } // namespace
 
+std::vector<SettingItem> announcedSettings()
+{
+    return {
+        { "tabrow", "" }, // decision 048
+    };
+}
+
+std::vector<std::string> shownSettings(const Panel& panel, const std::vector<SettingItem>& announced)
+{
+    std::vector<std::string> shown;
+    for (const Row& r : panel.content.expandedCenter)
+        if (std::any_of(announced.begin(), announced.end(), [&](const SettingItem& s) { return s.id == r.id; })) shown.push_back(r.id);
+    return shown;
+}
+
 std::vector<ThemeListRow> themeListRows()
 {
     const auto& themes = tokens().themes;
@@ -201,10 +254,12 @@ Panel settingsPanel(const SettingsView& view)
     Content content{
         .label = "Settings",
         .card = CardLayout::List, // wider sides than Centred: rows edge to edge
+        .badge = !view.unseen.empty(), // something new in it: a dot on its widget and tab (decision 048)
         .keepOpen = true,
         .backAction = view.page == SettingsPage::List ? "" : P::kBack, // Esc on a page: back to the list (decision 033)
         .expandedCenter = view.page == SettingsPage::Themes      ? themesPage(view)
                           : view.page == SettingsPage::Displays  ? displaysPage(view)
+                          : view.page == SettingsPage::TabRow    ? tabRowPage(view)
                           : view.page == SettingsPage::Shortcuts ? shortcutsPage(view)
                                                                  : listPage(view),
         .tile = { row({ Icon{ Glyph::Settings } }), row({ Text{ "Settings" } }) },

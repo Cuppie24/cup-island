@@ -158,6 +158,7 @@ struct ListDragStarted { std::string activityId, list; std::size_t row = 0; floa
 struct ListDragMoved { float y = 0; };
 struct ListDragEnded {};                 // dropped (the app sends the move first) or cancelled
 struct StayOpenToggled {};               // Expanded's pin, at the tab row's right end (decision 046)
+struct TabRowPlaced { bool top = true; }; // Settings' Tab row: along the card's top or bottom (decision 048)
 // Local wall time at `now`, from the platform (the idle clock).
 struct ClockSynced {
     Ms timeOfDay;
@@ -174,7 +175,7 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            InputFocused, TextTyped, TextErased, CaretMoved, CaretPlaced, WordSelected, AllSelected,
                            InputSubmitted, InputCancelled,
                            DialogShown, DialogClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,
-                           ListDragEnded, StayOpenToggled>;
+                           ListDragEnded, StayOpenToggled, TabRowPlaced>;
 
 // --- State --------------------------------------------------------------
 struct WallClock {
@@ -210,6 +211,7 @@ struct IslandState {
     // outside the island or on a card's empty space doesn't close it. Esc
     // and the card going away still do; closing unpins it.
     bool stayOpen = false;
+    bool tabsOnTop = true; // the tab row along the card's top (decision 047), or its bottom: the user's pick (decision 048)
     std::uint64_t nextStartOrder = 1;
 };
 

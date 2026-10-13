@@ -40,3 +40,11 @@ wait 8000                           -> Compact
 scenario: the pin only works while expanded
 start timer
 pin                                 -> Compact stay=no
+
+scenario: the tab row's place is the user's pick, kept while closed (decision 048)
+start timer
+                                    # (nothing yet: on top by default)
+click                               -> Expanded tabs=top
+tabrow bottom                       -> Expanded tabs=bottom
+esc                                 -> Compact tabs=bottom
+tabrow top                          -> tabs=top

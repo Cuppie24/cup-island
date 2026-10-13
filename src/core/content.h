@@ -155,7 +155,14 @@ struct Swatch {
     bool operator==(const Swatch&) const = default;
 };
 
-using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch>;
+// A short label in a filled pill beside a row's name: "New" on a setting
+// not seen yet (decision 048). As wide as its text.
+struct Tag {
+    std::string text;
+    bool operator==(const Tag&) const = default;
+};
+
+using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch, Tag>;
 
 enum class Align { Start, Center, End };
 

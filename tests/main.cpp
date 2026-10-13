@@ -26,6 +26,7 @@ void runKeyboardTests();
 void runBadgeTests();
 void runListCardTests();
 void runSettingsTests();
+void runSettingsNewTests();
 void runShortcutSettingsTests();
 void runUpdateTests();
 int runScenarioFile(const std::filesystem::path& file); // returns scenarios run
@@ -53,6 +54,7 @@ int main(int argc, char** argv)
     runBadgeTests();
     runListCardTests();
     runSettingsTests();
+    runSettingsNewTests();
     runShortcutSettingsTests();
     runUpdateTests();
 

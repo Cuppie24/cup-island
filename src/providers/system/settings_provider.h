@@ -12,6 +12,7 @@
 
 #include <functional>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -45,6 +46,9 @@ struct SettingsHooks {
     // UI thread with what it found (Available: the offer's version). Empty: no row.
     std::function<void(std::function<void(CheckOutcome, const std::string&)>)> checkForUpdates;
     std::function<void()> installUpdate; // the offer, as Home's Update card installs it (decision 037)
+    std::function<void(bool top)> placeTabRow; // the tab row along the card's top or bottom (decision 048)
+    // What can be tagged "New" (decision 048): the shipped list, unless a test brings its own.
+    std::vector<SettingItem> announced = announcedSettings();
 };
 
 class SettingsProvider : public Provider {
@@ -56,7 +60,8 @@ public:
     void stop() override;
     void onAction(const Action& action) override; // the card's rows, choices and buttons
     void onWake() override;                       // the note has shown for logsNoteMs: back to "Copy logs"
-    void onCardClosed(const std::string& activityId) override; // reopened, it starts at the list
+    void onCardClosed(const std::string& activityId) override; // reopened, it starts at the list; what was seen stays seen
+    void onCardShown(const std::string& activityId) override;  // what's on it now is being seen (decision 048)
 
     // The update offer changed (UpdateProvider::onStatus): one found, its
     // install under way or failed, or none. Settings shows it under "Check for updates".
@@ -87,6 +92,8 @@ public:
     static constexpr const char* kDisplayKey = "display";
     static constexpr const char* kAutostartKey = "autostart";
     static constexpr const char* kShortcutsKey = "shortcuts"; // saveBindings' text
+    static constexpr const char* kTabRowKey = "tabrow";       // "top" or "bottom" ("": top)
+    static constexpr const char* kSeenKey = "seen";           // "seen1", then the announced settings seen, one id per line
 
 private:
     void pick(const std::string& theme); // apply it, show it
@@ -97,6 +104,8 @@ private:
     void publish();
     void stopRecording();
     void bindAll(); // registers every shortcut; one another app has stays, the page says so
+    void loadSeen();  // what's been seen; a first run has seen everything (nothing is new on a fresh install)
+    void placeTabRow(bool top);
 
     SettingsHooks hooks_;
     Host* host_ = nullptr;
@@ -112,6 +121,10 @@ private:
     bool hotkeysActive_ = true;
     std::string shortcutNote_;
     UpdateNote updateNote_;
+    bool tabsOnTop_ = true;
+    std::set<std::string> seen_;     // announced settings seen in earlier visits (decision 048)
+    std::set<std::string> seeing_;   // ...and shown during this one: seen once the card closes
+    bool visible_ = false;           // the card is on screen
 };
 
 } // namespace cup

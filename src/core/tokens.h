@@ -117,6 +117,8 @@ struct Tokens {
     float badgeSize = 8;          // a notification dot (decision 038)
     float badgeInset = 7;         // ...at least this far in from a widget's or tab's edges (its corner's rounding sets it, decision 038)
     float swatchSize = 24;        // Swatch: a colour sample (a theme on Settings' list, decision 030)
+    float tagHeight = 18;         // Tag: "New" beside a setting not seen yet (decision 048)
+    float tagPadding = 7;         // ...its text this far in from the pill's ends
 
     // Hover on buttons and the progress bar (decision 002: content only, not the pill).
     Ms hoverFadeDuration{ 120 };
@@ -225,6 +227,8 @@ struct Tokens {
     Color focusRingColor{ 255, 255, 255, 153 };    // around what the keyboard has focus on (decision 033): a theme's accent
     Color inputColor{ 255, 255, 255, 26 };         // a text field's background (decision 016)
     Color placeholderTextColor{ 255, 255, 255, 128 }; // "Add a to-do…": like body text, a little dimmer
+    Color tagColor{ 10, 132, 255 };                // a Tag's pill (decision 048)
+    Color tagTextColor{ 255, 255, 255 };
     Color selectionColor{ 10, 132, 255, 115 };     // selected text in a field (decision 043): readable on dark and light themes
     Color dangerColor{ 255, 69, 58 };              // a destructive button's label: a dialog's "Clear all" (decision 020)
     Color badgeColor{ 255, 69, 58 };               // a notification dot (decision 038): the red every OS uses for "new"
