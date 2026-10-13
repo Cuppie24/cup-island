@@ -9,6 +9,7 @@
 #include "expect.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace cup::test {
 
@@ -59,6 +60,19 @@ void runUnitTests()
     expect(scene.mode == Mode::Expanded, "click on compact expands");
     expect(scene.label == "Song", "expanded shows the activity's content");
     expect(scene.elements.size() == 1 && scene.elements[0].key == "expandedCenter/0/0", "one placed text");
+
+    // An alert's icon (an update, a battery warning): centred in its leading
+    // square, so it sits in the middle of the island's rounded end, as far
+    // from the top and bottom as from the side (decision 006).
+    IslandState alerting;
+    alerting = reduce(alerting, AlertPosted{ { .content = { .label = "Update", .alertLeading = { row({ Icon{ Glyph::Download } }) },
+                                                            .alertCenter = { row({ Text{ "Update available" } }) } } } }, Ms{ 0 });
+    Scene alert = layout(alerting, Ms{ 0 });
+    const Placed& icon = alert.elements[0];
+    float fromSide = icon.frame.x, fromTop = icon.frame.y;
+    expect(alert.mode == Mode::Alert && icon.key == "alertLeading/0/0" &&
+           std::abs(icon.frame.x + icon.frame.width / 2 - alert.size.y / 2) < 0.5f && std::abs(fromSide - fromTop) < 0.5f,
+           "an alert's icon sits in the middle of the rounded end, not against its edge");
 }
 
 } // namespace cup::test
