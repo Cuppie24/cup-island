@@ -227,8 +227,7 @@ struct Tokens {
     Color focusRingColor{ 255, 255, 255, 153 };    // around what the keyboard has focus on (decision 033): a theme's accent
     Color inputColor{ 255, 255, 255, 26 };         // a text field's background (decision 016)
     Color placeholderTextColor{ 255, 255, 255, 128 }; // "Add a to-do…": like body text, a little dimmer
-    Color tagColor{ 10, 132, 255 };                // a Tag's pill (decision 048)
-    Color tagTextColor{ 255, 255, 255 };
+    Color tagTextColor{ 255, 255, 255 };           // a Tag's text; its pill is badgeColor, like the dots it goes with (decision 048)
     Color selectionColor{ 10, 132, 255, 115 };     // selected text in a field (decision 043): readable on dark and light themes
     Color dangerColor{ 255, 69, 58 };              // a destructive button's label: a dialog's "Clear all" (decision 020)
     Color badgeColor{ 255, 69, 58 };               // a notification dot (decision 038): the red every OS uses for "new"

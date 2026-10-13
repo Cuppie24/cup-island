@@ -17,7 +17,7 @@ says it's there, let alone that it's on a page under another row.
   whose page it's on; "" for the list). Its row carries the id
   (`Row::id`); add a line when adding a setting.
 - **"New":** an announced setting not seen yet has a `Tag` ("New", a pill in
-  `tagColor`) right after its name. Its parent's row gets a dot on its
+  `badgeColor`, the notification dots' red, so tag and dot read as one signal) right after its name. Its parent's row gets a dot on its
   chevron (`Button::badge`) while anything on its page is unseen, and the
   Settings widget and tab get one (`Content::badge`) while anything is.
 - **Seen = shown, then left:** while the card is on screen

@@ -293,7 +293,8 @@ void paintTag(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Tag& tag, Vec2 s
 {
     const Tokens& t = tokens();
     float r = size.y / 2;
-    dc->FillRoundedRectangle(D2D1_ROUNDED_RECT{ D2D1::RectF(0, 0, size.x, size.y), r, r }, brushOf(dc, t.tagColor).get());
+    // The notification dots' colour: "New" and the dot on its parent are one signal (decision 038).
+    dc->FillRoundedRectangle(D2D1_ROUNDED_RECT{ D2D1::RectF(0, 0, size.x, size.y), r, r }, brushOf(dc, t.badgeColor).get());
     float fontSize = std::min(t.captionFontSize, size.y * 0.75f);
     auto f = format(dw, textFamily(dw, fontSize), fontSize, t.titleFontWeight, DWRITE_TEXT_ALIGNMENT_CENTER);
     drawString(dc, f.get(), widen(tag.text), size, t.tagTextColor);

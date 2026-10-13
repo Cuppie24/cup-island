@@ -154,7 +154,6 @@ const Field kFields[] = {
     { "inputColor", &Tokens::inputColor },
     { "placeholderTextColor", &Tokens::placeholderTextColor },
     { "selectionColor", &Tokens::selectionColor },
-    { "tagColor", &Tokens::tagColor },
     { "tagTextColor", &Tokens::tagTextColor },
     { "dangerColor", &Tokens::dangerColor },
     { "badgeColor", &Tokens::badgeColor },
