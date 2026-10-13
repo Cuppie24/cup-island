@@ -89,7 +89,7 @@ one. Bluetooth (`providers/system/`) is the reference static widget: a
 pure presenter, tested on Linux, fed by a thin WinRT reader (device
 watchers, with the battery level Windows keeps on a Bluetooth device's
 nodes, the one Settings shows). The renderer
-draws a faint background under each tile, like a hovered tab.
+draws a faint background under each tile, like the one under each tab.
 
 **Open.** Which panels show on Home, and in which order, should be a
 setting once there are more than fit; today the order is whichever panel

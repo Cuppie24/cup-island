@@ -38,8 +38,10 @@ public:
     // The keyboard's focus (decision 033): a ring inside `area`, over the
     // content, so it shows which one Enter clicks even with the pointer elsewhere.
     void setFocusRing(std::optional<Rect> area, float cornerRadius);
-    // Home's tiles (decision 009): a faint background under each, like a hovered tab.
-    void setTiles(const std::vector<Rect>& tiles, float cornerRadius);
+    // Home's tiles (decision 009) and Expanded's tabs (decision 007): a faint
+    // background under each, always shown; hover and selection add to it.
+    void setTiles(const std::vector<Rect>& tiles, float cornerRadius) { showMarks(tiles_, tiles, cornerRadius); }
+    void setTabs(const std::vector<Rect>& tabs, float cornerRadius) { showMarks(tabs_, tabs, cornerRadius); }
     // Notification dots (decision 038), over the content: Scene::badges.
     void setBadges(const std::vector<Vec2>& centres) { badges_.show(centres); }
 
@@ -77,6 +79,7 @@ private:
         std::optional<Rect> at;
     };
     void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide);
+    void showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius); // tileColor, one per rect
     Mark selectedTab_, hovered_;
     struct Ring { // the focus ring: stroked, not filled; over content_, not under it
         wuc::ShapeVisual visual{ nullptr };
@@ -86,7 +89,7 @@ private:
         std::optional<Rect> at;
         float radius = 0;
     } focusRing_;
-    std::vector<Mark> tiles_; // grows to the most tiles shown; spare ones stay faded out
+    std::vector<Mark> tiles_, tabs_; // grow to the most shown; spare ones stay faded out
     BadgeDots badges_;
     ElementVisuals elements_;
     Vec2 size_, offset_;
