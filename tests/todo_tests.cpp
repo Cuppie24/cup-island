@@ -231,6 +231,9 @@ void runTodoTests()
     const Placed* inPlace = firstOf(editing, [&](const Placed& p) { return p.key == mum->key; });
     expect(inPlace && std::holds_alternative<TextInput>(inPlace->item) && std::get<TextInput>(inPlace->item).value == "Call dad" &&
            std::get<TextInput>(inPlace->item).focused, "the text is a field holding the edit");
+    const Placed* rowBox = firstOf(editing, [&](const Placed& p) { return p.key == mum->key.substr(0, mum->key.rfind('/')) + "/0"; });
+    expect(rowBox && inPlace->frame.height == rowBox->frame.height && inPlace->frame.y == rowBox->frame.y &&
+           inPlace->cornerRadius == rowBox->cornerRadius, "the field is as tall as the checkbox, its corners nested like it");
     auto onField = hitTest(editing, { inPlace->frame.x + inPlace->frame.width / 2, inPlace->frame.y + inPlace->frame.height / 2 });
     expect(onField && onField->action.actionId == editId, "clicking it stays in the field: no tick");
     registry.route({ state.draft->providerId, state.draft->activityId, state.draft->actionId, 0, state.draft->text }); // Enter
