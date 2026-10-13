@@ -17,6 +17,10 @@ on:
         description: "Version to release: X.Y.Z, not released before (installed copies move to it, higher or lower)"
         required: true
         type: string
+      mandatory:
+        description: "Mandatory: installed copies install it by themselves at their next start, no click (decision 041)"
+        type: boolean
+        default: false
       dry_run:
         description: "Dry run: build and test, but don't tag or publish"
         type: boolean
@@ -33,6 +37,7 @@ jobs:
     runs-on: windows-latest
     env:
       VERSION: ${{ inputs.version }} # read as $env:VERSION, never pasted into a script
+      MANDATORY: ${{ inputs.mandatory }}
     defaults:
       run:
         shell: pwsh
@@ -83,5 +88,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Mandatory (decision 041): a line saying so, and the marker the updater
+          # looks for (an HTML comment: not shown). gh puts it before the generated notes.
+          $notes = @()
+          if ($env:MANDATORY -eq 'true') {
+              $notes = @('--notes', "**Required update:** installed copies install it by themselves at their next start.`n`n<!-- cup-island: mandatory -->")
+          }
           gh release create "v$env:VERSION" "dist/CupIsland-Setup-$env:VERSION.exe" "build/windows/CupIsland.pdb" `
-            --target "$env:GITHUB_SHA" --title "Cup Island $env:VERSION" --generate-notes --latest
+            --target "$env:GITHUB_SHA" --title "Cup Island $env:VERSION" --generate-notes --latest @notes

@@ -52,6 +52,7 @@ std::optional<GitHubRelease> parseRelease(const winrt::hstring& text)
     json::JsonObject o{ nullptr };
     if (!json::JsonObject::TryParse(text, o)) return std::nullopt;
     GitHubRelease r{ .tag = field(o, L"tag_name"), .page = field(o, L"html_url") };
+    r.mandatory = isMandatory(field(o, L"body")); // the release notes (decision 041)
     if (o.HasKey(L"assets") && o.GetNamedValue(L"assets").ValueType() == json::JsonValueType::Array) {
         // GetObjectAt, not as<JsonObject>(): an array's items are JsonValues,
         // which don't QI to JsonObject (E_NOINTERFACE: every check failed).

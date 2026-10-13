@@ -44,8 +44,15 @@ struct GitHubRelease {
     std::string tag;  // "v0.4.0"
     std::string page; // its page on GitHub: what's new
     std::vector<ReleaseAsset> assets;
+    bool mandatory = false; // its notes carry kMandatoryMarker (decision 041)
     bool operator==(const GitHubRelease&) const = default;
 };
+
+// A release whose notes contain this is mandatory (decision 041): a copy
+// that finds it installs it by itself at its next start, no click. The
+// Release workflow writes it (an HTML comment: not shown on the page).
+inline constexpr const char* kMandatoryMarker = "<!-- cup-island: mandatory -->";
+bool isMandatory(std::string_view notes);
 
 struct UpdateOffer {
     Version version;
@@ -53,6 +60,7 @@ struct UpdateOffer {
     std::string sha256;   // lowercase hex: the download must match it
     std::string fileName; // installerName(version)
     std::string page;
+    bool mandatory = false; // installs by itself at the next start (decision 041)
     bool operator==(const UpdateOffer&) const = default;
 };
 
