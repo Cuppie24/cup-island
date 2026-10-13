@@ -122,6 +122,8 @@ private:
     std::string shortcutNote_;
     UpdateNote updateNote_;
     bool tabsOnTop_ = true;
+    std::size_t test_ = 0;     // TEMPORARY: the dummy setting (not kept)
+    bool testOption_ = false;  // TEMPORARY
     std::set<std::string> seen_;     // announced settings seen in earlier visits (decision 048)
     std::set<std::string> seeing_;   // ...and shown during this one: seen once the card closes
     bool visible_ = false;           // the card is on screen

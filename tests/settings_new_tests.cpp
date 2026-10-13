@@ -81,7 +81,7 @@ void newTagTests()
     // An update from before tags (other settings kept): the announced one is new.
     PanelHost h;
     h.store[SettingsProvider::kAutostartKey] = "on";
-    SettingsProvider s({});
+    SettingsProvider s({ .announced = { { "tabrow", "" } } }); // just the one: the shipped list may carry test items
     s.start(h);
     auto card = [&] { return h.published.back(); };
     expect(tagged(rowNamed(card(), "Tab row")) && !tagged(rowNamed(card(), "Copy logs")), "new: the new setting tagged, the others not");
@@ -92,7 +92,7 @@ void newTagTests()
     expect(tagged(rowNamed(card(), "Tab row")), "new: still tagged while being seen");
     s.onCardClosed(SettingsProvider::kPanelId);
     expect(!tagged(rowNamed(card(), "Tab row")) && !card().content.badge, "new: re-entering, the tag is gone");
-    SettingsProvider later({});
+    SettingsProvider later({ .announced = { { "tabrow", "" } } });
     later.start(h);
     expect(!tagged(rowNamed(h.published.back(), "Tab row")), "new: and it stays gone after a restart");
 

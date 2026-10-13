@@ -125,6 +125,8 @@ Slot listPage(const SettingsView& v)
     if (!v.displays.empty()) appearance.push_back(marked(settingRow("Display", v.displays[v.display], P::kOpenDisplays), "display", v));
     appearance.push_back(marked(settingRow("Tab row", v.tabsOnTop ? "Top" : "Bottom", P::kOpenTabRow), "tabrow", v));
     appearance.push_back(marked(actionRow("Centre island", Glyph::Centre, P::kCentreIsland), "centre", v));
+    // TEMPORARY: a dummy setting to try the "New" tag on (decision 048).
+    appearance.push_back(marked(settingRow("Test setting", v.test == 0 ? "One" : "Two", P::kOpenTest), "test", v));
     group("Appearance", std::move(appearance));
 
     std::vector<Row> general;
@@ -175,6 +177,17 @@ Slot tabRowPage(const SettingsView& v)
     Slot card{ pageTitle("Tab row") };
     card.push_back(marked(choiceRow("Top", v.tabsOnTop, std::string(P::kPickTabRow) + "0", P::kTabRowList), "tabrow.top", v));
     card.push_back(marked(choiceRow("Bottom", !v.tabsOnTop, std::string(P::kPickTabRow) + "1", P::kTabRowList), "tabrow.bottom", v));
+    // TEMPORARY: a dummy new subitem, to try the parent's dot (decision 048). Does nothing but tick.
+    card.push_back(marked(choiceRow("Test option", v.testOption, P::kPickTestOption, P::kTabRowList), "tabrow.test", v));
+    return card;
+}
+
+// TEMPORARY: the dummy setting's page (decision 048).
+Slot testPage(const SettingsView& v)
+{
+    Slot card{ pageTitle("Test setting") };
+    card.push_back(choiceRow("One", v.test == 0, std::string(P::kPickTest) + "0", P::kTestList));
+    card.push_back(choiceRow("Two", v.test == 1, std::string(P::kPickTest) + "1", P::kTestList));
     return card;
 }
 
@@ -218,6 +231,9 @@ std::vector<SettingItem> announcedSettings()
 {
     return {
         { "tabrow", "" }, // decision 048
+        // TEMPORARY test items: remove with the rows they tag.
+        { "test", "" },
+        { "tabrow.test", "tabrow" },
     };
 }
 
@@ -260,6 +276,7 @@ Panel settingsPanel(const SettingsView& view)
         .expandedCenter = view.page == SettingsPage::Themes      ? themesPage(view)
                           : view.page == SettingsPage::Displays  ? displaysPage(view)
                           : view.page == SettingsPage::TabRow    ? tabRowPage(view)
+                          : view.page == SettingsPage::Test      ? testPage(view) // TEMPORARY
                           : view.page == SettingsPage::Shortcuts ? shortcutsPage(view)
                                                                  : listPage(view),
         .tile = { row({ Icon{ Glyph::Settings } }), row({ Text{ "Settings" } }) },
