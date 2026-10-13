@@ -9,8 +9,8 @@ they were just in, and the island is easy to have clicked last.
 
 **Decision.** The interaction window ignores `WM_SYSCOMMAND` with
 `SC_CLOSE`, which is what Alt+F4 (and only a window menu, which the island
-has none of) sends. Nothing else changes: the tray's Exit, Esc on a
-resting island, the updater (`DestroyWindow`), the installer (Restart
+has none of) sends. Nothing else changes: the tray's Exit (the
+one way to quit by hand; Esc only steps back, decision 033), the updater (`DestroyWindow`), the installer (Restart
 Manager, then `taskkill /f`) and shutdown don't come through `SC_CLOSE`.
 
 **Consequences.** One case in `interaction_layer.cpp`'s window procedure;
