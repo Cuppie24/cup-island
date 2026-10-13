@@ -88,7 +88,7 @@ nothing could be started from the island. The idle pill also showed nothing.
 one. The theme toggle (`providers/system/`) is the reference system
 widget: a pure presenter, tested on Linux, fed by a thin Windows reader.
 (Bluetooth was the reference static widget, removed in decision 042.) The renderer
-draws a faint background under each tile, like a hovered tab.
+draws a faint background under each tile, like the one under each tab.
 
 **Open.** Which panels show on Home, and in which order, should be a
 setting once there are more than fit; today the order is whichever panel

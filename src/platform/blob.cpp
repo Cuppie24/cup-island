@@ -238,11 +238,11 @@ void Blob::setFocusRing(std::optional<Rect> area, float cornerRadius)
     fadeTo(compositor_, ring.visual, 1.0f, tokens().hoverFadeDuration);
 }
 
-void Blob::setTiles(const std::vector<Rect>& tiles, float cornerRadius)
+void Blob::showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius)
 {
-    if (tiles_.size() < tiles.size()) tiles_.resize(tiles.size());
-    for (std::size_t i = 0; i < tiles_.size(); ++i)
-        showMark(tiles_[i], i < tiles.size() ? std::optional<Rect>(tiles[i]) : std::nullopt, cornerRadius, tokens().tileColor, false);
+    if (marks.size() < at.size()) marks.resize(at.size());
+    for (std::size_t i = 0; i < marks.size(); ++i)
+        showMark(marks[i], i < at.size() ? std::optional<Rect>(at[i]) : std::nullopt, cornerRadius, tokens().tileColor, false);
 }
 
 void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide)
