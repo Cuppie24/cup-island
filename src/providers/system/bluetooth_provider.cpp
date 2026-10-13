@@ -1,6 +1,8 @@
 #include "providers/system/bluetooth_provider.h"
 #include "platform/log.h"
 
+#include "core/tokens.h"
+
 #include <algorithm>
 #include <vector>
 
@@ -57,27 +59,82 @@ void BluetoothProvider::start(Host& host)
     alive_ = std::make_shared<bool>(true);
     state_ = {};
     followRadio(alive_);
+    listPaired();
+    relistEvery(tokens().bluetoothRelistInterval, alive_);
+}
+
+// A one-off listing (decision 039): the watcher is stopped once it has listed
+// the paired devices. Left running, a Bluetooth device watcher keeps the radio
+// busy, and music on Bluetooth headphones stutters while it does.
+void BluetoothProvider::listPaired()
+{
+    if (endpoints_) return; // one is under way
     try {
         endpoints_ = Info::CreateWatcher(kPairedAqs, { kIsConnected, kContainerId, kProtocolId }, wde::DeviceInformationKind::AssociationEndpoint);
     } catch (winrt::hresult_error const& e) {
-        platform::logLine("bluetooth: can't watch devices (0x%08x)", static_cast<unsigned>(e.code()));
+        platform::logLine("bluetooth: can't list devices (0x%08x)", static_cast<unsigned>(e.code()));
         return;
     }
+    seen_.clear();
     endpointAdded_ = endpoints_.Added(winrt::auto_revoke, [this](auto&&, Info const& info) {
-        post([this, info] { endpointChanged(std::wstring(info.Id()), info.Properties(), winrt::to_string(info.Name())); });
+        post([this, info] {
+            seen_.insert(std::wstring(info.Id()));
+            endpointChanged(std::wstring(info.Id()), info.Properties(), winrt::to_string(info.Name()));
+        });
     });
     endpointUpdated_ = endpoints_.Updated(winrt::auto_revoke, [this](auto&&, Update const& update) {
         post([this, update] { endpointChanged(std::wstring(update.Id()), update.Properties(), std::nullopt); });
     });
     endpointRemoved_ = endpoints_.Removed(winrt::auto_revoke, [this](auto&&, Update const& update) {
-        post([this, id = std::wstring(update.Id())] {
-            paired_.erase(id); // revokes its status handler
-            state_.unpaired(key(id));
-            watchBatteries();
-            publish();
-        });
+        post([this, id = std::wstring(update.Id())] { seen_.erase(id); });
     });
+    endpointsListed_ = endpoints_.EnumerationCompleted(winrt::auto_revoke, [this](auto&&, auto&&) { post([this] { finishListing(true); }); });
+    endpointsStopped_ = endpoints_.Stopped(winrt::auto_revoke, [this](auto&&, auto&&) { post([this] { finishListing(false); }); });
     endpoints_.Start();
+}
+
+void BluetoothProvider::finishListing(bool complete)
+{
+    if (!endpoints_) return; // already finished (our own Stop() also raises Stopped)
+    endpointAdded_.revoke();
+    endpointUpdated_.revoke();
+    endpointRemoved_.revoke();
+    endpointsListed_.revoke();
+    endpointsStopped_.revoke();
+    stopWatcher(endpoints_);
+    endpoints_ = nullptr;
+    if (!complete) {
+        platform::logLine("bluetooth: listing aborted; trying again later");
+        return; // a partial list can't tell what was unpaired
+    }
+
+    // Known devices this listing didn't report were unpaired meanwhile.
+    for (auto it = paired_.begin(); it != paired_.end();) {
+        if (seen_.count(it->first)) {
+            ++it;
+            continue;
+        }
+        state_.unpaired(key(it->first));
+        it = paired_.erase(it); // revokes its status handler
+    }
+    platform::logLine("bluetooth: %zu paired device(s) listed; watcher stopped", paired_.size());
+    watchBatteries();
+    publish();
+}
+
+// New pairings and removals are picked up by listing again now and then
+// (the devices' own events and the radio cover connections in between).
+winrt::fire_and_forget BluetoothProvider::relistEvery(Ms interval, std::shared_ptr<bool> alive)
+{
+    auto toUi = post_; // `this` is only touched on the UI thread, after the alive check
+    interval = std::max(interval, Ms{ 60000 });
+    for (;;) {
+        co_await winrt::resume_after(interval);
+        if (!*alive) co_return;
+        toUi([this, alive] {
+            if (*alive) listPaired();
+        });
+    }
 }
 
 void BluetoothProvider::stop()
@@ -86,6 +143,8 @@ void BluetoothProvider::stop()
     endpointAdded_.revoke();
     endpointUpdated_.revoke();
     endpointRemoved_.revoke();
+    endpointsListed_.revoke();
+    endpointsStopped_.revoke();
     stopWatcher(endpoints_);
     endpoints_ = nullptr;
     radioChanged_.revoke();
@@ -171,7 +230,12 @@ winrt::fire_and_forget BluetoothProvider::followRadio(std::shared_ptr<bool> aliv
                 auto onNow = [](Radio const& radio) { return radio.State() != wdr::RadioState::Off && radio.State() != wdr::RadioState::Disabled; };
                 radioChanged_ = radio_.StateChanged(winrt::auto_revoke, [this, onNow](Radio const& radio, auto&&) {
                     bool on = onNow(radio);
-                    post([this, on] { state_.radio(on); watchBatteries(); publish(); });
+                    post([this, on] {
+                        state_.radio(on);
+                        if (on) listPaired(); // anything paired while it was off
+                        watchBatteries();
+                        publish();
+                    });
                 });
                 state_.radio(onNow(radio_));
                 watchBatteries();

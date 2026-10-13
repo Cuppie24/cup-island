@@ -21,6 +21,16 @@ Status: Accepted
   their word stands again. No radio found: the devices' own word stands.
   Opening a device object doesn't connect to it. All are Windows 10 1507
   APIs (decision 015). Battery watches follow what the rule says is connected.
+- **The paired-list watcher doesn't keep running.** It's stopped as soon
+  as it has listed the paired devices (`EnumerationCompleted`). Left
+  running, a Bluetooth device watcher keeps the radio busy, and music on
+  Bluetooth headphones stuttered for as long as the app ran. Connections
+  are followed through the devices' own events and the radio anyway; the
+  list is only needed for names and (un)pairings, so it's read again when
+  the radio comes back on and every `bluetoothRelistIntervalMs` (10 min).
+  A device a complete listing no longer reports was unpaired; an aborted
+  listing changes nothing. Battery watches (device nodes, no radio traffic)
+  stay as they were.
 - **An update offer is saved** in the update provider's store (`offer`: its
   version, installer link, checksum, file name and page, a line each) when
   one is found, and restored at start, before any check: the Update widget

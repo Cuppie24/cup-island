@@ -127,6 +127,7 @@ const Field kFields[] = {
     { "mediaArtWaitMs", &Tokens::mediaArtWait },
     { "mediaArtRecheckMs", &Tokens::mediaArtRecheck },
     { "mediaReadRetries", &Tokens::mediaReadRetries },
+    { "bluetoothRelistIntervalMs", &Tokens::bluetoothRelistInterval },
     { "islandColor", &Tokens::islandColor, true },
     { "islandHighlightColor", &Tokens::islandHighlightColor },
     { "titleTextColor", &Tokens::titleTextColor },

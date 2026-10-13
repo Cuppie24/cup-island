@@ -198,6 +198,9 @@ struct Tokens {
     Ms mediaArtRecheck{ 800 };
     // A session read that fails (an app mid-switch) is retried this many times.
     std::size_t mediaReadRetries = 3;
+    // Bluetooth's paired list is read once and the watcher stopped (a running
+    // one made Bluetooth audio stutter); read again this often for new pairings.
+    Ms bluetoothRelistInterval{ 600000 };
 
     // Colours: every colour the island draws. tokens.json writes [r, g, b] or
     // [r, g, b, alpha], channels 0..255 and alpha 0..1, like CSS rgba().

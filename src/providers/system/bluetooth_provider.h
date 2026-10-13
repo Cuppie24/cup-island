@@ -3,7 +3,10 @@
 // connected, with its battery when it reports one. Event-driven, from what
 // Windows offers (decision 039), with the rule in BluetoothState:
 //  - a device watcher over paired Bluetooth devices (Classic and LE): names,
-//    pairing, and its IsConnected, which often lags;
+//    pairing, and its IsConnected, which often lags. Run only until it has
+//    listed them, then stopped: left running it kept the radio busy and
+//    music on Bluetooth headphones stuttered. Listed again when the radio
+//    comes back on and every bluetoothRelistInterval;
 //  - each paired device's own ConnectionStatusChanged, which doesn't;
 //  - the Bluetooth radio's StateChanged: off, nothing is connected;
 //  - one watcher per connected device over its device nodes, for the
@@ -22,6 +25,7 @@
 
 #include <functional>
 #include <map>
+#include <set>
 #include <memory>
 #include <string>
 
@@ -63,6 +67,9 @@ private:
         Watcher::Removed_revoker removed;
     };
 
+    void listPaired();    // starts a one-off listing of the paired devices
+    void finishListing(bool complete); // done (complete: drop what's no longer paired) or aborted: stop the watcher
+    winrt::fire_and_forget relistEvery(Ms interval, std::shared_ptr<bool> alive);
     void endpointChanged(const std::wstring& id, const Properties& properties, const std::optional<std::string>& name);
     winrt::fire_and_forget followDevice(std::wstring id, bool lowEnergy, std::shared_ptr<bool> alive);
     winrt::fire_and_forget followRadio(std::shared_ptr<bool> alive);
@@ -80,6 +87,9 @@ private:
     Watcher::Added_revoker endpointAdded_;
     Watcher::Updated_revoker endpointUpdated_;
     Watcher::Removed_revoker endpointRemoved_;
+    Watcher::EnumerationCompleted_revoker endpointsListed_;
+    Watcher::Stopped_revoker endpointsStopped_; // Windows aborted the listing
+    std::set<std::wstring> seen_; // endpoints the current listing reported
     std::map<std::wstring, Paired> paired_;          // by endpoint id
     std::map<std::wstring, BatteryWatch> batteries_; // by container id
     Radio radio_{ nullptr };
