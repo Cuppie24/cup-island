@@ -133,12 +133,46 @@ void newTagTests()
            tag->frame.height == tokens().tagHeight, "new: the tag right after the name");
 }
 
+// A tagged setting's value and chevron stay at the row's end, where an untagged one's are.
+void tagKeepsTheEnd()
+{
+    std::vector<Placed> rowOf[2];
+    for (int tagged = 0; tagged < 2; ++tagged) {
+        SettingsView v{ .announced = { { "tabrow", "" } } };
+        if (tagged) v.unseen = { "tabrow" };
+        Panel p = settingsPanel(v);
+        p.providerId = "system.settings";
+        IslandState st;
+        st = reduce(st, PanelPublished{ p }, Ms{ 0 });
+        st = reduce(st, HomeOpened{}, Ms{ 0 });
+        st = reduce(st, TileClicked{ kSettingsPanelId }, Ms{ 0 });
+        Scene s = layout(st, Ms{ 0 }, [](const Text& text) { return 8.0f * static_cast<float>(text.value.size()); });
+        for (const Placed& e : s.elements)
+            if (e.key.find("/tabrow/") != std::string::npos) rowOf[tagged].push_back(e);
+    }
+    auto find = [](const std::vector<Placed>& row, auto pick) -> const Placed* {
+        for (const Placed& e : row) if (pick(e)) return &e;
+        return nullptr;
+    };
+    auto value = [](const Placed& e) { auto* x = std::get_if<Text>(&e.item); return x && x->value == "Top"; };
+    auto chevron = [](const Placed& e) { return std::holds_alternative<Button>(e.item); };
+    const Placed* plainValue = find(rowOf[0], value);
+    const Placed* taggedValue = find(rowOf[1], value);
+    const Placed* plainChevron = find(rowOf[0], chevron);
+    const Placed* taggedChevron = find(rowOf[1], chevron);
+    expect(plainValue && taggedValue && taggedValue->frame.width > 0 &&
+           taggedValue->frame.x + taggedValue->frame.width == plainValue->frame.x + plainValue->frame.width,
+           "new: the tagged row's value still ends at the row's end");
+    expect(plainChevron && taggedChevron && taggedChevron->frame.x == plainChevron->frame.x, "new: and its chevron stays at the edge");
+}
+
 } // namespace
 
 void runSettingsNewTests()
 {
     tabRowTests();
     newTagTests();
+    tagKeepsTheEnd();
 }
 
 } // namespace cup::test

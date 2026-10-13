@@ -230,7 +230,9 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 x = area.x + std::clamp((area.width - used) / 2, leadingWidth, leadingWidth + spare);
             }
             for (size_t i = 0; i < row.items.size(); ++i) {
-                float w = widthOf(row.items[i]).value_or(textWidths.empty() ? stretchWidth : textWidths[nextText++]);
+                // A text takes the next of the texts' widths; a fixed item (a tag, a button) takes none of them.
+                std::optional<float> fixedW = widthOf(row.items[i]);
+                float w = fixedW ? *fixedW : textWidths.empty() ? stretchWidth : textWidths[nextText++];
                 place(row.items[i], i, x, w);
                 x += w + gap;
             }
