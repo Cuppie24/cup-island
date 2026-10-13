@@ -112,6 +112,8 @@ void SettingsProvider::onAction(const Action& action)
         hooks_.setStartsWithWindows(on);
         host_->save(kAutostartKey, on ? "on" : "off");
         publish();
+    } else if (id == settings_action::kInstallUpdate) {
+        if (hooks_.installUpdate && offer_ && offer_->stage != UpdateStage::Installing) hooks_.installUpdate();
     } else if (id == settings_action::kCheckUpdates) {
         if (!hooks_.checkForUpdates || updateNote_.checking) return;
         updateNote_ = { .checking = true };
@@ -225,6 +227,13 @@ void SettingsProvider::onCardClosed(const std::string& activityId)
     publish();
 }
 
+void SettingsProvider::updateStatusChanged(const std::optional<UpdateStatus>& offer)
+{
+    if (offer == offer_) return;
+    offer_ = offer;
+    if (host_) publish();
+}
+
 void SettingsProvider::onWake()
 {
     if (!host_) return;
@@ -259,6 +268,7 @@ SettingsView SettingsProvider::view() const
     SettingsView v{ .page = page_, .theme = theme_, .note = note_, .shortcuts = shortcuts_, .recording = recording_,
                     .shortcutNote = shortcutNote_, .version = hooks_.version };
     if (hooks_.checkForUpdates) v.update = updateNote_;
+    v.offer = offer_;
     if (displays_.size() >= 2) { // one monitor: nothing to choose
         v.displays.push_back(kMainDisplayName);
         for (std::size_t i = 0; i < displays_.size(); ++i) {

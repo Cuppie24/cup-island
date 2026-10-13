@@ -53,14 +53,14 @@ void runKeyboardTests()
     f = moveFocus(list, f->id, Arrow::Down);
     expect(clicks(list, f) == P::kOpenShortcuts, "keys: down again");
     f = moveFocus(list, f->id, Arrow::Down);
-    expect(clicks(list, f) == P::kCopyLogs, "keys: down to the buttons, the first of them");
-    f = moveFocus(list, f->id, Arrow::Right);
-    expect(clicks(list, f) == P::kCentreIsland, "keys: right, the one beside it");
-    expect(!moveFocus(list, f->id, Arrow::Right), "keys: nothing that way, focus stays");
+    expect(clicks(list, f) == P::kCopyLogs, "keys: down to Copy logs, a row like the others");
+    expect(!moveFocus(list, f->id, Arrow::Right), "keys: nothing beside a whole row, focus stays");
+    f = moveFocus(list, f->id, Arrow::Down);
+    expect(clicks(list, f) == P::kCentreIsland, "keys: then Centre island");
     auto tab = moveFocus(list, f->id, Arrow::Down);
     expect(tab && tab->id == "tab:", "keys: down from the last row: the Home tab");
     f = moveFocus(list, f->id, Arrow::Up);
-    expect(clicks(list, f) == P::kOpenShortcuts, "keys: up, back to the row above");
+    expect(clicks(list, f) == P::kCopyLogs, "keys: up, back to the row above");
     expect(!moveFocus(list, f->id, Arrow::Left), "keys: a whole-row item has nothing beside it");
 
     // The theme page: the back arrow above a list longer than its window.

@@ -132,6 +132,29 @@ void providerTests()
     expect(u.host.published.size() == shown && !u.host.wake && u.host.removed.back() == UpdateProvider::kPanelId,
            "stopped: the widget goes, a late callback does nothing");
 
+    // Settings follows the offer (decision 037): told when it comes, how the
+    // install goes, and when it's withdrawn; its button installs the same way.
+    {
+        Updater w("0.3.0");
+        std::vector<std::optional<UpdateStatus>> told;
+        w.provider.onStatus([&](const std::optional<UpdateStatus>& s) { told.push_back(s); });
+        expect(told.size() == 1 && !told[0], "status: nothing offered yet, said at once");
+        w.provider.start(w.host);
+        w.wakeAndAnswer(releaseOf("0.4.0"));
+        expect(told.back() && told.back()->version == "0.4.0" && told.back()->stage == UpdateStage::Offered, "status: an offer from the daily check");
+        w.provider.install();
+        expect(w.installs.size() == 1 && told.back()->stage == UpdateStage::Installing, "status: install() installs, as the card's button");
+        w.provider.install();
+        expect(w.installs.size() == 1, "status: not twice");
+        w.installs[0]("Couldn't download the update");
+        expect(told.back()->stage == UpdateStage::Failed && told.back()->problem == "Couldn't download the update", "status: a failure, and why");
+        w.wakeAndAnswer(releaseOf("0.3.0"));
+        expect(!told.back(), "status: withdrawn, nothing offered");
+        w.provider.install();
+        expect(w.installs.size() == 1, "status: nothing to install");
+        w.provider.stop();
+    }
+
     // "Check for updates" (Settings): checks now and says what it found.
     {
         std::vector<std::pair<CheckOutcome, std::string>> said;

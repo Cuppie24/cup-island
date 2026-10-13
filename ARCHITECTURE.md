@@ -184,7 +184,7 @@ over the file's, so `tokens()` is always what's on screen.
 - **State rules → `tests/scenarios/*.scenario`.** One line per step, with the
   expected mode after it. Readable as a spec and runnable anywhere. The
   format is documented at the top of `tests/scenario_runner.cpp`.
-- **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing),
+- **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing), `list_card_tests.cpp` (Settings' List card),
   `home_tests.cpp` (tiles, Home tab, idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop),
   `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme and Bluetooth presenters), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end), `update_tests.cpp` (versions, offers, the updater's checks and install).**
@@ -231,3 +231,4 @@ over the file's, so `tokens()` is always what's on screen.
 | Ctrl+W asks the activity's provider to close it: Pomodoro confirms, media ignores (decision 034) | done; tested, the key needs Windows |
 | System-wide shortcuts (Ctrl+X: Home), off while a fullscreen app hides the island, rebindable in Settings, a change aborted on any conflict (decision 032) | done; rules tested, registration needs Windows |
 | Releases from a workflow, version from the tag, updates from GitHub Releases: daily check, widget + alert, SHA-256-checked silent install (decision 036) | rules tested; the workflow and the Windows side need a run |
+| Settings: Update and restart under Check for updates, every action a list row, headings that stand out (decision 037) | done; rules tested, visuals need Windows |

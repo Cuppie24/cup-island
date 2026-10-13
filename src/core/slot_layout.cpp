@@ -53,6 +53,9 @@ float radiusFor(const Item& item, Rect frame, float nestedRadius)
 // A list item's extra height: room above and below its content (Row::listItem).
 float listPadding(const Row& row) { return row.listItem ? 2 * tokens().listItemPadding : 0; }
 
+// Room above a group's first row (Row::section, decision 037).
+float sectionGap(const Row& row) { return row.section ? tokens().sectionGap : 0; }
+
 // Each row's ring side (a ring matches the other items in its row; alone, it
 // fills the slot's square) and natural height.
 struct RowSizes {
@@ -72,7 +75,7 @@ RowSizes rowSizes(const Slot& rows, Rect frame)
         for (const auto* items : { &r.items, &r.leading, &r.trailing })
             for (const Item& item : *items) h = std::max(h, heightOf(item, frame, ringSide));
         sizes.ringSides.push_back(ringSide);
-        sizes.heights.push_back(h + listPadding(r));
+        sizes.heights.push_back(h + listPadding(r) + sectionGap(r));
     }
     return sizes;
 }
@@ -107,7 +110,7 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
             if (spans && row.span != RowSpan::Slot && neighbour < rows.size() && (*spans)[neighbour].width > 0)
                 area = { (*spans)[neighbour].x, slot.frame.y, (*spans)[neighbour].width, slot.frame.height };
             Rect background = area; // a list item's hover background spans the row; its content sits inside
-            if (row.listItem) {
+            if (row.listItem || row.inset) {
                 // Text at an edge sits further in, clear of the background's rounded end (decision 030).
                 auto inset = [&](const std::vector<Item>& edge, const Item* outer) {
                     return edge.empty() && outer && std::holds_alternative<Text>(*outer) ? t.listItemTextInset : t.listItemInset;
@@ -128,7 +131,8 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
                 Placed placed;
                 placed.key = slot.name + "/" + rowName + "/" + std::to_string(index);
                 placed.item = resolve(item, now, source);
-                placed.frame = { x, y + (rowHeight - h) / 2, w, h };
+                float above = sectionGap(row); // the gap is empty: content centres in the rest
+                placed.frame = { x, y + above + (rowHeight - above - h) / 2, w, h };
                 placed.cornerRadius = radiusFor(item, placed.frame, nestedRadius);
                 placed.accent = source.content ? source.content->accent : std::nullopt;
                 placed.list = list;

@@ -83,6 +83,7 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::ChevronLeft: return L"\uE76B";
     case Glyph::ChevronRight: return L"\uE76C";
     case Glyph::Download: return L"\uE896";
+    case Glyph::Centre: return L"\uE8E3"; // AlignCenter: back to the middle
     }
     return L"?";
 }
@@ -145,6 +146,7 @@ TextLook lookOf(TextStyle style)
     case TextStyle::Caption:
     case TextStyle::Digits: return { t.captionFontSize, t.captionTextColor, t.captionFontWeight };
     case TextStyle::Display: return { t.displayFontSize, t.titleTextColor, t.displayFontWeight };
+    case TextStyle::Heading: return { t.headingFontSize, t.titleTextColor, t.headingFontWeight };
     }
     return { t.bodyFontSize, t.bodyTextColor, t.bodyFontWeight };
 }

@@ -25,6 +25,14 @@ Row pageTitle(const char* title)
                 .leading = { Button{ Glyph::ChevronLeft, P::kBack } } };
 }
 
+// A group's name over its rows (decision 037): heavy and full-strength, with
+// room above it unless it's the first, so groups stand apart. Inset like the
+// list items' text, so it lines up with their names.
+Row heading(const std::string& text, bool afterAnother, const char* list = "")
+{
+    return Row{ .items = { Text{ .value = text, .style = TextStyle::Heading } }, .list = list, .section = afterAnother, .inset = true };
+}
+
 // One choice: its name, and a tick on the one picked. The whole row picks it.
 // A theme's starts with a swatch of it: its island, and its accent in the middle.
 Row choiceRow(const std::string& name, bool picked, std::string action, const char* list, const Theme* theme = nullptr)
@@ -39,15 +47,37 @@ Row choiceRow(const std::string& name, bool picked, std::string action, const ch
 }
 
 // "Check for updates" (decision 036): the whole row checks; its value says
-// what the last check found. An update found is offered on Home, as always.
+// what the last check found. An update found is offered on Home, as always,
+// and right under this row (installRow).
 Row updateRow(const UpdateNote& note)
 {
     std::string said = note.checking ? "Checking…" : !note.found ? "" : *note.found == CheckOutcome::UpToDate ? "Up to date"
-                     : *note.found == CheckOutcome::Available ? note.version + " on Home"
+                     : *note.found == CheckOutcome::Available ? note.version + " available"
                      : *note.found == CheckOutcome::Failed    ? "Couldn't check"
                                                               : "Not in dev builds";
     return Row{ .items = { Text{ "Check for updates" }, Text{ .value = said, .style = TextStyle::Caption, .alignEnd = true },
                            Button{ .glyph = Glyph::Download, .actionId = P::kCheckUpdates, .enabled = !note.checking, .compact = true } },
+                .clickAnywhere = true,
+                .listItem = true };
+}
+
+// "Update and restart" (decision 037), while an update is offered: the same
+// install as Home's Update card. Its value says how it's going.
+Row installRow(const UpdateStatus& offer)
+{
+    bool installing = offer.stage == UpdateStage::Installing;
+    std::string said = installing ? "Installing…" : offer.stage == UpdateStage::Failed ? offer.problem : offer.version;
+    return Row{ .items = { Text{ offer.stage == UpdateStage::Failed ? "Try the update again" : "Update and restart" },
+                           Text{ .value = said, .style = TextStyle::Caption, .alignEnd = true },
+                           Button{ .glyph = Glyph::Download, .actionId = P::kInstallUpdate, .enabled = !installing, .compact = true } },
+                .clickAnywhere = true,
+                .listItem = true };
+}
+
+// A row that does one thing when clicked: its name, and a glyph for what it does.
+Row actionRow(const std::string& name, Glyph glyph, const char* action)
+{
+    return Row{ .items = { Text{ name }, Button{ .glyph = glyph, .actionId = action, .compact = true } },
                 .clickAnywhere = true,
                 .listItem = true };
 }
@@ -65,10 +95,10 @@ Slot listPage(const SettingsView& v)
                             .listItem = true });
     card.push_back(settingRow("Keyboard shortcuts", "", P::kOpenShortcuts));
     if (v.update) card.push_back(updateRow(*v.update));
+    if (v.update && v.offer) card.push_back(installRow(*v.offer));
     const char* logs = v.note == LogsNote::Copied ? "Logs copied" : v.note == LogsNote::Failed ? "Couldn't copy logs" : "Copy logs";
-    card.push_back(row({ Button{ .glyph = Glyph::Copy, .actionId = P::kCopyLogs, .label = logs },
-                         Button{ .actionId = P::kCentreIsland, .label = "Centre island" } },
-                       Align::Center));
+    card.push_back(actionRow(logs, Glyph::Copy, P::kCopyLogs));
+    card.push_back(actionRow("Centre island", Glyph::Centre, P::kCentreIsland));
     // Which build this is: what a bug report needs, and what an update replaces (decision 036).
     if (!v.version.empty()) card.push_back(row({ Text{ .value = "Cup Island " + v.version, .style = TextStyle::Caption, .centred = true } }));
     return card;
@@ -79,7 +109,7 @@ Slot themesPage(const SettingsView& v)
     Slot card{ pageTitle("Theme") };
     const auto& themes = tokens().themes;
     for (const ThemeListRow& r : themeListRows()) {
-        if (!r.heading.empty()) card.push_back(Row{ .items = { Text{ .value = r.heading, .style = TextStyle::Caption } }, .list = P::kThemeList });
+        if (!r.heading.empty()) card.push_back(heading(r.heading, card.size() > 1, P::kThemeList));
         else card.push_back(choiceRow(themes[r.theme].name, themes[r.theme].name == v.theme,
                                       P::kPickTheme + std::to_string(r.theme), P::kThemeList, &themes[r.theme]));
     }
@@ -101,8 +131,7 @@ Slot displaysPage(const SettingsView& v)
 Slot shortcutsPage(const SettingsView& v)
 {
     Slot card{ pageTitle("Keyboard shortcuts") };
-    auto heading = [&](const char* text) { card.push_back(row({ Text{ .value = text, .style = TextStyle::Caption } })); };
-    heading("Anywhere");
+    card.push_back(heading("Anywhere", false));
     const auto& all = commands();
     for (std::size_t i = 0; i < all.size(); ++i) {
         bool waiting = v.recording == all[i].command;
@@ -112,7 +141,7 @@ Slot shortcutsPage(const SettingsView& v)
                             .clickAnywhere = true,
                             .listItem = true });
     }
-    heading("On the island");
+    card.push_back(heading("On the island", true));
     for (const FixedKey& k : fixedKeys())
         card.push_back(row({ Text{ k.does }, Text{ .value = k.keys, .style = TextStyle::Caption, .alignEnd = true } }));
     for (std::size_t i = 1; i < card.size(); ++i) card[i].list = P::kShortcutList; // all but the title

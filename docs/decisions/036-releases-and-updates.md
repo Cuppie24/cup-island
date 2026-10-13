@@ -54,9 +54,10 @@ knowing. There's no server, and none is wanted.
     are deleted at the next start. A failure is told on the card, with Try again.
   - Settings shows the running version under its list, and a **Check for
     updates** row that checks at once (`UpdateProvider::checkNow`) and says
-    what it found: up to date, "0.5.1 on Home", couldn't check, or "not in
+    what it found: up to date, "0.5.1 available", couldn't check, or "not in
     dev builds". It counts as the day's check; an update it finds is offered
-    on Home like any other. Reopening Settings clears what it said.
+    on Home like any other, and in Settings with its own Update and restart
+    (decision 037). Reopening Settings clears what it said.
 
 **Consequences.**
 - Releasing is the Run workflow button; there's no version to edit anywhere.

@@ -51,6 +51,9 @@ void runSettingsTests()
            cardItem(sh.published.back(), 3, 1) == "Grape" && cardItem(sh.published.back(), 4, 1) == "Lime" &&
            cardText(sh.published.back(), 5) == "Light" && cardItem(sh.published.back(), 6, 1) == "Paper",
            "themes: dark ones, then light ones, each under its heading");
+    expect(std::get<Text>(page[1].items[0]).style == TextStyle::Heading && std::get<Text>(page[5].items[0]).style == TextStyle::Heading &&
+           !page[1].section && page[5].section && page[5].inset && !page[5].listItem,
+           "themes: the headings stand out (Heading), the second with room above it, lined up with the names (decision 037)");
     expect(std::get<Swatch>(page[3].items[0]) == Swatch{ .fill = { 24, 9, 42 }, .mark = { 191, 90, 242 } },
            "themes: each starts with a swatch of its island and accent");
     expect(std::get<Button>(page[4].items[2]).glyph == Glyph::Checked && std::get<Button>(page[2].items[2]).glyph == Glyph::Unchecked &&
@@ -89,9 +92,11 @@ void runSettingsTests()
     settings.onWake();
     expect(cardText(sh.published.back(), 2) == "Copy logs", "logs: then back to Copy logs");
     press(settings_action::kCentreIsland);
-    const Row& buttons = sh.published.back().content.expandedCenter[2];
-    expect(centred == 1 && buttons.items.size() == 2 && std::get<Button>(buttons.items[1]).label == "Centre island",
-           "settings: Centre island beside Copy logs puts a moved island back (decision 026)");
+    const Slot& rows = sh.published.back().content.expandedCenter;
+    expect(centred == 1 && cardText(sh.published.back(), 3) == "Centre island" && rows[3].listItem && rows[3].clickAnywhere &&
+           std::get<Button>(rows[3].items[1]).glyph == Glyph::Centre && rows[2].listItem &&
+           std::get<Button>(rows[2].items[1]).glyph == Glyph::Copy,
+           "settings: Copy logs and Centre island are list rows like the others; Centre puts a moved island back (decision 026)");
     copyWorks = false;
     press(settings_action::kCopyLogs);
     expect(cardText(sh.published.back(), 2) == "Couldn't copy logs", "logs: a failed copy says so");
@@ -101,7 +106,7 @@ void runSettingsTests()
     themed.themes.clear();
     setTokens(themed);
     settings.start(sh);
-    expect(sh.published.back().content.expandedCenter.size() == 2 && cardText(sh.published.back(), 1) == "Copy logs",
+    expect(sh.published.back().content.expandedCenter.size() == 3 && cardText(sh.published.back(), 1) == "Copy logs",
            "settings: no themes in tokens.json, no theme row");
     settings.stop();
 
@@ -128,7 +133,7 @@ void runSettingsTests()
         press();
         expect(checks == 1, "updates: a second click while checking does nothing");
         pending(CheckOutcome::Available, "0.5.1");
-        expect(said() == "0.5.1 on Home", "updates: found, and where it is");
+        expect(said() == "0.5.1 available", "updates: found");
         press();
         pending(CheckOutcome::UpToDate, "");
         expect(said() == "Up to date", "updates: up to date");
@@ -138,6 +143,39 @@ void runSettingsTests()
         s.onCardClosed(SettingsProvider::kPanelId);
         expect(said().empty(), "updates: reopened, the row starts fresh");
         s.stop();
+
+        // Update and restart (decision 037): under Check for updates while an
+        // update is offered, whichever check found it; the same install as Home's card.
+        PanelHost ih;
+        int installs = 0;
+        SettingsProvider offered({ .checkForUpdates = [](auto) {}, .installUpdate = [&] { ++installs; } });
+        offered.start(ih);
+        auto rowAfterCheck = [&]() -> std::optional<Row> {
+            const Slot& card = ih.published.back().content.expandedCenter;
+            for (std::size_t i = 0; i + 1 < card.size(); ++i)
+                if (std::get<Text>(card[i].items[0]).value == "Check for updates") return card[i + 1];
+            return std::nullopt;
+        };
+        auto textOf = [](const Row& r, std::size_t i) { return std::get<Text>(r.items[i]).value; };
+        expect(rowAfterCheck() && textOf(*rowAfterCheck(), 0) == "Copy logs", "install: nothing offered, no row");
+        offered.updateStatusChanged(UpdateStatus{ .version = "0.5.1" });
+        auto install = rowAfterCheck();
+        expect(install && textOf(*install, 0) == "Update and restart" && textOf(*install, 1) == "0.5.1" && install->listItem &&
+               install->clickAnywhere && std::get<Button>(install->items[2]).enabled,
+               "install: an offer (from the daily check too) puts Update and restart under Check for updates");
+        offered.onAction({ "system.settings", SettingsProvider::kPanelId, settings_action::kInstallUpdate, 0 });
+        expect(installs == 1, "install: a click installs it");
+        offered.updateStatusChanged(UpdateStatus{ .version = "0.5.1", .stage = UpdateStage::Installing });
+        install = rowAfterCheck();
+        expect(textOf(*install, 1) == "Installing…" && !std::get<Button>(install->items[2]).enabled, "install: under way, it says so");
+        offered.onAction({ "system.settings", SettingsProvider::kPanelId, settings_action::kInstallUpdate, 0 });
+        expect(installs == 1, "install: a second click while installing does nothing");
+        offered.updateStatusChanged(UpdateStatus{ .version = "0.5.1", .stage = UpdateStage::Failed, .problem = "Couldn't download" });
+        install = rowAfterCheck();
+        expect(textOf(*install, 0) == "Try the update again" && textOf(*install, 1) == "Couldn't download", "install: a failure says why, and offers again");
+        offered.updateStatusChanged(std::nullopt);
+        expect(textOf(*rowAfterCheck(), 0) == "Copy logs", "install: withdrawn, the row goes");
+        offered.stop();
 
         PanelHost nh;
         SettingsProvider none({});
@@ -194,7 +232,7 @@ void runSettingsTests()
                               .listDisplays = [&] { return monitors; },
                               .applyDisplay = [&](const std::string& id) { placed = id; } });
     picker.start(sh);
-    expect(sh.published.back().content.expandedCenter.size() == 2 && placed.empty(),
+    expect(sh.published.back().content.expandedCenter.size() == 3 && placed.empty(),
            "display: one monitor, no row; the saved one is unplugged, so the island is on the main display");
 
     monitors.push_back({ "B", "DELL U2720Q" });

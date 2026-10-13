@@ -23,6 +23,7 @@ void runTodoTests();
 void runPlacementTests();
 void runStoreTests();
 void runKeyboardTests();
+void runListCardTests();
 void runSettingsTests();
 void runShortcutSettingsTests();
 void runUpdateTests();
@@ -48,6 +49,7 @@ int main(int argc, char** argv)
     runPlacementTests();
     runStoreTests();
     runKeyboardTests();
+    runListCardTests();
     runSettingsTests();
     runShortcutSettingsTests();
     runUpdateTests();
