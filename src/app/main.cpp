@@ -8,7 +8,7 @@
 // app theme, display, Start with Windows and Copy logs, decisions 022, 030). Press and hold the pill to lift it
 // and move it along the top edge (decision 026).
 //
-// Keys (decision 031): Ctrl+X opens Home from anywhere (system-wide, off
+// Keys (decision 031): Ctrl+Q opens Home from anywhere (system-wide, off
 // while a fullscreen app hides the island, changeable in Settings, decision 032). On the island, the arrows move
 // between a card's controls and Home's widgets, Enter or Space clicks.
 // Demo keys:

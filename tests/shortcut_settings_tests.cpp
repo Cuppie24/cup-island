@@ -26,7 +26,7 @@ void runShortcutSettingsTests()
     const Slot& keys = sh.published.back().content.expandedCenter;
     expect(cardText(sh.published.back(), 0) == "Keyboard shortcuts" && keys.size() == 3 + commands().size() + fixedKeys().size() &&
            cardText(sh.published.back(), 1) == "Anywhere" && cardItem(sh.published.back(), 2, 0) == "Open Home" &&
-           cardItem(sh.published.back(), 2, 1) == "Ctrl+X" && cardItem(sh.published.back(), 4, 0) == "Move between items",
+           cardItem(sh.published.back(), 2, 1) == "Ctrl+Q" && cardItem(sh.published.back(), 4, 0) == "Move between items",
            "shortcuts: a page with each one's keys and what they do");
     expect(rowNamed(sh.published.back(), "Move between items")->inset && rowNamed(sh.published.back(), "Open Home")->listItem,
            "shortcuts: the fixed keys line up with the editable one's name");
@@ -48,7 +48,7 @@ void runShortcutSettingsTests()
     std::string& savedKeys = sh.store[SettingsProvider::kShortcutsKey];
     savedKeys = "";
     editor.start(sh);
-    expect(chordText(registered[Command::OpenHome]) == "Ctrl+X", "keys: the default (Ctrl+X) registered at start");
+    expect(chordText(registered[Command::OpenHome]) == "Ctrl+Q", "keys: the default (Ctrl+Q) registered at start");
     auto pressKeys = [&](const std::string& actionId) { editor.onAction({ "system.settings", SettingsProvider::kPanelId, actionId, 0 }); };
     auto keysOf = [&] { return cardItem(sh.published.back(), 2, 1); };
     auto noteOf = [&] { return cardText(sh.published.back(), sh.published.back().content.expandedCenter.size() - 1); };

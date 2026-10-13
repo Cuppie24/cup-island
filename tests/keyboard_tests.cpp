@@ -224,8 +224,8 @@ void runKeyboardTests()
 
     // Shortcuts (decision 032): system-wide, rebindable, saved as text.
     Chord openHome = chordOf(defaultBindings(), Command::OpenHome);
-    expect(chordText(openHome) == "Ctrl+X", "shortcuts: Open Home is Ctrl+X");
-    expect(parseChord("Ctrl+Alt+Space") == Chord{ .key = kSpace, .ctrl = true, .alt = true } && parseChord("ctrl+x") == openHome && parseChord(" ctrl + shift + f5 ") == Chord{ .key = kF1 + 4, .ctrl = true, .shift = true } &&
+    expect(chordText(openHome) == "Ctrl+Q", "shortcuts: Open Home is Ctrl+Q");
+    expect(parseChord("Ctrl+Alt+Space") == Chord{ .key = kSpace, .ctrl = true, .alt = true } && parseChord("ctrl+q") == openHome && parseChord(" ctrl + shift + f5 ") == Chord{ .key = kF1 + 4, .ctrl = true, .shift = true } &&
            parseChord("Win+K") == Chord{ .key = 'K', .win = true }, "shortcuts: the text form reads back");
     expect(!parseChord("Ctrl+Enter") && !parseChord("Hyper+X") && !parseChord("Ctrl+") && !parseChord(""), "shortcuts: anything else isn't a chord");
     Bindings reloaded = loadBindings(saveBindings({ { Command::OpenHome, { .key = 'H', .ctrl = true, .alt = true } } }));

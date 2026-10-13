@@ -107,7 +107,7 @@ click
 tile settings
 wait 8000                           -> Idle
 
-scenario: the Open Home shortcut (Ctrl+X) opens Home from anywhere (decision 032)
+scenario: the Open Home shortcut (Ctrl+Q) opens Home from anywhere (decision 032)
 panel focus
 home                                -> Expanded expanded=home
 esc                                 -> Idle
