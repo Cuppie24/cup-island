@@ -70,7 +70,6 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Timer: return L"";
     case Glyph::Stop: return L"\uE71A";
     case Glyph::Home: return L"\uE80F";
-    case Glyph::Bluetooth: return L"\uE702";
     case Glyph::Sun: return L"\uE706";  // Brightness
     case Glyph::Moon: return L"\uE708"; // QuietHours (crescent)
     case Glyph::Copy: return L"\uE8C8";

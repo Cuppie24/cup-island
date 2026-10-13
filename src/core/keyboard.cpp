@@ -49,7 +49,7 @@ std::vector<Focusable> focusables(const Scene& scene)
         found.push_back({ "el:" + p.key, frame, point, p.list, p.activityId, radius });
     }
     if (dialog) return found; // in reading order already: one row, Cancel first
-    // Every tile, clickable or not: a static one (Bluetooth) is still a stop,
+    // Every tile, clickable or not: a static one (no card, no tap) is still a stop,
     // or down from above it would jump a row (decision 033).
     for (const Tile& tile : scene.tiles) found.push_back({ "tile:" + tile.id, tile.frame, centre(tile.frame), std::nullopt, tile.id, scene.tileRadius });
     if (scene.tabs)
