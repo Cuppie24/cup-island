@@ -63,6 +63,7 @@ void PillRenderer::apply(const Scene& scene)
     std::vector<Rect> tiles;
     for (const Tile& tile : scene.tiles) tiles.push_back(tile.frame);
     pill_.setTiles(tiles, scene.tileRadius);
+    pill_.setBadges(scene.badges);
 
     // While the bubble is dragged it just follows the cursor: no neck, no
     // other motion (decision 007). The neck is for budding and settling.

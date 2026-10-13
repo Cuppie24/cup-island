@@ -171,18 +171,22 @@ void runSettingsTests()
         expect(install && textOf(*install, 0) == "Update and restart" && textOf(*install, 1) == "0.5.1" && install->listItem &&
                install->clickAnywhere && std::get<Button>(install->items[2]).enabled,
                "install: an offer (from the daily check too) puts Update and restart under Check for updates");
+        expect(ih.published.back().content.badge && std::get<Button>(install->items[2]).badge,
+               "install: a dot on the Settings widget, and on the row it leads to (decision 038)");
         offered.onAction({ "system.settings", SettingsProvider::kPanelId, settings_action::kInstallUpdate, 0 });
         expect(installs == 1, "install: a click installs it");
         offered.updateStatusChanged(UpdateStatus{ .version = "0.5.1", .stage = UpdateStage::Installing });
         install = rowAfterCheck();
         expect(textOf(*install, 1) == "Installing…" && !std::get<Button>(install->items[2]).enabled, "install: under way, it says so");
+        expect(!ih.published.back().content.badge && !std::get<Button>(install->items[2]).badge, "install: under way, no dots");
         offered.onAction({ "system.settings", SettingsProvider::kPanelId, settings_action::kInstallUpdate, 0 });
         expect(installs == 1, "install: a second click while installing does nothing");
         offered.updateStatusChanged(UpdateStatus{ .version = "0.5.1", .stage = UpdateStage::Failed, .problem = "Couldn't download" });
         install = rowAfterCheck();
         expect(textOf(*install, 0) == "Try the update again" && textOf(*install, 1) == "Couldn't download", "install: a failure says why, and offers again");
+        expect(ih.published.back().content.badge, "install: failed, the dot is back: it still needs doing");
         offered.updateStatusChanged(std::nullopt);
-        expect(!rowAfterCheck(), "install: withdrawn, the row goes");
+        expect(!rowAfterCheck() && !ih.published.back().content.badge, "install: withdrawn, the row and the dot go");
         offered.stop();
 
         PanelHost nh;

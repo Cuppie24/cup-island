@@ -39,13 +39,14 @@ struct TabFace {
     const Item* lead = nullptr;
     Text title;
     bool iconOnly = false; // Home: the lead, centred, no title
+    bool badge = false;    // its activity's Content::badge
 };
 
 TabFace faceOf(const Activity& a)
 {
     const Item* lead = firstItem(a.content.compactLeading);
     if (!lead) lead = firstItem(a.content.minimal);
-    return { a.id, a.providerId, lead, titleOf(a.content) };
+    return { .id = a.id, .providerId = a.providerId, .lead = lead, .title = titleOf(a.content), .badge = a.content.badge };
 }
 
 const Item kHomeIcon = Icon{ Glyph::Home };
@@ -115,7 +116,7 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     else if (findActivity(s, s.expandedId)) shown = s.expandedId;
     auto add = [&](const TabFace& face, Rect frame, Rect hitFrame) {
         if (face.id == shown) strip.active = strip.tabs.size();
-        strip.tabs.push_back({ frame, hitFrame, face.id });
+        strip.tabs.push_back({ frame, hitFrame, face.id, face.badge });
         placeTab(face, frame, strip.radius, measure, elements);
     };
 

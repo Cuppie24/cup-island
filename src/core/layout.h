@@ -59,6 +59,7 @@ struct Tab {
     Rect frame;     // pill coordinates: drawn highlight
     Rect hitFrame;  // clickable area: the frame, or more (Home's reaches into the card's corner)
     std::string id; // the activity's id; empty = Home
+    bool badge = false; // its activity's Content::badge (decision 038)
 };
 
 struct TabStrip {
@@ -75,6 +76,7 @@ struct Tile {
     bool opens = false;     // has a card: a click opens it (TileClicked)
     std::string providerId;
     std::string tapAction;  // a click sends this action instead (Panel::tapAction)
+    bool badge = false;     // its content's Content::badge (decision 038)
     bool clickable() const { return opens || !tapAction.empty(); } // lights up under the pointer
 };
 
@@ -91,6 +93,7 @@ struct Scene {
     std::optional<TabStrip> tabs;  // Expanded with several activities, or activities and panels
     std::vector<Tile> tiles;       // Home
     float tileRadius = 0;          // tile background corners, nested in the card's
+    std::vector<Vec2> badges;      // notification dots' centres (decision 038, core/badges.h)
     bool dropTarget = false;       // the dragged bubble is over the pill: letting go swaps them (pill lightens)
     Vec2 bubbleTuck;               // no bubble: it shrinks to this point, on the top edge inside the pill
     std::string label;             // accessible name of what's shown

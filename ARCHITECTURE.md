@@ -38,10 +38,11 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 (+ slot_layout.h), split.h, tabs.h, home.h, hit_test.h, provider.h (Provider/Host API),
                 lift.h + placement.h (moving the island along the top edge, decision 026),
                 keyboard.h (arrow, Tab and digit focus, decisions 031, 033) + shortcuts.h (the shortcut table, decision 031),
+                badges.h (where notification dots go, decision 038),
                 tokens.h (+ tokens_json.h, json_reader.h), easing.h
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
-                per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
+                per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules and the media widget, SMTC provider for real Windows media),
                 pomodoro/ (the first panel), system/ (Home's theme, Bluetooth and Settings widgets:
@@ -184,7 +185,7 @@ over the file's, so `tokens()` is always what's on screen.
 - **State rules → `tests/scenarios/*.scenario`.** One line per step, with the
   expected mode after it. Readable as a spec and runnable anywhere. The
   format is documented at the top of `tests/scenario_runner.cpp`.
-- **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing), `list_card_tests.cpp` (Settings' List card),
+- **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing), `list_card_tests.cpp` (Settings' List card), `badge_tests.cpp` (notification dots),
   `home_tests.cpp` (tiles, Home tab, idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop),
   `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme and Bluetooth presenters), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end), `update_tests.cpp` (versions, offers, the updater's checks and install).**
@@ -232,3 +233,4 @@ over the file's, so `tokens()` is always what's on screen.
 | System-wide shortcuts (Ctrl+X: Home), off while a fullscreen app hides the island, rebindable in Settings, a change aborted on any conflict (decision 032) | done; rules tested, registration needs Windows |
 | Releases from a workflow, version from the tag, updates from GitHub Releases: daily check, widget + alert, SHA-256-checked silent install (decision 036) | rules tested; the workflow and the Windows side need a run |
 | Settings: Update and restart under Check for updates, every action a list row, headings that stand out (decision 037) | done; rules tested, visuals need Windows |
+| Notification badges: a dot on a widget, tab or button with something new; Settings' widget and its Update row when an update waits (decision 038) | done; placement tested, drawing needs Windows |

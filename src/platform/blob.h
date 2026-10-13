@@ -6,6 +6,7 @@
 
 #include "core/layout.h"
 #include "core/tokens.h"
+#include "platform/badge_dots.h"
 #include "platform/element_visuals.h"
 #include "platform/graphics_device.h"
 #include "platform/win.h"
@@ -39,6 +40,8 @@ public:
     void setFocusRing(std::optional<Rect> area, float cornerRadius);
     // Home's tiles (decision 009): a faint background under each, like a hovered tab.
     void setTiles(const std::vector<Rect>& tiles, float cornerRadius);
+    // Notification dots (decision 038), over the content: Scene::badges.
+    void setBadges(const std::vector<Vec2>& centres) { badges_.show(centres); }
 
     // Tactile click feedback: squash on press, spring back on release.
     void pressDown();
@@ -84,6 +87,7 @@ private:
         float radius = 0;
     } focusRing_;
     std::vector<Mark> tiles_; // grows to the most tiles shown; spare ones stay faded out
+    BadgeDots badges_;
     ElementVisuals elements_;
     Vec2 size_, offset_;
     Vec2 centre_;            // last cursor position while following

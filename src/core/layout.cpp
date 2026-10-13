@@ -1,5 +1,6 @@
 #include "core/layout.h"
 
+#include "core/badges.h"
 #include "core/dialog.h"
 #include "core/home.h"
 #include "core/lift.h"
@@ -197,6 +198,7 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
             placeSlot(slot, source, nestedRadius, now, scene.elements, measureText);
     }
     scene.tabs = tabStripFor(state, scene.size, nestedRadius, measureText, scene.elements);
+    scene.badges = badgeCentres(scene);
     return scene;
 }
 
