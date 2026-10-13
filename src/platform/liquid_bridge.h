@@ -5,14 +5,14 @@
 // to nothing at `bridgeReach` apart. Pure expressions over both shapes' live
 // values, so it works mid-morph and mid-drag with no app code per frame.
 
-#include "platform/blob.h"
 #include "platform/win.h"
 
 namespace cup::platform {
 
 class LiquidBridge {
 public:
-    void build(wuc::Compositor const& compositor, wuc::ContainerVisual const& parent, const Blob& a, const Blob& b);
+    // Between two shapes' visuals: a Blob's body(), or the daydream's droplet (decision 050).
+    void build(wuc::Compositor const& compositor, wuc::ContainerVisual const& parent, wuc::Visual const& a, wuc::Visual const& b);
     void refreshAnimations(); // after a tokens.json reload
     void setEnabled(bool on); // off while the bubble is dragged
 

@@ -16,6 +16,11 @@ bool registerHotkey(HWND hwnd, Command command, const Chord& chord);
 
 void unregisterHotkeys(HWND hwnd); // every command's: before the window goes
 
+// The key `command` is registered with is still down (async: whichever app
+// is in front). WM_HOTKEY says when it went down, never when it came up, so
+// a held shortcut (the daydream, decision 050) is polled for its release.
+bool hotkeyHeld(Command command);
+
 // The command a WM_HOTKEY's id stands for.
 std::optional<Command> hotkeyCommand(WPARAM id);
 

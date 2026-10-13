@@ -1,5 +1,7 @@
 #include "platform/hotkeys.h"
 
+#include <map>
+
 namespace cup::platform {
 namespace {
 
@@ -14,6 +16,8 @@ int idOf(Command command)
 
 bool held(int key) { return GetKeyState(key) < 0; }
 
+std::map<Command, int> g_keys; // each registered command's key (no modifiers), for hotkeyHeld()
+
 } // namespace
 
 bool registerHotkey(HWND hwnd, Command command, const Chord& chord)
@@ -25,12 +29,26 @@ bool registerHotkey(HWND hwnd, Command command, const Chord& chord)
     if (chord.alt) modifiers |= MOD_ALT;
     if (chord.shift) modifiers |= MOD_SHIFT;
     if (chord.win) modifiers |= MOD_WIN;
-    return RegisterHotKey(hwnd, id, modifiers, static_cast<UINT>(chord.key)) != 0;
+    if (!RegisterHotKey(hwnd, id, modifiers, static_cast<UINT>(chord.key))) {
+        g_keys.erase(command);
+        return false;
+    }
+    g_keys[command] = chord.key;
+    return true;
 }
 
 void unregisterHotkeys(HWND hwnd)
 {
     for (std::size_t i = 0; i < commands().size(); ++i) UnregisterHotKey(hwnd, static_cast<int>(i) + 1);
+    g_keys.clear();
+}
+
+bool hotkeyHeld(Command command)
+{
+    // Only the key itself: letting go of Ctrl first still holds it, as the
+    // key is what the hand is on.
+    auto it = g_keys.find(command);
+    return it != g_keys.end() && GetAsyncKeyState(it->second) < 0;
 }
 
 std::optional<Command> hotkeyCommand(WPARAM id)

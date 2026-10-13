@@ -26,6 +26,7 @@ add_library(cup_core STATIC
     src/core/badges.cpp
     src/core/card_overlays.cpp
     src/core/content.cpp
+    src/core/daydream.cpp
     src/core/dialog.cpp
     src/core/easing.cpp
     src/core/fullscreen.cpp
@@ -153,6 +154,7 @@ if(WIN32)
         src/platform/blob_motion.cpp
         src/platform/blob_shape.cpp
         src/platform/crash_report.cpp
+        src/platform/daydream.cpp
         src/platform/displays.cpp
         src/platform/element_art.cpp
         src/platform/element_painting.cpp

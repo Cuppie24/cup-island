@@ -46,6 +46,10 @@ public:
     // Notification dots (decision 038), over the content: Scene::badges.
     void setBadges(const std::vector<Vec2>& centres) { badges_.show(centres); }
 
+    // The daydream (decision 050): off the screen edge, round, its content
+    // faded out; ending, it lands in `landIn` and takes them back as it does.
+    void setDaydreaming(bool on, Ms landIn);
+
     // Tactile click feedback: squash on press, spring back on release.
     void pressDown();
     void pressRelease();
@@ -54,7 +58,7 @@ public:
 
 private:
     void playScale(float scale, Ms duration, Bezier curve);
-    void setAttached(bool on); // to the screen edge: flared top corners; off it (dragged): round
+    void setAttached(bool on, Ms after = Ms{ 0 }); // to the screen edge: flared top corners; off it (dragged): round
     void startFollowing(std::wstring const& expression); // Offset follows drag_ (the cursor)
     void land();                                         // ...until let go: glides to offset_
 
@@ -100,6 +104,7 @@ private:
     bool lifted_ = false;    // ...the lift's (top at liftDrop), not follow()'s (centred on the cursor)
     bool leftEar_ = true, rightEar_ = true;
     bool highlighted_ = false;
+    bool daydreaming_ = false;
 };
 
 } // namespace cup::platform

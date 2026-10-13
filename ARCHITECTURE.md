@@ -36,12 +36,12 @@ So "why did X happen?" is always answered in `core/`, by a scenario test.
 ```
 src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (what providers show), layout.h
                 (+ slot_layout.h), split.h, tabs.h, home.h, hit_test.h, provider.h (Provider/Host API),
-                lift.h + placement.h (moving the island along the top edge, decision 026),
+                lift.h + placement.h (moving the island along the top edge, decision 026), daydream.h (holding Home's shortcut, decision 050),
                 keyboard.h (arrow, Tab and digit focus, decisions 031, 033) + shortcuts.h (the shortcut table, decision 031),
                 badges.h (where notification dots go, decision 038),
                 tokens.h (+ tokens_json.h, json_reader.h), easing.h
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
-                pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
+                pill + Split bubble, and the liquid_bridge between them; daydream: the floating show, decision 050), element_visuals (one visual
                 per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules and the media widget, SMTC provider for real Windows media),
@@ -238,3 +238,4 @@ over the file's, so `tokens()` is always what's on screen.
 | Notification badges: a dot on a widget, tab or button with something new; Settings' widget and its Update row when an update waits (decision 038) | done; placement tested, drawing needs Windows |
 | An update offer survives a restart (decision 039); Bluetooth removed (decision 042) | rules tested |
 | Mandatory releases: the Release workflow's checkbox; installed by itself at the next start, with an alert, 3 tries at most (decision 041) | rules tested; the workflow's first mandatory run confirms it |
+| Daydream: hold Home's shortcut and the island floats, spins and wobbles, a droplet budding off it, until let go (decision 050) | rules tested; the show needs a Windows run to tune |

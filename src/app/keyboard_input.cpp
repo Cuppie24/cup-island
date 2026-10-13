@@ -2,7 +2,9 @@
 
 #include "core/keyboard.h"
 #include "core/shortcuts.h"
+#include "core/tokens.h"
 #include "platform/hotkeys.h"
+#include "platform/interaction_layer.h"
 #include "providers/system/settings_provider.h"
 
 #include <utility>
@@ -192,6 +194,20 @@ void hotkeyPressed(WPARAM id)
         return;
     }
     run(*command);
+    // Held, it daydreams (decision 050). Windows sends no key-up for a
+    // hotkey, so the key is checked until it's let go: only while held.
+    if (*command != Command::OpenHome) return;
+    dispatch(HomeShortcutHeld{}, "shortcut held");
+    platform::setTimer(platform::TimerId::ShortcutPoll, tokens().shortcutPoll);
+}
+
+void pollHeldShortcut()
+{
+    if (platform::hotkeyHeld(Command::OpenHome)) {
+        platform::setTimer(platform::TimerId::ShortcutPoll, tokens().shortcutPoll);
+        return;
+    }
+    dispatch(HomeShortcutReleased{}, "shortcut let go");
 }
 
 } // namespace cup::app

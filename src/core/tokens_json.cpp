@@ -101,6 +101,15 @@ const Field kFields[] = {
     { "liftDrop", &Tokens::liftDrop },
     { "centreSnap", &Tokens::centreSnap },
     { "edgeSnap", &Tokens::edgeSnap },
+    { "daydreamHoldMs", &Tokens::daydreamHold, true },
+    { "shortcutPollMs", &Tokens::shortcutPoll },
+    { "daydreamRiseMs", &Tokens::daydreamRise },
+    { "daydreamLoopMs", &Tokens::daydreamLoop },
+    { "daydreamSettleMs", &Tokens::daydreamSettle },
+    { "daydreamDrift", &Tokens::daydreamDrift },
+    { "daydreamClearance", &Tokens::daydreamClearance },
+    { "daydreamWobble", &Tokens::daydreamWobble },
+    { "daydreamDropletSize", &Tokens::daydreamDropletSize },
     { "shadowBlur", &Tokens::shadowBlur, true },
     { "shadowOffset", &Tokens::shadowOffset },
     { "tabHeight", &Tokens::tabHeight, true },
@@ -335,7 +344,7 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
     // knob isn't a size. Nor are font weights or text contrast.
     auto unitless = [](const char* name) {
         std::string_view n(name);
-        return n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" ||
+        return n == "pressScale" || n == "daydreamWobble" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" ||
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
     };
     Tokens out = t;
