@@ -63,25 +63,35 @@ Dialog stopQuestion(const PomodoroProvider::Session& s)
              .confirmAction = act::kStopConfirmed, .destructive = true };
 }
 
+// A length on the dormant card (decision 044): its name, the minutes, and
+// a full-size − and + at the end (easy to hit), dimmed at either limit.
+Row planRow(const char* name, Ms length, bool focus, const PomodoroPlan& plan)
+{
+    Button less{ .glyph = Glyph::Minus, .actionId = focus ? act::kFocusLess : act::kBreakLess, .enabled = canAdjust(plan, focus, -1) };
+    Button more{ .glyph = Glyph::Plus, .actionId = focus ? act::kFocusMore : act::kBreakMore, .enabled = canAdjust(plan, focus, 1) };
+    return Row{ .items = { Text{ name }, Text{ .value = minutes(length), .alignEnd = true } }, .trailing = { less, more }, .inset = true };
+}
+
 // Dormant: a centred card like the running one, so starting changes as
-// little as possible: the full focus time big, the plan, ▶ where the
-// controls go, then the to-dos (decision 016). The widget is laid out like the
-// running one too: the timer icon where the ring goes, the focus time, the plan.
-Panel pomodoroPanel(const TodoList& todos)
+// little as possible: the focus time big, then how long focus and breaks
+// last, each with − and + (decision 044), ▶ where the controls go, then the
+// to-dos (decision 016). The widget is laid out like the running one too:
+// the timer icon where the ring goes, the focus time, the rounds.
+Panel pomodoroPanel(const TodoList& todos, const PomodoroPlan& plan)
 {
     const Tokens& t = tokens();
-    std::string plan = minutes(t.pomodoroFocus) + " focus, " + minutes(t.pomodoroBreak) + " breaks";
     std::string rounds = "Focus · " + std::to_string(t.pomodoroRounds) + " rounds";
     Content content{
         .label = "Focus",
         .accent = accentOf(Phase::Focus),
         .card = CardLayout::Centred,
         .keepOpen = true, // a click between the controls or to-dos doesn't close it (Content::keepOpen)
-        .expandedCenter = { row({ Text{ .value = formatDuration(t.pomodoroFocus), .style = TextStyle::Display, .centred = true } }),
-                            row({ Text{ .value = plan, .style = TextStyle::Caption, .centred = true } }),
+        .expandedCenter = { row({ Text{ .value = formatDuration(plan.focus), .style = TextStyle::Display, .centred = true } }),
+                            planRow("Focus", plan.focus, true, plan),
+                            planRow("Break", plan.rest, false, plan),
                             row({ Button{ Glyph::Play, act::kStart } }, Align::Center) },
         .tileLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
-        .tile = { row({ Text{ formatDuration(t.pomodoroFocus), TextStyle::Title } }), row({ Text{ rounds, TextStyle::Caption } }) },
+        .tile = { row({ Text{ formatDuration(plan.focus), TextStyle::Title } }), row({ Text{ rounds, TextStyle::Caption } }) },
     };
     appendTodoRows(content.expandedCenter, todos);
     return { .id = PomodoroProvider::kPanelId, .content = content, .wide = true };
@@ -136,9 +146,10 @@ void PomodoroProvider::start(Host& host)
 {
     host_ = &host;
     todos_ = TodoList::load(host_->load(kTodosKey));
-    host_->publishPanel(pomodoroPanel(todos_));
+    plan_ = loadPlan(host_->load(kPlanKey));
+    host_->publishPanel(pomodoroPanel(todos_, plan_));
     // A session from before a restart carries on where it would be now (decision 027).
-    session_ = resumeSession(host_->load(kSessionKey), host_->now(), host_->wallClock());
+    session_ = resumeSession(host_->load(kSessionKey), plan_, host_->now(), host_->wallClock());
     if (session_) publish();
 }
 
@@ -174,6 +185,15 @@ void PomodoroProvider::onAction(const Action& action)
         }
         return;
     }
+    // The plan, while dormant (decision 044): kept, and shown at once.
+    bool focusStep = action.actionId == act::kFocusLess || action.actionId == act::kFocusMore;
+    if (!session_ && (focusStep || action.actionId == act::kBreakLess || action.actionId == act::kBreakMore)) {
+        bool more = action.actionId == act::kFocusMore || action.actionId == act::kBreakMore;
+        plan_ = adjustPlan(plan_, focusStep, more ? 1 : -1);
+        host_->save(kPlanKey, savePlan(plan_));
+        host_->publishPanel(pomodoroPanel(todos_, plan_));
+        return;
+    }
     Ms now = host_->now();
     if (action.actionId == act::kStart && !session_) {
         begin(Phase::Focus, 1);
@@ -204,7 +224,7 @@ void PomodoroProvider::onWake()
 
 void PomodoroProvider::begin(Phase phase, std::size_t round)
 {
-    Ms duration = phaseDuration(phase);
+    Ms duration = phaseDuration(phase, plan_);
     session_ = Session{ phase, round, { .duration = duration, .anchoredAt = host_->now(), .playing = true } };
     publish();
 }
@@ -213,7 +233,7 @@ void PomodoroProvider::begin(Phase phase, std::size_t round)
 void PomodoroProvider::advance(bool alert)
 {
     const Tokens& t = tokens();
-    std::optional<Session> next = followingPhase(*session_, host_->now());
+    std::optional<Session> next = followingPhase(*session_, plan_, host_->now());
     if (!next) {
         finish();
         if (alert) host_->postAlert(phaseAlert("Session done", std::to_string(t.pomodoroRounds) + " rounds of focus", "", accentOf(Phase::Break)));
@@ -226,7 +246,7 @@ void PomodoroProvider::advance(bool alert)
         host_->postAlert(phaseAlert("Back to focus", "Round " + std::to_string(next->round) + " of " + std::to_string(t.pomodoroRounds),
                                     kPanelId, accentOf(Phase::Focus)));
     else
-        host_->postAlert(phaseAlert(next->phase == Phase::LongBreak ? "Long break" : "Break time", minutes(phaseDuration(next->phase)),
+        host_->postAlert(phaseAlert(next->phase == Phase::LongBreak ? "Long break" : "Break time", minutes(phaseDuration(next->phase, plan_)),
                                     kPanelId, accentOf(next->phase)));
 }
 
@@ -235,6 +255,7 @@ void PomodoroProvider::finish()
     session_.reset();
     host_->save(kSessionKey, "");
     host_->wakeAt(std::nullopt);
+    host_->publishPanel(pomodoroPanel(todos_, plan_)); // to-dos changed while it ran show on the dormant card too
     host_->endActivity(kPanelId);
 }
 
@@ -242,7 +263,7 @@ void PomodoroProvider::showTodos()
 {
     host_->save(kTodosKey, todos_.save());
     if (session_) publish();
-    else host_->publishPanel(pomodoroPanel(todos_));
+    else host_->publishPanel(pomodoroPanel(todos_, plan_));
 }
 
 void PomodoroProvider::publish()

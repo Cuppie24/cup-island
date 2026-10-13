@@ -24,6 +24,11 @@ inline constexpr const char* kPause = "pause"; // toggles pause / resume
 inline constexpr const char* kSkip = "skip";   // ends the current phase early, without an alert
 inline constexpr const char* kStop = "stop";                   // only asks (stopQuestion); the dialog's confirm sends:
 inline constexpr const char* kStopConfirmed = "stop.confirmed";
+// The dormant card's − and + (decision 044): a step shorter or longer.
+inline constexpr const char* kFocusLess = "plan.focus.less";
+inline constexpr const char* kFocusMore = "plan.focus.more";
+inline constexpr const char* kBreakLess = "plan.break.less";
+inline constexpr const char* kBreakMore = "plan.break.more";
 } // namespace pomodoro_action
 
 class PomodoroProvider : public Provider {
@@ -39,6 +44,7 @@ public:
     // Its store keys (Host::load/save): the list (TodoList::save), the session (saveSession; "" = none).
     static constexpr const char* kTodosKey = "todos";
     static constexpr const char* kSessionKey = "session";
+    static constexpr const char* kPlanKey = "plan"; // focus and break lengths (savePlan)
 
     using Phase = PomodoroPhase;
     using Session = PomodoroSession;
@@ -53,10 +59,11 @@ private:
     Host* host_ = nullptr;
     std::optional<Session> session_;
     TodoList todos_;
+    PomodoroPlan plan_;
 };
 
 // Content, pure (tested on its own): the dormant panel, and a running session.
-Panel pomodoroPanel(const TodoList& todos = {});
+Panel pomodoroPanel(const TodoList& todos = {}, const PomodoroPlan& plan = defaultPlan());
 Content pomodoroContent(const PomodoroProvider::Session& session, const TodoList& todos = {});
 // The question the stop button asks before ending a running session.
 Dialog stopQuestion(const PomodoroProvider::Session& session);

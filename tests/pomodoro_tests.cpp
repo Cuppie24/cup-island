@@ -52,7 +52,7 @@ struct Island {
 };
 
 const std::string kTile = std::string("tile/") + PomodoroProvider::kPanelId;
-const std::string kStart = "expandedCenter/2/0"; // ▶, under the dormant card's time and plan
+const std::string kStart = "expandedCenter/3/0"; // ▶, under the dormant card's time and its focus and break rows
 const std::string kPause = "expandedCenter/4/0"; // the running card's controls: under the dots, above the to-dos
 const std::string kStop = "expandedCenter/4/2";
 
@@ -71,10 +71,76 @@ bool noButtonsOn(const Scene& home)
     return true;
 }
 
+// Setting focus and break lengths before starting (decision 044).
+void planTests()
+{
+    const Tokens& t = tokens();
+    PomodoroPlan plan = defaultPlan();
+    expect(plan.focus == t.pomodoroFocus && plan.rest == t.pomodoroBreak, "plan: tokens.json's lengths by default");
+    expect(adjustPlan(plan, true, 1).focus == t.pomodoroFocus + t.pomodoroFocusStep && adjustPlan(plan, false, -1).rest == t.pomodoroBreak - t.pomodoroBreakStep,
+           "plan: a step longer or shorter");
+    PomodoroPlan shortest = adjustPlan(plan, true, -1000), longest = adjustPlan(plan, false, 1000);
+    expect(shortest.focus == t.pomodoroFocusStep && longest.rest == t.pomodoroBreakMax, "plan: kept between one step and the max");
+    expect(!canAdjust(shortest, true, -1) && canAdjust(shortest, true, 1) && !canAdjust(longest, false, 1), "plan: − and + dim at the limits");
+    PomodoroPlan set{ Ms{ 40 * 60000 }, Ms{ 7 * 60000 } };
+    expect(loadPlan(savePlan(set)) == set, "plan: saved and loaded");
+    expect(loadPlan("") == plan && loadPlan("garbage") == plan, "plan: unreadable is the default");
+    expect(loadPlan("plan1 99999999999 0").focus == t.pomodoroFocusMax && loadPlan("plan1 99999999999 0").rest == t.pomodoroBreakStep,
+           "plan: out of range is clamped");
+
+    // On the dormant card: Focus and Break rows with − and +; the length is kept and used.
+    std::string saved;
+    ProviderRegistry::Store store{
+        .load = [&](const std::string&, const std::string& key) { return key == PomodoroProvider::kPlanKey ? saved : ""; },
+        .save = [&](const std::string&, const std::string& key, const std::string& text) { if (key == PomodoroProvider::kPlanKey) saved = text; },
+    };
+    Island island(store);
+    island.registry.add(std::make_unique<PomodoroProvider>());
+    island.registry.start("pomodoro");
+    island.send(PillClicked{});
+    island.send(TileClicked{ PomodoroProvider::kPanelId });
+    Scene card = island.scene();
+    auto textAt = [&](const Scene& sc, const std::string& key) {
+        const Placed* p = find(sc, key);
+        return p && std::holds_alternative<Text>(p->item) ? std::get<Text>(p->item).value : std::string();
+    };
+    expect(textAt(card, "expandedCenter/1/0") == "Focus" && textAt(card, "expandedCenter/1/1") == "25 min", "a Focus row with its length");
+    expect(textAt(card, "expandedCenter/2/0") == "Break" && textAt(card, "expandedCenter/2/1") == "5 min", "a Break row with its length");
+    const Placed* minus = find(card, "expandedCenter/1/2");
+    const Placed* plus = find(card, "expandedCenter/1/3");
+    expect(minus && plus && std::get<Button>(minus->item).glyph == Glyph::Minus && std::get<Button>(plus->item).glyph == Glyph::Plus,
+           "− and + at the row's end");
+    expect(minus->frame.width == t.buttonSize && plus->frame.width == t.buttonSize, "full-size buttons, easy to hit");
+    const Placed* value = find(card, "expandedCenter/1/1");
+    expect(value->frame.x + value->frame.width <= minus->frame.x && minus->frame.x + minus->frame.width <= plus->frame.x,
+           "the length, then − then +, side by side");
+    expect(card.size.y <= t.canvas.y, "the card fits the canvas");
+
+    island.press("expandedCenter/1/3");
+    island.press("expandedCenter/1/3");
+    island.press("expandedCenter/2/2");
+    Scene after = island.scene();
+    expect(textAt(after, "expandedCenter/0/0") == "35:00" && textAt(after, "expandedCenter/1/1") == "35 min" &&
+           textAt(after, "expandedCenter/2/1") == "4 min", "each click a step; the big time follows focus");
+    expect(loadPlan(saved).focus == Ms{ 35 * 60000 } && loadPlan(saved).rest == Ms{ 4 * 60000 }, "kept in the store");
+    expect(island.press(kStart) && island.registry.nextWake() == Ms{ 35 * 60000 }, "started: focus lasts the planned time");
+    island.wake();
+    expect(island.focus() && island.focus()->content.label == "Break" && island.registry.nextWake() == island.now + Ms{ 4 * 60000 },
+           "and the break too");
+
+    // Restarted: the plan is back.
+    Island again(store);
+    again.registry.add(std::make_unique<PomodoroProvider>());
+    again.registry.start("pomodoro");
+    const Panel* panel = findPanel(again.state, PomodoroProvider::kPanelId);
+    expect(panel && std::get<Text>(panel->content.tile[0].items[0]).value == "35:00", "after a restart: the widget shows the planned focus");
+}
+
 } // namespace
 
 void runPomodoroTests()
 {
+    planTests();
     const Tokens& t = tokens();
     Island island;
     island.registry.add(std::make_unique<PomodoroProvider>());
@@ -307,9 +373,9 @@ void runPomodoroTests()
     next->registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kStart, 0 });
     expect(!saved.empty(), "a new session is saved");
     next->registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kStopConfirmed, 0 });
-    expect(saved.empty() && !resumeSession(saved, Ms{ 0 }, wall), "stopped: nothing to resume");
-    expect(!resumeSession("garbage", Ms{ 0 }, wall) && !resumeSession("pomodoro1 7 1 1 0 1000 0", Ms{ 0 }, wall), "unreadable: nothing");
-    PomodoroSession clockBack = *resumeSession("pomodoro1 0 1 1 1000 60000 5000", Ms{ 0 }, Ms{ 1000 });
+    expect(saved.empty() && !resumeSession(saved, defaultPlan(), Ms{ 0 }, wall), "stopped: nothing to resume");
+    expect(!resumeSession("garbage", defaultPlan(), Ms{ 0 }, wall) && !resumeSession("pomodoro1 7 1 1 0 1000 0", defaultPlan(), Ms{ 0 }, wall), "unreadable: nothing");
+    PomodoroSession clockBack = *resumeSession("pomodoro1 0 1 1 1000 60000 5000", defaultPlan(), Ms{ 0 }, Ms{ 1000 });
     expect(clockBack.timeline.position == Ms{ 1000 }, "a clock set back: no time passed");
 }
 

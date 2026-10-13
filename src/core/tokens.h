@@ -45,7 +45,7 @@ struct Tokens {
     // along its top edge (decision 026), and this tall (TR §5, §9.1). The
     // width here is only a minimum, and the width layout() uses until the
     // platform says (tests).
-    Vec2 canvas{ 500, 560 }; // room for the largest pill (a Centred card at its tallest, with tabs) and its shadow
+    Vec2 canvas{ 500, 640 }; // room for the largest pill (a Centred card at its tallest, with tabs) and its shadow
 
     // One knob for the island's overall size: every length below is
     // multiplied by it, on top of the display's scaling (decision 017).
@@ -237,6 +237,11 @@ struct Tokens {
     // Pomodoro (decision 009): focus rounds with short breaks, a long break after the last round.
     Ms pomodoroFocus{ 1500000 };
     Ms pomodoroBreak{ 300000 };
+    // Setting the plan on the dormant card (decision 044): each − / + moves by a step, from one step up to the max.
+    Ms pomodoroFocusStep{ 300000 };
+    Ms pomodoroFocusMax{ 7200000 };
+    Ms pomodoroBreakStep{ 60000 };
+    Ms pomodoroBreakMax{ 3600000 };
     Ms pomodoroLongBreak{ 900000 };
     std::size_t pomodoroRounds = 4;
     // Lists (Row::list, decision 029): the window shows this many rows (the
