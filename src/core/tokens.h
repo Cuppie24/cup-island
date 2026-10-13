@@ -85,11 +85,11 @@ struct Tokens {
     float headingFontSize = 14; // TextStyle::Heading: a group's name, a little over caption size
     // Font weights, 100..900 (400 regular, 600 semibold; decision 024). Segoe UI Variable
     // (Windows 11) takes any value in between; other fonts use the nearest weight they have.
-    float titleFontWeight = 600;
-    float bodyFontWeight = 500;   // a touch heavier than regular: light text on a dark island reads thin
-    float captionFontWeight = 500;
-    float displayFontWeight = 350; // big and light, like a clock face
-    float headingFontWeight = 700; // heavy: a heading has to stand out from the rows under it
+    float titleFontWeight = 700;   // bold: Segoe UI Variable's heaviest
+    float bodyFontWeight = 600;    // semibold: text on the island reads heavier than on a page (decision 024)
+    float captionFontWeight = 600;
+    float displayFontWeight = 450; // big and still the lightest, like a clock face
+    float headingFontWeight = 700; // a heading stands out from the rows under it: bold, and the title colour
     // Darkens antialiased text strokes (DirectWrite's grayscale enhanced
     // contrast): 0 = none, 1 = Windows' usual, higher = bolder-looking edges.
     float textContrast = 1.5f;
