@@ -164,7 +164,7 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
         scene.lifted = true;
         scene.offset = { liftedCentre(state) - scene.size.x / 2, tokens().liftDrop };
     } else {
-        Placement at = placementOf(state, scene.mode);
+        Placement at = placementOf(state, scene.mode, scene.size.x); // its real width: a wider card grows to both sides
         scene.offset = { at.pillX, 0 };
         scene.flushLeft = at.flushLeft;
         scene.flushRight = at.flushRight;
