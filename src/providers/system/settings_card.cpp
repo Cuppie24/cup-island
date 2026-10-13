@@ -70,7 +70,8 @@ Row installRow(const UpdateStatus& offer)
     std::string said = installing ? "Installing…" : offer.stage == UpdateStage::Failed ? offer.problem : offer.version;
     return Row{ .items = { Text{ offer.stage == UpdateStage::Failed ? "Try the update again" : "Update and restart" },
                            Text{ .value = said, .style = TextStyle::Caption, .alignEnd = true },
-                           Button{ .glyph = Glyph::Download, .actionId = P::kInstallUpdate, .enabled = !installing, .compact = true } },
+                           Button{ .glyph = Glyph::Download, .actionId = P::kInstallUpdate, .enabled = !installing, .compact = true,
+                                   .badge = !installing } }, // the dot the widget's leads to (decision 038)
                 .clickAnywhere = true,
                 .listItem = true };
 }
@@ -201,6 +202,8 @@ Panel settingsPanel(const SettingsView& view)
     Content content{
         .label = "Settings",
         .card = CardLayout::List, // wider sides than Centred: rows edge to edge
+        // An update waiting to be installed: a dot on the widget, which leads to the one on its row (decision 038).
+        .badge = view.offer && view.offer->stage != UpdateStage::Installing,
         .keepOpen = true,
         .backAction = view.page == SettingsPage::List ? "" : P::kBack, // Esc on a page: back to the list (decision 033)
         .expandedCenter = view.page == SettingsPage::Themes      ? themesPage(view)

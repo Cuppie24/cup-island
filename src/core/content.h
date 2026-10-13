@@ -85,6 +85,7 @@ struct Button {
     bool revealOnHover = false; // hidden until the pointer is on its row: a list item's delete (decision 020)
     bool destructive = false;   // its label in dangerColor: a dialog's "Clear"
     bool editsText = false;     // starts editing the Text whose editAction is this button's actionId (decision 029)
+    bool badge = false;         // a dot on it: something new behind it, an update to install (decision 038)
     bool operator==(const Button&) const = default;
 };
 
@@ -209,6 +210,9 @@ struct Content {
     std::string label; // accessible name, also used in logs and tests
     std::optional<Color> accent; // none: white (decision 010)
     CardLayout card = CardLayout::Standard;
+    // Something new needs a look (an update offered, decision 038): a dot on
+    // its widget on Home and on its tab, so the way to it is marked.
+    bool badge = false;
     // Its card stays open when a click lands between its controls: a page of
     // settings, where a near miss shouldn't close it. Esc, a click outside
     // the island or the idle timeout still do (decision 030).

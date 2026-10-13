@@ -96,6 +96,7 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     bind(c, content_, L"Size", L"pill.Size", body_, shape_);
     content_.Clip(c.CreateInsetClip());
     body_.Children().InsertAtTop(content_);
+    badges_.build(c, body_, content_); // dots over the content (decision 038)
     elements_.init(c, device, content_);
 
     buildShadow(c, parent); // under the body

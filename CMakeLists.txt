@@ -23,6 +23,7 @@ endif()
 # --- core: pure C++, builds and tests on any OS --------------------------
 add_library(cup_core STATIC
     src/core/alert_queue.cpp
+    src/core/badges.cpp
     src/core/card_overlays.cpp
     src/core/content.cpp
     src/core/dialog.cpp
@@ -73,6 +74,7 @@ option(CUP_BUILD_TESTS "Build core tests" ON)
 if(CUP_BUILD_TESTS)
     enable_testing()
     add_executable(cup_tests
+        tests/badge_tests.cpp
         tests/content_tests.cpp
         tests/fullscreen_tests.cpp
         tests/home_tests.cpp
@@ -143,6 +145,7 @@ if(WIN32)
         src/app/live_tokens.cpp
         src/app/main.cpp
         src/platform/autostart.cpp
+        src/platform/badge_dots.cpp
         src/platform/blob.cpp
         src/platform/blob_motion.cpp
         src/platform/blob_shape.cpp
