@@ -94,7 +94,7 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Minus: return L"\uE738";  // Remove
     case Glyph::Plus: return L"\uE710";   // Add
     case Glyph::Pin: return L"\uE718";
-    case Glyph::Pinned: return L"\uE841"; // PinnedFill: on
+    case Glyph::Pinned: return L"\uE840"; // Pinned, the outline with its needle; paintGlyph fills it (PinnedFill under it)
     }
     return L"?";
 }
@@ -256,6 +256,8 @@ void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, 
 void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float fontSize, Vec2 size, const Color& color)
 {
     auto f = format(dw, iconFamily(dw), fontSize, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_TEXT_ALIGNMENT_CENTER); // icons: as designed
+    // PinnedFill (U+E841) is only a fill layer, with no needle: it goes under the Pinned outline (decision 046).
+    if (glyph == Glyph::Pinned) drawString(dc, f.get(), L"\uE841", size, color);
     drawString(dc, f.get(), codepoint(glyph), size, color);
 }
 
