@@ -18,7 +18,8 @@ knowing. There's no server, and none is wanted.
   version is `git describe`'s: `0.3.0-5-gabc1234`, `-dirty` with local
   changes, `0.0.0-dev` without git. Only `X.Y.Z` is a release.
 - **The workflow releases or does nothing.** Only from main; the version must
-  be `X.Y.Z` and higher than every release tag. It builds and tests on
+  be `X.Y.Z` and not released before (decision 040: lower is allowed,
+  with a warning; it was "higher than every release tag"). It builds and tests on
   `windows-latest`, makes the installer, and only then creates the tag and
   the release (`gh release create --target <sha> --generate-notes`), with
   the installer and `CupIsland.pdb` (Release builds now write one: `/Z7` +
@@ -38,7 +39,8 @@ knowing. There's no server, and none is wanted.
     restarts don't add checks. A failed check retries after `updateRetryMs`.
     Unauthenticated: 60 requests an hour per IP is plenty. The repo must stay
     public. Dev builds never check.
-  - It offers a release only if it's newer and carries
+  - It offers the latest release if it's another version (decision 040:
+    newer or older; it was newer only) and carries
     `CupIsland-Setup-<version>.exe` with a SHA-256 digest, both from
     `https://github.com/`. GitHub computes the digest when the file is uploaded.
   - An offer is an **Update widget** on Home whose card says what and from

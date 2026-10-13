@@ -60,7 +60,8 @@ void versionTests()
     expect(offer && offer->version == Version{ 0, 4, 0 } && offer->url == "https://github.com/Cuppie24/cup-island/releases/download/v0.4.0/CupIsland-Setup-0.4.0.exe",
            "offer: a newer release's installer");
     expect(offer && offer->sha256 == std::string(64, 'a') && offer->page.find("/v0.4.0") != std::string::npos, "offer: its checksum, lowered, and page");
-    expect(!offerFor(running, releaseOf("0.3.0")) && !offerFor(running, releaseOf("0.2.9")), "offer: never the same or older");
+    expect(!offerFor(running, releaseOf("0.3.0")) && offerFor(running, releaseOf("0.2.9")),
+           "offer: never the same; an older latest is offered too (decision 040)");
     expect(!offerFor(running, releaseOf("0.4.0", "")) && !offerFor(running, releaseOf("0.4.0", "sha256:123")) &&
            !offerFor(running, releaseOf("0.4.0", "md5:" + kSha)), "offer: no usable checksum, no offer");
     GitHubRelease noInstaller = releaseOf("0.4.0");
@@ -243,10 +244,33 @@ void providerTests()
 
 } // namespace
 
+// The latest release is the one to run (decision 040): a copy moves to it
+// whenever it's another version, lower included, so a release made by
+// mistake (5.x) is undone by releasing the right one (0.6.0) after it.
+void latestReleaseTests()
+{
+    expect(movesTo({ 5, 3, 5 }, { 5, 3, 6 }) && movesTo({ 0, 5, 1 }, { 0, 6, 0 }), "latest: a higher one, as always");
+    expect(movesTo({ 5, 3, 6 }, { 0, 6, 0 }) && offerFor({ 5, 3, 6 }, releaseOf("0.6.0")),
+           "latest: a lower one too: 5.x (released by mistake) comes back to 0.6.0");
+    expect(movesTo({ 0, 6, 0 }, { 0, 5, 1 }), "latest: a release pulled, so the latest is older again: back to it");
+    expect(!movesTo({ 0, 6, 0 }, { 0, 6, 0 }) && !offerFor({ 0, 6, 0 }, releaseOf("0.6.0")), "latest: the same one: nothing");
+
+    // A lower offer saved before a restart is still there after it.
+    Updater back("5.3.6");
+    back.provider.start(back.host);
+    back.wakeAndAnswer(releaseOf("0.6.0"));
+    back.provider.stop();
+    back.provider.start(back.host);
+    expect(back.host.published.back().id == UpdateProvider::kPanelId && textAt(back.host.published.back(), 0, 1) == "0.6.0",
+           "latest: a lower offer survives a restart too");
+    back.provider.stop();
+}
+
 void runUpdateTests()
 {
     versionTests();
     providerTests();
+    latestReleaseTests();
 }
 
 } // namespace cup::test

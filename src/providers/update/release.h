@@ -23,6 +23,12 @@ struct Version {
 std::optional<Version> parseVersion(std::string_view text);
 std::string versionText(const Version& v); // "0.4.0"
 
+// Whether a copy running `running` should move to `offered`, GitHub's
+// latest release (decision 040): whenever it's a different version, higher
+// or lower. The latest release is the one every copy runs, so a release made
+// by mistake is undone by releasing the right one, not by its number.
+bool movesTo(const Version& running, const Version& offered);
+
 // The installer every release carries (the Release workflow uploads it).
 std::string installerName(const Version& v); // "CupIsland-Setup-0.4.0.exe"
 
@@ -53,7 +59,7 @@ struct UpdateOffer {
 // What a check found, for a "Check for updates" button (Settings).
 enum class CheckOutcome { UpToDate, Available, Failed, DevBuild };
 
-// What to offer: `latest` if it's newer than `running` and carries its
+// What to offer: `latest` if it's another version than `running` (movesTo) and carries its
 // installer with a SHA-256, downloaded from https://github.com/. Without a
 // checksum there's nothing to check the download against, so nothing is
 // offered; a page that isn't on GitHub is dropped (no "What's new").

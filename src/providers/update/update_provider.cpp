@@ -232,10 +232,10 @@ void UpdateProvider::restore()
 {
     // Offered before a restart: back on Home at once, without waiting a day
     // for the next check (which withdraws it if it's gone). Already installed
-    // (this build is that version or newer): forgotten. No second alert.
+    // (this build is that version): forgotten. No second alert.
     auto saved = offerFrom(host_->load(kOfferKey));
     if (!saved) return;
-    if (saved->version <= *running_) {
+    if (!movesTo(*running_, saved->version)) {
         host_->save(kOfferKey, "");
         return;
     }
