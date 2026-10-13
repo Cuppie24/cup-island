@@ -104,7 +104,7 @@ struct Tokens {
     float listItemInset = 6;      // Row::listItem: its content in from the hover background's edges
     float sectionGap = 12;        // Row::section: space above a group's heading (decision 037)
     float listItemTextInset = 14; // ...where the edge item is text: clear of the background's rounded end (decision 030)
-    float editInset = 6;          // a Text edited in place: its field reaches this far past the text on each side (decision 043)
+    float editInset = 6;          // editable Text is drawn this far in from its stretch, which its field fills when edited (decision 043)
     float buttonLabelPadding = 10; // a text button: its label plus this on each side        // hover circle; the click area also takes in half the gaps around it
     float buttonGlyphSize = 16;
     float buttonPressScale = 0.85f;

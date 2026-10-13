@@ -139,12 +139,18 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
                 placed.item = resolve(item, now, source);
                 float above = sectionGap(row); // the gap is empty: content centres in the rest
                 placed.frame = { x, y + above + (rowHeight - above - h) / 2, w, h };
-                // Edited in place: the field reaches editInset past the text on each side and is
-                // as tall as the row's content (a to-do's checkbox), so its background doesn't hug
-                // the letters; the text itself stays where it was, centred in it (decision 043).
-                if (auto* field = std::get_if<TextInput>(&placed.item); field && field->inPlace) {
-                    float tall = std::max(h, rowHeight - above - listPadding(row));
-                    placed.frame = { x - t.editInset, y + above + (rowHeight - above - tall) / 2, w + 2 * t.editInset, tall };
+                // Editable text owns its whole stretch, but is drawn editInset in from each side.
+                // Edited in place, the field fills that stretch (so its background keeps the row's
+                // gaps to the checkbox and delete button) and is as tall as the row's content, with
+                // the text where it was, centred in it (decision 043).
+                if (auto* text = std::get_if<Text>(&item); text && !text->editAction.empty()) {
+                    if (auto* field = std::get_if<TextInput>(&placed.item); field && field->inPlace) {
+                        float tall = std::max(h, rowHeight - above - listPadding(row));
+                        placed.frame = { x, y + above + (rowHeight - above - tall) / 2, w, tall };
+                    } else {
+                        placed.frame.x += t.editInset;
+                        placed.frame.width = std::max(0.0f, w - 2 * t.editInset);
+                    }
                 }
                 // In a list item, rounded content nests in the row's background, not the
                 // card's corner: its radius is the row's less the inset (decision 006).

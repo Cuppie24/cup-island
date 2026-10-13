@@ -33,9 +33,11 @@ morph nor match the island's fonts, colours and clipping.
   editable `Text`'s `editAction`; a click there edits it in place with the
   caret where it was clicked (Enter or Space on it: at the end). A press
   dragged still picks the row up (029). The I-beam shows over a field only: a to-do's text gets it once it's being edited.
-  The field drawn in its place (`TextInput::inPlace`) keeps the text's font
-  and position and reaches `editInset` past it on each side for its
-  background; text and field swap without a fade, so nothing flashes.
+  Editable text is drawn `editInset` in from each side of its stretch; the
+  field drawn in its place (`TextInput::inPlace`) fills the whole stretch,
+  as tall as the checkbox, so its background keeps the row's usual gap to
+  the checkbox and the delete button, and the text keeps its font and
+  position. Text and field swap without a fade, so nothing flashes.
 - **No edit button:** a to-do's text stretches from its checkbox to its
   delete button, so a click anywhere on the task but those two edits it
   (past the end of the text: the caret at the end). The hover-revealed edit

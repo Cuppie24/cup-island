@@ -215,7 +215,7 @@ void runTodoTests()
     const Placed* mum = textNamed(editable, "Call mum");
     expect(!firstOf(editable, [](const Placed& p) { auto* b = std::get_if<Button>(&p.item); return b && b->glyph == Glyph::Edit; }),
            "no edit button");
-    expect(mum->frame.x + mum->frame.width >= bin->frame.x - tokens().itemSpacing - 0.01f, "the text reaches the delete button");
+    expect(mum->frame.x + mum->frame.width >= bin->frame.x - tokens().itemSpacing - tokens().editInset - 0.01f, "the text reaches the delete button");
     auto onTask = hitTest(editable, { bin->frame.x - tokens().itemSpacing, mum->frame.y + mum->frame.height / 2 });
     expect(onTask && onTask->key == mum->key, "past the end of its text, a click still edits it");
     const std::string editId = onTask->action.actionId;
@@ -233,6 +233,14 @@ void runTodoTests()
     const Placed* rowBox = firstOf(editing, [&](const Placed& p) { return p.key == mum->key.substr(0, mum->key.rfind('/')) + "/0"; });
     expect(rowBox && inPlace->frame.height == rowBox->frame.height && inPlace->frame.y == rowBox->frame.y &&
            inPlace->cornerRadius == rowBox->cornerRadius, "the field is as tall as the checkbox, its corners nested like it");
+    const Placed* rowBin = firstOf(editing, [&](const Placed& p) {
+        auto* b = std::get_if<Button>(&p.item);
+        return b && b->glyph == Glyph::Delete && p.list && p.list->row == mum->list->row;
+    });
+    expect(rowBin && std::abs(inPlace->frame.x - (rowBox->frame.x + rowBox->frame.width) - tokens().itemSpacing) < 0.01f &&
+           std::abs(rowBin->frame.x - (inPlace->frame.x + inPlace->frame.width) - tokens().itemSpacing) < 0.01f,
+           "its background keeps the row's gap to the checkbox and the delete button");
+    expect(std::abs(mum->frame.x - (inPlace->frame.x + tokens().editInset)) < 0.01f, "and the text doesn't move when editing starts");
     auto onField = hitTest(editing, { inPlace->frame.x + inPlace->frame.width / 2, inPlace->frame.y + inPlace->frame.height / 2 });
     expect(onField && onField->action.actionId == editId, "clicking it stays in the field: no tick");
     registry.route({ state.draft->providerId, state.draft->activityId, state.draft->actionId, 0, state.draft->text }); // Enter
