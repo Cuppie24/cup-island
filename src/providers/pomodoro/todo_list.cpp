@@ -169,9 +169,8 @@ void appendTodoRows(Slot& slot, const TodoList& list)
         std::string id = std::to_string(t.id);
         Button box{ .glyph = t.done ? Glyph::Checked : Glyph::Unchecked, .actionId = act::kToggle + id, .compact = true };
         Text text{ .value = t.text, .style = t.done ? TextStyle::Caption : TextStyle::Body, .struck = t.done, .editAction = act::kEdit + id };
-        Button edit{ .glyph = Glyph::Edit, .actionId = act::kEdit + id, .compact = true, .revealOnHover = true, .editsText = true };
         Button remove{ .glyph = Glyph::Delete, .actionId = act::kDelete + id, .compact = true, .revealOnHover = true };
-        slot.push_back(Row{ .items = { box, text }, .trailing = { edit, remove }, .list = act::kList,
+        slot.push_back(Row{ .items = { box, text }, .trailing = { remove }, .list = act::kList,
                             .moveAction = act::kMove + id, .sortGroup = t.done ? 1 : 0, .id = "todo-" + id, .listItem = true });
     }
 

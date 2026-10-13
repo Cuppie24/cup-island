@@ -210,18 +210,17 @@ void runTodoTests()
     registry.route(onBin->action);
     expect(saved.find("Old done") == std::string::npos && !state.dialog, "deleted at once, no question");
 
-    // Edit, beside it: the app starts editing the text in place, with its text.
+    // A click on the task (not its checkbox or delete) edits it in place: no edit button (decision 043).
     Scene editable = layout(state, now);
     const Placed* mum = textNamed(editable, "Call mum");
-    const Placed* pen = firstOf(editable, [&](const Placed& p) {
-        auto* b = std::get_if<Button>(&p.item);
-        return b && b->glyph == Glyph::Edit && p.list && p.list->row == mum->list->row;
-    });
-    expect(pen && std::get<Button>(pen->item).editsText && std::get<Button>(pen->item).revealOnHover && pen->frame.x < bin->frame.x,
-           "an edit button before the delete, shown on hover");
-    const std::string& editId = std::get<Button>(pen->item).actionId;
+    expect(!firstOf(editable, [](const Placed& p) { auto* b = std::get_if<Button>(&p.item); return b && b->glyph == Glyph::Edit; }),
+           "no edit button");
+    expect(mum->frame.x + mum->frame.width >= bin->frame.x - tokens().itemSpacing - 0.01f, "the text reaches the delete button");
+    auto onTask = hitTest(editable, { bin->frame.x - tokens().itemSpacing, mum->frame.y + mum->frame.height / 2 });
+    expect(onTask && onTask->key == mum->key, "past the end of its text, a click still edits it");
+    const std::string editId = onTask->action.actionId;
     const Text* edited = editedText(editable, PomodoroProvider::kPanelId, editId);
-    expect(edited && edited->value == "Call mum", "it edits the row's text");
+    expect(edited && edited->value == "Call mum" && editId.rfind(todo_action::kEdit, 0) == 0, "it edits the row's text");
     send(InputFocused{ "pomodoro", PomodoroProvider::kPanelId, editId, edited->value, /* editing */ true });
     send(TextErased{});
     send(TextErased{});

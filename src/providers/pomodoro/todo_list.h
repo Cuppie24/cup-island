@@ -66,8 +66,8 @@ Dialog clearQuestion(const std::string& actionId, const TodoList& list, const st
 // The list's rows for a Centred card: the field (Ctrl+V pastes), then the
 // to-dos as one host-scrolled list (decision 029): checkbox + text, struck
 // when done; the checkbox ticks it (its click area reaches the row's start),
-// a click on the text edits it in place (decision 043); edit and delete
-// buttons on hover; drag to reorder. Then Clear solved / Clear all while there's
+// a click anywhere else on it edits its text in place (decision 043); a
+// delete button on hover; drag to reorder. Then Clear solved / Clear all while there's
 // anything to clear.
 void appendTodoRows(Slot& slot, const TodoList& list);
 

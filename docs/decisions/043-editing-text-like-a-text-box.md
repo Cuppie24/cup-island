@@ -36,6 +36,10 @@ morph nor match the island's fonts, colours and clipping.
   The field drawn in its place (`TextInput::inPlace`) keeps the text's font
   and position and reaches `editInset` past it on each side for its
   background; text and field swap without a fade, so nothing flashes.
+- **No edit button:** a to-do's text stretches from its checkbox to its
+  delete button, so a click anywhere on the task but those two edits it
+  (past the end of the text: the caret at the end). The hover-revealed edit
+  button (029) is gone; `Button::editsText` stays in the content model.
 - **Moving on keeps the edit**, like any text box: a press anywhere but the
   field, or the island losing focus, sends the edited text. Only Esc drops it.
 - **The checkbox is the target:** a list item's first and last items' click
