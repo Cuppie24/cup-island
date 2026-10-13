@@ -47,11 +47,12 @@ Row choiceRow(const std::string& name, bool picked, std::string action, const ch
 }
 
 // "Check for updates" (decision 036): the whole row checks; its value says
-// what the last check found. An update found is offered on Home, as always,
-// and right under this row (installRow).
-Row updateRow(const UpdateNote& note)
+// what the last check found, and until then the running version (decision
+// 037: one row less than a version line of its own). An update found is
+// offered on Home, as always, and right under this row (installRow).
+Row updateRow(const UpdateNote& note, const std::string& running)
 {
-    std::string said = note.checking ? "Checking…" : !note.found ? "" : *note.found == CheckOutcome::UpToDate ? "Up to date"
+    std::string said = note.checking ? "Checking…" : !note.found ? running : *note.found == CheckOutcome::UpToDate ? "Up to date"
                      : *note.found == CheckOutcome::Available ? note.version + " available"
                      : *note.found == CheckOutcome::Failed    ? "Couldn't check"
                                                               : "Not in dev builds";
@@ -82,25 +83,48 @@ Row actionRow(const std::string& name, Glyph glyph, const char* action)
                 .listItem = true };
 }
 
+// The list of settings, in groups under headings (decision 037): how the
+// island looks and where it is, how it behaves, and updates. A group with
+// nothing to show (no way to check for updates) has no heading.
 Slot listPage(const SettingsView& v)
 {
     Slot card;
-    if (!tokens().themes.empty()) card.push_back(settingRow("Theme", v.theme, P::kOpenThemes));
-    if (!v.displays.empty()) card.push_back(settingRow("Display", v.displays[v.display], P::kOpenDisplays));
+    auto group = [&](const char* name, std::vector<Row> rows) {
+        if (rows.empty()) return;
+        card.push_back(heading(name, !card.empty()));
+        for (Row& r : rows) card.push_back(std::move(r));
+    };
+    std::vector<Row> appearance;
+    if (!tokens().themes.empty()) appearance.push_back(settingRow("Theme", v.theme, P::kOpenThemes));
+    if (!v.displays.empty()) appearance.push_back(settingRow("Display", v.displays[v.display], P::kOpenDisplays));
+    appearance.push_back(actionRow("Centre island", Glyph::Centre, P::kCentreIsland));
+    group("Appearance", std::move(appearance));
+
+    std::vector<Row> general;
     if (v.startsWithWindows)
-        card.push_back(Row{ .items = { Text{ "Start with Windows" },
-                                       Button{ .glyph = *v.startsWithWindows ? Glyph::Checked : Glyph::Unchecked,
-                                               .actionId = P::kToggleAutostart, .compact = true } },
-                            .clickAnywhere = true,
-                            .listItem = true });
-    card.push_back(settingRow("Keyboard shortcuts", "", P::kOpenShortcuts));
-    if (v.update) card.push_back(updateRow(*v.update));
-    if (v.update && v.offer) card.push_back(installRow(*v.offer));
+        general.push_back(Row{ .items = { Text{ "Start with Windows" },
+                                          Button{ .glyph = *v.startsWithWindows ? Glyph::Checked : Glyph::Unchecked,
+                                                  .actionId = P::kToggleAutostart, .compact = true } },
+                               .clickAnywhere = true,
+                               .listItem = true });
+    general.push_back(settingRow("Keyboard shortcuts", "", P::kOpenShortcuts));
     const char* logs = v.note == LogsNote::Copied ? "Logs copied" : v.note == LogsNote::Failed ? "Couldn't copy logs" : "Copy logs";
-    card.push_back(actionRow(logs, Glyph::Copy, P::kCopyLogs));
-    card.push_back(actionRow("Centre island", Glyph::Centre, P::kCentreIsland));
-    // Which build this is: what a bug report needs, and what an update replaces (decision 036).
-    if (!v.version.empty()) card.push_back(row({ Text{ .value = "Cup Island " + v.version, .style = TextStyle::Caption, .centred = true } }));
+    general.push_back(actionRow(logs, Glyph::Copy, P::kCopyLogs));
+    group("General", std::move(general));
+
+    std::vector<Row> updates;
+    if (v.update) updates.push_back(updateRow(*v.update, v.version));
+    if (v.update && v.offer) updates.push_back(installRow(*v.offer));
+    group("Updates", std::move(updates));
+    // One list, sized to the card: with every row there (two monitors, an
+    // update offered) it's more than fits, and scrolls; usually it all shows.
+    for (Row& r : card) {
+        r.list = P::kSettingsList;
+        r.visibleRows = tokens().listCardVisibleRows;
+    }
+    // Which build this is: what a bug report needs, and what an update replaces
+    // (decision 036). With a Check for updates row, that row says it.
+    if (!v.version.empty() && !v.update) card.push_back(row({ Text{ .value = "Cup Island " + v.version, .style = TextStyle::Caption, .centred = true } }));
     return card;
 }
 

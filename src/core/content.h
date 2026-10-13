@@ -175,6 +175,9 @@ struct Row {
     // together in a window listVisibleRows rows tall; the host scrolls it
     // with the wheel, smoothly. Host::reveal keeps a row in view.
     std::string list;
+    // The list's window in rows, read from its first row; 0: listVisibleRows.
+    // A list that is the whole card (Settings' root page) sizes it to the card.
+    float visibleRows = 0;
     // Drag to reorder (decision 029): pressed and dragged, the row moves among
     // the list's rows of the same `sortGroup`; dropped in a new place, its
     // provider gets this action with Action::value = the row's new index in the list.

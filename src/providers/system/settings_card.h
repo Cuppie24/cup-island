@@ -32,6 +32,7 @@ inline constexpr const char* kInstallUpdate = "updates.install"; // the offer: i
 inline constexpr const char* kThemeList = "themes";
 inline constexpr const char* kDisplayList = "displays";
 inline constexpr const char* kShortcutList = "shortcuts"; // the keys: more than fit on the card
+inline constexpr const char* kSettingsList = "settings";  // the root page: may be more than fit (decision 037)
 } // namespace settings_action
 
 inline constexpr const char* kSettingsPanelId = "system.settings"; // the widget's, and its card's

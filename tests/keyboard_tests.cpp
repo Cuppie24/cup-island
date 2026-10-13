@@ -44,23 +44,24 @@ void runKeyboardTests()
     for (const char* name : { "Paper", "Sorbet", "Mint" }) themed.themes.push_back({ .name = name, .light = true });
     setTokens(themed);
 
-    // The Settings list: the first press shows focus on the first row; then rows top to bottom.
+    // The Settings list: the first press shows focus on the first row; then
+    // rows top to bottom, over the group headings (nothing to click there).
     Scene list = settingsScene({ .theme = "Grape", .startsWithWindows = true });
     auto f = moveFocus(list, "", Arrow::Down);
     expect(clicks(list, f) == P::kOpenThemes, "keys: the first press lands on the first row (Theme)");
     f = moveFocus(list, f->id, Arrow::Down);
-    expect(clicks(list, f) == P::kToggleAutostart, "keys: down, the next row");
+    expect(clicks(list, f) == P::kCentreIsland, "keys: down, the next row (Appearance's last)");
+    f = moveFocus(list, f->id, Arrow::Down);
+    expect(clicks(list, f) == P::kToggleAutostart, "keys: down past General's heading to its first row");
     f = moveFocus(list, f->id, Arrow::Down);
     expect(clicks(list, f) == P::kOpenShortcuts, "keys: down again");
     f = moveFocus(list, f->id, Arrow::Down);
     expect(clicks(list, f) == P::kCopyLogs, "keys: down to Copy logs, a row like the others");
     expect(!moveFocus(list, f->id, Arrow::Right), "keys: nothing beside a whole row, focus stays");
-    f = moveFocus(list, f->id, Arrow::Down);
-    expect(clicks(list, f) == P::kCentreIsland, "keys: then Centre island");
     auto tab = moveFocus(list, f->id, Arrow::Down);
     expect(tab && tab->id == "tab:", "keys: down from the last row: the Home tab");
     f = moveFocus(list, f->id, Arrow::Up);
-    expect(clicks(list, f) == P::kCopyLogs, "keys: up, back to the row above");
+    expect(clicks(list, f) == P::kOpenShortcuts, "keys: up, back to the row above");
     expect(!moveFocus(list, f->id, Arrow::Left), "keys: a whole-row item has nothing beside it");
 
     // The theme page: the back arrow above a list longer than its window.

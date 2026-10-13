@@ -21,7 +21,7 @@ void runShortcutSettingsTests()
     settings.start(sh);
     auto press = [&](const std::string& actionId) { settings.onAction({ "system.settings", SettingsProvider::kPanelId, actionId, 0 }); };
     // The keyboard shortcuts (decision 031): a row, then a page listing core's table.
-    expect(cardText(sh.published.back(), 0) == "Keyboard shortcuts", "settings: a Keyboard shortcuts row under the settings");
+    expect(rowNamed(sh.published.back(), "Keyboard shortcuts"), "settings: a Keyboard shortcuts row under the settings");
     press(settings_action::kOpenShortcuts);
     const Slot& keys = sh.published.back().content.expandedCenter;
     expect(cardText(sh.published.back(), 0) == "Keyboard shortcuts" && keys.size() == 3 + commands().size() + fixedKeys().size() &&

@@ -52,7 +52,8 @@ knowing. There's no server, and none is wanted.
     `logs\update-install.log`), and quits. The installer's
     `skipifnotsilent` run entry starts the new island. Installers left behind
     are deleted at the next start. A failure is told on the card, with Try again.
-  - Settings shows the running version under its list, and a **Check for
+  - Settings shows the running version (as the Check for updates row's
+    value until a check, decision 037), and a **Check for
     updates** row that checks at once (`UpdateProvider::checkNow`) and says
     what it found: up to date, "0.5.1 available", couldn't check, or "not in
     dev builds". It counts as the day's check; an update it finds is offered

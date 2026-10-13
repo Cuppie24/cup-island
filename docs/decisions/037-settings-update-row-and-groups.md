@@ -29,6 +29,16 @@ the same small dim text as a row's value, easy to read past.
   groups. Headings line up with the names under them (`Row::inset`: a list
   item's text inset, without its padding or hover).
 
+- **The root page is grouped too**: Appearance (Theme, Display, Centre
+  island), General (Start with Windows, Keyboard shortcuts, Copy logs),
+  Updates (Check for updates, Update and restart). A group with nothing to
+  show has no heading. With every row there (two monitors, an update
+  offered) the page is taller than the canvas allows under the tabs, so it
+  is one list whose window is the card (`Row::visibleRows`, here
+  `listCardVisibleRows`): usually everything shows; otherwise it scrolls,
+  and the arrows scroll it to what they land on. To make room, the running
+  version is Check for updates' value until a check says something else,
+  instead of a line of its own, and `listCardVerticalInset` is 6.
 - **Nothing cut short.** A row whose only stretching items are texts (a
   setting's name and its value) gives each its own width and the last the
   rest; short of room, each gives up a share in proportion. The even split

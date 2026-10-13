@@ -38,6 +38,7 @@ const Field kFields[] = {
     { "listCardInset", &Tokens::listCardInset },
     { "listCardWidth", &Tokens::listCardWidth },
     { "listCardVerticalInset", &Tokens::listCardVerticalInset },
+    { "listCardVisibleRows", &Tokens::listCardVisibleRows },
     { "listCardMinHeight", &Tokens::listCardMinHeight },
     { "expandedArtSize", &Tokens::expandedArtSize },
     { "slotGap", &Tokens::slotGap },
@@ -321,7 +322,7 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
     // knob isn't a size. Nor are font weights or text contrast.
     auto unitless = [](const char* name) {
         std::string_view n(name);
-        return n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" ||
+        return n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" ||
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
     };
     Tokens out = t;
