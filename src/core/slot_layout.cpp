@@ -17,6 +17,7 @@ Item resolve(const Item& item, Ms now, const Source& source)
         const Draft* d = source.draft;
         shown.focused = d && d->activityId == source.activityId && d->actionId == input->actionId;
         shown.value = shown.focused ? d->text : "";
+        if (shown.focused) shown.caret = d->caret, shown.anchor = d->anchor;
         return shown;
     }
     if (auto* label = std::get_if<TimeLabel>(&item)) {
@@ -25,11 +26,12 @@ Item resolve(const Item& item, Ms now, const Source& source)
         std::string value = label->countdown ? left : label->remaining ? "-" + left : formatDuration(position);
         return Text{ .value = value, .style = label->style, .alignEnd = label->remaining, .marquee = false, .centred = label->countdown };
     }
-    // A Text being edited in place is a focused field with the draft (decision 029).
+    // A Text being edited in place is a focused field with the draft (decisions 029, 030).
     if (auto* text = std::get_if<Text>(&item); text && !text->editAction.empty()) {
         const Draft* d = source.draft;
         if (d && d->activityId == source.activityId && d->actionId == text->editAction)
-            return TextInput{ .actionId = text->editAction, .value = d->text, .focused = true };
+            return TextInput{ .actionId = text->editAction, .value = d->text, .focused = true, .caret = d->caret, .anchor = d->anchor,
+                              .inPlace = true };
     }
     return item;
 }
@@ -121,6 +123,10 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
                 placed.key = slot.name + "/" + rowName + "/" + std::to_string(index);
                 placed.item = resolve(item, now, source);
                 placed.frame = { x, y + (rowHeight - h) / 2, w, h };
+                // Edited in place: the field reaches editInset past the text on each side, so its
+                // background doesn't hug the letters; the text itself stays where it was.
+                if (auto* field = std::get_if<TextInput>(&placed.item); field && field->inPlace)
+                    placed.frame = { x - t.editInset, placed.frame.y, w + 2 * t.editInset, h };
                 placed.cornerRadius = radiusFor(item, placed.frame, nestedRadius);
                 placed.accent = source.content ? source.content->accent : std::nullopt;
                 placed.list = list;
@@ -199,24 +205,14 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
                 float right = i + 1 == placed.size() ? f.x + f.width + gap / 2 : (f.x + f.width + placed[i + 1]->frame.x) / 2;
                 placed[i]->hitFrame = { left, y - t.rowSpacing / 2, right - left, rowHeight + t.rowSpacing };
             }
-            // A list item: its button takes clicks anywhere across the row's
-            // `items` (Row::clickAnywhere). Edge items (a delete button) keep their own.
-            std::size_t middle = row.items.size();
-            bool editing = std::any_of(target.begin() + static_cast<std::ptrdiff_t>(first), target.end(),
-                                       [](const Placed& p) { return std::holds_alternative<TextInput>(p.item); });
-            if (row.clickAnywhere && middle > 0 && !editing) { // while its text is edited, clicks go to the field
-                float left = target[first].hitFrame.x, right = left;
-                for (std::size_t i = first; i < first + middle; ++i) {
-                    left = std::min(left, target[i].hitFrame.x);
-                    right = std::max(right, target[i].hitFrame.x + target[i].hitFrame.width);
-                }
-                if (row.listItem) left = std::min(left, background.x); // from the background's edge
-                Rect whole{ left, y - t.rowSpacing / 2, right - left, rowHeight + t.rowSpacing };
-                for (std::size_t i = first; i < first + middle; ++i)
-                    if (std::holds_alternative<Button>(target[i].item)) {
-                        target[i].hitFrame = whole;
-                        target[i].litByRow = row.listItem; // the lit row says it's clickable; a box inside it would double it
-                    }
+            // A list item's first and last items reach its edges: a to-do's
+            // checkbox takes clicks from the row's very start (decision 030).
+            if (row.listItem && !placed.empty()) {
+                Rect& front = placed.front()->hitFrame;
+                Rect& back = placed.back()->hitFrame;
+                float right = front.x + front.width;
+                front.x = std::min(front.x, background.x), front.width = right - front.x;
+                back.width = std::max(back.width, background.x + background.width - back.x);
             }
             // In a list: only what's inside its window can be pointed at.
             if (list)

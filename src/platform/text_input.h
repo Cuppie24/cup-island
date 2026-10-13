@@ -11,6 +11,9 @@ namespace cup::platform {
 // our windows (the clipboard needs one).
 std::string readClipboardText(void* ownerHwnd);
 
+// Puts UTF-8 `text` on the clipboard (Ctrl+C, Ctrl+X in a field, decision 030). False if it couldn't.
+bool writeClipboardText(void* ownerHwnd, const std::string& text);
+
 std::string toUtf8(std::wstring_view text);
 
 } // namespace cup::platform

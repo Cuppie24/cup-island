@@ -66,6 +66,9 @@ struct Draft {
     std::string actionId;   // the TextInput's, or the edited Text's editAction
     std::string text;
     bool editing = false;   // a Text edited in place (decision 029): Enter ends it, instead of emptying a field
+    // The caret and the selection's other end (decision 030): UTF-8 byte
+    // offsets into `text`. Equal: nothing selected.
+    std::size_t caret = 0, anchor = 0;
     bool operator==(const Draft&) const = default;
 };
 
@@ -131,9 +134,16 @@ struct InputFocused {    // a TextInput was clicked, or an edit button (then `te
     std::string providerId, activityId, actionId;
     std::string text;      // the draft starts with this
     bool editing = false;  // a Text edited in place: Enter ends it
+    std::optional<std::size_t> caret; // where it was clicked (a byte offset into `text`); none: at the end
 };
-struct TextTyped { std::string text; };  // UTF-8, appended to the draft
-struct TextErased {};                    // Backspace: the last character
+// Editing the focused field (decision 030; text_edit.h).
+enum class CaretMove { Left, Right, WordLeft, WordRight, Start, End };
+struct TextTyped { std::string text; };  // UTF-8: replaces the selection, or goes in at the caret
+struct TextErased { bool forward = false, word = false; }; // Backspace / Delete; Ctrl: a word. The selection, if any
+struct CaretMoved { CaretMove move = CaretMove::Left; bool select = false; }; // arrows, Home, End; Shift selects
+struct CaretPlaced { std::size_t at = 0; bool select = false; };  // a click in the field, a drag (select): a byte offset
+struct WordSelected { std::size_t at = 0; };                       // a double-click
+struct AllSelected {};                                             // Ctrl+A, a triple-click
 struct InputSubmitted {};                // Enter: the app sent the text; the field empties and keeps focus
 struct InputCancelled {};                // Esc: stop typing, drop the draft
 struct DialogShown { Dialog dialog; };   // a provider asked (Host::ask)
@@ -158,7 +168,8 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            BubbleDragged, BubbleReleased, BubbleDragCancelled,
                            IslandPressed, IslandDragged, IslandReleased, ScreenResized, SpotRestored,
                            PanelPublished, PanelRemoved, HomeOpened, TileClicked, ClockSynced,
-                           InputFocused, TextTyped, TextErased, InputSubmitted, InputCancelled,
+                           InputFocused, TextTyped, TextErased, CaretMoved, CaretPlaced, WordSelected, AllSelected,
+                           InputSubmitted, InputCancelled,
                            DialogShown, DialogClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,
                            ListDragEnded>;
 

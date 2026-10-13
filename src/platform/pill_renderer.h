@@ -30,6 +30,10 @@ public:
     // Cached per string and style; a tokens reload clears it (font sizes).
     float measure(const Text& text);
 
+    // Where a click at `x` (pill coordinates) in a field or an editable Text
+    // puts the caret: a byte offset into its text (decision 030).
+    std::size_t caretAt(const Placed& element, float x);
+
     // Tactile click feedback: squash on press, spring back on release.
     void pressDown(bool bubble) { (bubble ? bubble_ : pill_).pressDown(); }
     void pressRelease(bool bubble) { (bubble ? bubble_ : pill_).pressRelease(); }

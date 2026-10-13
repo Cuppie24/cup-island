@@ -1,6 +1,8 @@
 #include "platform/element_painting.h"
 
+#include "core/text_edit.h"
 #include "core/tokens.h"
+#include "platform/text_format.h"
 
 #include <dwrite_3.h>
 
@@ -9,7 +11,6 @@
 #include <string>
 
 namespace cup::platform {
-namespace {
 
 std::wstring widen(const std::string& utf8)
 {
@@ -20,6 +21,8 @@ std::wstring widen(const std::string& utf8)
     return out;
 }
 
+namespace {
+
 bool hasFont(IDWriteFactory* dw, const wchar_t* family)
 {
     winrt::com_ptr<IDWriteFontCollection> fonts;
@@ -29,6 +32,8 @@ bool hasFont(IDWriteFactory* dw, const wchar_t* family)
         fonts->FindFamilyName(family, &index, &exists);
     return exists;
 }
+
+} // namespace
 
 // Windows 11's Segoe UI Variable comes in optical sizes, cut for the pixel
 // size they're shown at: Small stays sturdy and open at caption sizes, where
@@ -46,6 +51,8 @@ const wchar_t* textFamily(IDWriteFactory* dw, float pixelSize)
     if (hasDisplayCut && pixelSize >= 28.0f) return L"Segoe UI Variable Display";
     return L"Segoe UI Variable Text";
 }
+
+namespace {
 
 const wchar_t* iconFamily(IDWriteFactory* dw)
 {
@@ -86,6 +93,8 @@ const wchar_t* codepoint(Glyph glyph)
     return L"?";
 }
 
+} // namespace
+
 winrt::com_ptr<IDWriteTextFormat> format(IDWriteFactory* dw, const wchar_t* family, float size,
                                          float weight, DWRITE_TEXT_ALIGNMENT align)
 {
@@ -110,7 +119,11 @@ winrt::com_ptr<IDWriteTextFormat> format(IDWriteFactory* dw, const wchar_t* fami
     return f;
 }
 
+namespace {
+
 D2D1::ColorF toD2d(const Color& c) { return D2D1::ColorF(c.r / 255.0f, c.g / 255.0f, c.b / 255.0f, c.a / 255.0f); }
+
+} // namespace
 
 winrt::com_ptr<ID2D1SolidColorBrush> brushOf(ID2D1DeviceContext* dc, const Color& color)
 {
@@ -118,6 +131,16 @@ winrt::com_ptr<ID2D1SolidColorBrush> brushOf(ID2D1DeviceContext* dc, const Color
     winrt::check_hresult(dc->CreateSolidColorBrush(toD2d(color), brush.put()));
     return brush;
 }
+
+std::size_t hitOffset(IDWriteTextLayout* layout, const std::string& utf8, float x, float y)
+{
+    BOOL trailing = FALSE, inside = FALSE;
+    DWRITE_HIT_TEST_METRICS hit{};
+    if (FAILED(layout->HitTestPoint(x, y, &trailing, &inside, &hit))) return utf8.size();
+    return utf8Offset(utf8, hit.textPosition + (trailing ? hit.length : 0)); // the nearer edge of the character hit
+}
+
+namespace {
 
 void drawString(ID2D1DeviceContext* dc, IDWriteTextFormat* f, const std::wstring& text, D2D1_RECT_F rect, const Color& color)
 {
@@ -179,34 +202,14 @@ void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& l
     drawString(dc, formatOf(dw, text).get(), widen(label), size, color);
 }
 
-void paintInput(ID2D1DeviceContext* dc, IDWriteFactory* dw, const TextInput& input, Vec2 size, float cornerRadius)
+std::size_t caretAt(IDWriteFactory* dw, const Text& text, Vec2 size, float x)
 {
-    const Tokens& t = tokens();
-    (void)cornerRadius; // the background is the hover shape (element_visuals), not painted here
-
-    float inset = t.buttonLabelPadding, room = std::max(0.0f, size.x - 2 * inset);
-    bool empty = input.value.empty();
-    // Its own size (inputFontSize), so the field reads as a field even unfocused and empty;
-    // the placeholder is the same size, just dimmer (placeholderTextColor).
-    std::wstring value = widen(empty ? input.placeholder : input.value);
-    auto measuring = format(dw, textFamily(dw, t.inputFontSize), t.inputFontSize, t.bodyFontWeight, DWRITE_TEXT_ALIGNMENT_LEADING);
-    winrt::com_ptr<IDWriteTextLayout> line;
-    winrt::check_hresult(dw->CreateTextLayout(value.c_str(), static_cast<UINT32>(value.size()), measuring.get(), 100000.0f, 1000.0f, line.put()));
-    DWRITE_TEXT_METRICS metrics{};
-    winrt::check_hresult(line->GetMetrics(&metrics));
-    float width = std::ceil(metrics.widthIncludingTrailingWhitespace);
-    // Longer than the field while typing: show its end, where the caret is.
-    bool tail = !empty && width > room;
-    auto f = format(dw, textFamily(dw, t.inputFontSize), t.inputFontSize, t.bodyFontWeight,
-                    tail ? DWRITE_TEXT_ALIGNMENT_TRAILING : DWRITE_TEXT_ALIGNMENT_LEADING);
-    D2D1_RECT_F box = D2D1::RectF(inset, 0, inset + room, size.y);
-    drawString(dc, f.get(), value, box, empty ? t.placeholderTextColor : t.bodyTextColor);
-
-    if (!input.focused) return;
-    // A still caret after the text: no blinking, so typing costs nothing between keys.
-    float x = empty ? inset : std::min(inset + width, inset + room) + 1;
-    float h = std::ceil(t.inputFontSize * 1.2f);
-    dc->FillRectangle(D2D1::RectF(x, (size.y - h) / 2, x + 1.5f, (size.y + h) / 2), brushOf(dc, t.bodyTextColor).get());
+    // As drawn (paintText), but unbounded: a click on a trimmed text's "…" lands at its end.
+    std::wstring value = widen(text.value);
+    winrt::com_ptr<IDWriteTextLayout> layout;
+    winrt::check_hresult(dw->CreateTextLayout(value.c_str(), static_cast<UINT32>(value.size()), formatOf(dw, text).get(),
+                                              100000.0f, size.y, layout.put()));
+    return hitOffset(layout.get(), text.value, x, size.y / 2);
 }
 
 float measureText(IDWriteFactory* dw, const Text& text)

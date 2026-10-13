@@ -132,8 +132,10 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     float tabSpace = tabStripSpace(state);
     scene.size = modeSize(scene.mode);
     Source source = sourceFor(state, scene.mode);
-    if (scene.mode == Mode::Expanded && source.content && source.content->card == CardLayout::Centred)
+    if (scene.mode == Mode::Expanded && source.content && source.content->card == CardLayout::Centred) {
+        scene.size.x = std::max(scene.size.x, tokens().centredCardWidth); // decision 030
         scene.size.y = centredCardHeight(*source.content, scene.size, tabSpace);
+    }
     if (scene.mode == Mode::Expanded && state.homeOpen) scene.size.y = homeCardHeight(state, tokens().canvas.y - tabSpace);
     scene.size.y += tabSpace;
     // Where the island rests along the top edge, or lifted under the pointer (decision 026).

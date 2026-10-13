@@ -5,6 +5,7 @@
 #include "core/lift.h"
 #include "core/lists.h"
 #include "core/split.h"
+#include "core/text_edit.h"
 #include "core/tokens.h"
 
 #include <algorithm>
@@ -247,8 +248,19 @@ void handle(IslandState& s, const TileClicked& e, Ms now)
 // --- Over a card: a text draft, a dialog (card_overlays.h), lists (lists.h) ------
 
 void handle(IslandState& s, const InputFocused& e, Ms now) { focusInput(s, e, now); }
-void handle(IslandState& s, const TextTyped& e, Ms now) { typeText(s, e, now); }
-void handle(IslandState& s, const TextErased&, Ms now) { eraseText(s, now); }
+// Editing the field (text_edit.h, decision 030) counts as activity: the card stays open.
+Draft* busyDraft(IslandState& s, Ms now)
+{
+    if (!s.draft) return nullptr;
+    s.lastPointerAt = now;
+    return &*s.draft;
+}
+void handle(IslandState& s, const TextTyped& e, Ms now) { if (Draft* d = busyDraft(s, now)) insertAtCaret(*d, e.text); }
+void handle(IslandState& s, const TextErased& e, Ms now) { if (Draft* d = busyDraft(s, now)) eraseAtCaret(*d, e.forward, e.word); }
+void handle(IslandState& s, const CaretMoved& e, Ms now) { if (Draft* d = busyDraft(s, now)) moveCaret(*d, e.move, e.select); }
+void handle(IslandState& s, const CaretPlaced& e, Ms now) { if (Draft* d = busyDraft(s, now)) placeCaret(*d, e.at, e.select); }
+void handle(IslandState& s, const WordSelected& e, Ms now) { if (Draft* d = busyDraft(s, now)) selectWordAt(*d, e.at); }
+void handle(IslandState& s, const AllSelected&, Ms now) { if (Draft* d = busyDraft(s, now)) selectAll(*d); }
 void handle(IslandState& s, const InputSubmitted&, Ms now) { submitText(s, now); }
 void handle(IslandState& s, const InputCancelled&, Ms) { s.draft.reset(); }
 void handle(IslandState& s, const DialogShown& e, Ms now) { showDialog(s, e, now); }

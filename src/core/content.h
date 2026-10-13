@@ -61,9 +61,9 @@ struct Text {
     bool marquee = false;  // too long: scrolls ("swims") in a loop instead of ending in "…"
     bool centred = false;  // centred in its frame (wins over alignEnd)
     bool struck = false;   // struck through: a solved to-do
-    // Editable in place (decision 029): a Button with `editsText` and this
-    // actionId turns it into a field holding its text; Enter sends the
-    // provider Action{editAction, text}, Esc leaves it as it was.
+    // Editable in place (decisions 029, 030): a click on it, or a Button with
+    // `editsText` and this actionId, turns it into a field holding its text;
+    // Enter sends the provider Action{editAction, text}, Esc leaves it as it was.
     std::string editAction;
     bool operator==(const Text&) const = default;
 };
@@ -86,15 +86,19 @@ struct Button {
     bool operator==(const Button&) const = default;
 };
 
-// A one-line text field the host draws and edits (decision 016). Clicking it
-// focuses it; typing goes to IslandState::draft. Enter sends the text to the
-// provider as Action{actionId, text}; a paste sends the clipboard's text the
-// same way (the provider splits lines). Stretches across its row.
+// A one-line text field the host draws and edits (decisions 016, 030).
+// Clicking it focuses it; typing goes to IslandState::draft, with a caret and
+// a selection. Enter sends the text to the provider as Action{actionId, text};
+// a paste of several lines sends them the same way (the provider splits
+// them). Stretches across its row.
 struct TextInput {
     std::string actionId;
     std::string placeholder; // shown dim while empty
-    std::string value;       // host-filled from the draft: providers leave it empty
-    bool focused = false;    // host-filled
+    // Host-filled from the draft: providers leave these.
+    std::string value;
+    bool focused = false;
+    std::size_t caret = 0, anchor = 0; // byte offsets into `value`; equal: nothing selected
+    bool inPlace = false;    // a Text being edited (Text::editAction): drawn like it, so it doesn't jump
     bool operator==(const TextInput&) const = default;
 };
 // A bar stretches across its row. A ring is a square: alone in its row it
@@ -155,9 +159,6 @@ struct Row {
     std::vector<Item> leading;
     std::vector<Item> trailing;
     RowSpan span = RowSpan::Slot;
-    // The row's button takes clicks anywhere on the row, not just on itself:
-    // a list item, where clicking a to-do's text ticks it.
-    bool clickAnywhere = false;
     // A list (decision 029): rows with the same `list`, back to back, scroll
     // together in a window listVisibleRows rows tall; the host scrolls it
     // with the wheel, smoothly. Host::reveal keeps a row in view.
@@ -172,7 +173,8 @@ struct Row {
     std::string id;
     // A list item (a to-do): listItemPadding above and below, so items stand
     // apart, its content inset by listItemInset, and a faint background across
-    // the whole row under the pointer.
+    // the whole row under the pointer. Its first and last items' click areas
+    // reach the row's edges (a to-do's checkbox: easy to hit, decision 030).
     bool listItem = false;
     bool operator==(const Row&) const = default;
 };

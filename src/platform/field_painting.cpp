@@ -1,0 +1,99 @@
+#include "platform/field_painting.h"
+
+#include "core/text_edit.h"
+#include "core/tokens.h"
+#include "platform/text_format.h"
+
+#include <algorithm>
+#include <cmath>
+#include <vector>
+
+namespace cup::platform {
+namespace {
+
+constexpr float kCaretWidth = 1.5f; // a hairline, like any text box's
+
+// The field's text laid out on one line, and where it sits in the field.
+struct FieldLine {
+    winrt::com_ptr<IDWriteTextLayout> layout;
+    float inset = 0;   // the text area starts this far in from each side
+    float room = 0;    // ...and is this wide
+    float left = 0;    // where the text starts: the inset, less how far it's scrolled
+    float fontSize = 0;
+};
+
+float xOf(IDWriteTextLayout* layout, std::size_t utf16)
+{
+    FLOAT x = 0, y = 0;
+    DWRITE_HIT_TEST_METRICS hit{};
+    if (FAILED(layout->HitTestTextPosition(static_cast<UINT32>(utf16), FALSE, &x, &y, &hit))) return 0;
+    return x;
+}
+
+FieldLine lineOf(IDWriteFactory* dw, const TextInput& input, Vec2 size)
+{
+    const Tokens& t = tokens();
+    FieldLine line;
+    // Edited in place: the Text's own size and place, so nothing jumps when editing starts (decision 030).
+    line.fontSize = input.inPlace ? t.bodyFontSize : t.inputFontSize;
+    line.inset = input.inPlace ? t.editInset : t.buttonLabelPadding;
+    line.room = std::max(0.0f, size.x - 2 * line.inset);
+    bool empty = input.value.empty();
+    std::wstring value = widen(empty ? input.placeholder : input.value);
+    auto f = format(dw, textFamily(dw, line.fontSize), line.fontSize, t.bodyFontWeight, DWRITE_TEXT_ALIGNMENT_LEADING);
+    winrt::check_hresult(dw->CreateTextLayout(value.c_str(), static_cast<UINT32>(value.size()), f.get(), 100000.0f, size.y, line.layout.put()));
+    DWRITE_TEXT_METRICS metrics{};
+    winrt::check_hresult(line.layout->GetMetrics(&metrics));
+    float width = metrics.widthIncludingTrailingWhitespace + kCaretWidth;
+    // Longer than the field: scrolled just enough to show the caret. Worked out
+    // from the caret alone (no remembered scroll), so painting and clicks agree.
+    float scroll = 0;
+    if (!empty && width > line.room) {
+        float caret = xOf(line.layout.get(), utf16Index(input.value, input.caret)) + kCaretWidth;
+        scroll = std::clamp(caret - line.room, 0.0f, width - line.room);
+    }
+    line.left = line.inset - scroll;
+    return line;
+}
+
+} // namespace
+
+void paintInput(ID2D1DeviceContext* dc, IDWriteFactory* dw, const TextInput& input, Vec2 size)
+{
+    const Tokens& t = tokens();
+    FieldLine line = lineOf(dw, input, size);
+    bool empty = input.value.empty();
+    float h = std::ceil(line.fontSize * 1.2f), top = (size.y - h) / 2; // the caret's and the selection's height
+    // Scrolled text stops at the text area's edges (the caret may sit right on one).
+    dc->PushAxisAlignedClip(D2D1::RectF(line.inset - kCaretWidth, 0, line.inset + line.room + kCaretWidth, size.y), D2D1_ANTIALIAS_MODE_ALIASED);
+
+    if (input.focused && !empty && input.caret != input.anchor) {
+        auto from = static_cast<UINT32>(utf16Index(input.value, std::min(input.caret, input.anchor)));
+        auto to = static_cast<UINT32>(utf16Index(input.value, std::max(input.caret, input.anchor)));
+        UINT32 count = 0;
+        line.layout->HitTestTextRange(from, to - from, line.left, 0, nullptr, 0, &count); // asks how many: one per run
+        std::vector<DWRITE_HIT_TEST_METRICS> runs(count);
+        if (count > 0 && SUCCEEDED(line.layout->HitTestTextRange(from, to - from, line.left, 0, runs.data(), count, &count))) {
+            auto brush = brushOf(dc, t.selectionColor);
+            for (const DWRITE_HIT_TEST_METRICS& run : runs)
+                dc->FillRectangle(D2D1::RectF(run.left, top, run.left + run.width, top + h), brush.get());
+        }
+    }
+    dc->DrawTextLayout(D2D1::Point2F(line.left, 0), line.layout.get(), brushOf(dc, empty ? t.placeholderTextColor : t.bodyTextColor).get(),
+                       D2D1_DRAW_TEXT_OPTIONS_CLIP);
+    if (input.focused) {
+        // A still caret: no blinking, so an idle field costs nothing between keys (decision 016).
+        float x = empty ? line.inset : line.left + xOf(line.layout.get(), utf16Index(input.value, input.caret));
+        dc->FillRectangle(D2D1::RectF(x, top, x + kCaretWidth, top + h), brushOf(dc, t.bodyTextColor).get());
+    }
+    dc->PopAxisAlignedClip();
+}
+
+std::size_t caretAt(IDWriteFactory* dw, const TextInput& input, Vec2 size, float x)
+{
+    if (input.value.empty()) return 0;
+    FieldLine line = lineOf(dw, input, size);
+    return hitOffset(line.layout.get(), input.value, x - line.left, size.y / 2);
+}
+
+} // namespace cup::platform

@@ -9,8 +9,6 @@
 namespace cup {
 
 void focusInput(IslandState& state, const InputFocused& e, Ms now); // only on the shown card, not under a dialog
-void typeText(IslandState& state, const TextTyped& e, Ms now);
-void eraseText(IslandState& state, Ms now);  // one whole UTF-8 character
 void submitText(IslandState& state, Ms now); // the field empties and keeps focus
 void showDialog(IslandState& state, const DialogShown& e, Ms now); // only over the shown card; typing stops
 

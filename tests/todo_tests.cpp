@@ -99,10 +99,11 @@ void runTodoTests()
     const Placed* oldDone = firstOf(card, [](const Placed& p) { auto* t = std::get_if<Text>(&p.item); return t && t->value == "Old done"; });
     expect(oldDone && std::get<Text>(oldDone->item).struck, "solved ones are struck through");
 
-    // A to-do ticks from anywhere on its row: clicking its text hits its checkbox.
+    // Only the checkbox ticks a to-do; its text is a click into editing it (decision 030).
     const Placed* openText = firstOf(card, [](const Placed& p) { auto* t = std::get_if<Text>(&p.item); return t && t->value == "Old open"; });
     auto onText = hitTest(card, { openText->frame.x + openText->frame.width - 2, openText->frame.y + openText->frame.height / 2 });
-    expect(onText && onText->action.actionId.rfind(todo_action::kToggle, 0) == 0, "clicking a to-do's text ticks it");
+    expect(onText && onText->action.actionId.rfind(todo_action::kEdit, 0) == 0 && onText->key == openText->key,
+           "clicking a to-do's text edits it, it doesn't tick it");
     // A list item: lit across the whole row under the pointer, its content
     // inset from that background, and padding between items.
     const Placed* openBox = firstOf(card, [&](const Placed& p) { return p.key == openText->key.substr(0, openText->key.rfind('/')) + "/0"; });
@@ -112,10 +113,11 @@ void runTodoTests()
     expect(openBox->frame.x == lit.x + tokens().listItemInset, "the checkbox inset from its edge");
     expect(lit.height == tokens().smallButtonSize + 2 * tokens().listItemPadding &&
            std::abs(openBox->frame.y + openBox->frame.height / 2 - (lit.y + lit.height / 2)) < 0.01f, "padded above and below, content centred");
-    expect(onText && hitTest(card, { lit.x + 1, lit.y + lit.height / 2 })->action.actionId == onText->action.actionId,
-           "its whole background ticks it");
+    auto onEdge = hitTest(card, { lit.x + 1, lit.y + 1 });
+    expect(onEdge && onEdge->key == openBox->key, "the checkbox's click area reaches the row's start, top to bottom");
+    expect(openBox->hitFrame.x + openBox->hitFrame.width <= openText->frame.x + 0.01f && openBox->hitFrame.height >= lit.height,
+           "...and stops where the text starts");
     expect(!field->listRow, "the field isn't a list item");
-    expect(openBox->litByRow, "the checkbox has no hover shape of its own: the row is lit instead");
     std::string fieldRow = field->key.substr(0, field->key.rfind('/') + 1);
     std::size_t inFieldRow = 0;
     for (const Placed& p : card.elements)
@@ -198,7 +200,7 @@ void runTodoTests()
         auto* b = std::get_if<Button>(&p.item);
         return b && b->glyph == Glyph::Delete && p.list && p.list->row == doneText->list->row;
     });
-    expect(bin && std::get<Button>(bin->item).revealOnHover && !bin->litByRow, "each to-do has a delete button, shown on hover");
+    expect(bin && std::get<Button>(bin->item).revealOnHover, "each to-do has a delete button, shown on hover");
     auto onBin = hitTest(top, { bin->frame.x + bin->frame.width / 2, bin->frame.y + bin->frame.height / 2 });
     expect(onBin && onBin->action.actionId.rfind(todo_action::kDelete, 0) == 0, "the delete button gets its clicks, not the row's tick");
     registry.route(onBin->action);

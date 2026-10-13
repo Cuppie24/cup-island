@@ -41,7 +41,7 @@ struct Tokens {
     // along its top edge (decision 026), and this tall (TR §5, §9.1). The
     // width here is only a minimum, and the width layout() uses until the
     // platform says (tests).
-    Vec2 canvas{ 440, 420 }; // room for the largest pill (a Centred card at its tallest, with tabs) and its shadow
+    Vec2 canvas{ 500, 560 }; // room for the largest pill (a Centred card at its tallest, with tabs) and its shadow
 
     // One knob for the island's overall size: every length below is
     // multiplied by it, on top of the display's scaling (decision 017).
@@ -53,6 +53,7 @@ struct Tokens {
     Vec2 compactSize{ 260, 32 };
     Vec2 alertSize{ 320, 64 };
     Vec2 expandedSize{ 380, 159 };
+    float centredCardWidth = 440; // a Centred card (Pomodoro, Settings): wider than Expanded, room for a to-do's text (decision 030)
     Vec2 receptiveSize{ 380, 84 };
     Vec2 hiddenSize{ 160, 0 };
     float maxCornerRadius = 28; // bottom corners: half the height, capped, so big shapes aren't blobs
@@ -85,11 +86,12 @@ struct Tokens {
     float inputFontSize = 15;   // a TextInput's text and placeholder: noticeable even when it isn't focused
     float iconSize = 18;
     float buttonSize = 36;
-    float smallButtonSize = 24;   // Button::compact: list rows (a to-do's checkbox)
+    float smallButtonSize = 32;   // Button::compact: list rows (a to-do's checkbox)
     float revealGlyphSize = 14;   // Button::revealOnHover (a to-do's delete): a smaller glyph, the same button and hover shape
-    float inputHeight = 30;       // a TextInput: a little taller than the rows, easy to click into
-    float listItemPadding = 4;    // Row::listItem: above and below its content, so list items stand apart
+    float inputHeight = 36;       // a TextInput: a little taller than the rows, easy to click into
+    float listItemPadding = 5;    // Row::listItem: above and below its content, so list items stand apart
     float listItemInset = 6;      // Row::listItem: its content in from the hover background's edges
+    float editInset = 6;          // a Text edited in place: its field reaches this far past the text on each side (decision 030)
     float buttonLabelPadding = 10; // a text button: its label plus this on each side        // hover circle; the click area also takes in half the gaps around it
     float buttonGlyphSize = 16;
     float buttonPressScale = 0.85f;
@@ -206,6 +208,7 @@ struct Tokens {
     Color tileColor{ 255, 255, 255, 20 };          // Home's tile backgrounds
     Color inputColor{ 255, 255, 255, 26 };         // a text field's background (decision 016)
     Color placeholderTextColor{ 255, 255, 255, 128 }; // "Add a to-do…": like body text, a little dimmer
+    Color selectionColor{ 10, 132, 255, 115 };     // selected text in a field (decision 030): readable on dark and light themes
     Color dangerColor{ 255, 69, 58 };              // a destructive button's label: a dialog's "Clear all" (decision 020)
     Color imagePlaceholderColor{ 255, 255, 255, 31 }; // art that hasn't arrived
     Color shadowColor{ 0, 0, 0, 115 };             // under the island in every mode; its alpha is the shadow's strength

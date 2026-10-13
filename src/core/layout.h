@@ -35,7 +35,6 @@ struct Placed {
     std::optional<InList> list;  // in a scrolling list: its frame and hit area are already scrolled (and clipped)
     std::optional<Rect> listRow; // its row is a list item (Row::listItem): lit here while the pointer is on the row
     float listRowRadius = 0;
-    bool litByRow = false;       // the row's background is its hover: no shape of its own (a to-do's checkbox)
     std::string providerId;
     std::string activityId;
     std::optional<Timeline> ticking; // time labels: the text changes as playback moves

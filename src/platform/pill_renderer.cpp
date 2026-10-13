@@ -3,6 +3,7 @@
 
 #include "core/tokens.h"
 #include "platform/element_painting.h"
+#include "platform/field_painting.h"
 
 #include <algorithm>
 #include <chrono>
@@ -36,6 +37,16 @@ float PillRenderer::measure(const Text& text)
     if (it != measured_.end()) return it->second;
     if (measured_.size() > 256) measured_.clear(); // titles change with every track: don't grow forever
     return measured_[key] = measureText(device_.dwrite(), text);
+}
+
+std::size_t PillRenderer::caretAt(const Placed& element, float x)
+{
+    if (!device_.dwrite()) return 0;
+    Vec2 size{ element.frame.width, element.frame.height };
+    float local = x - element.frame.x; // drawn from the frame's left edge, at its size (element_visuals paint)
+    if (auto* input = std::get_if<TextInput>(&element.item)) return platform::caretAt(device_.dwrite(), *input, size, local);
+    if (auto* text = std::get_if<Text>(&element.item)) return platform::caretAt(device_.dwrite(), *text, size, local);
+    return 0;
 }
 
 void PillRenderer::apply(const Scene& scene)

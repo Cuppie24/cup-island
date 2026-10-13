@@ -37,6 +37,7 @@ add_library(cup_core STATIC
     src/core/slot_layout.cpp
     src/core/split.cpp
     src/core/tabs.cpp
+    src/core/text_edit.cpp
     src/core/tokens.cpp
     src/core/tokens_json.cpp
 )
@@ -106,6 +107,7 @@ if(WIN32)
         src/platform/displays.cpp
         src/platform/element_art.cpp
         src/platform/element_painting.cpp
+        src/platform/field_painting.cpp
         src/platform/element_parts.cpp
         src/platform/element_visuals.cpp
         src/platform/list_viewports.cpp
