@@ -127,6 +127,11 @@ void planTests()
     island.wake();
     expect(island.focus() && island.focus()->content.label == "Break" && island.registry.nextWake() == island.now + Ms{ 4 * 60000 },
            "and the break too");
+    island.registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kStopConfirmed, 0 });
+    island.send(HomeOpened{});
+    island.send(TileClicked{ PomodoroProvider::kPanelId }); // the break's alert had closed it
+    expect(!island.focus() && island.press(kStart) && island.registry.nextWake() == island.now + Ms{ 35 * 60000 },
+           "the next session uses the same lengths");
 
     // Restarted: the plan is back.
     Island again(store);
