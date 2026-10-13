@@ -135,6 +135,40 @@ void providerTests()
     expect(u.host.published.size() == shown && !u.host.wake && u.host.removed.back() == UpdateProvider::kPanelId,
            "stopped: the widget goes, a late callback does nothing");
 
+    // The offer survives a restart (decision 039): back on Home at once, no
+    // second alert; forgotten once installed, or when GitHub withdraws it.
+    {
+        Updater r("0.3.0");
+        r.provider.start(r.host);
+        r.wakeAndAnswer(releaseOf("0.4.0"));
+        expect(!r.host.load(UpdateProvider::kOfferKey).empty() && r.host.alerts.size() == 1, "restart: the offer is saved");
+        r.provider.stop();
+        expect(!r.host.load(UpdateProvider::kOfferKey).empty(), "restart: closing the app doesn't forget it");
+        std::size_t published = r.host.published.size();
+        r.provider.start(r.host);
+        expect(r.host.published.size() == published + 1 && r.host.published.back().id == UpdateProvider::kPanelId &&
+               r.host.published.back().content.badge && r.host.alerts.size() == 1 && r.fetches.size() == 1,
+               "restart: back on Home at once, with its dot, no second alert, no check yet");
+        r.act(A::kInstall);
+        expect(r.installs.size() == 1, "restart: and it installs");
+        r.provider.stop();
+
+        Updater updated("0.4.0"); // the same store after the update installed
+        updated.host.store = r.host.store;
+        updated.provider.start(updated.host);
+        expect(updated.host.published.empty() && updated.host.load(UpdateProvider::kOfferKey).empty(),
+               "restart: running that version now, the offer is forgotten");
+        updated.provider.stop();
+
+        Updater withdrawn("0.3.0");
+        withdrawn.host.store = r.host.store;
+        withdrawn.provider.start(withdrawn.host);
+        withdrawn.wakeAndAnswer(releaseOf("0.3.0"));
+        expect(withdrawn.host.removed.size() == 1 && withdrawn.host.load(UpdateProvider::kOfferKey).empty(),
+               "restart: GitHub no longer offers it: withdrawn and forgotten");
+        withdrawn.provider.stop();
+    }
+
     // Settings follows the offer (decision 037): told when it comes, how the
     // install goes, and when it's withdrawn; its button installs the same way.
     {

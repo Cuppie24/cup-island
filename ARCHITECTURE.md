@@ -234,3 +234,4 @@ over the file's, so `tokens()` is always what's on screen.
 | Releases from a workflow, version from the tag, updates from GitHub Releases: daily check, widget + alert, SHA-256-checked silent install (decision 036) | rules tested; the workflow and the Windows side need a run |
 | Settings: Update and restart under Check for updates, every action a list row, headings that stand out (decision 037) | done; rules tested, visuals need Windows |
 | Notification badges: a dot on a widget, tab or button with something new; Settings' widget and its Update row when an update waits (decision 038) | done; placement tested, drawing needs Windows |
+| Bluetooth: connected by the device's own status and the radio's state, not just the paired list; an update offer survives a restart (decision 039) | rules tested; WinRT side needs a Windows run with a device |
