@@ -90,7 +90,7 @@ void wrapTests()
     Scene home = layout(wide, Ms{ 0 });
     wide = reduce(wide, TileClicked{ PomodoroProvider::kPanelId }, Ms{ 0 });
     Scene pomodoro = layout(wide, Ms{ 0 });
-    expect(pomodoro.size.x > home.size.x, "the Pomodoro card is wider than Home");
+    expect(pomodoro.size.x == home.size.x && home.size.x == tokens().expandedSize.x, "the Pomodoro card as wide as Home: every card is (decision 047)");
     expect(std::abs((pomodoro.offset.x + pomodoro.size.x / 2) - (home.offset.x + home.size.x / 2)) < 0.01f &&
            std::abs(pomodoro.offset.x + pomodoro.size.x / 2 - 960) < 0.01f, "centred where Home was: grown to both sides");
 }
@@ -427,9 +427,11 @@ void runTodoTests()
     send(ActivitySwitched{ PomodoroProvider::kPanelId });
     Scene tallest = layout(state, now);
     expect(tallest.tabs && tallest.size.y <= tokens().canvas.y, "the tallest card fits the canvas");
-    float strip = tallest.tabs->tabs[0].frame.y;
+    float strip = tallest.tabs->tabs[0].frame.y + tokens().tabHeight;
     for (const Placed& p : tallest.elements)
-        if (p.key.rfind("tab/", 0) != 0) expect(p.frame.y + p.frame.height <= strip - tokens().slotGap + 0.01f, "above the strip: " + p.key);
+        if (p.key.rfind("tab/", 0) != 0)
+            expect(p.frame.y >= strip + tokens().slotGap - 0.01f && p.frame.y + p.frame.height <= tallest.size.y - tokens().expandedPadding + 0.01f,
+                   "under the strip, inside the card: " + p.key);
 }
 
 } // namespace cup::test

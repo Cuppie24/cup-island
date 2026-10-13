@@ -56,8 +56,7 @@ struct Tokens {
     Vec2 idleSize{ 160, 28 };
     Vec2 compactSize{ 260, 32 };
     Vec2 alertSize{ 320, 64 };
-    Vec2 expandedSize{ 380, 159 };
-    float centredCardWidth = 440; // a Centred card (Pomodoro, Settings): wider than Expanded, room for a to-do's text (decision 043)
+    Vec2 expandedSize{ 440, 159 }; // every card and Home: the width a to-do's text needs (decisions 043, 047)
     Vec2 receptiveSize{ 380, 84 };
     Vec2 hiddenSize{ 160, 0 };
     float maxCornerRadius = 28; // bottom corners: half the height, capped, so big shapes aren't blobs
@@ -70,7 +69,7 @@ struct Tokens {
     float alertPadding = 8;
     float expandedPadding = 12;
     float listCardInset = 8;      // CardLayout::List: at least this much more on the left and right (decision 030)
-    float listCardWidth = 340;    // ...and its rows no wider than this, centred (a full-width card's, at the shipped sizes)
+    float listCardWidth = 400;    // ...and its rows no wider than this, centred (a full-width card's, at the shipped sizes)
     float listCardVerticalInset = 6;  // ...this much more above and below its rows
     float listCardVisibleRows = 9.5f; // ...and a page that is one list (Settings' root) scrolls past this many rows (decision 037)
     float listCardMinHeight = 240;    // ...and never shorter than this: room to breathe (decision 030)
@@ -153,7 +152,7 @@ struct Tokens {
     float shadowBlur = 16;
     Vec2 shadowOffset{ 0, 4 };    // down: the island hangs from the top edge
 
-    // Expanded's tabs: one per activity along the bottom of the card (decision 007).
+    // Expanded's tabs: one per activity along the top of the card (decisions 007, 047).
     float tabHeight = 36;
     float tabGap = 4;
     float tabMaxWidth = 140;      // each tab's width; the group is centred, and shrinks only when they don't fit

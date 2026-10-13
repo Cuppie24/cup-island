@@ -52,7 +52,7 @@ struct BubbleScene {
 };
 
 // Expanded with several activities, or activities and panels: a tab per
-// activity along the bottom of the card (decision 007), and a square Home
+// activity along the top of the card (decisions 007, 047), and a square Home
 // button apart at the left when there are panels (decision 009). Clicking a
 // tab switches to it (ActivitySwitched, or HomeOpened for Home).
 struct Tab {

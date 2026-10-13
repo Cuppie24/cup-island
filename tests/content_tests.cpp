@@ -255,8 +255,8 @@ void runContentTests()
     expect(strip.pin && strip.pin->frame.x + strip.pin->frame.width == opened.size.x - t.expandedPadding &&
            strip.pin->frame.y == strip.tabs[0].frame.y && groupRight <= strip.pin->frame.x - t.slotGap, "the pin at the strip's right end");
     expect(groupLeft - 0 == opened.size.x - groupRight, "the group is centred");
-    expect(groupLeft >= t.expandedPadding && strip.tabs[0].frame.y + t.tabHeight == opened.size.y - t.expandedPadding,
-           "strip along the bottom, keeping the card's padding");
+    expect(groupLeft >= t.expandedPadding && strip.tabs[0].frame.y == t.expandedPadding,
+           "strip along the top, keeping the card's padding (decision 047)");
     expect(strip.radius == std::min(pillCornerRadius(opened.size) - t.expandedPadding, t.tabHeight / 2), "tab corners nested");
 
     IslandState two;
@@ -315,10 +315,11 @@ void runContentTests()
     expect(!tabAt(strip, { 1, 1 }), "outside the strip: no tab");
     Scene mediaCard = layout(reduce(reduce(three, PillClicked{}, Ms{ 0 }), ActivitySwitched{ "media" }, Ms{ 0 }), Ms{ 0 });
     const Placed* mediaArt = find(mediaCard, "expandedLeading/0/0");
-    expect(mediaArt && mediaArt->frame.y == t.expandedPadding, "card content keeps its place at the top");
+    float stripSpace = t.tabHeight + t.slotGap;
+    expect(mediaArt && mediaArt->frame.y == t.expandedPadding + stripSpace, "card content starts under the strip");
     for (const auto& p : mediaCard.elements)
         if (p.key.rfind("tab/", 0) != 0)
-            expect(p.frame.y + p.frame.height <= mediaCard.tabs->tabs[0].frame.y - t.slotGap, "media card content above the strip: " + p.key);
+            expect(p.frame.y >= mediaCard.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap, "media card content under the strip: " + p.key);
     expect(mediaCard.tabs->tabs[0].id == "media" && mediaCard.tabs->active == 0u, "switching doesn't reorder tabs");
 
     // A full media card (progress + controls) with tabs: the bottom rows move up to clear the strip.
@@ -327,9 +328,10 @@ void runContentTests()
     busy = reduce(busy, ActivityStarted{ { .id = "demo.media", .content = media, .providerId = "demo" } }, Ms{ 0 });
     Scene busyCard = layout(reduce(busy, PillClicked{}, Ms{ 0 }), Ms{ 1000 });
     const Placed* busyPlay = find(busyCard, "expandedBottom/1/1");
-    expect(busyCard.tabs && busyPlay && busyPlay->frame.y + busyPlay->frame.height <= busyCard.tabs->tabs[0].frame.y - t.slotGap,
-           "controls sit above the tab strip");
-    expect(busyPlay && busyPlay->frame == play->frame, "and exactly where they are without tabs");
+    expect(busyCard.tabs && busyPlay && busyPlay->frame.y + busyPlay->frame.height <= busyCard.size.y - t.expandedPadding,
+           "controls keep the card's bottom padding");
+    expect(busyPlay && busyPlay->frame.x == play->frame.x && busyPlay->frame.y == play->frame.y + stripSpace,
+           "and exactly where they are without tabs, moved down under the strip");
 }
 
 } // namespace cup::test

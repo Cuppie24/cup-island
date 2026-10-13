@@ -28,7 +28,6 @@ const Field kFields[] = {
     { "compactSize", &Tokens::compactSize },
     { "alertSize", &Tokens::alertSize },
     { "expandedSize", &Tokens::expandedSize },
-    { "centredCardWidth", &Tokens::centredCardWidth },
     { "receptiveSize", &Tokens::receptiveSize },
     { "hiddenSize", &Tokens::hiddenSize },
     { "maxCornerRadius", &Tokens::maxCornerRadius },
