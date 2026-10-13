@@ -35,6 +35,18 @@ layer wasn't drawn at all. Shapes stay where they always were now; the
 shadow is extra visuals under them, so a shadow problem can't hide the
 island.)
 
+**The snapshot is of an outline, not the shape itself.** At first it
+snapshotted the body, content included. Anything animating inside (the
+equalizer bars, a swimming title, the progress bar, all running for as long
+as music plays) then re-rendered the snapshot and re-blurred the shadow on
+every frame, 60 to 144 times a second, with no end. That was enough GPU load
+to make the music itself stutter. The source is now `outline_`: a twin of
+the body with the same background and ears but no content, its size and
+transform bound to the body's. It sits right under the body with the same
+fill, so it's never seen, and the shadow only re-renders when the shape
+itself changes (morph, press, drag). Rule: never point a live visual
+snapshot at something whose content animates.
+
 **Consequences.** `Blob` builds and updates its own caster
 (`buildShadow`, `applyShadow`); nothing else changes. Needs a Windows run
 to judge the look.

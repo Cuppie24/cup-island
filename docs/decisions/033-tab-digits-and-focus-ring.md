@@ -5,7 +5,7 @@ Status: Accepted (extends 031)
 **Context.** Decision 031 left two things open: Tab didn't move focus, and
 focus looked exactly like hover, so with the pointer resting on one item
 and focus on another there was no telling which one Enter would click.
-Home's static widgets (Bluetooth: no card, no tap action) weren't stops
+Home's static widgets (no card, no tap action; Bluetooth then) weren't stops
 either, so down from a row of cards over a row of static ones jumped a
 whole row.
 

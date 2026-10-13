@@ -188,7 +188,7 @@ void runKeyboardTests()
     expect(homeWidget(grid, 2) && homeWidget(grid, 2)->id == "tile:b" && homeWidget(grid, 5)->id == "tile:e", "digits: the nth widget");
     expect(!homeWidget(grid, 6) && !homeWidget(grid, 0), "digits: past the last, nothing");
 
-    // Static widgets (no card, no tap action: Bluetooth) are stops too, so
+    // Static widgets (no card, no tap action) are stops too, so
     // down from a row of cards lands on the row under it, not the one after.
     IslandState mixed;
     for (const char* id : { "a", "b", "c", "d", "e", "f", "g", "h", "i" }) {

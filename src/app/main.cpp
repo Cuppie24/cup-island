@@ -4,7 +4,7 @@
 // Tuning: edit assets/tokens.json while it runs; saving applies it live.
 //
 // The idle pill shows the time; clicking it opens Home (decisions 009, 019):
-// the media and Pomodoro widgets, then theme, Bluetooth and Settings (the
+// the media and Pomodoro widgets, then theme and Settings (the
 // app theme, display, Start with Windows and Copy logs, decisions 022, 030). Press and hold the pill to lift it
 // and move it along the top edge (decision 026).
 //
@@ -50,7 +50,6 @@
 #include "providers/file_store.h"
 #include "providers/media/smtc_media_provider.h"
 #include "providers/pomodoro/pomodoro_provider.h"
-#include "providers/system/bluetooth_provider.h"
 #include "providers/system/settings_provider.h"
 #include "providers/system/theme_provider.h"
 #include "providers/update/github.h"
@@ -801,7 +800,6 @@ int main()
     });
     g_providers->add(std::make_unique<SmtcMediaProvider>(postToUi));
     g_providers->add(std::make_unique<DemoMediaProvider>()); // M key
-    g_providers->add(std::make_unique<BluetoothProvider>(postToUi));
     g_providers->add(std::make_unique<ThemeProvider>(postToUi));
     g_providers->add(std::make_unique<PomodoroProvider>());
     auto settings = std::make_unique<SettingsProvider>(SettingsHooks{
@@ -862,7 +860,6 @@ int main()
     g_providers->start("media");
     g_providers->start("pomodoro");
     g_providers->start("system.theme");
-    g_providers->start("system.bluetooth");
     g_providers->start("system.settings");
     g_providers->start("system.update");
     dispatch(readWallClock(), "clock");

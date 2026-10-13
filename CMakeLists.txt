@@ -62,7 +62,6 @@ add_library(cup_providers STATIC
     src/providers/pomodoro/todo_list.cpp
     src/providers/system/settings_card.cpp
     src/providers/system/settings_provider.cpp
-    src/providers/system/bluetooth_state.cpp
     src/providers/system/system_panels.cpp
     src/providers/file_store.cpp
     src/providers/update/release.cpp
@@ -176,7 +175,6 @@ if(WIN32)
         src/providers/media/browser_tabs.cpp
         src/providers/media/smtc_media_provider.cpp
         src/providers/media/smtc_reading.cpp
-        src/providers/system/bluetooth_provider.cpp
         src/providers/system/theme_provider.cpp
         src/providers/update/github.cpp
     )
