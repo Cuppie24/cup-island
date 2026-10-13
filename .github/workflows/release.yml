@@ -56,9 +56,9 @@ jobs:
           $highest = git tag --list 'v*' | Where-Object { $_ -match '^v\d+\.\d+\.\d+$' } |
               ForEach-Object { [version]$_.Substring(1) } | Sort-Object -Descending | Select-Object -First 1
           if ($highest -and [version]$env:VERSION -lt $highest) {
-              Write-Host "::warning::$env:VERSION is lower than v$highest: installed copies will move back to it."
+              Write-Host "::warning::${env:VERSION} is lower than v${highest}: installed copies will move back to it."
           }
-          Write-Host "Releasing $env:VERSION (highest so far: $highest)"
+          Write-Host "Releasing ${env:VERSION} (highest so far: ${highest})"
 
       - name: Install Inno Setup
         run: |
