@@ -42,7 +42,7 @@ morph nor match the island's fonts, colours and clipping.
   areas reach the row's edges (top to bottom, start to the text), and it
   has its own hover shape again. `Row::clickAnywhere` stays for Settings'
   rows, where the whole row is one action.
-- **Bigger:** `smallButtonSize` 24 → 32, `listItemPadding` 4 → 5,
+- **Bigger:** `smallButtonSize` 24 → 32, `listItemPadding` 4 → 6 (= `listItemInset`, so rounded content in a row nests in the row's corners: radius = row radius − inset, decision 006),
   `inputHeight` 30 → 36, Centred cards `centredCardWidth` 440 wide (from
   380), and the canvas 500×560 to hold them.
 

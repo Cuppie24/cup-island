@@ -117,6 +117,10 @@ void runTodoTests()
     expect(onEdge && onEdge->key == openBox->key, "the checkbox's click area reaches the row's start, top to bottom");
     expect(openBox->hitFrame.x + openBox->hitFrame.width <= openText->frame.x + 0.01f && openBox->hitFrame.height >= lit.height,
            "...and stops where the text starts");
+    // Concentric (decision 006): the checkbox as far from the row's top as from its side, its corners the row's less that gap.
+    float side = openBox->frame.x - lit.x, above = openBox->frame.y - lit.y;
+    expect(std::abs(side - above) < 0.01f, "the checkbox is inset equally on every side");
+    expect(std::abs(openBox->cornerRadius - (openBox->listRowRadius - side)) < 0.01f, "its hover shape nests in the row's");
     expect(!field->listRow, "the field isn't a list item");
     std::string fieldRow = field->key.substr(0, field->key.rfind('/') + 1);
     std::size_t inFieldRow = 0;

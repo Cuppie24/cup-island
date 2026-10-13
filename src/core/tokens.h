@@ -100,7 +100,7 @@ struct Tokens {
     float smallButtonSize = 32;   // Button::compact: list rows (a to-do's checkbox)
     float revealGlyphSize = 14;   // Button::revealOnHover (a to-do's delete): a smaller glyph, the same button and hover shape
     float inputHeight = 36;       // a TextInput: a little taller than the rows, easy to click into
-    float listItemPadding = 5;    // Row::listItem: above and below its content, so list items stand apart
+    float listItemPadding = 6;    // Row::listItem: above and below its content; = listItemInset, so a checkbox's corners nest in the row's (decision 006)
     float listItemInset = 6;      // Row::listItem: its content in from the hover background's edges
     float sectionGap = 12;        // Row::section: space above a group's heading (decision 037)
     float listItemTextInset = 14; // ...where the edge item is text: clear of the background's rounded end (decision 030)

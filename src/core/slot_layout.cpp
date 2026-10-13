@@ -143,12 +143,15 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
                 // background doesn't hug the letters; the text itself stays where it was (decision 043).
                 if (auto* field = std::get_if<TextInput>(&placed.item); field && field->inPlace)
                     placed.frame = { x - t.editInset, placed.frame.y, w + 2 * t.editInset, h };
-                placed.cornerRadius = radiusFor(item, placed.frame, nestedRadius);
+                // In a list item, rounded content nests in the row's background, not the
+                // card's corner: its radius is the row's less the inset (decision 006).
+                float rowRadius = std::min(nestedRadius, rowHeight / 2);
+                placed.cornerRadius = radiusFor(item, placed.frame, row.listItem ? std::max(0.0f, rowRadius - t.listItemInset) : nestedRadius);
                 placed.accent = source.content ? source.content->accent : std::nullopt;
                 placed.list = list;
                 if (row.listItem) {
                     placed.listRow = Rect{ background.x, y, background.width, rowHeight };
-                    placed.listRowRadius = std::min(nestedRadius, rowHeight / 2);
+                    placed.listRowRadius = rowRadius;
                 }
                 placed.providerId = source.providerId;
                 placed.activityId = source.activityId;
