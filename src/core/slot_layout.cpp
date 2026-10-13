@@ -111,9 +111,13 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
                 area = { (*spans)[neighbour].x, slot.frame.y, (*spans)[neighbour].width, slot.frame.height };
             Rect background = area; // a list item's hover background spans the row; its content sits inside
             if (row.listItem || row.inset) {
-                // Text at an edge sits further in, clear of the background's rounded end (decision 030).
+                // What's at an edge sits listItemTextInset in, clear of the background's
+                // rounded end (decision 030), and in line with the headings and names of
+                // the rows around it: text, a theme's swatch. A button there (a to-do's
+                // checkbox) keeps listItemInset: its own round shape nests in the end.
                 auto inset = [&](const std::vector<Item>& edge, const Item* outer) {
-                    return edge.empty() && outer && std::holds_alternative<Text>(*outer) ? t.listItemTextInset : t.listItemInset;
+                    bool control = outer && (std::holds_alternative<Button>(*outer) || std::holds_alternative<TextInput>(*outer));
+                    return edge.empty() && outer && !control ? t.listItemTextInset : t.listItemInset;
                 };
                 float left = inset(row.leading, row.items.empty() ? nullptr : &row.items.front());
                 float right = inset(row.trailing, row.items.empty() ? nullptr : &row.items.back());

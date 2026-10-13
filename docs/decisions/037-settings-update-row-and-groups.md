@@ -27,7 +27,12 @@ the same small dim text as a row's value, easy to read past.
   `headingFontWeight`). A heading that starts a later group has
   `sectionGap` of space above it (`Row::section`), so groups read as
   groups. Headings line up with the names under them (`Row::inset`: a list
-  item's text inset, without its padding or hover).
+  item's text inset, without its padding or hover). So does everything at
+  a list item's edge except a button: a theme's swatch starts where its
+  heading does, and the shortcuts page's fixed keys (`inset` rows) where
+  the editable one's name does. Only a button at the edge (a to-do's
+  checkbox) keeps the smaller `listItemInset`, its round shape nested in the
+  row's rounded end.
 
 - **The root page is grouped too**: Appearance (Theme, Display, Centre
   island), General (Start with Windows, Keyboard shortcuts, Copy logs),

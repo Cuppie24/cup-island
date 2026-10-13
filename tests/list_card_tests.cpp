@@ -43,7 +43,8 @@ void runListCardTests()
            "a List card's rows: no wider than listCardWidth, centred");
     expect(name->frame.x == listSide + t.listItemTextInset, "text at a list item's edge clears its rounded end");
     expect(chevron && chevron->frame.x + chevron->frame.width == listCard.size.x - listSide - t.listItemInset, "a button there keeps the usual inset");
-    expect(swatch && swatch->frame.x == listSide + t.listItemInset && swatch->frame.width == t.swatchSize, "a swatch: a square of swatchSize");
+    expect(swatch && swatch->frame.x == name->frame.x && swatch->frame.width == t.swatchSize,
+           "a swatch: a square of swatchSize, in line with the names (only a button keeps the smaller inset)");
     expect(listCard.size.y >= t.listCardMinHeight && listCard.size.y > t.expandedSize.y,
            "a List card is roomier than an activity's: listCardMinHeight at least");
     expect(name->listRow->y >= t.expandedPadding + t.listCardVerticalInset, "its rows sit listCardVerticalInset further in from the top");
@@ -79,6 +80,14 @@ void runListCardTests()
     const Placed* grapeBox = find(groups, "expandedCenter/1/1");
     const Placed* light = find(groups, "expandedCenter/2/0");
     expect(dark && grapeName && dark->frame.x == grapeName->frame.x && !dark->listRow, "a heading lines up with the names under it, nothing lit");
+    Content swatched{ .card = CardLayout::List,
+                      .expandedCenter = { Row{ .items = { Text{ .value = "Dark", .style = TextStyle::Heading } }, .inset = true },
+                                          Row{ .items = { Swatch{}, Text{ "Grape" }, Button{ Glyph::Checked, "a" } }, .listItem = true },
+                                          Row{ .items = { Text{ "Arrows" }, Text{ .value = "Move", .alignEnd = true } }, .inset = true } } };
+    Scene themesLike = layout(expandedWith(swatched), Ms{ 0 });
+    float headingX = find(themesLike, "expandedCenter/0/0")->frame.x;
+    expect(find(themesLike, "expandedCenter/1/0")->frame.x == headingX && find(themesLike, "expandedCenter/2/0")->frame.x == headingX,
+           "a theme's swatch and a plain inset row start where the heading does");
     float gapAbove = light->frame.y - (grapeBox->frame.y + grapeBox->frame.height);
     float gapBelow = find(groups, "expandedCenter/3/0")->frame.y - (light->frame.y + light->frame.height);
     expect(gapAbove >= t.sectionGap && gapAbove > gapBelow, "a second group's heading has sectionGap more above it");

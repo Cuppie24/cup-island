@@ -28,6 +28,8 @@ void runShortcutSettingsTests()
            cardText(sh.published.back(), 1) == "Anywhere" && cardItem(sh.published.back(), 2, 0) == "Open Home" &&
            cardItem(sh.published.back(), 2, 1) == "Ctrl+X" && cardItem(sh.published.back(), 4, 0) == "Move between items",
            "shortcuts: a page with each one's keys and what they do");
+    expect(rowNamed(sh.published.back(), "Move between items")->inset && rowNamed(sh.published.back(), "Open Home")->listItem,
+           "shortcuts: the fixed keys line up with the editable one's name");
     press(settings_action::kBack);
 
     settings.stop();

@@ -167,7 +167,8 @@ Slot shortcutsPage(const SettingsView& v)
     }
     card.push_back(heading("On the island", true));
     for (const FixedKey& k : fixedKeys())
-        card.push_back(row({ Text{ k.does }, Text{ .value = k.keys, .style = TextStyle::Caption, .alignEnd = true } }));
+        card.push_back(Row{ .items = { Text{ k.does }, Text{ .value = k.keys, .style = TextStyle::Caption, .alignEnd = true } },
+                            .inset = true }); // in line with the editable rows' names: nothing to click, nothing lit
     for (std::size_t i = 1; i < card.size(); ++i) card[i].list = P::kShortcutList; // all but the title
     if (!v.shortcutNote.empty()) card.push_back(row({ Text{ .value = v.shortcutNote, .style = TextStyle::Caption, .centred = true } }));
     return card;
