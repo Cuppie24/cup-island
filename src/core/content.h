@@ -68,6 +68,13 @@ struct Text {
     // `editsText` and this actionId, turns it into a field holding its text;
     // Enter sends the provider Action{editAction, text}, Esc leaves it as it was.
     std::string editAction;
+    std::size_t editMaxLength = 0; // ...and edited, at most this many characters (decision 045). 0: no limit
+    // Wraps onto as many lines as it needs instead of ending in "…" (a
+    // to-do, decision 045). The only stretching item in its row.
+    bool wrap = false;
+    // Host-filled: `value` with the spaces where its lines break turned into
+    // '\n' (same length, so offsets hold). Empty: one line.
+    std::string wrapped;
     bool operator==(const Text&) const = default;
 };
 struct Image {
@@ -103,6 +110,9 @@ struct TextInput {
     bool focused = false;
     std::size_t caret = 0, anchor = 0; // byte offsets into `value`; equal: nothing selected
     bool inPlace = false;    // a Text being edited (Text::editAction): drawn like it, so it doesn't jump
+    std::string wrapped;     // ...a wrapping one (Text::wrap): `value` broken into lines, like Text::wrapped
+    // Set by the provider: at most this many characters (decision 045). 0: no limit.
+    std::size_t maxLength = 0;
     bool operator==(const TextInput&) const = default;
 };
 // A bar stretches across its row. A ring is a square: alone in its row it

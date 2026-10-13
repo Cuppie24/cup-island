@@ -45,11 +45,12 @@ Rect stackFrame(const Content& c, Vec2 size)
 
 // A stacked card grows to fit its rows (a to-do list), never below Expanded's
 // size and never past the canvas (decision 016).
-float centredCardHeight(const Content& c, Vec2 size, float tabSpace)
+float centredCardHeight(const Source& source, Vec2 size, float tabSpace, const MeasureText& measure)
 {
     const Tokens& t = tokens();
+    const Content& c = *source.content;
     Rect frame = stackFrame(c, size);
-    float needed = slotHeight(c.expandedCenter, { frame.x, frame.y, frame.width, size.y }) + 2 * frame.y;
+    float needed = slotHeight(c.expandedCenter, { frame.x, frame.y, frame.width, size.y }, source, measure) + 2 * frame.y;
     // A List card (Settings) is never as squeezed as an activity's: listCardMinHeight at least.
     float least = c.card == CardLayout::List ? std::max(t.expandedSize.y, t.listCardMinHeight) : t.expandedSize.y;
     return std::clamp(needed, least, std::max(least, t.canvas.y - tabSpace));
@@ -151,9 +152,10 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     float tabSpace = tabStripSpace(state);
     scene.size = modeSize(scene.mode);
     Source source = sourceFor(state, scene.mode);
+    MeasureText measureText = measure ? measure : MeasureText{ estimateTextWidth };
     if (scene.mode == Mode::Expanded && source.content && stacked(*source.content)) {
         if (source.content->card == CardLayout::Centred) scene.size.x = std::max(scene.size.x, tokens().centredCardWidth); // decision 043
-        scene.size.y = centredCardHeight(*source.content, scene.size, tabSpace);
+        scene.size.y = centredCardHeight(source, scene.size, tabSpace, measureText);
     }
     if (scene.mode == Mode::Expanded && state.homeOpen) scene.size.y = homeCardHeight(state, tokens().canvas.y - tabSpace);
     scene.size.y += tabSpace;
@@ -175,7 +177,6 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     if (scene.mode == Mode::Split && !scene.lifted) scene.bubble = bubbleFor(state, now); // lifted: tucked into the pill
     scene.dropTarget = swapPreview(state);
 
-    MeasureText measureText = measure ? measure : MeasureText{ estimateTextWidth };
     if (scene.mode == Mode::Idle) placeClock(state, scene, measureText);
 
     // The card's content keeps Expanded's size; the tab strip, if any, adds room below it (decision 009).

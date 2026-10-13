@@ -16,6 +16,10 @@ const wchar_t* textFamily(IDWriteFactory* dw, float pixelSize);
 // One line, centred vertically in its box, ending in "…" if it doesn't fit.
 winrt::com_ptr<IDWriteTextFormat> format(IDWriteFactory* dw, const wchar_t* family, float size, float weight, DWRITE_TEXT_ALIGNMENT align);
 
+// Lines exactly `height` apart (core's lineHeight): wrapped text is drawn as
+// tall as core laid it out (decision 045).
+void setLineHeight(IDWriteTextFormat* format, float height);
+
 winrt::com_ptr<ID2D1SolidColorBrush> brushOf(ID2D1DeviceContext* dc, const Color& color);
 
 // The byte offset into `utf8` (the layout's text) nearest the point (x, y) in layout coordinates.

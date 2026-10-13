@@ -114,7 +114,7 @@ struct Pointer {
     std::optional<Vec2> islandPress; // mouse-down on the pill that may lift it (decision 026): where it went down
     std::optional<Placed> listPress; // mouse-down on a list row that can be dragged (decision 029)
     float listPressY = 0;            // ...where, pill coordinates: dragged dragStartDistance, it's picked up
-    float textPressX = 0;            // a press on an editable Text: where, so editing starts with the caret there
+    Vec2 textPress;                  // a press on an editable Text: where, so editing starts with the caret there
     std::string selecting;           // a press in the focused field: dragging selects (decision 043)
     Ms lastClickAt{};                // ...the presses before it, for double- and triple-clicks
     Vec2 lastClickPoint;
@@ -358,7 +358,8 @@ bool startEditing(const Placed& element)
     const Text* text = editedText(g_scene, element.activityId, button->actionId);
     if (!text) return true; // nothing to edit on screen: the click does nothing
     SetFocus(g_inputHwnd);
-    dispatch(InputFocused{ element.providerId, element.activityId, button->actionId, text->value, /* editing */ true }, "edit");
+    dispatch(InputFocused{ element.providerId, element.activityId, button->actionId, text->value, /* editing */ true, std::nullopt,
+                           text->editMaxLength }, "edit");
     return true;
 }
 
@@ -385,9 +386,9 @@ void pressField(const Placed& field, Vec2 canvasPoint, Vec2 point)
     g_pointer.lastClickAt = t;
     g_pointer.lastClickPoint = canvasPoint;
     g_pointer.selecting = field.key;
-    std::size_t at = g_renderer.caretAt(field, point.x);
+    std::size_t at = g_renderer.caretAt(field, point);
     SetFocus(g_inputHwnd);
-    if (!input.focused) dispatch(InputFocused{ field.providerId, field.activityId, input.actionId, {}, false, at }, "focus field");
+    if (!input.focused) dispatch(InputFocused{ field.providerId, field.activityId, input.actionId, {}, false, at, input.maxLength }, "focus field");
     else if (g_pointer.clicks == 2) dispatch(WordSelected{ at }, "select word");
     else if (g_pointer.clicks == 3) dispatch(AllSelected{}, "select all");
     else dispatch(CaretPlaced{ at, GetKeyState(VK_SHIFT) < 0 }, "place caret");
@@ -451,7 +452,7 @@ void onPressDown(Vec2 canvasPoint)
         g_renderer.scrubElement(hit->key, g_pointer.scrubFraction);
     } else if (element) {
         g_pointer.pressedKey = hit->key;
-        g_pointer.textPressX = point.x;
+        g_pointer.textPress = point;
         g_renderer.pressElement(hit->key);
         // A row that can be reordered: dragged far enough, it's picked up instead of clicked.
         if (element->list && !element->list->moveAction.empty()) {
@@ -484,7 +485,7 @@ void onPointerMoved(Vec2 canvasPoint, bool inside)
     Vec2 point = toPill(canvasPoint);
     g_pointer.at = inside && onPill(canvasPoint) ? std::optional<Vec2>(point) : std::nullopt;
     if (const Placed* field = g_pointer.selecting.empty() || !g_state.draft ? nullptr : findElement(g_pointer.selecting)) {
-        std::size_t at = g_renderer.caretAt(*field, point.x); // off either end: its first or last character
+        std::size_t at = g_renderer.caretAt(*field, point); // off either end: its first or last character
         if (at != g_state.draft->caret) dispatch(CaretPlaced{ at, true }, "select");
         return;
     }
@@ -519,21 +520,22 @@ void clickTile(const Tile& tile)
     }
 }
 
-// `x`: where a click was (pill coordinates); none for Enter or Space.
-void clickElement(const Hit& hit, std::optional<float> x = std::nullopt)
+// `at`: where a click was (pill coordinates); none for Enter or Space.
+void clickElement(const Hit& hit, std::optional<Vec2> at = std::nullopt)
 {
     const Placed* element = findElement(hit.key);
     auto* text = element ? std::get_if<Text>(&element->item) : nullptr;
     if (text && !text->editAction.empty()) {
         // Its text: edit it in place, the caret where it was clicked, else at its end (decision 043).
-        std::optional<std::size_t> at;
-        if (x) at = g_renderer.caretAt(*element, *x);
+        std::optional<std::size_t> caret;
+        if (at) caret = g_renderer.caretAt(*element, *at);
         SetFocus(g_inputHwnd);
-        dispatch(InputFocused{ element->providerId, element->activityId, text->editAction, text->value, true, at }, "edit");
+        dispatch(InputFocused{ element->providerId, element->activityId, text->editAction, text->value, true, caret, text->editMaxLength }, "edit");
     } else if (element && std::holds_alternative<TextInput>(element->item)) {
         // A field: focus it for typing (decision 016); nothing is sent until Enter.
         SetFocus(g_inputHwnd);
-        dispatch(InputFocused{ hit.action.providerId, hit.action.activityId, hit.action.actionId }, "focus field");
+        dispatch(InputFocused{ hit.action.providerId, hit.action.activityId, hit.action.actionId, {}, false, std::nullopt,
+                               std::get<TextInput>(element->item).maxLength }, "focus field");
     } else if (!element || !startEditing(*element)) {
         act(hit.action);
     }
@@ -589,7 +591,7 @@ void onPressRelease(Vec2 canvasPoint, Release how)
         g_renderer.releaseElement(key);
         // Only a release on the same button counts: sliding off cancels, like any button.
         auto hit = how == Release::Inside && onPill(canvasPoint) ? hitTest(g_scene, point) : std::nullopt;
-        if (hit && hit->key == key) clickElement(*hit, g_pointer.textPressX);
+        if (hit && hit->key == key) clickElement(*hit, g_pointer.textPress);
         return;
     }
     g_renderer.pressRelease(false);
@@ -676,10 +678,18 @@ void onKey(WPARAM key)
         // Moving the caret (decision 043): Shift selects, Ctrl goes a word at a time.
         case VK_LEFT: dispatch(CaretMoved{ ctrl ? CaretMove::WordLeft : CaretMove::Left, shift }, "caret"); break;
         case VK_RIGHT: dispatch(CaretMoved{ ctrl ? CaretMove::WordRight : CaretMove::Right, shift }, "caret"); break;
-        case VK_HOME:
-        case VK_UP: dispatch(CaretMoved{ CaretMove::Start, shift }, "caret"); break; // one line: up is its start
-        case VK_END:
-        case VK_DOWN: dispatch(CaretMoved{ CaretMove::End, shift }, "caret"); break;
+        case VK_HOME: dispatch(CaretMoved{ CaretMove::Start, shift }, "caret"); break;
+        case VK_END: dispatch(CaretMoved{ CaretMove::End, shift }, "caret"); break;
+        case VK_UP:
+        case VK_DOWN: { // a line up or down in wrapped text (decision 045); from the first or last line, its start or end
+            const Placed* field = nullptr;
+            for (const Placed& p : g_scene.elements)
+                if (auto* input = std::get_if<TextInput>(&p.item); input && input->focused) field = &p;
+            auto at = field ? g_renderer.caretOnLine(*field, key == VK_UP ? -1 : 1) : std::nullopt;
+            if (at) dispatch(CaretPlaced{ *at, shift }, "caret line");
+            else dispatch(CaretMoved{ key == VK_UP ? CaretMove::Start : CaretMove::End, shift }, "caret");
+            break;
+        }
         case VK_DELETE: dispatch(TextErased{ true, ctrl }, "delete"); break;
         }
         return;

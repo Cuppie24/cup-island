@@ -35,18 +35,27 @@ float PillRenderer::measure(const Text& text)
     auto key = std::make_pair(text.value, text.style);
     auto it = measured_.find(key);
     if (it != measured_.end()) return it->second;
-    if (measured_.size() > 256) measured_.clear(); // titles change with every track: don't grow forever
+    // Titles change with every track: don't grow forever. Roomy, as wrapping
+    // to-dos measure each of their words (decision 045).
+    if (measured_.size() > 2048) measured_.clear();
     return measured_[key] = measureText(device_.dwrite(), text);
 }
 
-std::size_t PillRenderer::caretAt(const Placed& element, float x)
+std::size_t PillRenderer::caretAt(const Placed& element, Vec2 point)
 {
     if (!device_.dwrite()) return 0;
     Vec2 size{ element.frame.width, element.frame.height };
-    float local = x - element.frame.x; // drawn from the frame's left edge, at its size (element_visuals paint)
+    Vec2 local{ point.x - element.frame.x, point.y - element.frame.y }; // drawn from the frame's corner, at its size (element_visuals paint)
     if (auto* input = std::get_if<TextInput>(&element.item)) return platform::caretAt(device_.dwrite(), *input, size, local);
     if (auto* text = std::get_if<Text>(&element.item)) return platform::caretAt(device_.dwrite(), *text, size, local);
     return 0;
+}
+
+std::optional<std::size_t> PillRenderer::caretOnLine(const Placed& field, int direction)
+{
+    auto* input = std::get_if<TextInput>(&field.item);
+    if (!device_.dwrite() || !input) return std::nullopt;
+    return platform::caretOnLine(device_.dwrite(), *input, { field.frame.width, field.frame.height }, direction);
 }
 
 void PillRenderer::apply(const Scene& scene)

@@ -10,8 +10,8 @@ namespace {
 bool cardShown(const IslandState& s, const std::string& activityId) { return !s.homeOpen && s.expandedId == activityId; }
 
 // One list's rows [first, end): placed into `plan` from `top` on. Returns the window's height.
-float planList(const Slot& slot, const std::vector<float>& heights, const ListState& state, std::size_t first, std::size_t end,
-               float top, RowPlan& plan)
+float planList(const Slot& slot, const std::vector<float>& heights, const std::vector<float>& windowHeights, const ListState& state,
+               std::size_t first, std::size_t end, float top, RowPlan& plan)
 {
     const Tokens& t = tokens();
     std::size_t count = end - first;
@@ -24,8 +24,8 @@ float planList(const Slot& slot, const std::vector<float>& heights, const ListSt
     // The window: listVisibleRows rows (or the list's own visibleRows) of its
     // tallest row's height (half a row more hints there's more).
     // The tallest, not the first: a list may open with a shorter heading (Settings' "Dark").
-    float tallest = *std::max_element(heights.begin() + static_cast<std::ptrdiff_t>(first),
-                                      heights.begin() + static_cast<std::ptrdiff_t>(first + count));
+    float tallest = *std::max_element(windowHeights.begin() + static_cast<std::ptrdiff_t>(first),
+                                      windowHeights.begin() + static_cast<std::ptrdiff_t>(first + count));
     float rows = slot[first].visibleRows > 0 ? slot[first].visibleRows : t.listVisibleRows;
     float window = std::min(content, rows * (tallest + t.rowSpacing) - t.rowSpacing);
     float max = std::max(0.0f, content - window);
@@ -95,7 +95,7 @@ float planList(const Slot& slot, const std::vector<float>& heights, const ListSt
 
 std::string listKey(const std::string& activityId, const std::string& list) { return activityId + "/" + list; }
 
-RowPlan planRows(const Slot& slot, const std::vector<float>& heights, const ListState& state)
+RowPlan planRows(const Slot& slot, const std::vector<float>& heights, const ListState& state, const std::vector<float>* windowHeights)
 {
     const Tokens& t = tokens();
     RowPlan plan;
@@ -110,7 +110,7 @@ RowPlan planRows(const Slot& slot, const std::vector<float>& heights, const List
         }
         std::size_t end = r;
         while (end < slot.size() && slot[end].list == slot[r].list) ++end;
-        y += planList(slot, heights, state, r, end, y, plan) + t.rowSpacing;
+        y += planList(slot, heights, windowHeights ? *windowHeights : heights, state, r, end, y, plan) + t.rowSpacing;
         r = end;
     }
     plan.height = slot.empty() ? 0 : y - t.rowSpacing;

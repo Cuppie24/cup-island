@@ -15,7 +15,7 @@ morph nor match the island's fonts, colours and clipping.
   `caret` and an `anchor` (UTF-8 byte offsets, always on a character's
   first byte). Events: `TextTyped` replaces the selection, `TextErased`
   (Backspace/Delete, Ctrl for a word), `CaretMoved` (arrows, Ctrl+arrows,
-  Home/End; Up/Down go to the start/end of the one line; Shift selects),
+  Home/End; Up/Down go to the start/end of the one line, or a line up or down in wrapped text, decision 045; Shift selects),
   `CaretPlaced` (a click, Shift+click and drags select), `WordSelected`
   (double-click), `AllSelected` (Ctrl+A, triple-click). Word jumps work
   like Windows': letters and digits (anything outside ASCII counts as a

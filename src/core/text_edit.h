@@ -11,7 +11,8 @@
 
 namespace cup {
 
-// Typed text replaces the selection, or goes in at the caret.
+// Typed text replaces the selection, or goes in at the caret; past the
+// draft's maxLength, only as much as fits (decision 045).
 void insertAtCaret(Draft& draft, const std::string& text);
 
 // Backspace (back) or Delete (forward): the selection, else one character,
@@ -32,6 +33,11 @@ void selectAll(Draft& draft); // Ctrl+A, a triple-click
 
 // What's selected, for Ctrl+C and Ctrl+X; empty if nothing is.
 std::string selectedText(const Draft& draft);
+
+// Characters (code points), not bytes: what a length limit counts.
+std::size_t charCount(std::string_view utf8);
+// The first `count` characters of `utf8`, never half of one.
+std::string truncateChars(const std::string& utf8, std::size_t count);
 
 // DirectWrite counts UTF-16 units; the draft counts UTF-8 bytes. The UTF-16
 // units in `utf8`'s first `bytes` bytes, and back (snapped to a character).

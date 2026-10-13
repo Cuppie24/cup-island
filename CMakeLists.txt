@@ -45,6 +45,7 @@ add_library(cup_core STATIC
     src/core/split.cpp
     src/core/tabs.cpp
     src/core/text_edit.cpp
+    src/core/text_wrap.cpp
     src/core/tokens.cpp
     src/core/tokens_json.cpp
 )

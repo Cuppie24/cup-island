@@ -73,3 +73,17 @@ submit                              -> draft=none           # an edit ends once 
 focus timer add
 type x
 submit                              -> draft=empty caret=0  # the field empties and keeps focus
+
+scenario: a field with a limit takes only as many characters as fit (decision 045)
+start timer
+click
+focus timer add max=8
+type café au lait                   -> draft=café_au_ caret=9   # 8 characters: é is one
+type more                           -> draft=café_au_            # full: nothing goes in
+caret start
+caret right select
+type x                              -> draft=xafé_au_            # replacing frees room
+erase
+type ab                             -> draft=aafé_au_            # only one fits
+submit                              -> draft=empty
+type 123456789                      -> draft=12345678            # the limit stays for the next one

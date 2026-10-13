@@ -5,6 +5,9 @@
 #include "core/hit_test.h"
 #include "core/layout.h"
 #include "core/lists.h"
+#include "core/text_edit.h"
+#include "core/text_wrap.h"
+#include "core/item_metrics.h"
 #include "core/tokens.h"
 #include "expect.h"
 #include "providers/pomodoro/pomodoro_provider.h"
@@ -25,10 +28,66 @@ const Placed* firstOf(const Scene& scene, const std::function<bool(const Placed&
     return nullptr;
 }
 
+// Long to-dos wrap onto more lines and their rows grow (decision 045).
+void wrapTests()
+{
+    const Tokens& t = tokens();
+    // Word by word, measured (here estimated: half the font size per character, rounded up per word).
+    std::string wrapped = wrapText("one two three four", TextStyle::Body, 70, {});
+    expect(wrapped.size() == std::string("one two three four").size() && lineCount(wrapped) > 1, "wrapped at spaces, same length");
+    expect(wrapText("short", TextStyle::Body, 500, {}) == "short", "short text: one line");
+    expect(lineCount(wrapText(std::string(60, 'x'), TextStyle::Body, 50, {})) == 1, "a word longer than the line keeps its own line");
+
+    TodoList list;
+    list.add("Short one");
+    list.add("A much longer task that will never fit on a single line of the card, however wide it is made");
+    for (int i = 0; i < 6; ++i) list.add("Filler " + std::to_string(i));
+    IslandState state;
+    state = reduce(state, PanelPublished{ pomodoroPanel(list) }, Ms{ 0 });
+    state = reduce(state, PillClicked{}, Ms{ 0 });
+    state = reduce(state, TileClicked{ PomodoroProvider::kPanelId }, Ms{ 0 });
+    Scene card = layout(state, Ms{ 0 });
+    auto named = [&](const Scene& sc, const std::string& start) {
+        return firstOf(sc, [&](const Placed& p) { auto* x = std::get_if<Text>(&p.item); return x && x->value.rfind(start, 0) == 0; });
+    };
+    const Placed* shortText = named(card, "Short");
+    const Placed* longText = named(card, "A much");
+    const std::string& lines = std::get<Text>(longText->item).wrapped;
+    expect(lineCount(lines) >= 2 && lines.size() == std::get<Text>(longText->item).value.size(), "a long to-do wraps");
+    expect(longText->frame.height == lineCount(lines) * lineHeight(TextStyle::Body), "its text as tall as its lines");
+    expect(longText->listRow->height > shortText->listRow->height &&
+           longText->listRow->height == longText->frame.height + 2 * t.listItemPadding, "its row grows to fit");
+    expect(lineCount(std::get<Text>(shortText->item).wrapped) == 1, "a short one stays on one line");
+    float step = t.smallButtonSize + 2 * t.listItemPadding + t.rowSpacing;
+    expect(std::abs(longText->list->viewport.height - (t.listVisibleRows * step - t.rowSpacing)) < 0.01f,
+           "the list's window still counts rows of one line");
+    const Placed* longBox = firstOf(card, [&](const Placed& p) { return p.key == longText->key.substr(0, longText->key.rfind('/')) + "/0"; });
+    expect(std::abs(longBox->frame.y + longBox->frame.height / 2 - (longText->frame.y + longText->frame.height / 2)) < 0.01f,
+           "the checkbox stays centred on it");
+
+    // Edited, the field wraps the same way and grows as it's typed into.
+    const Text& text = std::get<Text>(longText->item);
+    state = reduce(state, InputFocused{ "pomodoro", PomodoroProvider::kPanelId, text.editAction, text.value, true, std::nullopt,
+                                        text.editMaxLength }, Ms{ 0 });
+    Scene editing = layout(state, Ms{ 0 });
+    const Placed* field = firstOf(editing, [&](const Placed& p) { return p.key == longText->key; });
+    const auto& input = std::get<TextInput>(field->item);
+    expect(input.wrapped == lines && field->frame.height == longText->frame.height, "the field breaks where the text did");
+    state = reduce(state, TextTyped{ " and then some more words to push it onto yet another line of its own" }, Ms{ 0 });
+    Scene longer = layout(state, Ms{ 0 });
+    const Placed* grown = firstOf(longer, [&](const Placed& p) { return p.key == longText->key; });
+    expect(lineCount(std::get<TextInput>(grown->item).wrapped) > lineCount(lines) && grown->frame.height > field->frame.height,
+           "typing more wraps onto more lines, and the field grows");
+    state = reduce(state, TextTyped{ std::string(300, 'z') }, Ms{ 0 });
+    expect(charCount(state.draft->text) == t.todoMaxLength, "and stops at todoMaxLength characters");
+    expect(layout(state, Ms{ 0 }).size.y <= t.canvas.y, "the card still fits");
+}
+
 } // namespace
 
 void runTodoTests()
 {
+    wrapTests();
     // The list itself.
     TodoList list;
     expect(!list.add("  \n\n "), "blank lines add nothing");
@@ -71,7 +130,14 @@ void runTodoTests()
     expect(list.apply(todo_action::kClearAllConfirmed, "") && list.items().empty(), "confirmed: clear all");
     TodoList longOne;
     longOne.add(std::string(500, 'x'));
-    expect(longOne.items()[0].text.size() == 200, "a to-do is capped to one line's worth");
+    expect(longOne.items()[0].text.size() == tokens().todoMaxLength, "a to-do is capped at todoMaxLength characters");
+    TodoList accented;
+    accented.add(std::string(400, 'x').replace(0, 0, "é")); // é is two bytes: counted as one character, never cut in half
+    expect(charCount(accented.items()[0].text) == tokens().todoMaxLength && accented.items()[0].text.rfind("é", 0) == 0,
+           "capped by characters, not bytes");
+    std::uint64_t only = longOne.items()[0].id;
+    longOne.apply(std::string(todo_action::kEdit) + std::to_string(only), std::string(300, 'y'));
+    expect(longOne.items()[0].text == std::string(tokens().todoMaxLength, 'y'), "renamed: capped too");
 
     // The loop, with a fake clipboard and storage.
     std::string saved = "[x] Old done\n[ ] Old open\n";

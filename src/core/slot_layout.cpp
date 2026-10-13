@@ -2,6 +2,7 @@
 
 #include "core/item_metrics.h"
 #include "core/lists.h"
+#include "core/text_wrap.h"
 #include "core/tokens.h"
 
 #include <algorithm>
@@ -82,20 +83,20 @@ RowSizes rowSizes(const Slot& rows, Rect frame)
     return sizes;
 }
 
-} // namespace
-
-float slotHeight(const Slot& slot, Rect frame) { return planRows(slot, rowSizes(slot, frame).heights, {}).height; }
-
-void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, Ms now, std::vector<Placed>& out,
-               const MeasureText& measure)
+// Places the slot's rows into `out`; returns the height they take.
+float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, Ms now, std::vector<Placed>& out,
+                const MeasureText& measure)
 {
     const Tokens& t = tokens();
     const Slot& rows = *slot.slot;
 
     RowSizes sizes = rowSizes(rows, slot.frame);
+    const std::vector<float> oneLine = sizes.heights; // a list's window counts rows of one line (decision 045)
     // Lists windowed, scrolled, a row dragged (decision 029); the rest stacked.
-    RowPlan plan = planRows(rows, sizes.heights, { source.activityId, source.scrolls, source.listDrag });
+    ListState lists{ source.activityId, source.scrolls, source.listDrag };
+    RowPlan plan = planRows(rows, sizes.heights, lists, &oneLine);
     float contentTop = slot.frame.y + (slot.frame.height - plan.height) / 2; // centred vertically
+    std::vector<float> wrapped(rows.size(), 0); // each row's wrapping text's height, once its width is known
 
     // Places every row into `target` and returns each row's content span.
     // `spans`: the first pass's spans, for rows that match a neighbour's width.
@@ -137,6 +138,19 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
                 Placed placed;
                 placed.key = slot.name + "/" + rowName + "/" + std::to_string(index);
                 placed.item = resolve(item, now, source);
+                // Wrapping text (decision 045): its lines at the width it got (less its edit inset),
+                // and as tall as they are. The row grows to fit in the next pass.
+                if (auto* text = std::get_if<Text>(&item); text && text->wrap) {
+                    float room = std::max(0.0f, w - (text->editAction.empty() ? 0 : 2 * t.editInset));
+                    if (auto* shown = std::get_if<Text>(&placed.item)) {
+                        shown->wrapped = wrapText(shown->value, shown->style, room, measure);
+                        h = static_cast<float>(lineCount(shown->wrapped)) * lineHeight(shown->style);
+                    } else if (auto* field = std::get_if<TextInput>(&placed.item)) {
+                        field->wrapped = wrapText(field->value, TextStyle::Body, room, measure); // the field's font
+                        h = static_cast<float>(lineCount(field->wrapped)) * lineHeight(TextStyle::Body);
+                    }
+                    wrapped[r] = std::max(wrapped[r], h);
+                }
                 float above = sectionGap(row); // the gap is empty: content centres in the rest
                 placed.frame = { x, y + above + (rowHeight - above - h) / 2, w, h };
                 // Editable text owns its whole stretch, but is drawn editInset in from each side.
@@ -291,9 +305,34 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
 
     // Two passes: natural spans first, then the real layout, where a matching
     // row takes its neighbour's span (above or below: either may come first).
+    // The first also finds how tall wrapping texts are: their rows grow.
     std::vector<Placed> scratch;
     std::vector<Rect> spans = placeRows(scratch, nullptr);
+    bool grew = false;
+    for (std::size_t r = 0; r < rows.size(); ++r) {
+        float needed = wrapped[r] + listPadding(rows[r]) + sectionGap(rows[r]);
+        if (needed > sizes.heights[r]) sizes.heights[r] = needed, grew = true;
+    }
+    if (grew) {
+        plan = planRows(rows, sizes.heights, lists, &oneLine);
+        contentTop = slot.frame.y + (slot.frame.height - plan.height) / 2;
+    }
     placeRows(out, &spans);
+    return plan.height;
+}
+
+} // namespace
+
+float slotHeight(const Slot& slot, Rect frame, const Source& source, const MeasureText& measure)
+{
+    std::vector<Placed> scratch;
+    return layRows({ "", &slot, frame }, source, 0, Ms{ 0 }, scratch, measure);
+}
+
+void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, Ms now, std::vector<Placed>& out,
+               const MeasureText& measure)
+{
+    layRows(slot, source, nestedRadius, now, out, measure);
 }
 
 } // namespace cup

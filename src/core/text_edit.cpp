@@ -74,8 +74,13 @@ void insertAtCaret(Draft& d, const std::string& text)
 {
     sanitize(d);
     eraseSelection(d);
-    d.text.insert(d.caret, text);
-    d.caret = d.anchor = d.caret + text.size();
+    std::string fits = text;
+    if (d.maxLength > 0) {
+        std::size_t has = charCount(d.text);
+        fits = truncateChars(text, has >= d.maxLength ? 0 : d.maxLength - has);
+    }
+    d.text.insert(d.caret, fits);
+    d.caret = d.anchor = d.caret + fits.size();
 }
 
 void eraseAtCaret(Draft& d, bool forward, bool word)
@@ -137,6 +142,18 @@ std::string selectedText(const Draft& d)
 {
     std::size_t from = std::min({ d.caret, d.anchor, d.text.size() }), to = std::min(std::max(d.caret, d.anchor), d.text.size());
     return d.text.substr(from, to - from);
+}
+
+std::size_t charCount(std::string_view s)
+{
+    return static_cast<std::size_t>(std::count_if(s.begin(), s.end(), [](char c) { return (static_cast<unsigned char>(c) & 0xC0) != 0x80; }));
+}
+
+std::string truncateChars(const std::string& s, std::size_t count)
+{
+    std::size_t at = 0;
+    for (std::size_t n = 0; n < count && at < s.size(); ++n) at = nextChar(s, at);
+    return s.substr(0, at);
 }
 
 // A lead byte 11110xxx starts a character outside the BMP: two UTF-16 units (a surrogate pair).

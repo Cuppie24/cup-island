@@ -35,8 +35,9 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
                const MeasureText& measure = {});
 
 // The height a slot's rows need, stacked with their spacing: how tall a
-// Centred card grows (decision 016).
-float slotHeight(const Slot& slot, Rect frame);
+// Centred card grows (decision 016). Wrapping text needs `measure` (decision
+// 045), and text being edited the `source`'s draft.
+float slotHeight(const Slot& slot, Rect frame, const Source& source = {}, const MeasureText& measure = {});
 
 // Font size in pixels for a text style (tokens).
 float fontSize(TextStyle style);

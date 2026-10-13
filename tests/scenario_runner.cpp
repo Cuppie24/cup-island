@@ -11,7 +11,7 @@
 //            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel
 //            panel <id> [static|keep]  unpanel <id>  home  tile <id>  (static: a widget with no card;
 //                                                                     keep: its card stays open on a click, decision 030)
-//            focus <card> <action> [at=<n>]  type <text...>  erase [word]  submit  cancel-input   (a TextInput, decision 016)
+//            focus <card> <action> [at=<n>|max=<chars>]  type <text...>  erase [word]  submit  cancel-input   (a TextInput, decision 016)
 //            delete [word]  caret <left|right|word-left|word-right|start|end> [select]
 //            place <n> [select]  select-word <n>  select-all                     (caret and selection, decision 043)
 //            ask <card>  close-dialog                                               (a provider's dialog, decision 020)
@@ -152,7 +152,10 @@ struct Runner {
         else if (cmd == "unpanel") apply(PanelRemoved{ arg(1) });
         else if (cmd == "home") apply(HomeOpened{});
         else if (cmd == "tile") apply(TileClicked{ arg(1) });
-        else if (cmd == "focus") apply(InputFocused{ "p", arg(1), arg(2), "", false, at(3) });
+        else if (cmd == "focus") {
+            auto max = option(arg(3), "max");
+            apply(InputFocused{ "p", arg(1), arg(2), "", false, max ? std::nullopt : at(3), max ? std::stoul(*max) : 0 });
+        }
         else if (cmd == "type") {
             std::string text;
             for (size_t i = 1; i < w.size(); ++i) text += (i > 1 ? " " : "") + w[i];

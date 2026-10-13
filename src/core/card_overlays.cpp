@@ -14,6 +14,7 @@ void focusInput(IslandState& s, const InputFocused& e, Ms now)
     if (!shown(s, e.activityId) || s.dialog) return;
     if (!s.draft || s.draft->actionId != e.actionId) {
         s.draft = Draft{ e.providerId, e.activityId, e.actionId, e.text, e.editing };
+        s.draft->maxLength = e.maxLength;
         placeCaret(*s.draft, e.text.size(), false); // at the end, unless it was clicked somewhere
     }
     if (e.caret) placeCaret(*s.draft, *e.caret, false);
@@ -24,7 +25,7 @@ void submitText(IslandState& s, Ms now)
 {
     if (!s.draft) return;
     if (s.draft->editing) s.draft.reset(); // an edit is done once sent
-    else *s.draft = Draft{ s.draft->providerId, s.draft->activityId, s.draft->actionId }; // a field keeps focus: add the next one
+    else *s.draft = Draft{ s.draft->providerId, s.draft->activityId, s.draft->actionId, {}, false, 0, 0, s.draft->maxLength }; // a field keeps focus: add the next one
     s.lastPointerAt = now;
 }
 

@@ -1,5 +1,6 @@
 #include "platform/element_painting.h"
 
+#include "core/item_metrics.h"
 #include "core/text_edit.h"
 #include "core/tokens.h"
 #include "platform/text_format.h"
@@ -135,6 +136,11 @@ winrt::com_ptr<ID2D1SolidColorBrush> brushOf(ID2D1DeviceContext* dc, const Color
     return brush;
 }
 
+void setLineHeight(IDWriteTextFormat* format, float height)
+{
+    format->SetLineSpacing(DWRITE_LINE_SPACING_METHOD_UNIFORM, height, height * 0.8f); // the baseline about where Segoe UI's own spacing puts it
+}
+
 std::size_t hitOffset(IDWriteTextLayout* layout, const std::string& utf8, float x, float y)
 {
     BOOL trailing = FALSE, inside = FALSE;
@@ -183,20 +189,28 @@ winrt::com_ptr<IDWriteTextFormat> formatOf(IDWriteFactory* dw, const Text& text)
                   : text.alignEnd ? DWRITE_TEXT_ALIGNMENT_TRAILING : DWRITE_TEXT_ALIGNMENT_LEADING);
 }
 
+// Wrapped text (decision 045): the lines core broke it into, exactly lineHeight apart.
+winrt::com_ptr<IDWriteTextLayout> wrappedLayout(IDWriteFactory* dw, const Text& text, float width, float height)
+{
+    std::wstring value = widen(text.wrapped.empty() ? text.value : text.wrapped);
+    auto f = formatOf(dw, text);
+    if (!text.wrapped.empty()) setLineHeight(f.get(), lineHeight(text.style));
+    winrt::com_ptr<IDWriteTextLayout> layout;
+    winrt::check_hresult(dw->CreateTextLayout(value.c_str(), static_cast<UINT32>(value.size()), f.get(), width, height, layout.put()));
+    return layout;
+}
+
 } // namespace
 
 void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec2 size)
 {
-    if (!text.struck) {
+    if (!text.struck && text.wrapped.empty()) {
         drawString(dc, formatOf(dw, text).get(), widen(text.value), size, lookOf(text.style).color);
         return;
     }
-    // Struck through (a solved to-do): a layout carries the strikethrough.
-    std::wstring value = widen(text.value);
-    winrt::com_ptr<IDWriteTextLayout> layout;
-    winrt::check_hresult(dw->CreateTextLayout(value.c_str(), static_cast<UINT32>(value.size()), formatOf(dw, text).get(),
-                                              size.x, size.y, layout.put()));
-    layout->SetStrikethrough(TRUE, DWRITE_TEXT_RANGE{ 0, static_cast<UINT32>(value.size()) });
+    // Wrapped, or struck through (a solved to-do): a layout carries the lines and the strikethrough.
+    auto layout = wrappedLayout(dw, text, size.x, size.y);
+    if (text.struck) layout->SetStrikethrough(TRUE, DWRITE_TEXT_RANGE{ 0, static_cast<UINT32>(widen(text.value).size()) });
     dc->DrawTextLayout(D2D1::Point2F(0, 0), layout.get(), brushOf(dc, lookOf(text.style).color).get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
 }
 
@@ -206,14 +220,12 @@ void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& l
     drawString(dc, formatOf(dw, text).get(), widen(label), size, color);
 }
 
-std::size_t caretAt(IDWriteFactory* dw, const Text& text, Vec2 size, float x)
+std::size_t caretAt(IDWriteFactory* dw, const Text& text, Vec2 size, Vec2 at)
 {
-    // As drawn (paintText), but unbounded: a click on a trimmed text's "…" lands at its end.
-    std::wstring value = widen(text.value);
-    winrt::com_ptr<IDWriteTextLayout> layout;
-    winrt::check_hresult(dw->CreateTextLayout(value.c_str(), static_cast<UINT32>(value.size()), formatOf(dw, text).get(),
-                                              100000.0f, size.y, layout.put()));
-    return hitOffset(layout.get(), text.value, x, size.y / 2);
+    // As drawn (paintText), but unbounded across: a click on a trimmed text's "…" lands at its end.
+    // Its lines are already broken (Text::wrapped), so nothing rewraps.
+    auto layout = wrappedLayout(dw, text, 100000.0f, size.y);
+    return hitOffset(layout.get(), text.value, at.x, at.y);
 }
 
 float measureText(IDWriteFactory* dw, const Text& text)

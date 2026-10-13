@@ -69,6 +69,7 @@ struct Draft {
     // The caret and the selection's other end (decision 043): UTF-8 byte
     // offsets into `text`. Equal: nothing selected.
     std::size_t caret = 0, anchor = 0;
+    std::size_t maxLength = 0; // in characters; typing and pasting stop there (decision 045). 0: no limit
     bool operator==(const Draft&) const = default;
 };
 
@@ -135,6 +136,7 @@ struct InputFocused {    // a TextInput was clicked, or an edit button (then `te
     std::string text;      // the draft starts with this
     bool editing = false;  // a Text edited in place: Enter ends it
     std::optional<std::size_t> caret; // where it was clicked (a byte offset into `text`); none: at the end
+    std::size_t maxLength = 0;        // the field's (TextInput::maxLength, Text::editMaxLength)
 };
 // Editing the focused field (decision 043; text_edit.h).
 enum class CaretMove { Left, Right, WordLeft, WordRight, Start, End };
