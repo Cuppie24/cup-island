@@ -78,13 +78,17 @@ public:
     // answer, and the last version an alert was posted for (one per version).
     static constexpr const char* kLastCheckKey = "last-check";
     static constexpr const char* kAnnouncedKey = "announced";
+    // The offer, so it's still on Home after a restart (decision 039): its
+    // version, installer link, checksum, file name and page, a line each.
+    static constexpr const char* kOfferKey = "offer";
 
 private:
     void check();
     void checked(const std::optional<GitHubRelease>& release);
     void answer(CheckOutcome outcome, const std::string& version); // every waiting Reply
     void publish(); // the card, and the status to whoever listens
-    void withdraw(); // no offer any more
+    void withdraw(bool forget = true); // no offer any more; forget: and not after a restart either (not when just stopping)
+    void restore();  // the saved offer, at start, if it's still newer than this build
 
     UpdateHooks hooks_;
     Host* host_ = nullptr;

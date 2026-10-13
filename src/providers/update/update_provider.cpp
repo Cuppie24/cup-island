@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <charconv>
 #include <utility>
+#include <vector>
 
 namespace cup {
 namespace {
@@ -15,6 +16,30 @@ std::optional<long long> parseMs(const std::string& text)
     auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
     if (error != std::errc{} || end == text.data()) return std::nullopt;
     return value;
+}
+
+// The saved offer (kOfferKey): a field a line, in UpdateOffer's order.
+std::string offerText(const UpdateOffer& o)
+{
+    return versionText(o.version) + "\n" + o.url + "\n" + o.sha256 + "\n" + o.fileName + "\n" + o.page + "\n";
+}
+
+std::optional<UpdateOffer> offerFrom(const std::string& text)
+{
+    std::vector<std::string> lines;
+    std::size_t at = 0;
+    while (at < text.size()) {
+        std::size_t end = text.find('\n', at);
+        if (end == std::string::npos) end = text.size();
+        std::string line = text.substr(at, end - at);
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        lines.push_back(line);
+        at = end + 1;
+    }
+    if (lines.size() < 4) return std::nullopt;
+    auto version = parseVersion(lines[0]);
+    if (!version || lines[1].empty() || lines[2].empty() || lines[3].empty()) return std::nullopt;
+    return UpdateOffer{ .version = *version, .url = lines[1], .sha256 = lines[2], .fileName = lines[3], .page = lines.size() > 4 ? lines[4] : "" };
 }
 
 Alert offerAlert(const UpdateOffer& offer)
@@ -68,6 +93,7 @@ void UpdateProvider::start(Host& host)
     host_ = &host;
     running_ = parseVersion(hooks_.version);
     if (!running_ || !hooks_.fetchLatest) return; // a dev build: it never checks
+    restore();
 
     // Not during startup; and no sooner than a day after the last check,
     // restarts included. A clock that went back counts as due.
@@ -88,7 +114,7 @@ void UpdateProvider::stop()
     checking_ = false;
     replies_.clear(); // nobody to tell any more
     host_->wakeAt(std::nullopt);
-    withdraw();
+    withdraw(false); // off screen, but still saved: the app is closing, the offer stands
     stage_ = UpdateStage::Offered;
     host_ = nullptr;
 }
@@ -153,6 +179,7 @@ void UpdateProvider::checked(const std::optional<GitHubRelease>& release)
         problem_.clear();
     }
     offer_ = offer;
+    host_->save(kOfferKey, offerText(*offer_)); // still offered after a restart
     publish();
     if (host_->load(kAnnouncedKey) != v) { // once per version: a daily check doesn't nag
         host_->postAlert(offerAlert(*offer));
@@ -201,8 +228,25 @@ void UpdateProvider::publish()
     if (listener_) listener_(UpdateStatus{ versionText(offer_->version), stage_, problem_ });
 }
 
-void UpdateProvider::withdraw()
+void UpdateProvider::restore()
 {
+    // Offered before a restart: back on Home at once, without waiting a day
+    // for the next check (which withdraws it if it's gone). Already installed
+    // (this build is that version or newer): forgotten. No second alert.
+    auto saved = offerFrom(host_->load(kOfferKey));
+    if (!saved) return;
+    if (saved->version <= *running_) {
+        host_->save(kOfferKey, "");
+        return;
+    }
+    offer_ = saved;
+    stage_ = UpdateStage::Offered;
+    publish();
+}
+
+void UpdateProvider::withdraw(bool forget)
+{
+    if (forget && host_) host_->save(kOfferKey, ""); // withdrawn: not back after a restart either
     if (!offer_) return;
     host_->removePanel(kPanelId);
     offer_.reset();
