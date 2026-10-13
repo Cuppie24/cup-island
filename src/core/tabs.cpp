@@ -51,6 +51,18 @@ TabFace faceOf(const Activity& a)
 
 const Item kHomeIcon = Icon{ Glyph::Home };
 
+// A dot on Home's button (decision 038): a widget flagged for it
+// (Content::badgeHome, an update), not any widget with a dot.
+bool homeBadged(const IslandState& s)
+{
+    for (const Panel& p : s.panels) {
+        const Activity* live = findActivity(s, p.id);
+        const Content& c = live ? live->content : p.content;
+        if (c.badge && c.badgeHome) return true;
+    }
+    return false;
+}
+
 // Lead square and title, centred in the tab as one group (the title as wide
 // as it really is, so the group's width is known). A title too long for the
 // tab gets what's left and ends in "…". Keys carry the activity id, so a
@@ -127,7 +139,8 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     if (!s.panels.empty()) {
         Rect button{ p, y, t.homeButtonWidth, t.tabHeight };
         float top = y - t.slotGap / 2;
-        add({ "", "", &kHomeIcon, Text{}, true }, button, { 0, top, p + button.width + t.slotGap / 2, cardSize.y - top });
+        add({ .id = "", .lead = &kHomeIcon, .iconOnly = true, .badge = homeBadged(s) }, button,
+            { 0, top, p + button.width + t.slotGap / 2, cardSize.y - top });
         reserved = button.width + t.slotGap;
     }
 

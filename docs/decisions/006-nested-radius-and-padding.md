@@ -24,3 +24,9 @@ marked `loose` (media controls) use the wider `looseItemSpacing`.
 re-derives every inner radius. In Compact the nested radius makes the art
 round (24 px square, 12 px radius). If squarer compact art is wanted, change
 this rule (e.g. a minimum padding for radii), not a hard-coded radius.
+
+**Alerts' leading square** is a square slot like the compact ends: its
+content is centred in it, so an icon (an update, a low battery) sits in the
+middle of the island's rounded left end, as far from the side as from the
+top and bottom. It used to be laid out like a text slot, start-aligned, which
+put the icon against the edge.

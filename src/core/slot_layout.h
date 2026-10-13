@@ -25,7 +25,7 @@ struct SlotFrame {
     std::string name;    // key prefix: "<name>/<row>/<item>"
     const Slot* slot;
     Rect frame;          // pill (or bubble) coordinates
-    bool square = false; // a one-glyph square (compact ends, the bubble): content always centred in it
+    bool square = false; // a one-glyph square (compact ends, an alert's leading, the bubble): content always centred in it
 };
 
 // Appends the slot's items to `out`, rows stacked and centred vertically in the frame.

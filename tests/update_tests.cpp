@@ -102,8 +102,9 @@ void providerTests()
 
     u.wakeAndAnswer(releaseOf("0.4.0"));
     const Panel& offered = u.host.published.back();
-    expect(offered.id == UpdateProvider::kPanelId && textAt(offered, 0, 0) == "Update" && textAt(offered, 1, 0) == "0.4.0",
-           "newer: an Update widget with the version");
+    expect(offered.id == UpdateProvider::kPanelId && textAt(offered, 0, 1) == "0.4.0" && textAt(offered, 1, 0) == "Update" &&
+           offered.content.tileLeading.empty(), "newer: an Update widget with the version, stacked to fit a narrow column");
+    expect(offered.content.badge && offered.content.badgeHome, "newer: a dot on the widget, and on Home's button (decision 038)");
     expect(cardText(offered, 0) == "Cup Island 0.4.0" && cardText(offered, 1) == "You have 0.3.0" && cardText(offered, 2) == "Install and restart",
            "its card: what, from what, and Install");
     expect(u.host.alerts.size() == 1 && u.host.alerts[0].activityId == UpdateProvider::kPanelId, "an alert that opens the card");
@@ -116,6 +117,7 @@ void providerTests()
 
     u.act(A::kInstall);
     expect(u.installs.size() == 1 && cardText(u.host.published.back(), 1) == "Downloading and installing…", "Install: downloading");
+    expect(!u.host.published.back().content.badge && !u.host.published.back().content.badgeHome, "Install: under way, no dots: nothing to do");
     u.act(A::kInstall);
     expect(u.installs.size() == 1, "a second click while installing does nothing");
     u.wakeAndAnswer(releaseOf("0.5.0"));
@@ -123,6 +125,7 @@ void providerTests()
     u.installs[0]("Couldn't download the update");
     expect(cardText(u.host.published.back(), 1) == "Couldn't download the update" && cardText(u.host.published.back(), 2) == "Try again",
            "a failure says why, and offers to try again");
+    expect(u.host.published.back().content.badge && u.host.published.back().content.badgeHome, "a failure: the dots are back, it still needs doing");
     u.act(A::kInstall);
     expect(u.installs.size() == 2, "Try again installs again");
 

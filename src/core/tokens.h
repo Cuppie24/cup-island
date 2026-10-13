@@ -114,7 +114,7 @@ struct Tokens {
     float stepDotSize = 9;        // Steps: one dot per step
     float stepDotGap = 8;
     float badgeSize = 8;          // a notification dot (decision 038)
-    float badgeInset = 7;         // ...from a widget's or tab's top-right corner
+    float badgeInset = 7;         // ...at least this far in from a widget's or tab's edges (its corner's rounding sets it, decision 038)
     float swatchSize = 24;        // Swatch: a colour sample (a theme on Settings' list, decision 030)
 
     // Hover on buttons and the progress bar (decision 002: content only, not the pill).

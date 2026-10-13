@@ -85,7 +85,9 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
     }
     case Mode::Alert: {
         float side = size.y - 2 * p, centerX = p + side + t.slotGap;
-        return { { "alertLeading", &c.alertLeading, { p, p, side, side } },
+        // A square like the compact ends: an icon centred in it, so it sits in
+        // the middle of the island's rounded end (decision 006), not against its edge.
+        return { { "alertLeading", &c.alertLeading, { p, p, side, side }, true },
                  { "alertCenter", &c.alertCenter, { centerX, p, size.x - centerX - p, side } } };
     }
     case Mode::Expanded: {
