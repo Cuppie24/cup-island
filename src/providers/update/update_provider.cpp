@@ -45,14 +45,20 @@ Panel updatePanel(const UpdateOffer& offer, const std::string& running, UpdateSt
     Row buttons = row({ install }, Align::Center);
     if (!offer.page.empty()) buttons.items.push_back(Button{ .actionId = A::kWhatsNew, .label = "What's new" });
     buttons.loose = true;
+    bool waiting = stage != UpdateStage::Installing; // offered, or failed: still the user's to do
     Content content{
         .label = "Update to " + v,
         .card = CardLayout::Centred,
+        // A dot on the widget, and on Home's button: the one widget whose news
+        // is worth seeing from any card (decision 038).
+        .badge = waiting,
+        .badgeHome = waiting,
         .expandedCenter = { row({ Text{ .value = "Cup Island " + v, .style = TextStyle::Title, .centred = true } }),
                             row({ Text{ .value = caption, .style = TextStyle::Caption, .centred = true } }),
                             buttons },
-        .tileLeading = { row({ Icon{ Glyph::Download } }, Align::Center) },
-        .tile = { row({ Text{ "Update", TextStyle::Title } }), row({ Text{ v, TextStyle::Caption } }) },
+        // Stacked like the other small widgets (theme, Settings), no square at
+        // the side: it fits a narrow column. The icon and version, then what it is.
+        .tile = { row({ Icon{ Glyph::Download }, Text{ v, TextStyle::Caption } }), row({ Text{ "Update", TextStyle::Title } }) },
     };
     return { .id = UpdateProvider::kPanelId, .content = content };
 }

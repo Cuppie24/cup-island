@@ -53,6 +53,22 @@ void runBadgeTests()
                 tabDot = tabDot || near(dot, { tab.frame.x + tab.frame.width - corner(strip.tabs->radius), tab.frame.y + corner(strip.tabs->radius) });
     expect(strip.tabs && tabDot, "badges: a flagged activity's tab gets one");
 
+    // Home's button: only a widget flagged for it (an update), not any widget with a dot.
+    auto homeDot = [&](const Scene& sc) {
+        for (const Tab& tab : sc.tabs->tabs)
+            if (tab.id.empty()) return tab.badge;
+        return false;
+    };
+    IslandState withHome = tabs;
+    withHome = reduce(withHome, PanelPublished{ flagged }, Ms{ 0 });
+    expect(!homeDot(layout(withHome, Ms{ 0 })), "badges: a widget's dot doesn't light Home's button");
+    Panel update = flagged;
+    update.id = "update";
+    update.content.badgeHome = true;
+    withHome = reduce(withHome, PanelPublished{ update }, Ms{ 0 });
+    Scene homeLit = layout(withHome, Ms{ 0 });
+    expect(homeDot(homeLit) && homeLit.badges.size() >= 2, "badges: one flagged for Home (an update) lights Home's button too");
+
     // A button: on its top-right corner. In a list, only while in view.
     Slot rows;
     for (int i = 0; i < 12; ++i)

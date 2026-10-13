@@ -28,9 +28,17 @@ kind of element leads to them.
 - **Tokens:** `badgeSize` 8, `badgeInset` 7, `badgeColor` red: the colour
   every OS uses for "new", the same in every theme (a theme may override it).
 - **The first user, updates:** while an update is offered (or its install
-  failed, so it still needs doing), the Settings widget has a dot, and so
-  does the Update and restart row's button it leads to. While installing,
-  neither does: there's nothing for the user to do.
+  failed, so it still needs doing), the **Update widget** on Home has a dot,
+  and so does **Home's button** in the tab strip, so it's seen from any
+  card. While installing, neither does: there's nothing for the user to do.
+  (At first Settings' widget and its Update and restart row had the dots;
+  the Update widget is where the news is, so they moved there.)
+- **Home's button is for news only, not every dot.** `Content::badgeHome`
+  asks for it, on top of `badge`; only the update sets it. Another widget's
+  dot stays on that widget and never lights Home's button.
+- The Update widget is stacked like the other small widgets (icon and
+  version, then "Update"), without a square at its side, so it fits a
+  narrow column.
 
 **Consequences.** Placement in `tests/badge_tests.cpp`, the Settings flags
 in `tests/settings_tests.cpp`. The look needs a Windows run. A future badge
