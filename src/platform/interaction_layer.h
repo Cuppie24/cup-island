@@ -55,8 +55,8 @@ void followMorph(Vec2 toSize, Vec2 toOffset);
 // so the glide to where it lands is followed from there (decision 026).
 void jumpTo(Vec2 size, Vec2 offset);
 
-// The pointer is over text a click edits (a field, a to-do's text): the
-// I-beam instead of the arrow (decision 043).
+// The pointer is over a text field (the add field, a to-do being edited):
+// the I-beam instead of the arrow (decision 043).
 void setTextCursor(bool text);
 
 // One-shot timer: fires onTimer(id) once after `delay`, replacing an earlier

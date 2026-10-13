@@ -224,11 +224,10 @@ void updateHover()
         if (auto hit = hitTest(g_scene, *at)) key = hit->key;
     }
     g_renderer.setHovered(key);
-    // Text a click edits shows the I-beam (decision 043); so does a field being drag-selected.
+    // A text field shows the I-beam (decision 043): the add field, and a to-do only while it's
+    // being edited (then it's a field); a field being drag-selected keeps it, even off it.
     const Placed* under = key.empty() ? nullptr : findElement(key);
-    auto* text = under ? std::get_if<Text>(&under->item) : nullptr;
-    setTextCursor(!g_pointer.selecting.empty() || (under && std::holds_alternative<TextInput>(under->item)) ||
-                  (text && !text->editAction.empty()));
+    setTextCursor(!g_pointer.selecting.empty() || (under && std::holds_alternative<TextInput>(under->item)));
     g_renderer.setHoveredRow(at ? rowUnder(*at) : std::string()); // reveals a to-do's delete button
 
     // Tabs light up as a whole, except the active one, which is already marked (decision 007).

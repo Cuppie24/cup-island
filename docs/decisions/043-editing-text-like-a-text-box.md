@@ -32,7 +32,7 @@ morph nor match the island's fonts, colours and clipping.
 - **A to-do's text is clicked into, not ticked:** `hitTest` returns an
   editable `Text`'s `editAction`; a click there edits it in place with the
   caret where it was clicked (Enter or Space on it: at the end). A press
-  dragged still picks the row up (029). The I-beam shows over editable text.
+  dragged still picks the row up (029). The I-beam shows over a field only: a to-do's text gets it once it's being edited.
   The field drawn in its place (`TextInput::inPlace`) keeps the text's font
   and position and reaches `editInset` past it on each side for its
   background; text and field swap without a fade, so nothing flashes.

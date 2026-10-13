@@ -30,7 +30,7 @@ int g_renderTop = 0; // monitors above or below the primary don't start at y = 0
 InteractionCallbacks g_callbacks;
 bool g_pressed = false;
 bool g_trackingLeave = false; // TrackMouseEvent armed: WM_MOUSELEAVE will come
-bool g_textCursor = false;    // over text that a click edits: the I-beam (decision 043)
+bool g_textCursor = false;    // over a text field: the I-beam (decision 043)
 
 void showCursor() { SetCursor(LoadCursorW(nullptr, g_textCursor ? IDC_IBEAM : IDC_ARROW)); }
 
