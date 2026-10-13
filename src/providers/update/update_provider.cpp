@@ -235,7 +235,7 @@ void UpdateProvider::restore()
     // (this build is that version or newer): forgotten. No second alert.
     auto saved = offerFrom(host_->load(kOfferKey));
     if (!saved) return;
-    if (saved->version <= *running_) {
+    if (!movesTo(*running_, saved->version)) {
         host_->save(kOfferKey, "");
         return;
     }

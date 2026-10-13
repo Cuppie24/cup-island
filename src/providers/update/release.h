@@ -23,6 +23,14 @@ struct Version {
 std::optional<Version> parseVersion(std::string_view text);
 std::string versionText(const Version& v); // "0.4.0"
 
+// Whether a copy running `running` should move to `offered`: a higher
+// version, as always. One exception (decision 040): 5.x was released by
+// mistake, and a copy on 5.x takes any release that isn't 5.x, lower
+// included, so it comes back to 0.x. Never from one 5.x to another lower
+// one (while the 5.x releases are being deleted, "latest" can be one).
+// TEMPORARY: remove once the 5.x copies are back on 0.x.
+bool movesTo(const Version& running, const Version& offered);
+
 // The installer every release carries (the Release workflow uploads it).
 std::string installerName(const Version& v); // "CupIsland-Setup-0.4.0.exe"
 

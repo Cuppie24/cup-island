@@ -57,10 +57,17 @@ std::string versionText(const Version& v)
 
 std::string installerName(const Version& v) { return "CupIsland-Setup-" + versionText(v) + ".exe"; }
 
+bool movesTo(const Version& running, const Version& offered)
+{
+    bool mistaken = running.major == 5, mistakenOffer = offered.major == 5; // decision 040
+    if (mistaken && !mistakenOffer) return true;
+    return offered > running;
+}
+
 std::optional<UpdateOffer> offerFor(const Version& running, const GitHubRelease& latest)
 {
     auto version = parseVersion(latest.tag);
-    if (!version || *version <= running) return std::nullopt;
+    if (!version || !movesTo(running, *version)) return std::nullopt;
     std::string name = installerName(*version);
     auto asset = std::find_if(latest.assets.begin(), latest.assets.end(), [&](const ReleaseAsset& a) { return a.name == name; });
     if (asset == latest.assets.end() || !onGitHub(asset->url)) return std::nullopt;

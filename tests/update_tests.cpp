@@ -243,10 +243,35 @@ void providerTests()
 
 } // namespace
 
+// Back from 5.x, released by mistake (decision 040). TEMPORARY, like the
+// rule: remove both once the 5.x copies are back on 0.x.
+void mistakenVersionTests()
+{
+    Version mistaken{ 5, 3, 6 };
+    expect(movesTo({ 5, 3, 5 }, mistaken), "5.x: on the old 5.x, the bridge release (5.3.6) is an update as usual");
+    expect(movesTo(mistaken, { 0, 6, 0 }) && offerFor(mistaken, releaseOf("0.6.0")),
+           "5.x: on 5.x, a 0.x release is offered though it's lower, so the copy comes back");
+    expect(!movesTo(mistaken, { 5, 3, 4 }) && !offerFor(mistaken, releaseOf("5.3.4")),
+           "5.x: never to another, lower 5.x (\"latest\" while the 5.x releases are being deleted)");
+    expect(!movesTo(mistaken, mistaken), "5.x: not to itself");
+    expect(!movesTo({ 0, 6, 0 }, { 0, 5, 1 }) && movesTo({ 0, 5, 1 }, { 0, 6, 0 }), "5.x: the rest as always: only higher");
+
+    // A 0.x offer saved by a 5.x copy is still there after a restart.
+    Updater bridged("5.3.6");
+    bridged.provider.start(bridged.host);
+    bridged.wakeAndAnswer(releaseOf("0.6.0"));
+    bridged.provider.stop();
+    bridged.provider.start(bridged.host);
+    expect(bridged.host.published.back().id == UpdateProvider::kPanelId && textAt(bridged.host.published.back(), 0, 1) == "0.6.0",
+           "5.x: the 0.x offer survives a restart too");
+    bridged.provider.stop();
+}
+
 void runUpdateTests()
 {
     versionTests();
     providerTests();
+    mistakenVersionTests();
 }
 
 } // namespace cup::test
