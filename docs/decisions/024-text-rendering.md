@@ -29,9 +29,11 @@ transparent Composition surfaces. Three problems showed up on screen:
 
   The Text cut turns thin and soft at caption sizes. These ranges belong to
   the font, not the design, so they aren't tokens.
-- **Weights** (`titleFontWeight` 600, `bodyFontWeight` 500,
-  `captionFontWeight` 500, `displayFontWeight` 350). Body and caption are
-  medium, not regular, to make up for light-on-dark thinning. The weight is
+- **Weights** (`titleFontWeight` 700, `bodyFontWeight` 600,
+  `captionFontWeight` 600, `displayFontWeight` 450; were 600/500/500/350,
+  raised a step at the user's ask: the island's text read too light).
+  Body and caption are semibold, not regular, to make up for light-on-dark
+  thinning; the title is at Segoe UI Variable's heaviest. The weight is
   also set on Segoe UI Variable's weight axis (`IDWriteTextFormat3::SetFontAxisValues`),
   so values between the named weights apply exactly.
 - **Rendering** (`graphics_device.cpp`):
@@ -46,9 +48,9 @@ transparent Composition surfaces. Three problems showed up on screen:
 **Tuning.** All of the above is live in `assets/tokens.json`. Weights are
 100..900 and contrast is 0..~3; neither is scaled by the display or
 `islandScale`.
-- Text still thin: raise `bodyFontWeight`/`captionFontWeight` to 550, or
-  `textContrast` to 2.
-- Text too heavy or smudgy: lower them to 450, or to 1.
+- Text still thin: raise `bodyFontWeight`/`captionFontWeight` to 650
+  (700 is the font's heaviest), or `textContrast` to 2.
+- Text too heavy or smudgy: lower them to 550, or `textContrast` to 1.
 - A bigger size step needs room. Check the card layouts (`expandedArtSize`,
   `expandedSize`, `tileHeight`) against the layout tests.
 

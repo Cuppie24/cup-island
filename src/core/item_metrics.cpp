@@ -92,6 +92,7 @@ float fontSize(TextStyle style)
     case TextStyle::Caption:
     case TextStyle::Digits: return t.captionFontSize;
     case TextStyle::Display: return t.displayFontSize;
+    case TextStyle::Heading: return t.headingFontSize;
     }
     return t.bodyFontSize;
 }

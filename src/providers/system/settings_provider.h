@@ -44,6 +44,7 @@ struct SettingsHooks {
     // "Check for updates" (decision 036): checks now, then calls back on the
     // UI thread with what it found (Available: the offer's version). Empty: no row.
     std::function<void(std::function<void(CheckOutcome, const std::string&)>)> checkForUpdates;
+    std::function<void()> installUpdate; // the offer, as Home's Update card installs it (decision 037)
 };
 
 class SettingsProvider : public Provider {
@@ -56,6 +57,10 @@ public:
     void onAction(const Action& action) override; // the card's rows, choices and buttons
     void onWake() override;                       // the note has shown for logsNoteMs: back to "Copy logs"
     void onCardClosed(const std::string& activityId) override; // reopened, it starts at the list
+
+    // The update offer changed (UpdateProvider::onStatus): one found, its
+    // install under way or failed, or none. Settings shows it under "Check for updates".
+    void updateStatusChanged(const std::optional<UpdateStatus>& offer);
 
     // tokens.json was reloaded: its themes may have changed (one renamed, removed).
     void refresh();
@@ -101,6 +106,7 @@ private:
     std::string wantedDisplay_;  // the user's pick, kept while its monitor is unplugged
     std::string appliedDisplay_; // where the island is: wantedDisplay_ if connected, else "" (main)
     LogsNote note_ = LogsNote::Ready;
+    std::optional<UpdateStatus> offer_;
     Bindings shortcuts_;
     std::optional<Command> recording_;
     bool hotkeysActive_ = true;

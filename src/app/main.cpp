@@ -823,6 +823,7 @@ int main()
         .checkForUpdates = [](std::function<void(CheckOutcome, const std::string&)> reply) {
             if (g_update) g_update->checkNow(std::move(reply)); // added just below; there by the first click
         },
+        .installUpdate = [] { if (g_update) g_update->install(); }, // the same as Home's Update card (decision 037)
     });
     g_settings = settings.get();
     g_settings->setHotkeysActive(!g_state.hidden); // started under a fullscreen app: none until it's gone
@@ -851,6 +852,10 @@ int main()
         .openPage = openInBrowser,
     });
     g_update = update.get();
+    // Settings shows the offer too, with its own Update and restart (decision 037).
+    g_update->onStatus([](const std::optional<cup::UpdateStatus>& offer) {
+        if (g_settings) g_settings->updateStatusChanged(offer);
+    });
     g_providers->add(std::move(update));
     // Home's widgets follow the order panels first appear: media and Pomodoro
     // first (decision 019), then the system tiles.

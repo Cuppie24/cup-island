@@ -78,6 +78,7 @@ if(CUP_BUILD_TESTS)
         tests/home_tests.cpp
         tests/item_tests.cpp
         tests/keyboard_tests.cpp
+        tests/list_card_tests.cpp
         tests/main.cpp
         tests/media_tests.cpp
         tests/placement_tests.cpp

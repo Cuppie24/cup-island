@@ -17,9 +17,11 @@ using Ms = std::chrono::milliseconds;
 
 // Built-in icons; the renderer maps them to font glyphs.
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
-                   Bluetooth, Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download };
+                   Bluetooth, Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre };
 
-enum class TextStyle { Title, Body, Caption, Digits, Display }; // Display: a big number, the card's centre (a timer)
+// Display: a big number, the card's centre (a timer). Heading: a group's name over its rows (Settings'
+// "Dark" and "Light"): small, but heavy and full-strength, so it reads as a divider (decision 037).
+enum class TextStyle { Title, Body, Caption, Digits, Display, Heading };
 
 // sRGB plus opacity. As an activity's accent (decision 010) it tints only
 // live data: progress fills (bar and ring), the current step, waveform bars.
@@ -173,6 +175,9 @@ struct Row {
     // together in a window listVisibleRows rows tall; the host scrolls it
     // with the wheel, smoothly. Host::reveal keeps a row in view.
     std::string list;
+    // The list's window in rows, read from its first row; 0: listVisibleRows.
+    // A list that is the whole card (Settings' root page) sizes it to the card.
+    float visibleRows = 0;
     // Drag to reorder (decision 029): pressed and dragged, the row moves among
     // the list's rows of the same `sortGroup`; dropped in a new place, its
     // provider gets this action with Action::value = the row's new index in the list.
@@ -185,6 +190,12 @@ struct Row {
     // apart, its content inset by listItemInset, and a faint background across
     // the whole row under the pointer.
     bool listItem = false;
+    // Starts a group (a Heading under other rows): sectionGap of space above
+    // it, so groups stand apart (decision 037).
+    bool section = false;
+    // Its content inset like a list item's, without being one (no padding,
+    // nothing lit): a heading over list items lines up with their text.
+    bool inset = false;
     bool operator==(const Row&) const = default;
 };
 

@@ -67,4 +67,22 @@ inline Glyph glyphAt(const Panel& p, std::size_t row)
     return icon ? icon->glyph : Glyph::Warning;
 }
 
+// The card's row whose first item is this text (a setting's name), or nullptr.
+inline const Row* rowNamed(const Panel& p, const std::string& name)
+{
+    for (const Row& r : p.content.expandedCenter)
+        if (!r.items.empty())
+            if (auto* text = std::get_if<Text>(&r.items[0]); text && text->value == name) return &r;
+    return nullptr;
+}
+
+// That row's value (its second item's text), "?" if there's none.
+inline std::string valueOf(const Panel& p, const std::string& name)
+{
+    const Row* r = rowNamed(p, name);
+    if (!r || r->items.size() < 2) return "?";
+    auto* text = std::get_if<Text>(&r->items[1]);
+    return text ? text->value : "?";
+}
+
 } // namespace cup::test

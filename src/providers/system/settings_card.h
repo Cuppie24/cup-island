@@ -6,6 +6,7 @@
 #include "core/island.h"
 #include "core/shortcuts.h"
 #include "providers/update/release.h"
+#include "providers/update/update_provider.h"
 
 #include <optional>
 #include <string>
@@ -26,10 +27,12 @@ inline constexpr const char* kToggleAutostart = "autostart.toggle";
 inline constexpr const char* kCopyLogs = "logs.copy";
 inline constexpr const char* kCentreIsland = "island.centre";
 inline constexpr const char* kCheckUpdates = "updates.check";
+inline constexpr const char* kInstallUpdate = "updates.install"; // the offer: install and restart (decision 037)
 // The choice pages' lists (Row::list), for Host::reveal.
 inline constexpr const char* kThemeList = "themes";
 inline constexpr const char* kDisplayList = "displays";
 inline constexpr const char* kShortcutList = "shortcuts"; // the keys: more than fit on the card
+inline constexpr const char* kSettingsList = "settings";  // the root page: may be more than fit (decision 037)
 } // namespace settings_action
 
 inline constexpr const char* kSettingsPanelId = "system.settings"; // the widget's, and its card's
@@ -60,6 +63,7 @@ struct SettingsView {
     std::string shortcutNote;               // under the shortcuts: "Press the new keys…", or why one wasn't changed
     std::string version;                    // the running build's; empty: no line for it
     std::optional<UpdateNote> update;       // nothing: the app can't check, no row
+    std::optional<UpdateStatus> offer;      // an update offered (by any check): an "Update and restart" row
 };
 
 // The widget and its card.

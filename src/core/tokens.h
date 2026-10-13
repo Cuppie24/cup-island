@@ -69,8 +69,9 @@ struct Tokens {
     float alertPadding = 8;
     float expandedPadding = 12;
     float listCardInset = 8;      // CardLayout::List: at least this much more on the left and right (decision 030)
-    float listCardWidth = 280;    // ...and its rows no wider than this, centred: a few short settings
-    float listCardVerticalInset = 12; // ...this much more above and below its rows
+    float listCardWidth = 340;    // ...and its rows no wider than this, centred (a full-width card's, at the shipped sizes)
+    float listCardVerticalInset = 6;  // ...this much more above and below its rows
+    float listCardVisibleRows = 9.5f; // ...and a page that is one list (Settings' root) scrolls past this many rows (decision 037)
     float listCardMinHeight = 240;    // ...and never shorter than this: room to breathe (decision 030)
     float expandedArtSize = 68; // expanded leading square: as tall as title + artist + caption beside it
     float slotGap = 10;         // between leading and center/bottom slots
@@ -81,12 +82,14 @@ struct Tokens {
     float bodyFontSize = 15;
     float captionFontSize = 13; // the smallest text: ~11 px on screen at 100% after islandScale
     float displayFontSize = 34; // TextStyle::Display: a timer as the card's centre
+    float headingFontSize = 14; // TextStyle::Heading: a group's name, a little over caption size
     // Font weights, 100..900 (400 regular, 600 semibold; decision 024). Segoe UI Variable
     // (Windows 11) takes any value in between; other fonts use the nearest weight they have.
-    float titleFontWeight = 600;
-    float bodyFontWeight = 500;   // a touch heavier than regular: light text on a dark island reads thin
-    float captionFontWeight = 500;
-    float displayFontWeight = 350; // big and light, like a clock face
+    float titleFontWeight = 700;   // bold: Segoe UI Variable's heaviest
+    float bodyFontWeight = 600;    // semibold: text on the island reads heavier than on a page (decision 024)
+    float captionFontWeight = 600;
+    float displayFontWeight = 450; // big and still the lightest, like a clock face
+    float headingFontWeight = 700; // a heading stands out from the rows under it: bold, and the title colour
     // Darkens antialiased text strokes (DirectWrite's grayscale enhanced
     // contrast): 0 = none, 1 = Windows' usual, higher = bolder-looking edges.
     float textContrast = 1.5f;
@@ -98,6 +101,7 @@ struct Tokens {
     float inputHeight = 30;       // a TextInput: a little taller than the rows, easy to click into
     float listItemPadding = 4;    // Row::listItem: above and below its content, so list items stand apart
     float listItemInset = 6;      // Row::listItem: its content in from the hover background's edges
+    float sectionGap = 12;        // Row::section: space above a group's heading (decision 037)
     float listItemTextInset = 14; // ...where the edge item is text: clear of the background's rounded end (decision 030)
     float buttonLabelPadding = 10; // a text button: its label plus this on each side        // hover circle; the click area also takes in half the gaps around it
     float buttonGlyphSize = 16;

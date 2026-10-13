@@ -37,6 +37,14 @@ inline constexpr const char* kWhatsNew = "update.page";
 
 enum class UpdateStage { Offered, Installing, Failed };
 
+// An offer and how far it got, for Settings' "Update and restart" row (decision 037).
+struct UpdateStatus {
+    std::string version; // the offer's
+    UpdateStage stage = UpdateStage::Offered;
+    std::string problem; // Failed: why
+    bool operator==(const UpdateStatus&) const = default;
+};
+
 // The widget and its card, for the offer at a stage. problem: why it failed.
 Panel updatePanel(const UpdateOffer& offer, const std::string& running, UpdateStage stage, const std::string& problem);
 
@@ -57,6 +65,14 @@ public:
     using Reply = std::function<void(CheckOutcome, const std::string& version)>;
     void checkNow(Reply reply);
 
+    // Installs the offer, as the card's Install and restart does (Settings
+    // has the same button, decision 037). Nothing without an offer, or while installing.
+    void install();
+
+    // Told whenever the offer or its stage changes: nothing when there's no
+    // offer (none yet, withdrawn, or stopped). Settings shows it.
+    void onStatus(std::function<void(const std::optional<UpdateStatus>&)> listener);
+
     static constexpr const char* kPanelId = "system.update";
     // Store keys: the wall-clock time (ms) of the last check that got an
     // answer, and the last version an alert was posted for (one per version).
@@ -67,7 +83,8 @@ private:
     void check();
     void checked(const std::optional<GitHubRelease>& release);
     void answer(CheckOutcome outcome, const std::string& version); // every waiting Reply
-    void publish();
+    void publish(); // the card, and the status to whoever listens
+    void withdraw(); // no offer any more
 
     UpdateHooks hooks_;
     Host* host_ = nullptr;
@@ -77,6 +94,7 @@ private:
     std::string problem_;
     bool checking_ = false;
     std::vector<Reply> replies_;
+    std::function<void(const std::optional<UpdateStatus>&)> listener_;
     std::shared_ptr<bool> alive_ = std::make_shared<bool>(true); // false once stopped: late callbacks do nothing
 };
 

@@ -53,6 +53,9 @@ float radiusFor(const Item& item, Rect frame, float nestedRadius)
 // A list item's extra height: room above and below its content (Row::listItem).
 float listPadding(const Row& row) { return row.listItem ? 2 * tokens().listItemPadding : 0; }
 
+// Room above a group's first row (Row::section, decision 037).
+float sectionGap(const Row& row) { return row.section ? tokens().sectionGap : 0; }
+
 // Each row's ring side (a ring matches the other items in its row; alone, it
 // fills the slot's square) and natural height.
 struct RowSizes {
@@ -72,7 +75,7 @@ RowSizes rowSizes(const Slot& rows, Rect frame)
         for (const auto* items : { &r.items, &r.leading, &r.trailing })
             for (const Item& item : *items) h = std::max(h, heightOf(item, frame, ringSide));
         sizes.ringSides.push_back(ringSide);
-        sizes.heights.push_back(h + listPadding(r));
+        sizes.heights.push_back(h + listPadding(r) + sectionGap(r));
     }
     return sizes;
 }
@@ -107,10 +110,14 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
             if (spans && row.span != RowSpan::Slot && neighbour < rows.size() && (*spans)[neighbour].width > 0)
                 area = { (*spans)[neighbour].x, slot.frame.y, (*spans)[neighbour].width, slot.frame.height };
             Rect background = area; // a list item's hover background spans the row; its content sits inside
-            if (row.listItem) {
-                // Text at an edge sits further in, clear of the background's rounded end (decision 030).
+            if (row.listItem || row.inset) {
+                // What's at an edge sits listItemTextInset in, clear of the background's
+                // rounded end (decision 030), and in line with the headings and names of
+                // the rows around it: text, a theme's swatch. A button there (a to-do's
+                // checkbox) keeps listItemInset: its own round shape nests in the end.
                 auto inset = [&](const std::vector<Item>& edge, const Item* outer) {
-                    return edge.empty() && outer && std::holds_alternative<Text>(*outer) ? t.listItemTextInset : t.listItemInset;
+                    bool control = outer && (std::holds_alternative<Button>(*outer) || std::holds_alternative<TextInput>(*outer));
+                    return edge.empty() && outer && !control ? t.listItemTextInset : t.listItemInset;
                 };
                 float left = inset(row.leading, row.items.empty() ? nullptr : &row.items.front());
                 float right = inset(row.trailing, row.items.empty() ? nullptr : &row.items.back());
@@ -128,7 +135,8 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
                 Placed placed;
                 placed.key = slot.name + "/" + rowName + "/" + std::to_string(index);
                 placed.item = resolve(item, now, source);
-                placed.frame = { x, y + (rowHeight - h) / 2, w, h };
+                float above = sectionGap(row); // the gap is empty: content centres in the rest
+                placed.frame = { x, y + above + (rowHeight - above - h) / 2, w, h };
                 placed.cornerRadius = radiusFor(item, placed.frame, nestedRadius);
                 placed.accent = source.content ? source.content->accent : std::nullopt;
                 placed.list = list;
@@ -162,6 +170,24 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
             float used = fixed + spacing;
             float spare = std::max(0.0f, available - used);
             float stretchWidth = stretchCount > 0 ? spare / static_cast<float>(stretchCount) : 0;
+            // Only texts stretch (a setting's name and its value): each gets its
+            // own width and the last the rest; short of room, each gives up its
+            // share. An even split would cut "Keyboard shortcuts" beside an
+            // empty value (decision 037).
+            std::vector<float> textWidths;
+            if (stretchCount >= 2 && std::all_of(row.items.begin(), row.items.end(), [&](const Item& item) {
+                    return widthOf(item) || std::holds_alternative<Text>(item);
+                })) {
+                float natural = 0;
+                for (const Item& item : row.items)
+                    if (auto* text = std::get_if<Text>(&item); text && !widthOf(item)) {
+                        textWidths.push_back((measure ? measure(*text) : estimateTextWidth(*text)) + 1); // +1: rounding never trips the "…"
+                        natural += textWidths.back();
+                    }
+                if (natural <= spare) textWidths.back() += spare - natural;
+                else for (float& w : textWidths) w *= spare / natural;
+            }
+            std::size_t nextText = 0;
 
             Align align = slot.square ? Align::Center : row.align;
             float x = area.x + leadingWidth;
@@ -172,7 +198,7 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
                 x = area.x + std::clamp((area.width - used) / 2, leadingWidth, leadingWidth + spare);
             }
             for (size_t i = 0; i < row.items.size(); ++i) {
-                float w = widthOf(row.items[i]).value_or(stretchWidth);
+                float w = widthOf(row.items[i]).value_or(textWidths.empty() ? stretchWidth : textWidths[nextText++]);
                 place(row.items[i], i, x, w);
                 x += w + gap;
             }

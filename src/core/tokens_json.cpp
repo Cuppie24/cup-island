@@ -38,6 +38,7 @@ const Field kFields[] = {
     { "listCardInset", &Tokens::listCardInset },
     { "listCardWidth", &Tokens::listCardWidth },
     { "listCardVerticalInset", &Tokens::listCardVerticalInset },
+    { "listCardVisibleRows", &Tokens::listCardVisibleRows },
     { "listCardMinHeight", &Tokens::listCardMinHeight },
     { "expandedArtSize", &Tokens::expandedArtSize },
     { "slotGap", &Tokens::slotGap },
@@ -48,11 +49,13 @@ const Field kFields[] = {
     { "bodyFontSize", &Tokens::bodyFontSize },
     { "captionFontSize", &Tokens::captionFontSize },
     { "displayFontSize", &Tokens::displayFontSize },
+    { "headingFontSize", &Tokens::headingFontSize },
     { "inputFontSize", &Tokens::inputFontSize },
     { "titleFontWeight", &Tokens::titleFontWeight },
     { "bodyFontWeight", &Tokens::bodyFontWeight },
     { "captionFontWeight", &Tokens::captionFontWeight },
     { "displayFontWeight", &Tokens::displayFontWeight },
+    { "headingFontWeight", &Tokens::headingFontWeight },
     { "textContrast", &Tokens::textContrast },
     { "iconSize", &Tokens::iconSize },
     { "buttonSize", &Tokens::buttonSize },
@@ -62,6 +65,7 @@ const Field kFields[] = {
     { "listItemPadding", &Tokens::listItemPadding },
     { "listItemInset", &Tokens::listItemInset },
     { "listItemTextInset", &Tokens::listItemTextInset },
+    { "sectionGap", &Tokens::sectionGap },
     { "buttonLabelPadding", &Tokens::buttonLabelPadding },
     { "buttonGlyphSize", &Tokens::buttonGlyphSize },
     { "buttonPressScale", &Tokens::buttonPressScale },
@@ -318,7 +322,7 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
     // knob isn't a size. Nor are font weights or text contrast.
     auto unitless = [](const char* name) {
         std::string_view n(name);
-        return n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" ||
+        return n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" ||
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
     };
     Tokens out = t;

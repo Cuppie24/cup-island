@@ -82,8 +82,7 @@ void UpdateProvider::stop()
     checking_ = false;
     replies_.clear(); // nobody to tell any more
     host_->wakeAt(std::nullopt);
-    if (offer_) host_->removePanel(kPanelId);
-    offer_.reset();
+    withdraw();
     stage_ = UpdateStage::Offered;
     host_ = nullptr;
 }
@@ -134,8 +133,7 @@ void UpdateProvider::checked(const std::optional<GitHubRelease>& release)
 
     auto offer = offerFor(*running_, *release);
     if (!offer) {
-        if (offer_) host_->removePanel(kPanelId); // withdrawn, or nothing newer after all
-        offer_.reset();
+        withdraw(); // withdrawn, or nothing newer after all
         answer(CheckOutcome::UpToDate, "");
         return;
     }
@@ -162,23 +160,48 @@ void UpdateProvider::onAction(const Action& action)
     if (!host_ || !offer_ || action.activityId != kPanelId) return;
     if (action.actionId == update_action::kWhatsNew) {
         if (hooks_.openPage && !offer_->page.empty()) hooks_.openPage(offer_->page);
-    } else if (action.actionId == update_action::kInstall && stage_ != UpdateStage::Installing && hooks_.install) {
-        stage_ = UpdateStage::Installing;
-        problem_.clear();
-        publish();
-        std::shared_ptr<bool> alive = alive_;
-        hooks_.install(*offer_, [this, alive](std::string problem) {
-            if (!*alive || !host_) return;
-            stage_ = UpdateStage::Failed;
-            problem_ = std::move(problem);
-            publish();
-        });
+    } else if (action.actionId == update_action::kInstall) {
+        install();
     }
+}
+
+void UpdateProvider::install()
+{
+    if (!host_ || !offer_ || stage_ == UpdateStage::Installing || !hooks_.install) return;
+    stage_ = UpdateStage::Installing;
+    problem_.clear();
+    publish();
+    std::shared_ptr<bool> alive = alive_;
+    hooks_.install(*offer_, [this, alive](std::string problem) {
+        if (!*alive || !host_) return;
+        stage_ = UpdateStage::Failed;
+        problem_ = std::move(problem);
+        publish();
+    });
+}
+
+void UpdateProvider::onStatus(std::function<void(const std::optional<UpdateStatus>&)> listener)
+{
+    listener_ = std::move(listener);
+    if (!listener_) return;
+    if (offer_) listener_(UpdateStatus{ versionText(offer_->version), stage_, problem_ });
+    else listener_(std::nullopt);
 }
 
 void UpdateProvider::publish()
 {
-    if (host_ && offer_) host_->publishPanel(updatePanel(*offer_, versionText(*running_), stage_, problem_));
+    if (!host_ || !offer_) return;
+    host_->publishPanel(updatePanel(*offer_, versionText(*running_), stage_, problem_));
+    if (listener_) listener_(UpdateStatus{ versionText(offer_->version), stage_, problem_ });
+}
+
+void UpdateProvider::withdraw()
+{
+    if (!offer_) return;
+    host_->removePanel(kPanelId);
+    offer_.reset();
+    stage_ = UpdateStage::Offered;
+    if (listener_) listener_(std::nullopt);
 }
 
 } // namespace cup

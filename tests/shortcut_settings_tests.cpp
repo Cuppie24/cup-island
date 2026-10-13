@@ -21,13 +21,15 @@ void runShortcutSettingsTests()
     settings.start(sh);
     auto press = [&](const std::string& actionId) { settings.onAction({ "system.settings", SettingsProvider::kPanelId, actionId, 0 }); };
     // The keyboard shortcuts (decision 031): a row, then a page listing core's table.
-    expect(cardText(sh.published.back(), 0) == "Keyboard shortcuts", "settings: a Keyboard shortcuts row under the settings");
+    expect(rowNamed(sh.published.back(), "Keyboard shortcuts"), "settings: a Keyboard shortcuts row under the settings");
     press(settings_action::kOpenShortcuts);
     const Slot& keys = sh.published.back().content.expandedCenter;
     expect(cardText(sh.published.back(), 0) == "Keyboard shortcuts" && keys.size() == 3 + commands().size() + fixedKeys().size() &&
            cardText(sh.published.back(), 1) == "Anywhere" && cardItem(sh.published.back(), 2, 0) == "Open Home" &&
            cardItem(sh.published.back(), 2, 1) == "Ctrl+X" && cardItem(sh.published.back(), 4, 0) == "Move between items",
            "shortcuts: a page with each one's keys and what they do");
+    expect(rowNamed(sh.published.back(), "Move between items")->inset && rowNamed(sh.published.back(), "Open Home")->listItem,
+           "shortcuts: the fixed keys line up with the editable one's name");
     press(settings_action::kBack);
 
     settings.stop();
