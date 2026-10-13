@@ -39,6 +39,27 @@ ImplicitAnimationCollection morphAnimations(Compositor const& c)
     return collection;
 }
 
+// Background: only the bottom corners are rounded (a notch hanging from the
+// screen edge). The geometry has one radius for all corners, so it's made a
+// radius taller and shifted up; ShapeVisual clips the top corners away.
+// Radius = half the height, capped by maxCornerRadius: the same curve as core
+// pillCornerRadius(), which content radii are nested in. Dragged off the edge
+// (Attached 0) the top corners round too: the square bubble becomes a circle
+// (decision 025). Built on `target`, whose Size is the body's.
+void addBackground(Compositor const& c, ShapeVisual const& target, CompositionPropertySet const& shape, CompositionBrush const& fill)
+{
+    auto background = c.CreateRoundedRectangleGeometry();
+    bind(c, background, L"CornerRadius",
+        L"Vector2(Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius), Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))",
+        target, shape);
+    bind(c, background, L"Offset", L"Vector2(0, -shape.Attached * Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))", target, shape);
+    bind(c, background, L"Size",
+        L"Vector2(pill.Size.X, pill.Size.Y + shape.Attached * Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))", target, shape);
+    auto backgroundShape = c.CreateSpriteShape(background);
+    backgroundShape.FillBrush(fill);
+    target.Shapes().Append(backgroundShape);
+}
+
 winrt::Windows::UI::Color fillColor(bool highlighted)
 {
     return toUiColor(highlighted ? tokens().islandHighlightColor : tokens().islandColor);
@@ -70,24 +91,8 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     shape_.InsertScalar(L"RightEar", 1.0f);
     bind(c, body_, L"CenterPoint", L"Vector3(pill.Size.X / 2, 0, 0)", body_, shape_);
 
-    // Background: only the bottom corners are rounded (a notch hanging from the
-    // screen edge). The geometry has one radius for all corners, so it's made
-    // a radius taller and shifted up; ShapeVisual clips the top corners away.
-    // Radius = half the height, capped by maxCornerRadius: the same curve as
-    // core pillCornerRadius(), which content radii are nested in. Dragged off
-    // the edge (Attached 0) the top corners round too: the square bubble
-    // becomes a circle (decision 025).
-    auto background = c.CreateRoundedRectangleGeometry();
-    bind(c, background, L"CornerRadius",
-        L"Vector2(Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius), Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))",
-        body_, shape_);
-    bind(c, background, L"Offset", L"Vector2(0, -shape.Attached * Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))", body_, shape_);
-    bind(c, background, L"Size",
-        L"Vector2(pill.Size.X, pill.Size.Y + shape.Attached * Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))", body_, shape_);
-    auto backgroundShape = c.CreateSpriteShape(background);
     fill_ = c.CreateColorBrush(fillColor(false));
-    backgroundShape.FillBrush(fill_);
-    body_.Shapes().Append(backgroundShape);
+    addBackground(c, body_, shape_, fill_);
     addEars(c, body_, shape_, fill_); // the flared top corners (decision 025)
 
     // Content lives in a container clipped to the shape's live size, so new
@@ -113,8 +118,23 @@ void Blob::buildShadow(Compositor const& c, ContainerVisual const& parent)
     using winrt::Windows::Foundation::Metadata::ApiInformation;
     if (!ApiInformation::IsMethodPresent(L"Windows.UI.Composition.Compositor", L"CreateVisualSurface")) return;
 
-    auto snapshot = c.CreateVisualSurface(); // live: re-rendered as the body changes, on the compositor
-    snapshot.SourceVisual(body_);
+    // The snapshot is of an outline-only twin of the body: the same background
+    // and ears, no content. Snapshotting the body itself re-rendered and
+    // re-blurred the shadow on every frame of anything animating inside it
+    // (the equalizer, a swimming title, the progress bar): all the time music
+    // played, which was enough GPU load to make audio stutter. The twin only
+    // changes when the shape does (morph, press, drag). It sits right under
+    // the body with the same fill and transform, so it's never seen.
+    outline_ = c.CreateShapeVisual();
+    bind(c, outline_, L"Size", L"pill.Size", body_, shape_);
+    bind(c, outline_, L"Offset", L"pill.Offset", body_, shape_);
+    bind(c, outline_, L"CenterPoint", L"pill.CenterPoint", body_, shape_);
+    bind(c, outline_, L"Scale", L"pill.Scale", body_, shape_);
+    addBackground(c, outline_, shape_, fill_);
+    addEars(c, outline_, shape_, fill_);
+
+    auto snapshot = c.CreateVisualSurface(); // live: re-rendered as the outline changes, on the compositor
+    snapshot.SourceVisual(outline_);
     // As wide as the body plus its ears (decision 025), so the shadow follows their curve.
     bind(c, snapshot, L"SourceOffset", L"Vector2(-" + kEarSize + L", 0)", body_, shape_);
     bind(c, snapshot, L"SourceSize", L"Vector2(pill.Size.X + 2 * " + kEarSize + L", pill.Size.Y)", body_, shape_);
@@ -129,6 +149,7 @@ void Blob::buildShadow(Compositor const& c, ContainerVisual const& parent)
     bind(c, caster_, L"Scale", L"pill.Scale", body_, shape_);
     caster_.Shadow(shadow_);
     parent.Children().InsertAtTop(caster_);
+    parent.Children().InsertAtTop(outline_); // above the shadow, below the body (inserted next)
 }
 
 void Blob::applyShadow()
