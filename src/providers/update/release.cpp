@@ -57,12 +57,7 @@ std::string versionText(const Version& v)
 
 std::string installerName(const Version& v) { return "CupIsland-Setup-" + versionText(v) + ".exe"; }
 
-bool movesTo(const Version& running, const Version& offered)
-{
-    bool mistaken = running.major == 5, mistakenOffer = offered.major == 5; // decision 040
-    if (mistaken && !mistakenOffer) return true;
-    return offered > running;
-}
+bool movesTo(const Version& running, const Version& offered) { return offered != running; }
 
 std::optional<UpdateOffer> offerFor(const Version& running, const GitHubRelease& latest)
 {

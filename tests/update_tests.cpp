@@ -60,7 +60,8 @@ void versionTests()
     expect(offer && offer->version == Version{ 0, 4, 0 } && offer->url == "https://github.com/Cuppie24/cup-island/releases/download/v0.4.0/CupIsland-Setup-0.4.0.exe",
            "offer: a newer release's installer");
     expect(offer && offer->sha256 == std::string(64, 'a') && offer->page.find("/v0.4.0") != std::string::npos, "offer: its checksum, lowered, and page");
-    expect(!offerFor(running, releaseOf("0.3.0")) && !offerFor(running, releaseOf("0.2.9")), "offer: never the same or older");
+    expect(!offerFor(running, releaseOf("0.3.0")) && offerFor(running, releaseOf("0.2.9")),
+           "offer: never the same; an older latest is offered too (decision 040)");
     expect(!offerFor(running, releaseOf("0.4.0", "")) && !offerFor(running, releaseOf("0.4.0", "sha256:123")) &&
            !offerFor(running, releaseOf("0.4.0", "md5:" + kSha)), "offer: no usable checksum, no offer");
     GitHubRelease noInstaller = releaseOf("0.4.0");
@@ -243,35 +244,33 @@ void providerTests()
 
 } // namespace
 
-// Back from 5.x, released by mistake (decision 040). TEMPORARY, like the
-// rule: remove both once the 5.x copies are back on 0.x.
-void mistakenVersionTests()
+// The latest release is the one to run (decision 040): a copy moves to it
+// whenever it's another version, lower included, so a release made by
+// mistake (5.x) is undone by releasing the right one (0.6.0) after it.
+void latestReleaseTests()
 {
-    Version mistaken{ 5, 3, 6 };
-    expect(movesTo({ 5, 3, 5 }, mistaken), "5.x: on the old 5.x, the bridge release (5.3.6) is an update as usual");
-    expect(movesTo(mistaken, { 0, 6, 0 }) && offerFor(mistaken, releaseOf("0.6.0")),
-           "5.x: on 5.x, a 0.x release is offered though it's lower, so the copy comes back");
-    expect(!movesTo(mistaken, { 5, 3, 4 }) && !offerFor(mistaken, releaseOf("5.3.4")),
-           "5.x: never to another, lower 5.x (\"latest\" while the 5.x releases are being deleted)");
-    expect(!movesTo(mistaken, mistaken), "5.x: not to itself");
-    expect(!movesTo({ 0, 6, 0 }, { 0, 5, 1 }) && movesTo({ 0, 5, 1 }, { 0, 6, 0 }), "5.x: the rest as always: only higher");
+    expect(movesTo({ 5, 3, 5 }, { 5, 3, 6 }) && movesTo({ 0, 5, 1 }, { 0, 6, 0 }), "latest: a higher one, as always");
+    expect(movesTo({ 5, 3, 6 }, { 0, 6, 0 }) && offerFor({ 5, 3, 6 }, releaseOf("0.6.0")),
+           "latest: a lower one too: 5.x (released by mistake) comes back to 0.6.0");
+    expect(movesTo({ 0, 6, 0 }, { 0, 5, 1 }), "latest: a release pulled, so the latest is older again: back to it");
+    expect(!movesTo({ 0, 6, 0 }, { 0, 6, 0 }) && !offerFor({ 0, 6, 0 }, releaseOf("0.6.0")), "latest: the same one: nothing");
 
-    // A 0.x offer saved by a 5.x copy is still there after a restart.
-    Updater bridged("5.3.6");
-    bridged.provider.start(bridged.host);
-    bridged.wakeAndAnswer(releaseOf("0.6.0"));
-    bridged.provider.stop();
-    bridged.provider.start(bridged.host);
-    expect(bridged.host.published.back().id == UpdateProvider::kPanelId && textAt(bridged.host.published.back(), 0, 1) == "0.6.0",
-           "5.x: the 0.x offer survives a restart too");
-    bridged.provider.stop();
+    // A lower offer saved before a restart is still there after it.
+    Updater back("5.3.6");
+    back.provider.start(back.host);
+    back.wakeAndAnswer(releaseOf("0.6.0"));
+    back.provider.stop();
+    back.provider.start(back.host);
+    expect(back.host.published.back().id == UpdateProvider::kPanelId && textAt(back.host.published.back(), 0, 1) == "0.6.0",
+           "latest: a lower offer survives a restart too");
+    back.provider.stop();
 }
 
 void runUpdateTests()
 {
     versionTests();
     providerTests();
-    mistakenVersionTests();
+    latestReleaseTests();
 }
 
 } // namespace cup::test

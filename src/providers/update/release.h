@@ -23,12 +23,10 @@ struct Version {
 std::optional<Version> parseVersion(std::string_view text);
 std::string versionText(const Version& v); // "0.4.0"
 
-// Whether a copy running `running` should move to `offered`: a higher
-// version, as always. One exception (decision 040): 5.x was released by
-// mistake, and a copy on 5.x takes any release that isn't 5.x, lower
-// included, so it comes back to 0.x. Never from one 5.x to another lower
-// one (while the 5.x releases are being deleted, "latest" can be one).
-// TEMPORARY: remove once the 5.x copies are back on 0.x.
+// Whether a copy running `running` should move to `offered`, GitHub's
+// latest release (decision 040): whenever it's a different version, higher
+// or lower. The latest release is the one every copy runs, so a release made
+// by mistake is undone by releasing the right one, not by its number.
 bool movesTo(const Version& running, const Version& offered);
 
 // The installer every release carries (the Release workflow uploads it).
@@ -61,7 +59,7 @@ struct UpdateOffer {
 // What a check found, for a "Check for updates" button (Settings).
 enum class CheckOutcome { UpToDate, Available, Failed, DevBuild };
 
-// What to offer: `latest` if it's newer than `running` and carries its
+// What to offer: `latest` if it's another version than `running` (movesTo) and carries its
 // installer with a SHA-256, downloaded from https://github.com/. Without a
 // checksum there's nothing to check the download against, so nothing is
 // offered; a page that isn't on GitHub is dropped (no "What's new").
