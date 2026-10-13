@@ -45,11 +45,12 @@ Rect stackFrame(const Content& c, Vec2 size)
 
 // A stacked card grows to fit its rows (a to-do list), never below Expanded's
 // size and never past the canvas (decision 016).
-float centredCardHeight(const Content& c, Vec2 size, float tabSpace)
+float centredCardHeight(const Source& source, Vec2 size, float tabSpace, const MeasureText& measure)
 {
     const Tokens& t = tokens();
+    const Content& c = *source.content;
     Rect frame = stackFrame(c, size);
-    float needed = slotHeight(c.expandedCenter, { frame.x, frame.y, frame.width, size.y }) + 2 * frame.y;
+    float needed = slotHeight(c.expandedCenter, { frame.x, frame.y, frame.width, size.y }, source, measure) + 2 * frame.y;
     // A List card (Settings) is never as squeezed as an activity's: listCardMinHeight at least.
     float least = c.card == CardLayout::List ? std::max(t.expandedSize.y, t.listCardMinHeight) : t.expandedSize.y;
     return std::clamp(needed, least, std::max(least, t.canvas.y - tabSpace));
@@ -151,8 +152,10 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     float tabSpace = tabStripSpace(state);
     scene.size = modeSize(scene.mode);
     Source source = sourceFor(state, scene.mode);
-    if (scene.mode == Mode::Expanded && source.content && stacked(*source.content))
-        scene.size.y = centredCardHeight(*source.content, scene.size, tabSpace);
+    MeasureText measureText = measure ? measure : MeasureText{ estimateTextWidth };
+    if (scene.mode == Mode::Expanded && source.content && stacked(*source.content)) {
+        scene.size.y = centredCardHeight(source, scene.size, tabSpace, measureText);
+    }
     if (scene.mode == Mode::Expanded && state.homeOpen) scene.size.y = homeCardHeight(state, tokens().canvas.y - tabSpace);
     scene.size.y += tabSpace;
     // Where the island rests along the top edge, or lifted under the pointer (decision 026).
@@ -160,7 +163,7 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
         scene.lifted = true;
         scene.offset = { liftedCentre(state) - scene.size.x / 2, tokens().liftDrop };
     } else {
-        Placement at = placementOf(state, scene.mode);
+        Placement at = placementOf(state, scene.mode, scene.size.x); // its real width: a wider card grows to both sides
         scene.offset = { at.pillX, 0 };
         scene.flushLeft = at.flushLeft;
         scene.flushRight = at.flushRight;
@@ -173,11 +176,11 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     if (scene.mode == Mode::Split && !scene.lifted) scene.bubble = bubbleFor(state, now); // lifted: tucked into the pill
     scene.dropTarget = swapPreview(state);
 
-    MeasureText measureText = measure ? measure : MeasureText{ estimateTextWidth };
     if (scene.mode == Mode::Idle) placeClock(state, scene, measureText);
 
-    // The card's content keeps Expanded's size; the tab strip, if any, adds room below it (decision 009).
+    // The card's content keeps Expanded's size; the tab strip, if any, adds room above it (decisions 009, 047).
     Vec2 contentSize{ scene.size.x, scene.size.y - tabSpace };
+    std::size_t contentFrom = scene.elements.size();
     float nestedRadius = std::max(0.0f, pillCornerRadius(scene.size) - paddingFor(scene.mode));
     if (scene.mode == Mode::Expanded && state.homeOpen) {
         scene.label = "Home";
@@ -198,6 +201,17 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
         }
         for (const SlotFrame& slot : slotFrames(scene.mode, contentSize, *source.content))
             placeSlot(slot, source, nestedRadius, now, scene.elements, measureText);
+    }
+    // Laid out as if from the card's top, then moved down under the strip.
+    if (tabSpace > 0 && state.tabsOnTop) { // at the bottom, the strip only adds room under the content
+        for (std::size_t i = contentFrom; i < scene.elements.size(); ++i) {
+            Placed& p = scene.elements[i];
+            p.frame.y += tabSpace;
+            p.hitFrame.y += tabSpace;
+            if (p.listRow) p.listRow->y += tabSpace;
+            if (p.list) p.list->viewport.y += tabSpace;
+        }
+        for (Tile& tile : scene.tiles) tile.frame.y += tabSpace;
     }
     scene.tabs = tabStripFor(state, scene.size, nestedRadius, measureText, scene.elements);
     scene.badges = badgeCentres(scene);

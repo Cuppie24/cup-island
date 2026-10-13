@@ -5,6 +5,9 @@
 #include "core/hit_test.h"
 #include "core/layout.h"
 #include "core/lists.h"
+#include "core/text_edit.h"
+#include "core/text_wrap.h"
+#include "core/item_metrics.h"
 #include "core/tokens.h"
 #include "expect.h"
 #include "providers/pomodoro/pomodoro_provider.h"
@@ -25,10 +28,78 @@ const Placed* firstOf(const Scene& scene, const std::function<bool(const Placed&
     return nullptr;
 }
 
+// Long to-dos wrap onto more lines and their rows grow (decision 045).
+void wrapTests()
+{
+    const Tokens& t = tokens();
+    // Word by word, measured (here estimated: half the font size per character, rounded up per word).
+    std::string wrapped = wrapText("one two three four", TextStyle::Body, 70, {});
+    expect(wrapped.size() == std::string("one two three four").size() && lineCount(wrapped) > 1, "wrapped at spaces, same length");
+    expect(wrapText("short", TextStyle::Body, 500, {}) == "short", "short text: one line");
+    expect(lineCount(wrapText(std::string(60, 'x'), TextStyle::Body, 50, {})) == 1, "a word longer than the line keeps its own line");
+
+    TodoList list;
+    list.add("Short one");
+    list.add("A much longer task that will never fit on a single line of the card, however wide it is made");
+    for (int i = 0; i < 6; ++i) list.add("Filler " + std::to_string(i));
+    IslandState state;
+    state = reduce(state, PanelPublished{ pomodoroPanel(list) }, Ms{ 0 });
+    state = reduce(state, PillClicked{}, Ms{ 0 });
+    state = reduce(state, TileClicked{ PomodoroProvider::kPanelId }, Ms{ 0 });
+    Scene card = layout(state, Ms{ 0 });
+    auto named = [&](const Scene& sc, const std::string& start) {
+        return firstOf(sc, [&](const Placed& p) { auto* x = std::get_if<Text>(&p.item); return x && x->value.rfind(start, 0) == 0; });
+    };
+    const Placed* shortText = named(card, "Short");
+    const Placed* longText = named(card, "A much");
+    const std::string& lines = std::get<Text>(longText->item).wrapped;
+    expect(lineCount(lines) >= 2 && lines.size() == std::get<Text>(longText->item).value.size(), "a long to-do wraps");
+    expect(longText->frame.height == lineCount(lines) * lineHeight(TextStyle::Body), "its text as tall as its lines");
+    expect(longText->listRow->height > shortText->listRow->height &&
+           longText->listRow->height == longText->frame.height + 2 * t.listItemPadding, "its row grows to fit");
+    expect(lineCount(std::get<Text>(shortText->item).wrapped) == 1, "a short one stays on one line");
+    float step = t.smallButtonSize + 2 * t.listItemPadding + t.rowSpacing;
+    expect(std::abs(longText->list->viewport.height - (t.listVisibleRows * step - t.rowSpacing)) < 0.01f,
+           "the list's window still counts rows of one line");
+    const Placed* longBox = firstOf(card, [&](const Placed& p) { return p.key == longText->key.substr(0, longText->key.rfind('/')) + "/0"; });
+    expect(std::abs(longBox->frame.y + longBox->frame.height / 2 - (longText->frame.y + longText->frame.height / 2)) < 0.01f,
+           "the checkbox stays centred on it");
+
+    // Edited, the field wraps the same way and grows as it's typed into.
+    const Text& text = std::get<Text>(longText->item);
+    state = reduce(state, InputFocused{ "pomodoro", PomodoroProvider::kPanelId, text.editAction, text.value, true, std::nullopt,
+                                        text.editMaxLength }, Ms{ 0 });
+    Scene editing = layout(state, Ms{ 0 });
+    const Placed* field = firstOf(editing, [&](const Placed& p) { return p.key == longText->key; });
+    const auto& input = std::get<TextInput>(field->item);
+    expect(input.wrapped == lines && field->frame.height == longText->frame.height, "the field breaks where the text did");
+    state = reduce(state, TextTyped{ " and then some more words to push it onto yet another line of its own" }, Ms{ 0 });
+    Scene longer = layout(state, Ms{ 0 });
+    const Placed* grown = firstOf(longer, [&](const Placed& p) { return p.key == longText->key; });
+    expect(lineCount(std::get<TextInput>(grown->item).wrapped) > lineCount(lines) && grown->frame.height > field->frame.height,
+           "typing more wraps onto more lines, and the field grows");
+    state = reduce(state, TextTyped{ std::string(300, 'z') }, Ms{ 0 });
+    expect(charCount(state.draft->text) == t.todoMaxLength, "and stops at todoMaxLength characters");
+    expect(layout(state, Ms{ 0 }).size.y <= t.canvas.y, "the card still fits");
+
+    // A Centred card is wider than Expanded: it still grows to both sides from the island's centre.
+    IslandState wide;
+    wide = reduce(wide, ScreenResized{ 1920 }, Ms{ 0 });
+    wide = reduce(wide, PanelPublished{ pomodoroPanel(list) }, Ms{ 0 });
+    wide = reduce(wide, PillClicked{}, Ms{ 0 });
+    Scene home = layout(wide, Ms{ 0 });
+    wide = reduce(wide, TileClicked{ PomodoroProvider::kPanelId }, Ms{ 0 });
+    Scene pomodoro = layout(wide, Ms{ 0 });
+    expect(pomodoro.size.x == home.size.x && home.size.x == tokens().expandedSize.x, "the Pomodoro card as wide as Home: every card is (decision 047)");
+    expect(std::abs((pomodoro.offset.x + pomodoro.size.x / 2) - (home.offset.x + home.size.x / 2)) < 0.01f &&
+           std::abs(pomodoro.offset.x + pomodoro.size.x / 2 - 960) < 0.01f, "centred where Home was: grown to both sides");
+}
+
 } // namespace
 
 void runTodoTests()
 {
+    wrapTests();
     // The list itself.
     TodoList list;
     expect(!list.add("  \n\n "), "blank lines add nothing");
@@ -71,7 +142,14 @@ void runTodoTests()
     expect(list.apply(todo_action::kClearAllConfirmed, "") && list.items().empty(), "confirmed: clear all");
     TodoList longOne;
     longOne.add(std::string(500, 'x'));
-    expect(longOne.items()[0].text.size() == 200, "a to-do is capped to one line's worth");
+    expect(longOne.items()[0].text.size() == tokens().todoMaxLength, "a to-do is capped at todoMaxLength characters");
+    TodoList accented;
+    accented.add(std::string(400, 'x').replace(0, 0, "é")); // é is two bytes: counted as one character, never cut in half
+    expect(charCount(accented.items()[0].text) == tokens().todoMaxLength && accented.items()[0].text.rfind("é", 0) == 0,
+           "capped by characters, not bytes");
+    std::uint64_t only = longOne.items()[0].id;
+    longOne.apply(std::string(todo_action::kEdit) + std::to_string(only), std::string(300, 'y'));
+    expect(longOne.items()[0].text == std::string(tokens().todoMaxLength, 'y'), "renamed: capped too");
 
     // The loop, with a fake clipboard and storage.
     std::string saved = "[x] Old done\n[ ] Old open\n";
@@ -99,10 +177,11 @@ void runTodoTests()
     const Placed* oldDone = firstOf(card, [](const Placed& p) { auto* t = std::get_if<Text>(&p.item); return t && t->value == "Old done"; });
     expect(oldDone && std::get<Text>(oldDone->item).struck, "solved ones are struck through");
 
-    // A to-do ticks from anywhere on its row: clicking its text hits its checkbox.
+    // Only the checkbox ticks a to-do; its text is a click into editing it (decision 043).
     const Placed* openText = firstOf(card, [](const Placed& p) { auto* t = std::get_if<Text>(&p.item); return t && t->value == "Old open"; });
     auto onText = hitTest(card, { openText->frame.x + openText->frame.width - 2, openText->frame.y + openText->frame.height / 2 });
-    expect(onText && onText->action.actionId.rfind(todo_action::kToggle, 0) == 0, "clicking a to-do's text ticks it");
+    expect(onText && onText->action.actionId.rfind(todo_action::kEdit, 0) == 0 && onText->key == openText->key,
+           "clicking a to-do's text edits it, it doesn't tick it");
     // A list item: lit across the whole row under the pointer, its content
     // inset from that background, and padding between items.
     const Placed* openBox = firstOf(card, [&](const Placed& p) { return p.key == openText->key.substr(0, openText->key.rfind('/')) + "/0"; });
@@ -112,10 +191,15 @@ void runTodoTests()
     expect(openBox->frame.x == lit.x + tokens().listItemInset, "the checkbox inset from its edge");
     expect(lit.height == tokens().smallButtonSize + 2 * tokens().listItemPadding &&
            std::abs(openBox->frame.y + openBox->frame.height / 2 - (lit.y + lit.height / 2)) < 0.01f, "padded above and below, content centred");
-    expect(onText && hitTest(card, { lit.x + 1, lit.y + lit.height / 2 })->action.actionId == onText->action.actionId,
-           "its whole background ticks it");
+    auto onEdge = hitTest(card, { lit.x + 1, lit.y + 1 });
+    expect(onEdge && onEdge->key == openBox->key, "the checkbox's click area reaches the row's start, top to bottom");
+    expect(openBox->hitFrame.x + openBox->hitFrame.width <= openText->frame.x + 0.01f && openBox->hitFrame.height >= lit.height,
+           "...and stops where the text starts");
+    // Concentric (decision 006): the checkbox as far from the row's top as from its side, its corners the row's less that gap.
+    float side = openBox->frame.x - lit.x, above = openBox->frame.y - lit.y;
+    expect(std::abs(side - above) < 0.01f, "the checkbox is inset equally on every side");
+    expect(std::abs(openBox->cornerRadius - (openBox->listRowRadius - side)) < 0.01f, "its hover shape nests in the row's");
     expect(!field->listRow, "the field isn't a list item");
-    expect(openBox->litByRow, "the checkbox has no hover shape of its own: the row is lit instead");
     std::string fieldRow = field->key.substr(0, field->key.rfind('/') + 1);
     std::size_t inFieldRow = 0;
     for (const Placed& p : card.elements)
@@ -198,24 +282,23 @@ void runTodoTests()
         auto* b = std::get_if<Button>(&p.item);
         return b && b->glyph == Glyph::Delete && p.list && p.list->row == doneText->list->row;
     });
-    expect(bin && std::get<Button>(bin->item).revealOnHover && !bin->litByRow, "each to-do has a delete button, shown on hover");
+    expect(bin && std::get<Button>(bin->item).revealOnHover, "each to-do has a delete button, shown on hover");
     auto onBin = hitTest(top, { bin->frame.x + bin->frame.width / 2, bin->frame.y + bin->frame.height / 2 });
     expect(onBin && onBin->action.actionId.rfind(todo_action::kDelete, 0) == 0, "the delete button gets its clicks, not the row's tick");
     registry.route(onBin->action);
     expect(saved.find("Old done") == std::string::npos && !state.dialog, "deleted at once, no question");
 
-    // Edit, beside it: the app starts editing the text in place, with its text.
+    // A click on the task (not its checkbox or delete) edits it in place: no edit button (decision 043).
     Scene editable = layout(state, now);
     const Placed* mum = textNamed(editable, "Call mum");
-    const Placed* pen = firstOf(editable, [&](const Placed& p) {
-        auto* b = std::get_if<Button>(&p.item);
-        return b && b->glyph == Glyph::Edit && p.list && p.list->row == mum->list->row;
-    });
-    expect(pen && std::get<Button>(pen->item).editsText && std::get<Button>(pen->item).revealOnHover && pen->frame.x < bin->frame.x,
-           "an edit button before the delete, shown on hover");
-    const std::string& editId = std::get<Button>(pen->item).actionId;
+    expect(!firstOf(editable, [](const Placed& p) { auto* b = std::get_if<Button>(&p.item); return b && b->glyph == Glyph::Edit; }),
+           "no edit button");
+    expect(mum->frame.x + mum->frame.width >= bin->frame.x - tokens().itemSpacing - tokens().editInset - 0.01f, "the text reaches the delete button");
+    auto onTask = hitTest(editable, { bin->frame.x - tokens().itemSpacing, mum->frame.y + mum->frame.height / 2 });
+    expect(onTask && onTask->key == mum->key, "past the end of its text, a click still edits it");
+    const std::string editId = onTask->action.actionId;
     const Text* edited = editedText(editable, PomodoroProvider::kPanelId, editId);
-    expect(edited && edited->value == "Call mum", "it edits the row's text");
+    expect(edited && edited->value == "Call mum" && editId.rfind(todo_action::kEdit, 0) == 0, "it edits the row's text");
     send(InputFocused{ "pomodoro", PomodoroProvider::kPanelId, editId, edited->value, /* editing */ true });
     send(TextErased{});
     send(TextErased{});
@@ -225,6 +308,17 @@ void runTodoTests()
     const Placed* inPlace = firstOf(editing, [&](const Placed& p) { return p.key == mum->key; });
     expect(inPlace && std::holds_alternative<TextInput>(inPlace->item) && std::get<TextInput>(inPlace->item).value == "Call dad" &&
            std::get<TextInput>(inPlace->item).focused, "the text is a field holding the edit");
+    const Placed* rowBox = firstOf(editing, [&](const Placed& p) { return p.key == mum->key.substr(0, mum->key.rfind('/')) + "/0"; });
+    expect(rowBox && inPlace->frame.height == rowBox->frame.height && inPlace->frame.y == rowBox->frame.y &&
+           inPlace->cornerRadius == rowBox->cornerRadius, "the field is as tall as the checkbox, its corners nested like it");
+    const Placed* rowBin = firstOf(editing, [&](const Placed& p) {
+        auto* b = std::get_if<Button>(&p.item);
+        return b && b->glyph == Glyph::Delete && p.list && p.list->row == mum->list->row;
+    });
+    expect(rowBin && std::abs(inPlace->frame.x - (rowBox->frame.x + rowBox->frame.width) - tokens().itemSpacing) < 0.01f &&
+           std::abs(rowBin->frame.x - (inPlace->frame.x + inPlace->frame.width) - tokens().itemSpacing) < 0.01f,
+           "its background keeps the row's gap to the checkbox and the delete button");
+    expect(std::abs(mum->frame.x - (inPlace->frame.x + tokens().editInset)) < 0.01f, "and the text doesn't move when editing starts");
     auto onField = hitTest(editing, { inPlace->frame.x + inPlace->frame.width / 2, inPlace->frame.y + inPlace->frame.height / 2 });
     expect(onField && onField->action.actionId == editId, "clicking it stays in the field: no tick");
     registry.route({ state.draft->providerId, state.draft->activityId, state.draft->actionId, 0, state.draft->text }); // Enter
@@ -333,9 +427,11 @@ void runTodoTests()
     send(ActivitySwitched{ PomodoroProvider::kPanelId });
     Scene tallest = layout(state, now);
     expect(tallest.tabs && tallest.size.y <= tokens().canvas.y, "the tallest card fits the canvas");
-    float strip = tallest.tabs->tabs[0].frame.y;
+    float strip = tallest.tabs->tabs[0].frame.y + tokens().tabHeight;
     for (const Placed& p : tallest.elements)
-        if (p.key.rfind("tab/", 0) != 0) expect(p.frame.y + p.frame.height <= strip - tokens().slotGap + 0.01f, "above the strip: " + p.key);
+        if (p.key.rfind("tab/", 0) != 0)
+            expect(p.frame.y >= strip + tokens().slotGap - 0.01f && p.frame.y + p.frame.height <= tallest.size.y - tokens().expandedPadding + 0.01f,
+                   "under the strip, inside the card: " + p.key);
 }
 
 } // namespace cup::test

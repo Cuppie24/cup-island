@@ -18,15 +18,17 @@ void paintToggleDot(ID2D1DeviceContext* dc, Vec2 size, float glyphSize);
 void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float fontSize, Vec2 size, const Color& color);
 // A text button's label, centred.
 void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& label, Vec2 size, const Color& color);
-// A text field (decision 016): the text (or the placeholder, dim) and, when
-// focused, a caret after it. Its background is a hover shape, not painted here.
-void paintInput(ID2D1DeviceContext* dc, IDWriteFactory* dw, const TextInput& input, Vec2 size, float cornerRadius);
+// Where in `text` (a byte offset) a click at `at` (from its frame's top left) lands:
+// where editing it in place puts the caret (decision 043).
+std::size_t caretAt(IDWriteFactory* dw, const Text& text, Vec2 size, Vec2 at);
 // Steps (decision 010): a dot per step, centred vertically; done and to-do
 // ones in their token colours, the current one in `accent`.
 void paintSteps(ID2D1DeviceContext* dc, const Steps& steps, Vec2 size, const Color& accent);
 // A Swatch (decision 030): a circle of its fill, ringed in trackColor so a
 // pale one shows on a pale island, with a dot of its mark in the middle.
 void paintSwatch(ID2D1DeviceContext* dc, const Swatch& swatch, Vec2 size);
+// A Tag (decision 048): a pill of badgeColor, its text centred in tagTextColor, heavier than captions.
+void paintTag(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Tag& tag, Vec2 size);
 // Fills a rounded rect with the image scaled to cover it; a neutral tile if `data` is null.
 void paintImage(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float cornerRadius);
 

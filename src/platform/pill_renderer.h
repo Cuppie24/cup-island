@@ -30,6 +30,12 @@ public:
     // Cached per string and style; a tokens reload clears it (font sizes).
     float measure(const Text& text);
 
+    // Where a click at `point` (pill coordinates) in a field or an editable
+    // Text puts the caret: a byte offset into its text (decisions 043, 045).
+    std::size_t caretAt(const Placed& element, Vec2 point);
+    // A wrapped field's caret a line up (-1) or down (+1); nothing if there's no line there.
+    std::optional<std::size_t> caretOnLine(const Placed& field, int direction);
+
     // Tactile click feedback: squash on press, spring back on release.
     void pressDown(bool bubble) { (bubble ? bubble_ : pill_).pressDown(); }
     void pressRelease(bool bubble) { (bubble ? bubble_ : pill_).pressRelease(); }

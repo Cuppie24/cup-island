@@ -30,6 +30,9 @@ int g_renderTop = 0; // monitors above or below the primary don't start at y = 0
 InteractionCallbacks g_callbacks;
 bool g_pressed = false;
 bool g_trackingLeave = false; // TrackMouseEvent armed: WM_MOUSELEAVE will come
+bool g_textCursor = false;    // over a text field: the I-beam (decision 043)
+
+void showCursor() { SetCursor(LoadCursorW(nullptr, g_textCursor ? IDC_IBEAM : IDC_ARROW)); }
 
 // The compositor never reports animated values back to the app, so this
 // replays the same morph (endpoints, duration, easing) clocked from the
@@ -189,6 +192,11 @@ try {
         call(g_callbacks.onPointerMoved, pointFrom(lParam), inside(hwnd, lParam));
         return 0;
 
+    case WM_SETCURSOR:
+        if (LOWORD(lParam) != HTCLIENT) break;
+        showCursor();
+        return TRUE;
+
     case WM_MOUSEWHEEL: {
         // Notches, positive = towards the user (down). Touchpads send fractions
         // of a notch as they go: passed on as they come, so lists glide with
@@ -222,7 +230,14 @@ try {
 
     case WM_SYSKEYDOWN: // with Alt held: a shortcut being recorded needs it (decision 032)
         call(g_callbacks.onKeyDown, wParam);
-        break;           // and Windows' own handling (Alt+F4) still runs
+        break;           // and Windows' own handling still runs (Alt+Space, Alt+Tab...)
+
+    case WM_SYSCOMMAND:
+        // Alt+F4 arrives as SC_CLOSE: the island isn't a window to close by
+        // accident (decision 049). Quitting is the tray's Exit; the updater,
+        // the installer and shutdown don't come this way.
+        if ((wParam & 0xFFF0) == SC_CLOSE) return 0;
+        break;
 
     case WM_HOTKEY:
         call(g_callbacks.onHotkey, wParam);
@@ -311,6 +326,16 @@ void followMorph(Vec2 toSize, Vec2 toOffset)
     g_morph.clockPending = true;
     g_morph.active = true;
     SetEvent(g_morphStartedEvent);
+}
+
+void setTextCursor(bool text)
+{
+    if (text == g_textCursor) return;
+    g_textCursor = text;
+    // Now, not at the next move (WM_SETCURSOR came before the move that changed
+    // it); but only over us, or another window's cursor would flicker.
+    POINT at{};
+    if (GetCursorPos(&at) && WindowFromPoint(at) == g_hwnd) showCursor();
 }
 
 void jumpTo(Vec2 size, Vec2 offset)

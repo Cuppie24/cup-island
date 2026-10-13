@@ -39,6 +39,8 @@ public:
 
     // A provider's card stopped being shown (shownCard changed): tells it (Provider::onCardClosed).
     void cardClosed(const ShownCard& card);
+    // ...and started being shown (Provider::onCardShown).
+    void cardShown(const ShownCard& card);
 
     // Ctrl+W on an activity's card: asks its provider to close it (Provider::onCloseRequested).
     void closeRequested(const ShownCard& card);

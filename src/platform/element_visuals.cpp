@@ -2,6 +2,7 @@
 
 #include "core/tokens.h"
 #include "platform/element_painting.h"
+#include "platform/field_painting.h"
 #include "platform/element_parts.h"
 
 #include <algorithm>
@@ -112,7 +113,7 @@ void ElementVisuals::refresh()
     lists_.clear();
 }
 
-ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now)
+ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool fade)
 {
     const Tokens& t = tokens();
     View view;
@@ -178,7 +179,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now)
     if (!view.bars.empty()) animateBars(view);
     if (view.highlight && focusedField(placed.item)) view.highlight.Opacity(1.0f);
     if (revealsOnHover(placed.item) && rowOf(placed.key) != hoveredRow_) view.visual.Opacity(0.0f); // until its row is hovered
-    else fadeIn(compositor_, view.visual);
+    else if (fade) fadeIn(compositor_, view.visual);
     return view;
 }
 
@@ -198,7 +199,9 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     if (resized || retyped || relisted || (changed && (swims(view.placed.item) || swims(placed.item)))) {
         // A different kind of visual, a new size (tokens.json edits), another list or a new swimming string: rebuild it.
         if (auto parent = view.visual.Parent()) parent.Children().Remove(view.visual);
-        view = create(placed, now);
+        // A to-do's text turning into its field (or back) swaps in place: a fade would flash it (decision 043).
+        auto editable = [](const Item& item) { return std::holds_alternative<Text>(item) || std::holds_alternative<TextInput>(item); };
+        view = create(placed, now, !(retyped && editable(view.placed.item) && editable(placed.item)));
         return true;
     }
     bool wasFocused = focusedField(view.placed.item);
@@ -247,9 +250,11 @@ void ElementVisuals::paint(View& view)
         } else if (auto* image = std::get_if<Image>(&item)) {
             paintImage(dc, image->data.get(), size, view.placed.cornerRadius);
         } else if (auto* input = std::get_if<TextInput>(&item)) {
-            paintInput(dc, dw, *input, size, view.placed.cornerRadius); // nested, like a button's hover shape
+            paintInput(dc, dw, *input, size); // its background is the hover shape, nested like a button's
         } else if (auto* steps = std::get_if<Steps>(&item)) {
             paintSteps(dc, *steps, size, accentOf(view.placed));
+        } else if (auto* tag = std::get_if<Tag>(&item)) {
+            paintTag(dc, dw, *tag, size);
         } else if (auto* swatch = std::get_if<Swatch>(&item)) {
             paintSwatch(dc, *swatch, size);
         }
@@ -318,7 +323,8 @@ void ElementVisuals::press(const std::string& key)
     const Tokens& t = tokens();
     if (it->second.highlight) fadeTo(compositor_, it->second.highlight, 1.0f, t.hoverFadeDuration);
     if (it->second.art.overlay && key != hovered_) showArtOverlay(compositor_, it->second.art, true); // pressed without a hover (touch)
-    if (std::holds_alternative<TextInput>(it->second.placed.item)) return; // a field is clicked into, not pressed: no squash
+    // A field, or text a click edits (decision 043), is clicked into, not pressed: no squash.
+    if (std::holds_alternative<TextInput>(it->second.placed.item) || std::holds_alternative<Text>(it->second.placed.item)) return;
     // Art is big: the pill's gentle squash, not a button's deep one.
     float scale = std::holds_alternative<Image>(it->second.placed.item) ? t.pressScale : t.buttonPressScale;
     playScale(compositor_, it->second.visual, scale, t.pressDownDuration, t.pressDownEase);
@@ -332,7 +338,7 @@ void ElementVisuals::release(const std::string& key)
     if (it->second.highlight && key != hovered_ && !focusedField(it->second.placed.item))
         fadeTo(compositor_, it->second.highlight, 0.0f, t.hoverFadeDuration);
     if (it->second.art.overlay && key != hovered_) showArtOverlay(compositor_, it->second.art, false);
-    if (std::holds_alternative<TextInput>(it->second.placed.item)) return;
+    if (std::holds_alternative<TextInput>(it->second.placed.item) || std::holds_alternative<Text>(it->second.placed.item)) return;
     playScale(compositor_, it->second.visual, 1.0f, t.pressReleaseDuration, t.pressReleaseEase);
 }
 

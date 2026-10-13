@@ -45,7 +45,7 @@ struct Tokens {
     // along its top edge (decision 026), and this tall (TR §5, §9.1). The
     // width here is only a minimum, and the width layout() uses until the
     // platform says (tests).
-    Vec2 canvas{ 440, 420 }; // room for the largest pill (a Centred card at its tallest, with tabs) and its shadow
+    Vec2 canvas{ 500, 640 }; // room for the largest pill (a Centred card at its tallest, with tabs) and its shadow
 
     // One knob for the island's overall size: every length below is
     // multiplied by it, on top of the display's scaling (decision 017).
@@ -56,7 +56,7 @@ struct Tokens {
     Vec2 idleSize{ 160, 28 };
     Vec2 compactSize{ 260, 32 };
     Vec2 alertSize{ 320, 64 };
-    Vec2 expandedSize{ 380, 159 };
+    Vec2 expandedSize{ 440, 159 }; // every card and Home: the width a to-do's text needs (decisions 043, 047)
     Vec2 receptiveSize{ 380, 84 };
     Vec2 hiddenSize{ 160, 0 };
     float maxCornerRadius = 28; // bottom corners: half the height, capped, so big shapes aren't blobs
@@ -69,7 +69,7 @@ struct Tokens {
     float alertPadding = 8;
     float expandedPadding = 12;
     float listCardInset = 8;      // CardLayout::List: at least this much more on the left and right (decision 030)
-    float listCardWidth = 340;    // ...and its rows no wider than this, centred (a full-width card's, at the shipped sizes)
+    float listCardWidth = 400;    // ...and its rows no wider than this, centred (a full-width card's, at the shipped sizes)
     float listCardVerticalInset = 6;  // ...this much more above and below its rows
     float listCardVisibleRows = 9.5f; // ...and a page that is one list (Settings' root) scrolls past this many rows (decision 037)
     float listCardMinHeight = 240;    // ...and never shorter than this: room to breathe (decision 030)
@@ -96,13 +96,14 @@ struct Tokens {
     float inputFontSize = 15;   // a TextInput's text and placeholder: noticeable even when it isn't focused
     float iconSize = 18;
     float buttonSize = 36;
-    float smallButtonSize = 24;   // Button::compact: list rows (a to-do's checkbox)
+    float smallButtonSize = 32;   // Button::compact: list rows (a to-do's checkbox)
     float revealGlyphSize = 14;   // Button::revealOnHover (a to-do's delete): a smaller glyph, the same button and hover shape
-    float inputHeight = 30;       // a TextInput: a little taller than the rows, easy to click into
-    float listItemPadding = 4;    // Row::listItem: above and below its content, so list items stand apart
+    float inputHeight = 36;       // a TextInput: a little taller than the rows, easy to click into
+    float listItemPadding = 6;    // Row::listItem: above and below its content; = listItemInset, so a checkbox's corners nest in the row's (decision 006)
     float listItemInset = 6;      // Row::listItem: its content in from the hover background's edges
     float sectionGap = 12;        // Row::section: space above a group's heading (decision 037)
     float listItemTextInset = 14; // ...where the edge item is text: clear of the background's rounded end (decision 030)
+    float editInset = 6;          // editable Text is drawn this far in from its stretch, which its field fills when edited (decision 043)
     float buttonLabelPadding = 10; // a text button: its label plus this on each side        // hover circle; the click area also takes in half the gaps around it
     float buttonGlyphSize = 16;
     float buttonPressScale = 0.85f;
@@ -116,6 +117,8 @@ struct Tokens {
     float badgeSize = 8;          // a notification dot (decision 038)
     float badgeInset = 7;         // ...at least this far in from a widget's or tab's edges (its corner's rounding sets it, decision 038)
     float swatchSize = 24;        // Swatch: a colour sample (a theme on Settings' list, decision 030)
+    float tagHeight = 18;         // Tag: "New" beside a setting not seen yet (decision 048)
+    float tagPadding = 7;         // ...its text this far in from the pill's ends
 
     // Hover on buttons and the progress bar (decision 002: content only, not the pill).
     Ms hoverFadeDuration{ 120 };
@@ -151,8 +154,8 @@ struct Tokens {
     float shadowBlur = 16;
     Vec2 shadowOffset{ 0, 4 };    // down: the island hangs from the top edge
 
-    // Expanded's tabs: one per activity along the bottom of the card (decision 007).
-    float tabHeight = 28;
+    // Expanded's tabs: one per activity along the top of the card (decisions 007, 047).
+    float tabHeight = 36;
     float tabGap = 4;
     float tabMaxWidth = 140;      // each tab's width; the group is centred, and shrinks only when they don't fit
     float homeButtonWidth = 44;   // Home's icon-only button, apart at the left (decision 009)
@@ -224,6 +227,8 @@ struct Tokens {
     Color focusRingColor{ 255, 255, 255, 153 };    // around what the keyboard has focus on (decision 033): a theme's accent
     Color inputColor{ 255, 255, 255, 26 };         // a text field's background (decision 016)
     Color placeholderTextColor{ 255, 255, 255, 128 }; // "Add a to-do…": like body text, a little dimmer
+    Color tagTextColor{ 255, 255, 255 };           // a Tag's text; its pill is badgeColor, like the dots it goes with (decision 048)
+    Color selectionColor{ 10, 132, 255, 115 };     // selected text in a field (decision 043): readable on dark and light themes
     Color dangerColor{ 255, 69, 58 };              // a destructive button's label: a dialog's "Clear all" (decision 020)
     Color badgeColor{ 255, 69, 58 };               // a notification dot (decision 038): the red every OS uses for "new"
     Color imagePlaceholderColor{ 255, 255, 255, 31 }; // art that hasn't arrived
@@ -234,8 +239,14 @@ struct Tokens {
     // Pomodoro (decision 009): focus rounds with short breaks, a long break after the last round.
     Ms pomodoroFocus{ 1500000 };
     Ms pomodoroBreak{ 300000 };
+    // Setting the plan on the dormant card (decision 044): each − / + moves by a step, from one step up to the max.
+    Ms pomodoroFocusStep{ 300000 };
+    Ms pomodoroFocusMax{ 7200000 };
+    Ms pomodoroBreakStep{ 60000 };
+    Ms pomodoroBreakMax{ 3600000 };
     Ms pomodoroLongBreak{ 900000 };
     std::size_t pomodoroRounds = 4;
+    std::size_t todoMaxLength = 150; // characters in a to-do: wraps onto a few lines at most (decision 045)
     // Lists (Row::list, decision 029): the window shows this many rows (the
     // half says there's more), the wheel moves scrollStep per notch, easing
     // over scrollDuration; a press dragged dragStartDistance picks a row up.

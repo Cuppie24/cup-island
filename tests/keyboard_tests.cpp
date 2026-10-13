@@ -49,6 +49,10 @@ void runKeyboardTests()
     Scene list = settingsScene({ .theme = "Grape", .startsWithWindows = true });
     auto f = moveFocus(list, "", Arrow::Down);
     expect(clicks(list, f) == P::kOpenThemes, "keys: the first press lands on the first row (Theme)");
+    auto above = moveFocus(list, f->id, Arrow::Up);
+    expect(above && above->id.rfind("tab:", 0) == 0, "keys: up from the first row: the tabs, on top (decision 047)");
+    f = moveFocus(list, f->id, Arrow::Down);
+    expect(clicks(list, f) == P::kOpenTabRow, "keys: down, the next row (Tab row, decision 048)");
     f = moveFocus(list, f->id, Arrow::Down);
     expect(clicks(list, f) == P::kCentreIsland, "keys: down, the next row (Appearance's last)");
     f = moveFocus(list, f->id, Arrow::Down);
@@ -58,8 +62,7 @@ void runKeyboardTests()
     f = moveFocus(list, f->id, Arrow::Down);
     expect(clicks(list, f) == P::kCopyLogs, "keys: down to Copy logs, a row like the others");
     expect(!moveFocus(list, f->id, Arrow::Right), "keys: nothing beside a whole row, focus stays");
-    auto tab = moveFocus(list, f->id, Arrow::Down);
-    expect(tab && tab->id == "tab:", "keys: down from the last row: the Home tab");
+    expect(!moveFocus(list, f->id, Arrow::Down), "keys: down from the last row: nothing, the tabs are on top (decision 047)");
     f = moveFocus(list, f->id, Arrow::Up);
     expect(clicks(list, f) == P::kOpenShortcuts, "keys: up, back to the row above");
     expect(!moveFocus(list, f->id, Arrow::Left), "keys: a whole-row item has nothing beside it");

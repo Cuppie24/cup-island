@@ -35,7 +35,7 @@ struct Placed {
     std::optional<InList> list;  // in a scrolling list: its frame and hit area are already scrolled (and clipped)
     std::optional<Rect> listRow; // its row is a list item (Row::listItem): lit here while the pointer is on the row
     float listRowRadius = 0;
-    bool litByRow = false;       // the row's background is its hover: no shape of its own (a to-do's checkbox)
+    bool litByRow = false;       // the row's background is its hover: no shape of its own (Row::clickAnywhere)
     std::string providerId;
     std::string activityId;
     std::optional<Timeline> ticking; // time labels: the text changes as playback moves
@@ -52,7 +52,7 @@ struct BubbleScene {
 };
 
 // Expanded with several activities, or activities and panels: a tab per
-// activity along the bottom of the card (decision 007), and a square Home
+// activity along the top of the card (decisions 007, 047), and a square Home
 // button apart at the left when there are panels (decision 009). Clicking a
 // tab switches to it (ActivitySwitched, or HomeOpened for Home).
 struct Tab {
@@ -62,10 +62,17 @@ struct Tab {
     bool badge = false; // its activity's Content::badge (decision 038)
 };
 
+// The pin's tab id (decision 046): not an activity's.
+inline constexpr const char* kPinTab = "#pin";
+
 struct TabStrip {
     std::vector<Tab> tabs;  // Home's button, then activities in start order: stable, so a click doesn't reorder them
     std::optional<std::size_t> active; // the tab of what's shown; none for a dormant panel's card
     float radius = 0;       // tab highlight corners, nested in the card's
+    // The pin at the right end, Home's mirror (decision 046): a click toggles
+    // IslandState::stayOpen (StayOpenToggled). Not a tab you switch to.
+    std::optional<Tab> pin;
+    bool pinned = false;    // ...on: lit like the active tab
 };
 
 // A panel's widget on Home (decisions 009, 019). A click on it opens its

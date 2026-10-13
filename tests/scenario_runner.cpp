@@ -11,21 +11,27 @@
 //            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel
 //            panel <id> [static|keep]  unpanel <id>  home  tile <id>  (static: a widget with no card;
 //                                                                     keep: its card stays open on a click, decision 030)
-//            focus <card> <action>  type <text...>  erase  submit  cancel-input   (a TextInput, decision 016)
+//            focus <card> <action> [at=<n>|max=<chars>]  type <text...>  erase [word]  submit  cancel-input   (a TextInput, decision 016)
+//            delete [word]  caret <left|right|word-left|word-right|start|end> [select]
+//            place <n> [select]  select-word <n>  select-all                     (caret and selection, decision 043)
+//            pin                                                                     (Expanded's pin, decision 046)
+//            tabrow top|bottom                                                       (Settings' Tab row, decision 048)
 //            ask <card>  close-dialog                                               (a provider's dialog, decision 020)
-//            edit <card> <action> <text>                                            (a Text edited in place, decision 029)
+//            edit <card> <action> <text> [at=<n>]                                   (a Text edited in place, decision 029)
 //            wheel <card> <list> <from> <delta> <max>  reveal <card> <list> <row>    (lists, decision 029)
 //            pick <card> <list> <row> <y>  carry <y>  put-down
 //            screen <width>  hold  move <dx>  let-go  restore <dock> [fraction]      (lifting the island, decision 026)
 // Checks after "->":  <Mode>  queue=<n>  top=<activity>  bubble=<activity>  alert=<name>
 //                     expanded=<activity|panel|home>  pinned=<activity>  dragging=yes|no  preview=yes|no
-//                     draft=<text>|empty|none  (no spaces in <text>)  dialog=<card>|none
-//                     lifted=yes|no  spot=centre|left|right|free
+//                     draft=<text>|empty|none  (_ for a space)  dialog=<card>|none
+//                     caret=<byte offset>  selected=<text>|none  (_ for a space)
+//                     lifted=yes|no  spot=centre|left|right|free  stay=yes|no  tabs=top|bottom
 //                     scroll=<card>/<list>:<offset>[+reveal]  carried=<row>|none
 // Levels: passive active timeSensitive critical.  '#' starts a comment.
 
 #include "core/island.h"
 #include "core/lift.h"
+#include "core/text_edit.h"
 #include "expect.h"
 
 #include <algorithm>
@@ -53,6 +59,13 @@ std::optional<Level> parseLevel(const std::string& word)
     for (Level l : { Level::Passive, Level::Active, Level::TimeSensitive, Level::Critical })
         if (word == toString(l)) return l;
     return std::nullopt;
+}
+
+// Spaces as '_', so a checked text stays one word.
+std::string underscored(std::string text)
+{
+    std::replace(text.begin(), text.end(), ' ', '_');
+    return text;
 }
 
 // "key=value" -> value if the key matches.
@@ -88,6 +101,11 @@ struct Runner {
     {
         const std::string& cmd = w[0];
         auto arg = [&](size_t i) { return i < w.size() ? w[i] : std::string(); };
+        // "at=<n>" as word i: where a click put the caret.
+        auto at = [&](size_t i) -> std::optional<std::size_t> {
+            auto v = option(arg(i), "at");
+            return v ? std::optional<std::size_t>(std::stoul(*v)) : std::nullopt;
+        };
 
         if (cmd == "start") {
             Activity a{ .id = arg(1), .content = { .label = arg(1) } };
@@ -136,18 +154,33 @@ struct Runner {
         else if (cmd == "unpanel") apply(PanelRemoved{ arg(1) });
         else if (cmd == "home") apply(HomeOpened{});
         else if (cmd == "tile") apply(TileClicked{ arg(1) });
-        else if (cmd == "focus") apply(InputFocused{ "p", arg(1), arg(2) });
+        else if (cmd == "focus") {
+            auto max = option(arg(3), "max");
+            apply(InputFocused{ "p", arg(1), arg(2), "", false, max ? std::nullopt : at(3), max ? std::stoul(*max) : 0 });
+        }
         else if (cmd == "type") {
             std::string text;
             for (size_t i = 1; i < w.size(); ++i) text += (i > 1 ? " " : "") + w[i];
             apply(TextTyped{ text });
         }
-        else if (cmd == "erase") apply(TextErased{});
+        else if (cmd == "erase") apply(TextErased{ false, arg(1) == "word" });
+        else if (cmd == "delete") apply(TextErased{ true, arg(1) == "word" });
+        else if (cmd == "caret") {
+            const char* names[] = { "left", "right", "word-left", "word-right", "start", "end" };
+            auto name = std::find(std::begin(names), std::end(names), arg(1));
+            if (name == std::end(names)) fail("unknown caret move '" + arg(1) + "'");
+            else apply(CaretMoved{ static_cast<CaretMove>(name - std::begin(names)), arg(2) == "select" });
+        }
+        else if (cmd == "place") apply(CaretPlaced{ std::stoul(arg(1)), arg(2) == "select" });
+        else if (cmd == "select-word") apply(WordSelected{ std::stoul(arg(1)) });
+        else if (cmd == "select-all") apply(AllSelected{});
         else if (cmd == "submit") apply(InputSubmitted{});
         else if (cmd == "cancel-input") apply(InputCancelled{});
         else if (cmd == "ask") apply(DialogShown{ { .providerId = "p", .activityId = arg(1), .title = "Sure?", .confirmAction = "yes" } });
         else if (cmd == "close-dialog") apply(DialogClosed{});
-        else if (cmd == "edit") apply(InputFocused{ "p", arg(1), arg(2), arg(3), /* editing */ true });
+        else if (cmd == "pin") apply(StayOpenToggled{});
+        else if (cmd == "tabrow") apply(TabRowPlaced{ arg(1) != "bottom" });
+        else if (cmd == "edit") apply(InputFocused{ "p", arg(1), arg(2), arg(3), /* editing */ true, at(4) });
         else if (cmd == "wheel") apply(ListScrolled{ arg(1), arg(2), std::stof(arg(3)), std::stof(arg(4)), std::stof(arg(5)) });
         else if (cmd == "reveal") apply(ListRevealed{ arg(1), arg(2), std::stoul(arg(3)) });
         else if (cmd == "pick") apply(ListDragStarted{ arg(1), arg(2), std::stoul(arg(3)), std::stof(arg(4)) });
@@ -193,8 +226,15 @@ struct Runner {
                 std::string got = state.dialog ? state.dialog->activityId : "none";
                 if (got != *v) fail("dialog=" + *v + ", got " + got);
             } else if (auto v = option(word, "draft")) {
-                std::string got = !state.draft ? "none" : state.draft->text.empty() ? "empty" : state.draft->text;
+                std::string got = !state.draft ? "none" : state.draft->text.empty() ? "empty" : underscored(state.draft->text);
                 if (got != *v) fail("draft=" + *v + ", got " + got);
+            } else if (auto v = option(word, "caret")) {
+                std::string got = state.draft ? std::to_string(state.draft->caret) : "none";
+                if (got != *v) fail("caret=" + *v + ", got " + got);
+            } else if (auto v = option(word, "selected")) {
+                std::string text = state.draft ? selectedText(*state.draft) : "";
+                std::string got = text.empty() ? "none" : underscored(text);
+                if (got != *v) fail("selected=" + *v + ", got " + got);
             } else if (auto v = option(word, "lifted")) {
                 std::string got = isLifted(state) ? "yes" : "no";
                 if (got != *v) fail("lifted=" + *v + ", got " + got);
@@ -208,6 +248,12 @@ struct Runner {
                 std::string got = it == state.scrolls.end() ? "none"
                                                             : std::to_string(static_cast<int>(it->second.offset)) + (it->second.reveal ? "+reveal" : "");
                 if (key + ":" + got != *v) fail("scroll=" + *v + ", got " + got);
+            } else if (auto v = option(word, "tabs")) {
+                std::string got = state.tabsOnTop ? "top" : "bottom";
+                if (got != *v) fail("tabs=" + *v + ", got " + got);
+            } else if (auto v = option(word, "stay")) {
+                std::string got = state.stayOpen ? "yes" : "no";
+                if (got != *v) fail("stay=" + *v + ", got " + got);
             } else if (auto v = option(word, "carried")) {
                 std::string got = state.listDrag ? std::to_string(state.listDrag->row) : "none";
                 if (got != *v) fail("carried=" + *v + ", got " + got);

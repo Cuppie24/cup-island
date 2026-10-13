@@ -34,6 +34,7 @@ public:
     // Expanded's tabs (pill coordinates; nullopt = none): the active tab's
     // background slides to a newly picked tab; hover is fainter and just fades.
     void setSelectedTab(std::optional<Rect> tab, float cornerRadius);
+    void setPinnedTab(std::optional<Rect> pin, float cornerRadius); // the pin while on: lit like the active tab (decision 046)
     void setHovered(std::optional<Rect> area, float cornerRadius); // a tab or a Home tile under the pointer
     // The keyboard's focus (decision 033): a ring inside `area`, over the
     // content, so it shows which one Enter clicks even with the pointer elsewhere.
@@ -81,7 +82,7 @@ private:
     };
     void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide);
     void showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius); // tileColor, one per rect
-    Mark selectedTab_, hovered_;
+    Mark selectedTab_, pinnedTab_, hovered_;
     struct Ring { // the focus ring: stroked, not filled; over content_, not under it
         wuc::ShapeVisual visual{ nullptr };
         wuc::CompositionRoundedRectangleGeometry shape{ nullptr };

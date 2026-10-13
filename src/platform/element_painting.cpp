@@ -1,6 +1,9 @@
 #include "platform/element_painting.h"
 
+#include "core/item_metrics.h"
+#include "core/text_edit.h"
 #include "core/tokens.h"
+#include "platform/text_format.h"
 
 #include <dwrite_3.h>
 
@@ -9,7 +12,6 @@
 #include <string>
 
 namespace cup::platform {
-namespace {
 
 std::wstring widen(const std::string& utf8)
 {
@@ -20,6 +22,8 @@ std::wstring widen(const std::string& utf8)
     return out;
 }
 
+namespace {
+
 bool hasFont(IDWriteFactory* dw, const wchar_t* family)
 {
     winrt::com_ptr<IDWriteFontCollection> fonts;
@@ -29,6 +33,8 @@ bool hasFont(IDWriteFactory* dw, const wchar_t* family)
         fonts->FindFamilyName(family, &index, &exists);
     return exists;
 }
+
+} // namespace
 
 // Windows 11's Segoe UI Variable comes in optical sizes, cut for the pixel
 // size they're shown at: Small stays sturdy and open at caption sizes, where
@@ -46,6 +52,8 @@ const wchar_t* textFamily(IDWriteFactory* dw, float pixelSize)
     if (hasDisplayCut && pixelSize >= 28.0f) return L"Segoe UI Variable Display";
     return L"Segoe UI Variable Text";
 }
+
+namespace {
 
 const wchar_t* iconFamily(IDWriteFactory* dw)
 {
@@ -83,9 +91,15 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::ChevronRight: return L"\uE76C";
     case Glyph::Download: return L"\uE896";
     case Glyph::Centre: return L"\uE8E3"; // AlignCenter: back to the middle
+    case Glyph::Minus: return L"\uE738";  // Remove
+    case Glyph::Plus: return L"\uE710";   // Add
+    case Glyph::Pin: return L"\uE718";
+    case Glyph::Pinned: return L"\uE840"; // Pinned, the outline with its needle; paintGlyph fills it (PinnedFill under it)
     }
     return L"?";
 }
+
+} // namespace
 
 winrt::com_ptr<IDWriteTextFormat> format(IDWriteFactory* dw, const wchar_t* family, float size,
                                          float weight, DWRITE_TEXT_ALIGNMENT align)
@@ -111,7 +125,11 @@ winrt::com_ptr<IDWriteTextFormat> format(IDWriteFactory* dw, const wchar_t* fami
     return f;
 }
 
+namespace {
+
 D2D1::ColorF toD2d(const Color& c) { return D2D1::ColorF(c.r / 255.0f, c.g / 255.0f, c.b / 255.0f, c.a / 255.0f); }
+
+} // namespace
 
 winrt::com_ptr<ID2D1SolidColorBrush> brushOf(ID2D1DeviceContext* dc, const Color& color)
 {
@@ -119,6 +137,21 @@ winrt::com_ptr<ID2D1SolidColorBrush> brushOf(ID2D1DeviceContext* dc, const Color
     winrt::check_hresult(dc->CreateSolidColorBrush(toD2d(color), brush.put()));
     return brush;
 }
+
+void setLineHeight(IDWriteTextFormat* format, float height)
+{
+    format->SetLineSpacing(DWRITE_LINE_SPACING_METHOD_UNIFORM, height, height * 0.8f); // the baseline about where Segoe UI's own spacing puts it
+}
+
+std::size_t hitOffset(IDWriteTextLayout* layout, const std::string& utf8, float x, float y)
+{
+    BOOL trailing = FALSE, inside = FALSE;
+    DWRITE_HIT_TEST_METRICS hit{};
+    if (FAILED(layout->HitTestPoint(x, y, &trailing, &inside, &hit))) return utf8.size();
+    return utf8Offset(utf8, hit.textPosition + (trailing ? hit.length : 0)); // the nearer edge of the character hit
+}
+
+namespace {
 
 void drawString(ID2D1DeviceContext* dc, IDWriteTextFormat* f, const std::wstring& text, D2D1_RECT_F rect, const Color& color)
 {
@@ -158,20 +191,28 @@ winrt::com_ptr<IDWriteTextFormat> formatOf(IDWriteFactory* dw, const Text& text)
                   : text.alignEnd ? DWRITE_TEXT_ALIGNMENT_TRAILING : DWRITE_TEXT_ALIGNMENT_LEADING);
 }
 
+// Wrapped text (decision 045): the lines core broke it into, exactly lineHeight apart.
+winrt::com_ptr<IDWriteTextLayout> wrappedLayout(IDWriteFactory* dw, const Text& text, float width, float height)
+{
+    std::wstring value = widen(text.wrapped.empty() ? text.value : text.wrapped);
+    auto f = formatOf(dw, text);
+    if (!text.wrapped.empty()) setLineHeight(f.get(), lineHeight(text.style));
+    winrt::com_ptr<IDWriteTextLayout> layout;
+    winrt::check_hresult(dw->CreateTextLayout(value.c_str(), static_cast<UINT32>(value.size()), f.get(), width, height, layout.put()));
+    return layout;
+}
+
 } // namespace
 
 void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec2 size)
 {
-    if (!text.struck) {
+    if (!text.struck && text.wrapped.empty()) {
         drawString(dc, formatOf(dw, text).get(), widen(text.value), size, lookOf(text.style).color);
         return;
     }
-    // Struck through (a solved to-do): a layout carries the strikethrough.
-    std::wstring value = widen(text.value);
-    winrt::com_ptr<IDWriteTextLayout> layout;
-    winrt::check_hresult(dw->CreateTextLayout(value.c_str(), static_cast<UINT32>(value.size()), formatOf(dw, text).get(),
-                                              size.x, size.y, layout.put()));
-    layout->SetStrikethrough(TRUE, DWRITE_TEXT_RANGE{ 0, static_cast<UINT32>(value.size()) });
+    // Wrapped, or struck through (a solved to-do): a layout carries the lines and the strikethrough.
+    auto layout = wrappedLayout(dw, text, size.x, size.y);
+    if (text.struck) layout->SetStrikethrough(TRUE, DWRITE_TEXT_RANGE{ 0, static_cast<UINT32>(widen(text.value).size()) });
     dc->DrawTextLayout(D2D1::Point2F(0, 0), layout.get(), brushOf(dc, lookOf(text.style).color).get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
 }
 
@@ -181,34 +222,12 @@ void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& l
     drawString(dc, formatOf(dw, text).get(), widen(label), size, color);
 }
 
-void paintInput(ID2D1DeviceContext* dc, IDWriteFactory* dw, const TextInput& input, Vec2 size, float cornerRadius)
+std::size_t caretAt(IDWriteFactory* dw, const Text& text, Vec2 size, Vec2 at)
 {
-    const Tokens& t = tokens();
-    (void)cornerRadius; // the background is the hover shape (element_visuals), not painted here
-
-    float inset = t.buttonLabelPadding, room = std::max(0.0f, size.x - 2 * inset);
-    bool empty = input.value.empty();
-    // Its own size (inputFontSize), so the field reads as a field even unfocused and empty;
-    // the placeholder is the same size, just dimmer (placeholderTextColor).
-    std::wstring value = widen(empty ? input.placeholder : input.value);
-    auto measuring = format(dw, textFamily(dw, t.inputFontSize), t.inputFontSize, t.bodyFontWeight, DWRITE_TEXT_ALIGNMENT_LEADING);
-    winrt::com_ptr<IDWriteTextLayout> line;
-    winrt::check_hresult(dw->CreateTextLayout(value.c_str(), static_cast<UINT32>(value.size()), measuring.get(), 100000.0f, 1000.0f, line.put()));
-    DWRITE_TEXT_METRICS metrics{};
-    winrt::check_hresult(line->GetMetrics(&metrics));
-    float width = std::ceil(metrics.widthIncludingTrailingWhitespace);
-    // Longer than the field while typing: show its end, where the caret is.
-    bool tail = !empty && width > room;
-    auto f = format(dw, textFamily(dw, t.inputFontSize), t.inputFontSize, t.bodyFontWeight,
-                    tail ? DWRITE_TEXT_ALIGNMENT_TRAILING : DWRITE_TEXT_ALIGNMENT_LEADING);
-    D2D1_RECT_F box = D2D1::RectF(inset, 0, inset + room, size.y);
-    drawString(dc, f.get(), value, box, empty ? t.placeholderTextColor : t.bodyTextColor);
-
-    if (!input.focused) return;
-    // A still caret after the text: no blinking, so typing costs nothing between keys.
-    float x = empty ? inset : std::min(inset + width, inset + room) + 1;
-    float h = std::ceil(t.inputFontSize * 1.2f);
-    dc->FillRectangle(D2D1::RectF(x, (size.y - h) / 2, x + 1.5f, (size.y + h) / 2), brushOf(dc, t.bodyTextColor).get());
+    // As drawn (paintText), but unbounded across: a click on a trimmed text's "…" lands at its end.
+    // Its lines are already broken (Text::wrapped), so nothing rewraps.
+    auto layout = wrappedLayout(dw, text, 100000.0f, size.y);
+    return hitOffset(layout.get(), text.value, at.x, at.y);
 }
 
 float measureText(IDWriteFactory* dw, const Text& text)
@@ -237,6 +256,8 @@ void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, 
 void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float fontSize, Vec2 size, const Color& color)
 {
     auto f = format(dw, iconFamily(dw), fontSize, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_TEXT_ALIGNMENT_CENTER); // icons: as designed
+    // PinnedFill (U+E841) is only a fill layer, with no needle: it goes under the Pinned outline (decision 046).
+    if (glyph == Glyph::Pinned) drawString(dc, f.get(), L"\uE841", size, color);
     drawString(dc, f.get(), codepoint(glyph), size, color);
 }
 
@@ -266,6 +287,17 @@ void paintSwatch(ID2D1DeviceContext* dc, const Swatch& swatch, Vec2 size)
     dc->DrawEllipse(D2D1::Ellipse(centre, r - ring / 2, r - ring / 2), brushOf(dc, tokens().trackColor).get(), ring);
     float dot = r * 0.4f; // the accent: a dot, like a theme's live colour on its island
     dc->FillEllipse(D2D1::Ellipse(centre, dot, dot), brushOf(dc, swatch.mark).get());
+}
+
+void paintTag(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Tag& tag, Vec2 size)
+{
+    const Tokens& t = tokens();
+    float r = size.y / 2;
+    // The notification dots' colour: "New" and the dot on its parent are one signal (decision 038).
+    dc->FillRoundedRectangle(D2D1_ROUNDED_RECT{ D2D1::RectF(0, 0, size.x, size.y), r, r }, brushOf(dc, t.badgeColor).get());
+    float fontSize = std::min(t.captionFontSize, size.y * 0.75f);
+    auto f = format(dw, textFamily(dw, fontSize), fontSize, t.titleFontWeight, DWRITE_TEXT_ALIGNMENT_CENTER);
+    drawString(dc, f.get(), widen(tag.text), size, t.tagTextColor);
 }
 
 void paintImage(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float cornerRadius)

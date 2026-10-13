@@ -66,6 +66,10 @@ struct Draft {
     std::string actionId;   // the TextInput's, or the edited Text's editAction
     std::string text;
     bool editing = false;   // a Text edited in place (decision 029): Enter ends it, instead of emptying a field
+    // The caret and the selection's other end (decision 043): UTF-8 byte
+    // offsets into `text`. Equal: nothing selected.
+    std::size_t caret = 0, anchor = 0;
+    std::size_t maxLength = 0; // in characters; typing and pasting stop there (decision 045). 0: no limit
     bool operator==(const Draft&) const = default;
 };
 
@@ -131,9 +135,17 @@ struct InputFocused {    // a TextInput was clicked, or an edit button (then `te
     std::string providerId, activityId, actionId;
     std::string text;      // the draft starts with this
     bool editing = false;  // a Text edited in place: Enter ends it
+    std::optional<std::size_t> caret; // where it was clicked (a byte offset into `text`); none: at the end
+    std::size_t maxLength = 0;        // the field's (TextInput::maxLength, Text::editMaxLength)
 };
-struct TextTyped { std::string text; };  // UTF-8, appended to the draft
-struct TextErased {};                    // Backspace: the last character
+// Editing the focused field (decision 043; text_edit.h).
+enum class CaretMove { Left, Right, WordLeft, WordRight, Start, End };
+struct TextTyped { std::string text; };  // UTF-8: replaces the selection, or goes in at the caret
+struct TextErased { bool forward = false, word = false; }; // Backspace / Delete; Ctrl: a word. The selection, if any
+struct CaretMoved { CaretMove move = CaretMove::Left; bool select = false; }; // arrows, Home, End; Shift selects
+struct CaretPlaced { std::size_t at = 0; bool select = false; };  // a click in the field, a drag (select): a byte offset
+struct WordSelected { std::size_t at = 0; };                       // a double-click
+struct AllSelected {};                                             // Ctrl+A, a triple-click
 struct InputSubmitted {};                // Enter: the app sent the text; the field empties and keeps focus
 struct InputCancelled {};                // Esc: stop typing, drop the draft
 struct DialogShown { Dialog dialog; };   // a provider asked (Host::ask)
@@ -145,6 +157,8 @@ struct ListRevealed { std::string activityId, list; std::size_t row = 0; }; // H
 struct ListDragStarted { std::string activityId, list; std::size_t row = 0; float y = 0; };
 struct ListDragMoved { float y = 0; };
 struct ListDragEnded {};                 // dropped (the app sends the move first) or cancelled
+struct StayOpenToggled {};               // Expanded's pin, at the tab row's right end (decision 046)
+struct TabRowPlaced { bool top = true; }; // Settings' Tab row: along the card's top or bottom (decision 048)
 // Local wall time at `now`, from the platform (the idle clock).
 struct ClockSynced {
     Ms timeOfDay;
@@ -158,9 +172,10 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            BubbleDragged, BubbleReleased, BubbleDragCancelled,
                            IslandPressed, IslandDragged, IslandReleased, ScreenResized, SpotRestored,
                            PanelPublished, PanelRemoved, HomeOpened, TileClicked, ClockSynced,
-                           InputFocused, TextTyped, TextErased, InputSubmitted, InputCancelled,
+                           InputFocused, TextTyped, TextErased, CaretMoved, CaretPlaced, WordSelected, AllSelected,
+                           InputSubmitted, InputCancelled,
                            DialogShown, DialogClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,
-                           ListDragEnded>;
+                           ListDragEnded, StayOpenToggled, TabRowPlaced>;
 
 // --- State --------------------------------------------------------------
 struct WallClock {
@@ -192,6 +207,11 @@ struct IslandState {
     std::optional<Dialog> dialog;      // a question over the shown card (decision 020)
     std::map<std::string, ListScroll> scrolls; // lists' scroll, by "<activityId>/<list>" (decision 029)
     std::optional<ListDrag> listDrag;  // a list row being dragged
+    // Pinned open (decision 046): Expanded doesn't time out, and a click
+    // outside the island or on a card's empty space doesn't close it. Esc
+    // and the card going away still do; closing unpins it.
+    bool stayOpen = false;
+    bool tabsOnTop = true; // the tab row along the card's top (decision 047), or its bottom: the user's pick (decision 048)
     std::uint64_t nextStartOrder = 1;
 };
 

@@ -1,5 +1,6 @@
 #include "providers/pomodoro/todo_list.h"
 
+#include "core/text_edit.h"
 #include "core/tokens.h"
 
 #include <algorithm>
@@ -12,7 +13,8 @@ namespace {
 
 namespace act = todo_action;
 
-constexpr std::size_t kMaxLength = 200; // a to-do, not an essay: the card shows one line
+// A to-do, not an essay: at most todoMaxLength characters (decision 045), never half of one.
+std::string capped(const std::string& s) { return truncateChars(s, tokens().todoMaxLength); }
 
 std::string trim(const std::string& s)
 {
@@ -31,7 +33,7 @@ bool TodoList::add(const std::string& text)
     for (std::string line; std::getline(lines, line);) {
         line = trim(line);
         if (line.empty()) continue;
-        if (line.size() > kMaxLength) line.resize(kMaxLength);
+        line = capped(line);
         items_.push_back({ nextId_++, line, false });
         added = true;
     }
@@ -66,7 +68,7 @@ bool TodoList::rename(std::uint64_t id, const std::string& text)
     std::string first;
     for (std::string line; first.empty() && std::getline(lines, line);) first = trim(line);
     if (first.empty()) return false;
-    if (first.size() > kMaxLength) first.resize(kMaxLength);
+    first = capped(first);
     for (Todo& t : items_) {
         if (t.id != id || t.text == first) continue;
         t.text = first;
@@ -140,7 +142,7 @@ TodoList TodoList::load(const std::string& saved)
         if (done || line.rfind("[ ] ", 0) == 0) line = line.substr(4);
         line = trim(line);
         if (line.empty()) continue;
-        if (line.size() > kMaxLength) line.resize(kMaxLength);
+        line = capped(line);
         list.items_.push_back({ list.nextId_++, line, done });
     }
     list.group(); // a list saved before grouping
@@ -163,15 +165,15 @@ Dialog clearQuestion(const std::string& actionId, const TodoList& list, const st
 void appendTodoRows(Slot& slot, const TodoList& list)
 {
     const auto& items = list.items();
-    slot.push_back(row({ TextInput{ .actionId = act::kAdd, .placeholder = "Add a to-do…" } }));
+    slot.push_back(row({ TextInput{ .actionId = act::kAdd, .placeholder = "Add a to-do…", .maxLength = tokens().todoMaxLength } }));
 
     for (const Todo& t : items) {
         std::string id = std::to_string(t.id);
         Button box{ .glyph = t.done ? Glyph::Checked : Glyph::Unchecked, .actionId = act::kToggle + id, .compact = true };
-        Text text{ .value = t.text, .style = t.done ? TextStyle::Caption : TextStyle::Body, .struck = t.done, .editAction = act::kEdit + id };
-        Button edit{ .glyph = Glyph::Edit, .actionId = act::kEdit + id, .compact = true, .revealOnHover = true, .editsText = true };
+        Text text{ .value = t.text, .style = t.done ? TextStyle::Caption : TextStyle::Body, .struck = t.done, .editAction = act::kEdit + id,
+                   .editMaxLength = tokens().todoMaxLength, .wrap = true }; // long ones wrap (decision 045)
         Button remove{ .glyph = Glyph::Delete, .actionId = act::kDelete + id, .compact = true, .revealOnHover = true };
-        slot.push_back(Row{ .items = { box, text }, .trailing = { edit, remove }, .clickAnywhere = true, .list = act::kList,
+        slot.push_back(Row{ .items = { box, text }, .trailing = { remove }, .list = act::kList,
                             .moveAction = act::kMove + id, .sortGroup = t.done ? 1 : 0, .id = "todo-" + id, .listItem = true });
     }
 

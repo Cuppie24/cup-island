@@ -87,7 +87,12 @@ Footprint footprintOf(Mode mode)
     return { modeSize(mode).x, mode == Mode::Split ? splitGap() + t.bubbleSize : 0 };
 }
 
-Placement placementOf(const IslandState& s, Mode mode) { return placeAt(s.spot, footprintOf(mode), screenWidthOf(s)); }
+Placement placementOf(const IslandState& s, Mode mode, std::optional<float> width)
+{
+    Footprint footprint = footprintOf(mode);
+    if (width) footprint.pillWidth = *width;
+    return placeAt(s.spot, footprint, screenWidthOf(s));
+}
 
 float liftedCentre(const IslandState& s)
 {

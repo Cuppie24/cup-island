@@ -28,7 +28,10 @@ bool isLifted(const IslandState& s);
 float screenWidthOf(const IslandState& s); // the canvas width until the platform says
 Vec2 modeSize(Mode mode);                  // the pill's size per mode, before content (a tall card) grows it
 Footprint footprintOf(Mode mode);          // the shapes side by side at rest: Split adds the bubble
-Placement placementOf(const IslandState& s, Mode mode); // at rest, from s.spot
+// At rest, from s.spot. `width`: the pill's when it isn't the mode's
+// (a Centred card is wider than Expanded, decision 043), so it still
+// widens to both sides from its centre.
+Placement placementOf(const IslandState& s, Mode mode, std::optional<float> width = std::nullopt);
 float liftedCentre(const IslandState& s);  // lifted: the pill's centre x, on the screen
 
 } // namespace cup

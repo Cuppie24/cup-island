@@ -1,8 +1,9 @@
 #pragma once
 // Expanded's tabs (decision 007): with several activities, one tab each
-// (icon or art and a short title) along the bottom of the card, built from
+// (icon or art and a short title) along the top of the card (decision 047), built from
 // the compact presentation providers already give, so they need no extra
-// work. With panels, a square Home button sits apart at the left (decision 009).
+// work. With panels, a square Home button sits apart at the left (decision 009);
+// the pin mirrors it at the right (decision 046).
 
 #include "core/layout.h"
 
@@ -11,7 +12,7 @@
 
 namespace cup {
 
-// How much taller the Expanded card gets for its tab strip (strip + gap below), 0 without tabs.
+// How much taller the Expanded card gets for its tab strip (strip + gap under it, decision 047), 0 without tabs.
 float tabStripSpace(const IslandState& state);
 
 // The strip, with each tab's content appended to `elements` (pill coordinates).

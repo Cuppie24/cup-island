@@ -3,6 +3,7 @@
 #include "core/tokens.h"
 
 #include <algorithm>
+#include <sstream>
 
 namespace cup {
 namespace {
@@ -48,6 +49,9 @@ void SettingsProvider::start(Host& host)
     host_ = &host;
     note_ = LogsNote::Ready;
     page_ = SettingsPage::List;
+    visible_ = false;
+    seeing_.clear();
+    loadSeen(); // first: a first run is told by nothing saved yet, and the lines below save
     // Start with Windows is on until the user turns it off (decision 030):
     // set once, the first time, so a later "off" (here or in Task Manager) sticks.
     if (hooks_.setStartsWithWindows && trimmed(host_->load(kAutostartKey)).empty()) {
@@ -63,7 +67,47 @@ void SettingsProvider::start(Host& host)
     displays_ = hooks_.listDisplays ? hooks_.listDisplays() : std::vector<DisplayChoice>{};
     wantedDisplay_ = trimmed(host_->load(kDisplayKey));
     placeIsland();
+    tabsOnTop_ = trimmed(host_->load(kTabRowKey)) != "bottom";
+    if (hooks_.placeTabRow) hooks_.placeTabRow(tabsOnTop_);
     pick(known(trimmed(host_->load(kThemeKey))));
+}
+
+void SettingsProvider::loadSeen()
+{
+    seen_.clear();
+    std::istringstream lines(host_->load(kSeenKey));
+    std::string line;
+    if (std::getline(lines, line) && trimmed(line) == "seen1") {
+        while (std::getline(lines, line))
+            if (!trimmed(line).empty()) seen_.insert(trimmed(line));
+        return;
+    }
+    // Nothing saved by this or an older version: a fresh install, where every
+    // setting is as new as the rest (none tagged), or an update from before
+    // tags existed, which kept other settings (all announced ones are new).
+    bool fresh = true;
+    for (const char* key : { kAutostartKey, kThemeKey, kDisplayKey, kShortcutsKey, kTabRowKey })
+        if (!trimmed(host_->load(key)).empty()) fresh = false;
+    if (!fresh) return;
+    for (const SettingItem& s : hooks_.announced) seen_.insert(s.id);
+    std::string saved = "seen1\n";
+    for (const std::string& id : seen_) saved += id + "\n";
+    host_->save(kSeenKey, saved);
+}
+
+void SettingsProvider::placeTabRow(bool top)
+{
+    tabsOnTop_ = top;
+    host_->save(kTabRowKey, top ? "top" : "bottom");
+    if (hooks_.placeTabRow) hooks_.placeTabRow(top);
+    publish();
+}
+
+void SettingsProvider::onCardShown(const std::string& activityId)
+{
+    if (!host_ || activityId != kPanelId) return;
+    visible_ = true;
+    publish(); // counts what's on it as being seen
 }
 
 void SettingsProvider::stop()
@@ -85,6 +129,12 @@ void SettingsProvider::onAction(const Action& action)
     else if (id == settings_action::kOpenShortcuts) {
         page_ = SettingsPage::Shortcuts;
         publish();
+    }
+    else if (id == settings_action::kOpenTabRow) {
+        page_ = SettingsPage::TabRow;
+        publish();
+    } else if (auto at = choiceIndex(id, settings_action::kPickTabRow)) {
+        if (*at <= 1) placeTabRow(*at == 0); // the page stays: the card behind it shows where the row went
     }
     else if (id == settings_action::kBack) {
         stopRecording();
@@ -215,10 +265,21 @@ void SettingsProvider::stopRecording()
 void SettingsProvider::onCardClosed(const std::string& activityId)
 {
     if (!host_ || activityId != kPanelId) return;
+    visible_ = false;
+    // What was shown this visit is seen now: next time it's not "New"
+    // (decision 048). What wasn't shown (a page not opened) still is.
+    bool newlySeen = false;
+    for (const std::string& id : seeing_) newlySeen = seen_.insert(id).second || newlySeen;
+    seeing_.clear();
+    if (newlySeen) {
+        std::string saved = "seen1\n";
+        for (const std::string& id : seen_) saved += id + "\n";
+        host_->save(kSeenKey, saved);
+    }
     bool noted = updateNote_.found.has_value();
     if (!updateNote_.checking) updateNote_ = {}; // reopened: "Check for updates" says nothing until clicked again
     if (page_ == SettingsPage::List && !recording_) {
-        if (noted) publish();
+        if (noted || newlySeen) publish();
         return;
     }
     stopRecording();
@@ -266,7 +327,9 @@ void SettingsProvider::placeIsland()
 SettingsView SettingsProvider::view() const
 {
     SettingsView v{ .page = page_, .theme = theme_, .note = note_, .shortcuts = shortcuts_, .recording = recording_,
-                    .shortcutNote = shortcutNote_, .version = hooks_.version };
+                    .shortcutNote = shortcutNote_, .version = hooks_.version, .tabsOnTop = tabsOnTop_, .announced = hooks_.announced };
+    for (const SettingItem& s : hooks_.announced)
+        if (!seen_.count(s.id)) v.unseen.insert(s.id); // still "New" while being seen: until the card closes
     if (hooks_.checkForUpdates) v.update = updateNote_;
     v.offer = offer_;
     if (displays_.size() >= 2) { // one monitor: nothing to choose
@@ -287,6 +350,12 @@ void SettingsProvider::pick(const std::string& theme)
     publish();
 }
 
-void SettingsProvider::publish() { host_->publishPanel(settingsPanel(view())); }
+void SettingsProvider::publish()
+{
+    Panel panel = settingsPanel(view());
+    if (visible_) // on screen: what it shows of the announced settings is being seen
+        for (const std::string& id : shownSettings(panel, hooks_.announced)) seeing_.insert(id);
+    host_->publishPanel(std::move(panel));
+}
 
 } // namespace cup

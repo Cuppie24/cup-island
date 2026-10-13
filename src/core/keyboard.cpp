@@ -58,7 +58,15 @@ std::vector<Focusable> focusables(const Scene& scene)
             if (scene.tabs->active == i) continue; // shown already: nothing to switch to
             found.push_back({ "tab:" + tab.id, tab.frame, centre(tab.hitFrame), std::nullopt, tab.id, scene.tabs->radius });
         }
+    if (scene.tabs && scene.tabs->pin) { // the pin (decision 046): Enter or Space toggles it, like a click
+        const Tab& pin = *scene.tabs->pin;
+        found.push_back({ "tab:" + pin.id, pin.frame, centre(pin.hitFrame), std::nullopt, pin.id, scene.tabs->radius });
+    }
+    // Reading order, but the tab row last: it sits on top (decision 047), and the
+    // keys start in the card, where the first press lands on its first row.
     std::stable_sort(found.begin(), found.end(), [](const Focusable& a, const Focusable& b) {
+        bool at = a.id.rfind("tab:", 0) == 0, bt = b.id.rfind("tab:", 0) == 0;
+        if (at != bt) return bt;
         float ay = centre(a.frame).y, by = centre(b.frame).y;
         if (std::abs(ay - by) > 1) return ay < by;
         return a.frame.x < b.frame.x;

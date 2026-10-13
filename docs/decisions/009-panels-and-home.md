@@ -31,7 +31,7 @@ nothing could be started from the island. The idle pill also showed nothing.
   doesn't close it, unlike a card: Home is where things are started from,
   and a stray click between tiles shouldn't throw the user out. It closes
   like the rest of Expanded: outside click, Esc, idle timeout.
-- **Tabs below, Home apart.** The tab strip (decision 007) runs along the
+- **Tabs below, Home apart** (now on top, decision 047). The tab strip (decision 007) runs along the
   bottom of the card, under its content: the card's content keeps its
   place whether or not the strip is there. With panels, Home is an
   icon-only button (`homeButtonWidth`) on its own at the strip's left edge;

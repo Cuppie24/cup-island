@@ -17,7 +17,8 @@ using Ms = std::chrono::milliseconds;
 
 // Built-in icons; the renderer maps them to font glyphs.
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
-                   Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre };
+                   Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre,
+                   Minus, Plus, Pin, Pinned };
 
 // Display: a big number, the card's centre (a timer). Heading: a group's name over its rows (Settings'
 // "Dark" and "Light"): small, but heavy and full-strength, so it reads as a divider (decision 037).
@@ -63,10 +64,17 @@ struct Text {
     bool marquee = false;  // too long: scrolls ("swims") in a loop instead of ending in "…"
     bool centred = false;  // centred in its frame (wins over alignEnd)
     bool struck = false;   // struck through: a solved to-do
-    // Editable in place (decision 029): a Button with `editsText` and this
-    // actionId turns it into a field holding its text; Enter sends the
-    // provider Action{editAction, text}, Esc leaves it as it was.
+    // Editable in place (decisions 029, 043): a click on it, or a Button with
+    // `editsText` and this actionId, turns it into a field holding its text;
+    // Enter sends the provider Action{editAction, text}, Esc leaves it as it was.
     std::string editAction;
+    std::size_t editMaxLength = 0; // ...and edited, at most this many characters (decision 045). 0: no limit
+    // Wraps onto as many lines as it needs instead of ending in "…" (a
+    // to-do, decision 045). The only stretching item in its row.
+    bool wrap = false;
+    // Host-filled: `value` with the spaces where its lines break turned into
+    // '\n' (same length, so offsets hold). Empty: one line.
+    std::string wrapped;
     bool operator==(const Text&) const = default;
 };
 struct Image {
@@ -89,15 +97,22 @@ struct Button {
     bool operator==(const Button&) const = default;
 };
 
-// A one-line text field the host draws and edits (decision 016). Clicking it
-// focuses it; typing goes to IslandState::draft. Enter sends the text to the
-// provider as Action{actionId, text}; a paste sends the clipboard's text the
-// same way (the provider splits lines). Stretches across its row.
+// A one-line text field the host draws and edits (decisions 016, 043).
+// Clicking it focuses it; typing goes to IslandState::draft, with a caret and
+// a selection. Enter sends the text to the provider as Action{actionId, text};
+// a paste of several lines sends them the same way (the provider splits
+// them). Stretches across its row.
 struct TextInput {
     std::string actionId;
     std::string placeholder; // shown dim while empty
-    std::string value;       // host-filled from the draft: providers leave it empty
-    bool focused = false;    // host-filled
+    // Host-filled from the draft: providers leave these.
+    std::string value;
+    bool focused = false;
+    std::size_t caret = 0, anchor = 0; // byte offsets into `value`; equal: nothing selected
+    bool inPlace = false;    // a Text being edited (Text::editAction): drawn like it, so it doesn't jump
+    std::string wrapped;     // ...a wrapping one (Text::wrap): `value` broken into lines, like Text::wrapped
+    // Set by the provider: at most this many characters (decision 045). 0: no limit.
+    std::size_t maxLength = 0;
     bool operator==(const TextInput&) const = default;
 };
 // A bar stretches across its row. A ring is a square: alone in its row it
@@ -140,7 +155,14 @@ struct Swatch {
     bool operator==(const Swatch&) const = default;
 };
 
-using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch>;
+// A short label in a filled pill beside a row's name: "New" on a setting
+// not seen yet (decision 048). As wide as its text.
+struct Tag {
+    std::string text;
+    bool operator==(const Tag&) const = default;
+};
+
+using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch, Tag>;
 
 enum class Align { Start, Center, End };
 
@@ -170,7 +192,7 @@ struct Row {
     std::vector<Item> trailing;
     RowSpan span = RowSpan::Slot;
     // The row's button takes clicks anywhere on the row, not just on itself:
-    // a list item, where clicking a to-do's text ticks it.
+    // a row of Settings. (A to-do's text edits it instead, decision 043.)
     bool clickAnywhere = false;
     // A list (decision 029): rows with the same `list`, back to back, scroll
     // together in a window listVisibleRows rows tall; the host scrolls it
@@ -189,7 +211,8 @@ struct Row {
     std::string id;
     // A list item (a to-do): listItemPadding above and below, so items stand
     // apart, its content inset by listItemInset, and a faint background across
-    // the whole row under the pointer.
+    // the whole row under the pointer. Its first and last items' click areas
+    // reach the row's edges (a to-do's checkbox: easy to hit, decision 043).
     bool listItem = false;
     // Starts a group (a Heading under other rows): sectionGap of space above
     // it, so groups stand apart (decision 037).

@@ -28,6 +28,7 @@
 #include "core/layout.h"
 #include "core/placement.h"
 #include "core/tabs.h"
+#include "core/text_edit.h"
 #include "core/tokens.h"
 #include "platform/file_watcher.h"
 #include "platform/hotkeys.h"
@@ -63,6 +64,7 @@
 #include <map>
 #include <memory>
 #include <sstream>
+#include <vector>
 #include <string>
 #include <thread>
 #include <utility>
@@ -112,6 +114,11 @@ struct Pointer {
     std::optional<Vec2> islandPress; // mouse-down on the pill that may lift it (decision 026): where it went down
     std::optional<Placed> listPress; // mouse-down on a list row that can be dragged (decision 029)
     float listPressY = 0;            // ...where, pill coordinates: dragged dragStartDistance, it's picked up
+    Vec2 textPress;                  // a press on an editable Text: where, so editing starts with the caret there
+    std::string selecting;           // a press in the focused field: dragging selects (decision 043)
+    Ms lastClickAt{};                // ...the presses before it, for double- and triple-clicks
+    Vec2 lastClickPoint;
+    int clicks = 0;
 } g_pointer;
 
 // Pointer callbacks get render-layer points; content works in pill coordinates.
@@ -217,6 +224,10 @@ void updateHover()
         if (auto hit = hitTest(g_scene, *at)) key = hit->key;
     }
     g_renderer.setHovered(key);
+    // A text field shows the I-beam (decision 043): the add field, and a to-do only while it's
+    // being edited (then it's a field); a field being drag-selected keeps it, even off it.
+    const Placed* under = key.empty() ? nullptr : findElement(key);
+    setTextCursor(!g_pointer.selecting.empty() || (under && std::holds_alternative<TextInput>(under->item)));
     g_renderer.setHoveredRow(at ? rowUnder(*at) : std::string()); // reveals a to-do's delete button
 
     // Tabs light up as a whole, except the active one, which is already marked (decision 007).
@@ -287,7 +298,11 @@ void dispatch(const Event& event, const char* reason)
     // Last: Settings republishes, which dispatches again.
     if (g_state.hidden != wasHidden && g_settings) g_settings->setHotkeysActive(!g_state.hidden);
     // A card went: its provider may reset it (Settings opens at its list again).
-    if (wasCard && shownCard(g_state) != wasCard && g_providers) g_providers->cardClosed(*wasCard);
+    // ...and one came: what's on it is seen now (Settings' "New" tags, decision 048).
+    std::optional<ShownCard> nowCard = shownCard(g_state);
+    if (nowCard == wasCard || !g_providers) return;
+    if (wasCard) g_providers->cardClosed(*wasCard);
+    if (nowCard) g_providers->cardShown(*nowCard);
 }
 
 void toggleProvider(const char* id)
@@ -347,8 +362,40 @@ bool startEditing(const Placed& element)
     const Text* text = editedText(g_scene, element.activityId, button->actionId);
     if (!text) return true; // nothing to edit on screen: the click does nothing
     SetFocus(g_inputHwnd);
-    dispatch(InputFocused{ element.providerId, element.activityId, button->actionId, text->value, /* editing */ true }, "edit");
+    dispatch(InputFocused{ element.providerId, element.activityId, button->actionId, text->value, /* editing */ true, std::nullopt,
+                           text->editMaxLength }, "edit");
     return true;
+}
+
+// The text being edited in place is kept when the user moves on (a click
+// elsewhere, another field, the card closing), like any text box; only Esc drops it.
+void finishEditing(const char* reason)
+{
+    if (!g_state.draft || !g_state.draft->editing) return;
+    const Draft& d = *g_state.draft;
+    g_providers->route({ d.providerId, d.activityId, d.actionId, 0, d.text });
+    dispatch(InputSubmitted{}, reason);
+}
+
+// A press in a field (decision 043): focuses it with the caret where it was
+// pressed; again, the second press selects a word, the third everything.
+// Dragging from there selects (onPointerMoved).
+void pressField(const Placed& field, Vec2 canvasPoint, Vec2 point)
+{
+    const auto& input = std::get<TextInput>(field.item);
+    Ms t = now();
+    bool sameSpot = std::abs(canvasPoint.x - g_pointer.lastClickPoint.x) <= GetSystemMetrics(SM_CXDOUBLECLK) / 2 &&
+                std::abs(canvasPoint.y - g_pointer.lastClickPoint.y) <= GetSystemMetrics(SM_CYDOUBLECLK) / 2;
+    g_pointer.clicks = input.focused && sameSpot && t - g_pointer.lastClickAt <= Ms{ GetDoubleClickTime() } ? g_pointer.clicks % 3 + 1 : 1;
+    g_pointer.lastClickAt = t;
+    g_pointer.lastClickPoint = canvasPoint;
+    g_pointer.selecting = field.key;
+    std::size_t at = g_renderer.caretAt(field, point);
+    SetFocus(g_inputHwnd);
+    if (!input.focused) dispatch(InputFocused{ field.providerId, field.activityId, input.actionId, {}, false, at, input.maxLength }, "focus field");
+    else if (g_pointer.clicks == 2) dispatch(WordSelected{ at }, "select word");
+    else if (g_pointer.clicks == 3) dispatch(AllSelected{}, "select all");
+    else dispatch(CaretPlaced{ at, GetKeyState(VK_SHIFT) < 0 }, "place caret");
 }
 
 // A list row let go after a drag: the drag ends first (the row glides back),
@@ -387,6 +434,16 @@ void onPressDown(Vec2 canvasPoint)
     }
     auto hit = hitTest(g_scene, point);
     const Placed* element = hit ? findElement(hit->key) : nullptr;
+    auto* field = element ? std::get_if<TextInput>(&element->item) : nullptr;
+    if (g_state.draft && g_state.draft->editing && !(field && field->focused)) {
+        finishEditing("edit kept"); // pressed away from the text being edited
+        hit = hitTest(g_scene, point); // the list may have changed under it
+        element = hit ? findElement(hit->key) : nullptr;
+    }
+    if (element && std::holds_alternative<TextInput>(element->item)) {
+        pressField(*element, canvasPoint, point);
+        return;
+    }
     if (const Tile* tile = element ? nullptr : tileAt(g_scene, point)) {
         // Opens its card on release, if still on the same tile. A widget with no
         // card takes the click too, so it doesn't fall through and close Home.
@@ -399,9 +456,10 @@ void onPressDown(Vec2 canvasPoint)
         g_renderer.scrubElement(hit->key, g_pointer.scrubFraction);
     } else if (element) {
         g_pointer.pressedKey = hit->key;
+        g_pointer.textPress = point;
         g_renderer.pressElement(hit->key);
         // A row that can be reordered: dragged far enough, it's picked up instead of clicked.
-        if (element->list && !element->list->moveAction.empty() && !std::holds_alternative<TextInput>(element->item)) {
+        if (element->list && !element->list->moveAction.empty()) {
             g_pointer.listPress = *element;
             g_pointer.listPressY = point.y;
         }
@@ -430,6 +488,11 @@ void onPointerMoved(Vec2 canvasPoint, bool inside)
     }
     Vec2 point = toPill(canvasPoint);
     g_pointer.at = inside && onPill(canvasPoint) ? std::optional<Vec2>(point) : std::nullopt;
+    if (const Placed* field = g_pointer.selecting.empty() || !g_state.draft ? nullptr : findElement(g_pointer.selecting)) {
+        std::size_t at = g_renderer.caretAt(*field, point); // off either end: its first or last character
+        if (at != g_state.draft->caret) dispatch(CaretPlaced{ at, true }, "select");
+        return;
+    }
     if (g_pointer.listPress) {
         const Placed& row = *g_pointer.listPress;
         if (!g_state.listDrag && std::abs(point.y - g_pointer.listPressY) >= tokens().dragStartDistance) {
@@ -449,7 +512,11 @@ void onPointerMoved(Vec2 canvasPoint, bool inside)
 }
 
 // What a click does, by what it's on. The pointer's release and the keyboard's Enter share them.
-void clickTab(const std::string& id) { dispatch(id.empty() ? Event{ HomeOpened{} } : Event{ ActivitySwitched{ id } }, "tab"); }
+void clickTab(const std::string& id)
+{
+    if (id == kPinTab) dispatch(StayOpenToggled{}, g_state.stayOpen ? "unpin" : "pin"); // decision 046
+    else dispatch(id.empty() ? Event{ HomeOpened{} } : Event{ ActivitySwitched{ id } }, "tab");
+}
 
 void clickTile(const Tile& tile)
 {
@@ -461,13 +528,22 @@ void clickTile(const Tile& tile)
     }
 }
 
-void clickElement(const Hit& hit)
+// `at`: where a click was (pill coordinates); none for Enter or Space.
+void clickElement(const Hit& hit, std::optional<Vec2> at = std::nullopt)
 {
     const Placed* element = findElement(hit.key);
-    if (element && std::holds_alternative<TextInput>(element->item)) {
+    auto* text = element ? std::get_if<Text>(&element->item) : nullptr;
+    if (text && !text->editAction.empty()) {
+        // Its text: edit it in place, the caret where it was clicked, else at its end (decision 043).
+        std::optional<std::size_t> caret;
+        if (at) caret = g_renderer.caretAt(*element, *at);
+        SetFocus(g_inputHwnd);
+        dispatch(InputFocused{ element->providerId, element->activityId, text->editAction, text->value, true, caret, text->editMaxLength }, "edit");
+    } else if (element && std::holds_alternative<TextInput>(element->item)) {
         // A field: focus it for typing (decision 016); nothing is sent until Enter.
         SetFocus(g_inputHwnd);
-        dispatch(InputFocused{ hit.action.providerId, hit.action.activityId, hit.action.actionId }, "focus field");
+        dispatch(InputFocused{ hit.action.providerId, hit.action.activityId, hit.action.actionId, {}, false, std::nullopt,
+                               std::get<TextInput>(element->item).maxLength }, "focus field");
     } else if (!element || !startEditing(*element)) {
         act(hit.action);
     }
@@ -480,6 +556,10 @@ void onPressRelease(Vec2 canvasPoint, Release how)
         bool lifted = g_state.lift.has_value();
         dispatch(IslandReleased{}, lifted ? "landed" : "release");
         if (lifted) return; // it was carried, not clicked; lost capture lands it too
+    }
+    if (!std::exchange(g_pointer.selecting, std::string{}).empty()) {
+        updateHover();
+        return; // the caret and selection are where the drag left them
     }
     if (g_pointer.tabPress) {
         std::string id = *std::exchange(g_pointer.tabPress, std::nullopt);
@@ -519,7 +599,7 @@ void onPressRelease(Vec2 canvasPoint, Release how)
         g_renderer.releaseElement(key);
         // Only a release on the same button counts: sliding off cancels, like any button.
         auto hit = how == Release::Inside && onPill(canvasPoint) ? hitTest(g_scene, point) : std::nullopt;
-        if (hit && hit->key == key) clickElement(*hit);
+        if (hit && hit->key == key) clickElement(*hit, g_pointer.textPress);
         return;
     }
     g_renderer.pressRelease(false);
@@ -534,8 +614,29 @@ void sendDraft(const std::string& text)
     if (!text.empty()) g_providers->route({ d.providerId, d.activityId, d.actionId, 0, text });
 }
 
+// Ctrl+V (decision 043): one line goes in at the caret, like any text box.
+// Several lines in the add field are sent at once, a to-do each (decision
+// 016); edited in place, a to-do takes the first of them.
+void paste()
+{
+    std::string clip = readClipboardText(g_inputHwnd);
+    std::vector<std::string> lines;
+    std::istringstream in(clip);
+    for (std::string line; std::getline(in, line);) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.find_first_not_of(" \t") != std::string::npos) lines.push_back(line);
+    }
+    if (lines.size() > 1 && !g_state.draft->editing) {
+        sendDraft(clip);
+        dispatch(PointerMoved{}, "paste lines"); // busy: keep the card open
+    } else if (!lines.empty()) {
+        dispatch(TextTyped{ lines.front() }, "paste");
+    }
+}
+
 // Typed text, for the focused field (decision 016). Enter sends, Backspace
-// erases, Ctrl+V pastes; other control characters are ignored.
+// erases (Ctrl: a word), Ctrl+A/C/X/V select all, copy, cut and paste
+// (decision 043); other control characters are ignored.
 void onChar(wchar_t c)
 {
     static wchar_t highSurrogate = 0; // the first half of a character outside the BMP (emoji)
@@ -543,11 +644,16 @@ void onChar(wchar_t c)
     if (c == L'\r') {
         sendDraft(g_state.draft->text);
         dispatch(InputSubmitted{}, "enter");
-    } else if (c == L'\b') {
-        dispatch(TextErased{}, "backspace");
+    } else if (c == L'\b' || c == 0x7F) { // 0x7F: Ctrl+Backspace
+        dispatch(TextErased{ false, c == 0x7F }, "backspace");
+    } else if (c == 0x01) { // Ctrl+A
+        dispatch(AllSelected{}, "select all");
+    } else if (c == 0x03 || c == 0x18) { // Ctrl+C, Ctrl+X
+        std::string selected = selectedText(*g_state.draft);
+        if (selected.empty() || !writeClipboardText(g_inputHwnd, selected)) return;
+        if (c == 0x18) dispatch(TextErased{}, "cut");
     } else if (c == 0x16) { // Ctrl+V
-        sendDraft(readClipboardText(g_inputHwnd));
-        dispatch(PointerMoved{}, "paste"); // busy: keep the card open
+        paste();
     } else if (c >= 0xD800 && c <= 0xDBFF) {
         highSurrogate = c;
     } else if (c >= 0x20) {
@@ -574,10 +680,29 @@ void onKey(WPARAM key)
     // A focused field gets the keys (onChar): no demo keys while typing. Esc
     // stops typing; a second Esc closes the card.
     if (g_state.draft) {
-        if (key == VK_ESCAPE) dispatch(InputCancelled{}, "esc");
+        bool shift = GetKeyState(VK_SHIFT) < 0;
+        switch (key) {
+        case VK_ESCAPE: dispatch(InputCancelled{}, "esc"); break;
+        // Moving the caret (decision 043): Shift selects, Ctrl goes a word at a time.
+        case VK_LEFT: dispatch(CaretMoved{ ctrl ? CaretMove::WordLeft : CaretMove::Left, shift }, "caret"); break;
+        case VK_RIGHT: dispatch(CaretMoved{ ctrl ? CaretMove::WordRight : CaretMove::Right, shift }, "caret"); break;
+        case VK_HOME: dispatch(CaretMoved{ CaretMove::Start, shift }, "caret"); break;
+        case VK_END: dispatch(CaretMoved{ CaretMove::End, shift }, "caret"); break;
+        case VK_UP:
+        case VK_DOWN: { // a line up or down in wrapped text (decision 045); from the first or last line, its start or end
+            const Placed* field = nullptr;
+            for (const Placed& p : g_scene.elements)
+                if (auto* input = std::get_if<TextInput>(&p.item); input && input->focused) field = &p;
+            auto at = field ? g_renderer.caretOnLine(*field, key == VK_UP ? -1 : 1) : std::nullopt;
+            if (at) dispatch(CaretPlaced{ *at, shift }, "caret line");
+            else dispatch(CaretMoved{ key == VK_UP ? CaretMove::Start : CaretMove::End, shift }, "caret");
+            break;
+        }
+        case VK_DELETE: dispatch(TextErased{ true, ctrl }, "delete"); break;
+        }
         return;
     }
-    // Alt combinations (WM_SYSKEYDOWN) are only for recording a shortcut; Windows handles the rest (Alt+F4).
+    // Alt combinations (WM_SYSKEYDOWN) are only for recording a shortcut; Windows handles the rest (not Alt+F4: decision 049).
     if (alt) return;
     if (app::navigationKey(key)) return; // the arrows, Tab, Home/End, 1 to 9, Enter and Space (decisions 031, 033)
     switch (key) {
@@ -756,7 +881,10 @@ int main()
     InteractionCallbacks callbacks;
     callbacks.onPressDown = onPressDown;
     callbacks.onPressRelease = onPressRelease;
-    callbacks.onClickOutside = [] { dispatch(ClickedOutside{}, "click outside"); };
+    callbacks.onClickOutside = [] {
+        finishEditing("edit kept"); // the card closes: what was typed into a to-do stays
+        dispatch(ClickedOutside{}, "click outside");
+    };
     callbacks.onPointerMoved = onPointerMoved;
     callbacks.onPointerLeft = [] {
         g_pointer.at.reset();
@@ -822,6 +950,7 @@ int main()
             if (g_update) g_update->checkNow(std::move(reply)); // added just below; there by the first click
         },
         .installUpdate = [] { if (g_update) g_update->install(); }, // the same as Home's Update card (decision 037)
+        .placeTabRow = [](bool top) { dispatch(TabRowPlaced{ top }, top ? "tab row on top" : "tab row at the bottom"); }, // decision 048
     });
     g_settings = settings.get();
     g_settings->setHotkeysActive(!g_state.hidden); // started under a fullscreen app: none until it's gone

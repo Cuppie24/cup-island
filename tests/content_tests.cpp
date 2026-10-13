@@ -249,19 +249,23 @@ void runContentTests()
     expect(opened.size.y == t.expandedSize.y + t.tabHeight + t.slotGap, "the card grows by the strip");
     expect(opened.size.y <= t.canvas.y, "the taller card fits on the canvas");
     float groupLeft = strip.tabs.front().frame.x, groupRight = strip.tabs.back().frame.x + strip.tabs.back().frame.width;
-    expect(strip.tabs[0].frame.width == t.tabMaxWidth || groupRight - groupLeft == opened.size.x - 2 * t.expandedPadding,
+    float ends = t.homeButtonWidth + t.slotGap; // kept free at both ends: the pin at the right, Home's room at the left (decision 046)
+    expect(strip.tabs[0].frame.width == t.tabMaxWidth || std::abs(groupRight - groupLeft - (opened.size.x - 2 * t.expandedPadding - 2 * ends)) < 0.01f,
            "tabs use their full width unless they don't fit");
+    expect(strip.pin && strip.pin->frame.x + strip.pin->frame.width == opened.size.x - t.expandedPadding &&
+           strip.pin->frame.y == strip.tabs[0].frame.y && groupRight <= strip.pin->frame.x - t.slotGap, "the pin at the strip's right end");
     expect(groupLeft - 0 == opened.size.x - groupRight, "the group is centred");
-    expect(groupLeft >= t.expandedPadding && strip.tabs[0].frame.y + t.tabHeight == opened.size.y - t.expandedPadding,
-           "strip along the bottom, keeping the card's padding");
+    expect(groupLeft >= t.expandedPadding && strip.tabs[0].frame.y == t.expandedPadding,
+           "strip along the top, keeping the card's padding (decision 047)");
     expect(strip.radius == std::min(pillCornerRadius(opened.size) - t.expandedPadding, t.tabHeight / 2), "tab corners nested");
 
     IslandState two;
     two = reduce(two, ActivityStarted{ { .id = "a" } }, Ms{ 0 });
     two = reduce(two, ActivityStarted{ { .id = "b" } }, Ms{ 0 });
     Scene pair = layout(reduce(two, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    expect(pair.tabs && pair.tabs->tabs[0].frame.width == t.tabMaxWidth, "few tabs: full width");
-    expect(pair.tabs->tabs[0].frame.x == (pair.size.x - 2 * t.tabMaxWidth - t.tabGap) / 2, "few tabs: centred, not left-aligned");
+    float pairWidth = std::min(t.tabMaxWidth, (pair.size.x - 2 * t.expandedPadding - 2 * ends - t.tabGap) / 2);
+    expect(pair.tabs && pair.tabs->tabs[0].frame.width == pairWidth, "few tabs: as wide as there's room for, up to tabMaxWidth");
+    expect(std::abs(pair.tabs->tabs[0].frame.x - (pair.size.x - 2 * pairWidth - t.tabGap) / 2) < 0.01f, "few tabs: centred, not left-aligned");
 
     const Placed* artLead = find(opened, "tab/media/lead");
     const Placed* glyphLead = find(opened, "tab/timer/lead");
@@ -282,7 +286,7 @@ void runContentTests()
         if (p.key.rfind("tab/", 0) != 0)
             expect(p.frame.y + p.frame.height <= strip.tabs[0].frame.y - t.slotGap, "card content sits above the strip: " + p.key);
     // Icon and title centred in the tab as one group, the title as wide as the real text.
-    MeasureText fixed = [](const Text&) { return 40.0f; };
+    MeasureText fixed = [](const Text&) { return 20.0f; };
     Scene measured = layout(reduce(three, PillClicked{}, Ms{ 0 }), Ms{ 0 }, fixed);
     for (const Tab& tab : measured.tabs->tabs) {
         const Placed* lead = nullptr;
@@ -296,7 +300,7 @@ void runContentTests()
                                : label->frame.x;
         float groupRight = label->frame.x + label->frame.width;
         float tabCentre = tab.frame.x + tab.frame.width / 2;
-        expect(label && label->frame.width == 41, "title as wide as the measured text (+1 slack): " + tab.id);
+        expect(label && label->frame.width == 21, "title as wide as the measured text (+1 slack): " + tab.id);
         expect(std::abs((groupLeft + groupRight) / 2 - tabCentre) < 0.01f, "icon + title centred in the tab: " + tab.id);
     }
     MeasureText huge = [](const Text&) { return 1000.0f; };
@@ -311,10 +315,11 @@ void runContentTests()
     expect(!tabAt(strip, { 1, 1 }), "outside the strip: no tab");
     Scene mediaCard = layout(reduce(reduce(three, PillClicked{}, Ms{ 0 }), ActivitySwitched{ "media" }, Ms{ 0 }), Ms{ 0 });
     const Placed* mediaArt = find(mediaCard, "expandedLeading/0/0");
-    expect(mediaArt && mediaArt->frame.y == t.expandedPadding, "card content keeps its place at the top");
+    float stripSpace = t.tabHeight + t.slotGap;
+    expect(mediaArt && mediaArt->frame.y == t.expandedPadding + stripSpace, "card content starts under the strip");
     for (const auto& p : mediaCard.elements)
         if (p.key.rfind("tab/", 0) != 0)
-            expect(p.frame.y + p.frame.height <= mediaCard.tabs->tabs[0].frame.y - t.slotGap, "media card content above the strip: " + p.key);
+            expect(p.frame.y >= mediaCard.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap, "media card content under the strip: " + p.key);
     expect(mediaCard.tabs->tabs[0].id == "media" && mediaCard.tabs->active == 0u, "switching doesn't reorder tabs");
 
     // A full media card (progress + controls) with tabs: the bottom rows move up to clear the strip.
@@ -323,9 +328,10 @@ void runContentTests()
     busy = reduce(busy, ActivityStarted{ { .id = "demo.media", .content = media, .providerId = "demo" } }, Ms{ 0 });
     Scene busyCard = layout(reduce(busy, PillClicked{}, Ms{ 0 }), Ms{ 1000 });
     const Placed* busyPlay = find(busyCard, "expandedBottom/1/1");
-    expect(busyCard.tabs && busyPlay && busyPlay->frame.y + busyPlay->frame.height <= busyCard.tabs->tabs[0].frame.y - t.slotGap,
-           "controls sit above the tab strip");
-    expect(busyPlay && busyPlay->frame == play->frame, "and exactly where they are without tabs");
+    expect(busyCard.tabs && busyPlay && busyPlay->frame.y + busyPlay->frame.height <= busyCard.size.y - t.expandedPadding,
+           "controls keep the card's bottom padding");
+    expect(busyPlay && busyPlay->frame.x == play->frame.x && busyPlay->frame.y == play->frame.y + stripSpace,
+           "and exactly where they are without tabs, moved down under the strip");
 }
 
 } // namespace cup::test

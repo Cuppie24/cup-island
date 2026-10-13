@@ -51,8 +51,10 @@ void runHomeTests()
     // tile twice a narrow one, a row that isn't full stretches, centred vertically.
     IslandState s = withPanels({ panel("a"), panel("b", true), panel("c") });
     Scene home = layout(reduce(s, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    expect(home.mode == Mode::Expanded && home.size == t.expandedSize, "one row: Home keeps Expanded's card size");
-    expect(!home.tabs, "no tab strip with only Home");
+    float stripSpace = t.tabHeight + t.slotGap; // Home always has its tab strip: Home's button and the pin (decision 046)
+    expect(home.mode == Mode::Expanded && home.size.x == t.expandedSize.x && home.size.y == t.expandedSize.y + stripSpace,
+           "one row: Home keeps Expanded's card size, plus its strip");
+    expect(home.tabs && home.tabs->tabs.size() == 1 && home.tabs->pin, "only Home: its button, active, and the pin");
     expect(home.label == "Home" && home.activityId.empty(), "Home is no activity's card");
     float p = t.expandedPadding, gap = t.tileGap, unit = (home.size.x - 2 * p - 2 * gap) / 4;
     expect(home.tiles.size() == 3, "a b(wide) c: one full row");
@@ -62,7 +64,7 @@ void runHomeTests()
     expect(a.id == "a" && a.frame.x == p && std::abs(a.frame.width - unit) < 0.01f, "first: one share, one padding in");
     expect(std::abs(b.frame.x - (a.frame.x + a.frame.width + gap)) < 0.01f && std::abs(b.frame.width - 2 * unit) < 0.01f, "wide: two shares");
     expect(c.frame.y == a.frame.y && std::abs(c.frame.x + c.frame.width - (home.size.x - p)) < 0.01f, "the row reaches the far padding");
-    expect(std::abs(a.frame.y - p - (home.size.y - p - a.frame.y - a.frame.height)) < 0.01f, "centred vertically");
+    expect(std::abs(a.frame.y - stripSpace - p - (home.size.y - p - a.frame.y - a.frame.height)) < 0.01f, "centred vertically, under the strip");
 
     auto reachesEdge = [&](const Scene& scene, const Tile& last) { return std::abs(last.frame.x + last.frame.width - (scene.size.x - p)) < 0.01f; };
     IslandState pair = withPanels({ panel("m", true), panel("f", true), panel("x"), panel("y") });
@@ -85,7 +87,7 @@ void runHomeTests()
     for (int i = 0; i < 12; ++i) many = reduce(many, PanelPublished{ panel("p" + std::to_string(i)) }, Ms{ 0 });
     Scene full = layout(reduce(many, PillClicked{}, Ms{ 0 }), Ms{ 0 });
     expect(full.tiles.size() == 12, "every widget shows");
-    expect(full.size.y == 3 * (t.tileHeight + gap) - gap + 2 * p && full.size.y <= t.canvas.y, "the card grows to fit three rows");
+    expect(full.size.y == 3 * (t.tileHeight + gap) - gap + 2 * p + stripSpace && full.size.y <= t.canvas.y, "the card grows to fit three rows");
     for (const Tile& tile : full.tiles)
         expect(tile.frame.y + tile.frame.height <= full.size.y - p + 0.01f, "tile inside the card: " + tile.id);
 
@@ -118,9 +120,9 @@ void runHomeTests()
     expect(strip.tabs && strip.tabs->tabs.size() == 3 && strip.tabs->tabs[0].id.empty() && strip.tabs->active == 0,
            "Home button first and selected on Home");
     const Tab& homeButton = strip.tabs->tabs[0];
-    expect(homeButton.frame == Rect{ p, strip.size.y - p - t.tabHeight, t.homeButtonWidth, t.tabHeight }, "Home: a button at the bottom left");
-    expect(tabAt(*strip.tabs, { 1, strip.size.y - 1 }) == &homeButton, "its click area takes in the card's corner");
-    expect(tabAt(*strip.tabs, { p + t.homeButtonWidth + t.slotGap / 2 - 1, homeButton.frame.y - t.slotGap / 2 + 1 }) == &homeButton,
+    expect(homeButton.frame == Rect{ p, p, t.homeButtonWidth, t.tabHeight }, "Home: a button at the top left (decision 047)");
+    expect(tabAt(*strip.tabs, { 1, 1 }) == &homeButton, "its click area takes in the card's corner");
+    expect(tabAt(*strip.tabs, { p + t.homeButtonWidth + t.slotGap / 2 - 1, homeButton.frame.y + t.tabHeight + t.slotGap / 2 - 1 }) == &homeButton,
            "and half the gaps around it");
     expect(!tabAt(*strip.tabs, { p + t.homeButtonWidth + t.slotGap / 2 + 1, homeButton.frame.y + 2 }), "but no further");
     const Tab& first = strip.tabs->tabs[1];
@@ -128,9 +130,9 @@ void runHomeTests()
     expect(first.frame.x >= homeButton.frame.x + homeButton.frame.width + t.slotGap, "set apart from the activity tabs");
     expect(std::abs(first.frame.x - (strip.size.x - last.frame.x - last.frame.width)) < 0.01f, "activity tabs stay centred on the card");
     expect(first.frame.y == homeButton.frame.y, "one strip");
-    float lowest = 0;
-    for (const Tile& tile : strip.tiles) lowest = std::max(lowest, tile.frame.y + tile.frame.height);
-    expect(lowest + t.slotGap <= homeButton.frame.y, "tiles sit above the strip");
+    float highest = strip.size.y;
+    for (const Tile& tile : strip.tiles) highest = std::min(highest, tile.frame.y);
+    expect(highest >= homeButton.frame.y + t.tabHeight + t.slotGap, "tiles sit under the strip");
     const Placed* homeIcon = find(strip, "tab/home/lead");
     expect(homeIcon && std::get<Icon>(homeIcon->item).glyph == Glyph::Home && !find(strip, "tab/home/title"), "Home: icon only");
     expect(std::abs(homeIcon->frame.x + homeIcon->frame.width / 2 - (homeButton.frame.x + t.homeButtonWidth / 2)) < 0.01f, "icon centred");
@@ -142,7 +144,8 @@ void runHomeTests()
            "an activity's tab shows its card");
     Scene single = layout(reduce(reduce(s, ActivityStarted{ { .id = "solo" } }, Ms{ 0 }), PillClicked{}, Ms{ 0 }), Ms{ 0 });
     expect(single.tabs && single.tabs->tabs.size() == 2, "one activity plus panels: Home and its tab");
-    expect(!layout(reduce(s, PillClicked{}, Ms{ 0 }), Ms{ 0 }).tabs, "Home with nothing running: no strip");
+    Scene bare = layout(reduce(s, PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    expect(bare.tabs && bare.tabs->tabs.size() == 1 && bare.tabs->pin, "Home with nothing running: Home's button and the pin");
     Scene dormant = layout(reduce(reduce(s, PillClicked{}, Ms{ 0 }), TileClicked{ "a" }, Ms{ 0 }), Ms{ 0 });
     expect(dormant.tabs && dormant.tabs->tabs.size() == 1 && dormant.tabs->tabs[0].id.empty(),
            "a dormant card with nothing running: just the way back Home");

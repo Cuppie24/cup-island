@@ -3,6 +3,7 @@
 
 #include "core/tokens.h"
 #include "platform/element_painting.h"
+#include "platform/field_painting.h"
 
 #include <algorithm>
 #include <chrono>
@@ -34,8 +35,27 @@ float PillRenderer::measure(const Text& text)
     auto key = std::make_pair(text.value, text.style);
     auto it = measured_.find(key);
     if (it != measured_.end()) return it->second;
-    if (measured_.size() > 256) measured_.clear(); // titles change with every track: don't grow forever
+    // Titles change with every track: don't grow forever. Roomy, as wrapping
+    // to-dos measure each of their words (decision 045).
+    if (measured_.size() > 2048) measured_.clear();
     return measured_[key] = measureText(device_.dwrite(), text);
+}
+
+std::size_t PillRenderer::caretAt(const Placed& element, Vec2 point)
+{
+    if (!device_.dwrite()) return 0;
+    Vec2 size{ element.frame.width, element.frame.height };
+    Vec2 local{ point.x - element.frame.x, point.y - element.frame.y }; // drawn from the frame's corner, at its size (element_visuals paint)
+    if (auto* input = std::get_if<TextInput>(&element.item)) return platform::caretAt(device_.dwrite(), *input, size, local);
+    if (auto* text = std::get_if<Text>(&element.item)) return platform::caretAt(device_.dwrite(), *text, size, local);
+    return 0;
+}
+
+std::optional<std::size_t> PillRenderer::caretOnLine(const Placed& field, int direction)
+{
+    auto* input = std::get_if<TextInput>(&field.item);
+    if (!device_.dwrite() || !input) return std::nullopt;
+    return platform::caretOnLine(device_.dwrite(), *input, { field.frame.width, field.frame.height }, direction);
 }
 
 void PillRenderer::apply(const Scene& scene)
@@ -57,7 +77,9 @@ void PillRenderer::apply(const Scene& scene)
     std::vector<Rect> tabFrames;
     if (tabs)
         for (const auto& tab : tabs->tabs) tabFrames.push_back(tab.frame);
+    if (tabs && tabs->pin) tabFrames.push_back(tabs->pin->frame); // its faint background, like Home's button
     pill_.setTabs(tabFrames, tabs ? tabs->radius : 0);
+    pill_.setPinnedTab(tabs && tabs->pin && tabs->pinned ? std::optional<Rect>(tabs->pin->frame) : std::nullopt, tabs ? tabs->radius : 0);
     pill_.setSelectedTab(tabs && tabs->active ? std::optional<Rect>(tabs->tabs[*tabs->active].frame) : std::nullopt, tabs ? tabs->radius : 0);
     // Nothing left that lights up as an area: drop a stale hover. A list row's
     // stays: the app re-aims it after every scene, and clearing it here would

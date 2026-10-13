@@ -10,7 +10,7 @@
 namespace cup {
 
 // Lays out Home's tiles in the card's content area (`cardSize`: without the
-// tab strip below it): appends each tile's content to `elements` and returns
+// tab strip, laid out as if from the top, then moved under it): appends each tile's content to `elements` and returns
 // the tile frames. None is left out: the card grows to fit (homeCardHeight).
 std::vector<Tile> homeTilesFor(const IslandState& state, Vec2 cardSize, float tileRadius, Ms now,
                                std::vector<Placed>& elements);

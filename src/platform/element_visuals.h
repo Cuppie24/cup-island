@@ -49,7 +49,7 @@ private:
         bool scrubbing = false;
     };
 
-    View create(const Placed& placed, Ms now);
+    View create(const Placed& placed, Ms now, bool fade = true); // fade: fades in (not when a text turns into its field)
     bool update(View& view, const Placed& placed, Ms now); // true = rebuilt
     void paint(View& view);
     void animateBars(View& view);

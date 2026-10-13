@@ -111,6 +111,8 @@ What a provider keeps between runs goes through `Host::load/save` (decision
 028): text under its own keys, in its own format; never its own files.
 Lists (`Row::list`, decision 029) are scrolled, reordered and edited by the
 host; the provider publishes every row and gets the result as actions.
+Text fields are edited by the host like any text box, caret and selection in
+core (`core/text_edit`, decision 043).
 `providers/pomodoro/` is the reference panel.
 
 Providers decide *what* goes where (items, rows, order, alignment, which
