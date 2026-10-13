@@ -10,10 +10,11 @@ People want to reach Home from any app, with keys of their choosing.
 - **Commands are system-wide hotkeys** (`RegisterHotKey`, Windows 2000+,
   so fine for decision 015), registered on the interaction window, one id
   per command (`platform/hotkeys`). `MOD_NOREPEAT`: held down, one press.
-- **Open Home is Ctrl+X** by default. That's the user's pick, knowing the
-  cost: registered system-wide, Ctrl+X no longer cuts in any other app while
-  the island runs (Ctrl+Alt+Space was the first default, and is a fine
-  choice for whoever wants Cut back). Pressed again while Home is open, it
+- **Open Home is Ctrl+Q** by default. That's the user's pick, knowing the
+  cost: registered system-wide, Ctrl+Q no longer reaches any other app while
+  the island runs (it's Quit in some). Ctrl+Alt+Space was the first default,
+  then Ctrl+X, dropped because losing Cut everywhere hurt more; a Ctrl+X
+  already saved in Settings stays until changed there. Pressed again while Home is open, it
   closes it.
 - **Off while the island is hidden** (a borderless or exclusive fullscreen
   app, TR §9.2, or any other hiding): the shortcuts are unregistered, so a
@@ -39,7 +40,7 @@ People want to reach Home from any app, with keys of their choosing.
   not a key press; it's handled the same as pressing them (own keys: no
   change; another command's: the conflict note).
 - **Saved** in the Settings provider's store (`shortcuts`), a line per
-  command, `home=Ctrl+X`, the same text Settings shows. A line
+  command, `home=Ctrl+Q`, the same text Settings shows. A line
   that can't be read, or bound, keeps the default. One that another app
   has at startup stays as saved, and the page says it's taken.
 - Alt combinations now reach the app as `WM_SYSKEYDOWN` too, only for
