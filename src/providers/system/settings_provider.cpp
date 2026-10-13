@@ -135,15 +135,6 @@ void SettingsProvider::onAction(const Action& action)
         publish();
     } else if (auto at = choiceIndex(id, settings_action::kPickTabRow)) {
         if (*at <= 1) placeTabRow(*at == 0); // the page stays: the card behind it shows where the row went
-    } else if (id == settings_action::kOpenTest) { // TEMPORARY: the dummy setting
-        page_ = SettingsPage::Test;
-        publish();
-    } else if (auto at = choiceIndex(id, settings_action::kPickTest)) {
-        if (*at <= 1) test_ = *at;
-        publish();
-    } else if (id == settings_action::kPickTestOption) {
-        testOption_ = !testOption_;
-        publish();
     }
     else if (id == settings_action::kBack) {
         stopRecording();
@@ -336,8 +327,7 @@ void SettingsProvider::placeIsland()
 SettingsView SettingsProvider::view() const
 {
     SettingsView v{ .page = page_, .theme = theme_, .note = note_, .shortcuts = shortcuts_, .recording = recording_,
-                    .shortcutNote = shortcutNote_, .version = hooks_.version, .tabsOnTop = tabsOnTop_, .test = test_, .testOption = testOption_,
-                    .announced = hooks_.announced };
+                    .shortcutNote = shortcutNote_, .version = hooks_.version, .tabsOnTop = tabsOnTop_, .announced = hooks_.announced };
     for (const SettingItem& s : hooks_.announced)
         if (!seen_.count(s.id)) v.unseen.insert(s.id); // still "New" while being seen: until the card closes
     if (hooks_.checkForUpdates) v.update = updateNote_;

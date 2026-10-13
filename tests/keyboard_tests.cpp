@@ -54,9 +54,7 @@ void runKeyboardTests()
     f = moveFocus(list, f->id, Arrow::Down);
     expect(clicks(list, f) == P::kOpenTabRow, "keys: down, the next row (Tab row, decision 048)");
     f = moveFocus(list, f->id, Arrow::Down);
-    expect(clicks(list, f) == P::kCentreIsland, "keys: down, the next row");
-    f = moveFocus(list, f->id, Arrow::Down);
-    expect(clicks(list, f) == P::kOpenTest, "keys: down, the next row (Appearance's last: TEMPORARY test setting)");
+    expect(clicks(list, f) == P::kCentreIsland, "keys: down, the next row (Appearance's last)");
     f = moveFocus(list, f->id, Arrow::Down);
     expect(clicks(list, f) == P::kToggleAutostart, "keys: down past General's heading to its first row");
     f = moveFocus(list, f->id, Arrow::Down);

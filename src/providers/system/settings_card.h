@@ -22,10 +22,6 @@ inline constexpr const char* kOpenDisplays = "display.open";
 inline constexpr const char* kOpenShortcuts = "shortcuts.open";
 inline constexpr const char* kOpenTabRow = "tabrow.open";
 inline constexpr const char* kPickTabRow = "tabrow.pick:";     // + 0 (top) or 1 (bottom)
-// TEMPORARY test items for the "New" tags (decision 048): they do nothing. Remove before release.
-inline constexpr const char* kOpenTest = "test.open";
-inline constexpr const char* kPickTest = "test.pick:";         // + 0 or 1
-inline constexpr const char* kPickTestOption = "tabrow.test";  // the dummy choice on the Tab row page
 inline constexpr const char* kBack = "settings.back";
 inline constexpr const char* kPickTheme = "theme.pick:";       // + its index in tokens().themes
 inline constexpr const char* kPickDisplay = "display.pick:";   // + its index in SettingsView::displays
@@ -40,7 +36,6 @@ inline constexpr const char* kThemeList = "themes";
 inline constexpr const char* kDisplayList = "displays";
 inline constexpr const char* kShortcutList = "shortcuts"; // the keys: more than fit on the card
 inline constexpr const char* kTabRowList = "tabrow";
-inline constexpr const char* kTestList = "test"; // TEMPORARY
 inline constexpr const char* kSettingsList = "settings";  // the root page: may be more than fit (decision 037)
 } // namespace settings_action
 
@@ -57,7 +52,7 @@ struct UpdateNote {
 };
 
 // Which page the card shows: the list of settings, or one setting's choices.
-enum class SettingsPage { List, Themes, Displays, Shortcuts, TabRow, Test }; // Test: TEMPORARY
+enum class SettingsPage { List, Themes, Displays, Shortcuts, TabRow };
 
 // A setting added after people already had the app (decision 048): shown
 // with a "New" tag until it's been seen, and a dot on its parent's row while
@@ -87,8 +82,6 @@ struct SettingsView {
     std::optional<UpdateNote> update;       // nothing: the app can't check, no row
     std::optional<UpdateStatus> offer;      // an update offered (by any check): an "Update and restart" row
     bool tabsOnTop = true;                  // the tab row's place (decision 048)
-    std::size_t test = 0;                   // TEMPORARY: the dummy setting's pick
-    bool testOption = false;                // TEMPORARY: the dummy choice on the Tab row page
     std::vector<SettingItem> announced;     // what can be new (announcedSettings)...
     std::set<std::string> unseen;           // ...and which of those haven't been seen yet: tagged "New"
 };
