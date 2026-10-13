@@ -380,9 +380,9 @@ void pressField(const Placed& field, Vec2 canvasPoint, Vec2 point)
 {
     const auto& input = std::get<TextInput>(field.item);
     Ms t = now();
-    bool near = std::abs(canvasPoint.x - g_pointer.lastClickPoint.x) <= GetSystemMetrics(SM_CXDOUBLECLK) / 2 &&
+    bool sameSpot = std::abs(canvasPoint.x - g_pointer.lastClickPoint.x) <= GetSystemMetrics(SM_CXDOUBLECLK) / 2 &&
                 std::abs(canvasPoint.y - g_pointer.lastClickPoint.y) <= GetSystemMetrics(SM_CYDOUBLECLK) / 2;
-    g_pointer.clicks = input.focused && near && t - g_pointer.lastClickAt <= Ms{ GetDoubleClickTime() } ? g_pointer.clicks % 3 + 1 : 1;
+    g_pointer.clicks = input.focused && sameSpot && t - g_pointer.lastClickAt <= Ms{ GetDoubleClickTime() } ? g_pointer.clicks % 3 + 1 : 1;
     g_pointer.lastClickAt = t;
     g_pointer.lastClickPoint = canvasPoint;
     g_pointer.selecting = field.key;

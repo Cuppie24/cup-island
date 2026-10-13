@@ -52,6 +52,7 @@ can't draw (PS §5.3), and nothing typed reached the island.
 `tests/scenarios/input.scenario` and `tests/todo_tests.cpp`. The platform
 side (WM_CHAR, the clipboard, drawing the field) needs a Windows run.
 
-**Open.** No cursor movement or selection inside the field (type and
-Backspace only). No editing or reordering a to-do, no deleting one alone
+**Open.** ~~No cursor movement or selection inside the field~~: done in
+decision 043, which also made a to-do's checkbox its own target instead of
+`Row::clickAnywhere`. No editing or reordering a to-do, no deleting one alone
 (solve it, then Clear solved). Drag-and-drop of text.

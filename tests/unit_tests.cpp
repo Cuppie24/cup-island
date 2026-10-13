@@ -5,6 +5,7 @@
 #include "core/island.h"
 #include "core/layout.h"
 #include "core/split.h"
+#include "core/text_edit.h"
 #include "core/tokens.h"
 #include "expect.h"
 
@@ -15,6 +16,15 @@ namespace cup::test {
 
 void runUnitTests()
 {
+    // Offsets between the draft's UTF-8 bytes and DirectWrite's UTF-16 units (decision 043).
+    std::string mixed = "aé€😀b"; // 1, 2, 3 and 4 bytes; the emoji is a surrogate pair
+    expect(utf16Index(mixed, 0) == 0 && utf16Index(mixed, 1) == 1 && utf16Index(mixed, 3) == 2 && utf16Index(mixed, 6) == 3,
+           "utf16Index counts one unit per BMP character");
+    expect(utf16Index(mixed, 10) == 5 && utf16Index(mixed, 11) == 6, "...and two for one outside it");
+    expect(utf8Offset(mixed, 3) == 6 && utf8Offset(mixed, 5) == 10 && utf8Offset(mixed, 6) == 11 && utf8Offset(mixed, 99) == 11,
+           "utf8Offset maps back, clamped to the end");
+    expect(utf8Offset(mixed, 4) == 10, "half a surrogate pair rounds to after the character");
+
     // Easing: pinned endpoints, monotonic, and ease-out (ahead of linear).
     Bezier ease = tokens().morphEase;
     expect(cubicBezierEase(ease, 0.0f) == 0.0f, "ease(0) == 0");

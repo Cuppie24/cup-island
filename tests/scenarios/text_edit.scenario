@@ -1,0 +1,75 @@
+# Editing a field's text like any text box (decision 043): a caret that moves
+# with the arrows, a selection, word jumps, and clicks that place the caret.
+
+scenario: typing goes in at the caret, not always at the end
+start timer
+click
+focus timer add
+type buy milk                       -> draft=buy_milk caret=8
+caret word-left                     -> caret=4
+type oat                            -> draft=buy_oatmilk caret=7
+caret start                         -> caret=0
+caret right                         -> caret=1
+caret end                           -> caret=11
+
+scenario: Shift selects; typing or erasing replaces the selection
+start timer
+click
+focus timer add
+type hello world
+caret word-left select              -> selected=world caret=6
+type there                          -> draft=hello_there selected=none
+caret start
+caret right select
+caret right select                  -> selected=he
+erase                               -> draft=llo_there caret=0
+caret end
+caret left select
+caret left                          -> selected=none caret=8  # an arrow without Shift lands on the selection's edge
+
+scenario: Backspace and Delete, a character or (Ctrl) a word
+start timer
+click
+focus timer add
+type one two three
+erase word                          -> draft=one_two_
+erase word                          -> draft=one_
+caret start
+delete                              -> draft=ne_
+delete word                         -> draft=empty
+delete                              -> draft=empty          # nothing after the caret: no-op
+
+scenario: a whole character at a time, never half of one
+start timer
+click
+focus timer add
+type café au lait
+caret start
+caret word-right
+caret left                          -> caret=5              # é is two bytes: before the space, past é
+caret left                          -> caret=3
+delete                              -> draft=caf_au_lait
+place 2 select                      -> selected=f
+place 3                             -> selected=none caret=3
+
+scenario: a click places the caret, Shift+click and drags select, double-click a word, Ctrl+A all
+start timer
+click
+focus timer add at=0                -> draft=empty caret=0
+type pick up the kids
+place 5                             -> caret=5
+place 11 select                     -> selected=up_the
+select-word 13                      -> selected=kids
+select-word 4                       -> selected=_          # the run of spaces
+select-all                          -> selected=pick_up_the_kids
+type done                           -> draft=done
+
+scenario: editing a text in place starts with the caret where it was clicked
+start timer
+click
+edit timer todo.edit.1 groceries at=3   -> draft=groceries caret=3
+type -                              -> draft=gro-ceries
+submit                              -> draft=none           # an edit ends once sent
+focus timer add
+type x
+submit                              -> draft=empty caret=0  # the field empties and keeps focus
