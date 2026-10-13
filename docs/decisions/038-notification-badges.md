@@ -13,8 +13,15 @@ kind of element leads to them.
   the dot goes and draws it. The flags: `Content::badge` (a dot on its
   widget on Home and on its tab, so the way to its card is marked) and
   `Button::badge` (one button on a card). Where each dot goes is pure and
-  in one place (`core/badges`): a widget's or tab's in its top-right corner,
-  `badgeInset` in; a button's on its top-right corner, like an app icon's.
+  in one place (`core/badges`). A widget's or tab's sits in its top-right
+  corner **concentric with the corner's rounding** (decision 006): at the
+  centre of the corner's arc, so the gap to the curved edge is the same all
+  round, and it sits as far in as the corner is round. Only a corner
+  tighter than the dot plus `badgeInset` falls back to that inset. A
+  button's sits **on its round outline**, 45° up and right from its centre,
+  not in the corner of its square frame. (The first version used a fixed
+  inset and the frame's corner: off-centre against the rounding, and too
+  close to the edge.)
   A button scrolled out of its list's window has none. The scene carries
   the centres (`Scene::badges`); the renderer draws a dot at each
   (`platform/badge_dots`), over the content, fading in and out.

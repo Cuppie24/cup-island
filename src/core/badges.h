@@ -12,8 +12,9 @@
 namespace cup {
 
 // The centres (pill coordinates) of the scene's dots: a widget's or tab's in
-// its top-right corner, badgeInset in; a button's on its top-right corner. A
-// button scrolled out of its list's window has none.
+// its top-right corner, concentric with its rounding (badgeInset in at
+// least); a button's on its round outline, top right. A button scrolled out
+// of its list's window has none.
 std::vector<Vec2> badgeCentres(const Scene& scene);
 
 } // namespace cup

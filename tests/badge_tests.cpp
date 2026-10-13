@@ -6,6 +6,9 @@
 #include "core/tokens.h"
 #include "expect.h"
 
+#include <algorithm>
+#include <cmath>
+
 namespace cup::test {
 namespace {
 
@@ -17,6 +20,7 @@ void runBadgeTests()
 {
     const Tokens& t = tokens();
     float r = t.badgeSize / 2;
+    auto corner = [&](float radius) { return std::max(radius, r + t.badgeInset); }; // the corner arc's centre, in from both edges
 
     // A widget on Home: a dot in its top-right corner, badgeInset in; none on the others.
     IslandState home;
@@ -30,8 +34,9 @@ void runBadgeTests()
     Scene grid = layout(home, Ms{ 0 });
     const Tile& tile = grid.tiles[1];
     expect(grid.badges.size() == 1 && tile.badge && !grid.tiles[0].badge &&
-           near(grid.badges[0], { tile.frame.x + tile.frame.width - t.badgeInset - r, tile.frame.y + t.badgeInset + r }),
-           "badges: a flagged widget, a dot in its top-right corner; the rest none");
+           near(grid.badges[0], { tile.frame.x + tile.frame.width - corner(grid.tileRadius), tile.frame.y + corner(grid.tileRadius) }),
+           "badges: a flagged widget, a dot at its corner's arc centre (concentric with its rounding); the rest none");
+    expect(grid.tileRadius >= r + t.badgeInset, "badges: (a widget's rounding is round enough to set the dot's place)");
 
     // A tab: its activity's flag, the same corner.
     IslandState tabs;
@@ -44,7 +49,8 @@ void runBadgeTests()
     bool tabDot = false;
     for (const Tab& tab : strip.tabs->tabs)
         if (tab.id == "media")
-            for (Vec2 dot : strip.badges) tabDot = tabDot || near(dot, { tab.frame.x + tab.frame.width - t.badgeInset - r, tab.frame.y + t.badgeInset + r });
+            for (Vec2 dot : strip.badges)
+                tabDot = tabDot || near(dot, { tab.frame.x + tab.frame.width - corner(strip.tabs->radius), tab.frame.y + corner(strip.tabs->radius) });
     expect(strip.tabs && tabDot, "badges: a flagged activity's tab gets one");
 
     // A button: on its top-right corner. In a list, only while in view.
@@ -60,8 +66,10 @@ void runBadgeTests()
     const Placed* first = nullptr;
     for (const Placed& p : listed.elements)
         if (auto* b = std::get_if<Button>(&p.item); b && b->actionId == "a0") first = &p;
-    expect(first && listed.badges.size() == 1 && near(listed.badges[0], { first->frame.x + first->frame.width - r, first->frame.y + r }),
-           "badges: a flagged button, a dot on its corner; one scrolled out of its list's window, none");
+    float round = first->frame.width / 2, out = round * 0.7071f;
+    Vec2 centre{ first->frame.x + round, first->frame.y + first->frame.height / 2 };
+    expect(listed.badges.size() == 1 && near(listed.badges[0], { centre.x + out, centre.y - out }),
+           "badges: a flagged button, a dot on its round outline at the top right; one scrolled out of its list's window, none");
 }
 
 } // namespace cup::test
