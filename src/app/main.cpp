@@ -508,7 +508,11 @@ void onPointerMoved(Vec2 canvasPoint, bool inside)
 }
 
 // What a click does, by what it's on. The pointer's release and the keyboard's Enter share them.
-void clickTab(const std::string& id) { dispatch(id.empty() ? Event{ HomeOpened{} } : Event{ ActivitySwitched{ id } }, "tab"); }
+void clickTab(const std::string& id)
+{
+    if (id == kPinTab) dispatch(StayOpenToggled{}, g_state.stayOpen ? "unpin" : "pin"); // decision 046
+    else dispatch(id.empty() ? Event{ HomeOpened{} } : Event{ ActivitySwitched{ id } }, "tab");
+}
 
 void clickTile(const Tile& tile)
 {

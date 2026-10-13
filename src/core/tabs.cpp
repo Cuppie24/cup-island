@@ -7,13 +7,15 @@
 namespace cup {
 namespace {
 
-// Somewhere else to go: another activity, or Home (with panels) from any card.
+// Somewhere else to go: another activity, or Home (with panels) from any
+// card. And Home itself, even with nothing running: the strip carries the pin
+// that keeps it open (decision 046).
 bool hasTabs(const IslandState& s)
 {
     if (mode(s) != Mode::Expanded) return false;
     bool home = !s.panels.empty();
     bool dormantCard = !s.homeOpen && !findActivity(s, s.expandedId);
-    return s.activities.size() + (home ? 1 : 0) > 1 || (home && dormantCard);
+    return s.activities.size() + (home ? 1 : 0) > 1 || (home && (dormantCard || s.homeOpen));
 }
 
 const Item* firstItem(const Slot& slot)
@@ -50,6 +52,8 @@ TabFace faceOf(const Activity& a)
 }
 
 const Item kHomeIcon = Icon{ Glyph::Home };
+const Item kPinIcon = Icon{ Glyph::Pin };
+const Item kPinnedIcon = Icon{ Glyph::Pinned };
 
 // A dot on Home's button (decision 038): a widget flagged for it
 // (Content::badgeHome, an update), not any widget with a dot.
@@ -71,7 +75,7 @@ void placeTab(const TabFace& face, Rect tab, float radius, const MeasureText& me
 {
     const Tokens& t = tokens();
     float inset = t.compactInset, side = tab.height - 2 * inset, gap = inset;
-    std::string prefix = face.id.empty() ? "tab/home/" : "tab/" + face.id + "/";
+    std::string prefix = face.id.empty() ? "tab/home/" : face.id == kPinTab ? "tab/pin/" : "tab/" + face.id + "/";
     auto place = [&](const std::string& part, Item item, Rect frame, float cornerRadius = 0) {
         out.push_back({ .key = prefix + part, .item = std::move(item), .frame = frame, .hitFrame = frame,
                         .cornerRadius = cornerRadius, .providerId = face.providerId, .activityId = face.id });
@@ -133,16 +137,19 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     };
 
     // Home: an icon-only button on its own at the left edge. Its click area
-    // takes in the card's bottom-left corner, so it's hard to miss. The same
-    // room is kept free on the right, so the activity tabs stay centred on the card.
-    float reserved = 0;
+    // takes in the card's bottom-left corner, so it's hard to miss. The pin
+    // mirrors it at the right edge (decision 046), so the activity tabs stay
+    // centred on the card.
+    float top = y - t.slotGap / 2, reach = p + t.homeButtonWidth + t.slotGap / 2;
     if (!s.panels.empty()) {
         Rect button{ p, y, t.homeButtonWidth, t.tabHeight };
-        float top = y - t.slotGap / 2;
-        add({ .id = "", .lead = &kHomeIcon, .iconOnly = true, .badge = homeBadged(s) }, button,
-            { 0, top, p + button.width + t.slotGap / 2, cardSize.y - top });
-        reserved = button.width + t.slotGap;
+        add({ .id = "", .lead = &kHomeIcon, .iconOnly = true, .badge = homeBadged(s) }, button, { 0, top, reach, cardSize.y - top });
     }
+    Rect pin{ cardSize.x - p - t.homeButtonWidth, y, t.homeButtonWidth, t.tabHeight };
+    strip.pin = Tab{ pin, { cardSize.x - reach, top, reach, cardSize.y - top }, kPinTab };
+    strip.pinned = s.stayOpen;
+    placeTab({ .id = kPinTab, .lead = s.stayOpen ? &kPinnedIcon : &kPinIcon, .iconOnly = true }, pin, strip.radius, measure, elements);
+    float reserved = t.homeButtonWidth + t.slotGap;
 
     // Every tab at its full width, the group centred; narrower only when they don't fit.
     float available = cardSize.x - 2 * p - 2 * reserved, n = static_cast<float>(started.size());
@@ -151,7 +158,8 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     for (std::size_t i = 0; i < started.size() && n > 0; ++i)
     {
         Rect frame{ left + static_cast<float>(i) * (width + t.tabGap), y, width, t.tabHeight };
-        add(faceOf(*started[i]), frame, frame);
+        // Clickable from half the gap above down to the card's edge, like Home's button: easy to hit.
+        add(faceOf(*started[i]), frame, { frame.x - t.tabGap / 2, top, width + t.tabGap, cardSize.y - top });
     }
     return strip;
 }
@@ -160,6 +168,7 @@ const Tab* tabAt(const TabStrip& strip, Vec2 point)
 {
     for (const Tab& tab : strip.tabs)
         if (tab.hitFrame.contains(point)) return &tab;
+    if (strip.pin && strip.pin->hitFrame.contains(point)) return &*strip.pin;
     return nullptr;
 }
 

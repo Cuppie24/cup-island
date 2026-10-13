@@ -57,6 +57,7 @@ void collapse(IslandState& s)
     s.expandedId.clear();
     s.homeOpen = false;
     s.cardFromHome = false;
+    s.stayOpen = false; // a pin lasts while it's open (decision 046)
 }
 
 // Unsent text in a field: Expanded doesn't time out under it (decision 016).
@@ -85,7 +86,7 @@ void settle(IslandState& s, Ms now)
     if (!s.pinnedId.empty() && !findActivity(s, s.pinnedId)) s.pinnedId.clear(); // a pick dies with its activity
 
     if (isExpanded(s)) {
-        bool timedOut = now >= s.lastPointerAt + tokens().expandedIdleTimeout && !typing(s);
+        bool timedOut = now >= s.lastPointerAt + tokens().expandedIdleTimeout && !typing(s) && !s.stayOpen;
         if (timedOut || !expandedViewExists(s)) collapse(s);
     }
     dropStaleOverlays(s); // a draft or dialog goes with its card
@@ -120,7 +121,7 @@ void onClick(IslandState& s, Ms now)
     case Mode::Expanded:
         // Home stays: it's where things are started from (decision 009). Cards
         // close, unless theirs says to stay (Content::keepOpen: Settings, decision 030).
-        if (!s.homeOpen && !shownCardKeepsOpen(s)) collapse(s);
+        if (!s.homeOpen && !shownCardKeepsOpen(s) && !s.stayOpen) collapse(s);
         break;
     case Mode::Idle:
         if (!s.panels.empty()) openHome(s, now); // decision 009
@@ -161,7 +162,16 @@ void handle(IslandState& s, const AlertPosted& e, Ms now)
     if (postAlert(s, e.alert, now)) collapse(s); // only critical interrupts Expanded
 }
 void handle(IslandState& s, const PillClicked&, Ms now) { onClick(s, now); }
-void handle(IslandState& s, const ClickedOutside&, Ms) { collapse(s); }
+void handle(IslandState& s, const ClickedOutside&, Ms)
+{
+    if (!s.stayOpen) collapse(s); // pinned: it stays over whatever was clicked (decision 046)
+}
+void handle(IslandState& s, const StayOpenToggled&, Ms now)
+{
+    if (!isExpanded(s)) return;
+    s.stayOpen = !s.stayOpen;
+    s.lastPointerAt = now; // unpinned: the idle timeout starts over from here
+}
 // Esc steps back one level (decision 033): a card opened from a Home widget
 // goes back to Home; anything else closes.
 void handle(IslandState& s, const EscapePressed&, Ms now)
@@ -339,7 +349,7 @@ std::optional<Ms> nextDeadline(const IslandState& s)
     if (s.alert) consider(s.alertUntil);
     for (const auto& a : s.activities)
         if (a.expiresAt) consider(*a.expiresAt);
-    if (isExpanded(s) && !typing(s)) consider(s.lastPointerAt + tokens().expandedIdleTimeout);
+    if (isExpanded(s) && !typing(s) && !s.stayOpen) consider(s.lastPointerAt + tokens().expandedIdleTimeout);
     for (const auto& a : s.alertQueue) consider(a.postedAt + tokens().heldAlertMaxAge + Ms{ 1 });
     if (auto lift = liftDeadline(s)) consider(*lift);
     return next;

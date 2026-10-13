@@ -157,6 +157,7 @@ struct ListRevealed { std::string activityId, list; std::size_t row = 0; }; // H
 struct ListDragStarted { std::string activityId, list; std::size_t row = 0; float y = 0; };
 struct ListDragMoved { float y = 0; };
 struct ListDragEnded {};                 // dropped (the app sends the move first) or cancelled
+struct StayOpenToggled {};               // Expanded's pin, at the tab row's right end (decision 046)
 // Local wall time at `now`, from the platform (the idle clock).
 struct ClockSynced {
     Ms timeOfDay;
@@ -173,7 +174,7 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            InputFocused, TextTyped, TextErased, CaretMoved, CaretPlaced, WordSelected, AllSelected,
                            InputSubmitted, InputCancelled,
                            DialogShown, DialogClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,
-                           ListDragEnded>;
+                           ListDragEnded, StayOpenToggled>;
 
 // --- State --------------------------------------------------------------
 struct WallClock {
@@ -205,6 +206,10 @@ struct IslandState {
     std::optional<Dialog> dialog;      // a question over the shown card (decision 020)
     std::map<std::string, ListScroll> scrolls; // lists' scroll, by "<activityId>/<list>" (decision 029)
     std::optional<ListDrag> listDrag;  // a list row being dragged
+    // Pinned open (decision 046): Expanded doesn't time out, and a click
+    // outside the island or on a card's empty space doesn't close it. Esc
+    // and the card going away still do; closing unpins it.
+    bool stayOpen = false;
     std::uint64_t nextStartOrder = 1;
 };
 

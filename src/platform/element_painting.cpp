@@ -93,6 +93,8 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Centre: return L"\uE8E3"; // AlignCenter: back to the middle
     case Glyph::Minus: return L"\uE738";  // Remove
     case Glyph::Plus: return L"\uE710";   // Add
+    case Glyph::Pin: return L"\uE718";
+    case Glyph::Pinned: return L"\uE841"; // PinnedFill: on
     }
     return L"?";
 }

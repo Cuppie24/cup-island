@@ -62,10 +62,17 @@ struct Tab {
     bool badge = false; // its activity's Content::badge (decision 038)
 };
 
+// The pin's tab id (decision 046): not an activity's.
+inline constexpr const char* kPinTab = "#pin";
+
 struct TabStrip {
     std::vector<Tab> tabs;  // Home's button, then activities in start order: stable, so a click doesn't reorder them
     std::optional<std::size_t> active; // the tab of what's shown; none for a dormant panel's card
     float radius = 0;       // tab highlight corners, nested in the card's
+    // The pin at the right end, Home's mirror (decision 046): a click toggles
+    // IslandState::stayOpen (StayOpenToggled). Not a tab you switch to.
+    std::optional<Tab> pin;
+    bool pinned = false;    // ...on: lit like the active tab
 };
 
 // A panel's widget on Home (decisions 009, 019). A click on it opens its

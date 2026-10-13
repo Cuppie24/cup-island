@@ -14,6 +14,7 @@
 //            focus <card> <action> [at=<n>|max=<chars>]  type <text...>  erase [word]  submit  cancel-input   (a TextInput, decision 016)
 //            delete [word]  caret <left|right|word-left|word-right|start|end> [select]
 //            place <n> [select]  select-word <n>  select-all                     (caret and selection, decision 043)
+//            pin                                                                     (Expanded's pin, decision 046)
 //            ask <card>  close-dialog                                               (a provider's dialog, decision 020)
 //            edit <card> <action> <text> [at=<n>]                                   (a Text edited in place, decision 029)
 //            wheel <card> <list> <from> <delta> <max>  reveal <card> <list> <row>    (lists, decision 029)
@@ -23,7 +24,7 @@
 //                     expanded=<activity|panel|home>  pinned=<activity>  dragging=yes|no  preview=yes|no
 //                     draft=<text>|empty|none  (_ for a space)  dialog=<card>|none
 //                     caret=<byte offset>  selected=<text>|none  (_ for a space)
-//                     lifted=yes|no  spot=centre|left|right|free
+//                     lifted=yes|no  spot=centre|left|right|free  stay=yes|no
 //                     scroll=<card>/<list>:<offset>[+reveal]  carried=<row>|none
 // Levels: passive active timeSensitive critical.  '#' starts a comment.
 
@@ -176,6 +177,7 @@ struct Runner {
         else if (cmd == "cancel-input") apply(InputCancelled{});
         else if (cmd == "ask") apply(DialogShown{ { .providerId = "p", .activityId = arg(1), .title = "Sure?", .confirmAction = "yes" } });
         else if (cmd == "close-dialog") apply(DialogClosed{});
+        else if (cmd == "pin") apply(StayOpenToggled{});
         else if (cmd == "edit") apply(InputFocused{ "p", arg(1), arg(2), arg(3), /* editing */ true, at(4) });
         else if (cmd == "wheel") apply(ListScrolled{ arg(1), arg(2), std::stof(arg(3)), std::stof(arg(4)), std::stof(arg(5)) });
         else if (cmd == "reveal") apply(ListRevealed{ arg(1), arg(2), std::stoul(arg(3)) });
@@ -244,6 +246,9 @@ struct Runner {
                 std::string got = it == state.scrolls.end() ? "none"
                                                             : std::to_string(static_cast<int>(it->second.offset)) + (it->second.reveal ? "+reveal" : "");
                 if (key + ":" + got != *v) fail("scroll=" + *v + ", got " + got);
+            } else if (auto v = option(word, "stay")) {
+                std::string got = state.stayOpen ? "yes" : "no";
+                if (got != *v) fail("stay=" + *v + ", got " + got);
             } else if (auto v = option(word, "carried")) {
                 std::string got = state.listDrag ? std::to_string(state.listDrag->row) : "none";
                 if (got != *v) fail("carried=" + *v + ", got " + got);

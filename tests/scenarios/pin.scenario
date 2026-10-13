@@ -1,0 +1,42 @@
+# Expanded's pin (decision 046): pinned, the island stays open until it's
+# unpinned or closed on purpose.
+
+scenario: pinned, it doesn't time out
+start timer
+click                               -> Expanded
+pin                                 -> stay=yes
+wait 60000                          -> Expanded expanded=timer
+pin                                 -> stay=no              # unpinned: the timeout starts over from here
+wait 7999                           -> Expanded
+wait 1                              -> Compact
+
+scenario: pinned, a click outside or on the card's empty space doesn't close it
+start timer
+click
+pin
+outside                             -> Expanded stay=yes
+click                               -> Expanded             # empty space on the card
+pin
+click                               -> Compact              # unpinned: the click closes it again
+
+scenario: it stays pinned across tabs and Home
+start timer
+start media
+panel focus
+click                               -> expanded=media
+pin
+switch timer                        -> expanded=timer stay=yes
+home                                -> expanded=home stay=yes
+wait 60000                          -> Expanded expanded=home
+
+scenario: Esc still closes it, and closing unpins it
+start timer
+click
+pin
+esc                                 -> Compact stay=no
+click                               -> Expanded stay=no
+wait 8000                           -> Compact
+
+scenario: the pin only works while expanded
+start timer
+pin                                 -> Compact stay=no

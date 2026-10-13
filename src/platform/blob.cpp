@@ -199,6 +199,8 @@ void Blob::setHighlighted(bool on)
 
 void Blob::setSelectedTab(std::optional<Rect> tab, float cornerRadius) { showMark(selectedTab_, tab, cornerRadius, tokens().tabSelectedColor, true); }
 
+void Blob::setPinnedTab(std::optional<Rect> pin, float cornerRadius) { showMark(pinnedTab_, pin, cornerRadius, tokens().tabSelectedColor, false); }
+
 void Blob::setHovered(std::optional<Rect> area, float cornerRadius) { showMark(hovered_, area, cornerRadius, tokens().hoverColor, false); }
 
 void Blob::setFocusRing(std::optional<Rect> area, float cornerRadius)

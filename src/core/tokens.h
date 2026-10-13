@@ -154,7 +154,7 @@ struct Tokens {
     Vec2 shadowOffset{ 0, 4 };    // down: the island hangs from the top edge
 
     // Expanded's tabs: one per activity along the bottom of the card (decision 007).
-    float tabHeight = 28;
+    float tabHeight = 36;
     float tabGap = 4;
     float tabMaxWidth = 140;      // each tab's width; the group is centred, and shrinks only when they don't fit
     float homeButtonWidth = 44;   // Home's icon-only button, apart at the left (decision 009)

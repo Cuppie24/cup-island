@@ -2,7 +2,8 @@
 // Expanded's tabs (decision 007): with several activities, one tab each
 // (icon or art and a short title) along the bottom of the card, built from
 // the compact presentation providers already give, so they need no extra
-// work. With panels, a square Home button sits apart at the left (decision 009).
+// work. With panels, a square Home button sits apart at the left (decision 009);
+// the pin mirrors it at the right (decision 046).
 
 #include "core/layout.h"
 
