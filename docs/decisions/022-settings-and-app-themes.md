@@ -1,6 +1,6 @@
 # 022: A Settings widget, and app themes
 
-Status: Accepted
+Status: Accepted; the card's arrows superseded by 030 (a list, and a page of themes)
 
 **Context.** Home had a "Copy logs" tile: a tool for bug reports taking a
 widget's place next to things used every day. The island also had one look,

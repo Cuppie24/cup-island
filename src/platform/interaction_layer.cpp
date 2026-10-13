@@ -30,7 +30,7 @@ int g_renderTop = 0; // monitors above or below the primary don't start at y = 0
 InteractionCallbacks g_callbacks;
 bool g_pressed = false;
 bool g_trackingLeave = false; // TrackMouseEvent armed: WM_MOUSELEAVE will come
-bool g_textCursor = false;    // over text that a click edits: the I-beam (decision 030)
+bool g_textCursor = false;    // over text that a click edits: the I-beam (decision 043)
 
 void showCursor() { SetCursor(LoadCursorW(nullptr, g_textCursor ? IDC_IBEAM : IDC_ARROW)); }
 
@@ -226,6 +226,14 @@ try {
 
     case WM_KEYDOWN:
         call(g_callbacks.onKeyDown, wParam);
+        return 0;
+
+    case WM_SYSKEYDOWN: // with Alt held: a shortcut being recorded needs it (decision 032)
+        call(g_callbacks.onKeyDown, wParam);
+        break;           // and Windows' own handling (Alt+F4) still runs
+
+    case WM_HOTKEY:
+        call(g_callbacks.onHotkey, wParam);
         return 0;
 
     case WM_CHAR:

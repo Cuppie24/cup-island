@@ -39,16 +39,29 @@ struct TabFace {
     const Item* lead = nullptr;
     Text title;
     bool iconOnly = false; // Home: the lead, centred, no title
+    bool badge = false;    // its activity's Content::badge
 };
 
 TabFace faceOf(const Activity& a)
 {
     const Item* lead = firstItem(a.content.compactLeading);
     if (!lead) lead = firstItem(a.content.minimal);
-    return { a.id, a.providerId, lead, titleOf(a.content) };
+    return { .id = a.id, .providerId = a.providerId, .lead = lead, .title = titleOf(a.content), .badge = a.content.badge };
 }
 
 const Item kHomeIcon = Icon{ Glyph::Home };
+
+// A dot on Home's button (decision 038): a widget flagged for it
+// (Content::badgeHome, an update), not any widget with a dot.
+bool homeBadged(const IslandState& s)
+{
+    for (const Panel& p : s.panels) {
+        const Activity* live = findActivity(s, p.id);
+        const Content& c = live ? live->content : p.content;
+        if (c.badge && c.badgeHome) return true;
+    }
+    return false;
+}
 
 // Lead square and title, centred in the tab as one group (the title as wide
 // as it really is, so the group's width is known). A title too long for the
@@ -115,7 +128,7 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     else if (findActivity(s, s.expandedId)) shown = s.expandedId;
     auto add = [&](const TabFace& face, Rect frame, Rect hitFrame) {
         if (face.id == shown) strip.active = strip.tabs.size();
-        strip.tabs.push_back({ frame, hitFrame, face.id });
+        strip.tabs.push_back({ frame, hitFrame, face.id, face.badge });
         placeTab(face, frame, strip.radius, measure, elements);
     };
 
@@ -126,7 +139,8 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     if (!s.panels.empty()) {
         Rect button{ p, y, t.homeButtonWidth, t.tabHeight };
         float top = y - t.slotGap / 2;
-        add({ "", "", &kHomeIcon, Text{}, true }, button, { 0, top, p + button.width + t.slotGap / 2, cardSize.y - top });
+        add({ .id = "", .lead = &kHomeIcon, .iconOnly = true, .badge = homeBadged(s) }, button,
+            { 0, top, p + button.width + t.slotGap / 2, cardSize.y - top });
         reserved = button.width + t.slotGap;
     }
 

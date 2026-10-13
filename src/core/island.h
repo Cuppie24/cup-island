@@ -66,7 +66,7 @@ struct Draft {
     std::string actionId;   // the TextInput's, or the edited Text's editAction
     std::string text;
     bool editing = false;   // a Text edited in place (decision 029): Enter ends it, instead of emptying a field
-    // The caret and the selection's other end (decision 030): UTF-8 byte
+    // The caret and the selection's other end (decision 043): UTF-8 byte
     // offsets into `text`. Equal: nothing selected.
     std::size_t caret = 0, anchor = 0;
     bool operator==(const Draft&) const = default;
@@ -136,7 +136,7 @@ struct InputFocused {    // a TextInput was clicked, or an edit button (then `te
     bool editing = false;  // a Text edited in place: Enter ends it
     std::optional<std::size_t> caret; // where it was clicked (a byte offset into `text`); none: at the end
 };
-// Editing the focused field (decision 030; text_edit.h).
+// Editing the focused field (decision 043; text_edit.h).
 enum class CaretMove { Left, Right, WordLeft, WordRight, Start, End };
 struct TextTyped { std::string text; };  // UTF-8: replaces the selection, or goes in at the caret
 struct TextErased { bool forward = false, word = false; }; // Backspace / Delete; Ctrl: a word. The selection, if any
@@ -194,6 +194,7 @@ struct IslandState {
     std::deque<Alert> alertQueue;      // waiting alerts, oldest first (PS §6.3)
     std::string expandedId;            // Expanded, showing this activity's card, or a dormant panel's
     bool homeOpen = false;             // Expanded, showing Home (expandedId empty)
+    bool cardFromHome = false;         // that card was opened from a Home widget: Esc goes back to Home (decision 033)
     Ms lastPointerAt{};
     bool dragging = false;             // an accepted drag is over the island
     bool hidden = false;
@@ -220,6 +221,23 @@ bool isExpanded(const IslandState& state);
 // Lookups by id: nullptr if there's none.
 const Activity* findActivity(const IslandState& state, const std::string& id);
 const Panel* findPanel(const IslandState& state, const std::string& id);
+
+// The card Expanded shows (an activity's, or a dormant panel's): whose it is.
+// Nothing on Home, or when nothing is expanded. A change from one is the
+// card closing for its provider (Provider::onCardClosed).
+struct ShownCard {
+    std::string providerId, activityId;
+    bool operator==(const ShownCard&) const = default;
+};
+std::optional<ShownCard> shownCard(const IslandState& state);
+
+// The shown card, if it's a live activity's (not Home, not a dormant
+// panel's): what Ctrl+W asks to close (decision 034).
+std::optional<ShownCard> shownActivity(const IslandState& state);
+
+// What Esc sends to the shown card's provider first: its Content::backAction,
+// so a page goes back to its list before anything closes (decision 033). "" = none.
+std::string backAction(const IslandState& state);
 
 // Local time of day at `now`, once the platform has synced the clock.
 std::optional<Ms> timeOfDay(const IslandState& state, Ms now);

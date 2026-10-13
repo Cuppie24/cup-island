@@ -84,7 +84,7 @@ Vec2 modeSize(Mode mode)
 Footprint footprintOf(Mode mode)
 {
     const Tokens& t = tokens();
-    return { modeSize(mode).x, mode == Mode::Split ? t.bubbleGap + t.bubbleSize : 0 };
+    return { modeSize(mode).x, mode == Mode::Split ? splitGap() + t.bubbleSize : 0 };
 }
 
 Placement placementOf(const IslandState& s, Mode mode) { return placeAt(s.spot, footprintOf(mode), screenWidthOf(s)); }

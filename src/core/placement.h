@@ -24,7 +24,7 @@ struct Spot {
 // The island's shapes, side by side: the pill, then (Split) a gap and the bubble.
 struct Footprint {
     float pillWidth = 0;
-    float rightOfPill = 0; // Split: bubbleGap + bubbleSize; else 0
+    float rightOfPill = 0; // Split: splitGap() + bubbleSize; else 0
 };
 
 struct Placement {

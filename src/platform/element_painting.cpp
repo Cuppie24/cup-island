@@ -77,7 +77,6 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Timer: return L"";
     case Glyph::Stop: return L"\uE71A";
     case Glyph::Home: return L"\uE80F";
-    case Glyph::Bluetooth: return L"\uE702";
     case Glyph::Sun: return L"\uE706";  // Brightness
     case Glyph::Moon: return L"\uE708"; // QuietHours (crescent)
     case Glyph::Copy: return L"\uE8C8";
@@ -89,6 +88,8 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Settings: return L"\uE713";
     case Glyph::ChevronLeft: return L"\uE76B";
     case Glyph::ChevronRight: return L"\uE76C";
+    case Glyph::Download: return L"\uE896";
+    case Glyph::Centre: return L"\uE8E3"; // AlignCenter: back to the middle
     }
     return L"?";
 }
@@ -167,6 +168,7 @@ TextLook lookOf(TextStyle style)
     case TextStyle::Caption:
     case TextStyle::Digits: return { t.captionFontSize, t.captionTextColor, t.captionFontWeight };
     case TextStyle::Display: return { t.displayFontSize, t.titleTextColor, t.displayFontWeight };
+    case TextStyle::Heading: return { t.headingFontSize, t.titleTextColor, t.headingFontWeight };
     }
     return { t.bodyFontSize, t.bodyTextColor, t.bodyFontWeight };
 }
@@ -257,6 +259,16 @@ void paintSteps(ID2D1DeviceContext* dc, const Steps& steps, Vec2 size, const Col
         float x = r + static_cast<float>(i) * (t.stepDotSize + t.stepDotGap);
         dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), r, r), brush.get());
     }
+}
+
+void paintSwatch(ID2D1DeviceContext* dc, const Swatch& swatch, Vec2 size)
+{
+    float r = std::min(size.x, size.y) / 2, ring = std::max(1.0f, r / 9); // a hairline at any scale
+    auto centre = D2D1::Point2F(size.x / 2, size.y / 2);
+    dc->FillEllipse(D2D1::Ellipse(centre, r, r), brushOf(dc, swatch.fill).get());
+    dc->DrawEllipse(D2D1::Ellipse(centre, r - ring / 2, r - ring / 2), brushOf(dc, tokens().trackColor).get(), ring);
+    float dot = r * 0.4f; // the accent: a dot, like a theme's live colour on its island
+    dc->FillEllipse(D2D1::Ellipse(centre, dot, dot), brushOf(dc, swatch.mark).get());
 }
 
 void paintImage(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float cornerRadius)

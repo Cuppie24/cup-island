@@ -37,17 +37,22 @@ So "why did X happen?" is always answered in `core/`, by a scenario test.
 src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (what providers show), layout.h
                 (+ slot_layout.h), split.h, tabs.h, home.h, hit_test.h, provider.h (Provider/Host API),
                 lift.h + placement.h (moving the island along the top edge, decision 026),
+                keyboard.h (arrow, Tab and digit focus, decisions 031, 033) + shortcuts.h (the shortcut table, decision 031),
+                badges.h (where notification dots go, decision 038),
                 tokens.h (+ tokens_json.h, json_reader.h), easing.h
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
-                per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Start with Windows, Exit), autostart, log (the log file), watchdog (hang/crash dumps), stay_on_top
+                per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules and the media widget, SMTC provider for real Windows media),
-                pomodoro/ (the first panel), system/ (Home's theme, Bluetooth and Settings widgets:
-                app themes, Copy logs)
-src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload
+                pomodoro/ (the first panel), system/ (Home's theme and Settings widgets:
+                app themes, display, Start with Windows, Copy logs), update/ (updates from GitHub
+                Releases: versions and offers, pure; github.cpp fetches and installs, decision 036)
+src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload; keyboard_input.cpp: keyboard focus,
+                Enter/Space, system-wide shortcuts and recording new keys (decisions 031, 032)
 assets/         tokens.json: the live-tunable sizes, timings and curves; the app icon (cup_island.rc/.ico)
-installer/      Inno Setup script for the Windows installer (decision 011)
+installer/      Inno Setup script for the Windows installer (decision 011); its version comes from build.ps1
+.github/        workflows/release.yml: the Release button (build, test, tag, publish); build.yml: every PR built and tested on Windows (decision 036)
 tests/          unit tests + scenarios/*.scenario (state rules in plain text)
 docs/           specs (TR, PS) and decisions/ (why things are the way they are)
 ```
@@ -88,7 +93,7 @@ A provider (`core/provider.h`) publishes activities and alerts through a
 the renderer. `ProviderRegistry` gives each provider its own Host, which
 stamps the provider id on everything it posts, and routes actions back.
 Content is declarative (`core/content.h`, decision 004): slots of rows of
-items (text, image, icon, button, progress, time label, waveform). Layout and
+items (text, image, icon, button, progress, time label, waveform, swatch). Layout and
 drawing are the host's job, so every provider looks native.
 
 A provider can also publish **panels** (decision 009): always-available
@@ -96,6 +101,12 @@ entries shown as widgets on Expanded's Home, not ranked into the pill.
 Widgets only inform (decision 019): no buttons; a click opens the card. Starting
 an activity with a panel's id makes it live; ending it makes it dormant again.
 Providers that change on a schedule ask `Host::wakeAt` and get `onWake()`.
+Ctrl+W on an activity's card calls `onCloseRequested()`: the provider ends
+it, asks first, or ignores it (the default; decision 034).
+Keyboard navigation is the host's: providers never see keys or move
+focus. Focus follows the layout's reading order, and where the host
+can't tell, a provider gives a hint (`Content::backAction`), not a key
+handler (decision 035).
 What a provider keeps between runs goes through `Host::load/save` (decision
 028): text under its own keys, in its own format; never its own files.
 Lists (`Row::list`, decision 029) are scrolled, reordered and edited by the
@@ -126,6 +137,8 @@ example: thin WinRT reading, with every decision in a pure presenter (decision 0
 - **No names `windows.h` defines as macros** (`small`, `near`, `far`,
   `hyper`, `interface`, `IN`, `OUT`, `OPTIONAL`…), even in core: core is
   included after it on Windows, and Linux builds won't catch it.
+  The SDK also declares some global types (`Chord`): in `app/main.cpp`,
+  which has `using namespace cup`, write such core types as `cup::Chord`.
 - **`winrt::` / Win32 types stay in `platform/` and `app/`.** Providers
   translate at the edge.
 - **One concept per file, ~300 lines max.** Headers are the table of contents:
@@ -172,10 +185,10 @@ over the file's, so `tokens()` is always what's on screen.
 - **State rules → `tests/scenarios/*.scenario`.** One line per step, with the
   expected mode after it. Readable as a spec and runnable anywhere. The
   format is documented at the top of `tests/scenario_runner.cpp`.
-- **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing),
+- **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing), `list_card_tests.cpp` (Settings' List card), `badge_tests.cpp` (notification dots),
   `home_tests.cpp` (tiles, Home tab, idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop),
-  `media_tests.cpp` (media presenter and widget), `system_tests.cpp` (theme and Bluetooth presenters, Settings), `todo_tests.cpp` (the to-do list end to end).**
+  `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end), `update_tests.cpp` (versions, offers, the updater's checks and install).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
 
@@ -205,11 +218,21 @@ over the file's, so `tokens()` is always what's on screen.
 | Live-tunable tokens (`assets/tokens.json`, reload on save) | done; parser tested |
 | Panels, Home (tile grid, Home button), tabs at the bottom, idle clock, provider wake-ups (decision 009) | done; rules tested, visuals need Windows |
 | Widgets: one per provider, information only, media always on Home (decision 019) | done; rules tested, visuals need Windows |
-| Theme toggle and Bluetooth widgets | presenters tested; Windows readers need Windows |
+| Theme toggle widget | presenter tested; the Windows reader needs Windows |
 | Pomodoro (first panel): focus rounds, breaks, pause/skip/stop, ring, phase dots | done, tested |
 | Progress ring, Steps, accent colour (decision 010) | done; rules tested, drawing needs Windows |
 | Text input (typing, paste) and Pomodoro's to-do list (decision 016) | done; rules tested, typing and drawing need Windows |
-| Release: no-console exe, static C++ runtime, tray icon with Start with Windows + Exit, Inno Setup installer (decision 011) | done; needs a Windows build to verify |
+| Release: no-console exe, static C++ runtime, tray icon with Exit, Inno Setup installer (decision 011) | done; needs a Windows build to verify |
 | MSIX, code signing, StartupTask (TR §9, §10) | not yet |
 | Log file, Copy logs (in Settings), hang/crash minidumps, exit without deadlock (decision 013) | done; button rules tested, the rest needs Windows |
 | Settings widget, app themes (dark and light) from tokens.json, saved per user (decision 022) | done; rules tested, visuals need Windows |
+| Settings as a list: Theme and Display pages of choices, Start with Windows on by default, stays open on a near miss (decision 030) | done; rules tested, visuals need Windows |
+| Keyboard: arrows move focus on cards and Home, Enter/Space click (decision 031) | done; navigation tested, key handling needs Windows |
+| Keyboard: Tab/Shift+Tab, Home/End, Ctrl+Tab switches tabs, 1–9 open Home's widgets, Esc one step back, a focus ring (decision 033) | done; navigation and Esc tested, keys and ring need Windows |
+| Ctrl+W asks the activity's provider to close it: Pomodoro confirms, media ignores (decision 034) | done; tested, the key needs Windows |
+| System-wide shortcuts (Ctrl+Q: Home), off while a fullscreen app hides the island, rebindable in Settings, a change aborted on any conflict (decision 032) | done; rules tested, registration needs Windows |
+| Releases from a workflow, version from the tag, updates from GitHub Releases: daily check, widget + alert, SHA-256-checked silent install (decision 036) | rules tested; the workflow and the Windows side need a run |
+| Settings: Update and restart under Check for updates, every action a list row, headings that stand out (decision 037) | done; rules tested, visuals need Windows |
+| Notification badges: a dot on a widget, tab or button with something new; Settings' widget and its Update row when an update waits (decision 038) | done; placement tested, drawing needs Windows |
+| An update offer survives a restart (decision 039); Bluetooth removed (decision 042) | rules tested |
+| Mandatory releases: the Release workflow's checkbox; installed by itself at the next start, with an alert, 3 tries at most (decision 041) | rules tested; the workflow's first mandatory run confirms it |

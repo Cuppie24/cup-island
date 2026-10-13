@@ -140,6 +140,11 @@ start ──► update* ──► end ──► (dismissal) ──► removed
               └── alert (optional, on start or on any update)
 ```
 
+Only the provider ends its activity. The user can *ask* it to (Ctrl+W on
+the activity's card, decision 034): the provider ends it, asks first, or
+ignores the request (the default: a media player's activity lasts as long
+as the music).
+
 | Field | Description |
 | --- | --- |
 | `id` | Provider-unique. Restarting with an existing id means *update* |

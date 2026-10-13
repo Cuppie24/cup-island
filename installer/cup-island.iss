@@ -6,8 +6,12 @@
 ; (CMakeLists.txt), so there is nothing extra to install.
 
 #define AppName "Cup Island"
-#define AppVersion "0.1.3"
 #define AppExe "CupIsland.exe"
+; The version comes from build.ps1 (/DAppVersion=..., decision 036): the
+; Release workflow's, or git's for a local build. Never set it here.
+#ifndef AppVersion
+  #define AppVersion "0.0.0-dev"
+#endif
 
 [Setup]
 ; Never change AppId: it's how upgrades and the uninstaller find an existing install.
@@ -48,9 +52,12 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopico
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
+; A silent install is the in-app updater's (decision 036): the island quit
+; to be replaced, so start it again.
+Filename: "{app}\{#AppExe}"; Flags: nowait skipifnotsilent
 
 [UninstallRun]
 ; The island has no window to close politely; stop it so its files can be removed.
 Filename: "{sys}\taskkill.exe"; Parameters: "/im {#AppExe} /f"; Flags: runhidden; RunOnceId: "StopCupIsland"
-; Undo the tray menu's "Start with Windows" (src/platform/autostart.cpp), if it was ticked.
+; Undo "Start with Windows" (Settings, src/platform/autostart.cpp), on by default since decision 030.
 Filename: "{sys}\reg.exe"; Parameters: "delete ""HKCU\Software\Microsoft\Windows\CurrentVersion\Run"" /v ""Cup Island"" /f"; Flags: runhidden; RunOnceId: "RemoveStartup"

@@ -17,9 +17,11 @@ using Ms = std::chrono::milliseconds;
 
 // Built-in icons; the renderer maps them to font glyphs.
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
-                   Bluetooth, Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight };
+                   Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre };
 
-enum class TextStyle { Title, Body, Caption, Digits, Display }; // Display: a big number, the card's centre (a timer)
+// Display: a big number, the card's centre (a timer). Heading: a group's name over its rows (Settings'
+// "Dark" and "Light"): small, but heavy and full-strength, so it reads as a divider (decision 037).
+enum class TextStyle { Title, Body, Caption, Digits, Display, Heading };
 
 // sRGB plus opacity. As an activity's accent (decision 010) it tints only
 // live data: progress fills (bar and ring), the current step, waveform bars.
@@ -61,7 +63,7 @@ struct Text {
     bool marquee = false;  // too long: scrolls ("swims") in a loop instead of ending in "…"
     bool centred = false;  // centred in its frame (wins over alignEnd)
     bool struck = false;   // struck through: a solved to-do
-    // Editable in place (decisions 029, 030): a click on it, or a Button with
+    // Editable in place (decisions 029, 043): a click on it, or a Button with
     // `editsText` and this actionId, turns it into a field holding its text;
     // Enter sends the provider Action{editAction, text}, Esc leaves it as it was.
     std::string editAction;
@@ -83,10 +85,11 @@ struct Button {
     bool revealOnHover = false; // hidden until the pointer is on its row: a list item's delete (decision 020)
     bool destructive = false;   // its label in dangerColor: a dialog's "Clear"
     bool editsText = false;     // starts editing the Text whose editAction is this button's actionId (decision 029)
+    bool badge = false;         // a dot on it: something new behind it, an update to install (decision 038)
     bool operator==(const Button&) const = default;
 };
 
-// A one-line text field the host draws and edits (decisions 016, 030).
+// A one-line text field the host draws and edits (decisions 016, 043).
 // Clicking it focuses it; typing goes to IslandState::draft, with a caret and
 // a selection. Enter sends the text to the provider as Action{actionId, text};
 // a paste of several lines sends them the same way (the provider splits
@@ -132,7 +135,16 @@ struct Steps {
     bool operator==(const Steps&) const = default;
 };
 
-using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput>;
+// A colour sample: a circle of `fill` with a dot of `mark` in it, ringed
+// faintly so a pale one still shows on a pale island. A theme in Settings'
+// list (its island and accent, decision 030).
+struct Swatch {
+    Color fill;
+    Color mark;
+    bool operator==(const Swatch&) const = default;
+};
+
+using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch>;
 
 enum class Align { Start, Center, End };
 
@@ -146,7 +158,9 @@ enum class RowSpan { Slot, MatchAbove, MatchBelow };
 //  Standard: art square left, title centre, corner button, bottom rows (media).
 //  Centred:  only `expandedCenter`, full width, rows stacked and centred: a
 //            control panel or a timer, nothing to put in an art square.
-enum class CardLayout { Standard, Centred };
+//  List:     like Centred, with wider sides (listCardInset): a page of
+//            settings, rows edge to edge (decision 030).
+enum class CardLayout { Standard, Centred, List };
 
 // A horizontal row of items. Text and Progress stretch; everything else has a fixed size.
 struct Row {
@@ -159,10 +173,16 @@ struct Row {
     std::vector<Item> leading;
     std::vector<Item> trailing;
     RowSpan span = RowSpan::Slot;
+    // The row's button takes clicks anywhere on the row, not just on itself:
+    // a row of Settings. (A to-do's text edits it instead, decision 043.)
+    bool clickAnywhere = false;
     // A list (decision 029): rows with the same `list`, back to back, scroll
     // together in a window listVisibleRows rows tall; the host scrolls it
     // with the wheel, smoothly. Host::reveal keeps a row in view.
     std::string list;
+    // The list's window in rows, read from its first row; 0: listVisibleRows.
+    // A list that is the whole card (Settings' root page) sizes it to the card.
+    float visibleRows = 0;
     // Drag to reorder (decision 029): pressed and dragged, the row moves among
     // the list's rows of the same `sortGroup`; dropped in a new place, its
     // provider gets this action with Action::value = the row's new index in the list.
@@ -174,8 +194,14 @@ struct Row {
     // A list item (a to-do): listItemPadding above and below, so items stand
     // apart, its content inset by listItemInset, and a faint background across
     // the whole row under the pointer. Its first and last items' click areas
-    // reach the row's edges (a to-do's checkbox: easy to hit, decision 030).
+    // reach the row's edges (a to-do's checkbox: easy to hit, decision 043).
     bool listItem = false;
+    // Starts a group (a Heading under other rows): sectionGap of space above
+    // it, so groups stand apart (decision 037).
+    bool section = false;
+    // Its content inset like a list item's, without being one (no padding,
+    // nothing lit): a heading over list items lines up with their text.
+    bool inset = false;
     bool operator==(const Row&) const = default;
 };
 
@@ -189,6 +215,20 @@ struct Content {
     std::string label; // accessible name, also used in logs and tests
     std::optional<Color> accent; // none: white (decision 010)
     CardLayout card = CardLayout::Standard;
+    // Something new needs a look (an update offered, decision 038): a dot on
+    // its widget on Home and on its tab, so the way to it is marked.
+    bool badge = false;
+    // ...and on Home's button too, seen from any card: only for news that
+    // matters that much (an update). Other widgets' dots stay on their widgets.
+    bool badgeHome = false;
+    // Its card stays open when a click lands between its controls: a page of
+    // settings, where a near miss shouldn't close it. Esc, a click outside
+    // the island or the idle timeout still do (decision 030).
+    bool keepOpen = false;
+    // A card on one of its own pages (Settings' Theme page): the action Esc
+    // sends, as a click on its back arrow would. Empty: Esc goes back to
+    // Home or closes, as anywhere else (decision 033).
+    std::string backAction;
     Slot compactLeading;
     Slot compactCenter;  // between the two compact squares, e.g. a swimming title
     Slot compactTrailing;

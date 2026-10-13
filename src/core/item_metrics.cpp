@@ -46,6 +46,7 @@ float heightOf(const Item& item, Rect slot, float ringSide)
     if (std::holds_alternative<Image>(item)) return std::min(slot.width, slot.height);
     if (isRing(item)) return ringSide;
     if (std::holds_alternative<Steps>(item)) return t.stepDotSize;
+    if (std::holds_alternative<Swatch>(item)) return t.swatchSize;
     if (auto* button = std::get_if<Button>(&item)) return button->compact ? t.smallButtonSize : t.buttonSize;
     if (std::holds_alternative<TextInput>(item)) return t.inputHeight;
     // Seekable bars get a taller row to be easy to click; a bar nobody clicks is just its line.
@@ -66,6 +67,7 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
         float n = static_cast<float>(std::max(steps->count, 0));
         return std::max(0.0f, n * t.stepDotSize + (n - 1) * t.stepDotGap);
     }
+    if (std::holds_alternative<Swatch>(item)) return t.swatchSize;
     if (auto* button = std::get_if<Button>(&item)) {
         if (button->label.empty()) return button->compact ? t.smallButtonSize : t.buttonSize;
         Text text{ button->label, TextStyle::Body };
@@ -90,6 +92,7 @@ float fontSize(TextStyle style)
     case TextStyle::Caption:
     case TextStyle::Digits: return t.captionFontSize;
     case TextStyle::Display: return t.displayFontSize;
+    case TextStyle::Heading: return t.headingFontSize;
     }
     return t.bodyFontSize;
 }

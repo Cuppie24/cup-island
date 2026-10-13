@@ -42,7 +42,7 @@ nothing could be started from the island. The idle pill also showed nothing.
   Home from any card (including a dormant panel's with nothing running).
   Home with nothing running has no strip.
 - **Static widgets.** Some panels have no card, only a tile that shows
-  something: the connected Bluetooth device and its battery. Their
+  something (the connected Bluetooth device was one, until decision 042). Their
   tiles don't react to the pointer and a click on them does nothing (it
   doesn't fall through and close Home either). (A battery tile and a clock
   tile were removed in decision 019.)
@@ -85,16 +85,12 @@ nothing could be started from the island. The idle pill also showed nothing.
 `clock`) and `core/home.h` (tile grid), tested by
 `tests/scenarios/home.scenario` and `tests/home_tests.cpp`. Pomodoro
 (`providers/pomodoro/`) is the first panel and the reference for writing
-one. Bluetooth (`providers/system/`) is the reference static widget: a
-pure presenter, tested on Linux, fed by a thin WinRT reader (device
-watchers, with the battery level Windows keeps on a Bluetooth device's
-nodes, the one Settings shows). The renderer
-draws a faint background under each tile, like a hovered tab.
+one. The theme toggle (`providers/system/`) is the reference system
+widget: a pure presenter, tested on Linux, fed by a thin Windows reader.
+(Bluetooth was the reference static widget, removed in decision 042.) The renderer
+draws a faint background under each tile, like the one under each tab.
 
 **Open.** Which panels show on Home, and in which order, should be a
 setting once there are more than fit; today the order is whichever panel
-appears first (Bluetooth, published when a device connects, can land after
-Pomodoro). Not every Bluetooth device reports a battery level to Windows;
-those show "Connected". LE devices that only expose it over GATT aren't
-read. Panels can't change their tile's size. A paused Pomodoro stays until
+appears first. Panels can't change their tile's size. A paused Pomodoro stays until
 stopped (no linger like media). Matched geometry from tile to card (PS §3.4) isn't built.

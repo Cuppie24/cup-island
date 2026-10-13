@@ -5,14 +5,15 @@
 //   <command> [args] [-> <Mode> [key=value ...]]
 //
 // Commands:  start <id> [level] [relevance] [expires=<ms>]   update <id>   end <id>
-//            alert <name> [level] [for=<activity>] [key=<coalesceKey>]
+//            alert <name> [level] [for=<activity|panel>] [key=<coalesceKey>]
 //            click  outside  esc  pointer  drag-enter  drag-rejected
 //            drag-leave  drop  hide  show  wait <ms>
 //            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel
-//            panel <id> [static]  unpanel <id>  home  tile <id>     (static: a widget with no card)
+//            panel <id> [static|keep]  unpanel <id>  home  tile <id>  (static: a widget with no card;
+//                                                                     keep: its card stays open on a click, decision 030)
 //            focus <card> <action> [at=<n>]  type <text...>  erase [word]  submit  cancel-input   (a TextInput, decision 016)
 //            delete [word]  caret <left|right|word-left|word-right|start|end> [select]
-//            place <n> [select]  select-word <n>  select-all                     (caret and selection, decision 030)
+//            place <n> [select]  select-word <n>  select-all                     (caret and selection, decision 043)
 //            ask <card>  close-dialog                                               (a provider's dialog, decision 020)
 //            edit <card> <action> <text> [at=<n>]                                   (a Text edited in place, decision 029)
 //            wheel <card> <list> <from> <delta> <max>  reveal <card> <list> <row>    (lists, decision 029)
@@ -145,6 +146,7 @@ struct Runner {
         else if (cmd == "panel") {
             Panel p{ .id = arg(1), .content = { .label = arg(1) } };
             if (arg(2) != "static") p.content.expandedCenter = { row({ Text{ arg(1) } }) };
+            p.content.keepOpen = arg(2) == "keep";
             apply(PanelPublished{ p });
         }
         else if (cmd == "unpanel") apply(PanelRemoved{ arg(1) });

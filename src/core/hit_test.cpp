@@ -15,7 +15,7 @@ std::optional<Hit> hitTest(const Scene& scene, Vec2 point)
             return Hit{ { p.providerId, p.activityId, image->actionId, 0 }, p.key };
         if (auto* input = std::get_if<TextInput>(&p.item)) // the app focuses it (InputFocused), nothing is sent yet
             return Hit{ { p.providerId, p.activityId, input->actionId, 0 }, p.key };
-        if (auto* text = std::get_if<Text>(&p.item); text && !text->editAction.empty()) // the app starts editing it (decision 030)
+        if (auto* text = std::get_if<Text>(&p.item); text && !text->editAction.empty()) // the app starts editing it (decision 043)
             return Hit{ { p.providerId, p.activityId, text->editAction, 0 }, p.key };
         if (auto* progress = std::get_if<Progress>(&p.item); progress && progress->seekable && progress->shape == ProgressShape::Bar && p.frame.width > 0)
             return Hit{ { p.providerId, p.activityId, "seek", seekFraction(p, point.x) }, p.key };

@@ -12,7 +12,7 @@ used most, wasn't on Home at all unless something was already playing.
 - **A widget per activity provider.** An activity provider shows on Home as
   a widget: its panel's tile (decision 009), there whether or not anything
   is live. Media and Pomodoro come first (they're started first), then the
-  system tiles (theme, Bluetooth, Settings: decision 022).
+  system tiles (theme, Settings: decision 022; Bluetooth was removed in 042).
 - **Information only.** A widget shows state, never controls. The host
   leaves out any `Button` or `TextInput` a tile slot carries, so a click
   anywhere on a widget means one thing: open its card, where the controls

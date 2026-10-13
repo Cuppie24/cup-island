@@ -33,6 +33,10 @@ struct ThemeColor {
 struct Theme {
     std::string name;
     std::vector<ThemeColor> colors;
+    // Derived when parsed, from the colours it ends up with (decision 030):
+    Color island{ 0, 0, 0 }; // its islandColor
+    Color accent;            // its liveColor (progress fills, the waveform)
+    bool light = false;      // its island is pale: Settings lists dark and light apart
     bool operator==(const Theme&) const = default;
 };
 
@@ -53,7 +57,7 @@ struct Tokens {
     Vec2 compactSize{ 260, 32 };
     Vec2 alertSize{ 320, 64 };
     Vec2 expandedSize{ 380, 159 };
-    float centredCardWidth = 440; // a Centred card (Pomodoro, Settings): wider than Expanded, room for a to-do's text (decision 030)
+    float centredCardWidth = 440; // a Centred card (Pomodoro, Settings): wider than Expanded, room for a to-do's text (decision 043)
     Vec2 receptiveSize{ 380, 84 };
     Vec2 hiddenSize{ 160, 0 };
     float maxCornerRadius = 28; // bottom corners: half the height, capped, so big shapes aren't blobs
@@ -65,6 +69,11 @@ struct Tokens {
     float compactInset = 4;     // compact padding
     float alertPadding = 8;
     float expandedPadding = 12;
+    float listCardInset = 8;      // CardLayout::List: at least this much more on the left and right (decision 030)
+    float listCardWidth = 340;    // ...and its rows no wider than this, centred (a full-width card's, at the shipped sizes)
+    float listCardVerticalInset = 6;  // ...this much more above and below its rows
+    float listCardVisibleRows = 9.5f; // ...and a page that is one list (Settings' root) scrolls past this many rows (decision 037)
+    float listCardMinHeight = 240;    // ...and never shorter than this: room to breathe (decision 030)
     float expandedArtSize = 68; // expanded leading square: as tall as title + artist + caption beside it
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;
@@ -74,12 +83,14 @@ struct Tokens {
     float bodyFontSize = 15;
     float captionFontSize = 13; // the smallest text: ~11 px on screen at 100% after islandScale
     float displayFontSize = 34; // TextStyle::Display: a timer as the card's centre
+    float headingFontSize = 14; // TextStyle::Heading: a group's name, a little over caption size
     // Font weights, 100..900 (400 regular, 600 semibold; decision 024). Segoe UI Variable
     // (Windows 11) takes any value in between; other fonts use the nearest weight they have.
-    float titleFontWeight = 600;
-    float bodyFontWeight = 500;   // a touch heavier than regular: light text on a dark island reads thin
-    float captionFontWeight = 500;
-    float displayFontWeight = 350; // big and light, like a clock face
+    float titleFontWeight = 700;   // bold: Segoe UI Variable's heaviest
+    float bodyFontWeight = 600;    // semibold: text on the island reads heavier than on a page (decision 024)
+    float captionFontWeight = 600;
+    float displayFontWeight = 450; // big and still the lightest, like a clock face
+    float headingFontWeight = 700; // a heading stands out from the rows under it: bold, and the title colour
     // Darkens antialiased text strokes (DirectWrite's grayscale enhanced
     // contrast): 0 = none, 1 = Windows' usual, higher = bolder-looking edges.
     float textContrast = 1.5f;
@@ -91,7 +102,9 @@ struct Tokens {
     float inputHeight = 36;       // a TextInput: a little taller than the rows, easy to click into
     float listItemPadding = 5;    // Row::listItem: above and below its content, so list items stand apart
     float listItemInset = 6;      // Row::listItem: its content in from the hover background's edges
-    float editInset = 6;          // a Text edited in place: its field reaches this far past the text on each side (decision 030)
+    float sectionGap = 12;        // Row::section: space above a group's heading (decision 037)
+    float listItemTextInset = 14; // ...where the edge item is text: clear of the background's rounded end (decision 030)
+    float editInset = 6;          // a Text edited in place: its field reaches this far past the text on each side (decision 043)
     float buttonLabelPadding = 10; // a text button: its label plus this on each side        // hover circle; the click area also takes in half the gaps around it
     float buttonGlyphSize = 16;
     float buttonPressScale = 0.85f;
@@ -102,6 +115,9 @@ struct Tokens {
     float ringThickness = 3;      // progress ring stroke (decision 010)
     float stepDotSize = 9;        // Steps: one dot per step
     float stepDotGap = 8;
+    float badgeSize = 8;          // a notification dot (decision 038)
+    float badgeInset = 7;         // ...at least this far in from a widget's or tab's edges (its corner's rounding sets it, decision 038)
+    float swatchSize = 24;        // Swatch: a colour sample (a theme on Settings' list, decision 030)
 
     // Hover on buttons and the progress bar (decision 002: content only, not the pill).
     Ms hoverFadeDuration{ 120 };
@@ -121,7 +137,7 @@ struct Tokens {
 
     // Split bubble (PS §3.1) and dragging it onto the pill to swap (decision 007).
     float bubbleSize = 32;        // width and height; shaped like the pill (straight top, rounded bottom)
-    float bubbleGap = 8;          // between the pill's right edge and the bubble at rest
+    float bubbleGap = 8;          // pill to bubble at rest without flares; with them, the gap is both flares (decision 025)
     float dragStartDistance = 4;  // a press on the bubble that moves less is a click
     float bridgeThickness = 20;   // liquid neck between pill and bubble, at its thickest
     float bridgeReach = 6;        // edge gap at which the neck has thinned to nothing (< bubbleGap: none at rest)
@@ -148,6 +164,7 @@ struct Tokens {
     float tileHeight = 60;        // fits a title and a caption line inside tilePadding
     float tileGap = 8;
     float tilePadding = 8;        // inside a tile, on every side
+    float focusRingWidth = 2;     // the keyboard's focus ring (decision 033), drawn inside what has focus
 
     // Morph between modes: ease-out, 250-350 ms budget (TR §5).
     Ms morphDuration{ 300 };
@@ -205,11 +222,13 @@ struct Tokens {
     Color stepTodoColor{ 255, 255, 255, 51 };
     Color tabSelectedColor{ 255, 255, 255, 41 };
     Color hoverColor{ 255, 255, 255, 20 };         // a tab or tile under the pointer
-    Color tileColor{ 255, 255, 255, 20 };          // Home's tile backgrounds
+    Color tileColor{ 255, 255, 255, 20 };          // Home's tile and Expanded's tab backgrounds, always shown
+    Color focusRingColor{ 255, 255, 255, 153 };    // around what the keyboard has focus on (decision 033): a theme's accent
     Color inputColor{ 255, 255, 255, 26 };         // a text field's background (decision 016)
     Color placeholderTextColor{ 255, 255, 255, 128 }; // "Add a to-do…": like body text, a little dimmer
-    Color selectionColor{ 10, 132, 255, 115 };     // selected text in a field (decision 030): readable on dark and light themes
+    Color selectionColor{ 10, 132, 255, 115 };     // selected text in a field (decision 043): readable on dark and light themes
     Color dangerColor{ 255, 69, 58 };              // a destructive button's label: a dialog's "Clear all" (decision 020)
+    Color badgeColor{ 255, 69, 58 };               // a notification dot (decision 038): the red every OS uses for "new"
     Color imagePlaceholderColor{ 255, 255, 255, 31 }; // art that hasn't arrived
     Color shadowColor{ 0, 0, 0, 115 };             // under the island in every mode; its alpha is the shadow's strength
     Color pomodoroFocusColor{ 255, 99, 71 };       // accents (decision 010)
@@ -229,6 +248,13 @@ struct Tokens {
 
     // The Settings card's "Copy logs" button: how long it says "Copied" after a click.
     Ms logsNote{ 2000 };
+
+    // Updates (decision 036): the first check this long after start (not in
+    // the middle of starting up), then one per interval, kept across restarts;
+    // a check that failed (offline) tries again after updateRetry.
+    Ms updateFirstCheckDelay{ 15000 };
+    Ms updateCheckInterval{ 86400000 };
+    Ms updateRetry{ 3600000 };
 
     // The app themes the Settings card offers, in its order; the first is the
     // default (decision 022). tokens() already has the picked one applied.

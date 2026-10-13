@@ -1,5 +1,5 @@
 #pragma once
-// Editing the text in a field (decision 030): a caret and a selection, moved
+// Editing the text in a field (decision 043): a caret and a selection, moved
 // and changed the way any Windows text box does it. Pure: offsets are UTF-8
 // bytes into Draft::text, always on a character's first byte.
 

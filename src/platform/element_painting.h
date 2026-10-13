@@ -19,11 +19,14 @@ void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float f
 // A text button's label, centred.
 void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& label, Vec2 size, const Color& color);
 // Where in `text` (a byte offset) a click `x` pixels from its frame's left lands:
-// where editing it in place puts the caret (decision 030).
+// where editing it in place puts the caret (decision 043).
 std::size_t caretAt(IDWriteFactory* dw, const Text& text, Vec2 size, float x);
 // Steps (decision 010): a dot per step, centred vertically; done and to-do
 // ones in their token colours, the current one in `accent`.
 void paintSteps(ID2D1DeviceContext* dc, const Steps& steps, Vec2 size, const Color& accent);
+// A Swatch (decision 030): a circle of its fill, ringed in trackColor so a
+// pale one shows on a pale island, with a dot of its mark in the middle.
+void paintSwatch(ID2D1DeviceContext* dc, const Swatch& swatch, Vec2 size);
 // Fills a rounded rect with the image scaled to cover it; a neutral tile if `data` is null.
 void paintImage(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float cornerRadius);
 

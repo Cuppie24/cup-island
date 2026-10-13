@@ -6,6 +6,7 @@
 
 #include "core/layout.h"
 #include "core/tokens.h"
+#include "platform/badge_dots.h"
 #include "platform/element_visuals.h"
 #include "platform/graphics_device.h"
 #include "platform/win.h"
@@ -34,8 +35,15 @@ public:
     // background slides to a newly picked tab; hover is fainter and just fades.
     void setSelectedTab(std::optional<Rect> tab, float cornerRadius);
     void setHovered(std::optional<Rect> area, float cornerRadius); // a tab or a Home tile under the pointer
-    // Home's tiles (decision 009): a faint background under each, like a hovered tab.
-    void setTiles(const std::vector<Rect>& tiles, float cornerRadius);
+    // The keyboard's focus (decision 033): a ring inside `area`, over the
+    // content, so it shows which one Enter clicks even with the pointer elsewhere.
+    void setFocusRing(std::optional<Rect> area, float cornerRadius);
+    // Home's tiles (decision 009) and Expanded's tabs (decision 007): a faint
+    // background under each, always shown; hover and selection add to it.
+    void setTiles(const std::vector<Rect>& tiles, float cornerRadius) { showMarks(tiles_, tiles, cornerRadius); }
+    void setTabs(const std::vector<Rect>& tabs, float cornerRadius) { showMarks(tabs_, tabs, cornerRadius); }
+    // Notification dots (decision 038), over the content: Scene::badges.
+    void setBadges(const std::vector<Vec2>& centres) { badges_.show(centres); }
 
     // Tactile click feedback: squash on press, spring back on release.
     void pressDown();
@@ -52,10 +60,11 @@ private:
     wuc::Compositor compositor_{ nullptr };
     wuc::ShapeVisual body_{ nullptr };             // Size/Offset morph implicitly
     // Its shadow (decision 018): a sprite under the body that draws nothing
-    // itself and casts a DropShadow masked by a live snapshot of the body, so
+    // itself and casts a DropShadow masked by a live snapshot of the body's outline, so
     // the shadow has the body's shape through every morph, drag and press.
     // Null where Windows can't snapshot a visual (before 1903): no shadow.
     wuc::SpriteVisual caster_{ nullptr };
+    wuc::ShapeVisual outline_{ nullptr }; // the snapshot's source: the body's shape without its content
     wuc::DropShadow shadow_{ nullptr };
     void buildShadow(wuc::Compositor const& compositor, wuc::ContainerVisual const& parent);
     void applyShadow(); // colour, blur, offset from tokens
@@ -71,8 +80,18 @@ private:
         std::optional<Rect> at;
     };
     void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide);
+    void showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius); // tileColor, one per rect
     Mark selectedTab_, hovered_;
-    std::vector<Mark> tiles_; // grows to the most tiles shown; spare ones stay faded out
+    struct Ring { // the focus ring: stroked, not filled; over content_, not under it
+        wuc::ShapeVisual visual{ nullptr };
+        wuc::CompositionRoundedRectangleGeometry shape{ nullptr };
+        wuc::CompositionSpriteShape stroke{ nullptr };
+        wuc::CompositionColorBrush brush{ nullptr };
+        std::optional<Rect> at;
+        float radius = 0;
+    } focusRing_;
+    std::vector<Mark> tiles_, tabs_; // grow to the most shown; spare ones stay faded out
+    BadgeDots badges_;
     ElementVisuals elements_;
     Vec2 size_, offset_;
     Vec2 centre_;            // last cursor position while following

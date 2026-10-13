@@ -37,6 +37,12 @@ public:
     // A click on one of a provider's buttons. Unknown or stopped providers are ignored.
     void route(const Action& action);
 
+    // A provider's card stopped being shown (shownCard changed): tells it (Provider::onCardClosed).
+    void cardClosed(const ShownCard& card);
+
+    // Ctrl+W on an activity's card: asks its provider to close it (Provider::onCloseRequested).
+    void closeRequested(const ShownCard& card);
+
     // Wake-ups providers asked for (Host::wakeAt): the earliest, for the app's
     // one timer, and calling onWake() on every provider whose time has come.
     std::optional<Ms> nextWake() const;

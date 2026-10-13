@@ -121,6 +121,16 @@ void ProviderRegistry::route(const Action& action)
     if (Entry* e = find(action.providerId); e && e->running) e->provider->onAction(action);
 }
 
+void ProviderRegistry::cardClosed(const ShownCard& card)
+{
+    if (Entry* e = find(card.providerId); e && e->running) e->provider->onCardClosed(card.activityId);
+}
+
+void ProviderRegistry::closeRequested(const ShownCard& card)
+{
+    if (Entry* e = find(card.providerId); e && e->running) e->provider->onCloseRequested(card.activityId);
+}
+
 std::optional<Ms> ProviderRegistry::nextWake() const
 {
     std::optional<Ms> next;

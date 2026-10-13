@@ -92,3 +92,50 @@ panel focus
 click
 alert copied                        -> Expanded queue=1
 esc                                 -> Alert alert=copied
+
+scenario: a card that keeps open stays on a click between its controls (decision 030)
+panel settings keep
+click
+tile settings                       -> Expanded expanded=settings
+click                               -> Expanded expanded=settings
+esc                                 -> Expanded expanded=home
+esc                                 -> Idle
+click
+tile settings
+outside                             -> Idle
+click
+tile settings
+wait 8000                           -> Idle
+
+scenario: the Open Home shortcut (Ctrl+Q) opens Home from anywhere (decision 032)
+panel focus
+home                                -> Expanded expanded=home
+esc                                 -> Idle
+start media
+click                               -> Expanded expanded=media
+home                                -> Expanded expanded=home
+esc                                 -> Compact
+home                                -> Expanded expanded=home
+
+scenario: Esc on a card opened from a Home widget goes back to Home (decision 033)
+panel focus
+start media
+click                               -> Expanded expanded=media
+esc                                 -> Compact
+home
+tile focus                          -> Expanded expanded=focus
+esc                                 -> Expanded expanded=home
+tile media                          -> Expanded expanded=media
+esc                                 -> Expanded expanded=home
+esc                                 -> Compact
+
+scenario: a card reached any other way still closes on Esc (decision 033)
+panel focus
+start media
+home
+tile focus                          -> Expanded expanded=focus
+switch media                        -> Expanded expanded=media
+esc                                 -> Compact
+alert copied
+click                               -> Expanded expanded=media
+esc                                 -> Compact

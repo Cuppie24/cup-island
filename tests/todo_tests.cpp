@@ -99,7 +99,7 @@ void runTodoTests()
     const Placed* oldDone = firstOf(card, [](const Placed& p) { auto* t = std::get_if<Text>(&p.item); return t && t->value == "Old done"; });
     expect(oldDone && std::get<Text>(oldDone->item).struck, "solved ones are struck through");
 
-    // Only the checkbox ticks a to-do; its text is a click into editing it (decision 030).
+    // Only the checkbox ticks a to-do; its text is a click into editing it (decision 043).
     const Placed* openText = firstOf(card, [](const Placed& p) { auto* t = std::get_if<Text>(&p.item); return t && t->value == "Old open"; });
     auto onText = hitTest(card, { openText->frame.x + openText->frame.width - 2, openText->frame.y + openText->frame.height / 2 });
     expect(onText && onText->action.actionId.rfind(todo_action::kEdit, 0) == 0 && onText->key == openText->key,

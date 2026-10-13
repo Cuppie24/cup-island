@@ -1,0 +1,285 @@
+#include "providers/update/update_provider.h"
+
+#include "core/tokens.h"
+
+#include <algorithm>
+#include <charconv>
+#include <cstdlib>
+#include <utility>
+#include <vector>
+
+namespace cup {
+namespace {
+
+std::optional<long long> parseMs(const std::string& text)
+{
+    long long value = 0;
+    auto [end, error] = std::from_chars(text.data(), text.data() + text.size(), value);
+    if (error != std::errc{} || end == text.data()) return std::nullopt;
+    return value;
+}
+
+// The saved offer (kOfferKey): a field a line, in UpdateOffer's order.
+std::string offerText(const UpdateOffer& o)
+{
+    return versionText(o.version) + "\n" + o.url + "\n" + o.sha256 + "\n" + o.fileName + "\n" + o.page + "\n" +
+           (o.mandatory ? "mandatory\n" : "");
+}
+
+std::optional<UpdateOffer> offerFrom(const std::string& text)
+{
+    std::vector<std::string> lines;
+    std::size_t at = 0;
+    while (at < text.size()) {
+        std::size_t end = text.find('\n', at);
+        if (end == std::string::npos) end = text.size();
+        std::string line = text.substr(at, end - at);
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        lines.push_back(line);
+        at = end + 1;
+    }
+    if (lines.size() < 4) return std::nullopt;
+    auto version = parseVersion(lines[0]);
+    if (!version || lines[1].empty() || lines[2].empty() || lines[3].empty()) return std::nullopt;
+    return UpdateOffer{ .version = *version, .url = lines[1], .sha256 = lines[2], .fileName = lines[3], .page = lines.size() > 4 ? lines[4] : "",
+                        .mandatory = lines.size() > 5 && lines[5] == "mandatory" };
+}
+
+Alert offerAlert(const UpdateOffer& offer)
+{
+    std::string v = versionText(offer.version);
+    return { .activityId = UpdateProvider::kPanelId, // a click opens the update's card (core: onClick)
+             .content = { .label = "Update available",
+                          .alertLeading = { row({ Icon{ Glyph::Download } }) },
+                          .alertCenter = { row({ Text{ "Update available", TextStyle::Title } }),
+                                           row({ Text{ "Cup Island " + v + ": click to install", TextStyle::Caption } }) } },
+             .coalesceKey = "update" };
+}
+
+} // namespace
+
+Panel updatePanel(const UpdateOffer& offer, const std::string& running, UpdateStage stage, const std::string& problem)
+{
+    namespace A = update_action;
+    std::string v = versionText(offer.version);
+    std::string caption = stage == UpdateStage::Installing ? "Downloading and installing…"
+                          : stage == UpdateStage::Failed   ? problem
+                          : offer.mandatory                ? "Required: installs at the next start" // decision 041
+                                                           : "You have " + running;
+    Button install{ .actionId = A::kInstall, .label = stage == UpdateStage::Failed ? "Try again" : "Install and restart" };
+    if (stage == UpdateStage::Installing) {
+        install.label = "Installing…";
+        install.enabled = false;
+    }
+    Row buttons = row({ install }, Align::Center);
+    if (!offer.page.empty()) buttons.items.push_back(Button{ .actionId = A::kWhatsNew, .label = "What's new" });
+    buttons.loose = true;
+    bool waiting = stage != UpdateStage::Installing; // offered, or failed: still the user's to do
+    Content content{
+        .label = "Update to " + v,
+        .card = CardLayout::Centred,
+        // A dot on the widget, and on Home's button: the one widget whose news
+        // is worth seeing from any card (decision 038).
+        .badge = waiting,
+        .badgeHome = waiting,
+        .expandedCenter = { row({ Text{ .value = "Cup Island " + v, .style = TextStyle::Title, .centred = true } }),
+                            row({ Text{ .value = caption, .style = TextStyle::Caption, .centred = true } }),
+                            buttons },
+        // Stacked like the other small widgets (theme, Settings), no square at
+        // the side: it fits a narrow column. The icon and version, then what it is.
+        .tile = { row({ Icon{ Glyph::Download }, Text{ v, TextStyle::Caption } }), row({ Text{ "Update", TextStyle::Title } }) },
+    };
+    return { .id = UpdateProvider::kPanelId, .content = content };
+}
+
+void UpdateProvider::start(Host& host)
+{
+    host_ = &host;
+    running_ = parseVersion(hooks_.version);
+    if (!running_ || !hooks_.fetchLatest) return; // a dev build: it never checks
+    restore();
+
+    // Not during startup; and no sooner than a day after the last check,
+    // restarts included. A clock that went back counts as due.
+    const Tokens& t = tokens();
+    Ms wait = t.updateFirstCheckDelay;
+    if (auto last = parseMs(host_->load(kLastCheckKey))) {
+        Ms since = host_->wallClock() - Ms{ *last };
+        if (since >= Ms{ 0 } && since < t.updateCheckInterval) wait = std::max(wait, t.updateCheckInterval - since);
+    }
+    host_->wakeAt(host_->now() + wait);
+}
+
+void UpdateProvider::stop()
+{
+    if (!host_) return;
+    *alive_ = false;
+    alive_ = std::make_shared<bool>(true);
+    checking_ = false;
+    replies_.clear(); // nobody to tell any more
+    host_->wakeAt(std::nullopt);
+    withdraw(false); // off screen, but still saved: the app is closing, the offer stands
+    stage_ = UpdateStage::Offered;
+    host_ = nullptr;
+}
+
+void UpdateProvider::onWake()
+{
+    if (host_) check();
+}
+
+void UpdateProvider::checkNow(Reply reply)
+{
+    if (!host_) return;
+    if (!running_ || !hooks_.fetchLatest) {
+        reply(CheckOutcome::DevBuild, "");
+        return;
+    }
+    replies_.push_back(std::move(reply));
+    check(); // no-op while one is under way: its answer goes to this reply too
+}
+
+void UpdateProvider::answer(CheckOutcome outcome, const std::string& version)
+{
+    std::vector<Reply> waiting = std::exchange(replies_, {});
+    for (const Reply& reply : waiting) reply(outcome, version);
+}
+
+void UpdateProvider::check()
+{
+    if (checking_ || !running_) return;
+    checking_ = true;
+    std::shared_ptr<bool> alive = alive_;
+    hooks_.fetchLatest([this, alive](std::optional<GitHubRelease> release) {
+        if (*alive) checked(release);
+    });
+}
+
+void UpdateProvider::checked(const std::optional<GitHubRelease>& release)
+{
+    checking_ = false;
+    const Tokens& t = tokens();
+    if (!release) { // offline, or GitHub didn't answer: try again sooner than a day
+        host_->wakeAt(host_->now() + t.updateRetry);
+        answer(CheckOutcome::Failed, "");
+        return;
+    }
+    host_->save(kLastCheckKey, std::to_string(host_->wallClock().count()));
+    host_->wakeAt(host_->now() + t.updateCheckInterval);
+
+    auto offer = offerFor(*running_, *release);
+    if (!offer) {
+        withdraw(); // withdrawn, or nothing newer after all
+        answer(CheckOutcome::UpToDate, "");
+        return;
+    }
+    std::string v = versionText(offer->version);
+    if (stage_ == UpdateStage::Installing) { // mid-download: leave it be
+        answer(CheckOutcome::Available, versionText(offer_->version));
+        return;
+    }
+    if (!offer_ || offer_->version != offer->version) {
+        stage_ = UpdateStage::Offered;
+        problem_.clear();
+    }
+    offer_ = offer;
+    host_->save(kOfferKey, offerText(*offer_)); // still offered after a restart
+    publish();
+    if (host_->load(kAnnouncedKey) != v) { // once per version: a daily check doesn't nag
+        host_->postAlert(offerAlert(*offer));
+        host_->save(kAnnouncedKey, v);
+    }
+    answer(CheckOutcome::Available, v);
+}
+
+void UpdateProvider::onAction(const Action& action)
+{
+    if (!host_ || !offer_ || action.activityId != kPanelId) return;
+    if (action.actionId == update_action::kWhatsNew) {
+        if (hooks_.openPage && !offer_->page.empty()) hooks_.openPage(offer_->page);
+    } else if (action.actionId == update_action::kInstall) {
+        install();
+    }
+}
+
+void UpdateProvider::install()
+{
+    if (!host_ || !offer_ || stage_ == UpdateStage::Installing || !hooks_.install) return;
+    stage_ = UpdateStage::Installing;
+    problem_.clear();
+    publish();
+    std::shared_ptr<bool> alive = alive_;
+    hooks_.install(*offer_, [this, alive](std::string problem) {
+        if (!*alive || !host_) return;
+        stage_ = UpdateStage::Failed;
+        problem_ = std::move(problem);
+        publish();
+    });
+}
+
+void UpdateProvider::onStatus(std::function<void(const std::optional<UpdateStatus>&)> listener)
+{
+    listener_ = std::move(listener);
+    if (!listener_) return;
+    if (offer_) listener_(UpdateStatus{ versionText(offer_->version), stage_, problem_ });
+    else listener_(std::nullopt);
+}
+
+void UpdateProvider::publish()
+{
+    if (!host_ || !offer_) return;
+    host_->publishPanel(updatePanel(*offer_, versionText(*running_), stage_, problem_));
+    if (listener_) listener_(UpdateStatus{ versionText(offer_->version), stage_, problem_ });
+}
+
+void UpdateProvider::restore()
+{
+    // Offered before a restart: back on Home at once, without waiting a day
+    // for the next check (which withdraws it if it's gone). Already installed
+    // (this build is that version): forgotten. No second alert.
+    auto saved = offerFrom(host_->load(kOfferKey));
+    if (!saved) return;
+    if (!movesTo(*running_, saved->version)) {
+        host_->save(kOfferKey, "");
+        host_->save(kMandatoryTriesKey, "");
+        return;
+    }
+    offer_ = saved;
+    stage_ = UpdateStage::Offered;
+    publish();
+    if (offer_->mandatory) installMandatory();
+}
+
+// A mandatory release (decision 041): installed at the start after it was
+// found, with no click. The user still knows: an alert says it's updating, and
+// the widget shows it installing. At most kMandatoryTries times per version:
+// an installer that keeps failing falls back to the usual Install button
+// rather than a download on every start.
+void UpdateProvider::installMandatory()
+{
+    std::string v = versionText(offer_->version);
+    std::string tried = host_->load(kMandatoryTriesKey); // "<version> <tries>"
+    int tries = 0;
+    if (tried.rfind(v + " ", 0) == 0) tries = std::atoi(tried.c_str() + v.size() + 1);
+    if (tries >= kMandatoryTries) return;
+    host_->save(kMandatoryTriesKey, v + " " + std::to_string(tries + 1));
+    host_->postAlert({ .activityId = kPanelId,
+                       .content = { .label = "Updating",
+                                    .alertLeading = { row({ Icon{ Glyph::Download } }) },
+                                    .alertCenter = { row({ Text{ "Updating", TextStyle::Title } }),
+                                                     row({ Text{ "Cup Island " + v + ": a required update", TextStyle::Caption } }) } },
+                       .coalesceKey = "update" });
+    install();
+}
+
+void UpdateProvider::withdraw(bool forget)
+{
+    if (forget && host_) host_->save(kOfferKey, ""); // withdrawn: not back after a restart either
+    if (!offer_) return;
+    host_->removePanel(kPanelId);
+    offer_.reset();
+    stage_ = UpdateStage::Offered;
+    if (listener_) listener_(std::nullopt);
+}
+
+} // namespace cup

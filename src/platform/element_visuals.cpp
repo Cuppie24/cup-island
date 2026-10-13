@@ -144,7 +144,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         view.surface = device_->createSurface(size);
         ButtonParts parts = createButton(compositor_, size, placed.cornerRadius, view.surface, field ? t.inputColor : t.buttonHoverColor);
         view.visual = parts.visual;
-        view.highlight = parts.highlight;
+        view.highlight = placed.litByRow ? nullptr : parts.highlight; // lit by its row instead (Placed::litByRow): stays hidden
     } else if (clickableArt(placed.item)) {
         view.surface = device_->createSurface(size);
         view.glyphSurface = device_->createSurface(size);
@@ -199,7 +199,7 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     if (resized || retyped || relisted || (changed && (swims(view.placed.item) || swims(placed.item)))) {
         // A different kind of visual, a new size (tokens.json edits), another list or a new swimming string: rebuild it.
         if (auto parent = view.visual.Parent()) parent.Children().Remove(view.visual);
-        // A to-do's text turning into its field (or back) swaps in place: a fade would flash it (decision 030).
+        // A to-do's text turning into its field (or back) swaps in place: a fade would flash it (decision 043).
         auto editable = [](const Item& item) { return std::holds_alternative<Text>(item) || std::holds_alternative<TextInput>(item); };
         view = create(placed, now, !(retyped && editable(view.placed.item) && editable(placed.item)));
         return true;
@@ -253,6 +253,8 @@ void ElementVisuals::paint(View& view)
             paintInput(dc, dw, *input, size); // its background is the hover shape, nested like a button's
         } else if (auto* steps = std::get_if<Steps>(&item)) {
             paintSteps(dc, *steps, size, accentOf(view.placed));
+        } else if (auto* swatch = std::get_if<Swatch>(&item)) {
+            paintSwatch(dc, *swatch, size);
         }
     });
     if (drawn && view.glyphSurface)
@@ -319,7 +321,7 @@ void ElementVisuals::press(const std::string& key)
     const Tokens& t = tokens();
     if (it->second.highlight) fadeTo(compositor_, it->second.highlight, 1.0f, t.hoverFadeDuration);
     if (it->second.art.overlay && key != hovered_) showArtOverlay(compositor_, it->second.art, true); // pressed without a hover (touch)
-    // A field, or text a click edits (decision 030), is clicked into, not pressed: no squash.
+    // A field, or text a click edits (decision 043), is clicked into, not pressed: no squash.
     if (std::holds_alternative<TextInput>(it->second.placed.item) || std::holds_alternative<Text>(it->second.placed.item)) return;
     // Art is big: the pill's gentle squash, not a button's deep one.
     float scale = std::holds_alternative<Image>(it->second.placed.item) ? t.pressScale : t.buttonPressScale;

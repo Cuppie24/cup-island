@@ -1,5 +1,5 @@
 #pragma once
-// A text field's pixels (decisions 016, 030): its text or placeholder, the
+// A text field's pixels (decisions 016, 043): its text or placeholder, the
 // selection and the caret, scrolled sideways to keep the caret in view; and
 // the other way round, where a click in it puts the caret. Both lay the text
 // out the same way, so a click lands where the caret is drawn.

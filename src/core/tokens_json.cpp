@@ -36,6 +36,11 @@ const Field kFields[] = {
     { "compactInset", &Tokens::compactInset, true },
     { "alertPadding", &Tokens::alertPadding },
     { "expandedPadding", &Tokens::expandedPadding },
+    { "listCardInset", &Tokens::listCardInset },
+    { "listCardWidth", &Tokens::listCardWidth },
+    { "listCardVerticalInset", &Tokens::listCardVerticalInset },
+    { "listCardVisibleRows", &Tokens::listCardVisibleRows },
+    { "listCardMinHeight", &Tokens::listCardMinHeight },
     { "expandedArtSize", &Tokens::expandedArtSize },
     { "slotGap", &Tokens::slotGap },
     { "rowSpacing", &Tokens::rowSpacing },
@@ -45,11 +50,13 @@ const Field kFields[] = {
     { "bodyFontSize", &Tokens::bodyFontSize },
     { "captionFontSize", &Tokens::captionFontSize },
     { "displayFontSize", &Tokens::displayFontSize },
+    { "headingFontSize", &Tokens::headingFontSize },
     { "inputFontSize", &Tokens::inputFontSize },
     { "titleFontWeight", &Tokens::titleFontWeight },
     { "bodyFontWeight", &Tokens::bodyFontWeight },
     { "captionFontWeight", &Tokens::captionFontWeight },
     { "displayFontWeight", &Tokens::displayFontWeight },
+    { "headingFontWeight", &Tokens::headingFontWeight },
     { "textContrast", &Tokens::textContrast },
     { "iconSize", &Tokens::iconSize },
     { "buttonSize", &Tokens::buttonSize },
@@ -58,6 +65,8 @@ const Field kFields[] = {
     { "inputHeight", &Tokens::inputHeight },
     { "listItemPadding", &Tokens::listItemPadding },
     { "listItemInset", &Tokens::listItemInset },
+    { "listItemTextInset", &Tokens::listItemTextInset },
+    { "sectionGap", &Tokens::sectionGap },
     { "editInset", &Tokens::editInset },
     { "buttonLabelPadding", &Tokens::buttonLabelPadding },
     { "buttonGlyphSize", &Tokens::buttonGlyphSize },
@@ -69,6 +78,9 @@ const Field kFields[] = {
     { "ringThickness", &Tokens::ringThickness },
     { "stepDotSize", &Tokens::stepDotSize },
     { "stepDotGap", &Tokens::stepDotGap },
+    { "badgeSize", &Tokens::badgeSize },
+    { "badgeInset", &Tokens::badgeInset },
+    { "swatchSize", &Tokens::swatchSize },
     { "hoverFadeDurationMs", &Tokens::hoverFadeDuration, true },
     { "artHoverGlyphSize", &Tokens::artHoverGlyphSize },
     { "marqueeSpeed", &Tokens::marqueeSpeed, true },
@@ -98,6 +110,7 @@ const Field kFields[] = {
     { "tileHeight", &Tokens::tileHeight },
     { "tileGap", &Tokens::tileGap },
     { "tilePadding", &Tokens::tilePadding },
+    { "focusRingWidth", &Tokens::focusRingWidth },
     { "morphDurationMs", &Tokens::morphDuration, true },
     { "morphEase", &Tokens::morphEase },
     { "contentFadeDurationMs", &Tokens::contentFadeDuration },
@@ -136,10 +149,12 @@ const Field kFields[] = {
     { "tabSelectedColor", &Tokens::tabSelectedColor },
     { "hoverColor", &Tokens::hoverColor },
     { "tileColor", &Tokens::tileColor },
+    { "focusRingColor", &Tokens::focusRingColor },
     { "inputColor", &Tokens::inputColor },
     { "placeholderTextColor", &Tokens::placeholderTextColor },
     { "selectionColor", &Tokens::selectionColor },
     { "dangerColor", &Tokens::dangerColor },
+    { "badgeColor", &Tokens::badgeColor },
     { "imagePlaceholderColor", &Tokens::imagePlaceholderColor },
     { "shadowColor", &Tokens::shadowColor },
     { "pomodoroFocusColor", &Tokens::pomodoroFocusColor },
@@ -152,6 +167,9 @@ const Field kFields[] = {
     { "scrollStep", &Tokens::scrollStep },
     { "scrollDurationMs", &Tokens::scrollDuration },
     { "logsNoteMs", &Tokens::logsNote, true },
+    { "updateFirstCheckDelayMs", &Tokens::updateFirstCheckDelay, true },
+    { "updateCheckIntervalMs", &Tokens::updateCheckInterval },
+    { "updateRetryMs", &Tokens::updateRetry },
 };
 
 const Field* findField(std::string_view name)
@@ -291,6 +309,15 @@ TokensParse parseTokens(std::string_view json)
     }
     in.expect('}');
     if (!in.failed() && !in.atEnd()) in.fail("unexpected text after the closing '}'");
+    // What each theme looks like, for Settings' list: its island and accent,
+    // and light or dark by that island (a theme that keeps the file's
+    // islandColor is as light as the file). Perceived brightness, 0..255.
+    for (Theme& theme : result.tokens.themes) {
+        Tokens themed = withTheme(result.tokens, theme.name);
+        theme.island = themed.islandColor;
+        theme.accent = themed.liveColor;
+        theme.light = 0.2126f * theme.island.r + 0.7152f * theme.island.g + 0.0722f * theme.island.b > 127.5f;
+    }
     return result;
 }
 
@@ -301,7 +328,7 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
     // knob isn't a size. Nor are font weights or text contrast.
     auto unitless = [](const char* name) {
         std::string_view n(name);
-        return n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" ||
+        return n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" ||
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
     };
     Tokens out = t;

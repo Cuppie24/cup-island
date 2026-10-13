@@ -65,6 +65,10 @@ void PillRenderer::apply(const Scene& scene)
     pill_.setEars(!scene.flushLeft, !(scene.flushRight && !scene.bubble));
     pill_.setHighlighted(scene.dropTarget);
     const TabStrip* tabs = scene.tabs ? &*scene.tabs : nullptr;
+    std::vector<Rect> tabFrames;
+    if (tabs)
+        for (const auto& tab : tabs->tabs) tabFrames.push_back(tab.frame);
+    pill_.setTabs(tabFrames, tabs ? tabs->radius : 0);
     pill_.setSelectedTab(tabs && tabs->active ? std::optional<Rect>(tabs->tabs[*tabs->active].frame) : std::nullopt, tabs ? tabs->radius : 0);
     // Nothing left that lights up as an area: drop a stale hover. A list row's
     // stays: the app re-aims it after every scene, and clearing it here would
@@ -74,6 +78,7 @@ void PillRenderer::apply(const Scene& scene)
     std::vector<Rect> tiles;
     for (const Tile& tile : scene.tiles) tiles.push_back(tile.frame);
     pill_.setTiles(tiles, scene.tileRadius);
+    pill_.setBadges(scene.badges);
 
     // While the bubble is dragged it just follows the cursor: no neck, no
     // other motion (decision 007). The neck is for budding and settling.

@@ -39,6 +39,27 @@ ImplicitAnimationCollection morphAnimations(Compositor const& c)
     return collection;
 }
 
+// Background: only the bottom corners are rounded (a notch hanging from the
+// screen edge). The geometry has one radius for all corners, so it's made a
+// radius taller and shifted up; ShapeVisual clips the top corners away.
+// Radius = half the height, capped by maxCornerRadius: the same curve as core
+// pillCornerRadius(), which content radii are nested in. Dragged off the edge
+// (Attached 0) the top corners round too: the square bubble becomes a circle
+// (decision 025). Built on `target`, whose Size is the body's.
+void addBackground(Compositor const& c, ShapeVisual const& target, CompositionPropertySet const& shape, CompositionBrush const& fill)
+{
+    auto background = c.CreateRoundedRectangleGeometry();
+    bind(c, background, L"CornerRadius",
+        L"Vector2(Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius), Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))",
+        target, shape);
+    bind(c, background, L"Offset", L"Vector2(0, -shape.Attached * Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))", target, shape);
+    bind(c, background, L"Size",
+        L"Vector2(pill.Size.X, pill.Size.Y + shape.Attached * Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))", target, shape);
+    auto backgroundShape = c.CreateSpriteShape(background);
+    backgroundShape.FillBrush(fill);
+    target.Shapes().Append(backgroundShape);
+}
+
 winrt::Windows::UI::Color fillColor(bool highlighted)
 {
     return toUiColor(highlighted ? tokens().islandHighlightColor : tokens().islandColor);
@@ -70,24 +91,8 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     shape_.InsertScalar(L"RightEar", 1.0f);
     bind(c, body_, L"CenterPoint", L"Vector3(pill.Size.X / 2, 0, 0)", body_, shape_);
 
-    // Background: only the bottom corners are rounded (a notch hanging from the
-    // screen edge). The geometry has one radius for all corners, so it's made
-    // a radius taller and shifted up; ShapeVisual clips the top corners away.
-    // Radius = half the height, capped by maxCornerRadius: the same curve as
-    // core pillCornerRadius(), which content radii are nested in. Dragged off
-    // the edge (Attached 0) the top corners round too: the square bubble
-    // becomes a circle (decision 025).
-    auto background = c.CreateRoundedRectangleGeometry();
-    bind(c, background, L"CornerRadius",
-        L"Vector2(Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius), Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))",
-        body_, shape_);
-    bind(c, background, L"Offset", L"Vector2(0, -shape.Attached * Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))", body_, shape_);
-    bind(c, background, L"Size",
-        L"Vector2(pill.Size.X, pill.Size.Y + shape.Attached * Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))", body_, shape_);
-    auto backgroundShape = c.CreateSpriteShape(background);
     fill_ = c.CreateColorBrush(fillColor(false));
-    backgroundShape.FillBrush(fill_);
-    body_.Shapes().Append(backgroundShape);
+    addBackground(c, body_, shape_, fill_);
     addEars(c, body_, shape_, fill_); // the flared top corners (decision 025)
 
     // Content lives in a container clipped to the shape's live size, so new
@@ -96,6 +101,7 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     bind(c, content_, L"Size", L"pill.Size", body_, shape_);
     content_.Clip(c.CreateInsetClip());
     body_.Children().InsertAtTop(content_);
+    badges_.build(c, body_, content_); // dots over the content (decision 038)
     elements_.init(c, device, content_);
 
     buildShadow(c, parent); // under the body
@@ -112,8 +118,23 @@ void Blob::buildShadow(Compositor const& c, ContainerVisual const& parent)
     using winrt::Windows::Foundation::Metadata::ApiInformation;
     if (!ApiInformation::IsMethodPresent(L"Windows.UI.Composition.Compositor", L"CreateVisualSurface")) return;
 
-    auto snapshot = c.CreateVisualSurface(); // live: re-rendered as the body changes, on the compositor
-    snapshot.SourceVisual(body_);
+    // The snapshot is of an outline-only twin of the body: the same background
+    // and ears, no content. Snapshotting the body itself re-rendered and
+    // re-blurred the shadow on every frame of anything animating inside it
+    // (the equalizer, a swimming title, the progress bar): all the time music
+    // played, which was enough GPU load to make audio stutter. The twin only
+    // changes when the shape does (morph, press, drag). It sits right under
+    // the body with the same fill and transform, so it's never seen.
+    outline_ = c.CreateShapeVisual();
+    bind(c, outline_, L"Size", L"pill.Size", body_, shape_);
+    bind(c, outline_, L"Offset", L"pill.Offset", body_, shape_);
+    bind(c, outline_, L"CenterPoint", L"pill.CenterPoint", body_, shape_);
+    bind(c, outline_, L"Scale", L"pill.Scale", body_, shape_);
+    addBackground(c, outline_, shape_, fill_);
+    addEars(c, outline_, shape_, fill_);
+
+    auto snapshot = c.CreateVisualSurface(); // live: re-rendered as the outline changes, on the compositor
+    snapshot.SourceVisual(outline_);
     // As wide as the body plus its ears (decision 025), so the shadow follows their curve.
     bind(c, snapshot, L"SourceOffset", L"Vector2(-" + kEarSize + L", 0)", body_, shape_);
     bind(c, snapshot, L"SourceSize", L"Vector2(pill.Size.X + 2 * " + kEarSize + L", pill.Size.Y)", body_, shape_);
@@ -128,6 +149,7 @@ void Blob::buildShadow(Compositor const& c, ContainerVisual const& parent)
     bind(c, caster_, L"Scale", L"pill.Scale", body_, shape_);
     caster_.Shadow(shadow_);
     parent.Children().InsertAtTop(caster_);
+    parent.Children().InsertAtTop(outline_); // above the shadow, below the body (inserted next)
 }
 
 void Blob::applyShadow()
@@ -179,11 +201,48 @@ void Blob::setSelectedTab(std::optional<Rect> tab, float cornerRadius) { showMar
 
 void Blob::setHovered(std::optional<Rect> area, float cornerRadius) { showMark(hovered_, area, cornerRadius, tokens().hoverColor, false); }
 
-void Blob::setTiles(const std::vector<Rect>& tiles, float cornerRadius)
+void Blob::setFocusRing(std::optional<Rect> area, float cornerRadius)
 {
-    if (tiles_.size() < tiles.size()) tiles_.resize(tiles.size());
-    for (std::size_t i = 0; i < tiles_.size(); ++i)
-        showMark(tiles_[i], i < tiles.size() ? std::optional<Rect>(tiles[i]) : std::nullopt, cornerRadius, tokens().tileColor, false);
+    Ring& ring = focusRing_;
+    if (!ring.visual) {
+        ring.shape = compositor_.CreateRoundedRectangleGeometry();
+        ring.stroke = compositor_.CreateSpriteShape(ring.shape);
+        ring.brush = compositor_.CreateColorBrush();
+        ring.stroke.StrokeBrush(ring.brush);
+        ring.visual = compositor_.CreateShapeVisual();
+        ring.visual.Shapes().Append(ring.stroke);
+        ring.visual.Opacity(0.0f);
+        // Above the content, which adds its visuals at the top of content_ as
+        // they come: a sibling over it stays over them all.
+        body_.Children().InsertAbove(ring.visual, content_);
+    }
+    float width = tokens().focusRingWidth;
+    ring.brush.Color(toUiColor(tokens().focusRingColor)); // every time: tokens.json may have changed them
+    ring.stroke.StrokeThickness(width);
+    if (area == ring.at && cornerRadius == ring.radius) return;
+    ring.at = area;
+    ring.radius = cornerRadius;
+    if (!area) {
+        fadeTo(compositor_, ring.visual, 0.0f, tokens().hoverFadeDuration);
+        return;
+    }
+    // A stroke is centred on its outline: inset by half its width, it's drawn
+    // inside the frame and never clipped by the card's edge or a neighbour.
+    float half = width / 2;
+    ring.visual.Size({ area->width, area->height });
+    ring.visual.Offset({ area->x, area->y, 0 });
+    ring.shape.Offset({ half, half });
+    ring.shape.Size({ std::max(0.0f, area->width - width), std::max(0.0f, area->height - width) });
+    ring.shape.CornerRadius({ std::max(0.0f, cornerRadius - half), std::max(0.0f, cornerRadius - half) });
+    // It moves at once, like hover, and only fades: no glide to hand off (decision 008).
+    fadeTo(compositor_, ring.visual, 1.0f, tokens().hoverFadeDuration);
+}
+
+void Blob::showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius)
+{
+    if (marks.size() < at.size()) marks.resize(at.size());
+    for (std::size_t i = 0; i < marks.size(); ++i)
+        showMark(marks[i], i < at.size() ? std::optional<Rect>(at[i]) : std::nullopt, cornerRadius, tokens().tileColor, false);
 }
 
 void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide)

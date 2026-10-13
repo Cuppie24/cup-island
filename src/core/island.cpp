@@ -40,6 +40,7 @@ void expand(IslandState& s, const std::string& id, Ms now)
 {
     s.expandedId = id;
     s.homeOpen = false;
+    s.cardFromHome = false; // opened some other way; TileClicked sets it after
     s.lastPointerAt = now;
 }
 
@@ -47,6 +48,7 @@ void openHome(IslandState& s, Ms now)
 {
     s.expandedId.clear();
     s.homeOpen = true;
+    s.cardFromHome = false;
     s.lastPointerAt = now;
 }
 
@@ -54,6 +56,7 @@ void collapse(IslandState& s)
 {
     s.expandedId.clear();
     s.homeOpen = false;
+    s.cardFromHome = false;
 }
 
 // Unsent text in a field: Expanded doesn't time out under it (decision 016).
@@ -65,6 +68,14 @@ bool expandedViewExists(const IslandState& s)
 {
     if (s.homeOpen) return !s.panels.empty();
     return findActivity(s, s.expandedId) || findPanel(s, s.expandedId);
+}
+
+// The card shown asks to stay open on a click between its controls (Content::keepOpen).
+bool shownCardKeepsOpen(const IslandState& s)
+{
+    if (const Activity* a = findActivity(s, s.expandedId)) return a->content.keepOpen;
+    const Panel* p = findPanel(s, s.expandedId);
+    return p && p->content.keepOpen;
 }
 
 // Runs after every event: expire timers, drop stale state, show the next alert.
@@ -90,9 +101,14 @@ void onClick(IslandState& s, Ms now)
 {
     switch (mode(s)) {
     case Mode::Alert: {
-        // Clicking an alert opens its activity, or the top one if it has none.
-        std::string target = findActivity(s, s.alert->activityId) ? s.alert->activityId : "";
-        if (target.empty() && !s.activities.empty()) target = s.activities.front().id;
+        // Clicking an alert opens its activity, or the card of the panel it
+        // names (an update offer is a panel, never live: decision 036), else
+        // the top activity.
+        std::string target = s.alert->activityId;
+        if (!findActivity(s, target)) {
+            const Panel* p = findPanel(s, target);
+            if (!p || !p->tapAction.empty() || !hasCard(p->content)) target = s.activities.empty() ? "" : s.activities.front().id;
+        }
         s.alert.reset();
         if (!target.empty()) expand(s, target, now);
         break;
@@ -103,8 +119,8 @@ void onClick(IslandState& s, Ms now)
         break;
     case Mode::Expanded:
         // Home stays: it's where things are started from (decision 009). Cards
-        // close (provisional: until expanded content has its own buttons).
-        if (!s.homeOpen) collapse(s);
+        // close, unless theirs says to stay (Content::keepOpen: Settings, decision 030).
+        if (!s.homeOpen && !shownCardKeepsOpen(s)) collapse(s);
         break;
     case Mode::Idle:
         if (!s.panels.empty()) openHome(s, now); // decision 009
@@ -146,7 +162,13 @@ void handle(IslandState& s, const AlertPosted& e, Ms now)
 }
 void handle(IslandState& s, const PillClicked&, Ms now) { onClick(s, now); }
 void handle(IslandState& s, const ClickedOutside&, Ms) { collapse(s); }
-void handle(IslandState& s, const EscapePressed&, Ms) { collapse(s); }
+// Esc steps back one level (decision 033): a card opened from a Home widget
+// goes back to Home; anything else closes.
+void handle(IslandState& s, const EscapePressed&, Ms now)
+{
+    if (s.cardFromHome && !s.homeOpen && !s.panels.empty()) openHome(s, now);
+    else collapse(s);
+}
 void handle(IslandState& s, const PointerMoved&, Ms now) { s.lastPointerAt = now; }
 
 void handle(IslandState& s, const DragEntered& e, Ms)
@@ -237,18 +259,21 @@ void handle(IslandState& s, const HomeOpened&, Ms now)
 // A running panel opens like its tab (and becomes the pick); a dormant one shows its card.
 void handle(IslandState& s, const TileClicked& e, Ms now)
 {
+    bool fromHome = s.homeOpen;
     if (findActivity(s, e.id)) {
         handle(s, ActivityPromoted{ e.id }, now);
         expand(s, e.id, now);
+        s.cardFromHome = fromHome;
     } else if (const Panel* p = findPanel(s, e.id); p && p->tapAction.empty() && hasCard(p->content)) {
         expand(s, e.id, now); // static widgets have no card; a toggle's tap goes to its provider
+        s.cardFromHome = fromHome;
     }
 }
 
 // --- Over a card: a text draft, a dialog (card_overlays.h), lists (lists.h) ------
 
 void handle(IslandState& s, const InputFocused& e, Ms now) { focusInput(s, e, now); }
-// Editing the field (text_edit.h, decision 030) counts as activity: the card stays open.
+// Editing the field (text_edit.h, decision 043) counts as activity: the card stays open.
 Draft* busyDraft(IslandState& s, Ms now)
 {
     if (!s.draft) return nullptr;
