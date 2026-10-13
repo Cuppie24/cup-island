@@ -41,7 +41,8 @@ knowing. There's no server, and none is wanted.
     public. Dev builds never check.
   - It offers the latest release if it's another version (decision 040:
     newer or older; it was newer only) and carries
-    `CupIsland-Setup-<version>.exe` with a SHA-256 digest, both from
+    `CupIsland-Setup-<version>.exe` with a SHA-256 digest (a mandatory one
+    installs itself at the next start, decision 041), both from
     `https://github.com/`. GitHub computes the digest when the file is uploaded.
   - An offer is an **Update widget** on Home whose card says what and from
     what, with **Install and restart** and **What's new** (the release page).

@@ -266,8 +266,55 @@ void latestReleaseTests()
     back.provider.stop();
 }
 
+// Mandatory releases (decision 041): found by a check, installed by itself
+// at the next start, with an alert; at most kMandatoryTries times a version.
+void mandatoryTests()
+{
+    expect(isMandatory(std::string("Fixes a crash.\n") + kMandatoryMarker) && !isMandatory("Fixes a crash."), "mandatory: the marker in the notes");
+    GitHubRelease required = releaseOf("0.6.0");
+    required.mandatory = true;
+    expect(offerFor({ 0, 5, 3 }, required)->mandatory && !offerFor({ 0, 5, 3 }, releaseOf("0.6.0"))->mandatory, "mandatory: carried into the offer");
+
+    Updater m("0.5.3");
+    m.provider.start(m.host);
+    m.wakeAndAnswer(required);
+    expect(m.installs.empty() && cardText(m.host.published.back(), 1) == "Required: installs at the next start",
+           "mandatory: found mid-run, nothing installs yet; the card says when it will");
+    m.provider.stop();
+    std::size_t alerts = m.host.alerts.size();
+    m.provider.start(m.host);
+    expect(m.installs.size() == 1 && m.host.alerts.size() == alerts + 1 && m.host.alerts.back().content.label == "Updating",
+           "mandatory: the next start installs it, no click, and says so");
+    m.installs.back()("Couldn't download the update");
+    for (int start = 2; start <= UpdateProvider::kMandatoryTries + 1; ++start) {
+        m.provider.stop();
+        m.provider.start(m.host);
+    }
+    expect(m.installs.size() == static_cast<std::size_t>(UpdateProvider::kMandatoryTries),
+           "mandatory: one try a start, kMandatoryTries in all; then it waits for a click");
+    m.act(update_action::kInstall);
+    expect(m.installs.size() == static_cast<std::size_t>(UpdateProvider::kMandatoryTries) + 1, "mandatory: the button still works");
+    m.provider.stop();
+
+    Updater installed("0.6.0"); // the update went in: the same store, now running it
+    installed.host.store = m.host.store;
+    installed.provider.start(installed.host);
+    expect(installed.installs.empty() && installed.host.load(UpdateProvider::kOfferKey).empty() &&
+           installed.host.load(UpdateProvider::kMandatoryTriesKey).empty(), "mandatory: installed, the offer and its tries are forgotten");
+    installed.provider.stop();
+
+    Updater optional("0.5.3");
+    optional.provider.start(optional.host);
+    optional.wakeAndAnswer(releaseOf("0.6.0"));
+    optional.provider.stop();
+    optional.provider.start(optional.host);
+    expect(optional.installs.empty(), "mandatory: an ordinary release never installs by itself");
+    optional.provider.stop();
+}
+
 void runUpdateTests()
 {
+    mandatoryTests();
     versionTests();
     providerTests();
     latestReleaseTests();

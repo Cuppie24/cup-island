@@ -59,6 +59,8 @@ std::string installerName(const Version& v) { return "CupIsland-Setup-" + versio
 
 bool movesTo(const Version& running, const Version& offered) { return offered != running; }
 
+bool isMandatory(std::string_view notes) { return notes.find(kMandatoryMarker) != std::string_view::npos; }
+
 std::optional<UpdateOffer> offerFor(const Version& running, const GitHubRelease& latest)
 {
     auto version = parseVersion(latest.tag);
@@ -69,7 +71,7 @@ std::optional<UpdateOffer> offerFor(const Version& running, const GitHubRelease&
     auto sha = sha256Of(asset->digest);
     if (!sha) return std::nullopt;
     return UpdateOffer{ .version = *version, .url = asset->url, .sha256 = *sha, .fileName = name,
-                        .page = onGitHub(latest.page) ? latest.page : std::string() };
+                        .page = onGitHub(latest.page) ? latest.page : std::string(), .mandatory = latest.mandatory };
 }
 
 } // namespace cup

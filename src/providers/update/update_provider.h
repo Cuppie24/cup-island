@@ -81,6 +81,10 @@ public:
     // The offer, so it's still on Home after a restart (decision 039): its
     // version, installer link, checksum, file name and page, a line each.
     static constexpr const char* kOfferKey = "offer";
+    // Mandatory releases (decision 041): installed by itself at the next
+    // start, at most kMandatoryTries times per version ("<version> <tries>").
+    static constexpr const char* kMandatoryTriesKey = "mandatory-tries";
+    static constexpr int kMandatoryTries = 3;
 
 private:
     void check();
@@ -88,7 +92,8 @@ private:
     void answer(CheckOutcome outcome, const std::string& version); // every waiting Reply
     void publish(); // the card, and the status to whoever listens
     void withdraw(bool forget = true); // no offer any more; forget: and not after a restart either (not when just stopping)
-    void restore();  // the saved offer, at start, if it's still newer than this build
+    void restore();  // the saved offer, at start, if it's still another version than this build
+    void installMandatory(); // a mandatory offer at start: installs it, up to kMandatoryTries times
 
     UpdateHooks hooks_;
     Host* host_ = nullptr;

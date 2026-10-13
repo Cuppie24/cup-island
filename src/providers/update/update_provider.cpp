@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <cstdlib>
 #include <utility>
 #include <vector>
 
@@ -21,7 +22,8 @@ std::optional<long long> parseMs(const std::string& text)
 // The saved offer (kOfferKey): a field a line, in UpdateOffer's order.
 std::string offerText(const UpdateOffer& o)
 {
-    return versionText(o.version) + "\n" + o.url + "\n" + o.sha256 + "\n" + o.fileName + "\n" + o.page + "\n";
+    return versionText(o.version) + "\n" + o.url + "\n" + o.sha256 + "\n" + o.fileName + "\n" + o.page + "\n" +
+           (o.mandatory ? "mandatory\n" : "");
 }
 
 std::optional<UpdateOffer> offerFrom(const std::string& text)
@@ -39,7 +41,8 @@ std::optional<UpdateOffer> offerFrom(const std::string& text)
     if (lines.size() < 4) return std::nullopt;
     auto version = parseVersion(lines[0]);
     if (!version || lines[1].empty() || lines[2].empty() || lines[3].empty()) return std::nullopt;
-    return UpdateOffer{ .version = *version, .url = lines[1], .sha256 = lines[2], .fileName = lines[3], .page = lines.size() > 4 ? lines[4] : "" };
+    return UpdateOffer{ .version = *version, .url = lines[1], .sha256 = lines[2], .fileName = lines[3], .page = lines.size() > 4 ? lines[4] : "",
+                        .mandatory = lines.size() > 5 && lines[5] == "mandatory" };
 }
 
 Alert offerAlert(const UpdateOffer& offer)
@@ -61,6 +64,7 @@ Panel updatePanel(const UpdateOffer& offer, const std::string& running, UpdateSt
     std::string v = versionText(offer.version);
     std::string caption = stage == UpdateStage::Installing ? "Downloading and installing…"
                           : stage == UpdateStage::Failed   ? problem
+                          : offer.mandatory                ? "Required: installs at the next start" // decision 041
                                                            : "You have " + running;
     Button install{ .actionId = A::kInstall, .label = stage == UpdateStage::Failed ? "Try again" : "Install and restart" };
     if (stage == UpdateStage::Installing) {
@@ -237,11 +241,35 @@ void UpdateProvider::restore()
     if (!saved) return;
     if (!movesTo(*running_, saved->version)) {
         host_->save(kOfferKey, "");
+        host_->save(kMandatoryTriesKey, "");
         return;
     }
     offer_ = saved;
     stage_ = UpdateStage::Offered;
     publish();
+    if (offer_->mandatory) installMandatory();
+}
+
+// A mandatory release (decision 041): installed at the start after it was
+// found, with no click. The user still knows: an alert says it's updating, and
+// the widget shows it installing. At most kMandatoryTries times per version:
+// an installer that keeps failing falls back to the usual Install button
+// rather than a download on every start.
+void UpdateProvider::installMandatory()
+{
+    std::string v = versionText(offer_->version);
+    std::string tried = host_->load(kMandatoryTriesKey); // "<version> <tries>"
+    int tries = 0;
+    if (tried.rfind(v + " ", 0) == 0) tries = std::atoi(tried.c_str() + v.size() + 1);
+    if (tries >= kMandatoryTries) return;
+    host_->save(kMandatoryTriesKey, v + " " + std::to_string(tries + 1));
+    host_->postAlert({ .activityId = kPanelId,
+                       .content = { .label = "Updating",
+                                    .alertLeading = { row({ Icon{ Glyph::Download } }) },
+                                    .alertCenter = { row({ Text{ "Updating", TextStyle::Title } }),
+                                                     row({ Text{ "Cup Island " + v + ": a required update", TextStyle::Caption } }) } },
+                       .coalesceKey = "update" });
+    install();
 }
 
 void UpdateProvider::withdraw(bool forget)
