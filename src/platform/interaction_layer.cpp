@@ -230,7 +230,14 @@ try {
 
     case WM_SYSKEYDOWN: // with Alt held: a shortcut being recorded needs it (decision 032)
         call(g_callbacks.onKeyDown, wParam);
-        break;           // and Windows' own handling (Alt+F4) still runs
+        break;           // and Windows' own handling still runs (Alt+Space, Alt+Tab...)
+
+    case WM_SYSCOMMAND:
+        // Alt+F4 arrives as SC_CLOSE: the island isn't a window to close by
+        // accident (decision 049). Quitting is the tray's Exit; the updater,
+        // the installer and shutdown don't come this way.
+        if ((wParam & 0xFFF0) == SC_CLOSE) return 0;
+        break;
 
     case WM_HOTKEY:
         call(g_callbacks.onHotkey, wParam);

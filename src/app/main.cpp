@@ -702,7 +702,7 @@ void onKey(WPARAM key)
         }
         return;
     }
-    // Alt combinations (WM_SYSKEYDOWN) are only for recording a shortcut; Windows handles the rest (Alt+F4).
+    // Alt combinations (WM_SYSKEYDOWN) are only for recording a shortcut; Windows handles the rest (not Alt+F4: decision 049).
     if (alt) return;
     if (app::navigationKey(key)) return; // the arrows, Tab, Home/End, 1 to 9, Enter and Space (decisions 031, 033)
     switch (key) {
