@@ -76,6 +76,7 @@ Panel pomodoroPanel(const TodoList& todos)
         .label = "Focus",
         .accent = accentOf(Phase::Focus),
         .card = CardLayout::Centred,
+        .keepOpen = true, // a click between the controls or to-dos doesn't close it (Content::keepOpen)
         .expandedCenter = { row({ Text{ .value = formatDuration(t.pomodoroFocus), .style = TextStyle::Display, .centred = true } }),
                             row({ Text{ .value = plan, .style = TextStyle::Caption, .centred = true } }),
                             row({ Button{ Glyph::Play, act::kStart } }, Align::Center) },
@@ -111,6 +112,7 @@ Content pomodoroContent(const PomodoroProvider::Session& s, const TodoList& todo
         .label = name,
         .accent = accentOf(s.phase),
         .card = CardLayout::Centred,
+        .keepOpen = true, // a click between the controls or to-dos doesn't close it (Content::keepOpen)
         .compactLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
         .compactCenter = { row({ compactLeft }, Align::Center) },
         .compactTrailing = { row({ ring }, Align::Center) },

@@ -92,12 +92,16 @@ void runPomodoroTests()
     expect(plannedTime && std::get<Text>(plannedTime->item).value == "25:00", "and the focus time");
     expect(noButtonsOn(dormantHome) && dormantHome.tiles.size() == 1 && dormantHome.tiles[0].opens, "no buttons: it opens the card");
 
-    // Start from the card.
+    // Start from the card. A click on its empty space doesn't close it (Content::keepOpen).
     island.send(TileClicked{ PomodoroProvider::kPanelId });
+    island.send(PillClicked{});
+    expect(island.state.expandedId == PomodoroProvider::kPanelId, "dormant card: a click between its controls keeps it open");
     expect(island.press(kStart), "the dormant card's start button");
     expect(island.focus() && island.focus()->content.label == "Focus", "start: a focus phase is live");
     expect(island.registry.nextWake() == Ms{ t.pomodoroFocus }, "wakes when focus ends");
     expect(island.state.expandedId == PomodoroProvider::kPanelId, "the live card shows");
+    island.send(PillClicked{});
+    expect(island.state.expandedId == PomodoroProvider::kPanelId, "running card: a click between its controls keeps it open");
 
     // The running widget: the ring filling, the time left, the phase and round.
     island.send(HomeOpened{});
