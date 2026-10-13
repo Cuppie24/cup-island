@@ -39,7 +39,6 @@ void runListCardTests()
     const Placed* swatch = find(listCard, "expandedCenter/1/0");
     float listWidth = std::min(listCard.size.x - 2 * (t.expandedPadding + t.listCardInset), t.listCardWidth);
     float listSide = (listCard.size.x - listWidth) / 2;
-    expect(listWidth < listCard.size.x - 2 * (t.expandedPadding + t.listCardInset), "the shipped listCardWidth narrows the rows");
     expect(name && name->listRow && name->listRow->x == listSide && name->listRow->width == listWidth,
            "a List card's rows: no wider than listCardWidth, centred");
     expect(name->frame.x == listSide + t.listItemTextInset, "text at a list item's edge clears its rounded end");
@@ -48,6 +47,24 @@ void runListCardTests()
     expect(listCard.size.y >= t.listCardMinHeight && listCard.size.y > t.expandedSize.y,
            "a List card is roomier than an activity's: listCardMinHeight at least");
     expect(name->listRow->y >= t.expandedPadding + t.listCardVerticalInset, "its rows sit listCardVerticalInset further in from the top");
+
+    // A name and its value: the name keeps its own width, the value gets the
+    // rest; an even split cut "Keyboard shortcuts" beside an empty value.
+    MeasureText perChar = [](const Text& text) { return 8.0f * static_cast<float>(text.value.size()); };
+    Content pairs{ .card = CardLayout::List,
+                   .expandedCenter = { Row{ .items = { Text{ "Keyboard shortcuts" }, Text{ .value = "", .alignEnd = true },
+                                                       Button{ Glyph::ChevronRight, "open" } }, .listItem = true },
+                                       Row{ .items = { Text{ std::string(60, 'x') }, Text{ .value = std::string(20, 'y'), .alignEnd = true } },
+                                            .listItem = true } } };
+    Scene paired = layout(expandedWith(pairs), Ms{ 0 }, perChar);
+    const Placed* label = find(paired, "expandedCenter/0/0");
+    const Placed* value = find(paired, "expandedCenter/0/1");
+    expect(label && label->frame.width >= 8 * 18 && value && value->frame.x > label->frame.x + label->frame.width,
+           "a name gets its whole width; the value the rest, after it");
+    const Placed* longName = find(paired, "expandedCenter/1/0");
+    const Placed* longValue = find(paired, "expandedCenter/1/1");
+    expect(longName->frame.width > 2 * longValue->frame.width && longValue->frame.width > 0,
+           "too long for the row: each gives up its share, in proportion");
 
     // Groups (decision 037): a heading starting one has sectionGap above it,
     // and lines up with the list items' text without being one.

@@ -69,7 +69,7 @@ struct Tokens {
     float alertPadding = 8;
     float expandedPadding = 12;
     float listCardInset = 8;      // CardLayout::List: at least this much more on the left and right (decision 030)
-    float listCardWidth = 280;    // ...and its rows no wider than this, centred: a few short settings
+    float listCardWidth = 340;    // ...and its rows no wider than this, centred (a full-width card's, at the shipped sizes)
     float listCardVerticalInset = 12; // ...this much more above and below its rows
     float listCardMinHeight = 240;    // ...and never shorter than this: room to breathe (decision 030)
     float expandedArtSize = 68; // expanded leading square: as tall as title + artist + caption beside it

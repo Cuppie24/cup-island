@@ -29,6 +29,14 @@ the same small dim text as a row's value, easy to read past.
   groups. Headings line up with the names under them (`Row::inset`: a list
   item's text inset, without its padding or hover).
 
+- **Nothing cut short.** A row whose only stretching items are texts (a
+  setting's name and its value) gives each its own width and the last the
+  rest; short of room, each gives up a share in proportion. The even split
+  before cut "Keyboard shortcuts" and "Check for updates" beside an empty
+  or short value. The rows also use the card's whole width now
+  (`listCardWidth` 340, was 280): narrowing them (decision 030) cost more
+  in cut names than it gave in looks.
+
 **Consequences.** The install row and headings in `tests/settings_tests.cpp`,
 the status in `tests/update_tests.cpp`, the gap and inset in
 `tests/content_tests.cpp`. The look needs a Windows run.
