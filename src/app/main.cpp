@@ -414,6 +414,9 @@ void dropListRow(bool commit)
 // a button gets its own press feedback, anything else squashes the pill.
 void onPressDown(Vec2 canvasPoint)
 {
+    // Daydreaming, the island is in the air, not under this window (decision 050):
+    // no squash, no button press. Core ignores the click the release makes.
+    if (g_state.daydream) return;
     if (!onBubble(canvasPoint)) {
         // Held still, the island lifts (decision 026). Core ignores it where
         // it can't (Expanded), and then the press is only what it always was.
@@ -809,6 +812,8 @@ void onTimer(TimerId id)
         if (!app::loadTokens(g_tokensFile, /* startup */ false)) return;
         tokensChanged(oldCanvas, "tokens.json");
         g_settings->refresh(); // the themes may have changed
+    } else if (id == TimerId::ShortcutPoll) {
+        app::pollHeldShortcut();
     }
 }
 

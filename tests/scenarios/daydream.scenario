@@ -1,0 +1,73 @@
+# The daydream (decision 050): hold Home's shortcut and the island floats
+# until it's let go. Default tokens: daydreamHold 450 ms, liftHold 400 ms.
+# The app runs the shortcut's command (Home opens) and then reports it held.
+
+scenario: holding Home's shortcut opens Home, then gives up and daydreams
+panel p
+home                                -> Expanded expanded=home
+shortcut-down
+wait 449                            -> Expanded daydream=no
+wait 1                              -> Idle daydream=yes      # Home closed again: it floats instead
+shortcut-up                         -> Idle daydream=no
+
+scenario: a quick press only opens Home
+panel p
+home
+shortcut-down
+shortcut-up
+wait 1000                           -> Expanded daydream=no
+
+scenario: an activity keeps its pill while it daydreams, and an alert still shows
+start a
+shortcut-down
+wait 450                            -> Compact daydream=yes
+alert ping                          -> Alert daydream=yes
+shortcut-up                         -> Alert daydream=no
+
+scenario: in the air, clicks and Home do nothing
+start a
+panel p
+shortcut-down
+wait 450                            -> Compact daydream=yes
+click                               -> Compact
+home                                -> Compact
+hold
+wait 400                            -> lifted=no
+shortcut-up
+click                               -> Expanded                # landed: clicks work again
+
+scenario: hiding ends the daydream, and a hold while hidden does nothing
+start a
+shortcut-down
+wait 450                            -> daydream=yes
+hide                                -> Hidden daydream=no
+shortcut-up
+shortcut-down
+wait 1000                           -> Hidden daydream=no
+show
+wait 1000                           -> Compact daydream=no
+
+scenario: a lift in progress lands when the daydream starts
+screen 1000
+start a
+hold
+wait 400                            -> lifted=yes
+shortcut-down
+wait 450                            -> daydream=yes lifted=no
+
+scenario: holding again after landing daydreams again
+start a
+shortcut-down
+wait 450                            -> daydream=yes
+shortcut-up                         -> daydream=no
+shortcut-down
+wait 449                            -> daydream=no
+wait 1                              -> daydream=yes
+
+scenario: a press whose release went unseen starts a fresh hold
+start a
+shortcut-down
+wait 300                            -> daydream=no
+shortcut-down
+wait 300                            -> daydream=no
+wait 150                            -> daydream=yes

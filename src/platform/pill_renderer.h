@@ -5,6 +5,7 @@
 
 #include "core/layout.h"
 #include "platform/blob.h"
+#include "platform/daydream.h"
 #include "platform/graphics_device.h"
 #include "platform/liquid_bridge.h"
 #include "platform/win.h"
@@ -57,9 +58,12 @@ private:
     void applyContent(); // the latest pending scene's content, for both blobs
 
     GraphicsDevice device_;
+    wuc::ContainerVisual island_{ nullptr }; // pill, bubble and neck: what the daydream moves as one (decision 050)
     Blob pill_;
     Blob bubble_;
     LiquidBridge bridge_;
+    Daydream daydream_;
+    bool daydreaming_ = false;
     std::map<std::pair<std::string, TextStyle>, float> measured_;
     winrt::Windows::System::DispatcherQueue queue_{ nullptr };
     std::optional<Scene> pendingContent_; // set: an applyContent() call is queued

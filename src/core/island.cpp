@@ -2,6 +2,7 @@
 
 #include "core/alert_queue.h"
 #include "core/card_overlays.h"
+#include "core/daydream.h"
 #include "core/lift.h"
 #include "core/lists.h"
 #include "core/split.h"
@@ -85,6 +86,7 @@ void settle(IslandState& s, Ms now)
     std::erase_if(s.activities, [&](const Activity& a) { return a.expiresAt && now >= *a.expiresAt; });
     if (!s.pinnedId.empty() && !findActivity(s, s.pinnedId)) s.pinnedId.clear(); // a pick dies with its activity
 
+    if (settleDaydream(s, now)) collapse(s); // it gave up opening: off it floats (decision 050)
     if (isExpanded(s)) {
         bool timedOut = now >= s.lastPointerAt + tokens().expandedIdleTimeout && !typing(s) && !s.stayOpen;
         if (timedOut || !expandedViewExists(s)) collapse(s);
@@ -318,6 +320,9 @@ void handle(IslandState& s, const ListDragStarted& e, Ms now) { startListDrag(s,
 void handle(IslandState& s, const ListDragMoved& e, Ms now) { moveListDrag(s, e, now); }
 void handle(IslandState& s, const ListDragEnded&, Ms) { s.listDrag.reset(); }
 
+void handle(IslandState& s, const HomeShortcutHeld&, Ms now) { holdHomeShortcut(s, now); }
+void handle(IslandState& s, const HomeShortcutReleased&, Ms) { releaseHomeShortcut(s); }
+
 void handle(IslandState& s, const ClockSynced& e, Ms now) { s.clock = WallClock{ e.timeOfDay - now, e.hour24 }; }
 
 } // namespace
@@ -326,7 +331,7 @@ void handle(IslandState& s, const ClockSynced& e, Ms now) { s.clock = WallClock{
 
 IslandState reduce(IslandState state, const Event& event, Ms now)
 {
-    std::visit([&](const auto& e) { handle(state, e, now); }, event);
+    if (!(state.daydream && ignoredWhileDaydreaming(event))) std::visit([&](const auto& e) { handle(state, e, now); }, event);
     settle(state, now);
     return state;
 }
@@ -364,6 +369,7 @@ std::optional<Ms> nextDeadline(const IslandState& s)
     if (isExpanded(s) && !typing(s) && !s.stayOpen) consider(s.lastPointerAt + tokens().expandedIdleTimeout);
     for (const auto& a : s.alertQueue) consider(a.postedAt + tokens().heldAlertMaxAge + Ms{ 1 });
     if (auto lift = liftDeadline(s)) consider(*lift);
+    if (auto daydream = daydreamDeadline(s)) consider(*daydream);
     return next;
 }
 

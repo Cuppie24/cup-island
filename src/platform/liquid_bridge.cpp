@@ -32,18 +32,18 @@ const std::wstring kSafeDx = L"(" + kDx + L" >= 0 ? Max(" + kDx + L", 0.01) : Mi
 const std::wstring kAngle = L"Atan(" + kDy + L" / " + kSafeDx + L")";
 
 void bind(Compositor const& c, CompositionObject const& target, wchar_t const* property, const std::wstring& expression,
-          const Blob& a, const Blob& b, CompositionPropertySet const& params)
+          Visual const& a, Visual const& b, CompositionPropertySet const& params)
 {
     auto anim = c.CreateExpressionAnimation(expression);
-    anim.SetReferenceParameter(L"a", a.body());
-    anim.SetReferenceParameter(L"b", b.body());
+    anim.SetReferenceParameter(L"a", a);
+    anim.SetReferenceParameter(L"b", b);
     anim.SetReferenceParameter(L"p", params);
     target.StartAnimation(property, anim);
 }
 
 } // namespace
 
-void LiquidBridge::build(wuc::Compositor const& c, wuc::ContainerVisual const& parent, const Blob& a, const Blob& b)
+void LiquidBridge::build(wuc::Compositor const& c, wuc::ContainerVisual const& parent, wuc::Visual const& a, wuc::Visual const& b)
 {
     params_ = c.CreatePropertySet();
     params_.InsertScalar(L"On", 1.0f);

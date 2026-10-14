@@ -22,10 +22,12 @@
 //            wheel <card> <list> <from> <delta> <max>  reveal <card> <list> <row>    (lists, decision 029)
 //            pick <card> <list> <row> <y>  carry <y>  put-down
 //            screen <width>  hold  move <dx>  let-go  restore <dock> [fraction]      (lifting the island, decision 026)
+//            shortcut-down  shortcut-up                                              (Home's shortcut held: the daydream, decision 050)
 // Checks after "->":  <Mode>  queue=<n>  top=<activity>  bubble=<activity>  alert=<name>
 //                     expanded=<activity|panel|home>  pinned=<activity>  dragging=yes|no  preview=yes|no
 //                     draft=<text>|empty|none  (_ for a space)  dialog=<card>|none
 //                     caret=<byte offset>  selected=<text>|none  (_ for a space)
+//                     daydream=yes|no
 //                     lifted=yes|no  spot=centre|left|right|free  stay=yes|no  tabs=top|bottom
 //                     scroll=<card>/<list>:<offset>[+reveal]  carried=<row>|none
 // Levels: passive active timeSensitive critical.  '#' starts a comment.
@@ -192,6 +194,8 @@ struct Runner {
         else if (cmd == "hold") apply(IslandPressed{});
         else if (cmd == "move") apply(IslandDragged{ { std::stof(arg(1)), 0 } });
         else if (cmd == "let-go") apply(IslandReleased{});
+        else if (cmd == "shortcut-down") apply(HomeShortcutHeld{});
+        else if (cmd == "shortcut-up") apply(HomeShortcutReleased{});
         else if (cmd == "restore") {
             Spot spot{ arg(1) == "left" ? Dock::Left : arg(1) == "right" ? Dock::Right : arg(1) == "free" ? Dock::Free : Dock::Centre };
             if (spot.dock == Dock::Free) spot.fraction = std::stof(arg(2));
@@ -240,6 +244,9 @@ struct Runner {
             } else if (auto v = option(word, "lifted")) {
                 std::string got = isLifted(state) ? "yes" : "no";
                 if (got != *v) fail("lifted=" + *v + ", got " + got);
+            } else if (auto v = option(word, "daydream")) {
+                std::string got = state.daydream ? "yes" : "no";
+                if (got != *v) fail("daydream=" + *v + ", got " + got);
             } else if (auto v = option(word, "spot")) {
                 const char* names[] = { "centre", "left", "right", "free" };
                 std::string got = names[static_cast<int>(state.spot.dock)];

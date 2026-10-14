@@ -57,6 +57,10 @@ bool recordKey(WPARAM key);
 bool navigationKey(WPARAM key);
 
 // WM_HOTKEY: runs its command, or while recording, counts as those keys.
+// Home's also starts watching for its release (the daydream, decision 050).
 void hotkeyPressed(WPARAM id);
+
+// TimerId::ShortcutPoll: Home's shortcut is still held, or it was let go.
+void pollHeldShortcut();
 
 } // namespace cup::app

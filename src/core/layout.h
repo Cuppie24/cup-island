@@ -92,6 +92,7 @@ struct Scene {
     Vec2 size;                     // pill target size, render-layer coordinates
     Vec2 offset;                   // pill target top-left: on the top edge where the island rests (decision 026)
     bool lifted = false;           // held and dragged: floats liftDrop below the edge, all corners round, no flares
+    bool daydream = false;         // Home's shortcut held: the renderer's floating show, over this scene (decision 050)
     bool flushLeft = false;        // the pill touches the screen's left edge: no flare on that side (decision 026)
     bool flushRight = false;       // the rightmost shape (the bubble in Split) touches the right edge
     std::vector<Placed> elements;  // content of the activity/alert being shown

@@ -65,7 +65,7 @@ void Blob::land()
     setAttached(true);
 }
 
-void Blob::setAttached(bool on)
+void Blob::setAttached(bool on, Ms after)
 {
     // One after the other, never together: the ears sit on the top corners,
     // so rounding those while an ear is still there leaves a sliver of it
@@ -76,12 +76,31 @@ void Blob::setAttached(bool on)
     auto play = [&](const wchar_t* property, float to, Ms delay, Ms duration) {
         auto anim = compositor_.CreateScalarKeyFrameAnimation();
         anim.InsertKeyFrame(1.0f, to, easingFor(compositor_, tokens().morphEase));
-        anim.DelayTime(delay);
+        anim.DelayTime(after + delay); // `after`: a landing still on its way (decision 050)
         anim.Duration(std::max(duration, Ms{ 1 }));
         shape_.StartAnimation(property, anim);
     };
     play(L"Flare", on ? 1.0f : 0.0f, on ? whole - first : Ms{ 0 }, first);
     play(L"Attached", on ? 1.0f : 0.0f, on ? Ms{ 0 } : first, whole - first);
+}
+
+void Blob::setDaydreaming(bool on, Ms landIn)
+{
+    if (on == daydreaming_) return;
+    daydreaming_ = on;
+    // In the air it's round all over, like a lifted island; it flares into
+    // the edge again only as it touches down. (Following the cursor, it's
+    // already off the edge, and land() re-attaches it.)
+    Ms whole = tokens().morphDuration;
+    if (!following_) setAttached(!on, on ? Ms{ 0 } : std::max(landIn - whole, Ms{ 0 }));
+    // Text spinning reads as a glitch, and a still frame of it as a bug: the
+    // shape alone floats. It's back as the island settles.
+    Ms fade = tokens().contentFadeDuration;
+    auto anim = compositor_.CreateScalarKeyFrameAnimation();
+    anim.InsertKeyFrame(1.0f, on ? 0.0f : 1.0f);
+    anim.DelayTime(on ? Ms{ 0 } : std::max(landIn - fade, Ms{ 0 }));
+    anim.Duration(std::max(fade, Ms{ 1 }));
+    content_.StartAnimation(L"Opacity", anim);
 }
 
 void Blob::setEars(bool left, bool right)

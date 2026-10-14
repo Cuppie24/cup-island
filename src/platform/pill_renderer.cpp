@@ -15,9 +15,13 @@ void PillRenderer::build(wuc::Compositor const& c, wuc::ContainerVisual const& r
 {
     queue_ = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
     device_.create(c);
-    pill_.build(c, device_, root, initial.size, initial.offset);
-    bubble_.build(c, device_, root, {}, initial.bubbleTuck); // above the pill: it's dragged over it
-    bridge_.build(c, root, pill_, bubble_);
+    island_ = c.CreateContainerVisual();
+    island_.RelativeSizeAdjustment({ 1.0f, 1.0f }); // the render layer's coordinates: the neck fills it (decision 026)
+    root.Children().InsertAtTop(island_);
+    pill_.build(c, device_, island_, initial.size, initial.offset);
+    bubble_.build(c, device_, island_, {}, initial.bubbleTuck); // above the pill: it's dragged over it
+    bridge_.build(c, island_, pill_.body(), bubble_.body());
+    daydream_.build(c, island_, pill_.body());
     apply(initial);
 }
 
@@ -26,6 +30,7 @@ void PillRenderer::refreshAnimations()
     pill_.refreshAnimations();
     bubble_.refreshAnimations();
     bridge_.refreshAnimations();
+    daydream_.refreshAnimations();
     measured_.clear();
 }
 
@@ -90,6 +95,12 @@ void PillRenderer::apply(const Scene& scene)
     for (const Tile& tile : scene.tiles) tiles.push_back(tile.frame);
     pill_.setTiles(tiles, scene.tileRadius);
     pill_.setBadges(scene.badges);
+    if (scene.daydream != daydreaming_) {
+        daydreaming_ = scene.daydream;
+        Ms landIn = daydream_.set(scene.daydream); // decision 050
+        pill_.setDaydreaming(scene.daydream, landIn);
+        bubble_.setDaydreaming(scene.daydream, landIn);
+    }
 
     // While the bubble is dragged it just follows the cursor: no neck, no
     // other motion (decision 007). The neck is for budding and settling.

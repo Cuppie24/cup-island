@@ -150,6 +150,18 @@ struct Tokens {
     float centreSnap = 48;        // let go this close to the screen's centre: back to dead centre
     float edgeSnap = 24;          // ...this close to a side edge: flush with it (never less than flareRadius)
 
+    // The daydream (decision 050): Home's shortcut held, the island floats,
+    // spins and wobbles, and a droplet buds off it and back, until let go.
+    Ms daydreamHold{ 450 };       // the shortcut held this long starts it (the press already opened Home)
+    Ms shortcutPoll{ 30 };        // while held, how often the key is checked for its release (Windows doesn't say)
+    Ms daydreamRise{ 600 };       // lifting off the edge into the air
+    Ms daydreamLoop{ 3200 };      // one turn, one drift around, five wobbles, three buds
+    Ms daydreamSettle{ 700 };     // landing, at least: it first finishes the turn it's in
+    Vec2 daydreamDrift{ 36, 14 }; // how far it wanders sideways and down while floating
+    float daydreamClearance = 12; // spinning, its far corners stay this far below the screen edge
+    float daydreamWobble = 0.07f; // the jelly squash: a fraction of its size, out one way and in the other
+    float daydreamDropletSize = 14; // the droplet that buds off and merges back (the liquid neck between)
+
     // The island's shadow, under the pill and the bubble (decision 018); colour in shadowColor.
     float shadowBlur = 16;
     Vec2 shadowOffset{ 0, 4 };    // down: the island hangs from the top edge
