@@ -59,13 +59,16 @@ float planList(const Slot& slot, const std::vector<float>& heights, const std::v
         int group = slot[first + f].sortGroup;
         while (lo > 0 && slot[first + lo - 1].sortGroup == group && !slot[first + lo - 1].moveAction.empty()) --lo;
         while (hi + 1 < count && slot[first + hi + 1].sortGroup == group && !slot[first + hi + 1].moveAction.empty()) ++hi;
-        float centre = dragTop + h / 2;
         std::size_t target = lo;
-        // It lands below every row whose centre it has passed; a tie (pushed
-        // against either end) counts toward the way it moved.
+        // It goes past a row above once its top reaches that row's top, and
+        // past one below once its bottom reaches that row's bottom. Rows of one
+        // height swap where their centres cross; a taller one (a wrapped to-do,
+        // decision 045) can still pass a shorter one at either end, where
+        // its centre never could. A tie (pushed against an end) counts toward
+        // the way it moved.
         for (std::size_t i = lo; i <= hi; ++i) {
-            float c = natural[i] + heights[first + i] / 2;
-            if ((i < f && c < centre) || (i > f && c <= centre)) ++target;
+            if (i < f && natural[i] < dragTop) ++target;                                  // still above it
+            if (i > f && natural[i] + heights[first + i] <= dragTop + h) ++target;        // passed: now above it
         }
         // The new order, stacked from the run's first row.
         std::vector<std::size_t> order;
