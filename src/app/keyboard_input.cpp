@@ -81,6 +81,10 @@ void run(Command command)
         dispatch(HomeOpened{}, "shortcut");
         if (state().homeOpen) SetForegroundWindow(g_hooks.window);
         return;
+    case Command::OpenActivity: // the pill's activity's card; again on it, closes (decision 050)
+        dispatch(ActivityOpened{}, "shortcut");
+        if (!state().expandedId.empty()) SetForegroundWindow(g_hooks.window);
+        return;
     }
 }
 

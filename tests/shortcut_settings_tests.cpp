@@ -26,7 +26,8 @@ void runShortcutSettingsTests()
     const Slot& keys = sh.published.back().content.expandedCenter;
     expect(cardText(sh.published.back(), 0) == "Keyboard shortcuts" && keys.size() == 3 + commands().size() + fixedKeys().size() &&
            cardText(sh.published.back(), 1) == "Anywhere" && cardItem(sh.published.back(), 2, 0) == "Open Home" &&
-           cardItem(sh.published.back(), 2, 1) == "Ctrl+Q" && cardItem(sh.published.back(), 4, 0) == "Move between items",
+           cardItem(sh.published.back(), 2, 1) == "Ctrl+Q" && cardItem(sh.published.back(), 3, 0) == "Open the activity" &&
+           cardItem(sh.published.back(), 3, 1) == "Ctrl+Alt+Q" && cardItem(sh.published.back(), 5, 0) == "Move between items",
            "shortcuts: a page with each one's keys and what they do");
     expect(rowNamed(sh.published.back(), "Move between items")->inset && rowNamed(sh.published.back(), "Open Home")->listItem,
            "shortcuts: the fixed keys line up with the editable one's name");
@@ -57,10 +58,10 @@ void runShortcutSettingsTests()
     expect(capturing && keysOf() == "Press keys…" && noteOf() == "Press the new keys, or Esc to cancel", "keys: a click waits for new keys");
     editor.keysPressed(Chord{ .key = 'J', .ctrl = true, .alt = true });
     expect(!capturing && keysOf() == "Ctrl+Alt+J" && chordText(registered[Command::OpenHome]) == "Ctrl+Alt+J" &&
-           savedKeys == "home=Ctrl+Alt+J\n", "keys: new keys registered, shown and saved");
+           savedKeys == "home=Ctrl+Alt+J\nactivity=Ctrl+Alt+Q\n", "keys: new keys registered, shown and saved");
     pressKeys(std::string(settings_action::kEditShortcut) + "0");
     editor.keysPressed(Chord{ .key = 'J' });
-    expect(!capturing && keysOf() == "Ctrl+Alt+J" && noteOf() == "A shortcut needs Ctrl, Alt or Win" && savedKeys == "home=Ctrl+Alt+J\n",
+    expect(!capturing && keysOf() == "Ctrl+Alt+J" && noteOf() == "A shortcut needs Ctrl, Alt or Win" && savedKeys == "home=Ctrl+Alt+J\nactivity=Ctrl+Alt+Q\n",
            "keys: a bare key aborts, saying why");
     othersHave = true;
     pressKeys(std::string(settings_action::kEditShortcut) + "0");

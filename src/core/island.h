@@ -130,6 +130,7 @@ struct SpotRestored { Spot spot; };     // its saved place on this monitor, or S
 struct PanelPublished { Panel panel; }; // existing id = replace, keeping its place on Home
 struct PanelRemoved { std::string id; };
 struct HomeOpened {};                   // Home tab (decision 009)
+struct ActivityOpened {};               // its shortcut (decision 050): the pill's activity's card; again on it, closes
 struct TileClicked { std::string id; }; // a Home tile, not on a button: open its card
 struct InputFocused {    // a TextInput was clicked, or an edit button (then `text` is what's edited)
     std::string providerId, activityId, actionId;
@@ -171,7 +172,7 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            BubbleClicked, ActivityPromoted, ActivitySwitched,
                            BubbleDragged, BubbleReleased, BubbleDragCancelled,
                            IslandPressed, IslandDragged, IslandReleased, ScreenResized, SpotRestored,
-                           PanelPublished, PanelRemoved, HomeOpened, TileClicked, ClockSynced,
+                           PanelPublished, PanelRemoved, HomeOpened, ActivityOpened, TileClicked, ClockSynced,
                            InputFocused, TextTyped, TextErased, CaretMoved, CaretPlaced, WordSelected, AllSelected,
                            InputSubmitted, InputCancelled,
                            DialogShown, DialogClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,

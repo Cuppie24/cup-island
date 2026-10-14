@@ -12,7 +12,7 @@
 
 namespace cup {
 
-enum class Command { OpenHome };
+enum class Command { OpenHome, OpenActivity };
 
 // A key with its modifiers. `key` uses Windows' virtual-key numbers for the
 // keys a shortcut may use: 'A'..'Z', '0'..'9', kSpace, kF1..kF1 + 11. Core
