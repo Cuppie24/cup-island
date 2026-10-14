@@ -238,15 +238,16 @@ void ElementVisuals::paint(View& view)
             if (view.marqueeWidth > 0) paintMarquee(dc, dw, *text, view.marqueeWidth, view.lead, t.marqueeGap, size.y);
             else paintText(dc, dw, *text, size);
         } else if (auto* icon = std::get_if<Icon>(&item)) {
-            paintGlyph(dc, dw, icon->glyph, t.iconSize, size, t.iconColor);
+            paintGlyph(dc, dw, icon->glyph, t.iconSize, pixelSize(size), t.iconColor); // the surface's whole pixels
         } else if (auto* button = std::get_if<Button>(&item)) {
             bool toggledOff = button->on && !*button->on;
             Color color = !button->enabled ? t.buttonDisabledColor : toggledOff ? t.buttonOffColor
                         : button->destructive         ? t.dangerColor
                                                       : t.buttonColor;
             if (!button->label.empty()) paintLabel(dc, dw, button->label, size, color);
-            else paintGlyph(dc, dw, button->glyph, glyphSizeOf(*button), size, color);
-            if (button->on && *button->on) paintToggleDot(dc, size, t.buttonGlyphSize);
+            // Centred in the surface's whole pixels, like the hover shape around it, not the fractional frame.
+            else paintGlyph(dc, dw, button->glyph, glyphSizeOf(*button), pixelSize(size), color);
+            if (button->on && *button->on) paintToggleDot(dc, pixelSize(size), t.buttonGlyphSize);
         } else if (auto* image = std::get_if<Image>(&item)) {
             paintImage(dc, image->data.get(), size, view.placed.cornerRadius);
         } else if (auto* input = std::get_if<TextInput>(&item)) {
@@ -261,7 +262,7 @@ void ElementVisuals::paint(View& view)
     });
     if (drawn && view.glyphSurface)
         drawn = device_->draw(view.glyphSurface, [&](ID2D1DeviceContext* dc) {
-            paintGlyph(dc, dw, Glyph::OpenApp, t.artHoverGlyphSize, size, t.artHoverGlyphColor);
+            paintGlyph(dc, dw, Glyph::OpenApp, t.artHoverGlyphSize, pixelSize(size), t.artHoverGlyphColor);
         });
     if (!drawn) deviceLost_ = true;
 }

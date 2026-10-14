@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cwchar>
 #include <string>
 
 namespace cup::platform {
@@ -256,9 +257,26 @@ void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, 
 void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float fontSize, Vec2 size, const Color& color)
 {
     auto f = format(dw, iconFamily(dw), fontSize, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_TEXT_ALIGNMENT_CENTER); // icons: as designed
-    // PinnedFill (U+E841) is only a fill layer, with no needle: it goes under the Pinned outline (decision 046).
-    if (glyph == Glyph::Pinned) drawString(dc, f.get(), L"\uE841", size, color);
-    drawString(dc, f.get(), codepoint(glyph), size, color);
+    auto layoutOf = [&](const wchar_t* text) {
+        winrt::com_ptr<IDWriteTextLayout> layout;
+        winrt::check_hresult(dw->CreateTextLayout(text, static_cast<UINT32>(wcslen(text)), f.get(), size.x, size.y, layout.put()));
+        return layout;
+    };
+    // Centred by what it draws, not by the font's line box: the icon font's
+    // ascent and descent aren't even, which left a checkbox off-centre in its
+    // hover shape. The overhangs say how far the ink reaches past the box.
+    auto glyphLayout = layoutOf(codepoint(glyph));
+    D2D1_POINT_2F at = D2D1::Point2F(0, 0);
+    DWRITE_OVERHANG_METRICS ink{};
+    if (SUCCEEDED(glyphLayout->GetOverhangMetrics(&ink))) {
+        float left = -ink.left, right = size.x + ink.right, top = -ink.top, bottom = size.y + ink.bottom;
+        at = D2D1::Point2F(size.x / 2 - (left + right) / 2, size.y / 2 - (top + bottom) / 2);
+    }
+    auto brush = brushOf(dc, color);
+    // PinnedFill (U+E841) is only a fill layer, with no needle: it goes under the Pinned outline (decision 046),
+    // in the same place, so the two line up.
+    if (glyph == Glyph::Pinned) dc->DrawTextLayout(at, layoutOf(L"\uE841").get(), brush.get());
+    dc->DrawTextLayout(at, glyphLayout.get(), brush.get());
 }
 
 void paintToggleDot(ID2D1DeviceContext* dc, Vec2 size, float glyphSize)
