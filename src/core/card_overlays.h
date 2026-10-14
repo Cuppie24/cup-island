@@ -13,6 +13,14 @@ void submitText(IslandState& state, Ms now); // the field empties and keeps focu
 void showDialog(IslandState& state, const DialogShown& e, Ms now); // only over the shown card; typing stops
 
 // After every event: a draft, dialog or list drag whose card isn't the one shown any more is dropped.
+// A field's unsent text is kept (IslandState::keptText, decision 050).
 void dropStaleOverlays(IslandState& state);
+
+// The draft goes (Esc, the card closing, another field focused): a field's
+// unsent text is set aside for when it's focused again (decision 050).
+// Text being edited in place isn't: the app has sent it or it was dropped.
+void dropDraft(IslandState& state);
+
+std::string keptKey(const std::string& activityId, const std::string& actionId); // "<activityId>/<actionId>"
 
 } // namespace cup

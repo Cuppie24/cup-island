@@ -9,13 +9,32 @@ bool shown(const IslandState& s, const std::string& activityId) { return !s.home
 
 } // namespace
 
+std::string keptKey(const std::string& activityId, const std::string& actionId) { return activityId + "/" + actionId; }
+
+void dropDraft(IslandState& s)
+{
+    if (!s.draft) return;
+    if (!s.draft->editing) {
+        std::string key = keptKey(s.draft->activityId, s.draft->actionId);
+        if (s.draft->text.empty()) s.keptText.erase(key);
+        else s.keptText[key] = s.draft->text;
+    }
+    s.draft.reset();
+}
+
 void focusInput(IslandState& s, const InputFocused& e, Ms now)
 {
     if (!shown(s, e.activityId) || s.dialog) return;
     if (!s.draft || s.draft->actionId != e.actionId) {
-        s.draft = Draft{ e.providerId, e.activityId, e.actionId, e.text, e.editing };
+        dropDraft(s); // the field it leaves keeps its text
+        std::string text = e.text;
+        if (!e.editing) { // a field: back to what it had (decision 050)
+            auto kept = s.keptText.find(keptKey(e.activityId, e.actionId));
+            if (kept != s.keptText.end()) text = std::move(kept->second), s.keptText.erase(kept);
+        }
+        s.draft = Draft{ e.providerId, e.activityId, e.actionId, text, e.editing };
         s.draft->maxLength = e.maxLength;
-        placeCaret(*s.draft, e.text.size(), false); // at the end, unless it was clicked somewhere
+        placeCaret(*s.draft, text.size(), false); // at the end, unless it was clicked somewhere
     }
     if (e.caret) placeCaret(*s.draft, *e.caret, false);
     s.lastPointerAt = now;
@@ -33,13 +52,13 @@ void showDialog(IslandState& s, const DialogShown& e, Ms now)
 {
     if (!shown(s, e.dialog.activityId)) return; // a question needs its card in front of the user
     s.dialog = e.dialog;
-    s.draft.reset(); // the dialog covers the field
+    dropDraft(s); // the dialog covers the field; its text waits
     s.lastPointerAt = now;
 }
 
 void dropStaleOverlays(IslandState& s)
 {
-    if (s.draft && !shown(s, s.draft->activityId)) s.draft.reset();
+    if (s.draft && !shown(s, s.draft->activityId)) dropDraft(s);
     if (s.dialog && !shown(s, s.dialog->activityId)) s.dialog.reset();
     if (s.listDrag && (!shown(s, s.listDrag->activityId) || s.dialog)) s.listDrag.reset();
 }

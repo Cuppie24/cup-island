@@ -23,8 +23,8 @@ Source sourceFor(const IslandState& s, Mode mode)
     // Expanded shows the card that was opened: an activity's, else a dormant panel's (decision 009). Home has none.
     const Draft* draft = s.draft ? &*s.draft : nullptr; // fills its TextInput (decision 016)
     const ListDrag* drag = s.listDrag ? &*s.listDrag : nullptr; // lists: decision 029
-    if (const Activity* a = findActivity(s, s.expandedId)) return { &a->content, a->providerId, a->id, draft, &s.scrolls, drag };
-    if (const Panel* p = findPanel(s, s.expandedId)) return { &p->content, p->providerId, p->id, draft, &s.scrolls, drag };
+    if (const Activity* a = findActivity(s, s.expandedId)) return { &a->content, a->providerId, a->id, draft, &s.scrolls, drag, &s.keptText };
+    if (const Panel* p = findPanel(s, s.expandedId)) return { &p->content, p->providerId, p->id, draft, &s.scrolls, drag, &s.keptText };
     return {};
 }
 

@@ -15,7 +15,7 @@ can't draw (PS §5.3), and nothing typed reached the island.
   Core rules, tested: focus only on the shown card; typing, Backspace
   (a whole UTF-8 character), Enter (the app sends `Action{actionId, text}`,
   the field empties and keeps focus), Esc (stop typing; a second Esc closes
-  the card). Switching or closing the card drops the draft. While the field
+  the card). Switching or closing the card drops the draft (its text is kept since decision 050). While the field
   holds unsent text, Expanded doesn't time out, so it never eats what you
   typed. While a field is focused, keys go to it, not to the demo hotkeys.
 - **Paste:** Ctrl+V in the field sends the clipboard's text as the field's
