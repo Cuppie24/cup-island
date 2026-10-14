@@ -204,6 +204,10 @@ struct IslandState {
     bool hidden = false;
     std::optional<WallClock> clock;    // unknown until the platform syncs it
     std::optional<Draft> draft;        // a TextInput has focus (decision 016)
+    // A field's unsent text while it isn't focused (decision 050), by
+    // "<activityId>/<actionId>": it survives the card closing, a tab switch,
+    // Esc. The field shows it, and focused again it carries on from it.
+    std::map<std::string, std::string> keptText;
     std::optional<Dialog> dialog;      // a question over the shown card (decision 020)
     std::map<std::string, ListScroll> scrolls; // lists' scroll, by "<activityId>/<list>" (decision 029)
     std::optional<ListDrag> listDrag;  // a list row being dragged

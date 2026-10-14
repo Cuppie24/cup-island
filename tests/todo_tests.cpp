@@ -112,10 +112,28 @@ void wrapTests()
            std::abs(pomodoro.offset.x + pomodoro.size.x / 2 - 960) < 0.01f, "centred where Home was: grown to both sides");
 }
 
+// The add field's unsent text survives its card closing (decision 050): shown in the field, unfocused.
+void keptTextTests()
+{
+    IslandState state;
+    state = reduce(state, PanelPublished{ pomodoroPanel() }, Ms{ 0 });
+    state = reduce(state, PillClicked{}, Ms{ 0 });
+    state = reduce(state, TileClicked{ PomodoroProvider::kPanelId }, Ms{ 0 });
+    state = reduce(state, InputFocused{ "pomodoro", PomodoroProvider::kPanelId, todo_action::kAdd }, Ms{ 0 });
+    state = reduce(state, TextTyped{ "Water plants" }, Ms{ 0 });
+    state = reduce(state, EscapePressed{}, Ms{ 0 }); // the card goes back to Home
+    state = reduce(state, TileClicked{ PomodoroProvider::kPanelId }, Ms{ 0 });
+    Scene card = layout(state, Ms{ 0 });
+    const Placed* field = firstOf(card, [](const Placed& p) { return std::holds_alternative<TextInput>(p.item); });
+    expect(field && !std::get<TextInput>(field->item).focused && std::get<TextInput>(field->item).value == "Water plants",
+           "kept text: the field shows it, unfocused, when the card is back");
+}
+
 } // namespace
 
 void runTodoTests()
 {
+    keptTextTests();
     wrapTests();
     // The list itself.
     TodoList list;

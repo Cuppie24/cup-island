@@ -19,6 +19,7 @@ struct Source {
     const Draft* draft = nullptr; // text being typed: fills a matching TextInput (decision 016)
     const std::map<std::string, ListScroll>* scrolls = nullptr; // how its lists are scrolled (decision 029)
     const ListDrag* listDrag = nullptr;                          // a list row being dragged
+    const std::map<std::string, std::string>* keptText = nullptr; // fields' unsent text while unfocused (decision 050)
 };
 
 struct SlotFrame {

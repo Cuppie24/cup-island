@@ -1,6 +1,7 @@
 #include "core/slot_layout.h"
 
 #include "core/item_metrics.h"
+#include "core/card_overlays.h"
 #include "core/lists.h"
 #include "core/text_wrap.h"
 #include "core/tokens.h"
@@ -17,7 +18,11 @@ Item resolve(const Item& item, Ms now, const Source& source)
         TextInput shown = *input;
         const Draft* d = source.draft;
         shown.focused = d && d->activityId == source.activityId && d->actionId == input->actionId;
-        shown.value = shown.focused ? d->text : "";
+        // Not focused: the text it was left with, if any (decision 050).
+        if (shown.focused) shown.value = d->text;
+        else if (source.keptText)
+            if (auto kept = source.keptText->find(keptKey(source.activityId, input->actionId)); kept != source.keptText->end())
+                shown.value = kept->second;
         if (shown.focused) shown.caret = d->caret, shown.anchor = d->anchor;
         return shown;
     }

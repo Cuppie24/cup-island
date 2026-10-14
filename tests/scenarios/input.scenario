@@ -67,3 +67,37 @@ tile focus
 focus focus add                     -> draft=empty
 type x
 home                                -> draft=none
+
+scenario: a field's unsent text survives the card closing and tab switches (decision 050)
+start timer
+start media
+click                               -> expanded=media
+switch timer
+focus timer add
+type buy milk
+switch media                        -> draft=none           # the field lost focus...
+switch timer
+focus timer add                     -> draft=buy_milk caret=8   # ...and its text came back
+outside                             -> Split draft=none
+click
+switch timer
+focus timer add                     -> draft=buy_milk       # closed and reopened: still there
+cancel-input                        -> draft=none           # Esc stops typing
+focus timer add                     -> draft=buy_milk       # the text waits
+submit                              -> draft=empty          # sent: gone
+cancel-input
+focus timer add                     -> draft=empty          # nothing kept once sent
+
+scenario: each field keeps its own text; edits in place aren't kept
+start timer
+click
+focus timer add
+type first
+focus timer other
+type second
+focus timer add                     -> draft=first
+focus timer other                   -> draft=second
+edit timer todo.edit.1 name
+type x
+cancel-input
+edit timer todo.edit.1 name         -> draft=name           # an edit starts from the task's text, not leftovers

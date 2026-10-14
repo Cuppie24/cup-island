@@ -298,7 +298,7 @@ void handle(IslandState& s, const CaretPlaced& e, Ms now) { if (Draft* d = busyD
 void handle(IslandState& s, const WordSelected& e, Ms now) { if (Draft* d = busyDraft(s, now)) selectWordAt(*d, e.at); }
 void handle(IslandState& s, const AllSelected&, Ms now) { if (Draft* d = busyDraft(s, now)) selectAll(*d); }
 void handle(IslandState& s, const InputSubmitted&, Ms now) { submitText(s, now); }
-void handle(IslandState& s, const InputCancelled&, Ms) { s.draft.reset(); }
+void handle(IslandState& s, const InputCancelled&, Ms) { dropDraft(s); } // Esc: stop typing; the text waits (decision 050)
 void handle(IslandState& s, const DialogShown& e, Ms now) { showDialog(s, e, now); }
 void handle(IslandState& s, const DialogClosed&, Ms) { s.dialog.reset(); }
 void handle(IslandState& s, const ListScrolled& e, Ms now) { scrollList(s, e, now); } // lists.h, decision 029
