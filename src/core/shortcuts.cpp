@@ -87,6 +87,7 @@ const std::vector<CommandInfo>& commands()
 {
     static const std::vector<CommandInfo> all{
         { Command::OpenHome, "home", "Open Home", Chord{ .key = 'Q', .ctrl = true } }, // takes Ctrl+Q (Quit in some apps) from other apps: the user's pick (decision 032)
+        { Command::OpenActivity, "activity", "Open the activity", Chord{ .key = 'Q', .ctrl = true, .alt = true } }, // decision 050
     };
     return all;
 }

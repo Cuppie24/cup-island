@@ -267,6 +267,17 @@ void handle(IslandState& s, const HomeOpened&, Ms now)
     if (!s.panels.empty()) openHome(s, now);
 }
 
+// The activity shortcut (decision 050): the card of the pill's activity, the
+// one a click on the pill opens, from anywhere (Home, another card, an alert).
+// Pressed again on that card, it closes, like Open Home's.
+void handle(IslandState& s, const ActivityOpened&, Ms now)
+{
+    if (s.activities.empty()) return;
+    const std::string& top = s.activities.front().id;
+    if (!s.homeOpen && s.expandedId == top) collapse(s);
+    else expand(s, top, now);
+}
+
 // A running panel opens like its tab (and becomes the pick); a dormant one shows its card.
 void handle(IslandState& s, const TileClicked& e, Ms now)
 {

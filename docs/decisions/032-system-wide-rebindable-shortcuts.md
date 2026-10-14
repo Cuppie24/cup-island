@@ -50,5 +50,5 @@ People want to reach Home from any app, with keys of their choosing.
 `core/shortcuts`, tested in `tests/keyboard_tests.cpp`; recording,
 aborting and going off while hidden in `tests/shortcut_settings_tests.cpp`.
 The app's side (focus, Enter, recording, WM_HOTKEY) is `app/keyboard_input`. Registration and the hotkey arriving
-need a Windows run. With one command today, two commands clashing can only
-be tested once there's a second; the rule is in place.
+need a Windows run. Decision 050 added a second command (Open the
+activity), so two commands clashing is tested too.

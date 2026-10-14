@@ -14,6 +14,7 @@
 //            focus <card> <action> [at=<n>|max=<chars>]  type <text...>  erase [word]  submit  cancel-input   (a TextInput, decision 016)
 //            delete [word]  caret <left|right|word-left|word-right|start|end> [select]
 //            place <n> [select]  select-word <n>  select-all                     (caret and selection, decision 043)
+//            open-activity                                                           (the activity shortcut, decision 050)
 //            pin                                                                     (Expanded's pin, decision 046)
 //            tabrow top|bottom                                                       (Settings' Tab row, decision 048)
 //            ask <card>  close-dialog                                               (a provider's dialog, decision 020)
@@ -153,6 +154,7 @@ struct Runner {
         }
         else if (cmd == "unpanel") apply(PanelRemoved{ arg(1) });
         else if (cmd == "home") apply(HomeOpened{});
+        else if (cmd == "open-activity") apply(ActivityOpened{});
         else if (cmd == "tile") apply(TileClicked{ arg(1) });
         else if (cmd == "focus") {
             auto max = option(arg(3), "max");

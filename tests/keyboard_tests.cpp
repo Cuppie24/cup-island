@@ -124,6 +124,9 @@ void runKeyboardTests()
         auto back = moveFocus(keys, "", Arrow::Down);
         auto edit = moveFocus(keys, back->id, Arrow::Down);
         expect(clicks(keys, edit) == std::string(P::kEditShortcut) + "0" && edit->list, "keys page: down from the back arrow, Open Home's row, in the list");
+        auto first = edit;
+        edit = moveFocus(keys, edit->id, Arrow::Down);
+        expect(clicks(keys, edit) == std::string(P::kEditShortcut) + "1", "keys page: down again, Open the activity's row, the list's last stop");
         int scrolls = 0;
         while (auto scroll = scrollInstead(keys, edit->id, Arrow::Down)) {
             expect(scroll->delta > 0 && scroll->list == P::kShortcutList, "keys page: down at the list's last stop scrolls it");
@@ -132,11 +135,11 @@ void runKeyboardTests()
             if (++scrolls > 50) break;
         }
         auto list = findFocusable(keys, edit->id)->list;
-        expect(scrolls > 0 && list->offset >= list->max - 0.5f, "keys page: scrolled to the end, focus still on Open Home");
-        expect(!inView(*findFocusable(keys, edit->id)), "keys page: Open Home scrolled out of view: no ring");
+        expect(scrolls > 0 && list->offset >= list->max - 0.5f, "keys page: scrolled to the end, focus still on its last stop");
+        expect(!inView(*findFocusable(keys, edit->id)), "keys page: that row scrolled out of view: no ring");
         auto out = moveFocus(keys, edit->id, Arrow::Down);
         expect(!out || !out->list, "keys page: at the end, down leaves the list");
-        expect(!scrollInstead(keys, back->id, Arrow::Up) && scrollInstead(keys, edit->id, Arrow::Up)->delta < 0,
+        expect(!scrollInstead(keys, back->id, Arrow::Up) && scrollInstead(keys, first->id, Arrow::Up)->delta < 0,
                "keys page: up scrolls it back; outside the list, nothing to scroll");
     }
 
@@ -240,6 +243,13 @@ void runKeyboardTests()
            bindingProblem(defaultBindings(), Command::OpenHome, { .key = 'K', .win = true }).empty() &&
            bindingProblem(defaultBindings(), Command::OpenHome, openHome).empty(),
            "shortcuts: system-wide needs Ctrl, Alt or Win; its own keys are no conflict");
+    // Open the activity (decision 050): Ctrl+Alt+Q, and it can't take Open Home's keys, or they its.
+    expect(chordText(chordOf(defaultBindings(), Command::OpenActivity)) == "Ctrl+Alt+Q", "shortcuts: Open the activity is Ctrl+Alt+Q");
+    expect(bindingProblem(defaultBindings(), Command::OpenActivity, openHome) == "Ctrl+Q is already Open Home" &&
+           bindingProblem(defaultBindings(), Command::OpenHome, *parseChord("Ctrl+Alt+Q")) == "Ctrl+Alt+Q is already Open the activity",
+           "shortcuts: two commands can't share keys");
+    expect(chordText(chordOf(loadBindings("home=Ctrl+Alt+H\n"), Command::OpenActivity)) == "Ctrl+Alt+Q",
+           "shortcuts: saved before it existed, Open the activity gets its default");
 
     setTokens(saved);
 }

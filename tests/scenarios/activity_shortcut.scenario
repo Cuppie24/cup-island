@@ -1,0 +1,37 @@
+# The activity shortcut (decision 050, Ctrl+Alt+Q by default): from anywhere,
+# the card of the pill's activity, the one a click on the pill opens.
+
+scenario: with no activity it does nothing
+open-activity                       -> Idle
+panel focus
+open-activity                       -> Idle
+
+scenario: it opens the pill's activity's card, and closes it when pressed again
+start media                         -> Compact
+open-activity                       -> Expanded expanded=media
+open-activity                       -> Compact
+
+scenario: in Split it opens the pill's activity, not the bubble's
+start media
+start timer timeSensitive           -> Split top=timer bubble=media
+open-activity                       -> Expanded expanded=timer
+promote media                       # the pick changes the pill: the shortcut follows it
+open-activity                       -> Expanded expanded=media
+open-activity                       -> Split top=media
+
+scenario: from Home or another card it goes to the activity's card
+panel focus
+start media
+home                                -> Expanded expanded=home
+open-activity                       -> Expanded expanded=media
+esc                                 -> Compact
+start timer timeSensitive
+bubble                              -> Expanded expanded=media
+open-activity                       -> Expanded expanded=timer
+
+scenario: over an alert it opens the activity's card, and times out like a click's
+start media
+alert ding                          -> Alert alert=ding
+open-activity                       -> Expanded expanded=media
+wait 7999                           -> Expanded
+wait 1
