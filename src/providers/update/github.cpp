@@ -13,6 +13,8 @@
 #include <winrt/Windows.Web.Http.Headers.h>
 #include <winrt/Windows.Web.Http.h>
 
+#include <chrono>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 
@@ -90,6 +92,38 @@ bool runInstaller(const std::filesystem::path& installer)
     return false;
 }
 
+// Why GitHub said no, not just the code: a 403 is its rate limit (60 an
+// hour per IP without a login, shared by everyone behind that IP) or a
+// network in between refusing. Its rate-limit headers and message tell
+// which. The message names the IP: cut there, logs get shared.
+void logRefusal(const http::HttpResponseMessage& response, const winrt::hstring& body)
+{
+    auto header = [&](const wchar_t* name) {
+        auto headers = response.Headers();
+        return headers.HasKey(name) ? winrt::to_string(headers.Lookup(name)) : std::string();
+    };
+    std::string left = header(L"X-RateLimit-Remaining");
+    std::string reset = header(L"X-RateLimit-Reset"); // Unix seconds
+    std::string message;
+    json::JsonObject o{ nullptr };
+    if (json::JsonObject::TryParse(body, o)) message = field(o, L"message");
+    else message = winrt::to_string(body).substr(0, 80); // not GitHub's JSON: a proxy's page?
+    if (auto at = message.find(" for "); at != std::string::npos) message.resize(at);
+    for (char& c : message)
+        if (c == '\r' || c == '\n') c = ' ';
+    logLine("update check: GitHub answered %d: %s", static_cast<int>(response.StatusCode()), message.c_str());
+    if (left.empty()) {
+        logLine("  no rate-limit headers: something other than GitHub's API answered");
+        return;
+    }
+    long long minutes = -1;
+    if (long long at = std::atoll(reset.c_str()); at > 0) {
+        auto now = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+        minutes = (at - now + 59) / 60;
+    }
+    logLine("  rate limit: %s left, resets in %lld min", left.c_str(), minutes);
+}
+
 winrt::fire_and_forget fetch(std::string appVersion, std::function<void(std::optional<GitHubRelease>)> done)
 {
     winrt::apartment_context ui; // `done` runs back on this (the UI) thread
@@ -101,7 +135,7 @@ winrt::fire_and_forget fetch(std::string appVersion, std::function<void(std::opt
             if (release) logLine("update check: the latest release is %s", release->tag.c_str());
             else logLine("update check: GitHub's answer didn't parse");
         } else {
-            logLine("update check: GitHub answered %d", static_cast<int>(response.StatusCode()));
+            logRefusal(response, co_await response.Content().ReadAsStringAsync());
         }
     } catch (const winrt::hresult_error& e) {
         // The code on its own line: Windows' message is localised, and a line it breaks must not take the code with it.
