@@ -15,6 +15,8 @@ namespace cup::platform {
 void fadeIn(wuc::Compositor const& c, wuc::Visual const& visual);
 void fadeTo(wuc::Compositor const& c, wuc::Visual const& visual, float opacity, Ms duration);
 void playScale(wuc::Compositor const& c, wuc::Visual const& visual, float scale, Ms duration, Bezier curve);
+// The island's own fill to new colours (a cover, a theme; decision 051): over recolorDuration.
+void fadeColor(wuc::CompositionColorBrush const& brush, const Color& color);
 
 // Progress: track + fill + a knob riding the fill's end (hidden until hover).
 // The visual is wider than the frame by the knob's radius on each side, so the

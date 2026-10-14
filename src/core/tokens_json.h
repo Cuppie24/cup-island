@@ -36,4 +36,8 @@ Tokens scaleTokens(const Tokens& tokens, float displayScale);
 // unknown name changes nothing: the colours as written.
 Tokens withTheme(const Tokens& tokens, const std::string& name);
 
+// The tokens with these colours over them: a theme's, or the playing
+// cover's palette (core/cover_palette.h, decision 051). Unknown names are skipped.
+Tokens withColors(const Tokens& tokens, const std::vector<ThemeColor>& colors);
+
 } // namespace cup

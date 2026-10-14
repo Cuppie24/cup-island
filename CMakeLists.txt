@@ -26,12 +26,14 @@ add_library(cup_core STATIC
     src/core/badges.cpp
     src/core/card_overlays.cpp
     src/core/content.cpp
+    src/core/cover_palette.cpp
     src/core/dialog.cpp
     src/core/easing.cpp
     src/core/fullscreen.cpp
     src/core/hit_test.cpp
     src/core/home.cpp
     src/core/island.cpp
+    src/core/island_tint.cpp
     src/core/island_queries.cpp
     src/core/item_metrics.cpp
     src/core/keyboard.cpp
@@ -78,6 +80,7 @@ if(CUP_BUILD_TESTS)
     add_executable(cup_tests
         tests/badge_tests.cpp
         tests/content_tests.cpp
+        tests/cover_tests.cpp
         tests/fullscreen_tests.cpp
         tests/home_tests.cpp
         tests/item_tests.cpp

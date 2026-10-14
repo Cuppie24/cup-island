@@ -25,6 +25,7 @@
 #include "core/dialog.h"
 #include "core/hit_test.h"
 #include "core/island.h"
+#include "core/island_tint.h"
 #include "core/layout.h"
 #include "core/placement.h"
 #include "core/tabs.h"
@@ -89,6 +90,7 @@ constexpr bool kDemoKeys = true;
 const auto g_startTime = std::chrono::steady_clock::now();
 IslandState g_state;
 Scene g_scene;
+IslandTint g_tint; // the playing cover's colour on the island (decision 051)
 PillRenderer g_renderer;
 HWND g_inputHwnd{};
 std::filesystem::path g_tokensFile;
@@ -263,6 +265,7 @@ std::optional<Ms> earliest(std::optional<Ms> a, std::optional<Ms> b)
 
 void saveSpot();
 void onLifted();
+void tokensChanged(Vec2 oldCanvas, const char* reason);
 
 void dispatch(const Event& event, const char* reason)
 {
@@ -289,10 +292,21 @@ void dispatch(const Event& event, const char* reason)
     if (g_state.spot != spot) saveSpot();
     updateHover();
 
+    // The island in the playing cover's colours, or the theme's (decision 051).
+    IslandTint tint = nextTint(g_tint, wantedTint(g_state), t);
+    bool recolour = tint.shown != g_tint.shown;
+    g_tint = tint;
+
     // One timer for everything time-based: core deadlines, ticking labels and provider wake-ups.
-    auto deadline = earliest(nextDeadline(g_state), sceneDeadline(g_scene));
+    auto deadline = earliest(earliest(nextDeadline(g_state), sceneDeadline(g_scene)), tintDeadline(g_tint));
     if (g_providers) deadline = earliest(deadline, g_providers->nextWake());
     setTimer(TimerId::Deadline, deadline ? std::optional<Ms>(std::max(*deadline - t, Ms{ 0 })) : std::nullopt);
+
+    // Recoloured like a theme change, which dispatches again (the tint is settled by then).
+    if (recolour) {
+        Vec2 oldCanvas = tokens().canvas;
+        if (app::setTint(g_tint.shown)) tokensChanged(oldCanvas, "cover");
+    }
 
     // Hidden (a fullscreen app, decision 032): the shortcuts let go of their keys, so that app gets them.
     // Last: Settings republishes, which dispatches again.

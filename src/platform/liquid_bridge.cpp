@@ -1,6 +1,7 @@
 #include "platform/liquid_bridge.h"
 
 #include "core/tokens.h"
+#include "platform/element_parts.h"
 
 #include <algorithm>
 #include <string>
@@ -47,7 +48,7 @@ void LiquidBridge::build(wuc::Compositor const& c, wuc::ContainerVisual const& p
 {
     params_ = c.CreatePropertySet();
     params_.InsertScalar(L"On", 1.0f);
-    brush_ = c.CreateColorBrush();
+    brush_ = c.CreateColorBrush(toUiColor(tokens().islandColor)); // the fade in refreshAnimations() starts from it
     refreshAnimations();
 
     visual_ = c.CreateShapeVisual();
@@ -72,7 +73,7 @@ void LiquidBridge::refreshAnimations()
 {
     params_.InsertScalar(L"Thickness", tokens().bridgeThickness);
     params_.InsertScalar(L"Reach", std::max(tokens().bridgeReach, 0.01f)); // divided by
-    brush_.Color(toUiColor(tokens().islandColor));
+    fadeColor(brush_, tokens().islandColor); // with the pill's fill (decision 051)
 }
 
 void LiquidBridge::setEnabled(bool on)
