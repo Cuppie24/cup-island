@@ -3,7 +3,10 @@
 // curves can be tuned while the island runs. The picked app theme's colours
 // go on top (decision 022).
 
+#include "core/content.h"
+
 #include <filesystem>
+#include <optional>
 #include <string>
 
 namespace cup::app {
@@ -30,5 +33,9 @@ bool rescaleTokens(const std::filesystem::path& file, float scale);
 // The app theme (a name in tokens.json's "themes"): its colours go over the
 // file's, now and after every reload. Returns true if tokens changed.
 bool setTheme(const std::string& name);
+
+// The playing cover's colour (decision 051): its palette goes over the
+// theme's, now and after every reload; nullopt = the theme alone. Returns true if tokens changed.
+bool setTint(std::optional<Color> cover);
 
 } // namespace cup::app

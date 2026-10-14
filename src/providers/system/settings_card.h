@@ -27,6 +27,7 @@ inline constexpr const char* kPickTheme = "theme.pick:";       // + its index in
 inline constexpr const char* kPickDisplay = "display.pick:";   // + its index in SettingsView::displays
 inline constexpr const char* kEditShortcut = "shortcut.edit:"; // + its index in commands()
 inline constexpr const char* kToggleAutostart = "autostart.toggle";
+inline constexpr const char* kToggleCoverColours = "covercolours.toggle"; // decision 052
 inline constexpr const char* kCopyLogs = "logs.copy";
 inline constexpr const char* kCentreIsland = "island.centre";
 inline constexpr const char* kCheckUpdates = "updates.check";
@@ -63,7 +64,7 @@ struct SettingItem {
 };
 
 // Every announced setting, oldest first: add a line when adding a setting.
-// Rows' ids: "theme", "display", "tabrow" (and "tabrow.top", "tabrow.bottom"
+// Rows' ids: "theme", "covercolours", "display", "tabrow" (and "tabrow.top", "tabrow.bottom"
 // on its page), "centre", "autostart", "shortcuts", "logs", "updates".
 std::vector<SettingItem> announcedSettings();
 
@@ -82,6 +83,7 @@ struct SettingsView {
     std::optional<UpdateNote> update;       // nothing: the app can't check, no row
     std::optional<UpdateStatus> offer;      // an update offered (by any check): an "Update and restart" row
     bool tabsOnTop = true;                  // the tab row's place (decision 048)
+    std::optional<bool> coverColours;       // the island in the playing cover's colours (decision 052); nothing: no row
     std::vector<SettingItem> announced;     // what can be new (announcedSettings)...
     std::set<std::string> unseen;           // ...and which of those haven't been seen yet: tagged "New"
 };

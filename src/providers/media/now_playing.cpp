@@ -1,5 +1,7 @@
 #include "providers/media/now_playing.h"
 
+#include "core/cover_palette.h"
+
 namespace cup {
 
 Content nowPlayingContent(const NowPlaying& m)
@@ -14,6 +16,8 @@ Content nowPlayingContent(const NowPlaying& m)
     c.label = m.artist.empty() ? m.title : m.title + " - " + m.artist;
     c.compactLeading = { row({ art }) };
     c.compactCenter = { row({ Text{ .value = c.label, .marquee = true } }) }; // swims when too long
+    // Playing, the island takes on the cover's colours; paused, the theme's (decision 051).
+    if (playing && m.art) c.tint = coverColor(*m.art);
     c.compactTrailing = { row({ Waveform{ playing } }, Align::Center) }; // paused: the bars rest as dots
     c.minimal = { row({ Waveform{ playing } }) }; // the Split bubble: equalizer bars, still dots when paused
     c.alertLeading = { row({ art }) };

@@ -39,6 +39,7 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 lift.h + placement.h (moving the island along the top edge, decision 026),
                 keyboard.h (arrow, Tab and digit focus, decisions 031, 033) + shortcuts.h (the shortcut table, decision 031),
                 badges.h (where notification dots go, decision 038),
+                cover_palette.h + island_tint.h (the island in the playing cover's colours, decision 051),
                 tokens.h (+ tokens_json.h, json_reader.h), easing.h
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
@@ -190,7 +191,7 @@ over the file's, so `tokens()` is always what's on screen.
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing), `list_card_tests.cpp` (Settings' List card), `badge_tests.cpp` (notification dots),
   `home_tests.cpp` (tiles, Home tab, idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop),
-  `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end), `update_tests.cpp` (versions, offers, the updater's checks and install).**
+  `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
 
@@ -228,6 +229,7 @@ over the file's, so `tokens()` is always what's on screen.
 | MSIX, code signing, StartupTask (TR §9, §10) | not yet |
 | Log file, Copy logs (in Settings), hang/crash minidumps, exit without deadlock (decision 013) | done; button rules tested, the rest needs Windows |
 | Settings widget, app themes (dark and light) from tokens.json, saved per user (decision 022) | done; rules tested, visuals need Windows |
+| The island in the playing cover's colours, in the theme's recipe; the theme back when paused (decision 051); on/off in Settings (decision 052) | done; rules and contrast tested, the look and fade need Windows |
 | Settings as a list: Theme and Display pages of choices, Start with Windows on by default, stays open on a near miss (decision 030) | done; rules tested, visuals need Windows |
 | Keyboard: arrows move focus on cards and Home, Enter/Space click (decision 031) | done; navigation tested, key handling needs Windows |
 | Keyboard: Tab/Shift+Tab, Home/End, Ctrl+Tab switches tabs, 1–9 open Home's widgets, Esc one step back, a focus ring (decision 033) | done; navigation and Esc tested, keys and ring need Windows |

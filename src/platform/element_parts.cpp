@@ -57,6 +57,15 @@ void fadeTo(Compositor const& c, Visual const& visual, float opacity, Ms duratio
     visual.StartAnimation(L"Opacity", anim);
 }
 
+void fadeColor(CompositionColorBrush const& brush, const Color& color)
+{
+    // Animated from wherever it is, so a fade cut short by the next one carries on smoothly.
+    auto anim = brush.Compositor().CreateColorKeyFrameAnimation();
+    anim.InsertKeyFrame(1.0f, toUiColor(color));
+    anim.Duration(atLeast1(tokens().recolorDuration));
+    brush.StartAnimation(L"Color", anim);
+}
+
 void playScale(Compositor const& c, Visual const& visual, float scale, Ms duration, Bezier curve)
 {
     auto anim = c.CreateVector3KeyFrameAnimation();

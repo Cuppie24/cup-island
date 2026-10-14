@@ -1,6 +1,6 @@
 #pragma once
 // Settings on Home (decisions 022, 030): what the card's actions do. The
-// app theme, the display (decision 023), Start with Windows, the keyboard
+// app theme, colours from music (decision 052), the display (decision 023), Start with Windows, the keyboard
 // shortcuts (decisions 031, 032), Copy logs and Centre island (decision 026).
 // Picks are kept in the host's store (decision 028); recolouring, moving the
 // island, the Run key, hotkeys and the clipboard are the app's (handed in),
@@ -47,6 +47,8 @@ struct SettingsHooks {
     std::function<void(std::function<void(CheckOutcome, const std::string&)>)> checkForUpdates;
     std::function<void()> installUpdate; // the offer, as Home's Update card installs it (decision 037)
     std::function<void(bool top)> placeTabRow; // the tab row along the card's top or bottom (decision 048)
+    // The island in the playing cover's colours, or always the theme's (decision 052). Empty: no row.
+    std::function<void(bool on)> setCoverColours;
     // What can be tagged "New" (decision 048): the shipped list, unless a test brings its own.
     std::vector<SettingItem> announced = announcedSettings();
 };
@@ -93,6 +95,7 @@ public:
     static constexpr const char* kAutostartKey = "autostart";
     static constexpr const char* kShortcutsKey = "shortcuts"; // saveBindings' text
     static constexpr const char* kTabRowKey = "tabrow";       // "top" or "bottom" ("": top)
+    static constexpr const char* kCoverColoursKey = "covercolours"; // "on" or "off" ("": on, decision 052)
     static constexpr const char* kSeenKey = "seen";           // "seen1", then the announced settings seen, one id per line
 
 private:
@@ -122,6 +125,7 @@ private:
     std::string shortcutNote_;
     UpdateNote updateNote_;
     bool tabsOnTop_ = true;
+    bool coverColours_ = true;
     std::set<std::string> seen_;     // announced settings seen in earlier visits (decision 048)
     std::set<std::string> seeing_;   // ...and shown during this one: seen once the card closes
     bool visible_ = false;           // the card is on screen

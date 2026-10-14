@@ -202,6 +202,23 @@ struct Tokens {
     // A session read that fails (an app mid-switch) is retried this many times.
     std::size_t mediaReadRetries = 3;
 
+    // The island in the playing cover's colours (decision 051): the cover's
+    // hue at these OKLCH lightnesses (0..1) and chromas, in the theme's own
+    // recipe (decision 022): a dark theme gets a tinted near-black, a light one a pale tint.
+    Ms coverTintLinger{ 1500 };          // nothing plays any more: the cover's colours stay this long (a track change pauses for a moment)
+    Ms recolorDuration{ 600 };           // the island's fill fades to new colours (a cover, a theme) over this
+    float coverVividSaturation = 0.25f;  // a cover's pixel counts as coloured from this saturation (0..1) up
+    float coverMinVivid = 0.05f;         // ...and a cover needs this share of them, or it's grey and the theme stays
+    float coverDarkIsland = 0.2f;        // dark themes: the island's lightness
+    float coverDarkAccent = 0.72f;       // ...the accent's (progress, waveform, tiles, hover)
+    float coverDarkInk = 0.94f;          // ...text and icons'
+    float coverLightIsland = 0.95f;      // light themes: the same three
+    float coverLightAccent = 0.58f;
+    float coverLightInk = 0.3f;
+    float coverIslandChroma = 0.05f;     // how coloured the island is (0: grey)
+    float coverAccentChroma = 0.17f;     // ...the accent
+    float coverInkChroma = 0.03f;        // ...text and icons: barely, so they read as white or ink
+
     // Colours: every colour the island draws. tokens.json writes [r, g, b] or
     // [r, g, b, alpha], channels 0..255 and alpha 0..1, like CSS rgba().
     Color islandColor{ 0, 0, 0 };

@@ -1,6 +1,7 @@
 #include "app/live_tokens.h"
 #include "platform/log.h"
 
+#include "core/cover_palette.h"
 #include "core/tokens_json.h"
 #include "platform/win.h"
 
@@ -16,6 +17,7 @@ std::string g_lastText; // skip the duplicate change notifications one save prod
 float g_scale = 1.0f;   // display scale: tokens.json is logical pixels
 Tokens g_file;          // tokens.json as last read without problems, before the theme and scaling
 std::string g_theme;    // the app theme (decision 022)
+std::optional<Color> g_tint; // the playing cover's colour, over the theme (decision 051)
 
 void log(const std::string& message)
 {
@@ -46,10 +48,13 @@ std::filesystem::path findTokensFile()
 
 namespace {
 
-// The file's tokens, the theme's colours over them, at the display's scale.
+// The file's tokens, the theme's colours over them, the cover's over those,
+// at the display's scale.
 bool commit(const std::string& message)
 {
-    Tokens next = scaleTokens(withTheme(g_file, g_theme), g_scale);
+    Tokens themed = withTheme(g_file, g_theme);
+    if (g_tint) themed = withColors(themed, coverColors(*g_tint, themed));
+    Tokens next = scaleTokens(themed, g_scale);
     if (next == tokens()) return false;
     warnIfClipped(next);
     setTokens(next);
@@ -105,6 +110,15 @@ bool setTheme(const std::string& name)
 {
     g_theme = name;
     return commit("theme: " + (name.empty() ? std::string("none") : name));
+}
+
+bool setTint(std::optional<Color> cover)
+{
+    g_tint = cover;
+    if (!cover) return commit("cover colours off");
+    char rgb[32];
+    std::snprintf(rgb, sizeof rgb, "%d, %d, %d", cover->r, cover->g, cover->b);
+    return commit(std::string("cover colours: ") + rgb);
 }
 
 } // namespace cup::app

@@ -130,6 +130,19 @@ const Field kFields[] = {
     { "mediaArtWaitMs", &Tokens::mediaArtWait },
     { "mediaArtRecheckMs", &Tokens::mediaArtRecheck },
     { "mediaReadRetries", &Tokens::mediaReadRetries },
+    { "coverTintLingerMs", &Tokens::coverTintLinger, true },
+    { "recolorDurationMs", &Tokens::recolorDuration },
+    { "coverVividSaturation", &Tokens::coverVividSaturation },
+    { "coverMinVivid", &Tokens::coverMinVivid },
+    { "coverDarkIsland", &Tokens::coverDarkIsland },
+    { "coverDarkAccent", &Tokens::coverDarkAccent },
+    { "coverDarkInk", &Tokens::coverDarkInk },
+    { "coverLightIsland", &Tokens::coverLightIsland },
+    { "coverLightAccent", &Tokens::coverLightAccent },
+    { "coverLightInk", &Tokens::coverLightInk },
+    { "coverIslandChroma", &Tokens::coverIslandChroma },
+    { "coverAccentChroma", &Tokens::coverAccentChroma },
+    { "coverInkChroma", &Tokens::coverInkChroma },
     { "islandColor", &Tokens::islandColor, true },
     { "islandHighlightColor", &Tokens::islandHighlightColor },
     { "titleTextColor", &Tokens::titleTextColor },
@@ -332,10 +345,11 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
 {
     float scale = displayScale * t.islandScale;
     // Factors, not lengths: a press squashes to 96% at any scale, and the size
-    // knob isn't a size. Nor are font weights or text contrast.
+    // knob isn't a size. Nor are font weights, text contrast or the cover's
+    // lightnesses and chromas (decision 051).
     auto unitless = [](const char* name) {
         std::string_view n(name);
-        return n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" ||
+        return n.starts_with("cover") || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" ||
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
     };
     Tokens out = t;
@@ -349,13 +363,17 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
 
 Tokens withTheme(const Tokens& t, const std::string& name)
 {
+    for (const Theme& theme : t.themes)
+        if (theme.name == name) return withColors(t, theme.colors);
+    return t;
+}
+
+Tokens withColors(const Tokens& t, const std::vector<ThemeColor>& colors)
+{
     Tokens out = t;
-    for (const Theme& theme : t.themes) {
-        if (theme.name != name) continue;
-        for (const ThemeColor& c : theme.colors) {
-            const Field* field = findField(c.token);
-            if (auto* color = field ? std::get_if<Color Tokens::*>(&field->member) : nullptr) out.**color = c.color;
-        }
+    for (const ThemeColor& c : colors) {
+        const Field* field = findField(c.token);
+        if (auto* color = field ? std::get_if<Color Tokens::*>(&field->member) : nullptr) out.**color = c.color;
     }
     return out;
 }

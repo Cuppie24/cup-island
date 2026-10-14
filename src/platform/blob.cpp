@@ -168,7 +168,8 @@ void Blob::refreshAnimations()
     applyShadow();
     shape_.InsertScalar(L"MaxRadius", tokens().maxCornerRadius);
     shape_.InsertScalar(L"FlareRadius", tokens().flareRadius);
-    if (fill_) fill_.Color(fillColor(highlighted_)); // colours are tokens too
+    // Colours are tokens too; the fill fades, so a cover's colours ease in (decision 051).
+    if (fill_) fadeColor(fill_, highlighted_ ? tokens().islandHighlightColor : tokens().islandColor);
     elements_.refresh();
 }
 

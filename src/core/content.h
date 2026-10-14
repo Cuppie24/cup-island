@@ -232,6 +232,9 @@ using Slot = std::vector<Row>;
 struct Content {
     std::string label; // accessible name, also used in logs and tests
     std::optional<Color> accent; // none: white (decision 010)
+    // The island takes on this colour's palette while this is the best-ranked
+    // activity asking (media playing: its cover's colour, decision 051).
+    std::optional<Color> tint;
     CardLayout card = CardLayout::Standard;
     // Something new needs a look (an update offered, decision 038): a dot on
     // its widget on Home and on its tab, so the way to it is marked.

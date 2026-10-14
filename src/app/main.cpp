@@ -25,6 +25,7 @@
 #include "core/dialog.h"
 #include "core/hit_test.h"
 #include "core/island.h"
+#include "core/island_tint.h"
 #include "core/layout.h"
 #include "core/placement.h"
 #include "core/tabs.h"
@@ -89,6 +90,8 @@ constexpr bool kDemoKeys = true;
 const auto g_startTime = std::chrono::steady_clock::now();
 IslandState g_state;
 Scene g_scene;
+IslandTint g_tint; // the playing cover's colour on the island (decision 051)
+bool g_coverColours = true; // ...if Settings has it on (decision 052)
 PillRenderer g_renderer;
 HWND g_inputHwnd{};
 std::filesystem::path g_tokensFile;
@@ -263,6 +266,7 @@ std::optional<Ms> earliest(std::optional<Ms> a, std::optional<Ms> b)
 
 void saveSpot();
 void onLifted();
+void tokensChanged(Vec2 oldCanvas, const char* reason);
 
 void dispatch(const Event& event, const char* reason)
 {
@@ -289,10 +293,21 @@ void dispatch(const Event& event, const char* reason)
     if (g_state.spot != spot) saveSpot();
     updateHover();
 
+    // The island in the playing cover's colours, or the theme's (decision 051).
+    IslandTint tint = nextTint(g_tint, g_coverColours ? wantedTint(g_state) : std::nullopt, t);
+    bool recolour = tint.shown != g_tint.shown;
+    g_tint = tint;
+
     // One timer for everything time-based: core deadlines, ticking labels and provider wake-ups.
-    auto deadline = earliest(nextDeadline(g_state), sceneDeadline(g_scene));
+    auto deadline = earliest(earliest(nextDeadline(g_state), sceneDeadline(g_scene)), tintDeadline(g_tint));
     if (g_providers) deadline = earliest(deadline, g_providers->nextWake());
     setTimer(TimerId::Deadline, deadline ? std::optional<Ms>(std::max(*deadline - t, Ms{ 0 })) : std::nullopt);
+
+    // Recoloured like a theme change, which dispatches again (the tint is settled by then).
+    if (recolour) {
+        Vec2 oldCanvas = tokens().canvas;
+        if (app::setTint(g_tint.shown)) tokensChanged(oldCanvas, "cover");
+    }
 
     // Hidden (a fullscreen app, decision 032): the shortcuts let go of their keys, so that app gets them.
     // Last: Settings republishes, which dispatches again.
@@ -827,6 +842,18 @@ void placeIsland(const std::string& displayId)
     logLine("island on %s (%.0f%%)", display.name.c_str(), display.scale * 100);
 }
 
+// Settings turned the cover's colours on or off (decision 052). Off, the
+// theme comes back at once, without the pause linger; on, the next dispatch
+// picks up what's playing.
+void setCoverColours(bool on)
+{
+    g_coverColours = on;
+    if (!on) g_tint = {};
+    Vec2 oldCanvas = tokens().canvas;
+    if (app::setTint(g_tint.shown)) tokensChanged(oldCanvas, "cover colours");
+    else dispatch(Tick{}, "cover colours");
+}
+
 // The Settings card picked a theme: recolour everything (decision 022).
 void applyTheme(const std::string& name)
 {
@@ -951,6 +978,7 @@ int main()
         },
         .installUpdate = [] { if (g_update) g_update->install(); }, // the same as Home's Update card (decision 037)
         .placeTabRow = [](bool top) { dispatch(TabRowPlaced{ top }, top ? "tab row on top" : "tab row at the bottom"); }, // decision 048
+        .setCoverColours = setCoverColours, // decision 052
     });
     g_settings = settings.get();
     g_settings->setHotkeysActive(!g_state.hidden); // started under a fullscreen app: none until it's gone
