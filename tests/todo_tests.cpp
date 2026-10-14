@@ -65,6 +65,23 @@ void wrapTests()
     expect(std::abs(longBox->frame.y + longBox->frame.height / 2 - (longText->frame.y + longText->frame.height / 2)) < 0.01f,
            "the checkbox stays centred on it");
 
+    // Dragged, a wrapped one passes shorter ones all the way to either end of its group.
+    {
+        IslandState drag = state;
+        std::size_t from = longText->list->row;
+        float grab = longText->frame.y + longText->frame.height / 2;
+        drag = reduce(drag, ListDragStarted{ PomodoroProvider::kPanelId, todo_action::kList, from, grab }, Ms{ 0 });
+        drag = reduce(drag, ListDragMoved{ grab - 1000 }, Ms{ 0 });
+        auto carried = [](const Scene& sc) -> const Placed* {
+            return firstOf(sc, [](const Placed& p) { return p.list && p.list->dragged; });
+        };
+        Scene up = layout(drag, Ms{ 0 });
+        expect(carried(up) && carried(up)->list->dropAt == 0, "a wrapped to-do dragged up lands above the first");
+        drag = reduce(drag, ListDragMoved{ grab + 1000 }, Ms{ 0 });
+        Scene down = layout(drag, Ms{ 0 });
+        expect(carried(down) && carried(down)->list->dropAt == list.items().size() - 1, "...and dragged down, below the last");
+    }
+
     // Edited, the field wraps the same way and grows as it's typed into.
     const Text& text = std::get<Text>(longText->item);
     state = reduce(state, InputFocused{ "pomodoro", PomodoroProvider::kPanelId, text.editAction, text.value, true, std::nullopt,

@@ -23,6 +23,11 @@ read without editing it, and nothing stopped a to-do from being an essay
   `windowHeights`), so one long to-do doesn't stretch the window. A
   stacked card's height counts wrapped rows (`slotHeight` with the measure
   and the draft).
+- **Dragging a taller row** (decision 029): it goes past a row above
+  once its top reaches that row's top, and past one below once its bottom
+  reaches that row's bottom. For rows of one height that's where their
+  centres cross, as before; by centres alone, a wrapped to-do could never
+  pass a shorter one at either end of the list, held back by the list's edge.
 - **Editing wraps the same way:** the in-place field gets `wrapped` from
   the draft, grows a line at a time as it's typed into, and Up/Down move
   the caret a line (from the first or last line: to the start or end).
