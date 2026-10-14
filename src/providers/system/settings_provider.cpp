@@ -69,6 +69,8 @@ void SettingsProvider::start(Host& host)
     placeIsland();
     tabsOnTop_ = trimmed(host_->load(kTabRowKey)) != "bottom";
     if (hooks_.placeTabRow) hooks_.placeTabRow(tabsOnTop_);
+    coverColours_ = trimmed(host_->load(kCoverColoursKey)) != "off";
+    if (hooks_.setCoverColours) hooks_.setCoverColours(coverColours_);
     pick(known(trimmed(host_->load(kThemeKey))));
 }
 
@@ -86,7 +88,7 @@ void SettingsProvider::loadSeen()
     // setting is as new as the rest (none tagged), or an update from before
     // tags existed, which kept other settings (all announced ones are new).
     bool fresh = true;
-    for (const char* key : { kAutostartKey, kThemeKey, kDisplayKey, kShortcutsKey, kTabRowKey })
+    for (const char* key : { kAutostartKey, kThemeKey, kDisplayKey, kShortcutsKey, kTabRowKey, kCoverColoursKey })
         if (!trimmed(host_->load(key)).empty()) fresh = false;
     if (!fresh) return;
     for (const SettingItem& s : hooks_.announced) seen_.insert(s.id);
@@ -161,6 +163,11 @@ void SettingsProvider::onAction(const Action& action)
         bool on = !hooks_.startsWithWindows();
         hooks_.setStartsWithWindows(on);
         host_->save(kAutostartKey, on ? "on" : "off");
+        publish();
+    } else if (id == settings_action::kToggleCoverColours && hooks_.setCoverColours) {
+        coverColours_ = !coverColours_;
+        hooks_.setCoverColours(coverColours_);
+        host_->save(kCoverColoursKey, coverColours_ ? "on" : "off");
         publish();
     } else if (id == settings_action::kInstallUpdate) {
         if (hooks_.installUpdate && offer_ && offer_->stage != UpdateStage::Installing) hooks_.installUpdate();
@@ -340,6 +347,7 @@ SettingsView SettingsProvider::view() const
         }
     }
     if (hooks_.startsWithWindows) v.startsWithWindows = hooks_.startsWithWindows();
+    if (hooks_.setCoverColours) v.coverColours = coverColours_;
     return v;
 }
 

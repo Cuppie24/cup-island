@@ -229,7 +229,7 @@ over the file's, so `tokens()` is always what's on screen.
 | MSIX, code signing, StartupTask (TR §9, §10) | not yet |
 | Log file, Copy logs (in Settings), hang/crash minidumps, exit without deadlock (decision 013) | done; button rules tested, the rest needs Windows |
 | Settings widget, app themes (dark and light) from tokens.json, saved per user (decision 022) | done; rules tested, visuals need Windows |
-| The island in the playing cover's colours, in the theme's recipe; the theme back when paused (decision 051) | done; rules and contrast tested, the look and fade need Windows |
+| The island in the playing cover's colours, in the theme's recipe; the theme back when paused (decision 051); on/off in Settings (decision 052) | done; rules and contrast tested, the look and fade need Windows |
 | Settings as a list: Theme and Display pages of choices, Start with Windows on by default, stays open on a near miss (decision 030) | done; rules tested, visuals need Windows |
 | Keyboard: arrows move focus on cards and Home, Enter/Space click (decision 031) | done; navigation tested, key handling needs Windows |
 | Keyboard: Tab/Shift+Tab, Home/End, Ctrl+Tab switches tabs, 1–9 open Home's widgets, Esc one step back, a focus ring (decision 033) | done; navigation and Esc tested, keys and ring need Windows |

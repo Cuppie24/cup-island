@@ -91,6 +91,7 @@ const auto g_startTime = std::chrono::steady_clock::now();
 IslandState g_state;
 Scene g_scene;
 IslandTint g_tint; // the playing cover's colour on the island (decision 051)
+bool g_coverColours = true; // ...if Settings has it on (decision 052)
 PillRenderer g_renderer;
 HWND g_inputHwnd{};
 std::filesystem::path g_tokensFile;
@@ -293,7 +294,7 @@ void dispatch(const Event& event, const char* reason)
     updateHover();
 
     // The island in the playing cover's colours, or the theme's (decision 051).
-    IslandTint tint = nextTint(g_tint, wantedTint(g_state), t);
+    IslandTint tint = nextTint(g_tint, g_coverColours ? wantedTint(g_state) : std::nullopt, t);
     bool recolour = tint.shown != g_tint.shown;
     g_tint = tint;
 
@@ -841,6 +842,18 @@ void placeIsland(const std::string& displayId)
     logLine("island on %s (%.0f%%)", display.name.c_str(), display.scale * 100);
 }
 
+// Settings turned the cover's colours on or off (decision 052). Off, the
+// theme comes back at once, without the pause linger; on, the next dispatch
+// picks up what's playing.
+void setCoverColours(bool on)
+{
+    g_coverColours = on;
+    if (!on) g_tint = {};
+    Vec2 oldCanvas = tokens().canvas;
+    if (app::setTint(g_tint.shown)) tokensChanged(oldCanvas, "cover colours");
+    else dispatch(Tick{}, "cover colours");
+}
+
 // The Settings card picked a theme: recolour everything (decision 022).
 void applyTheme(const std::string& name)
 {
@@ -965,6 +978,7 @@ int main()
         },
         .installUpdate = [] { if (g_update) g_update->install(); }, // the same as Home's Update card (decision 037)
         .placeTabRow = [](bool top) { dispatch(TabRowPlaced{ top }, top ? "tab row on top" : "tab row at the bottom"); }, // decision 048
+        .setCoverColours = setCoverColours, // decision 052
     });
     g_settings = settings.get();
     g_settings->setHotkeysActive(!g_state.hidden); // started under a fullscreen app: none until it's gone

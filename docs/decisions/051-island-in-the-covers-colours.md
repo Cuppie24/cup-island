@@ -1,6 +1,6 @@
 # 051: The island in the playing cover's colours
 
-Status: Accepted
+Status: Accepted; a setting turns it off (052)
 
 **Context.** While music plays, the island showed the same theme colours
 whatever the cover looked like. People want it to feel like the song, the

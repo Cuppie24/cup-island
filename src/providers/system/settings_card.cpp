@@ -109,6 +109,14 @@ Row marked(Row r, const std::string& id, const SettingsView& v)
     return r;
 }
 
+// An on/off setting: its name and a tick box; a click anywhere on the row flips it.
+Row toggleRow(const char* name, bool on, const char* actionId)
+{
+    return Row{ .items = { Text{ name }, Button{ .glyph = on ? Glyph::Checked : Glyph::Unchecked, .actionId = actionId, .compact = true } },
+                .clickAnywhere = true,
+                .listItem = true };
+}
+
 // The list of settings, in groups under headings (decision 037): how the
 // island looks and where it is, how it behaves, and updates. A group with
 // nothing to show (no way to check for updates) has no heading.
@@ -122,19 +130,14 @@ Slot listPage(const SettingsView& v)
     };
     std::vector<Row> appearance;
     if (!tokens().themes.empty()) appearance.push_back(marked(settingRow("Theme", v.theme, P::kOpenThemes), "theme", v));
+    if (v.coverColours) appearance.push_back(marked(toggleRow("Colours from music", *v.coverColours, P::kToggleCoverColours), "covercolours", v));
     if (!v.displays.empty()) appearance.push_back(marked(settingRow("Display", v.displays[v.display], P::kOpenDisplays), "display", v));
     appearance.push_back(marked(settingRow("Tab row", v.tabsOnTop ? "Top" : "Bottom", P::kOpenTabRow), "tabrow", v));
     appearance.push_back(marked(actionRow("Centre island", Glyph::Centre, P::kCentreIsland), "centre", v));
     group("Appearance", std::move(appearance));
 
     std::vector<Row> general;
-    if (v.startsWithWindows)
-        general.push_back(marked(Row{ .items = { Text{ "Start with Windows" },
-                                                 Button{ .glyph = *v.startsWithWindows ? Glyph::Checked : Glyph::Unchecked,
-                                                         .actionId = P::kToggleAutostart, .compact = true } },
-                                      .clickAnywhere = true,
-                                      .listItem = true },
-                                 "autostart", v));
+    if (v.startsWithWindows) general.push_back(marked(toggleRow("Start with Windows", *v.startsWithWindows, P::kToggleAutostart), "autostart", v));
     general.push_back(marked(settingRow("Keyboard shortcuts", "", P::kOpenShortcuts), "shortcuts", v));
     const char* logs = v.note == LogsNote::Copied ? "Logs copied" : v.note == LogsNote::Failed ? "Couldn't copy logs" : "Copy logs";
     general.push_back(marked(actionRow(logs, Glyph::Copy, P::kCopyLogs), "logs", v));
@@ -218,6 +221,7 @@ std::vector<SettingItem> announcedSettings()
 {
     return {
         { "tabrow", "" }, // decision 048
+        { "covercolours", "" }, // decision 052
     };
 }
 

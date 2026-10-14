@@ -1,4 +1,4 @@
-// Settings' Tab row (decision 048), and "New" on settings not seen yet: a
+// Settings' Tab row (decision 048), Colours from music (decision 052), and "New" on settings not seen yet: a
 // tag on the row, a dot on its parent's while it's on a page not opened, and
 // seen only once the card closes after showing it.
 
@@ -81,7 +81,8 @@ void newTagTests()
     // An update from before tags (other settings kept): the announced one is new.
     PanelHost h;
     h.store[SettingsProvider::kAutostartKey] = "on";
-    SettingsProvider s({});
+    std::vector<SettingItem> tabRowOnly{ { "tabrow", "" } }; // no app hooks: Colours from music has no row to be seen on
+    SettingsProvider s({ .announced = tabRowOnly });
     s.start(h);
     auto card = [&] { return h.published.back(); };
     expect(tagged(rowNamed(card(), "Tab row")) && !tagged(rowNamed(card(), "Copy logs")), "new: the new setting tagged, the others not");
@@ -92,7 +93,7 @@ void newTagTests()
     expect(tagged(rowNamed(card(), "Tab row")), "new: still tagged while being seen");
     s.onCardClosed(SettingsProvider::kPanelId);
     expect(!tagged(rowNamed(card(), "Tab row")) && !card().content.badge, "new: re-entering, the tag is gone");
-    SettingsProvider later({});
+    SettingsProvider later({ .announced = tabRowOnly });
     later.start(h);
     expect(!tagged(rowNamed(h.published.back(), "Tab row")), "new: and it stays gone after a restart");
 
@@ -166,11 +167,43 @@ void tagKeepsTheEnd()
     expect(plainChevron && taggedChevron && taggedChevron->frame.x == plainChevron->frame.x, "new: and its chevron stays at the edge");
 }
 
+// Colours from music (decision 052): on until turned off, kept, handed to the app.
+void coverColoursTests()
+{
+    auto ticked = [](const Row* r) {
+        return r && r->clickAnywhere && r->items.size() > 1 && std::holds_alternative<Button>(r->items.back()) &&
+               std::get<Button>(r->items.back()).glyph == Glyph::Checked;
+    };
+    PanelHost h;
+    std::vector<bool> applied;
+    SettingsProvider settings({ .setCoverColours = [&](bool on) { applied.push_back(on); } });
+    settings.start(h);
+    expect(applied == std::vector<bool>{ true } && ticked(rowNamed(h.published.back(), "Colours from music")),
+           "cover colours: on by default, ticked, and the app told");
+    settings.onAction({ "system.settings", SettingsProvider::kPanelId, P::kToggleCoverColours, 0 });
+    expect(applied.back() == false && h.store[SettingsProvider::kCoverColoursKey] == "off" &&
+               rowNamed(h.published.back(), "Colours from music") && !ticked(rowNamed(h.published.back(), "Colours from music")),
+           "cover colours: a click turns it off, saved");
+    settings.stop();
+    settings.start(h);
+    expect(applied.back() == false, "cover colours: off stays off after a restart");
+    settings.onAction({ "system.settings", SettingsProvider::kPanelId, P::kToggleCoverColours, 0 });
+    expect(applied.back() == true && h.store[SettingsProvider::kCoverColoursKey] == "on", "cover colours: and back on");
+    settings.stop();
+
+    PanelHost bare;
+    SettingsProvider without({});
+    without.start(bare);
+    expect(!rowNamed(bare.published.back(), "Colours from music"), "cover colours: no hook, no row");
+    without.stop();
+}
+
 } // namespace
 
 void runSettingsNewTests()
 {
     tabRowTests();
+    coverColoursTests();
     newTagTests();
     tagKeepsTheEnd();
 }
