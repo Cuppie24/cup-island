@@ -18,6 +18,10 @@ void playScale(wuc::Compositor const& c, wuc::Visual const& visual, float scale,
 // A colour (a brush's, a shadow's) to a new one (a cover, a theme; decision 051): over recolorDuration() (the picked speed, decision 053).
 void fadeColor(wuc::CompositionObject const& target, const Color& color);
 void fadeColor(wuc::CompositionObject const& target, const Color& color, Ms duration); // a quick answer to a click (a switch)
+// Text and icons are pixels in a surface, so they can't fade colour: `host`
+// (showing a surface, swimming or not) shows `fresh` instead, under a copy of
+// the old pixels fading out, in step with fadeColor (decision 051).
+void crossfadeSurface(wuc::SpriteVisual const& host, wuc::CompositionDrawingSurface const& fresh);
 
 // Progress: track + fill + a knob riding the fill's end (hidden until hover).
 // The visual is wider than the frame by the knob's radius on each side, so the
@@ -60,6 +64,7 @@ void animateWaveform(wuc::Compositor const& c, const WaveformParts& parts, float
 struct ButtonParts {
     wuc::ContainerVisual visual{ nullptr };
     wuc::ShapeVisual highlight{ nullptr };
+    wuc::SpriteVisual glyph{ nullptr }; // shows the glyph surface
     wuc::CompositionColorBrush hover{ nullptr };
 };
 // `hover`: the shape's colour (buttonHoverColor; a text field uses inputColor).
