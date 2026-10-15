@@ -57,3 +57,18 @@ scenario: an alert for a panel with no card opens nothing
 panel clock static
 alert note for=clock                -> Alert
 click                               -> Idle
+
+scenario: a refresh brings the showing alert up to date without extending it (decision 056)
+start media
+alert track1 key=track              -> alert=track1
+wait 1000
+alert track1-cover key=track refresh -> alert=track1-cover
+wait 1999                           -> alert=track1-cover
+wait 1                              -> Compact
+alert late key=track refresh        -> Compact queue=0
+
+scenario: a refresh reaches a queued alert too
+alert one                           -> alert=one
+alert track1 key=track              -> queue=1
+alert track1-cover key=track refresh -> alert=one queue=1
+wait 3000                           -> alert=track1-cover

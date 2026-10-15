@@ -39,6 +39,14 @@ void suspendShowingAlert(IslandState& s)
 bool postAlert(IslandState& s, Alert alert, Ms now)
 {
     alert.postedAt = now;
+    if (alert.refreshOnly) {
+        auto refresh = [&](Alert& shown) {
+            if (!alert.coalesceKey.empty() && shown.coalesceKey == alert.coalesceKey) shown.content = alert.content;
+        };
+        if (s.alert) refresh(*s.alert);
+        for (auto& queued : s.alertQueue) refresh(queued);
+        return false;
+    }
     if (alert.level == Level::Passive) return false; // passive never alerts
     if (s.hidden && alert.level < Level::TimeSensitive) return false;
 

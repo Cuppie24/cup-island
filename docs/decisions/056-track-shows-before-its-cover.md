@@ -19,6 +19,11 @@ the old title stayed for up to a second.
   as a thin light rim until the fade ended. Any Image
   does this, not only media art.
 
+- The track's alert is posted at once too, so it has no cover yet. When
+  the cover is read, the presenter posts the same alert with
+  `refreshOnly`: a showing or queued alert with its coalesceKey takes the
+  new content, its time not extended; if it has gone, nothing shows.
+
 **Consequences.** A track's alert can appear without its picture, which
 fades in a moment later. Colours from music still follow the cover, so
-they change when it arrives. Tested in `tests/media_tests.cpp`.
+they change when it arrives. Tested in `tests/media_tests.cpp` and `tests/scenarios/alerts.scenario`.
