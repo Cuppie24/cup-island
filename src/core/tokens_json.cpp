@@ -134,6 +134,7 @@ const Field kFields[] = {
     { "mediaSessionRecheckMs", &Tokens::mediaSessionRecheck },
     { "mediaArtFadeMs", &Tokens::mediaArtFade },
     { "mediaArtRecheckMs", &Tokens::mediaArtRecheck },
+    { "mediaReadStuckMs", &Tokens::mediaReadStuck },
     { "mediaReadRetries", &Tokens::mediaReadRetries },
     { "coverTintLingerMs", &Tokens::coverTintLinger, true },
     { "coverVividSaturation", &Tokens::coverVividSaturation },

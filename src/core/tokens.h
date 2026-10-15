@@ -210,6 +210,9 @@ struct Tokens {
     // After a track change, the cover is read again this much later: apps
     // (Chrome) can send the title first and the right picture after.
     Ms mediaArtRecheck{ 800 };
+    // Reads of a session go one at a time (decision 005); one still running
+    // after this is taken as stuck, and doesn't hold the next one back.
+    Ms mediaReadStuck{ 2000 };
     // A session read that fails (an app mid-switch) is retried this many times.
     std::size_t mediaReadRetries = 3;
 
