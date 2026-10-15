@@ -39,7 +39,7 @@ island must look like the theme the user picked.
 - **Applied like a theme**: `app/live_tokens` puts the palette over the
   theme's colours, so `tokens()` stays what's on screen and a tokens.json
   save keeps it. Every shape fades to its new colour over
-  `recolorDuration` (`platform::fadeColor`), on a cover change and on a
+  `recolorDuration()`, the speed picked in Settings (decision 053) (`platform::fadeColor`), on a cover change and on a
   theme pick alike: the island's fill, the Split neck, the shadow, the tab,
   hover and tile marks, the focus ring, badges, and content shapes
   (progress bar and ring, equalizer bars, the knob, button and field

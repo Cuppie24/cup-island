@@ -47,6 +47,7 @@ float heightOf(const Item& item, Rect slot, float ringSide)
     if (isRing(item)) return ringSide;
     if (std::holds_alternative<Steps>(item)) return t.stepDotSize;
     if (std::holds_alternative<Swatch>(item)) return t.swatchSize;
+    if (std::holds_alternative<Switch>(item)) return t.switchSize.y;
     if (std::holds_alternative<Tag>(item)) return t.tagHeight;
     if (auto* button = std::get_if<Button>(&item)) return button->compact ? t.smallButtonSize : t.buttonSize;
     if (std::holds_alternative<TextInput>(item)) return t.inputHeight;
@@ -69,6 +70,7 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
         return std::max(0.0f, n * t.stepDotSize + (n - 1) * t.stepDotGap);
     }
     if (std::holds_alternative<Swatch>(item)) return t.swatchSize;
+    if (std::holds_alternative<Switch>(item)) return t.switchSize.x;
     if (auto* tag = std::get_if<Tag>(&item)) {
         Text text{ tag->text, TextStyle::Caption };
         return (measure ? measure(text) : estimateTextWidth(text)) + 2 * t.tagPadding;

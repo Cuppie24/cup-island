@@ -1,6 +1,6 @@
 # 052: "Colours from music" is a setting
 
-Status: Accepted
+Status: Accepted; the row moved to a Music colours page and became a switch (053)
 
 **Context.** Decision 051 recolours the island from the playing cover. Some
 people want their theme to stay put whatever plays, so it needs a way off.

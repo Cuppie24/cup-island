@@ -71,6 +71,9 @@ void SettingsProvider::start(Host& host)
     if (hooks_.placeTabRow) hooks_.placeTabRow(tabsOnTop_);
     coverColours_ = trimmed(host_->load(kCoverColoursKey)) != "off";
     if (hooks_.setCoverColours) hooks_.setCoverColours(coverColours_);
+    std::string fade = trimmed(host_->load(kFadeKey));
+    fadeSpeed_ = fade == "fast" ? FadeSpeed::Fast : fade == "slow" ? FadeSpeed::Slow : FadeSpeed::Medium;
+    if (hooks_.setFadeSpeed) hooks_.setFadeSpeed(fadeSpeed_);
     pick(known(trimmed(host_->load(kThemeKey))));
 }
 
@@ -88,7 +91,7 @@ void SettingsProvider::loadSeen()
     // setting is as new as the rest (none tagged), or an update from before
     // tags existed, which kept other settings (all announced ones are new).
     bool fresh = true;
-    for (const char* key : { kAutostartKey, kThemeKey, kDisplayKey, kShortcutsKey, kTabRowKey, kCoverColoursKey })
+    for (const char* key : { kAutostartKey, kThemeKey, kDisplayKey, kShortcutsKey, kTabRowKey, kCoverColoursKey, kFadeKey })
         if (!trimmed(host_->load(key)).empty()) fresh = false;
     if (!fresh) return;
     for (const SettingItem& s : hooks_.announced) seen_.insert(s.id);
@@ -102,6 +105,14 @@ void SettingsProvider::placeTabRow(bool top)
     tabsOnTop_ = top;
     host_->save(kTabRowKey, top ? "top" : "bottom");
     if (hooks_.placeTabRow) hooks_.placeTabRow(top);
+    publish();
+}
+
+void SettingsProvider::pickFade(FadeSpeed speed)
+{
+    fadeSpeed_ = speed;
+    host_->save(kFadeKey, speed == FadeSpeed::Fast ? "fast" : speed == FadeSpeed::Slow ? "slow" : "medium");
+    if (hooks_.setFadeSpeed) hooks_.setFadeSpeed(speed);
     publish();
 }
 
@@ -131,6 +142,13 @@ void SettingsProvider::onAction(const Action& action)
     else if (id == settings_action::kOpenShortcuts) {
         page_ = SettingsPage::Shortcuts;
         publish();
+    }
+    else if (id == settings_action::kOpenMusicColours && hooks_.setCoverColours) {
+        page_ = SettingsPage::MusicColours;
+        publish();
+    } else if (auto at = choiceIndex(id, settings_action::kPickFade)) {
+        // The page stays, like the tab row's: the next recolour shows the new speed.
+        if (*at <= 2 && hooks_.setFadeSpeed) pickFade(*at == 0 ? FadeSpeed::Fast : *at == 2 ? FadeSpeed::Slow : FadeSpeed::Medium);
     }
     else if (id == settings_action::kOpenTabRow) {
         page_ = SettingsPage::TabRow;
@@ -348,6 +366,7 @@ SettingsView SettingsProvider::view() const
     }
     if (hooks_.startsWithWindows) v.startsWithWindows = hooks_.startsWithWindows();
     if (hooks_.setCoverColours) v.coverColours = coverColours_;
+    if (hooks_.setCoverColours && hooks_.setFadeSpeed) v.fadeSpeed = fadeSpeed_; // on Music colours' page
     return v;
 }
 

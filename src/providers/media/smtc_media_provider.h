@@ -64,6 +64,7 @@ private:
     winrt::hstring shownTitle_; // the title on screen: picks the right browser window when opening the app        // app of Windows' main media (what the media keys control), last seen
     std::uint64_t generation_ = 0; // newer refresh wins; stale async reads are dropped
 
+    std::string loggedTrack_; // the last track logged: a recolour's wait starts with its line
     ArtState art_;                // the cover: when to decode, when to hold a new track back
     bool propertiesDirty_ = false; // properties re-sent since the last completed read
     std::size_t readFailures_ = 0; // in a row; retried up to mediaReadRetries

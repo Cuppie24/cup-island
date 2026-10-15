@@ -17,6 +17,7 @@ bool empty(const Rect& r) { return r.width <= 0 || r.height <= 0; }
 bool clickable(const Item& item)
 {
     if (auto* button = std::get_if<Button>(&item)) return button->enabled;
+    if (auto* toggle = std::get_if<Switch>(&item)) return toggle->enabled;
     if (auto* image = std::get_if<Image>(&item)) return !image->actionId.empty();
     return std::holds_alternative<TextInput>(item);
 }

@@ -49,6 +49,8 @@ struct SettingsHooks {
     std::function<void(bool top)> placeTabRow; // the tab row along the card's top or bottom (decision 048)
     // The island in the playing cover's colours, or always the theme's (decision 052). Empty: no row.
     std::function<void(bool on)> setCoverColours;
+    // How fast colours fade, cover to cover and theme to theme (decision 053). Empty: no choice.
+    std::function<void(FadeSpeed)> setFadeSpeed;
     // What can be tagged "New" (decision 048): the shipped list, unless a test brings its own.
     std::vector<SettingItem> announced = announcedSettings();
 };
@@ -96,6 +98,7 @@ public:
     static constexpr const char* kShortcutsKey = "shortcuts"; // saveBindings' text
     static constexpr const char* kTabRowKey = "tabrow";       // "top" or "bottom" ("": top)
     static constexpr const char* kCoverColoursKey = "covercolours"; // "on" or "off" ("": on, decision 052)
+    static constexpr const char* kFadeKey = "fade";           // "fast", "medium" or "slow" ("": medium, decision 053)
     static constexpr const char* kSeenKey = "seen";           // "seen1", then the announced settings seen, one id per line
 
 private:
@@ -109,6 +112,7 @@ private:
     void bindAll(); // registers every shortcut; one another app has stays, the page says so
     void loadSeen();  // what's been seen; a first run has seen everything (nothing is new on a fresh install)
     void placeTabRow(bool top);
+    void pickFade(FadeSpeed speed);
 
     SettingsHooks hooks_;
     Host* host_ = nullptr;
@@ -126,6 +130,7 @@ private:
     UpdateNote updateNote_;
     bool tabsOnTop_ = true;
     bool coverColours_ = true;
+    FadeSpeed fadeSpeed_ = FadeSpeed::Medium;
     std::set<std::string> seen_;     // announced settings seen in earlier visits (decision 048)
     std::set<std::string> seeing_;   // ...and shown during this one: seen once the card closes
     bool visible_ = false;           // the card is on screen

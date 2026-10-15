@@ -80,6 +80,8 @@ const Field kFields[] = {
     { "badgeSize", &Tokens::badgeSize },
     { "badgeInset", &Tokens::badgeInset },
     { "swatchSize", &Tokens::swatchSize },
+    { "switchSize", &Tokens::switchSize },
+    { "switchKnobInset", &Tokens::switchKnobInset },
     { "tagHeight", &Tokens::tagHeight },
     { "tagPadding", &Tokens::tagPadding },
     { "hoverFadeDurationMs", &Tokens::hoverFadeDuration, true },
@@ -116,7 +118,9 @@ const Field kFields[] = {
     { "morphEase", &Tokens::morphEase },
     { "contentFadeDurationMs", &Tokens::contentFadeDuration },
     { "contentFadeDelayMs", &Tokens::contentFadeDelay },
-    { "recolorDurationMs", &Tokens::recolorDuration },
+    { "recolorFastMs", &Tokens::recolorFast },
+    { "recolorMediumMs", &Tokens::recolorMedium },
+    { "recolorSlowMs", &Tokens::recolorSlow },
     { "pressScale", &Tokens::pressScale, true },
     { "pressDownDurationMs", &Tokens::pressDownDuration },
     { "pressDownEase", &Tokens::pressDownEase },
@@ -371,6 +375,7 @@ Tokens withTheme(const Tokens& t, const std::string& name)
 bool onlyColorsDiffer(const Tokens& a, const Tokens& b)
 {
     Tokens mixed = b;
+    mixed.fadeSpeed = a.fadeSpeed; // how fast colours fade isn't anything to rebuild either
     for (const Field& f : kFields)
         if (auto* member = std::get_if<Color Tokens::*>(&f.member)) mixed.*(*member) = a.*(*member);
     return mixed == a;

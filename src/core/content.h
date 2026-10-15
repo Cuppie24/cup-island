@@ -162,7 +162,17 @@ struct Tag {
     bool operator==(const Tag&) const = default;
 };
 
-using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch, Tag>;
+// An on/off switch (decision 053): a pill-shaped track with a knob that
+// slides to the end that's on. Its action is sent on a click; the provider
+// flips `on` and republishes.
+struct Switch {
+    bool on = false;
+    std::string actionId;
+    bool enabled = true;
+    bool operator==(const Switch&) const = default;
+};
+
+using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch, Tag, Switch>;
 
 enum class Align { Start, Center, End };
 

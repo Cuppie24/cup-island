@@ -979,6 +979,7 @@ int main()
         .installUpdate = [] { if (g_update) g_update->install(); }, // the same as Home's Update card (decision 037)
         .placeTabRow = [](bool top) { dispatch(TabRowPlaced{ top }, top ? "tab row on top" : "tab row at the bottom"); }, // decision 048
         .setCoverColours = setCoverColours, // decision 052
+        .setFadeSpeed = [](FadeSpeed speed) { app::setFadeSpeed(speed); }, // decision 053: read when a fade starts
     });
     g_settings = settings.get();
     g_settings->setHotkeysActive(!g_state.hidden); // started under a fullscreen app: none until it's gone

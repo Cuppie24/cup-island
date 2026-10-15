@@ -109,12 +109,15 @@ Row marked(Row r, const std::string& id, const SettingsView& v)
     return r;
 }
 
-// An on/off setting: its name and a tick box; a click anywhere on the row flips it.
+// An on/off setting: its name and a switch (decision 053); a click anywhere on the row flips it.
 Row toggleRow(const char* name, bool on, const char* actionId)
 {
-    return Row{ .items = { Text{ name }, Button{ .glyph = on ? Glyph::Checked : Glyph::Unchecked, .actionId = actionId, .compact = true } },
-                .clickAnywhere = true,
-                .listItem = true };
+    return Row{ .items = { Text{ name }, Switch{ .on = on, .actionId = actionId } }, .clickAnywhere = true, .listItem = true };
+}
+
+const char* fadeName(FadeSpeed speed)
+{
+    return speed == FadeSpeed::Fast ? "Fast" : speed == FadeSpeed::Slow ? "Slow" : "Medium";
 }
 
 // The list of settings, in groups under headings (decision 037): how the
@@ -130,7 +133,7 @@ Slot listPage(const SettingsView& v)
     };
     std::vector<Row> appearance;
     if (!tokens().themes.empty()) appearance.push_back(marked(settingRow("Theme", v.theme, P::kOpenThemes), "theme", v));
-    if (v.coverColours) appearance.push_back(marked(toggleRow("Colours from music", *v.coverColours, P::kToggleCoverColours), "covercolours", v));
+    if (v.coverColours) appearance.push_back(marked(settingRow("Music colours", *v.coverColours ? "On" : "Off", P::kOpenMusicColours), "musiccolours", v));
     if (!v.displays.empty()) appearance.push_back(marked(settingRow("Display", v.displays[v.display], P::kOpenDisplays), "display", v));
     appearance.push_back(marked(settingRow("Tab row", v.tabsOnTop ? "Top" : "Bottom", P::kOpenTabRow), "tabrow", v));
     appearance.push_back(marked(actionRow("Centre island", Glyph::Centre, P::kCentreIsland), "centre", v));
@@ -181,6 +184,22 @@ Slot tabRowPage(const SettingsView& v)
     return card;
 }
 
+// The island in the music's colours (decisions 052, 053): on or off, and how
+// fast colours fade from one cover (or theme) to the next. Picks apply at once.
+Slot musicColoursPage(const SettingsView& v)
+{
+    Slot card{ pageTitle("Music colours") };
+    if (v.coverColours) card.push_back(marked(toggleRow("Colours from music", *v.coverColours, P::kToggleCoverColours), "covercolours", v));
+    if (v.fadeSpeed) {
+        card.push_back(marked(heading("Colour fade", card.size() > 1), "fade", v));
+        int i = 0;
+        for (FadeSpeed speed : { FadeSpeed::Fast, FadeSpeed::Medium, FadeSpeed::Slow })
+            card.push_back(choiceRow(fadeName(speed), speed == *v.fadeSpeed, P::kPickFade + std::to_string(i++), P::kMusicColoursList));
+    }
+    for (std::size_t i = 1; i < card.size(); ++i) card[i].list = P::kMusicColoursList; // all but the title
+    return card;
+}
+
 Slot displaysPage(const SettingsView& v)
 {
     Slot card{ pageTitle("Display") };
@@ -221,7 +240,9 @@ std::vector<SettingItem> announcedSettings()
 {
     return {
         { "tabrow", "" }, // decision 048
-        { "covercolours", "" }, // decision 052
+        { "covercolours", "musiccolours" }, // decision 052; on Music colours' page since 053
+        { "musiccolours", "" },            // decision 053
+        { "fade", "musiccolours" },        // decision 053
     };
 }
 
@@ -264,6 +285,7 @@ Panel settingsPanel(const SettingsView& view)
         .expandedCenter = view.page == SettingsPage::Themes      ? themesPage(view)
                           : view.page == SettingsPage::Displays  ? displaysPage(view)
                           : view.page == SettingsPage::TabRow    ? tabRowPage(view)
+                          : view.page == SettingsPage::MusicColours ? musicColoursPage(view)
                           : view.page == SettingsPage::Shortcuts ? shortcutsPage(view)
                                                                  : listPage(view),
         .tile = { row({ Icon{ Glyph::Settings } }), row({ Text{ "Settings" } }) },

@@ -162,6 +162,7 @@ if(WIN32)
         src/platform/field_painting.cpp
         src/platform/element_parts.cpp
         src/platform/element_visuals.cpp
+        src/platform/switch_parts.cpp
         src/platform/list_viewports.cpp
         src/platform/file_watcher.cpp
         src/platform/fullscreen_watcher.cpp
