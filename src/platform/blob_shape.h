@@ -27,16 +27,6 @@ void bindToBlob(wuc::Compositor const& c, wuc::CompositionObject const& target, 
 inline const std::wstring kEarSize = L"(shape.Flare * Min(shape.FlareRadius, pill.Size.Y))";
 inline std::wstring earSize(bool left) { return L"(" + kEarSize + (left ? L" * shape.LeftEar)" : L" * shape.RightEar)"); }
 
-// The island's own outline: only the bottom corners rounded (a notch hanging
-// from the screen edge), bound to the body's live size. The geometry has one
-// radius for all corners, so it's made a radius taller and shifted up, and
-// whatever it fills or clips is cut at the top. Radius = half the height,
-// capped by maxCornerRadius: the same curve as core pillCornerRadius(), which
-// content radii are nested in. Dragged off the edge (Attached 0) the top
-// corners round too: the square bubble becomes a circle (decision 025).
-wuc::CompositionRoundedRectangleGeometry islandGeometry(wuc::Compositor const& c, wuc::ShapeVisual const& body,
-                                                        wuc::CompositionPropertySet const& shape);
-
 // Adds the two flared top corners ("ears") beside the body's top edge, as
 // children of the body, each in its end's colour (decisions 025, 054).
 void addEars(wuc::Compositor const& c, wuc::ShapeVisual const& body, wuc::CompositionPropertySet const& shape,

@@ -1,5 +1,4 @@
 #include "providers/media/smtc_media_provider.h"
-#include "core/cover_backdrop.h"
 #include "providers/media/app_activation.h"
 #include "platform/log.h"
 
@@ -55,7 +54,6 @@ void SmtcMediaProvider::stop()
     chosenApp_.clear();
     mainApp_.clear();
     art_ = {};
-    blurredFrom_ = blurred_ = nullptr;
     loggedTrack_.clear();
     propertiesDirty_ = false;
     readFailures_ = 0;
@@ -242,12 +240,6 @@ winrt::fire_and_forget SmtcMediaProvider::load(std::uint64_t generation, std::sh
     if (art_.holding(now)) co_return;
 
     media.art = art_.art();
-    // Blurred once per cover, here and not per frame (decision 055).
-    if (media.art != blurredFrom_) {
-        blurredFrom_ = media.art;
-        blurred_ = media.art ? std::make_shared<const ImageData>(blurredCover(*media.art)) : nullptr;
-    }
-    media.backdrop = blurred_;
     presenter_->show(MediaSnapshot{ winrt::to_string(app), media });
 }
 

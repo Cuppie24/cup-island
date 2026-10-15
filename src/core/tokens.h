@@ -231,13 +231,7 @@ struct Tokens {
     Vec2 coverIslandChroma{ 0.04f, 0.12f };
     Vec2 coverAccentChroma{ 0.12f, 0.22f };
     float coverFullChroma = 0.2f;        // a cover's main colour this vivid (chroma) or more counts as fully vivid
-    float coverSecondShare = 0.3f;
-    // The blurred cover behind the island (decision 055): blurred at this size
-    // (pixels, long side), by this share of it, shown at this opacity over the
-    // island's colour: [dark themes, light themes], low enough for text to read.
-    float coverBackdropSize = 32;
-    float coverBackdropBlur = 0.12f;
-    Vec2 coverBackdropOpacity{ 0.5f, 0.35f };       // a second hue needs this share of the main one's weight to make a gradient
+    float coverSecondShare = 0.3f;       // a second hue needs this share of the main one's weight to make a gradient
     float coverInkChroma = 0.03f;        // ...text and icons: barely, so they read as white or ink
 
     // Colours: every colour the island draws. tokens.json writes [r, g, b] or
