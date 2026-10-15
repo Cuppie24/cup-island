@@ -74,8 +74,15 @@ private:
     Session::MediaPropertiesChanged_revoker propertiesChanged_;
     Session::TimelinePropertiesChanged_revoker timelineChanged_;
     // Every session's playback: Windows doesn't reliably raise
-    // CurrentSessionChanged when another app starts playing.
-    std::vector<Session::PlaybackInfoChanged_revoker> playbackWatchers_;
+    // CurrentSessionChanged when another app starts playing. Each keeps its
+    // session alive: a revoker only holds a weak reference, and a session
+    // object nothing holds is freed and raises nothing (a pause then showed
+    // only at the app's next timeline update, seconds later; decision 005).
+    struct PlaybackWatcher {
+        Session session{ nullptr };
+        Session::PlaybackInfoChanged_revoker changed;
+    };
+    std::vector<PlaybackWatcher> playbackWatchers_;
 };
 
 } // namespace cup
