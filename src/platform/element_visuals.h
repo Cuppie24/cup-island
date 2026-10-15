@@ -20,8 +20,10 @@ class ElementVisuals {
 public:
     void init(wuc::Compositor const& compositor, GraphicsDevice& device, wuc::ContainerVisual const& parent);
     void apply(const std::vector<Placed>& elements, Ms now);
-    // tokens.json changed: drop every visual, so the next apply() rebuilds them with the new colours.
-    void refresh();
+    // Tokens changed. Colours only (a theme, a cover): shapes fade to the new
+    // colours and text is redrawn in place. Anything else (tokens.json, display
+    // scale): every visual is dropped, so the next apply() rebuilds it.
+    void refresh(bool coloursOnly);
 
     // Pointer feedback on content (decision 002), by element key. Unknown keys are ignored.
     void setHovered(const std::string& key); // "" = nothing; buttons light up, progress shows its knob
@@ -47,11 +49,14 @@ private:
         std::vector<wuc::CompositionRoundedRectangleGeometry> bars; // waveform
         wuc::ShapeVisual waveform{ nullptr };
         bool scrubbing = false;
+        // Shape colours, kept so a recolour fades them (decision 051); null when unused.
+        wuc::CompositionColorBrush track{ nullptr }, accent{ nullptr }, knobBrush{ nullptr }, hover{ nullptr };
     };
 
     View create(const Placed& placed, Ms now, bool fade = true); // fade: fades in (not when a text turns into its field)
     bool update(View& view, const Placed& placed, Ms now); // true = rebuilt
     void paint(View& view);
+    void recolor(View& view); // fades its shapes to the current colours and redraws its pixels
     void animateBars(View& view);
     void showHover(const std::string& key, bool on);
     void fadeOutAndRemove(wuc::Visual const& visual);

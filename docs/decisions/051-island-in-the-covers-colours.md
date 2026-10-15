@@ -38,9 +38,16 @@ island must look like the theme the user picked.
   the theme. A colour asked for shows at once.
 - **Applied like a theme**: `app/live_tokens` puts the palette over the
   theme's colours, so `tokens()` stays what's on screen and a tokens.json
-  save keeps it. The island's fill (and the Split neck) fades over
-  `recolorDuration` (`platform::fadeColor`). Theme picks fade too now.
-  Content is redrawn in its new colours at once, as on a theme pick.
+  save keeps it. Every shape fades to its new colour over
+  `recolorDuration` (`platform::fadeColor`), on a cover change and on a
+  theme pick alike: the island's fill, the Split neck, the shadow, the tab,
+  hover and tile marks, the focus ring, badges, and content shapes
+  (progress bar and ring, equalizer bars, the knob, button and field
+  backgrounds, the dim over clickable art). When only colours changed
+  (`onlyColorsDiffer`), content is recoloured in place rather than rebuilt,
+  so nothing fades out and back in; a new accent on one element fades too.
+  Text and icons are pixels in a surface: they're redrawn in their new
+  colours at once (a crossfade would need two surfaces per element).
 
 **Consequences.** Tested in `tests/cover_tests.cpp`. That includes every
 shipped theme around six hues: it keeps its lightness, and its text keeps

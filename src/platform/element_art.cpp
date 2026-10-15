@@ -26,13 +26,14 @@ ArtParts createActionArt(Compositor const& c, Vec2 frame, float cornerRadius, Co
     auto shape = c.CreateRoundedRectangleGeometry();
     shape.Size(toFloat2(frame));
     shape.CornerRadius({ cornerRadius, cornerRadius });
+    ArtParts parts;
+    parts.dim = c.CreateColorBrush(toUiColor(tokens().artHoverColor));
     auto dim = c.CreateSpriteShape(shape);
-    dim.FillBrush(c.CreateColorBrush(toUiColor(tokens().artHoverColor)));
+    dim.FillBrush(parts.dim);
     auto dimVisual = c.CreateShapeVisual();
     dimVisual.Size(toFloat2(frame));
     dimVisual.Shapes().Append(dim);
 
-    ArtParts parts;
     auto glyphVisual = surfaceVisual(c, glyph, frame);
     glyphVisual.CenterPoint({ frame.x / 2, frame.y / 2, 0 });
     glyphVisual.Scale({ kGlyphRestScale, kGlyphRestScale, 1 });

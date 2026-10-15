@@ -2,6 +2,7 @@
 #include "platform/log.h"
 
 #include "core/tokens.h"
+#include "core/tokens_json.h"
 #include "platform/element_painting.h"
 #include "platform/field_painting.h"
 
@@ -15,6 +16,7 @@ void PillRenderer::build(wuc::Compositor const& c, wuc::ContainerVisual const& r
 {
     queue_ = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
     device_.create(c);
+    applied_ = tokens();
     pill_.build(c, device_, root, initial.size, initial.offset);
     bubble_.build(c, device_, root, {}, initial.bubbleTuck); // above the pill: it's dragged over it
     bridge_.build(c, root, pill_, bubble_);
@@ -23,8 +25,10 @@ void PillRenderer::build(wuc::Compositor const& c, wuc::ContainerVisual const& r
 
 void PillRenderer::refreshAnimations()
 {
-    pill_.refreshAnimations();
-    bubble_.refreshAnimations();
+    bool coloursOnly = onlyColorsDiffer(applied_, tokens());
+    applied_ = tokens();
+    pill_.refreshAnimations(coloursOnly);
+    bubble_.refreshAnimations(coloursOnly);
     bridge_.refreshAnimations();
     measured_.clear();
 }

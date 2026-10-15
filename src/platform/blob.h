@@ -20,7 +20,9 @@ namespace cup::platform {
 class Blob {
 public:
     void build(wuc::Compositor const& compositor, GraphicsDevice& device, wuc::ContainerVisual const& parent, Vec2 size, Vec2 offset);
-    void refreshAnimations(); // after a tokens.json reload
+    // Tokens changed. Every colour fades to its new value (decision 051);
+    // coloursOnly: content is recoloured in place, else rebuilt (new sizes).
+    void refreshAnimations(bool coloursOnly);
 
     void place(Vec2 size, Vec2 offset);      // morphs there; no-op if unchanged. Following: lands there later
     void follow(std::optional<Vec2> centre); // stay centred on the cursor (dragged); nullopt eases back to place()

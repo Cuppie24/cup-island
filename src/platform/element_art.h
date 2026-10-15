@@ -12,6 +12,7 @@ struct ArtParts {
     wuc::ContainerVisual visual{ nullptr };
     wuc::Visual overlay{ nullptr }; // dim + glyph; opacity 0 until hovered
     wuc::Visual glyph{ nullptr };   // springs from small to full size on hover
+    wuc::CompositionColorBrush dim{ nullptr }; // artHoverColor, faded on a recolour
 };
 
 // `art` holds the picture, `glyph` the "open" glyph; both are frame-sized.
