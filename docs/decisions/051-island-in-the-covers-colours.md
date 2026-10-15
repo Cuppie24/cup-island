@@ -46,8 +46,10 @@ island must look like the theme the user picked.
   backgrounds, the dim over clickable art). When only colours changed
   (`onlyColorsDiffer`), content is recoloured in place rather than rebuilt,
   so nothing fades out and back in; a new accent on one element fades too.
-  Text and icons are pixels in a surface: they're redrawn in their new
-  colours at once (a crossfade would need two surfaces per element).
+  Text and icons are pixels in a surface: they're painted in their new
+  colours into a fresh surface, under a copy of the old pixels that fades
+  out over the same time (`crossfadeSurface`; swimming text's copy swims
+  with it). A picture (cover art) isn't recoloured, so it's redrawn as is.
   Fades blend in RGB (`InterpolationColorSpace::Rgb`): Composition's
   default goes round the hue wheel, so orange to teal flashed a bright
   green on the way and read as two changes.
