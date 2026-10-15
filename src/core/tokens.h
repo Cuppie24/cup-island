@@ -174,6 +174,9 @@ struct Tokens {
     // Content crossfades slightly after the pill starts morphing.
     Ms contentFadeDuration{ 200 };
     Ms contentFadeDelay{ 100 };
+    // Colours easing to new ones (a cover's tint, a theme pick; decision 051):
+    // the island's fill, the shadow, marks and content shapes. Text switches at once.
+    Ms recolorDuration{ 1200 };
 
     // Press feedback: squash on mouse-down, spring back with overshoot (y > 1) on release.
     float pressScale = 0.96f;
@@ -206,7 +209,6 @@ struct Tokens {
     // hue at these OKLCH lightnesses (0..1) and chromas, in the theme's own
     // recipe (decision 022): a dark theme gets a tinted near-black, a light one a pale tint.
     Ms coverTintLinger{ 1500 };          // nothing plays any more: the cover's colours stay this long (a track change pauses for a moment)
-    Ms recolorDuration{ 600 };           // the island's fill fades to new colours (a cover, a theme) over this
     float coverVividSaturation = 0.25f;  // a cover's pixel counts as coloured from this saturation (0..1) up
     float coverMinVivid = 0.05f;         // ...and a cover needs this share of them, or it's grey and the theme stays
     float coverDarkIsland = 0.2f;        // dark themes: the island's lightness
