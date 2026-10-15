@@ -60,6 +60,10 @@ void MediaPresenter::show(const std::optional<MediaSnapshot>& snapshot)
     if (pausedSince_) activity.expiresAt = *pausedSince_ + tokens().mediaPausedLinger;
     host_.startActivity(activity);
     if (newTrack) host_.postAlert({ .activityId = kActivityId, .content = content, .coalesceKey = "track" });
+    // The track shows before its cover is read (decision 056): its alert, if
+    // still up or queued, gets the cover too.
+    else if (last_ && last_->sessionKey == next.sessionKey && sameTrack(last_->media, next.media) && last_->media.art != next.media.art)
+        host_.postAlert({ .activityId = kActivityId, .content = content, .coalesceKey = "track", .refreshOnly = true });
 
     last_ = next;
 }

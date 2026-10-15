@@ -63,7 +63,10 @@ void runMediaTests()
     withArt.media.art = std::make_shared<ImageData>();
     withArt.media.timeline.position = Ms{ 5000 };
     presenter.show(withArt);
-    expect(host.started.size() == 2 && host.alerts.empty(), "same track, new art/position: update, no alert");
+    expect(host.started.size() == 2 && host.alerts.size() == 1 && host.alerts[0].refreshOnly && host.alerts[0].coalesceKey == "track" &&
+               host.alerts[0].content.alertLeading == nowPlayingContent(withArt.media).alertLeading,
+           "same track, its cover read: update, and only refresh its alert if it's still up (decision 056)");
+    host.alerts.clear();
 
     // Timeline re-sent with a slightly different anchor (same real position): no republish.
     host.clock = Ms{ 3000 };

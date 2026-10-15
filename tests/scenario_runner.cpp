@@ -5,7 +5,7 @@
 //   <command> [args] [-> <Mode> [key=value ...]]
 //
 // Commands:  start <id> [level] [relevance] [expires=<ms>]   update <id>   end <id>
-//            alert <name> [level] [for=<activity|panel>] [key=<coalesceKey>]
+//            alert <name> [level] [for=<activity|panel>] [key=<coalesceKey>] [refresh]
 //            click  outside  esc  pointer  drag-enter  drag-rejected
 //            drag-leave  drop  hide  show  wait <ms>
 //            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel
@@ -126,6 +126,7 @@ struct Runner {
                 if (auto l = parseLevel(w[i])) a.level = *l;
                 else if (auto v = option(w[i], "for")) a.activityId = *v;
                 else if (auto v = option(w[i], "key")) a.coalesceKey = *v;
+                else if (w[i] == "refresh") a.refreshOnly = true;
                 else fail("unknown alert option '" + w[i] + "'");
             }
             apply(AlertPosted{ a });

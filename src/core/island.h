@@ -55,6 +55,10 @@ struct Alert {
     Level level = Level::Active;
     Content content;
     std::string coalesceKey; // same key replaces a showing/queued alert
+    // Only brings a showing or queued alert with this coalesceKey up to date
+    // (its time isn't extended); with none, nothing shows. A track's cover
+    // read after its alert went up (decision 056).
+    bool refreshOnly = false;
     std::string providerId;  // set by the host
     Ms postedAt{};           // set by reduce()
 };

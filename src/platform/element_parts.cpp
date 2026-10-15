@@ -79,19 +79,17 @@ void fadeInSurface(SpriteVisual const& host, CompositionDrawingSurface const& fr
     auto c = host.Compositor();
     auto brush = host.Brush().try_as<CompositionSurfaceBrush>();
     if (!brush) return;
-    auto top = c.CreateSpriteVisual();
-    top.RelativeSizeAdjustment({ 1.0f, 1.0f });
-    top.Brush(c.CreateSurfaceBrush(fresh));
-    top.Opacity(0.0f);
-    host.Children().InsertAtTop(top);
+    // Old over new, not new over old: a fading-in picture's soft rounded edge
+    // let the old one's (the light placeholder) show through as a thin rim.
+    auto old = c.CreateSpriteVisual();
+    old.RelativeSizeAdjustment({ 1.0f, 1.0f });
+    old.Brush(c.CreateSurfaceBrush(brush.Surface()));
+    host.Children().InsertAtTop(old);
+    brush.Surface(fresh);
     auto batch = c.CreateScopedBatch(CompositionBatchTypes::Animation);
-    fadeTo(c, top, 1.0f, duration);
+    fadeTo(c, old, 0.0f, duration);
     batch.End();
-    // Fades started later end later, so the newest picture is the one left.
-    batch.Completed([host, top, brush, fresh](auto&&, auto&&) {
-        brush.Surface(fresh);
-        host.Children().Remove(top);
-    });
+    batch.Completed([host, old](auto&&, auto&&) { host.Children().Remove(old); });
 }
 
 void playScale(Compositor const& c, Visual const& visual, float scale, Ms duration, Bezier curve)
