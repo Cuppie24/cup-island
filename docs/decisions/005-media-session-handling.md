@@ -27,9 +27,16 @@ art and timelines unreliably, and their events arrive on background threads.
   at once and never raised the event, so a pause (in an app whose
   properties weren't changing) showed only at its next timeline update,
   ~5 s later with Spotify.
+- **One read at a time:** an event during a read asks for one more after
+  it; the read in flight is still shown. It used to be "newest wins" (a
+  generation counter dropped the older read), but Spotify sends timeline
+  updates faster than a read takes around a pause or skip, so every read
+  was dropped and nothing showed until it went quiet, seconds later. Reads
+  over 250 ms and play/pause as shown are logged, to time this. A read
+  still running after `mediaReadStuckMs` (2 s) doesn't hold the next back.
 - **Threading:** event handlers only post to the UI thread. All reads happen
-  in coroutines started on the UI thread, which resume there. A generation
-  counter drops stale reads, and a shared `alive` flag makes callbacks after
+  in coroutines started on the UI thread, which resume there. A read of a
+  session no longer shown is dropped, and a shared `alive` flag makes callbacks after
   `stop()` no-ops.
 - **Art before alert:** on a new track the art is decoded (≤ 128 px) *before*
   the snapshot is shown, so the track alert carries its picture, but only for

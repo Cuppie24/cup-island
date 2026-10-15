@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -45,7 +46,8 @@ private:
     void onPropertiesChanged(); // the app re-sent title/art: the picture may be new
     // Re-read after `delay`; `rereadArt` treats it as a properties update (decode the cover again).
     winrt::fire_and_forget refreshLater(Ms delay, bool rereadArt, std::shared_ptr<bool> alive);
-    winrt::fire_and_forget load(std::uint64_t generation, std::shared_ptr<bool> alive);
+    winrt::fire_and_forget load(std::shared_ptr<bool> alive); // one at a time: see loading_
+    void loaded(); // a read ended: start the one asked for meanwhile, if any
     void cycleSource();
     std::vector<SessionView> describe(Session const& remembered) const; // the current sessions, for session_choice
     auto onUiThread(void (SmtcMediaProvider::*method)()); // event handler that posts `method`
@@ -62,7 +64,14 @@ private:
     std::string chosenApp_;      // its app id, to find it again if Windows hands out a new object
     std::string mainApp_;
     winrt::hstring shownTitle_; // the title on screen: picks the right browser window when opening the app        // app of Windows' main media (what the media keys control), last seen
-    std::uint64_t generation_ = 0; // newer refresh wins; stale async reads are dropped
+    // One read at a time; events during it ask for one more after it. Not
+    // "newest wins": Spotify sends timeline updates faster than a read takes
+    // around a pause or skip, and each dropped the read before it, so nothing
+    // showed until it went quiet (seconds; decision 005).
+    bool loading_ = false;
+    Ms loadStarted_{};  // a read older than mediaReadStuck doesn't hold the next back
+    bool reloadWanted_ = false;
+    std::optional<bool> shownPlaying_; // logged when it changes, to time pauses
 
     std::string loggedTrack_; // the last track logged: a recolour's wait starts with its line
     ArtState art_;                // the cover: when to decode, when to hold a new track back

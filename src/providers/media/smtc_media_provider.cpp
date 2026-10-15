@@ -57,6 +57,8 @@ void SmtcMediaProvider::stop()
     loggedTrack_.clear();
     propertiesDirty_ = false;
     readFailures_ = 0;
+    loading_ = reloadWanted_ = false;
+    shownPlaying_.reset();
     presenter_->stop();
     presenter_.reset();
     host_ = nullptr;
@@ -159,7 +161,18 @@ void SmtcMediaProvider::pickSession()
 
 void SmtcMediaProvider::refresh()
 {
-    load(++generation_, alive_);
+    if (loading_ && host_->now() - loadStarted_ < tokens().mediaReadStuck) {
+        reloadWanted_ = true;
+        return;
+    }
+    if (loading_) platform::logLine("media: a read is stuck, reading again");
+    load(alive_);
+}
+
+void SmtcMediaProvider::loaded()
+{
+    loading_ = false;
+    if (std::exchange(reloadWanted_, false)) refresh();
 }
 
 void SmtcMediaProvider::onPropertiesChanged()
@@ -179,30 +192,49 @@ winrt::fire_and_forget SmtcMediaProvider::refreshLater(Ms delay, bool rereadArt,
     });
 }
 
-winrt::fire_and_forget SmtcMediaProvider::load(std::uint64_t generation, std::shared_ptr<bool> alive)
+winrt::fire_and_forget SmtcMediaProvider::load(std::shared_ptr<bool> alive)
 {
     Session session = session_;
     if (!session) {
         presenter_->show(std::nullopt);
         co_return;
     }
+    loading_ = true;
+    loadStarted_ = host_->now();
+    // However the read ends, the next one asked for meanwhile starts (on the UI thread, where this resumes).
+    struct Done {
+        SmtcMediaProvider* self;
+        std::shared_ptr<bool> alive;
+        ~Done()
+        {
+            if (*alive) self->guarded(&SmtcMediaProvider::loaded);
+        }
+    } done{ this, alive };
 
     wmc::GlobalSystemMediaTransportControlsSessionMediaProperties properties{ nullptr };
     NowPlaying media;
+    Ms began = loadStarted_;
     try {
         properties = co_await session.TryGetMediaPropertiesAsync();
-        if (!*alive || generation != generation_) co_return; // stopped, or a newer refresh started
+        if (!*alive) co_return;
+        if (session != session_) co_return; // another session is shown now: its read follows
         media = readNowPlaying(properties, session.GetPlaybackInfo(), session.GetTimelineProperties(), host_->now());
     } catch (winrt::hresult_error const& e) {
         // The app closed its session, or is mid-switch (Chrome changing tabs)
         // and may send nothing more: try again shortly, a few times.
-        if (*alive && generation == generation_ && readFailures_++ < tokens().mediaReadRetries) {
+        if (*alive && session == session_ && readFailures_++ < tokens().mediaReadRetries) {
             platform::logLine("media: read failed (0x%08x), retrying", static_cast<unsigned>(e.code()));
             refreshLater(tokens().mediaSessionRecheck, false, alive);
         }
         co_return;
     }
     readFailures_ = 0;
+    if (Ms took = host_->now() - began; took > Ms{ 250 })
+        platform::logLine("media: read took %lld ms", static_cast<long long>(took.count()));
+    if (shownPlaying_ != media.timeline.playing) {
+        if (shownPlaying_) platform::logLine("media: %s", media.timeline.playing ? "playing" : "paused");
+        shownPlaying_ = media.timeline.playing;
+    }
 
     winrt::hstring app = session.SourceAppUserModelId();
     media.source = appName(app);
