@@ -1,6 +1,6 @@
 # 005: How the media provider handles Windows media sessions
 
-Status: Accepted
+Status: Accepted; a track no longer waits for its cover (056)
 
 **Context.** Windows exposes every app that plays media as an SMTC session
 (TR §6). Several can exist at once, they appear and vanish freely, they report

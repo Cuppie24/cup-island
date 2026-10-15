@@ -14,6 +14,9 @@ namespace cup::platform {
 // Content appearing after a mode change: fades in once the pill starts morphing.
 void fadeIn(wuc::Compositor const& c, wuc::Visual const& visual);
 void fadeTo(wuc::Compositor const& c, wuc::Visual const& visual, float opacity, Ms duration);
+// A new picture (a cover read after its track showed, decision 056): `fresh`
+// fades in over what `host` shows, then `host` shows it alone.
+void fadeInSurface(wuc::SpriteVisual const& host, wuc::CompositionDrawingSurface const& fresh, Ms duration);
 void playScale(wuc::Compositor const& c, wuc::Visual const& visual, float scale, Ms duration, Bezier curve);
 // A colour (a brush's, a shadow's) to a new one (a cover, a theme; decision 051): over recolorDuration() (the picked speed, decision 053).
 void fadeColor(wuc::CompositionObject const& target, const Color& color);

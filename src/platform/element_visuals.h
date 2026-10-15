@@ -44,6 +44,7 @@ private:
         wuc::Visual highlight{ nullptr };                           // button hover shape
         ArtParts art;                                               // clickable art: hover dim + "open" glyph
         wuc::CompositionDrawingSurface glyphSurface{ nullptr };     // that glyph
+        wuc::SpriteVisual picture{ nullptr };                       // an Image's: a new picture fades in over it
         wuc::CompositionRoundedRectangleGeometry fill{ nullptr };   // progress bar
         wuc::CompositionEllipseGeometry arc{ nullptr };             // progress ring
         wuc::CompositionSpriteShape knob{ nullptr };                // progress

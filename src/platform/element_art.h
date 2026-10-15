@@ -10,6 +10,7 @@ namespace cup::platform {
 
 struct ArtParts {
     wuc::ContainerVisual visual{ nullptr };
+    wuc::SpriteVisual picture{ nullptr }; // shows the art surface
     wuc::Visual overlay{ nullptr }; // dim + glyph; opacity 0 until hovered
     wuc::Visual glyph{ nullptr };   // springs from small to full size on hover
     wuc::CompositionColorBrush dim{ nullptr }; // artHoverColor, faded on a recolour

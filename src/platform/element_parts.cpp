@@ -74,6 +74,26 @@ void fadeColor(CompositionObject const& target, const Color& color, Ms duration)
     target.StartAnimation(L"Color", anim);
 }
 
+void fadeInSurface(SpriteVisual const& host, CompositionDrawingSurface const& fresh, Ms duration)
+{
+    auto c = host.Compositor();
+    auto brush = host.Brush().try_as<CompositionSurfaceBrush>();
+    if (!brush) return;
+    auto top = c.CreateSpriteVisual();
+    top.RelativeSizeAdjustment({ 1.0f, 1.0f });
+    top.Brush(c.CreateSurfaceBrush(fresh));
+    top.Opacity(0.0f);
+    host.Children().InsertAtTop(top);
+    auto batch = c.CreateScopedBatch(CompositionBatchTypes::Animation);
+    fadeTo(c, top, 1.0f, duration);
+    batch.End();
+    // Fades started later end later, so the newest picture is the one left.
+    batch.Completed([host, top, brush, fresh](auto&&, auto&&) {
+        brush.Surface(fresh);
+        host.Children().Remove(top);
+    });
+}
+
 void playScale(Compositor const& c, Visual const& visual, float scale, Ms duration, Bezier curve)
 {
     auto anim = c.CreateVector3KeyFrameAnimation();

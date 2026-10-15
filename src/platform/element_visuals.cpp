@@ -171,6 +171,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         view.glyphSurface = device_->createSurface(size);
         view.art = createActionArt(compositor_, size, placed.cornerRadius, view.surface, view.glyphSurface);
         view.visual = view.art.visual;
+        view.picture = view.art.picture;
         view.hover = view.art.dim;
     } else {
         auto sprite = compositor_.CreateSpriteVisual();
@@ -188,6 +189,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
             sprite.Brush(compositor_.CreateSurfaceBrush(view.surface));
         }
         view.visual = sprite;
+        if (std::holds_alternative<Image>(placed.item)) view.picture = sprite;
     }
     place(view);
     view.visual.Size(toFloat2(pixelSize(visualSize)));
@@ -217,6 +219,8 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     Vec2 was = lists_.positionOf(view.placed), at = lists_.positionOf(placed);
     bool moved = was.x != at.x || was.y != at.y;
     bool changed = !(view.placed.item == placed.item);
+    auto pictureOf = [](const Item& item) { auto* image = std::get_if<Image>(&item); return image ? image->data : nullptr; };
+    bool newPicture = view.picture && pictureOf(view.placed.item) != pictureOf(placed.item);
     bool relisted = view.placed.list.has_value() != placed.list.has_value() ||
                     (placed.list && (view.placed.list->id != placed.list->id || view.placed.activityId != placed.activityId));
     if (resized || retyped || relisted || (changed && (swims(view.placed.item) || swims(placed.item)))) {
@@ -238,13 +242,19 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
         }
     }
     view.placed = placed;
+    if (newPicture) { // a cover read after its track showed (decision 056): painted anew, fading in over the old
+        auto size = view.surface.Size();
+        view.surface = device_->createSurface({ size.Width, size.Height });
+        paint(view);
+        fadeInSurface(view.picture, view.surface, tokens().mediaArtFade);
+    }
     if (moved) place(view);
-    if (recoloured) recolor(view); // redraws its pixels too
+    if (recoloured) recolor(view); // redraws its pixels too (a new picture: already in its fresh surface)
     if (!changed) return false;
     if (view.toggle.knob) slideSwitch(compositor_, view.toggle, pixelSize(sizeOf(placed)), std::get<Switch>(placed.item).on);
     if (view.highlight && focusedField(placed.item) != wasFocused) // focus came or went: background follows (or hover keeps it)
         fadeTo(compositor_, view.highlight, focusedField(placed.item) || placed.key == hovered_ ? 1.0f : 0.0f, tokens().hoverFadeDuration);
-    if (view.surface) paint(view);
+    if (view.surface && !newPicture) paint(view);
     // While scrubbing, the bar belongs to the pointer; endScrub() re-arms it.
     if (view.fill && !view.scrubbing) armProgress(compositor_, view.fill, std::get<Progress>(placed.item).timeline, placed.frame.width, now);
     if (view.arc) armRing(compositor_, view.arc, std::get<Progress>(placed.item).timeline, now);
