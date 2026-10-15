@@ -6,7 +6,6 @@
 
 #include "core/layout.h"
 #include "core/tokens.h"
-#include "platform/backdrop_layer.h"
 #include "platform/badge_dots.h"
 #include "platform/element_visuals.h"
 #include "platform/graphics_device.h"
@@ -48,8 +47,6 @@ public:
     void setTabs(const std::vector<Rect>& tabs, float cornerRadius) { showMarks(tabs_, tabs, cornerRadius); }
     // Notification dots (decision 038), over the content: Scene::badges.
     void setBadges(const std::vector<Vec2>& centres) { badges_.show(centres); }
-    // The blurred cover behind the content (decision 055); nullptr: none.
-    void setBackdrop(const std::shared_ptr<const ImageData>& image) { backdrop_.show(image); }
 
     // Tactile click feedback: squash on press, spring back on release.
     void pressDown();
@@ -105,7 +102,6 @@ private:
     } focusRing_;
     std::vector<Mark> tiles_, tabs_; // grow to the most shown; spare ones stay faded out
     BadgeDots badges_;
-    BackdropLayer backdrop_;
     ElementVisuals elements_;
     Vec2 size_, offset_;
     Vec2 centre_;            // last cursor position while following

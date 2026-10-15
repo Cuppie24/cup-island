@@ -1,7 +1,5 @@
 #include "providers/demo/demo_media_provider.h"
 
-#include "core/cover_backdrop.h"
-
 #include <cstdint>
 
 namespace cup {
@@ -36,7 +34,6 @@ DemoMediaProvider::DemoMediaProvider()
                { "Midnight Tea", "The Placeholders", Ms{ 165000 }, gradient(0xEE5253, 0x5F27CD) },
                { "A Very Long Song Title That Will Not Fit", "Someone With A Long Name", Ms{ 3725000 }, gradient(0xFF9F43, 0xEE5253) } }
 {
-    for (Track& track : tracks_) track.backdrop = std::make_shared<const ImageData>(blurredCover(*track.art));
 }
 
 void DemoMediaProvider::start(Host& host)
@@ -93,7 +90,6 @@ void DemoMediaProvider::publish()
     const Track& track = tracks_[track_];
     NowPlaying m{ .title = track.title, .artist = track.artist, .source = "Demo player",
                   .trackNumber = static_cast<int>(track_) + 1, .trackCount = static_cast<int>(tracks_.size()), .art = track.art,
-                  .backdrop = track.backdrop,
                   .timeline = timeline_, .canSeek = true, .canShuffle = true, .shuffle = shuffle_,
                   .canRepeat = true, .repeat = repeat_ };
     host_->startActivity({ .id = kActivityId, .content = nowPlayingContent(m) });

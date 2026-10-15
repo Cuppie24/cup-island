@@ -39,11 +39,23 @@ ImplicitAnimationCollection morphAnimations(Compositor const& c)
     return collection;
 }
 
-// Background: the island's outline (islandGeometry), filled. Built on
-// `target`, whose Size is the body's.
+// Background: only the bottom corners are rounded (a notch hanging from the
+// screen edge). The geometry has one radius for all corners, so it's made a
+// radius taller and shifted up; ShapeVisual clips the top corners away.
+// Radius = half the height, capped by maxCornerRadius: the same curve as core
+// pillCornerRadius(), which content radii are nested in. Dragged off the edge
+// (Attached 0) the top corners round too: the square bubble becomes a circle
+// (decision 025). Built on `target`, whose Size is the body's.
 void addBackground(Compositor const& c, ShapeVisual const& target, CompositionPropertySet const& shape, CompositionBrush const& fill)
 {
-    auto backgroundShape = c.CreateSpriteShape(islandGeometry(c, target, shape));
+    auto background = c.CreateRoundedRectangleGeometry();
+    bind(c, background, L"CornerRadius",
+        L"Vector2(Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius), Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))",
+        target, shape);
+    bind(c, background, L"Offset", L"Vector2(0, -shape.Attached * Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))", target, shape);
+    bind(c, background, L"Size",
+        L"Vector2(pill.Size.X, pill.Size.Y + shape.Attached * Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))", target, shape);
+    auto backgroundShape = c.CreateSpriteShape(background);
     backgroundShape.FillBrush(fill);
     target.Shapes().Append(backgroundShape);
 }
@@ -96,7 +108,6 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     bind(c, content_, L"Size", L"pill.Size", body_, shape_);
     content_.Clip(c.CreateInsetClip());
     body_.Children().InsertAtTop(content_);
-    backdrop_.build(c, device, body_, shape_, content_); // the blurred cover, under the content (decision 055)
     badges_.build(c, body_, content_); // dots over the content (decision 038)
     elements_.init(c, device, content_);
 
@@ -181,7 +192,6 @@ void Blob::refreshAnimations(bool coloursOnly)
             if (mark.brush) fadeColor(mark.brush, t.tileColor);
     if (focusRing_.brush) fadeColor(focusRing_.brush, t.focusRingColor);
     badges_.recolor();
-    backdrop_.refresh();
     elements_.refresh(coloursOnly);
 }
 

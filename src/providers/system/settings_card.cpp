@@ -133,8 +133,7 @@ Slot listPage(const SettingsView& v)
     };
     std::vector<Row> appearance;
     if (!tokens().themes.empty()) appearance.push_back(marked(settingRow("Theme", v.theme, P::kOpenThemes), "theme", v));
-    bool anyOn = v.coverColours.value_or(false) || v.coverBackdrop.value_or(false);
-    if (v.coverColours) appearance.push_back(marked(settingRow("Music colours", anyOn ? "On" : "Off", P::kOpenMusicColours), "musiccolours", v));
+    if (v.coverColours) appearance.push_back(marked(settingRow("Music colours", *v.coverColours ? "On" : "Off", P::kOpenMusicColours), "musiccolours", v));
     if (!v.displays.empty()) appearance.push_back(marked(settingRow("Display", v.displays[v.display], P::kOpenDisplays), "display", v));
     appearance.push_back(marked(settingRow("Tab row", v.tabsOnTop ? "Top" : "Bottom", P::kOpenTabRow), "tabrow", v));
     appearance.push_back(marked(actionRow("Centre island", Glyph::Centre, P::kCentreIsland), "centre", v));
@@ -191,13 +190,6 @@ Slot musicColoursPage(const SettingsView& v)
 {
     Slot card{ pageTitle("Music colours") };
     if (v.coverColours) card.push_back(marked(toggleRow("Colours from music", *v.coverColours, P::kToggleCoverColours), "covercolours", v));
-    // The gradient is a way of showing those colours: only with them on.
-    if (v.coverGradient) {
-        Row gradient = toggleRow("Two-colour gradient", *v.coverGradient, P::kToggleCoverGradient);
-        std::get<Switch>(gradient.items.back()).enabled = v.coverColours.value_or(false);
-        card.push_back(marked(std::move(gradient), "covergradient", v));
-    }
-    if (v.coverBackdrop) card.push_back(marked(toggleRow("Blurred cover", *v.coverBackdrop, P::kToggleCoverBackdrop), "coverbackdrop", v));
     if (v.fadeSpeed) {
         card.push_back(marked(heading("Colour fade", card.size() > 1), "fade", v));
         int i = 0;
@@ -251,8 +243,6 @@ std::vector<SettingItem> announcedSettings()
         { "covercolours", "musiccolours" }, // decision 052; on Music colours' page since 053
         { "musiccolours", "" },            // decision 053
         { "fade", "musiccolours" },        // decision 053
-        { "covergradient", "musiccolours" }, // decision 055
-        { "coverbackdrop", "musiccolours" }, // decision 055
     };
 }
 
