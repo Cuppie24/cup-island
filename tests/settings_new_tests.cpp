@@ -1,4 +1,4 @@
-// Settings' Tab row (decision 048), Colours from music (decision 052), and "New" on settings not seen yet: a
+// Settings' Tab row (decision 048), Music colours (decisions 052, 053), and "New" on settings not seen yet: a
 // tag on the row, a dot on its parent's while it's on a page not opened, and
 // seen only once the card closes after showing it.
 
@@ -167,34 +167,53 @@ void tagKeepsTheEnd()
     expect(plainChevron && taggedChevron && taggedChevron->frame.x == plainChevron->frame.x, "new: and its chevron stays at the edge");
 }
 
-// Colours from music (decision 052): on until turned off, kept, handed to the app.
+// Music colours (decisions 052, 053): one page with Colours from music, a
+// switch that's on until turned off, and the colour fade's speed, medium by default.
 void coverColoursTests()
 {
-    auto ticked = [](const Row* r) {
-        return r && r->clickAnywhere && r->items.size() > 1 && std::holds_alternative<Button>(r->items.back()) &&
-               std::get<Button>(r->items.back()).glyph == Glyph::Checked;
+    auto switchedOn = [](const Row* r) {
+        auto* toggle = r && r->clickAnywhere && r->items.size() > 1 ? std::get_if<Switch>(&r->items.back()) : nullptr;
+        return toggle && toggle->on;
     };
+    auto value = [](const Row* r) { return r && r->items.size() > 1 ? std::get<Text>(r->items[1]).value : std::string(); };
     PanelHost h;
     std::vector<bool> applied;
-    SettingsProvider settings({ .setCoverColours = [&](bool on) { applied.push_back(on); } });
+    std::vector<FadeSpeed> speeds;
+    SettingsProvider settings({ .setCoverColours = [&](bool on) { applied.push_back(on); },
+                                .setFadeSpeed = [&](FadeSpeed s) { speeds.push_back(s); } });
     settings.start(h);
-    expect(applied == std::vector<bool>{ true } && ticked(rowNamed(h.published.back(), "Colours from music")),
-           "cover colours: on by default, ticked, and the app told");
+    expect(applied == std::vector<bool>{ true } && speeds == std::vector<FadeSpeed>{ FadeSpeed::Medium },
+           "music colours: on and medium by default, and the app told");
+    expect(value(rowNamed(h.published.back(), "Music colours")) == "On" && !rowNamed(h.published.back(), "Colours from music"),
+           "music colours: one row on the list, saying it's on; the switch is on its page");
+    settings.onAction({ "system.settings", SettingsProvider::kPanelId, P::kOpenMusicColours, 0 });
+    expect(switchedOn(rowNamed(h.published.back(), "Colours from music")), "music colours: its page, the switch on");
+    const Row* medium = rowNamed(h.published.back(), "Medium");
+    expect(medium && std::get<Button>(medium->items.back()).glyph == Glyph::Checked && rowNamed(h.published.back(), "Fast") &&
+               rowNamed(h.published.back(), "Slow") && rowNamed(h.published.back(), "Colour fade"),
+           "music colours: the fade's three speeds, medium picked");
+
     settings.onAction({ "system.settings", SettingsProvider::kPanelId, P::kToggleCoverColours, 0 });
     expect(applied.back() == false && h.store[SettingsProvider::kCoverColoursKey] == "off" &&
-               rowNamed(h.published.back(), "Colours from music") && !ticked(rowNamed(h.published.back(), "Colours from music")),
-           "cover colours: a click turns it off, saved");
+               rowNamed(h.published.back(), "Colours from music") && !switchedOn(rowNamed(h.published.back(), "Colours from music")),
+           "music colours: a click switches it off, saved, the page stays");
+    settings.onAction({ "system.settings", SettingsProvider::kPanelId, std::string(P::kPickFade) + "2", 0 });
+    expect(speeds.back() == FadeSpeed::Slow && h.store[SettingsProvider::kFadeKey] == "slow" &&
+               std::get<Button>(rowNamed(h.published.back(), "Slow")->items.back()).glyph == Glyph::Checked,
+           "music colours: slow picked, saved, ticked");
+    settings.onAction({ "system.settings", SettingsProvider::kPanelId, P::kBack, 0 });
+    expect(value(rowNamed(h.published.back(), "Music colours")) == "Off", "music colours: the list says off");
     settings.stop();
     settings.start(h);
-    expect(applied.back() == false, "cover colours: off stays off after a restart");
+    expect(applied.back() == false && speeds.back() == FadeSpeed::Slow, "music colours: both kept over a restart");
     settings.onAction({ "system.settings", SettingsProvider::kPanelId, P::kToggleCoverColours, 0 });
-    expect(applied.back() == true && h.store[SettingsProvider::kCoverColoursKey] == "on", "cover colours: and back on");
+    expect(applied.back() == true && h.store[SettingsProvider::kCoverColoursKey] == "on", "music colours: and back on");
     settings.stop();
 
     PanelHost bare;
     SettingsProvider without({});
     without.start(bare);
-    expect(!rowNamed(bare.published.back(), "Colours from music"), "cover colours: no hook, no row");
+    expect(!rowNamed(bare.published.back(), "Music colours"), "music colours: no hook, no row");
     without.stop();
 }
 

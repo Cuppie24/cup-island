@@ -43,7 +43,9 @@ std::vector<std::vector<Entry>> rowsFor(const std::vector<Entry>& entries, std::
 // fields are left out, so a click anywhere on it means "open the card".
 Slot informationOnly(const Slot& slot)
 {
-    auto interactive = [](const Item& item) { return std::holds_alternative<Button>(item) || std::holds_alternative<TextInput>(item); };
+    auto interactive = [](const Item& item) {
+        return std::holds_alternative<Button>(item) || std::holds_alternative<TextInput>(item) || std::holds_alternative<Switch>(item);
+    };
     Slot out = slot;
     for (Row& r : out)
         for (auto* items : { &r.items, &r.leading, &r.trailing }) std::erase_if(*items, interactive);

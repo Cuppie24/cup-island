@@ -15,8 +15,9 @@ namespace cup::platform {
 void fadeIn(wuc::Compositor const& c, wuc::Visual const& visual);
 void fadeTo(wuc::Compositor const& c, wuc::Visual const& visual, float opacity, Ms duration);
 void playScale(wuc::Compositor const& c, wuc::Visual const& visual, float scale, Ms duration, Bezier curve);
-// A colour (a brush's, a shadow's) to a new one (a cover, a theme; decision 051): over recolorDuration.
+// A colour (a brush's, a shadow's) to a new one (a cover, a theme; decision 051): over recolorDuration() (the picked speed, decision 053).
 void fadeColor(wuc::CompositionObject const& target, const Color& color);
+void fadeColor(wuc::CompositionObject const& target, const Color& color, Ms duration); // a quick answer to a click (a switch)
 
 // Progress: track + fill + a knob riding the fill's end (hidden until hover).
 // The visual is wider than the frame by the knob's radius on each side, so the

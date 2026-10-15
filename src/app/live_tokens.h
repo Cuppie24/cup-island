@@ -4,6 +4,7 @@
 // go on top (decision 022).
 
 #include "core/content.h"
+#include "core/tokens.h"
 
 #include <filesystem>
 #include <optional>
@@ -37,5 +38,9 @@ bool setTheme(const std::string& name);
 // The playing cover's colour (decision 051): its palette goes over the
 // theme's, now and after every reload; nullopt = the theme alone. Returns true if tokens changed.
 bool setTint(std::optional<Color> cover);
+
+// How fast colours fade (decision 053): the Settings pick, kept over every
+// reload like the theme. Returns true if tokens changed.
+bool setFadeSpeed(FadeSpeed speed);
 
 } // namespace cup::app

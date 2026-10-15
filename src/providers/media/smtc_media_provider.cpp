@@ -54,6 +54,7 @@ void SmtcMediaProvider::stop()
     chosenApp_.clear();
     mainApp_.clear();
     art_ = {};
+    loggedTrack_.clear();
     propertiesDirty_ = false;
     readFailures_ = 0;
     presenter_->stop();
@@ -216,9 +217,20 @@ winrt::fire_and_forget SmtcMediaProvider::load(std::uint64_t generation, std::sh
     auto thumbnail = properties.Thumbnail();
     std::string track = winrt::to_string(app) + "|" + media.title + "|" + media.artist + "|" + winrt::to_string(properties.AlbumTitle());
     Ms now = host_->now();
+    if (track != loggedTrack_) {
+        loggedTrack_ = track;
+        platform::logLine("media: new track%s", thumbnail ? "" : " (no cover yet)");
+    }
     if (auto id = art_.onRead(track, thumbnail != nullptr, propertiesChanged, now)) {
         decodeArt(thumbnail, [this, alive, id = *id](std::shared_ptr<const ImageData> image) {
-            if (*alive && art_.onDecoded(id, std::move(image))) refresh();
+            if (!*alive) return;
+            // The island's colour can only follow a new track once its cover is
+            // read: the gap between this line and "new track" is a late recolour's wait.
+            bool read = image != nullptr;
+            if (art_.onDecoded(id, std::move(image))) {
+                platform::logLine("media: cover %s", read ? "shown" : "unreadable");
+                refresh();
+            }
         });
         if (art_.holding(now)) {
             refreshLater(tokens().mediaArtRecheck, true, alive); // the right picture may come in a later update

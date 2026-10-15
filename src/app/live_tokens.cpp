@@ -18,6 +18,7 @@ float g_scale = 1.0f;   // display scale: tokens.json is logical pixels
 Tokens g_file;          // tokens.json as last read without problems, before the theme and scaling
 std::string g_theme;    // the app theme (decision 022)
 std::optional<Color> g_tint; // the playing cover's colour, over the theme (decision 051)
+FadeSpeed g_fadeSpeed = FadeSpeed::Medium; // Settings' pick (decision 053)
 
 void log(const std::string& message)
 {
@@ -55,6 +56,7 @@ bool commit(const std::string& message)
     Tokens themed = withTheme(g_file, g_theme);
     if (g_tint) themed = withColors(themed, coverColors(*g_tint, themed));
     Tokens next = scaleTokens(themed, g_scale);
+    next.fadeSpeed = g_fadeSpeed;
     if (next == tokens()) return false;
     warnIfClipped(next);
     setTokens(next);
@@ -119,6 +121,13 @@ bool setTint(std::optional<Color> cover)
     char rgb[32];
     std::snprintf(rgb, sizeof rgb, "%d, %d, %d", cover->r, cover->g, cover->b);
     return commit(std::string("cover colours: ") + rgb);
+}
+
+bool setFadeSpeed(FadeSpeed speed)
+{
+    g_fadeSpeed = speed;
+    const char* name = speed == FadeSpeed::Fast ? "fast" : speed == FadeSpeed::Slow ? "slow" : "medium";
+    return commit(std::string("colour fade: ") + name);
 }
 
 } // namespace cup::app

@@ -157,6 +157,18 @@ void runTokensTests()
     Tokens resized = recoloured;
     resized.progressHeight += 1;
     expect(!onlyColorsDiffer(d, resized), "a size too: a rebuild");
+
+    // The colour fade's speed (decision 053): medium by default, each pick its token.
+    Tokens speeds{};
+    expect(speeds.fadeSpeed == FadeSpeed::Medium && recolorDuration(speeds) == speeds.recolorMedium, "medium by default");
+    speeds.fadeSpeed = FadeSpeed::Fast;
+    expect(recolorDuration(speeds) == speeds.recolorFast, "fast");
+    speeds.fadeSpeed = FadeSpeed::Slow;
+    expect(recolorDuration(speeds) == speeds.recolorSlow && speeds.recolorSlow > speeds.recolorMedium &&
+           speeds.recolorMedium > speeds.recolorFast, "slow, and the three in order");
+    Tokens other = speeds;
+    other.fadeSpeed = FadeSpeed::Fast;
+    expect(onlyColorsDiffer(speeds, other), "a new speed rebuilds nothing");
 }
 
 } // namespace cup::test

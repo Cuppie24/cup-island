@@ -59,10 +59,15 @@ void fadeTo(Compositor const& c, Visual const& visual, float opacity, Ms duratio
 
 void fadeColor(CompositionObject const& target, const Color& color)
 {
+    fadeColor(target, color, recolorDuration(tokens()));
+}
+
+void fadeColor(CompositionObject const& target, const Color& color, Ms duration)
+{
     // Animated from wherever it is, so a fade cut short by the next one carries on smoothly.
     auto anim = target.Compositor().CreateColorKeyFrameAnimation();
     anim.InsertKeyFrame(1.0f, toUiColor(color));
-    anim.Duration(atLeast1(tokens().recolorDuration));
+    anim.Duration(atLeast1(duration));
     target.StartAnimation(L"Color", anim);
 }
 

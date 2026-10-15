@@ -40,6 +40,9 @@ struct Theme {
     bool operator==(const Theme&) const = default;
 };
 
+// How fast colours fade (decision 053): the user's pick in Settings.
+enum class FadeSpeed { Fast, Medium, Slow };
+
 struct Tokens {
     // Render layer: as wide as the island's monitor, so the island can move
     // along its top edge (decision 026), and this tall (TR §5, §9.1). The
@@ -117,6 +120,8 @@ struct Tokens {
     float badgeSize = 8;          // a notification dot (decision 038)
     float badgeInset = 7;         // ...at least this far in from a widget's or tab's edges (its corner's rounding sets it, decision 038)
     float swatchSize = 24;        // Swatch: a colour sample (a theme on Settings' list, decision 030)
+    Vec2 switchSize{ 36, 20 };    // Switch: an on/off setting's track (decision 053); the knob is its height, inset
+    float switchKnobInset = 3;    // ...the knob this far inside the track
     float tagHeight = 18;         // Tag: "New" beside a setting not seen yet (decision 048)
     float tagPadding = 7;         // ...its text this far in from the pill's ends
 
@@ -174,6 +179,13 @@ struct Tokens {
     // Content crossfades slightly after the pill starts morphing.
     Ms contentFadeDuration{ 200 };
     Ms contentFadeDelay{ 100 };
+    // Colours easing to new ones (a cover's tint, a theme pick; decision 051):
+    // the island's fill, the shadow, marks and content shapes. Text switches
+    // at once. One duration per speed the user can pick in Settings (decision 053).
+    Ms recolorFast{ 800 };
+    Ms recolorMedium{ 2000 };
+    Ms recolorSlow{ 4000 };
+    FadeSpeed fadeSpeed = FadeSpeed::Medium; // the user's pick: set by the app from Settings, not by tokens.json
 
     // Press feedback: squash on mouse-down, spring back with overshoot (y > 1) on release.
     float pressScale = 0.96f;
@@ -206,7 +218,6 @@ struct Tokens {
     // hue at these OKLCH lightnesses (0..1) and chromas, in the theme's own
     // recipe (decision 022): a dark theme gets a tinted near-black, a light one a pale tint.
     Ms coverTintLinger{ 1500 };          // nothing plays any more: the cover's colours stay this long (a track change pauses for a moment)
-    Ms recolorDuration{ 600 };           // the island's fill fades to new colours (a cover, a theme) over this
     float coverVividSaturation = 0.25f;  // a cover's pixel counts as coloured from this saturation (0..1) up
     float coverMinVivid = 0.05f;         // ...and a cover needs this share of them, or it's grey and the theme stays
     float coverDarkIsland = 0.2f;        // dark themes: the island's lightness
@@ -287,6 +298,9 @@ struct Tokens {
 
     bool operator==(const Tokens&) const = default;
 };
+
+// The colour fade's duration at the picked speed (recolorFast/Medium/Slow).
+Ms recolorDuration(const Tokens& t);
 
 // The active tokens: defaults until the app applies a loaded tokens.json.
 const Tokens& tokens();

@@ -124,7 +124,8 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 // the rows around it: text, a theme's swatch. A button there (a to-do's
                 // checkbox) keeps listItemInset: its own round shape nests in the end.
                 auto inset = [&](const std::vector<Item>& edge, const Item* outer) {
-                    bool control = outer && (std::holds_alternative<Button>(*outer) || std::holds_alternative<TextInput>(*outer));
+                    bool control = outer && (std::holds_alternative<Button>(*outer) || std::holds_alternative<TextInput>(*outer) ||
+                                             std::holds_alternative<Switch>(*outer));
                     return edge.empty() && outer && !control ? t.listItemTextInset : t.listItemInset;
                 };
                 float left = inset(row.leading, row.items.empty() ? nullptr : &row.items.front());
@@ -286,7 +287,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 if (row.listItem) left = std::min(left, background.x); // from the background's edge
                 Rect whole{ left, y - t.rowSpacing / 2, right - left, rowHeight + t.rowSpacing };
                 for (std::size_t i = first; i < first + middle; ++i)
-                    if (std::holds_alternative<Button>(target[i].item)) {
+                    if (std::holds_alternative<Button>(target[i].item) || std::holds_alternative<Switch>(target[i].item)) {
                         target[i].hitFrame = whole;
                         target[i].litByRow = row.listItem; // the lit row says it's clickable; a box inside it would double it
                     }

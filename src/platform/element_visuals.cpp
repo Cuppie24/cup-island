@@ -134,7 +134,10 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     // surface stretched into a fractional box is resampled, which blurs text.
     Vec2 size = pixelSize(sizeOf(placed)), visualSize = size;
 
-    if (isRing(placed.item)) {
+    if (auto* toggle = std::get_if<Switch>(&placed.item)) {
+        view.toggle = createSwitch(compositor_, size, toggle->on);
+        view.visual = view.toggle.visual;
+    } else if (isRing(placed.item)) {
         RingParts parts = createRing(compositor_, size, accentOf(placed));
         view.visual = parts.visual;
         view.arc = parts.arc;
@@ -238,6 +241,7 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     if (moved) place(view);
     if (recoloured) recolor(view); // redraws its pixels too
     if (!changed) return false;
+    if (view.toggle.knob) slideSwitch(compositor_, view.toggle, pixelSize(sizeOf(placed)), std::get<Switch>(placed.item).on);
     if (view.highlight && focusedField(placed.item) != wasFocused) // focus came or went: background follows (or hover keeps it)
         fadeTo(compositor_, view.highlight, focusedField(placed.item) || placed.key == hovered_ ? 1.0f : 0.0f, tokens().hoverFadeDuration);
     if (view.surface) paint(view);
@@ -255,6 +259,11 @@ void ElementVisuals::recolor(View& view)
     if (view.accent) fadeColor(view.accent, accentOf(view.placed));
     if (view.knobBrush) fadeColor(view.knobBrush, t.knobColor);
     if (view.hover) fadeColor(view.hover, hoverColorOf(view.placed));
+    if (view.toggle.knob) {
+        bool on = std::get<Switch>(view.placed.item).on;
+        fadeColor(view.toggle.track, switchTrackColor(on));
+        fadeColor(view.toggle.knobBrush, switchKnobColor(on));
+    }
     // Text and icons are pixels in a surface: redrawn in their new colours at once.
     if (view.surface) paint(view);
 }

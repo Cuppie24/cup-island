@@ -8,6 +8,7 @@
 #include "platform/element_art.h"
 #include "platform/graphics_device.h"
 #include "platform/list_viewports.h"
+#include "platform/switch_parts.h"
 
 #include <map>
 #include <optional>
@@ -51,6 +52,7 @@ private:
         bool scrubbing = false;
         // Shape colours, kept so a recolour fades them (decision 051); null when unused.
         wuc::CompositionColorBrush track{ nullptr }, accent{ nullptr }, knobBrush{ nullptr }, hover{ nullptr };
+        SwitchParts toggle; // a Switch's track and knob (decision 053)
     };
 
     View create(const Placed& placed, Ms now, bool fade = true); // fade: fades in (not when a text turns into its field)

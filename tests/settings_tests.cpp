@@ -216,12 +216,12 @@ void runSettingsTests()
     startup.start(sh);
     const Row& startupRow = *rowNamed(sh.published.back(), "Start with Windows");
     expect(autostart && savedAutostart == "on" &&
-           std::get<Button>(startupRow.items[1]).glyph == Glyph::Checked && startupRow.clickAnywhere,
+           std::get<Switch>(startupRow.items[1]).on && startupRow.clickAnywhere,
            "startup: on by default, ticked");
     auto pressStartup = [&](const char* actionId) { startup.onAction({ "system.settings", SettingsProvider::kPanelId, actionId, 0 }); };
     pressStartup(settings_action::kToggleAutostart);
     expect(!autostart && savedAutostart == "off" &&
-           std::get<Button>(rowNamed(sh.published.back(), "Start with Windows")->items[1]).glyph == Glyph::Unchecked,
+           !std::get<Switch>(rowNamed(sh.published.back(), "Start with Windows")->items[1]).on,
            "startup: a click turns it off, saved");
     startup.stop();
     startup.start(sh);
