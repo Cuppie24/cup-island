@@ -47,7 +47,8 @@ ArtParts createActionArt(Compositor const& c, Vec2 frame, float cornerRadius, Co
     parts.overlay = overlay;
 
     parts.visual = c.CreateContainerVisual();
-    parts.visual.Children().InsertAtTop(surfaceVisual(c, art, frame));
+    parts.picture = surfaceVisual(c, art, frame);
+    parts.visual.Children().InsertAtTop(parts.picture);
     parts.visual.Children().InsertAtTop(overlay);
     return parts;
 }

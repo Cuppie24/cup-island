@@ -205,9 +205,8 @@ struct Tokens {
     // After any app starts/stops playing, ask Windows again this much later:
     // its "current session" can switch slightly after the playback event.
     Ms mediaSessionRecheck{ 300 };
-    // A new track waits at most this long for its cover before showing without
-    // it (a thumbnail that never loads must not hide the track).
-    Ms mediaArtWait{ 1000 };
+    // A track shows at once; its cover fades in over this when it's read (decision 056).
+    Ms mediaArtFade{ 400 };
     // After a track change, the cover is read again this much later: apps
     // (Chrome) can send the title first and the right picture after.
     Ms mediaArtRecheck{ 800 };

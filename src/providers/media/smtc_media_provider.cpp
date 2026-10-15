@@ -210,34 +210,28 @@ winrt::fire_and_forget SmtcMediaProvider::load(std::uint64_t generation, std::sh
     shownTitle_ = winrt::to_hstring(media.title);
 
     // The cover (ArtState): decoded on a new track and on every properties
-    // update (Chrome sends a tab's picture after its title). A new track is
-    // held back until its cover is ready, so its alert carries it, but only
-    // for mediaArtWait: a thumbnail that never loads mustn't hide the track.
+    // update (Chrome sends a tab's picture after its title). A new track
+    // shows at once, without one; the cover fades in when it's read (056).
     bool propertiesChanged = std::exchange(propertiesDirty_, false);
     auto thumbnail = properties.Thumbnail();
     std::string track = winrt::to_string(app) + "|" + media.title + "|" + media.artist + "|" + winrt::to_string(properties.AlbumTitle());
-    Ms now = host_->now();
-    if (track != loggedTrack_) {
+    bool newTrack = track != loggedTrack_;
+    if (newTrack) {
         loggedTrack_ = track;
         platform::logLine("media: new track%s", thumbnail ? "" : " (no cover yet)");
     }
-    if (auto id = art_.onRead(track, thumbnail != nullptr, propertiesChanged, now)) {
+    if (auto id = art_.onRead(track, thumbnail != nullptr, propertiesChanged)) {
         decodeArt(thumbnail, [this, alive, id = *id](std::shared_ptr<const ImageData> image) {
             if (!*alive) return;
             // The island's colour can only follow a new track once its cover is
             // read: the gap between this line and "new track" is a late recolour's wait.
-            bool read = image != nullptr;
             if (art_.onDecoded(id, std::move(image))) {
-                platform::logLine("media: cover %s", read ? "shown" : "unreadable");
+                platform::logLine("media: cover shown");
                 refresh();
             }
         });
-        if (art_.holding(now)) {
-            refreshLater(tokens().mediaArtRecheck, true, alive); // the right picture may come in a later update
-            refreshLater(*art_.holdUntil() - now, false, alive);  // show it anyway when the wait runs out
-        }
+        if (newTrack) refreshLater(tokens().mediaArtRecheck, true, alive); // the right picture may come in a later update
     }
-    if (art_.holding(now)) co_return;
 
     media.art = art_.art();
     presenter_->show(MediaSnapshot{ winrt::to_string(app), media });

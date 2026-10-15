@@ -34,8 +34,7 @@ list rather than something that's on or off.
 **Why a fade can start late** (asked while this was built): the island's
 colour comes from the new cover, so the fade can only start once the app
 has sent its picture and it's been read. Apps send the title first and the
-picture later (Chrome, often Spotify), and a new track is held back at most
-`mediaArtWaitMs` (1 s) for it. If the picture comes later still, the old
+picture later (Chrome, often Spotify); a track no longer waits for it (056). If the picture comes later still, the old
 colour stays for `coverTintLingerMs` (1.5 s) and the fade starts when it
 arrives. Pausing waits that 1.5 s on purpose before going back to the
 theme, so the gap between two tracks doesn't flash it. The log now has
