@@ -256,6 +256,9 @@ struct Content {
     // The island takes on this colour's palette while this is the best-ranked
     // activity asking (media playing: its cover's colour, decision 051).
     std::optional<CoverTint> tint;
+    // No tint yet, but one is coming (playing, its cover not read yet): the
+    // colour shown stays a moment instead of flashing the theme (decision 058).
+    bool tintComing = false;
     CardLayout card = CardLayout::Standard;
     // Something new needs a look (an update offered, decision 038): a dot on
     // its widget on Home and on its tab, so the way to it is marked.

@@ -18,6 +18,7 @@ Content nowPlayingContent(const NowPlaying& m)
     c.compactCenter = { row({ Text{ .value = c.label, .marquee = true } }) }; // swims when too long
     // Playing, the island takes on the cover's colours; paused, the theme's (decision 051).
     if (playing && m.art) c.tint = coverTint(*m.art);
+    c.tintComing = playing && !m.art; // a new track's cover is still being read (decision 058)
     c.compactTrailing = { row({ Waveform{ playing } }, Align::Center) }; // paused: the bars rest as dots
     c.minimal = { row({ Waveform{ playing } }) }; // the Split bubble: equalizer bars, still dots when paused
     c.alertLeading = { row({ art }) };

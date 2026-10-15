@@ -143,19 +143,33 @@ void tintTests()
     IslandState state;
     state.activities.push_back({ .id = "timer" });
     state.activities.push_back({ .id = "media", .content = { .tint = red } });
-    expect(wantedTint(state) == red, "the best-ranked activity asking for a tint gets it, past ones that don't");
-    expect(!wantedTint(IslandState{}), "nothing playing: no tint");
+    expect(wantedTint(state) == WantedTint{ red }, "the best-ranked activity asking for a tint gets it, past ones that don't");
+    expect(wantedTint(IslandState{}) == WantedTint{}, "nothing playing: no tint");
+    state.activities[1].content = { .tintComing = true };
+    expect(wantedTint(state) == WantedTint{ .coming = true }, "a new track's cover not read yet: a colour is coming");
 
-    IslandTint tint = nextTint({}, red, t);
+    IslandTint tint = nextTint({}, { red }, t);
     expect(tint.shown == red && !tintDeadline(tint), "a cover's colour shows at once");
-    tint = nextTint(tint, blue, t);
+    tint = nextTint(tint, { blue }, t);
     expect(tint.shown == blue, "the next track's colour too");
-    tint = nextTint(tint, std::nullopt, t);
-    expect(tint.shown == blue && tintDeadline(tint) == t + tokens().coverTintLinger, "paused: the colour lingers");
-    expect(nextTint(tint, blue, t + Ms{ 500 }) == IslandTint{ blue, std::nullopt }, "playing again within the linger: no flash");
-    expect(nextTint(tint, std::nullopt, t + Ms{ 500 }) == tint, "still paused: the linger doesn't restart");
-    expect(!nextTint(tint, std::nullopt, t + tokens().coverTintLinger).shown, "the linger over: the theme's colours");
-    expect(nextTint({}, std::nullopt, t) == IslandTint{}, "no tint stays none");
+    expect(nextTint(tint, {}, t) == IslandTint{}, "paused (decision 058): the theme at once, no wait");
+
+    // Skipping: the new track shows before its cover is read.
+    IslandTint skipping = nextTint(tint, { .coming = true }, t);
+    expect(skipping.shown == blue && tintDeadline(skipping) == t + tokens().coverTintLinger,
+           "a new track's colour coming: the old one stays meanwhile");
+    expect(nextTint(skipping, { red }, t + Ms{ 500 }) == IslandTint{ red, std::nullopt }, "its cover read: its colour, no flash");
+    expect(nextTint(skipping, { .coming = true }, t + Ms{ 500 }) == skipping, "still coming: the wait doesn't restart");
+    expect(!nextTint(skipping, { .coming = true }, t + tokens().coverTintLinger).shown, "never came: the theme's colours");
+    expect(nextTint(skipping, {}, t + Ms{ 500 }) == IslandTint{}, "paused while waiting: the theme at once");
+    expect(nextTint({}, { .coming = true }, t) == IslandTint{} && nextTint({}, {}, t) == IslandTint{}, "no tint stays none");
+
+    // The content side.
+    NowPlaying track{ .title = "A" };
+    track.timeline.playing = true;
+    expect(nowPlayingContent(track).tintComing && !nowPlayingContent(track).tint, "playing, no cover yet: a tint is coming");
+    track.timeline.playing = false;
+    expect(!nowPlayingContent(track).tintComing, "paused: nothing coming");
 }
 
 void nowPlayingTests()

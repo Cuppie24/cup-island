@@ -1,6 +1,6 @@
 # 051: The island in the playing cover's colours
 
-Status: Accepted; a setting turns it off (052); strength and a two-colour gradient amended by 054
+Status: Accepted; a setting turns it off (052); strength and a two-colour gradient amended by 054; a pause no longer lingers (058)
 
 **Context.** While music plays, the island showed the same theme colours
 whatever the cover looked like. People want it to feel like the song, the
