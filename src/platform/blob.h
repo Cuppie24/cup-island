@@ -73,7 +73,14 @@ private:
     void applyShadow(); // colour, blur, offset from tokens
     wuc::CompositionPropertySet shape_{ nullptr }; // MaxRadius, FlareRadius, Attached, Flare, Left/RightEar: read by the shape expressions
     wuc::CompositionPropertySet drag_{ nullptr };  // Centre: the cursor, while following; Drop: lifted, below the edge
-    wuc::CompositionColorBrush fill_{ nullptr };
+    // The island's fill (decision 054): a left-to-right gradient from
+    // islandColor to islandSecondColor (the same colour unless a cover has
+    // two). Static: only a recolour animates it. Each ear takes its end's
+    // colour, so the flared corners join without a seam.
+    wuc::CompositionLinearGradientBrush gradient_{ nullptr };
+    wuc::CompositionColorGradientStop leftStop_{ nullptr }, rightStop_{ nullptr };
+    wuc::CompositionColorBrush leftFill_{ nullptr }, rightFill_{ nullptr };
+    void fadeFill(Ms duration); // to the current colours (highlighted: the highlight's, both ends)
     wuc::ImplicitAnimationCollection implicit_{ nullptr }; // the Size/Offset morph
     wuc::ContainerVisual content_{ nullptr };
     struct Mark { // a rounded highlight under content, made on first use

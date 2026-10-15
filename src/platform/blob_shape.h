@@ -28,8 +28,8 @@ inline const std::wstring kEarSize = L"(shape.Flare * Min(shape.FlareRadius, pil
 inline std::wstring earSize(bool left) { return L"(" + kEarSize + (left ? L" * shape.LeftEar)" : L" * shape.RightEar)"); }
 
 // Adds the two flared top corners ("ears") beside the body's top edge, as
-// children of the body, filled with `fill` (decision 025).
+// children of the body, each in its end's colour (decisions 025, 054).
 void addEars(wuc::Compositor const& c, wuc::ShapeVisual const& body, wuc::CompositionPropertySet const& shape,
-             wuc::CompositionBrush const& fill);
+             wuc::CompositionBrush const& leftFill, wuc::CompositionBrush const& rightFill);
 
 } // namespace cup::platform

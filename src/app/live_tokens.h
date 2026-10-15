@@ -37,7 +37,7 @@ bool setTheme(const std::string& name);
 
 // The playing cover's colour (decision 051): its palette goes over the
 // theme's, now and after every reload; nullopt = the theme alone. Returns true if tokens changed.
-bool setTint(std::optional<Color> cover);
+bool setTint(std::optional<CoverTint> cover);
 
 // How fast colours fade (decision 053): the Settings pick, kept over every
 // reload like the theme. Returns true if tokens changed.

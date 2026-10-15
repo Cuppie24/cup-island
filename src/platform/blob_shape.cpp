@@ -18,7 +18,8 @@ void bindToBlob(Compositor const& c, CompositionObject const& target, std::wstri
     target.StartAnimation(property, anim);
 }
 
-void addEars(Compositor const& c, ShapeVisual const& body, CompositionPropertySet const& shape, CompositionBrush const& fill)
+void addEars(Compositor const& c, ShapeVisual const& body, CompositionPropertySet const& shape, CompositionBrush const& leftFill,
+             CompositionBrush const& rightFill)
 {
     // Each ear is an E×E square beside the top edge, minus a quarter circle of
     // radius E centred on its bottom outer corner: the edge curving down into
@@ -36,7 +37,7 @@ void addEars(Compositor const& c, ShapeVisual const& body, CompositionPropertySe
         bindToBlob(c, ring, L"Center", left ? L"Vector2(0, " + e + L")" : L"Vector2(Min(" + e + L", 1) + " + e + L", " + e + L")", body, shape);
         bindToBlob(c, ring, L"Radius", L"Vector2(1.5 * " + e + L", 1.5 * " + e + L")", body, shape); // the stroke's middle
         auto stroke = c.CreateSpriteShape(ring);
-        stroke.StrokeBrush(fill);
+        stroke.StrokeBrush(left ? leftFill : rightFill);
         bindToBlob(c, stroke, L"StrokeThickness", e, body, shape);
 
         auto ear = c.CreateShapeVisual(); // clips the ring to the ear's square

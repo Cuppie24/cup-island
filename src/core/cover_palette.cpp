@@ -107,7 +107,7 @@ constexpr Role kFaint[] = { // ink on light themes, accent on dark ones
 
 } // namespace
 
-std::optional<Color> coverColor(const ImageData& image)
+std::optional<CoverTint> coverTint(const ImageData& image)
 {
     const Tokens& t = tokens();
     std::size_t count = static_cast<std::size_t>(std::max(image.width, 0)) * static_cast<std::size_t>(std::max(image.height, 0));
@@ -146,33 +146,53 @@ std::optional<Color> coverColor(const ImageData& image)
 
     // A hue on a bin's edge splits between two: score each bin with its neighbours.
     auto at = [&](int i) -> const Bin& { return bins[(i + kBins) % kBins]; };
+    auto score = [&](int i) { return at(i - 1).weight + at(i).weight + at(i + 1).weight; };
+    auto colourAround = [&](int centre) {
+        Bin sum;
+        for (int i = centre - 1; i <= centre + 1; ++i)
+            sum.weight += at(i).weight, sum.r += at(i).r, sum.g += at(i).g, sum.b += at(i).b;
+        auto channel = [&](double v) { return static_cast<std::uint8_t>(std::clamp(std::lround(v / sum.weight), 0L, 255L)); };
+        return Color{ channel(sum.r), channel(sum.g), channel(sum.b) };
+    };
     int best = 0;
-    double bestScore = -1;
+    for (int i = 1; i < kBins; ++i)
+        if (score(i) > score(best)) best = i;
+
+    // A second hue: the strongest window not overlapping the main one (3 bins,
+    // 45°, away), if it's a real part of the cover and not a stray accent.
+    std::optional<int> second;
     for (int i = 0; i < kBins; ++i) {
-        double score = at(i - 1).weight + at(i).weight + at(i + 1).weight;
-        if (score > bestScore) best = i, bestScore = score;
+        int apart = std::abs(i - best);
+        if (std::min(apart, kBins - apart) < 3) continue;
+        if (!second || score(i) > score(*second)) second = i;
     }
-    Bin sum;
-    for (int i = best - 1; i <= best + 1; ++i)
-        sum.weight += at(i).weight, sum.r += at(i).r, sum.g += at(i).g, sum.b += at(i).b;
-    auto channel = [&](double v) { return static_cast<std::uint8_t>(std::clamp(std::lround(v / sum.weight), 0L, 255L)); };
-    return Color{ channel(sum.r), channel(sum.g), channel(sum.b) };
+    if (second && score(*second) < t.coverSecondShare * score(best)) second.reset();
+
+    CoverTint tint{ .main = colourAround(best) };
+    if (second) tint.second = colourAround(*second);
+    tint.vividness = static_cast<float>(std::clamp(toLch(tint.main).c / std::max<double>(t.coverFullChroma, 1e-3), 0.0, 1.0));
+    return tint;
 }
 
-std::vector<ThemeColor> coverColors(Color cover, const Tokens& themed)
+std::vector<ThemeColor> coverColors(const CoverTint& tint, const Tokens& themed)
 {
     const Tokens& t = themed;
     bool light = isLight(t.islandColor);
-    double hue = toLch(cover).h;
+    double hue = toLch(tint.main).h;
+    // As strong as the cover is vivid: a neon cover a rich island, a dusty one a quiet one.
+    double vivid = std::clamp(static_cast<double>(tint.vividness), 0.0, 1.0);
+    auto strength = [&](Vec2 range) { return range.x + (range.y - range.x) * vivid; };
+    double islandChroma = strength(t.coverIslandChroma);
     double islandL = light ? t.coverLightIsland : t.coverDarkIsland;
     // The highlight (a drop target, decision 007) is as far from the island as the theme's own.
     double highlightL = islandL + toLch(t.islandHighlightColor).l - toLch(t.islandColor).l;
-    Color island = fromLch(islandL, t.coverIslandChroma, hue, 255);
-    Color highlight = fromLch(highlightL, t.coverIslandChroma, hue, 255);
+    Color island = fromLch(islandL, islandChroma, hue, 255);
+    Color second = tint.second ? fromLch(islandL, islandChroma, toLch(*tint.second).h, 255) : island;
+    Color highlight = fromLch(highlightL, islandChroma, hue, 255);
     Color ink = fromLch(light ? t.coverLightInk : t.coverDarkInk, t.coverInkChroma, hue, 255);
-    Color accent = fromLch(light ? t.coverLightAccent : t.coverDarkAccent, t.coverAccentChroma, hue, 255);
+    Color accent = fromLch(light ? t.coverLightAccent : t.coverDarkAccent, strength(t.coverAccentChroma), hue, 255);
 
-    std::vector<ThemeColor> out{ { "islandColor", island }, { "islandHighlightColor", highlight } };
+    std::vector<ThemeColor> out{ { "islandColor", island }, { "islandSecondColor", second }, { "islandHighlightColor", highlight } };
     // Each keeps the theme's opacity: only the colour changes, not how strong it is.
     auto add = [&](const Role& role, Color colour) {
         colour.a = (t.*role.member).a;
