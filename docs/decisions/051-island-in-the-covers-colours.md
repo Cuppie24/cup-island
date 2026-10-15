@@ -48,6 +48,9 @@ island must look like the theme the user picked.
   so nothing fades out and back in; a new accent on one element fades too.
   Text and icons are pixels in a surface: they're redrawn in their new
   colours at once (a crossfade would need two surfaces per element).
+  Fades blend in RGB (`InterpolationColorSpace::Rgb`): Composition's
+  default goes round the hue wheel, so orange to teal flashed a bright
+  green on the way and read as two changes.
 
 **Consequences.** Tested in `tests/cover_tests.cpp`. That includes every
 shipped theme around six hues: it keeps its lightness, and its text keeps

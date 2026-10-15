@@ -68,6 +68,9 @@ void fadeColor(CompositionObject const& target, const Color& color, Ms duration)
     auto anim = target.Compositor().CreateColorKeyFrameAnimation();
     anim.InsertKeyFrame(1.0f, toUiColor(color));
     anim.Duration(atLeast1(duration));
+    // Straight from colour to colour. The default goes round the hue wheel, so
+    // orange to teal passed through a bright green: a second change (decision 051).
+    anim.InterpolationColorSpace(CompositionColorSpace::Rgb);
     target.StartAnimation(L"Color", anim);
 }
 
