@@ -31,7 +31,12 @@ void runFullscreenTests()
     minimized.minimized = true;
     expect(!shouldHideForFullscreen(minimized, false), "minimized fullscreen app doesn't hide");
 
-    expect(shouldHideForFullscreen(std::nullopt, true), "D3D exclusive fullscreen hides");
+    // D3D exclusive fullscreen (decision 059): the game in front hides the island, whatever its bounds report.
+    expect(shouldHideForFullscreen(window({ 100, 100, 800, 600 }), true), "D3D exclusive fullscreen with an app in front hides");
+    expect(!shouldHideForFullscreen(desktop, true), "alt-tabbed to the desktop: Windows still says exclusive, the island shows");
+    expect(!shouldHideForFullscreen(minimized, true), "the game minimized: shows");
+    expect(!shouldHideForFullscreen(other, true), "exclusive on another monitor: this island shows (TR §9.2.4)");
+    expect(!shouldHideForFullscreen(std::nullopt, true), "no foreground window (a game closing): shows");
     expect(!shouldHideForFullscreen(std::nullopt, false), "no foreground window: visible");
 }
 

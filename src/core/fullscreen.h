@@ -18,6 +18,7 @@ struct ForegroundWindow {
 };
 
 // `exclusiveFullscreen`: Windows reports a D3D exclusive-fullscreen app running.
+// It counts only with a real window in front on the island's monitor (decision 059).
 bool shouldHideForFullscreen(const std::optional<ForegroundWindow>& window, bool exclusiveFullscreen);
 
 } // namespace cup

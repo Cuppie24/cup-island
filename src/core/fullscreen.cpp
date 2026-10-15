@@ -4,9 +4,12 @@ namespace cup {
 
 bool shouldHideForFullscreen(const std::optional<ForegroundWindow>& window, bool exclusiveFullscreen)
 {
-    // Exclusive fullscreen bypasses the compositor: the island can't draw over it anyway.
-    if (exclusiveFullscreen) return true;
     if (!window || window->ignorable || window->minimized || !window->onIslandMonitor) return false;
+    // Exclusive fullscreen bypasses the compositor: the island can't draw over
+    // it anyway. But only with a real app in front on this monitor: Windows
+    // keeps reporting it while the game is alt-tabbed away or closing, which
+    // once hid the island over the desktop until the next window switch (decision 059).
+    if (exclusiveFullscreen) return true;
 
     // A maximized window with a title bar can cover the whole monitor when the
     // taskbar auto-hides; that's still a normal window (TR §9.2: maximized

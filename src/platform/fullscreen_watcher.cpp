@@ -1,7 +1,9 @@
 #include "platform/fullscreen_watcher.h"
 #include "platform/log.h"
+#include "platform/window_name.h"
 
 #include "core/fullscreen.h"
+#include "core/tokens.h"
 
 #include <dwmapi.h>
 #include <shellapi.h>
@@ -17,6 +19,7 @@ std::function<void(bool)> g_onChange;
 bool g_hidden = false;
 HWINEVENTHOOK g_locationHook{};
 DWORD g_locationProcess = 0;
+UINT_PTR g_recheck = 0; // while hidden: Windows' exclusive flag can clear with no window event
 
 Rect toRect(const RECT& r)
 {
@@ -71,14 +74,34 @@ bool exclusiveFullscreenRunning()
     return SUCCEEDED(SHQueryUserNotificationState(&state)) && state == QUNS_RUNNING_D3D_FULL_SCREEN;
 }
 
+void CALLBACK onRecheck(HWND, UINT, UINT_PTR, DWORD);
+
+// Hidden, check again every fullscreenRecheck until shown (decision 059).
+void recheckWhileHidden(bool hidden)
+{
+    if (hidden && !g_recheck) g_recheck = SetTimer(nullptr, 0, static_cast<UINT>(tokens().fullscreenRecheck.count()), onRecheck);
+    if (!hidden && g_recheck) {
+        KillTimer(nullptr, g_recheck);
+        g_recheck = 0;
+    }
+}
+
 void evaluate()
 {
-    bool hide = shouldHideForFullscreen(describe(GetForegroundWindow()), exclusiveFullscreenRunning());
+    HWND foreground = GetForegroundWindow();
+    bool exclusive = exclusiveFullscreenRunning();
+    bool hide = shouldHideForFullscreen(describe(foreground), exclusive);
     if (hide == g_hidden) return;
+    if (hide) // which app, and how: a user's log then says what hid the island
+        logLine("fullscreen app detected: hiding (%ls%s)", foreground ? describeWindow(foreground).c_str() : L"no window",
+                exclusive ? ", exclusive fullscreen" : "");
+    else logLine("fullscreen app gone: showing");
     g_hidden = hide;
-    logLine("fullscreen app %s", hide ? "detected: hiding" : "gone: showing");
+    recheckWhileHidden(hide);
     g_onChange(hide);
 }
+
+void CALLBACK onRecheck(HWND, UINT, UINT_PTR, DWORD) { evaluate(); }
 
 void CALLBACK onWinEvent(HWINEVENTHOOK, DWORD event, HWND hwnd, LONG object, LONG child, DWORD, DWORD);
 
@@ -121,10 +144,7 @@ void watchFullscreen(HWND island, std::function<void(bool fullscreen)> onChange)
 
     followForegroundProcess(GetForegroundWindow());
     g_hidden = false;
-    if (shouldHideForFullscreen(describe(GetForegroundWindow()), exclusiveFullscreenRunning())) {
-        g_hidden = true;
-        g_onChange(true);
-    }
+    evaluate(); // started under a fullscreen app: hidden from the start
 }
 
 } // namespace cup::platform
