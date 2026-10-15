@@ -18,6 +18,7 @@ struct NowPlaying {
     int trackNumber = 0; // position on the album, as the app reports it; 0 = unknown
     int trackCount = 0;  // tracks on the album; 0 = unknown
     std::shared_ptr<const ImageData> art;
+    std::shared_ptr<const ImageData> backdrop; // art, blurred (blurredCover), made once per cover by the provider
     Timeline timeline;  // duration 0 = the app reports no timeline
     bool canPrevious = true;
     bool canPlayPause = true;

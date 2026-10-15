@@ -31,6 +31,7 @@ private:
         const char* artist;
         Ms duration;
         std::shared_ptr<const ImageData> art;
+        std::shared_ptr<const ImageData> backdrop = nullptr; // art, blurred once (decision 055)
     };
     std::vector<Track> tracks_;
     Host* host_ = nullptr;

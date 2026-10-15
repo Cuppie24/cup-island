@@ -69,8 +69,13 @@ void SettingsProvider::start(Host& host)
     placeIsland();
     tabsOnTop_ = trimmed(host_->load(kTabRowKey)) != "bottom";
     if (hooks_.placeTabRow) hooks_.placeTabRow(tabsOnTop_);
-    coverColours_ = trimmed(host_->load(kCoverColoursKey)) != "off";
+    // Off unless turned on (decision 055).
+    coverColours_ = trimmed(host_->load(kCoverColoursKey)) == "on";
     if (hooks_.setCoverColours) hooks_.setCoverColours(coverColours_);
+    coverGradient_ = trimmed(host_->load(kCoverGradientKey)) == "on";
+    if (hooks_.setCoverGradient) hooks_.setCoverGradient(coverGradient_);
+    coverBackdrop_ = trimmed(host_->load(kCoverBackdropKey)) == "on";
+    if (hooks_.setCoverBackdrop) hooks_.setCoverBackdrop(coverBackdrop_);
     std::string fade = trimmed(host_->load(kFadeKey));
     fadeSpeed_ = fade == "fast" ? FadeSpeed::Fast : fade == "slow" ? FadeSpeed::Slow : FadeSpeed::Medium;
     if (hooks_.setFadeSpeed) hooks_.setFadeSpeed(fadeSpeed_);
@@ -91,7 +96,8 @@ void SettingsProvider::loadSeen()
     // setting is as new as the rest (none tagged), or an update from before
     // tags existed, which kept other settings (all announced ones are new).
     bool fresh = true;
-    for (const char* key : { kAutostartKey, kThemeKey, kDisplayKey, kShortcutsKey, kTabRowKey, kCoverColoursKey, kFadeKey })
+    for (const char* key : { kAutostartKey, kThemeKey, kDisplayKey, kShortcutsKey, kTabRowKey, kCoverColoursKey, kFadeKey,
+                             kCoverGradientKey, kCoverBackdropKey })
         if (!trimmed(host_->load(key)).empty()) fresh = false;
     if (!fresh) return;
     for (const SettingItem& s : hooks_.announced) seen_.insert(s.id);
@@ -186,6 +192,16 @@ void SettingsProvider::onAction(const Action& action)
         coverColours_ = !coverColours_;
         hooks_.setCoverColours(coverColours_);
         host_->save(kCoverColoursKey, coverColours_ ? "on" : "off");
+        publish();
+    } else if (id == settings_action::kToggleCoverGradient && hooks_.setCoverGradient && coverColours_) {
+        coverGradient_ = !coverGradient_;
+        hooks_.setCoverGradient(coverGradient_);
+        host_->save(kCoverGradientKey, coverGradient_ ? "on" : "off");
+        publish();
+    } else if (id == settings_action::kToggleCoverBackdrop && hooks_.setCoverBackdrop) {
+        coverBackdrop_ = !coverBackdrop_;
+        hooks_.setCoverBackdrop(coverBackdrop_);
+        host_->save(kCoverBackdropKey, coverBackdrop_ ? "on" : "off");
         publish();
     } else if (id == settings_action::kInstallUpdate) {
         if (hooks_.installUpdate && offer_ && offer_->stage != UpdateStage::Installing) hooks_.installUpdate();
@@ -367,6 +383,8 @@ SettingsView SettingsProvider::view() const
     if (hooks_.startsWithWindows) v.startsWithWindows = hooks_.startsWithWindows();
     if (hooks_.setCoverColours) v.coverColours = coverColours_;
     if (hooks_.setCoverColours && hooks_.setFadeSpeed) v.fadeSpeed = fadeSpeed_; // on Music colours' page
+    if (hooks_.setCoverColours && hooks_.setCoverGradient) v.coverGradient = coverGradient_;
+    if (hooks_.setCoverColours && hooks_.setCoverBackdrop) v.coverBackdrop = coverBackdrop_;
     return v;
 }
 

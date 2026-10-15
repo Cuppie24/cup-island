@@ -256,6 +256,9 @@ struct Content {
     // The island takes on this colour's palette while this is the best-ranked
     // activity asking (media playing: its cover's colour, decision 051).
     std::optional<CoverTint> tint;
+    // The cover, blurred, to show faintly behind the island while this is the
+    // best-ranked activity with one (media playing, decision 055).
+    std::shared_ptr<const ImageData> backdrop;
     CardLayout card = CardLayout::Standard;
     // Something new needs a look (an update offered, decision 038): a dot on
     // its widget on Home and on its tab, so the way to it is marked.
