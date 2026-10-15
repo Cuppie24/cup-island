@@ -213,6 +213,9 @@ struct Tokens {
     // Reads of a session go one at a time (decision 005); one still running
     // after this is taken as stuck, and doesn't hold the next one back.
     Ms mediaReadStuck{ 2000 };
+    // Hidden for a fullscreen app, the island checks again this often: Windows'
+    // exclusive-fullscreen flag can clear without any window event (decision 059).
+    Ms fullscreenRecheck{ 2000 };
     // A session read that fails (an app mid-switch) is retried this many times.
     std::size_t mediaReadRetries = 3;
 

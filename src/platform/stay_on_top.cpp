@@ -1,6 +1,7 @@
 #include "platform/stay_on_top.h"
 
 #include "platform/log.h"
+#include "platform/window_name.h"
 
 #include <dwmapi.h>
 
@@ -11,23 +12,6 @@ namespace {
 
 std::vector<HWND> g_windows;
 std::wstring g_lastCulprit; // logged once per culprit, not on every switch
-
-std::wstring describe(HWND hwnd)
-{
-    wchar_t cls[128]{}, title[128]{};
-    GetClassNameW(hwnd, cls, 128);
-    GetWindowTextW(hwnd, title, 128);
-    std::wstring exe = L"?";
-    DWORD pid = 0;
-    GetWindowThreadProcessId(hwnd, &pid);
-    if (HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid)) {
-        wchar_t path[MAX_PATH]{};
-        DWORD size = MAX_PATH;
-        if (QueryFullProcessImageNameW(process, 0, path, &size)) exe = std::wstring(path).substr(std::wstring(path).find_last_of(L'\\') + 1);
-        CloseHandle(process);
-    }
-    return exe + L" (class " + cls + L", \"" + title + L"\")";
-}
 
 // The first visible window above `island` in the z-order that overlaps it.
 HWND coveringWindow(HWND island)
@@ -52,7 +36,7 @@ void raise()
     bool lostFlag = (GetWindowLongW(top, GWL_EXSTYLE) & WS_EX_TOPMOST) == 0;
     HWND cover = coveringWindow(top);
     if (lostFlag || cover) {
-        std::wstring culprit = lostFlag ? L"(lost the topmost flag)" : describe(cover);
+        std::wstring culprit = lostFlag ? L"(lost the topmost flag)" : describeWindow(cover);
         if (culprit != g_lastCulprit) logLine("island was covered by %ls; raising it", culprit.c_str());
         g_lastCulprit = culprit;
     }

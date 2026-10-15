@@ -178,6 +178,7 @@ if(WIN32)
         src/platform/stay_on_top.cpp
         src/platform/tray_icon.cpp
         src/platform/watchdog.cpp
+        src/platform/window_name.cpp
         src/platform/wall_clock.cpp
         src/providers/media/app_activation.cpp
         src/providers/media/browser_tabs.cpp
