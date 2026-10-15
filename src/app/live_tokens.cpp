@@ -17,7 +17,7 @@ std::string g_lastText; // skip the duplicate change notifications one save prod
 float g_scale = 1.0f;   // display scale: tokens.json is logical pixels
 Tokens g_file;          // tokens.json as last read without problems, before the theme and scaling
 std::string g_theme;    // the app theme (decision 022)
-std::optional<Color> g_tint; // the playing cover's colour, over the theme (decision 051)
+std::optional<CoverTint> g_tint; // the playing cover's colours, over the theme (decisions 051, 054)
 FadeSpeed g_fadeSpeed = FadeSpeed::Medium; // Settings' pick (decision 053)
 
 void log(const std::string& message)
@@ -54,6 +54,7 @@ namespace {
 bool commit(const std::string& message)
 {
     Tokens themed = withTheme(g_file, g_theme);
+    themed.islandSecondColor = themed.islandColor; // one colour, unless a two-colour cover says otherwise (decision 054)
     if (g_tint) themed = withColors(themed, coverColors(*g_tint, themed));
     Tokens next = scaleTokens(themed, g_scale);
     next.fadeSpeed = g_fadeSpeed;
@@ -114,12 +115,12 @@ bool setTheme(const std::string& name)
     return commit("theme: " + (name.empty() ? std::string("none") : name));
 }
 
-bool setTint(std::optional<Color> cover)
+bool setTint(std::optional<CoverTint> cover)
 {
     g_tint = cover;
     if (!cover) return commit("cover colours off");
-    char rgb[32];
-    std::snprintf(rgb, sizeof rgb, "%d, %d, %d", cover->r, cover->g, cover->b);
+    char rgb[64];
+    std::snprintf(rgb, sizeof rgb, "%d, %d, %d%s", cover->main.r, cover->main.g, cover->main.b, cover->second ? " + a second" : "");
     return commit(std::string("cover colours: ") + rgb);
 }
 

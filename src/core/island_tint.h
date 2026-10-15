@@ -11,16 +11,16 @@
 namespace cup {
 
 // The colour the activities ask for now: the best-ranked one's Content::tint.
-std::optional<Color> wantedTint(const IslandState& state);
+std::optional<CoverTint> wantedTint(const IslandState& state);
 
 struct IslandTint {
-    std::optional<Color> shown; // the island is in this colour's palette; none: the theme's
+    std::optional<CoverTint> shown; // the island is in this cover's palette; none: the theme's
     std::optional<Ms> clearAt;  // ...nobody asks any more: back to the theme at this time
     bool operator==(const IslandTint&) const = default;
 };
 
 // A colour asked for shows at once; none asked for waits coverTintLinger.
-IslandTint nextTint(IslandTint tint, std::optional<Color> wanted, Ms now);
+IslandTint nextTint(IslandTint tint, std::optional<CoverTint> wanted, Ms now);
 
 // When nextTint must run again: the linger's end, if one is running.
 std::optional<Ms> tintDeadline(const IslandTint& tint);

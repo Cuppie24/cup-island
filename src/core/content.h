@@ -238,13 +238,24 @@ Row row(std::initializer_list<Item> items, Align align = Align::Start);
 // A slot is a vertical stack of rows, centred vertically in the slot's frame.
 using Slot = std::vector<Row>;
 
+// What a cover asks the island to look like (decisions 051, 054): its main
+// colour, a second one when the cover clearly has two (the island is then a
+// gradient between them), and how vivid it is (0 muted .. 1 vivid), which
+// sets how strongly the island takes them on.
+struct CoverTint {
+    Color main;
+    std::optional<Color> second;
+    float vividness = 0.5f;
+    bool operator==(const CoverTint&) const = default;
+};
+
 // One activity's content for every presentation (PS §5.1). Empty slots are fine.
 struct Content {
     std::string label; // accessible name, also used in logs and tests
     std::optional<Color> accent; // none: white (decision 010)
     // The island takes on this colour's palette while this is the best-ranked
     // activity asking (media playing: its cover's colour, decision 051).
-    std::optional<Color> tint;
+    std::optional<CoverTint> tint;
     CardLayout card = CardLayout::Standard;
     // Something new needs a look (an update offered, decision 038): a dot on
     // its widget on Home and on its tab, so the way to it is marked.

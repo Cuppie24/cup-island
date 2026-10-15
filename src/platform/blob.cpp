@@ -60,10 +60,9 @@ void addBackground(Compositor const& c, ShapeVisual const& target, CompositionPr
     target.Shapes().Append(backgroundShape);
 }
 
-winrt::Windows::UI::Color fillColor(bool highlighted)
-{
-    return toUiColor(highlighted ? tokens().islandHighlightColor : tokens().islandColor);
-}
+// The fill's two ends: the highlight's colour (a drop target, decision 007) on both, or the island's.
+Color leftColor(bool highlighted) { return highlighted ? tokens().islandHighlightColor : tokens().islandColor; }
+Color rightColor(bool highlighted) { return highlighted ? tokens().islandHighlightColor : tokens().islandSecondColor; }
 
 } // namespace
 
@@ -91,9 +90,17 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     shape_.InsertScalar(L"RightEar", 1.0f);
     bind(c, body_, L"CenterPoint", L"Vector3(pill.Size.X / 2, 0, 0)", body_, shape_);
 
-    fill_ = c.CreateColorBrush(fillColor(false));
-    addBackground(c, body_, shape_, fill_);
-    addEars(c, body_, shape_, fill_); // the flared top corners (decision 025)
+    leftFill_ = c.CreateColorBrush(toUiColor(leftColor(false)));
+    rightFill_ = c.CreateColorBrush(toUiColor(rightColor(false)));
+    leftStop_ = c.CreateColorGradientStop(0.0f, toUiColor(leftColor(false)));
+    rightStop_ = c.CreateColorGradientStop(1.0f, toUiColor(rightColor(false)));
+    gradient_ = c.CreateLinearGradientBrush(); // relative to the background's bounds: its left edge to its right
+    gradient_.StartPoint({ 0.0f, 0.5f });
+    gradient_.EndPoint({ 1.0f, 0.5f });
+    gradient_.ColorStops().Append(leftStop_);
+    gradient_.ColorStops().Append(rightStop_);
+    addBackground(c, body_, shape_, gradient_);
+    addEars(c, body_, shape_, leftFill_, rightFill_); // the flared top corners (decision 025)
 
     // Content lives in a container clipped to the shape's live size, so new
     // content fading in during a grow morph never shows outside it.
@@ -130,8 +137,8 @@ void Blob::buildShadow(Compositor const& c, ContainerVisual const& parent)
     bind(c, outline_, L"Offset", L"pill.Offset", body_, shape_);
     bind(c, outline_, L"CenterPoint", L"pill.CenterPoint", body_, shape_);
     bind(c, outline_, L"Scale", L"pill.Scale", body_, shape_);
-    addBackground(c, outline_, shape_, fill_);
-    addEars(c, outline_, shape_, fill_);
+    addBackground(c, outline_, shape_, gradient_);
+    addEars(c, outline_, shape_, leftFill_, rightFill_);
 
     auto snapshot = c.CreateVisualSurface(); // live: re-rendered as the outline changes, on the compositor
     snapshot.SourceVisual(outline_);
@@ -175,7 +182,7 @@ void Blob::refreshAnimations(bool coloursOnly)
 
     // Colours are tokens too, and every one fades, so a cover's colours or a
     // new theme ease in (decision 051): the fill, the shadow, the marks.
-    if (fill_) fadeColor(fill_, highlighted_ ? t.islandHighlightColor : t.islandColor);
+    if (gradient_) fadeFill(recolorDuration(t));
     if (shadow_) fadeColor(shadow_, t.shadowColor);
     for (Mark* mark : { &selectedTab_, &pinnedTab_ })
         if (mark->brush) fadeColor(mark->brush, t.tabSelectedColor);
@@ -207,10 +214,16 @@ void Blob::setHighlighted(bool on)
 {
     if (on == highlighted_) return;
     highlighted_ = on;
-    auto anim = compositor_.CreateColorKeyFrameAnimation();
-    anim.InsertKeyFrame(1.0f, fillColor(on));
-    anim.Duration(std::max(tokens().hoverFadeDuration, Ms{ 1 }));
-    fill_.StartAnimation(L"Color", anim);
+    fadeFill(tokens().hoverFadeDuration);
+}
+
+void Blob::fadeFill(Ms duration)
+{
+    Color left = leftColor(highlighted_), right = rightColor(highlighted_);
+    fadeColor(leftStop_, left, duration);
+    fadeColor(leftFill_, left, duration);
+    fadeColor(rightStop_, right, duration);
+    fadeColor(rightFill_, right, duration);
 }
 
 void Blob::setSelectedTab(std::optional<Rect> tab, float cornerRadius) { showMark(selectedTab_, tab, cornerRadius, tokens().tabSelectedColor, true); }

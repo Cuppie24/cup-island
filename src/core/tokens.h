@@ -220,20 +220,27 @@ struct Tokens {
     Ms coverTintLinger{ 1500 };          // nothing plays any more: the cover's colours stay this long (a track change pauses for a moment)
     float coverVividSaturation = 0.25f;  // a cover's pixel counts as coloured from this saturation (0..1) up
     float coverMinVivid = 0.05f;         // ...and a cover needs this share of them, or it's grey and the theme stays
-    float coverDarkIsland = 0.2f;        // dark themes: the island's lightness
+    float coverDarkIsland = 0.24f;       // dark themes: the island's lightness
     float coverDarkAccent = 0.72f;       // ...the accent's (progress, waveform, tiles, hover)
     float coverDarkInk = 0.94f;          // ...text and icons'
-    float coverLightIsland = 0.95f;      // light themes: the same three
+    float coverLightIsland = 0.92f;      // light themes: the same three
     float coverLightAccent = 0.58f;
     float coverLightInk = 0.3f;
-    float coverIslandChroma = 0.05f;     // how coloured the island is (0: grey)
-    float coverAccentChroma = 0.17f;     // ...the accent
+    // How coloured the island and the accent are (OKLCH chroma, 0: grey), from
+    // a muted cover to a vivid one (decision 054): [muted, vivid].
+    Vec2 coverIslandChroma{ 0.04f, 0.12f };
+    Vec2 coverAccentChroma{ 0.12f, 0.22f };
+    float coverFullChroma = 0.2f;        // a cover's main colour this vivid (chroma) or more counts as fully vivid
+    float coverSecondShare = 0.3f;       // a second hue needs this share of the main one's weight to make a gradient
     float coverInkChroma = 0.03f;        // ...text and icons: barely, so they read as white or ink
 
     // Colours: every colour the island draws. tokens.json writes [r, g, b] or
     // [r, g, b, alpha], channels 0..255 and alpha 0..1, like CSS rgba().
     Color islandColor{ 0, 0, 0 };
     Color islandHighlightColor{ 46, 46, 46 }; // the pill while the dragged bubble is over it (decision 007)
+    // The island's right end: a gradient from islandColor (decision 054). Not
+    // in tokens.json: islandColor's, unless a two-colour cover sets it.
+    Color islandSecondColor{ 0, 0, 0 };
     Color titleTextColor{ 255, 255, 255 };
     Color bodyTextColor{ 255, 255, 255, 179 };
     Color captionTextColor{ 255, 255, 255, 140 }; // also Digits

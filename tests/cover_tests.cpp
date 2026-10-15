@@ -1,5 +1,5 @@
-// The island in the playing cover's colours (decision 051): the cover's main
-// colour, the palette built from it in every shipped theme, and when it shows.
+// The island in the playing cover's colours (decisions 051, 054): the cover's
+// colours and vividness, the palette built from it in every shipped theme, and when it shows.
 
 #include "core/cover_palette.h"
 #include "core/island_tint.h"
@@ -56,21 +56,36 @@ Color tokenColor(const std::vector<ThemeColor>& colors, const std::string& name)
 void coverColorTests()
 {
     Color red{ 220, 30, 40 }, blue{ 30, 60, 220 }, grey{ 128, 128, 128 }, black{ 0, 0, 0 }, white{ 255, 255, 255 };
-    auto solid = coverColor(cover(red, red, 1));
-    expect(solid && strongest(*solid) == 0, "a red cover is red");
-    expect(!coverColor(cover(grey, grey, 1)), "a grey cover has no colour: the theme stays");
-    expect(!coverColor(cover(black, white, 0.5)), "black and white: no colour");
-    auto logo = coverColor(cover(blue, grey, 0.2));
-    expect(logo && strongest(*logo) == 2, "a blue logo on grey: blue, not grey");
-    auto text = coverColor(cover(red, black, 0.3));
-    expect(text && strongest(*text) == 0, "a red picture with black around it: red");
-    expect(!coverColor(cover(red, grey, 0.01)), "a speck of colour isn't enough");
-    expect(!coverColor(ImageData{}), "no pixels: no colour");
-    expect(!coverColor(ImageData{ .width = 10, .height = 10 }), "too few bytes for its size: no colour");
+    auto solid = coverTint(cover(red, red, 1));
+    expect(solid && strongest(solid->main) == 0 && !solid->second, "a red cover is red, one colour");
+    expect(!coverTint(cover(grey, grey, 1)), "a grey cover has no colour: the theme stays");
+    expect(!coverTint(cover(black, white, 0.5)), "black and white: no colour");
+    auto logo = coverTint(cover(blue, grey, 0.2));
+    expect(logo && strongest(logo->main) == 2 && !logo->second, "a blue logo on grey: blue, not grey");
+    auto text = coverTint(cover(red, black, 0.3));
+    expect(text && strongest(text->main) == 0, "a red picture with black around it: red");
+    expect(!coverTint(cover(red, grey, 0.01)), "a speck of colour isn't enough");
+    expect(!coverTint(ImageData{}), "no pixels: no colour");
+    expect(!coverTint(ImageData{ .width = 10, .height = 10 }), "too few bytes for its size: no colour");
 
     ImageData clear = cover(red, red, 1);
     for (std::size_t i = 3; i < clear.bgra.size(); i += 4) clear.bgra[i] = 0;
-    expect(!coverColor(clear), "see-through pixels don't count");
+    expect(!coverTint(clear), "see-through pixels don't count");
+
+    // Two colours (decision 054): a real second hue makes a gradient; a stray one doesn't.
+    auto duo = coverTint(cover(red, blue, 0.6));
+    expect(duo && strongest(duo->main) == 0 && duo->second && strongest(*duo->second) == 2, "red and blue: red, then blue");
+    auto stray = coverTint(cover(red, blue, 0.9));
+    expect(stray && !stray->second, "a little blue in a red cover: one colour");
+    Color orange{ 230, 110, 30 };
+    auto neighbours = coverTint(cover(red, orange, 0.5));
+    expect(neighbours && !neighbours->second, "red and orange are one hue's neighbourhood: no gradient");
+
+    // Vividness: a neon cover is fully vivid, a dusty one much less.
+    auto neon = coverTint(cover({ 255, 0, 60 }, { 255, 0, 60 }, 1));
+    auto dusty = coverTint(cover({ 150, 110, 105 }, { 150, 110, 105 }, 1));
+    expect(neon && neon->vividness > 0.9f, "a neon cover: fully vivid");
+    expect(dusty && dusty->vividness < 0.5f, "a dusty cover: muted");
 }
 
 void paletteTests()
@@ -86,12 +101,13 @@ void paletteTests()
         Tokens themed = withTheme(parsed.tokens, theme.name);
         for (Color c : { Color{ 230, 40, 40 }, Color{ 240, 200, 30 }, Color{ 40, 200, 70 }, Color{ 30, 200, 220 },
                          Color{ 40, 70, 230 }, Color{ 200, 40, 220 } }) {
-            Tokens tinted = withColors(themed, coverColors(c, themed));
+            Tokens tinted = withColors(themed, coverColors({ .main = c, .second = Color{ c.b, c.r, c.g }, .vividness = 1 }, themed));
             std::string what = theme.name + " around " + std::to_string(c.r) + "," + std::to_string(c.g) + "," + std::to_string(c.b);
             expect((brightness(tinted.islandColor) > 127.5) == theme.light, "keeps its lightness: " + what);
-            expect(contrast(tinted.titleTextColor, tinted.islandColor) >= 7 && contrast(tinted.bodyTextColor, tinted.islandColor) >= 4.5 &&
-                       contrast(tinted.captionTextColor, tinted.islandColor) >= 3,
-                   "readable text: " + what);
+            for (Color under : { tinted.islandColor, tinted.islandSecondColor }) // both ends of the gradient
+                expect(contrast(tinted.titleTextColor, under) >= 7 && contrast(tinted.bodyTextColor, under) >= 4.5 &&
+                           contrast(tinted.captionTextColor, under) >= 3,
+                       "readable text: " + what);
             expect(contrast(tinted.liveColor, tinted.islandColor) >= 2, "the accent shows on the island: " + what);
             expect(tinted.shadowColor == themed.shadowColor && tinted.dangerColor == themed.dangerColor,
                    "the shadow and danger red stay the theme's: " + what);
@@ -99,20 +115,31 @@ void paletteTests()
     }
 
     Tokens midnight = withTheme(parsed.tokens, "Midnight");
-    auto red = coverColors({ 220, 30, 40 }, midnight);
+    auto red = coverColors({ .main = { 220, 30, 40 }, .vividness = 1 }, midnight);
     Color island = tokenColor(red, "islandColor");
     expect(island.r > island.b && island.r > island.g && brightness(island) < 60, "a dark theme: a near-black tinted red");
     expect(tokenColor(red, "bodyTextColor").a == midnight.bodyTextColor.a, "opacities stay the theme's");
     expect(strongest(tokenColor(red, "liveColor")) == 0, "the accent is the cover's colour");
 
     Tokens scaled = scaleTokens(parsed.tokens, 2);
-    expect(scaled.coverDarkIsland == parsed.tokens.coverDarkIsland, "lightnesses aren't lengths: not scaled");
+    expect(scaled.coverDarkIsland == parsed.tokens.coverDarkIsland && scaled.coverIslandChroma == parsed.tokens.coverIslandChroma,
+           "lightnesses and chromas aren't lengths: not scaled");
+    expect(tokenColor(red, "islandSecondColor") == island, "one colour: the island's ends match");
+
+    // Vividness sets the strength: a vivid cover, a richer island than a muted one of the same hue.
+    auto chromaOf = [](Color c) { return std::max({ c.r, c.g, c.b }) - std::min({ c.r, c.g, c.b }); };
+    Color vividIsland = tokenColor(coverColors({ .main = { 220, 30, 40 }, .vividness = 1 }, midnight), "islandColor");
+    Color mutedIsland = tokenColor(coverColors({ .main = { 220, 30, 40 }, .vividness = 0 }, midnight), "islandColor");
+    expect(chromaOf(vividIsland) > chromaOf(mutedIsland), "vivid cover, richer island");
+    auto duo = coverColors({ .main = { 220, 30, 40 }, .second = Color{ 30, 60, 220 }, .vividness = 1 }, midnight);
+    expect(strongest(tokenColor(duo, "islandSecondColor")) == 2 && strongest(tokenColor(duo, "islandColor")) == 0,
+           "two colours: the island runs from red to blue");
 }
 
 void tintTests()
 {
     Ms t{ 10000 };
-    Color red{ 200, 0, 0 }, blue{ 0, 0, 200 };
+    CoverTint red{ .main = { 200, 0, 0 } }, blue{ .main = { 0, 0, 200 } };
     IslandState state;
     state.activities.push_back({ .id = "timer" });
     state.activities.push_back({ .id = "media", .content = { .tint = red } });

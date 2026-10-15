@@ -4,14 +4,14 @@
 
 namespace cup {
 
-std::optional<Color> wantedTint(const IslandState& state)
+std::optional<CoverTint> wantedTint(const IslandState& state)
 {
     for (const Activity& activity : state.activities)
         if (activity.content.tint) return activity.content.tint;
     return std::nullopt;
 }
 
-IslandTint nextTint(IslandTint tint, std::optional<Color> wanted, Ms now)
+IslandTint nextTint(IslandTint tint, std::optional<CoverTint> wanted, Ms now)
 {
     if (wanted) return { wanted, std::nullopt };
     if (!tint.shown) return {};
