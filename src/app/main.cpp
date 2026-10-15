@@ -294,7 +294,7 @@ void dispatch(const Event& event, const char* reason)
     updateHover();
 
     // The island in the playing cover's colours, or the theme's (decision 051).
-    IslandTint tint = nextTint(g_tint, g_coverColours ? wantedTint(g_state) : std::nullopt, t);
+    IslandTint tint = nextTint(g_tint, g_coverColours ? wantedTint(g_state) : WantedTint{}, t);
     bool recolour = tint.shown != g_tint.shown;
     g_tint = tint;
 

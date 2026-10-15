@@ -4,17 +4,17 @@
 
 namespace cup {
 
-std::optional<CoverTint> wantedTint(const IslandState& state)
+WantedTint wantedTint(const IslandState& state)
 {
     for (const Activity& activity : state.activities)
-        if (activity.content.tint) return activity.content.tint;
-    return std::nullopt;
+        if (activity.content.tint || activity.content.tintComing) return { activity.content.tint, activity.content.tintComing };
+    return {};
 }
 
-IslandTint nextTint(IslandTint tint, std::optional<CoverTint> wanted, Ms now)
+IslandTint nextTint(IslandTint tint, const WantedTint& wanted, Ms now)
 {
-    if (wanted) return { wanted, std::nullopt };
-    if (!tint.shown) return {};
+    if (wanted.tint) return { wanted.tint, std::nullopt };
+    if (!tint.shown || !wanted.coming) return {}; // paused, gone, switched off: the theme now
     if (!tint.clearAt) tint.clearAt = now + tokens().coverTintLinger;
     if (now >= *tint.clearAt) return {};
     return tint;
