@@ -91,7 +91,10 @@ const auto g_startTime = std::chrono::steady_clock::now();
 IslandState g_state;
 Scene g_scene;
 IslandTint g_tint; // the playing cover's colour on the island (decision 051)
-bool g_coverColours = true; // ...if Settings has it on (decision 052)
+bool g_coverColours = false; // ...if Settings has it on (decision 052; off by default, 055)
+bool g_coverGradient = false; // a two-colour cover as a gradient, if on (decision 055)
+IslandBackdrop g_backdrop;    // the blurred cover behind the island (decision 055)...
+bool g_coverBackdrop = false; // ...if on
 PillRenderer g_renderer;
 HWND g_inputHwnd{};
 std::filesystem::path g_tokensFile;
@@ -294,12 +297,19 @@ void dispatch(const Event& event, const char* reason)
     updateHover();
 
     // The island in the playing cover's colours, or the theme's (decision 051).
-    IslandTint tint = nextTint(g_tint, g_coverColours ? wantedTint(g_state) : std::nullopt, t);
+    std::optional<CoverTint> wanted = g_coverColours ? wantedTint(g_state) : std::nullopt;
+    if (wanted && !g_coverGradient) wanted->second.reset(); // one colour unless the gradient is on (decision 055)
+    IslandTint tint = nextTint(g_tint, wanted, t);
     bool recolour = tint.shown != g_tint.shown;
     g_tint = tint;
 
     // One timer for everything time-based: core deadlines, ticking labels and provider wake-ups.
-    auto deadline = earliest(earliest(nextDeadline(g_state), sceneDeadline(g_scene)), tintDeadline(g_tint));
+    // The blurred cover behind the island (decision 055): the same timing as the tint.
+    IslandBackdrop backdrop = nextBackdrop(g_backdrop, g_coverBackdrop ? wantedBackdrop(g_state) : nullptr, t);
+    if (backdrop.shown != g_backdrop.shown) g_renderer.setBackdrop(backdrop.shown);
+    g_backdrop = backdrop;
+
+    auto deadline = earliest(earliest(nextDeadline(g_state), sceneDeadline(g_scene)), earliest(tintDeadline(g_tint), g_backdrop.clearAt));
     if (g_providers) deadline = earliest(deadline, g_providers->nextWake());
     setTimer(TimerId::Deadline, deadline ? std::optional<Ms>(std::max(*deadline - t, Ms{ 0 })) : std::nullopt);
 
@@ -854,6 +864,25 @@ void setCoverColours(bool on)
     else dispatch(Tick{}, "cover colours");
 }
 
+// A two-colour cover as a gradient, or one colour (decision 055): the next
+// dispatch asks for the tint again, with or without its second colour.
+void setCoverGradient(bool on)
+{
+    g_coverGradient = on;
+    dispatch(Tick{}, "cover gradient");
+}
+
+// The blurred cover behind the island (decision 055). Off, it goes at once.
+void setCoverBackdrop(bool on)
+{
+    g_coverBackdrop = on;
+    if (!on && g_backdrop.shown) {
+        g_backdrop = {};
+        g_renderer.setBackdrop(nullptr);
+    }
+    dispatch(Tick{}, "cover backdrop");
+}
+
 // The Settings card picked a theme: recolour everything (decision 022).
 void applyTheme(const std::string& name)
 {
@@ -980,6 +1009,8 @@ int main()
         .placeTabRow = [](bool top) { dispatch(TabRowPlaced{ top }, top ? "tab row on top" : "tab row at the bottom"); }, // decision 048
         .setCoverColours = setCoverColours, // decision 052
         .setFadeSpeed = [](FadeSpeed speed) { app::setFadeSpeed(speed); }, // decision 053: read when a fade starts
+        .setCoverGradient = setCoverGradient, // decision 055
+        .setCoverBackdrop = setCoverBackdrop,
     });
     g_settings = settings.get();
     g_settings->setHotkeysActive(!g_state.hidden); // started under a fullscreen app: none until it's gone

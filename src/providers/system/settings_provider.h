@@ -51,6 +51,9 @@ struct SettingsHooks {
     std::function<void(bool on)> setCoverColours;
     // How fast colours fade, cover to cover and theme to theme (decision 053). Empty: no choice.
     std::function<void(FadeSpeed)> setFadeSpeed;
+    // A two-colour cover as a gradient, and the blurred cover behind the island (decision 055). Empty: no row.
+    std::function<void(bool on)> setCoverGradient;
+    std::function<void(bool on)> setCoverBackdrop;
     // What can be tagged "New" (decision 048): the shipped list, unless a test brings its own.
     std::vector<SettingItem> announced = announcedSettings();
 };
@@ -97,7 +100,9 @@ public:
     static constexpr const char* kAutostartKey = "autostart";
     static constexpr const char* kShortcutsKey = "shortcuts"; // saveBindings' text
     static constexpr const char* kTabRowKey = "tabrow";       // "top" or "bottom" ("": top)
-    static constexpr const char* kCoverColoursKey = "covercolours"; // "on" or "off" ("": on, decision 052)
+    static constexpr const char* kCoverColoursKey = "covercolours"; // "on" or "off" ("": off since decision 055)
+    static constexpr const char* kCoverGradientKey = "covergradient"; // "on" or "off" ("": off, decision 055)
+    static constexpr const char* kCoverBackdropKey = "coverbackdrop"; // "on" or "off" ("": off, decision 055)
     static constexpr const char* kFadeKey = "fade";           // "fast", "medium" or "slow" ("": medium, decision 053)
     static constexpr const char* kSeenKey = "seen";           // "seen1", then the announced settings seen, one id per line
 
@@ -129,7 +134,9 @@ private:
     std::string shortcutNote_;
     UpdateNote updateNote_;
     bool tabsOnTop_ = true;
-    bool coverColours_ = true;
+    bool coverColours_ = false; // the music-colour options are all off until turned on (decision 055)
+    bool coverGradient_ = false;
+    bool coverBackdrop_ = false;
     FadeSpeed fadeSpeed_ = FadeSpeed::Medium;
     std::set<std::string> seen_;     // announced settings seen in earlier visits (decision 048)
     std::set<std::string> seeing_;   // ...and shown during this one: seen once the card closes

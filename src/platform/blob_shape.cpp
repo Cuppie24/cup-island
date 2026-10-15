@@ -18,6 +18,18 @@ void bindToBlob(Compositor const& c, CompositionObject const& target, std::wstri
     target.StartAnimation(property, anim);
 }
 
+CompositionRoundedRectangleGeometry islandGeometry(Compositor const& c, ShapeVisual const& body, CompositionPropertySet const& shape)
+{
+    auto geometry = c.CreateRoundedRectangleGeometry();
+    bindToBlob(c, geometry, L"CornerRadius",
+        L"Vector2(Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius), Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))",
+        body, shape);
+    bindToBlob(c, geometry, L"Offset", L"Vector2(0, -shape.Attached * Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))", body, shape);
+    bindToBlob(c, geometry, L"Size",
+        L"Vector2(pill.Size.X, pill.Size.Y + shape.Attached * Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))", body, shape);
+    return geometry;
+}
+
 void addEars(Compositor const& c, ShapeVisual const& body, CompositionPropertySet const& shape, CompositionBrush const& leftFill,
              CompositionBrush const& rightFill)
 {

@@ -25,4 +25,16 @@ IslandTint nextTint(IslandTint tint, std::optional<CoverTint> wanted, Ms now);
 // When nextTint must run again: the linger's end, if one is running.
 std::optional<Ms> tintDeadline(const IslandTint& tint);
 
+// The blurred cover behind the island (decision 055), by the same rules: the
+// best-ranked activity's shows at once; none wanted, it stays coverTintLinger.
+std::shared_ptr<const ImageData> wantedBackdrop(const IslandState& state);
+
+struct IslandBackdrop {
+    std::shared_ptr<const ImageData> shown;
+    std::optional<Ms> clearAt;
+    bool operator==(const IslandBackdrop&) const = default;
+};
+
+IslandBackdrop nextBackdrop(IslandBackdrop backdrop, std::shared_ptr<const ImageData> wanted, Ms now);
+
 } // namespace cup

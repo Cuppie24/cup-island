@@ -26,6 +26,7 @@ add_library(cup_core STATIC
     src/core/badges.cpp
     src/core/card_overlays.cpp
     src/core/content.cpp
+    src/core/cover_backdrop.cpp
     src/core/cover_palette.cpp
     src/core/dialog.cpp
     src/core/easing.cpp
@@ -151,6 +152,7 @@ if(WIN32)
         src/app/live_tokens.cpp
         src/app/main.cpp
         src/platform/autostart.cpp
+        src/platform/backdrop_layer.cpp
         src/platform/badge_dots.cpp
         src/platform/blob.cpp
         src/platform/blob_motion.cpp

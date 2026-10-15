@@ -1,6 +1,7 @@
 // The island in the playing cover's colours (decisions 051, 054): the cover's
 // colours and vividness, the palette built from it in every shipped theme, and when it shows.
 
+#include "core/cover_backdrop.h"
 #include "core/cover_palette.h"
 #include "core/island_tint.h"
 #include "core/tokens_json.h"
@@ -172,10 +173,52 @@ void nowPlayingTests()
     expect(!nowPlayingContent(bare).tint, "no cover: the theme");
 }
 
+// The blurred cover (decision 055): small, opaque, smooth, the cover's colours.
+void backdropTests()
+{
+    // A 64x64 cover, left half red, right half blue.
+    ImageData split{ .width = 64, .height = 64 };
+    for (int y = 0; y < 64; ++y)
+        for (int x = 0; x < 64; ++x) split.bgra.insert(split.bgra.end(), x < 32 ? std::initializer_list<std::uint8_t>{ 40, 30, 220, 255 }
+                                                                                 : std::initializer_list<std::uint8_t>{ 220, 60, 30, 255 });
+    ImageData blurred = blurredCover(split);
+    int size = static_cast<int>(tokens().coverBackdropSize);
+    expect(blurred.width == size && blurred.height == size && blurred.bgra.size() == static_cast<std::size_t>(size * size * 4),
+           "backdrop: shrunk to coverBackdropSize");
+    bool opaque = true;
+    for (std::size_t i = 3; i < blurred.bgra.size(); i += 4) opaque = opaque && blurred.bgra[i] == 255;
+    expect(opaque, "backdrop: opaque");
+    auto red = [&](int x) { return blurred.bgra[static_cast<std::size_t>((size / 2 * size + x) * 4 + 2)]; };
+    expect(red(0) > red(size / 2) && red(size / 2) > red(size - 1) && red(size / 2 - 1) - red(size / 2) < 40,
+           "backdrop: red on the left, blue on the right, the edge between them soft");
+    ImageData flat = blurredCover(cover({ 220, 30, 40 }, { 220, 30, 40 }, 1));
+    expect(flat.width == 10 && flat.bgra[2] == 220 && flat.bgra[0] == 40, "backdrop: a small cover stays its size; one colour stays that colour");
+    expect(blurredCover(ImageData{}).bgra.empty(), "backdrop: nothing from nothing");
+
+    // Shown like the tint: at once, and lingering a moment after it's gone.
+    auto picture = std::make_shared<const ImageData>(flat);
+    IslandState state;
+    state.activities.push_back({ .id = "media", .content = { .backdrop = picture } });
+    expect(wantedBackdrop(state) == picture && !wantedBackdrop(IslandState{}), "backdrop: the playing activity's");
+    Ms t{ 1000 };
+    IslandBackdrop shown = nextBackdrop({}, picture, t);
+    expect(shown.shown == picture && !shown.clearAt, "backdrop: shows at once");
+    shown = nextBackdrop(shown, nullptr, t);
+    expect(shown.shown == picture && shown.clearAt == t + tokens().coverTintLinger, "backdrop: paused, it lingers");
+    expect(!nextBackdrop(shown, nullptr, t + tokens().coverTintLinger).shown, "backdrop: then goes");
+
+    NowPlaying playing{ .title = "T", .backdrop = picture };
+    playing.timeline.playing = true;
+    expect(nowPlayingContent(playing).backdrop == picture, "backdrop: in the content while playing");
+    playing.timeline.playing = false;
+    expect(!nowPlayingContent(playing).backdrop, "backdrop: not while paused");
+}
+
 } // namespace
 
 void runCoverTests()
 {
+    backdropTests();
     coverColorTests();
     paletteTests();
     tintTests();

@@ -11,6 +11,7 @@
 #include "platform/win.h"
 
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
@@ -28,6 +29,9 @@ public:
     // reload, a theme, a cover's colours). Colours fade; if only colours
     // changed, content is recoloured in place instead of rebuilt.
     void refreshAnimations();
+
+    // The blurred cover behind the pill's content (decision 055); nullptr: none.
+    void setBackdrop(const std::shared_ptr<const ImageData>& image) { pill_.setBackdrop(image); }
 
     // A Text's width with the real font, for layout() (core's MeasureText).
     // Cached per string and style; a tokens reload clears it (font sizes).
