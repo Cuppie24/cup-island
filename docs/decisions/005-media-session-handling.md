@@ -21,6 +21,12 @@ art and timelines unreliably, and their events arrive on background threads.
   also triggers a re-check, plus one more `mediaSessionRecheckMs` (300 ms)
   later, because Windows can update its current session just after the
   playback event.
+- **Keep watched sessions alive:** every session's PlaybackInfoChanged is
+  watched, and each watcher holds its session object. A C++/WinRT revoker
+  holds only a weak reference: without the strong one the object was freed
+  at once and never raised the event, so a pause (in an app whose
+  properties weren't changing) showed only at its next timeline update,
+  ~5 s later with Spotify.
 - **Threading:** event handlers only post to the UI thread. All reads happen
   in coroutines started on the UI thread, which resume there. A generation
   counter drops stale reads, and a shared `alive` flag makes callbacks after

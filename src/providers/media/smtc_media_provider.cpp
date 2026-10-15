@@ -90,11 +90,12 @@ void SmtcMediaProvider::watchAllSessions()
 {
     playbackWatchers_.clear(); // revokes the old subscriptions
     for (auto const& s : manager_.GetSessions())
-        playbackWatchers_.push_back(s.PlaybackInfoChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::onPlaybackChanged)));
+        playbackWatchers_.push_back({ s, s.PlaybackInfoChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::onPlaybackChanged)) });
 }
 
 void SmtcMediaProvider::onPlaybackChanged()
 {
+    platform::logLine("media: playback changed"); // play/pause from any app: should show on the island at once
     pickSession();
     recheckSoon(alive_);
 }
