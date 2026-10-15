@@ -164,7 +164,6 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         view.surface = device_->createSurface(size);
         ButtonParts parts = createButton(compositor_, size, placed.cornerRadius, view.surface, hoverColorOf(placed));
         view.visual = parts.visual;
-        view.pixels = parts.glyph;
         view.hover = parts.hover;
         view.highlight = placed.litByRow ? nullptr : parts.highlight; // lit by its row instead (Placed::litByRow): stays hidden
     } else if (clickableArt(placed.item)) {
@@ -189,7 +188,6 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
             sprite.Brush(compositor_.CreateSurfaceBrush(view.surface));
         }
         view.visual = sprite;
-        if (!std::holds_alternative<Image>(placed.item)) view.pixels = sprite; // a picture has no theme colours
     }
     place(view);
     view.visual.Size(toFloat2(pixelSize(visualSize)));
@@ -266,16 +264,8 @@ void ElementVisuals::recolor(View& view)
         fadeColor(view.toggle.track, switchTrackColor(on));
         fadeColor(view.toggle.knobBrush, switchKnobColor(on));
     }
-    if (!view.surface) return;
-    if (!view.pixels) { // art: its picture doesn't change, its hover glyph is hidden
-        paint(view);
-        return;
-    }
-    // Text and icons: painted afresh in a new surface, the old pixels fading out over it.
-    auto size = view.surface.Size();
-    view.surface = device_->createSurface({ size.Width, size.Height });
-    paint(view);
-    crossfadeSurface(view.pixels, view.surface);
+    // Text and icons are pixels in a surface: redrawn in their new colours at once.
+    if (view.surface) paint(view);
 }
 
 void ElementVisuals::paint(View& view)

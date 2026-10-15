@@ -74,42 +74,6 @@ void fadeColor(CompositionObject const& target, const Color& color, Ms duration)
     target.StartAnimation(L"Color", anim);
 }
 
-void crossfadeSurface(SpriteVisual const& host, CompositionDrawingSurface const& fresh)
-{
-    auto c = host.Compositor();
-    auto mask = host.Brush().try_as<CompositionMaskBrush>(); // swimming text (createMarqueeBrush)
-    auto shown = (mask ? mask.Source() : host.Brush()).try_as<CompositionSurfaceBrush>();
-    if (!shown) return;
-    auto old = c.CreateSurfaceBrush(shown.Surface());
-    old.Stretch(shown.Stretch());
-    old.HorizontalAlignmentRatio(shown.HorizontalAlignmentRatio());
-    old.VerticalAlignmentRatio(shown.VerticalAlignmentRatio());
-    CompositionBrush ghostBrush = old;
-    if (mask) { // the old copy swims with the new one, under the same soft edges
-        auto follow = c.CreateExpressionAnimation(L"shown.Offset");
-        follow.SetReferenceParameter(L"shown", shown);
-        old.StartAnimation(L"Offset", follow);
-        auto masked = c.CreateMaskBrush();
-        masked.Source(old);
-        masked.Mask(mask.Mask());
-        ghostBrush = masked;
-    }
-    auto ghost = c.CreateSpriteVisual();
-    ghost.RelativeSizeAdjustment({ 1.0f, 1.0f });
-    ghost.Brush(ghostBrush);
-    host.Children().InsertAtTop(ghost); // old over new: where the glyphs overlap, the mix is exact
-    shown.Surface(fresh);
-
-    // The colour fade's duration and (default) easing, so text keeps pace with the shapes.
-    auto batch = c.CreateScopedBatch(CompositionBatchTypes::Animation);
-    auto anim = c.CreateScalarKeyFrameAnimation();
-    anim.InsertKeyFrame(1.0f, 0.0f);
-    anim.Duration(atLeast1(recolorDuration(tokens())));
-    ghost.StartAnimation(L"Opacity", anim);
-    batch.End();
-    batch.Completed([host, ghost](auto&&, auto&&) { host.Children().Remove(ghost); });
-}
-
 void playScale(Compositor const& c, Visual const& visual, float scale, Ms duration, Bezier curve)
 {
     auto anim = c.CreateVector3KeyFrameAnimation();
@@ -314,7 +278,6 @@ ButtonParts createButton(Compositor const& c, Vec2 frame, float cornerRadius, Co
     auto glyphVisual = c.CreateSpriteVisual();
     glyphVisual.Brush(c.CreateSurfaceBrush(glyph));
     glyphVisual.Size(toFloat2(frame));
-    parts.glyph = glyphVisual;
 
     parts.visual = c.CreateContainerVisual();
     parts.visual.Children().InsertAtTop(parts.highlight);

@@ -22,7 +22,7 @@ public:
     void init(wuc::Compositor const& compositor, GraphicsDevice& device, wuc::ContainerVisual const& parent);
     void apply(const std::vector<Placed>& elements, Ms now);
     // Tokens changed. Colours only (a theme, a cover): shapes fade to the new
-    // colours and text crossfades to them. Anything else (tokens.json, display
+    // colours and text is redrawn in place. Anything else (tokens.json, display
     // scale): every visual is dropped, so the next apply() rebuilds it.
     void refresh(bool coloursOnly);
 
@@ -40,7 +40,6 @@ private:
         wuc::Visual visual{ nullptr };
         float lead = 0; // the visual starts this far left of the frame (knob overhang, marquee fade)
         wuc::CompositionDrawingSurface surface{ nullptr };          // text, icon, button glyph, image
-        wuc::SpriteVisual pixels{ nullptr };                        // shows it (not art): a recolour crossfades it
         float marqueeWidth = 0;                                     // > 0: swimming text, one copy's width
         wuc::Visual highlight{ nullptr };                           // button hover shape
         ArtParts art;                                               // clickable art: hover dim + "open" glyph
