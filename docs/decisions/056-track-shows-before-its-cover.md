@@ -12,9 +12,11 @@ the old title stayed for up to a second.
   its old cover dropped (it's wrong for it), with the placeholder until
   its own is read. Chrome's late picture is still re-read once
   `mediaArtRecheckMs` after the change.
-- A changed picture fades in over the old one (or the placeholder) over
-  `mediaArtFadeMs` (400 ms; `fadeInSurface`): painted in a fresh surface
-  shown on top, which the element keeps once the fade ends. Any Image
+- A changed picture crossfades from the old one (or the placeholder) over
+  `mediaArtFadeMs` (400 ms; `fadeInSurface`): the element shows it at
+  once, under a copy of the old picture fading out. Not new over old: the
+  new picture's antialiased rounded edge let the old one's show through
+  as a thin light rim until the fade ended. Any Image
   does this, not only media art.
 
 **Consequences.** A track's alert can appear without its picture, which
