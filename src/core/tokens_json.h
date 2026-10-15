@@ -40,4 +40,9 @@ Tokens withTheme(const Tokens& tokens, const std::string& name);
 // cover's palette (core/cover_palette.h, decision 051). Unknown names are skipped.
 Tokens withColors(const Tokens& tokens, const std::vector<ThemeColor>& colors);
 
+// True if `a` and `b` differ in colours only (or not at all): a theme pick or
+// a cover's tint. The renderer then fades its shapes to the new colours
+// instead of rebuilding them.
+bool onlyColorsDiffer(const Tokens& a, const Tokens& b);
+
 } // namespace cup

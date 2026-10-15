@@ -57,13 +57,13 @@ void fadeTo(Compositor const& c, Visual const& visual, float opacity, Ms duratio
     visual.StartAnimation(L"Opacity", anim);
 }
 
-void fadeColor(CompositionColorBrush const& brush, const Color& color)
+void fadeColor(CompositionObject const& target, const Color& color)
 {
     // Animated from wherever it is, so a fade cut short by the next one carries on smoothly.
-    auto anim = brush.Compositor().CreateColorKeyFrameAnimation();
+    auto anim = target.Compositor().CreateColorKeyFrameAnimation();
     anim.InsertKeyFrame(1.0f, toUiColor(color));
     anim.Duration(atLeast1(tokens().recolorDuration));
-    brush.StartAnimation(L"Color", anim);
+    target.StartAnimation(L"Color", anim);
 }
 
 void playScale(Compositor const& c, Visual const& visual, float scale, Ms duration, Bezier curve)
@@ -94,8 +94,11 @@ ProgressParts createProgress(Compositor const& c, Vec2 frame, const Color& accen
 
     ProgressParts parts;
     parts.visual = c.CreateShapeVisual();
-    parts.visual.Shapes().Append(bar(frame.x, brushOf(c, t.trackColor)).second);
-    auto [fill, fillShape] = bar(0, brushOf(c, accent));
+    parts.track = brushOf(c, t.trackColor);
+    parts.accent = brushOf(c, accent);
+    parts.knobBrush = brushOf(c, t.knobColor);
+    parts.visual.Shapes().Append(bar(frame.x, parts.track).second);
+    auto [fill, fillShape] = bar(0, parts.accent);
     parts.visual.Shapes().Append(fillShape);
     parts.fill = fill;
 
@@ -108,7 +111,7 @@ ProgressParts createProgress(Compositor const& c, Vec2 frame, const Color& accen
     center.SetReferenceParameter(L"fill", fill);
     knob.StartAnimation(L"Center", center);
     parts.knob = c.CreateSpriteShape(knob);
-    parts.knob.FillBrush(brushOf(c, t.knobColor));
+    parts.knob.FillBrush(parts.knobBrush);
     parts.knob.StartAnimation(L"CenterPoint", center); // grows from its own middle
     parts.knob.Scale({ 0.0f, 0.0f });
     parts.visual.Shapes().Append(parts.knob);
@@ -166,8 +169,10 @@ RingParts createRing(Compositor const& c, Vec2 frame, const Color& accent)
 
     RingParts parts;
     parts.visual = c.CreateShapeVisual();
-    parts.visual.Shapes().Append(circle(brushOf(c, tokens().trackColor)).second);
-    auto [arc, arcShape] = circle(brushOf(c, accent));
+    parts.track = brushOf(c, tokens().trackColor);
+    parts.accent = brushOf(c, accent);
+    parts.visual.Shapes().Append(circle(parts.track).second);
+    auto [arc, arcShape] = circle(parts.accent);
     // An ellipse's path starts at 3 o'clock: turn it so the arc starts at 12.
     arcShape.CenterPoint(centre);
     arcShape.RotationAngleInDegrees(-90.0f);
@@ -202,6 +207,7 @@ WaveformParts createWaveform(Compositor const& c, Vec2 frame, const Color& accen
 
     WaveformParts parts;
     parts.visual = c.CreateShapeVisual();
+    parts.accent = brushOf(c, accent);
     for (size_t i = 0; i < count; ++i) {
         auto bar = c.CreateRoundedRectangleGeometry();
         bar.CornerRadius({ w / 2, w / 2 });
@@ -213,7 +219,7 @@ WaveformParts createWaveform(Compositor const& c, Vec2 frame, const Color& accen
         offset.SetScalarParameter(L"height", frame.y);
         bar.StartAnimation(L"Offset", offset);
         auto shape = c.CreateSpriteShape(bar);
-        shape.FillBrush(brushOf(c, accent));
+        shape.FillBrush(parts.accent);
         parts.visual.Shapes().Append(shape);
         parts.bars.push_back(bar);
     }
@@ -251,10 +257,11 @@ ButtonParts createButton(Compositor const& c, Vec2 frame, float cornerRadius, Co
     auto shape = c.CreateRoundedRectangleGeometry();
     shape.Size(toFloat2(frame));
     shape.CornerRadius({ cornerRadius, cornerRadius });
-    auto fill = c.CreateSpriteShape(shape);
-    fill.FillBrush(brushOf(c, hover));
-
     ButtonParts parts;
+    parts.hover = brushOf(c, hover);
+    auto fill = c.CreateSpriteShape(shape);
+    fill.FillBrush(parts.hover);
+
     parts.highlight = c.CreateShapeVisual();
     parts.highlight.Size(toFloat2(frame));
     parts.highlight.Shapes().Append(fill);

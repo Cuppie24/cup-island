@@ -148,6 +148,15 @@ void runTokensTests()
     asWritten.islandScale = 1.0f;
     expect(scaleTokens(asWritten, 1.0f) == asWritten, "100% and islandScale 1: the sizes as written");
     expect(scaleTokens(d, 1.0f).expandedSize.x == d.expandedSize.x * d.islandScale, "islandScale alone makes it more compact");
+
+    // Colour-only changes (a theme, a cover) fade; anything else rebuilds.
+    Tokens recoloured = d;
+    recoloured.islandColor = { 10, 20, 30 };
+    recoloured.trackColor = { 200, 0, 0, 90 };
+    expect(onlyColorsDiffer(d, recoloured) && onlyColorsDiffer(d, d), "colours only (or nothing): a fade");
+    Tokens resized = recoloured;
+    resized.progressHeight += 1;
+    expect(!onlyColorsDiffer(d, resized), "a size too: a rebuild");
 }
 
 } // namespace cup::test

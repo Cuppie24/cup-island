@@ -368,6 +368,14 @@ Tokens withTheme(const Tokens& t, const std::string& name)
     return t;
 }
 
+bool onlyColorsDiffer(const Tokens& a, const Tokens& b)
+{
+    Tokens mixed = b;
+    for (const Field& f : kFields)
+        if (auto* member = std::get_if<Color Tokens::*>(&f.member)) mixed.*(*member) = a.*(*member);
+    return mixed == a;
+}
+
 Tokens withColors(const Tokens& t, const std::vector<ThemeColor>& colors)
 {
     Tokens out = t;

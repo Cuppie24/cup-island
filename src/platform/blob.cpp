@@ -108,7 +108,7 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     parent.Children().InsertAtTop(body_);
 
     // Attached last, so the initial Size/Offset above don't animate.
-    refreshAnimations();
+    refreshAnimations(false);
 }
 
 void Blob::buildShadow(Compositor const& c, ContainerVisual const& parent)
@@ -161,16 +161,31 @@ void Blob::applyShadow()
     shadow_.Offset(toFloat3(t.shadowOffset));
 }
 
-void Blob::refreshAnimations()
+void Blob::refreshAnimations(bool coloursOnly)
 {
+    const Tokens& t = tokens();
     implicit_ = morphAnimations(compositor_);
     body_.ImplicitAnimations(implicit_);
-    applyShadow();
-    shape_.InsertScalar(L"MaxRadius", tokens().maxCornerRadius);
-    shape_.InsertScalar(L"FlareRadius", tokens().flareRadius);
-    // Colours are tokens too; the fill fades, so a cover's colours ease in (decision 051).
-    if (fill_) fadeColor(fill_, highlighted_ ? tokens().islandHighlightColor : tokens().islandColor);
-    elements_.refresh();
+    if (shadow_) {
+        shadow_.BlurRadius(t.shadowBlur);
+        shadow_.Offset(toFloat3(t.shadowOffset));
+    }
+    shape_.InsertScalar(L"MaxRadius", t.maxCornerRadius);
+    shape_.InsertScalar(L"FlareRadius", t.flareRadius);
+
+    // Colours are tokens too, and every one fades, so a cover's colours or a
+    // new theme ease in (decision 051): the fill, the shadow, the marks.
+    if (fill_) fadeColor(fill_, highlighted_ ? t.islandHighlightColor : t.islandColor);
+    if (shadow_) fadeColor(shadow_, t.shadowColor);
+    for (Mark* mark : { &selectedTab_, &pinnedTab_ })
+        if (mark->brush) fadeColor(mark->brush, t.tabSelectedColor);
+    if (hovered_.brush) fadeColor(hovered_.brush, t.hoverColor);
+    for (std::vector<Mark>* marks : { &tiles_, &tabs_ })
+        for (Mark& mark : *marks)
+            if (mark.brush) fadeColor(mark.brush, t.tileColor);
+    if (focusRing_.brush) fadeColor(focusRing_.brush, t.focusRingColor);
+    badges_.recolor();
+    elements_.refresh(coloursOnly);
 }
 
 void Blob::place(Vec2 size, Vec2 offset)
@@ -210,7 +225,7 @@ void Blob::setFocusRing(std::optional<Rect> area, float cornerRadius)
     if (!ring.visual) {
         ring.shape = compositor_.CreateRoundedRectangleGeometry();
         ring.stroke = compositor_.CreateSpriteShape(ring.shape);
-        ring.brush = compositor_.CreateColorBrush();
+        ring.brush = compositor_.CreateColorBrush(toUiColor(tokens().focusRingColor)); // refreshAnimations() fades it
         ring.stroke.StrokeBrush(ring.brush);
         ring.visual = compositor_.CreateShapeVisual();
         ring.visual.Shapes().Append(ring.stroke);
@@ -220,7 +235,6 @@ void Blob::setFocusRing(std::optional<Rect> area, float cornerRadius)
         body_.Children().InsertAbove(ring.visual, content_);
     }
     float width = tokens().focusRingWidth;
-    ring.brush.Color(toUiColor(tokens().focusRingColor)); // every time: tokens.json may have changed them
     ring.stroke.StrokeThickness(width);
     if (area == ring.at && cornerRadius == ring.radius) return;
     ring.at = area;
@@ -255,14 +269,13 @@ void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, cons
     if (!mark.visual) {
         mark.shape = compositor_.CreateRoundedRectangleGeometry();
         auto fill = compositor_.CreateSpriteShape(mark.shape);
-        mark.brush = compositor_.CreateColorBrush();
+        mark.brush = compositor_.CreateColorBrush(toUiColor(color)); // refreshAnimations() fades it
         fill.FillBrush(mark.brush);
         mark.visual = compositor_.CreateShapeVisual();
         mark.visual.Shapes().Append(fill);
         mark.visual.Opacity(0.0f);
         content_.Children().InsertAtBottom(mark.visual); // under the content it marks
     }
-    mark.brush.Color(toUiColor(color)); // every time: tokens.json may have changed it
     if (!at) {
         fadeTo(compositor_, mark.visual, 0.0f, tokens().hoverFadeDuration);
         return;

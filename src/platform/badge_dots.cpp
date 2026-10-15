@@ -19,20 +19,25 @@ void BadgeDots::show(const std::vector<Vec2>& centres)
     for (std::size_t i = 0; i < dots_.size(); ++i) place(dots_[i], i < centres.size() ? std::optional<Vec2>(centres[i]) : std::nullopt);
 }
 
+void BadgeDots::recolor()
+{
+    for (Dot& dot : dots_)
+        if (dot.brush) fadeColor(dot.brush, tokens().badgeColor);
+}
+
 void BadgeDots::place(Dot& dot, std::optional<Vec2> at)
 {
     const Tokens& t = tokens();
     if (!dot.visual) {
         dot.shape = compositor_.CreateEllipseGeometry();
         auto fill = compositor_.CreateSpriteShape(dot.shape);
-        dot.brush = compositor_.CreateColorBrush();
+        dot.brush = compositor_.CreateColorBrush(toUiColor(t.badgeColor)); // recolor() fades it
         fill.FillBrush(dot.brush);
         dot.visual = compositor_.CreateShapeVisual();
         dot.visual.Shapes().Append(fill);
         dot.visual.Opacity(0.0f);
         parent_.Children().InsertAbove(dot.visual, below_);
     }
-    dot.brush.Color(toUiColor(t.badgeColor)); // every time: tokens.json or the theme may have changed it
     float r = t.badgeSize / 2;
     dot.shape.Center({ r, r });
     dot.shape.Radius({ r, r });

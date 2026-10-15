@@ -17,6 +17,7 @@ public:
     // added later still lies under them.
     void build(wuc::Compositor const& compositor, wuc::ContainerVisual const& parent, wuc::Visual const& below);
     void show(const std::vector<Vec2>& centres); // pill coordinates; the rest fade out
+    void recolor(); // tokens changed: every dot fades to badgeColor (decision 051)
 
 private:
     struct Dot {

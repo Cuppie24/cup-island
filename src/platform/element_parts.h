@@ -15,8 +15,8 @@ namespace cup::platform {
 void fadeIn(wuc::Compositor const& c, wuc::Visual const& visual);
 void fadeTo(wuc::Compositor const& c, wuc::Visual const& visual, float opacity, Ms duration);
 void playScale(wuc::Compositor const& c, wuc::Visual const& visual, float scale, Ms duration, Bezier curve);
-// The island's own fill to new colours (a cover, a theme; decision 051): over recolorDuration.
-void fadeColor(wuc::CompositionColorBrush const& brush, const Color& color);
+// A colour (a brush's, a shadow's) to a new one (a cover, a theme; decision 051): over recolorDuration.
+void fadeColor(wuc::CompositionObject const& target, const Color& color);
 
 // Progress: track + fill + a knob riding the fill's end (hidden until hover).
 // The visual is wider than the frame by the knob's radius on each side, so the
@@ -25,6 +25,7 @@ struct ProgressParts {
     wuc::ShapeVisual visual{ nullptr };
     wuc::CompositionRoundedRectangleGeometry fill{ nullptr };
     wuc::CompositionSpriteShape knob{ nullptr };
+    wuc::CompositionColorBrush track{ nullptr }, accent{ nullptr }, knobBrush{ nullptr }; // faded on a recolour
 };
 float progressOverhang();
 ProgressParts createProgress(wuc::Compositor const& c, Vec2 frame, const Color& accent);
@@ -40,6 +41,7 @@ void showKnob(wuc::Compositor const& c, wuc::CompositionSpriteShape const& knob,
 struct RingParts {
     wuc::ShapeVisual visual{ nullptr };
     wuc::CompositionEllipseGeometry arc{ nullptr };
+    wuc::CompositionColorBrush track{ nullptr }, accent{ nullptr };
 };
 RingParts createRing(wuc::Compositor const& c, Vec2 frame, const Color& accent);
 void armRing(wuc::Compositor const& c, wuc::CompositionEllipseGeometry const& arc, const Timeline& timeline, Ms now);
@@ -48,6 +50,7 @@ void armRing(wuc::Compositor const& c, wuc::CompositionEllipseGeometry const& ar
 struct WaveformParts {
     wuc::ShapeVisual visual{ nullptr };
     std::vector<wuc::CompositionRoundedRectangleGeometry> bars;
+    wuc::CompositionColorBrush accent{ nullptr }; // shared by every bar
 };
 WaveformParts createWaveform(wuc::Compositor const& c, Vec2 frame, const Color& accent);
 void animateWaveform(wuc::Compositor const& c, const WaveformParts& parts, float height, bool active);
@@ -56,6 +59,7 @@ void animateWaveform(wuc::Compositor const& c, const WaveformParts& parts, float
 struct ButtonParts {
     wuc::ContainerVisual visual{ nullptr };
     wuc::ShapeVisual highlight{ nullptr };
+    wuc::CompositionColorBrush hover{ nullptr };
 };
 // `hover`: the shape's colour (buttonHoverColor; a text field uses inputColor).
 ButtonParts createButton(wuc::Compositor const& c, Vec2 frame, float cornerRadius, wuc::CompositionDrawingSurface const& glyph,

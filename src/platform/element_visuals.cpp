@@ -26,6 +26,14 @@ bool isRing(const Item& item)
 // Live data's colour: the content's accent, else the live colour (decision 010).
 Color accentOf(const Placed& p) { return p.accent.value_or(tokens().liveColor); }
 
+// The shape under a hovered button, a text field's background, the dim over clickable art.
+Color hoverColorOf(const Placed& p)
+{
+    if (std::holds_alternative<TextInput>(p.item)) return tokens().inputColor;
+    if (std::holds_alternative<Image>(p.item)) return tokens().artHoverColor;
+    return tokens().buttonHoverColor;
+}
+
 // A list item's delete button: hidden until the pointer is on its row (decision 020).
 bool revealsOnHover(const Item& item)
 {
@@ -105,8 +113,12 @@ void ElementVisuals::apply(const std::vector<Placed>& elements, Ms now)
             if (view.surface) paint(view);
 }
 
-void ElementVisuals::refresh()
+void ElementVisuals::refresh(bool coloursOnly)
 {
+    if (coloursOnly) {
+        for (auto& [key, view] : views_) recolor(view);
+        return;
+    }
     for (auto& [key, view] : views_)
         if (auto parent = view.visual.Parent()) parent.Children().Remove(view.visual);
     views_.clear();
@@ -126,6 +138,8 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         RingParts parts = createRing(compositor_, size, accentOf(placed));
         view.visual = parts.visual;
         view.arc = parts.arc;
+        view.track = parts.track;
+        view.accent = parts.accent;
     } else if (std::holds_alternative<Progress>(placed.item)) {
         ProgressParts parts = createProgress(compositor_, size, accentOf(placed));
         view.lead = progressOverhang();
@@ -133,23 +147,28 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         view.visual = parts.visual;
         view.fill = parts.fill;
         view.knob = parts.knob;
+        view.track = parts.track;
+        view.accent = parts.accent;
+        view.knobBrush = parts.knobBrush;
     } else if (std::holds_alternative<Waveform>(placed.item)) {
         WaveformParts parts = createWaveform(compositor_, size, accentOf(placed));
         view.visual = parts.visual;
         view.waveform = parts.visual;
         view.bars = parts.bars;
+        view.accent = parts.accent;
     } else if (std::holds_alternative<Button>(placed.item) || std::holds_alternative<TextInput>(placed.item)) {
         // A text field is built like a button: its background is the hover shape, shown only under the pointer.
-        bool field = std::holds_alternative<TextInput>(placed.item);
         view.surface = device_->createSurface(size);
-        ButtonParts parts = createButton(compositor_, size, placed.cornerRadius, view.surface, field ? t.inputColor : t.buttonHoverColor);
+        ButtonParts parts = createButton(compositor_, size, placed.cornerRadius, view.surface, hoverColorOf(placed));
         view.visual = parts.visual;
+        view.hover = parts.hover;
         view.highlight = placed.litByRow ? nullptr : parts.highlight; // lit by its row instead (Placed::litByRow): stays hidden
     } else if (clickableArt(placed.item)) {
         view.surface = device_->createSurface(size);
         view.glyphSurface = device_->createSurface(size);
         view.art = createActionArt(compositor_, size, placed.cornerRadius, view.surface, view.glyphSurface);
         view.visual = view.art.visual;
+        view.hover = view.art.dim;
     } else {
         auto sprite = compositor_.CreateSpriteVisual();
         float width = swims(placed.item) ? measureText(device_->dwrite(), std::get<Text>(placed.item)) : 0;
@@ -186,10 +205,11 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
 bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
 {
     bool resized = sizeOf(view.placed) != sizeOf(placed) || view.placed.cornerRadius != placed.cornerRadius;
-    // A bar and a ring are both Progress, but different visuals; the accent is baked into brushes.
+    // A bar and a ring are both Progress, but different visuals. A new accent
+    // (a cover's colour) isn't a new visual: its brushes fade to it.
     bool retyped = view.placed.item.index() != placed.item.index() || isRing(view.placed.item) != isRing(placed.item) ||
-                   clickableArt(view.placed.item) != clickableArt(placed.item) ||
-                   view.placed.accent != placed.accent;
+                   clickableArt(view.placed.item) != clickableArt(placed.item);
+    bool recoloured = view.placed.accent != placed.accent;
     // In a list, its place is in the list's scroller: scrolling moves the scroller, not it.
     Vec2 was = lists_.positionOf(view.placed), at = lists_.positionOf(placed);
     bool moved = was.x != at.x || was.y != at.y;
@@ -216,6 +236,7 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     }
     view.placed = placed;
     if (moved) place(view);
+    if (recoloured) recolor(view); // redraws its pixels too
     if (!changed) return false;
     if (view.highlight && focusedField(placed.item) != wasFocused) // focus came or went: background follows (or hover keeps it)
         fadeTo(compositor_, view.highlight, focusedField(placed.item) || placed.key == hovered_ ? 1.0f : 0.0f, tokens().hoverFadeDuration);
@@ -225,6 +246,17 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     if (view.arc) armRing(compositor_, view.arc, std::get<Progress>(placed.item).timeline, now);
     if (!view.bars.empty()) animateBars(view);
     return false;
+}
+
+void ElementVisuals::recolor(View& view)
+{
+    const Tokens& t = tokens();
+    if (view.track) fadeColor(view.track, t.trackColor);
+    if (view.accent) fadeColor(view.accent, accentOf(view.placed));
+    if (view.knobBrush) fadeColor(view.knobBrush, t.knobColor);
+    if (view.hover) fadeColor(view.hover, hoverColorOf(view.placed));
+    // Text and icons are pixels in a surface: redrawn in their new colours at once.
+    if (view.surface) paint(view);
 }
 
 void ElementVisuals::paint(View& view)

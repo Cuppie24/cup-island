@@ -4,6 +4,7 @@
 // morph (TR §5), so this never redraws per frame.
 
 #include "core/layout.h"
+#include "core/tokens.h"
 #include "platform/blob.h"
 #include "platform/graphics_device.h"
 #include "platform/liquid_bridge.h"
@@ -23,7 +24,9 @@ public:
     // doesn't hold back the frame the morph starts on (decision 012).
     void apply(const Scene& scene);
 
-    // Rebuilds the implicit animations from the current tokens() (after a reload).
+    // Rebuilds the implicit animations from the current tokens() (after a
+    // reload, a theme, a cover's colours). Colours fade; if only colours
+    // changed, content is recoloured in place instead of rebuilt.
     void refreshAnimations();
 
     // A Text's width with the real font, for layout() (core's MeasureText).
@@ -61,6 +64,7 @@ private:
     Blob bubble_;
     LiquidBridge bridge_;
     std::map<std::pair<std::string, TextStyle>, float> measured_;
+    Tokens applied_; // what the visuals were last built or recoloured for: tells a recolour from a resize
     winrt::Windows::System::DispatcherQueue queue_{ nullptr };
     std::optional<Scene> pendingContent_; // set: an applyContent() call is queued
 };
