@@ -307,6 +307,24 @@ void saveSpot();
 void onLifted();
 void tokensChanged(Vec2 oldCanvas, const char* reason);
 
+// The provider whose card (panel or activity) this is.
+std::string providerOf(const std::string& activityId)
+{
+    if (const Activity* a = findActivity(g_state, activityId)) return a->providerId;
+    if (const Panel* p = findPanel(g_state, activityId)) return p->providerId;
+    return {};
+}
+
+// What's picked changed (decision 064): its provider is told, and one that
+// lost its selection (another card, another list) is told it's empty.
+void tellSelection(const std::optional<Selection>& was, const std::optional<Selection>& now)
+{
+    if (was == now || !g_providers) return;
+    bool sameList = was && now && was->activityId == now->activityId && was->list == now->list;
+    if (was && !sameList) g_providers->selectionChanged(providerOf(was->activityId), was->activityId, was->list, {});
+    if (now && (!was || was->ids != now->ids || !sameList)) g_providers->selectionChanged(providerOf(now->activityId), now->activityId, now->list, now->ids);
+}
+
 void dispatch(const Event& event, const char* reason)
 {
     if (g_uiQueue && std::this_thread::get_id() != g_uiThread) {
@@ -320,6 +338,7 @@ void dispatch(const Event& event, const char* reason)
     Spot spot = g_state.spot;
     bool wasHidden = g_state.hidden;
     std::optional<ShownCard> wasCard = shownCard(g_state);
+    std::optional<Selection> wasSelection = g_state.selection;
     g_state = reduce(g_state, event, t);
     Scene next = layout(g_state, t, [](const Text& text) { return g_renderer.measure(text); });
 
@@ -358,6 +377,8 @@ void dispatch(const Event& event, const char* reason)
     // Open but never activated (after a drop): a press elsewhere must close it all the same (decision 063).
     watchOutsideClicks(g_inputHwnd, mode(g_state) == Mode::Expanded && GetForegroundWindow() != g_inputHwnd);
     if (app::takeFocusRequest()) dispatch(FocusTaken{}, "focus taken"); // a provider's ask, honoured once (decision 063)
+    // Before the card check below returns: a provider that republishes dispatches again.
+    tellSelection(wasSelection, g_state.selection);
 
     // Hidden (a fullscreen app, decision 032): the shortcuts let go of their keys, so that app gets them.
     // Last: Settings republishes, which dispatches again.
