@@ -57,5 +57,5 @@ room: the kind and size are a fixed column (`Text::column`,
 `provider.h` (`onSelectionChanged`), `app/selection_input`,
 `platform/blob` (selection and box marks), `element_parts` (the disc).
 Tested in `tests/scenarios/selection.scenario`, `grid_tests.cpp` and
-`shelf_tests.cpp`. Not yet: dragging picked things out of the island, and
-scrolling while a box is drawn past the list's edge.
+`shelf_tests.cpp`. Dragging picked things out: decision 065. Not yet: scrolling
+while a box is drawn past the list's edge.

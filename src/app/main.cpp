@@ -42,6 +42,7 @@
 #include "platform/pill_renderer.h"
 #include "platform/autostart.h"
 #include "platform/displays.h"
+#include "platform/drag_source.h"
 #include "platform/drop_target.h"
 #include "platform/outside_clicks.h"
 #include "platform/render_layer.h"
@@ -1118,6 +1119,13 @@ int main()
         },
         .showBox = [](std::optional<Rect> box) { g_renderer.setSelectionBox(box); },
         .renameTimer = [](std::optional<Ms> delay) { setTimer(TimerId::Rename, delay); },
+        .dragOut = [](const std::string& providerId, const std::string& activityId, const std::string& list, const std::vector<std::string>& ids) {
+            std::vector<std::string> paths = g_providers ? g_providers->dragOut(providerId, activityId, list, ids) : std::vector<std::string>{};
+            if (paths.empty()) return;
+            logLine("dragging %zu out", paths.size());
+            dragFilesOut(g_inputHwnd, paths); // modal; the capture it takes ends the press
+            dispatch(PointerMoved{}, "dragged out"); // busy here: the card stays open
+        },
     });
     app::setKeyboardHooks({
         .state = []() -> const IslandState& { return g_state; },

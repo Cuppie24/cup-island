@@ -64,6 +64,8 @@ public:
     std::vector<DropZone> dropZones(const DragSummary& drag) override;
     void onDrop(const std::string& zoneId, const std::vector<DroppedItem>& items) override;
     void onSelectionChanged(const std::string& activityId, const std::string& list, const std::vector<std::string>& ids) override;
+    // The picked things' files, to drag out (decision 065): a copy's in the store, a link's original. Only what's there.
+    std::vector<std::string> dragOut(const std::string& activityId, const std::string& list, const std::vector<std::string>& ids) override;
 
     const shelf::Items& items() const { return items_; }
     shelf::View view() const { return view_; }

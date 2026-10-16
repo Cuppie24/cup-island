@@ -216,7 +216,8 @@ over the file's, so `tokens()` is always what's on screen.
 | File drop (decision 061): Receptive's zones from any provider, the Shelf's Link and Copy, the list, copies in its store | rules tested; the drop target and copies need a Windows run |
 | Large cards, grids of cells, double-click to open, focus hints; the Shelf's cards and list views, thumbnails, rename, Show in folder (decision 063) | rules tested; thumbnails, double-click and Explorer need a Windows run |
 | Picking things like Explorer: click, Ctrl, Shift, a box, Ctrl+A, Delete, Enter, F2; Delete N items, the add card (decision 064) | rules tested; the mouse, keys and picker need a Windows run |
-| File drop, next: virtual files (Outlook, zip, phone), drag out of the shelf, a hot zone wider than the pill, the elevation alert | not yet |
+| Dragging picked files out to Explorer or another app, copy or link only (decision 065) | provider part tested; the drag needs a Windows run |
+| File drop, next: virtual files (Outlook, zip, phone), a hot zone wider than the pill, the elevation alert | not yet |
 | Fullscreen detection (TR §9.2): borderless + exclusive, per monitor, maximized windows excluded | done; rules tested (`core/fullscreen`), hooks need Windows |
 | Real input for drag (OLE drop target): Explorer's files, links, text | done; needs a Windows run. The D key fakes one file |
 | Provider API (PS §7 Tier 1), registry, demo music player | done, tested |

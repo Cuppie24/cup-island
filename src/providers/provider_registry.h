@@ -49,6 +49,10 @@ public:
     void selectionChanged(const std::string& providerId, const std::string& activityId, const std::string& list,
                           const std::vector<std::string>& ids);
 
+    // Picked things dragged out of a provider's card: their files' paths (Provider::dragOut, decision 065).
+    std::vector<std::string> dragOut(const std::string& providerId, const std::string& activityId, const std::string& list,
+                                     const std::vector<std::string>& ids);
+
     // A drag over the island (decision 061): every running provider's zones
     // for it, each stamped with its provider. None: nobody takes it.
     std::vector<DropZone> dropZones(const DragSummary& drag);

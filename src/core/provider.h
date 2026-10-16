@@ -85,6 +85,13 @@ public:
     // What's selected in one of its card's lists changed (Row::selectable,
     // decision 064): the ids, in the list's order; none = nothing selected.
     virtual void onSelectionChanged(const std::string& /*activityId*/, const std::string& /*list*/, const std::vector<std::string>& /*ids*/) {}
+    // Picked things dragged out of its card (decision 065): their files'
+    // paths (UTF-8), for Windows to drag to Explorer or another app. None:
+    // nothing to drag. Asked once, when the drag starts.
+    virtual std::vector<std::string> dragOut(const std::string& /*activityId*/, const std::string& /*list*/, const std::vector<std::string>& /*ids*/)
+    {
+        return {};
+    }
     // A drag over the island (decision 061): where it can land for this
     // provider. Asked when it enters and again when its sizes are in, never
     // as it moves, so it must be quick. None (the default): not for it.

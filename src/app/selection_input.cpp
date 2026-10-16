@@ -28,6 +28,13 @@ struct Pending {
     std::string renameKey; // the name's element key, if it was the only one picked and the press was on its name
 };
 std::optional<Pending> g_pending;
+
+// A press on a thing: dragged past the system's drag distance, the picked things go out (decision 065).
+struct DragStart {
+    Vec2 from;
+    std::string providerId, activityId, list;
+};
+std::optional<DragStart> g_dragStart;
 std::string g_renameKey;   // waiting for the double-click time to pass
 
 const IslandState& state() { return g_hooks.state(); }
@@ -71,6 +78,7 @@ bool selectionPressed(Vec2 point, const Placed* element)
 {
     if (element && std::holds_alternative<Button>(element->item)) return false; // its own click (Remove, Show in folder)
     g_pending.reset();
+    g_dragStart.reset();
     // The thing under the pointer: its picture's area covers it, so not just what hitTest found.
     const Placed* under = nullptr;
     for (const Placed& p : scene().elements)
@@ -83,6 +91,7 @@ bool selectionPressed(Vec2 point, const Placed* element)
         const std::string& list = under->list->id;
         const std::string& item = under->list->item;
         bool picked = isSelected(state(), under->activityId, list, item);
+        g_dragStart = DragStart{ point, under->providerId, under->activityId, list };
         if (ctrl || shift || !picked) {
             g_hooks.dispatch(ItemSelected{ under->activityId, list, item, shift, ctrl }, "pick");
             return true;
@@ -106,6 +115,18 @@ bool selectionPressed(Vec2 point, const Placed* element)
 
 void selectionMoved(Vec2 point)
 {
+    if (g_dragStart) {
+        bool far = std::abs(point.x - g_dragStart->from.x) > GetSystemMetrics(SM_CXDRAG) ||
+                   std::abs(point.y - g_dragStart->from.y) > GetSystemMetrics(SM_CYDRAG);
+        const auto& picked = state().selection;
+        if (far && picked && picked->list == g_dragStart->list && picked->activityId == g_dragStart->activityId) {
+            DragStart start = *std::exchange(g_dragStart, std::nullopt);
+            g_pending.reset(); // dragged, not clicked: the selection stays as it is
+            std::vector<std::string> ids = picked->ids;
+            g_hooks.dragOut(start.providerId, start.activityId, start.list, ids);
+        }
+        return;
+    }
     if (!g_box) return;
     Rect box{ std::min(point.x, g_box->from.x), std::min(point.y, g_box->from.y), std::abs(point.x - g_box->from.x), std::abs(point.y - g_box->from.y) };
     g_hooks.showBox(box);
@@ -118,6 +139,7 @@ void selectionMoved(Vec2 point)
 
 bool selectionReleased(Vec2 point, bool inside)
 {
+    g_dragStart.reset();
     if (g_box) {
         g_box.reset();
         g_hooks.showBox(std::nullopt);

@@ -164,6 +164,17 @@ void ShelfProvider::remove(std::uint64_t id)
     std::erase(picked_, id);
 }
 
+std::vector<std::string> ShelfProvider::dragOut(const std::string& activityId, const std::string& list, const std::vector<std::string>& ids)
+{
+    std::vector<std::string> paths;
+    if (activityId != shelf::kPanelId || list != act::kList) return paths;
+    for (const std::string& row : ids)
+        if (auto id = shelf::itemOfRow(row))
+            if (const shelf::Entry* item = items_.find(*id); item && item->state == shelf::State::Ready && !item->path.empty())
+                paths.push_back(item->path);
+    return paths;
+}
+
 void ShelfProvider::onSelectionChanged(const std::string& activityId, const std::string& list, const std::vector<std::string>& ids)
 {
     if (activityId != shelf::kPanelId || list != act::kList) return;

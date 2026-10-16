@@ -325,6 +325,9 @@ void selectionTests()
     std::string a = "item-" + std::to_string(s.item(0).id), c = "item-" + std::to_string(s.item(2).id);
     s.provider.onSelectionChanged(kPanelId, action::kList, { c, a });
     expect(foot().label == "Delete 2 items" && foot().actionId == action::kDeleteSelected && foot().destructive, "picked: the foot deletes them");
+    ShelfProvider& shelf = s.provider;
+    expect(shelf.dragOut(kPanelId, action::kList, { c, a }) == std::vector<std::string>{ "C:\\c", "C:\\a" } &&
+           shelf.dragOut("other", action::kList, { a }).empty(), "picked: dragged out, their files go");
     s.act(action::kDeleteSelected);
     expect(!s.host.asked.empty() && s.host.asked.back().title == "Delete 2 items?" && s.provider.items().all().size() == 3, "picked: Delete asks first");
     s.act(action::kDeleteSelectedConfirmed);

@@ -1,5 +1,6 @@
 #include "platform/drop_target.h"
 
+#include "platform/drag_source.h"
 #include "platform/log.h"
 #include "platform/text_input.h"
 
@@ -179,7 +180,8 @@ public:
 
     HRESULT STDMETHODCALLTYPE DragEnter(IDataObject* data, DWORD, POINTL at, DWORD* effect) override
     {
-        held_ = std::make_shared<Held>(read(data, callbacks_.maxChecked));
+        // Our own drag out (decision 065): nothing lands back on the island.
+        held_ = draggingOut() ? std::make_shared<Held>() : std::make_shared<Held>(read(data, callbacks_.maxChecked));
         ++generation_;
         if (held_->items.empty()) {
             *effect = DROPEFFECT_NONE;
