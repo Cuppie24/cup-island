@@ -47,7 +47,8 @@ void ShelfProvider::start(Host& host)
 {
     host_ = &host;
     items_ = shelf::Items::load(host_->load(kItemsKey));
-    host_->publishPanel(shelf::shelfPanel(items_));
+    view_ = host_->load(kViewKey) == "list" ? shelf::View::List : shelf::View::Cards;
+    show();
 }
 
 void ShelfProvider::stop()
@@ -57,11 +58,55 @@ void ShelfProvider::stop()
     host_ = nullptr;
 }
 
+void ShelfProvider::show()
+{
+    if (host_) host_->publishPanel(shelf::shelfPanel(items_, view_, thumbnails_));
+}
+
 void ShelfProvider::changed()
 {
     if (!host_) return;
     host_->save(kItemsKey, items_.save());
-    host_->publishPanel(shelf::shelfPanel(items_));
+    readThumbnails();
+    show();
+}
+
+void ShelfProvider::readThumbnails()
+{
+    if (!hooks_.thumbnail || !shown_) return;
+    for (const shelf::Entry& item : items_.all()) {
+        if (item.state != shelf::State::Ready || item.path.empty() || asked_.count(item.id)) continue;
+        asked_.insert(item.id);
+        auto alive = alive_;
+        std::uint64_t id = item.id;
+        hooks_.thumbnail(item.path, [this, alive, id](std::shared_ptr<const ImageData> picture) {
+            if (!*alive || !picture || !items_.find(id)) return;
+            thumbnails_[id] = std::move(picture);
+            show();
+        });
+    }
+}
+
+// Decision 063: a link is only relabelled on the shelf (the user's file keeps
+// its name); a copy's file is renamed in the store.
+void ShelfProvider::rename(std::uint64_t id, const std::string& typed)
+{
+    const shelf::Entry* item = items_.find(id);
+    std::string name = typed;
+    name.erase(0, name.find_first_not_of(" \t"));
+    name.erase(name.find_last_not_of(" \t") + 1);
+    if (!item || name.empty()) return;
+    if (item->kind == shelf::Kind::Link) {
+        if (items_.relabel(id, name)) changed();
+        return;
+    }
+    std::string safe = shelf::safeFileName(name);
+    // ".partial" is how an unfinished copy is named: the next start would delete it.
+    if (item->state != shelf::State::Ready || safe == item->name || safe.ends_with(".partial") || !hooks_.renameCopy) return;
+    auto alive = alive_;
+    hooks_.renameCopy(item->path, safe, [this, alive, id, safe](const std::string& renamed, const std::string& problem) {
+        if (*alive && problem.empty() && items_.renamed(id, renamed, safe)) changed();
+    });
 }
 
 std::vector<DropZone> ShelfProvider::dropZones(const DragSummary& drag)
@@ -82,7 +127,7 @@ void ShelfProvider::onDrop(const std::string& zoneId, const std::vector<DroppedI
     const shelf::ZonePlan& zone = zoneId == kLinkZone ? plan.link : plan.copy;
     for (std::size_t i = 0; i < dropped.size() && i < zone.items.size(); ++i) {
         const DroppedItem& d = dropped[i];
-        shelf::Item item{ .name = shownName(d), .what = d.what.kind };
+        shelf::Entry item{ .name = shownName(d), .what = d.what.kind };
         if (zone.items[i] == shelf::Handling::Link) {
             item.path = d.path;
             items_.add(item);
@@ -95,7 +140,8 @@ void ShelfProvider::onDrop(const std::string& zoneId, const std::vector<DroppedI
         }
     }
     changed();
-    if (!items_.all().empty()) host_->reveal(shelf::kPanelId, act::kList, 0); // the newest, at the top
+    // The newest, first: in view, with the keyboard's focus (decision 063).
+    if (!items_.all().empty()) host_->reveal(shelf::kPanelId, act::kList, 0, true);
 }
 
 void ShelfProvider::startCopy(std::uint64_t id, const DroppedItem& d)
@@ -111,7 +157,7 @@ void ShelfProvider::startCopy(std::uint64_t id, const DroppedItem& d)
     auto alive = alive_;
     hooks_.copy(job,
         [this, alive, id](float fraction) {
-            if (*alive && items_.setProgress(id, fraction) && host_) host_->publishPanel(shelf::shelfPanel(items_));
+            if (*alive && items_.setProgress(id, fraction)) show();
         },
         [this, alive, id](const std::string& stored, std::uint64_t bytes, const std::string& problem) {
             if (!*alive) return;
@@ -125,26 +171,39 @@ void ShelfProvider::startCopy(std::uint64_t id, const DroppedItem& d)
 void ShelfProvider::onAction(const Action& a)
 {
     if (!host_ || a.activityId != shelf::kPanelId) return;
+    if (a.actionId == act::kView) {
+        view_ = view_ == shelf::View::Cards ? shelf::View::List : shelf::View::Cards;
+        host_->save(kViewKey, view_ == shelf::View::List ? "list" : "cards");
+        show();
+        return;
+    }
     if (a.actionId == act::kClear) {
         if (!items_.all().empty()) host_->ask(shelf::clearQuestion(items_));
         return;
     }
     if (a.actionId == act::kClearConfirmed) {
-        for (const shelf::Item& item : items_.all())
+        for (const shelf::Entry& item : items_.all())
             if (item.kind == shelf::Kind::Copy && !item.path.empty() && hooks_.removeCopy) hooks_.removeCopy(item.path);
         items_.clear();
+        thumbnails_.clear();
         changed();
         return;
     }
     if (auto id = idAfter(a.actionId, act::kOpen)) {
-        const shelf::Item* item = items_.find(*id);
+        const shelf::Entry* item = items_.find(*id);
         if (item && item->state == shelf::State::Ready && hooks_.open) hooks_.open(item->path);
+    } else if (auto id = idAfter(a.actionId, act::kReveal)) {
+        const shelf::Entry* item = items_.find(*id);
+        if (item && item->state == shelf::State::Ready && hooks_.reveal) hooks_.reveal(item->path);
+    } else if (auto id = idAfter(a.actionId, act::kRename)) {
+        rename(*id, a.text);
     } else if (auto id = idAfter(a.actionId, act::kRemove)) {
-        const shelf::Item* item = items_.find(*id);
+        const shelf::Entry* item = items_.find(*id);
         if (!item) return;
         // A copy goes from the store; a link only from the list (its original stays).
         if (item->kind == shelf::Kind::Copy && !item->path.empty() && hooks_.removeCopy) hooks_.removeCopy(item->path);
         items_.remove(*id);
+        thumbnails_.erase(*id);
         changed();
     } else if (auto id = idAfter(a.actionId, act::kKeep)) {
         if (items_.keepAsLink(*id)) changed();
@@ -153,10 +212,13 @@ void ShelfProvider::onAction(const Action& a)
 
 void ShelfProvider::onCardShown(const std::string& activityId)
 {
-    if (activityId != shelf::kPanelId || !hooks_.checkLinks) return;
+    if (activityId != shelf::kPanelId) return;
+    shown_ = true;
+    readThumbnails();
+    if (!hooks_.checkLinks) return;
     std::vector<std::uint64_t> ids;
     std::vector<std::string> paths;
-    for (const shelf::Item& item : items_.all()) {
+    for (const shelf::Entry& item : items_.all()) {
         if (item.kind != shelf::Kind::Link || (item.state != shelf::State::Ready && item.state != shelf::State::Missing)) continue;
         ids.push_back(item.id);
         paths.push_back(item.path);

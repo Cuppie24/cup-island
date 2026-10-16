@@ -163,7 +163,8 @@ struct DialogClosed {};                  // answered or dismissed: the app sends
 // The wheel over a list (decision 029): `from` is the offset shown (a reveal
 // included), `max` how far it can go (both from the scene).
 struct ListScrolled { std::string activityId, list; float from = 0, delta = 0, max = 0; };
-struct ListRevealed { std::string activityId, list; std::size_t row = 0; }; // Host::reveal
+struct ListRevealed { std::string activityId, list; std::size_t row = 0; bool focus = false; }; // Host::reveal
+struct FocusTaken {};                    // the app moved the keyboard's focus as IslandState::focusRequest asked
 struct ListDragStarted { std::string activityId, list; std::size_t row = 0; float y = 0; };
 struct ListDragMoved { float y = 0; };
 struct ListDragEnded {};                 // dropped (the app sends the move first) or cancelled
@@ -185,7 +186,7 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            InputFocused, TextTyped, TextErased, CaretMoved, CaretPlaced, WordSelected, AllSelected,
                            InputSubmitted, InputCancelled,
                            DialogShown, DialogClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,
-                           ListDragEnded, StayOpenToggled, TabRowPlaced>;
+                           ListDragEnded, StayOpenToggled, TabRowPlaced, FocusTaken>;
 
 // --- State --------------------------------------------------------------
 struct WallClock {
@@ -225,6 +226,10 @@ struct IslandState {
     std::optional<Dialog> dialog;      // a question over the shown card (decision 020)
     std::map<std::string, ListScroll> scrolls; // lists' scroll, by "<activityId>/<list>" (decision 029)
     std::optional<ListDrag> listDrag;  // a list row being dragged
+    // A provider asks the keyboard's focus onto a list's row (Host::reveal
+    // with focus, decision 063): the app takes it once (FocusTaken). It goes
+    // with its card, like a draft.
+    std::optional<ListRevealed> focusRequest;
     // Pinned open (decision 046): Expanded doesn't time out, and a click
     // outside the island or on a card's empty space doesn't close it. Esc
     // and the card going away still do; closing unpins it.

@@ -229,7 +229,7 @@ const Placed* contentUnder(Vec2 point)
 std::string rowUnder(Vec2 point)
 {
     const Placed* p = contentUnder(point);
-    return p ? p->key.substr(0, p->key.rfind('/')) : std::string();
+    return p ? hoverGroup(*p) : std::string(); // a grid's cell, else its row (decision 063)
 }
 
 // Where hover feedback comes from: the keyboard's focus while it leads (decision 031), else the pointer.
@@ -343,6 +343,8 @@ void dispatch(const Event& event, const char* reason)
         Vec2 oldCanvas = tokens().canvas;
         if (app::setTint(g_tint.shown)) tokensChanged(oldCanvas, "cover");
     }
+
+    if (app::takeFocusRequest()) dispatch(FocusTaken{}, "focus taken"); // a provider's ask, honoured once (decision 063)
 
     // Hidden (a fullscreen app, decision 032): the shortcuts let go of their keys, so that app gets them.
     // Last: Settings republishes, which dispatches again.
@@ -613,6 +615,38 @@ void clickElement(const Hit& hit, std::optional<Vec2> at = std::nullopt)
     }
 }
 
+// The last click on something a double-click opens (Row::openAction, decision 063).
+struct OpenClick {
+    std::string action;
+    Ms at{};
+    Vec2 point;
+} g_openClick;
+
+// A second click on the same thing, soon and close enough, is a double-click: true if it opened it.
+bool openedByDoubleClick(Vec2 point)
+{
+    const Placed* under = contentUnder(point);
+    // A button on it (Remove, Show in folder) is its own click, never half of an open.
+    auto hit = hitTest(g_scene, point);
+    const Placed* pressed = hit ? findElement(hit->key) : nullptr;
+    if (pressed && std::holds_alternative<Button>(pressed->item)) under = nullptr;
+    if (!under || under->openAction.empty()) {
+        g_openClick = {};
+        return false;
+    }
+    Ms t = now();
+    bool twice = g_openClick.action == under->openAction && t - g_openClick.at <= Ms{ GetDoubleClickTime() } &&
+                 std::abs(point.x - g_openClick.point.x) <= GetSystemMetrics(SM_CXDOUBLECLK) &&
+                 std::abs(point.y - g_openClick.point.y) <= GetSystemMetrics(SM_CYDOUBLECLK);
+    if (!twice) {
+        g_openClick = { under->openAction, t, point };
+        return false;
+    }
+    g_openClick = {};
+    act({ under->providerId, under->activityId, under->openAction, 0 });
+    return true;
+}
+
 void onPressRelease(Vec2 canvasPoint, Release how)
 {
     if (g_pointer.islandPress) {
@@ -656,6 +690,11 @@ void onPressRelease(Vec2 canvasPoint, Release how)
         g_renderer.endScrub(bar.key, commit ? std::optional<float>(g_pointer.scrubFraction) : std::nullopt, now());
         if (commit) g_providers->route({ bar.providerId, bar.activityId, "seek", g_pointer.scrubFraction });
         dispatch(PointerMoved{}, "seek");
+        return;
+    }
+    if (how == Release::Inside && onPill(canvasPoint) && openedByDoubleClick(point)) {
+        if (!g_pointer.pressedKey.empty()) g_renderer.releaseElement(std::exchange(g_pointer.pressedKey, std::string{}));
+        else g_renderer.pressRelease(false);
         return;
     }
     if (!g_pointer.pressedKey.empty()) {

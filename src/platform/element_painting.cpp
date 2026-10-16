@@ -92,6 +92,12 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::ChevronRight: return L"\uE76C";
     case Glyph::Download: return L"\uE896";
     case Glyph::Link: return L"\uE71B";
+    case Glyph::Folder: return L"\uE8B7";
+    case Glyph::File: return L"\uE8A5";     // Document
+    case Glyph::Package: return L"\uE7B8";
+    case Glyph::ViewGrid: return L"\uF0E2"; // GridView
+    case Glyph::ViewList: return L"\uEA37"; // List
+    case Glyph::Reveal: return L"\uE838";   // FolderOpen: show it in Explorer
     case Glyph::Centre: return L"\uE8E3"; // AlignCenter: back to the middle
     case Glyph::Minus: return L"\uE738";  // Remove
     case Glyph::Plus: return L"\uE710";   // Add
@@ -319,7 +325,7 @@ void paintTag(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Tag& tag, Vec2 s
     drawString(dc, f.get(), widen(tag.text), size, t.tagTextColor);
 }
 
-void paintImage(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float cornerRadius)
+void paintImage(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float cornerRadius, bool contain)
 {
     D2D1_ROUNDED_RECT shape{ D2D1::RectF(0, 0, size.x, size.y), cornerRadius, cornerRadius };
     if (!data || data->width <= 0 || data->height <= 0 ||
@@ -334,10 +340,16 @@ void paintImage(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float 
     winrt::check_hresult(dc->CreateBitmap(D2D1::SizeU(static_cast<UINT32>(data->width), static_cast<UINT32>(data->height)),
                                           data->bgra.data(), static_cast<UINT32>(data->width) * 4, &props, bitmap.put()));
 
-    // Scale to cover the shape (crop the overflow), centred.
-    float scale = std::max(size.x / static_cast<float>(data->width), size.y / static_cast<float>(data->height));
+    // Scale to cover the shape (crop the overflow), centred; or to fit inside it, the shape shrunk to the picture.
+    float sx = size.x / static_cast<float>(data->width), sy = size.y / static_cast<float>(data->height);
+    float scale = contain ? std::min(sx, sy) : std::max(sx, sy);
     float dx = (size.x - static_cast<float>(data->width) * scale) / 2;
     float dy = (size.y - static_cast<float>(data->height) * scale) / 2;
+    if (contain) {
+        float w = static_cast<float>(data->width) * scale, h = static_cast<float>(data->height) * scale;
+        float r = std::min(cornerRadius, std::min(w, h) / 2);
+        shape = { D2D1::RectF(dx, dy, dx + w, dy + h), r, r };
+    }
 
     winrt::com_ptr<ID2D1BitmapBrush1> brush;
     auto brushProps = D2D1::BitmapBrushProperties1(D2D1_EXTEND_MODE_CLAMP, D2D1_EXTEND_MODE_CLAMP,

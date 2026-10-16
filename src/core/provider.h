@@ -45,8 +45,10 @@ public:
     virtual void ask(Dialog dialog) = 0;
 
     // Scrolls a list on this provider's card (Row::list) just enough to show
-    // its `row`th row, now and as long as the user doesn't scroll it (decision 029).
-    virtual void reveal(const std::string& activityId, const std::string& list, std::size_t row) = 0;
+    // its `row`th row (a grid's: its cell), now and as long as the user doesn't
+    // scroll it (decision 029). `focus`: the keyboard's focus goes to it too, a
+    // hint the host takes once (a file just dropped, decision 063).
+    virtual void reveal(const std::string& activityId, const std::string& list, std::size_t row, bool focus = false) = 0;
 
     // Whatever the provider keeps between runs (decision 028): text under a
     // key, its own (keys are per provider; the format is the provider's).

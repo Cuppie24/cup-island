@@ -43,3 +43,16 @@ submit                                -> draft=none Expanded     # a field would
 focus timer todo.add
 type next
 submit                                -> draft=empty             # the add field keeps focus
+
+scenario: a reveal can ask for the keyboard's focus, taken once (decision 063)
+panel shelf keep
+tile shelf                          -> Expanded expanded=shelf
+reveal shelf items 0                -> focus=none
+reveal shelf items 2 focus          -> focus=shelf/items/2
+focus-taken                         -> focus=none
+
+scenario: ...and it goes with its card
+panel shelf keep
+tile shelf
+reveal shelf items 0 focus          -> focus=shelf/items/0
+esc                                 -> focus=none

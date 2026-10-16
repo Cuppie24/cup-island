@@ -15,6 +15,7 @@ std::string g_focus;               // a Focusable's id; "" = none, the pointer l
 std::string g_homeTile;            // the Home widget the keys last clicked: focus goes back to it on Home (decision 033)
 std::optional<Vec2> g_lastPointer; // the last move's point, to tell a real move from a repeat
 bool g_capturing = false;
+bool g_tookRequest = false;        // a provider's focus request was just honoured: core is told (FocusTaken)
 
 const IslandState& state() { return g_hooks.state(); }
 const Scene& scene() { return g_hooks.scene(); }
@@ -27,7 +28,7 @@ void land(const std::optional<Focusable>& f)
 {
     if (f) {
         g_focus = f->id;
-        if (f->list) dispatch(ListRevealed{ f->activityId, f->list->id, f->list->row }, "keys: scroll to focus");
+        if (f->list) dispatch(ListRevealed{ f->activityId, f->list->id, f->list->cell.value_or(f->list->row) }, "keys: scroll to focus"); // a grid's: its cell
     }
     dispatch(PointerMoved{}, "keys");
 }
@@ -100,6 +101,15 @@ std::optional<Focusable> keyFocus()
         g_focus.clear();
         g_homeTile.clear();
     }
+    // A provider asked for it (a file just dropped, decision 063): its row's or cell's first stop.
+    if (const auto& asked = state().focusRequest; asked && mode(state()) == Mode::Expanded && !g_tookRequest) {
+        for (const Focusable& f : focusables(scene()))
+            if (f.list && f.activityId == asked->activityId && f.list->id == asked->list && f.list->cell.value_or(f.list->row) == asked->row) {
+                g_focus = f.id;
+                break;
+            }
+        g_tookRequest = true;
+    }
     if (g_focus.empty()) return std::nullopt;
     if (auto focused = findFocusable(scene(), g_focus)) return focused;
     if (state().draft) return std::nullopt; // typing: the field has the keys
@@ -112,6 +122,8 @@ std::optional<Focusable> keyFocus()
     g_focus = next ? next->id : std::string();
     return next;
 }
+
+bool takeFocusRequest() { return std::exchange(g_tookRequest, false); }
 
 void pointerMoved(Vec2 canvasPoint)
 {

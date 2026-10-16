@@ -29,8 +29,8 @@ Source sourceFor(const IslandState& s, Mode mode)
     return {};
 }
 
-// Centred and List cards are one stack of rows across the card (decision 014).
-bool stacked(const Content& c) { return c.card == CardLayout::Centred || c.card == CardLayout::List; }
+// Centred, List and Large cards are one stack of rows across the card (decisions 014, 063).
+bool stacked(const Content& c) { return c.card == CardLayout::Centred || c.card == CardLayout::List || c.card == CardLayout::Large; }
 
 // That stack's frame: the card less its padding. A List card's is narrower
 // and centred (decision 030): a few short rows don't need the island's width.
@@ -93,7 +93,7 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
                  { "alertCenter", &c.alertCenter, { centerX, p, size.x - centerX - p, side } } };
     }
     case Mode::Expanded: {
-        if (stacked(c)) return { { "expandedCenter", &c.expandedCenter, stackFrame(c, size) } };
+        if (stacked(c)) return { { .name = "expandedCenter", .slot = &c.expandedCenter, .frame = stackFrame(c, size), .fill = c.card == CardLayout::Large } };
         float art = t.expandedArtSize, y = p, centerX = p + art + t.slotGap, bottomY = y + art + t.slotGap;
         float corner = t.buttonSize, cornerX = size.x - p - corner;
         float centerRight = c.expandedTrailing.empty() ? size.x - p : cornerX - t.slotGap;
@@ -154,7 +154,9 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     scene.size = modeSize(scene.mode);
     Source source = sourceFor(state, scene.mode);
     MeasureText measureText = measure ? measure : MeasureText{ estimateTextWidth };
-    if (scene.mode == Mode::Expanded && source.content && stacked(*source.content)) {
+    bool large = scene.mode == Mode::Expanded && source.content && source.content->card == CardLayout::Large;
+    if (large) scene.size = tokens().largeCardSize; // its own size: a grid needs the room (decision 063)
+    else if (scene.mode == Mode::Expanded && source.content && stacked(*source.content)) {
         scene.size.y = centredCardHeight(source, scene.size, tabSpace, measureText);
     }
     if (scene.mode == Mode::Expanded && state.homeOpen) scene.size.y = homeCardHeight(state, tokens().canvas.y - tabSpace);
@@ -240,6 +242,11 @@ const Tile* tileAt(const Scene& scene, Vec2 point)
     for (const Tile& tile : scene.tiles)
         if (tile.frame.contains(point)) return &tile;
     return nullptr;
+}
+
+std::string hoverGroup(const Placed& placed)
+{
+    return placed.group.empty() ? placed.key.substr(0, placed.key.rfind('/')) : placed.group;
 }
 
 const ZoneMark* zoneAt(const Scene& scene, Vec2 point)

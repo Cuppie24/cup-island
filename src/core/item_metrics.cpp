@@ -43,7 +43,11 @@ float heightOf(const Item& item, Rect slot, float ringSide)
 {
     const Tokens& t = tokens();
     if (auto* text = std::get_if<Text>(&item)) return lineHeight(text->style);
-    if (std::holds_alternative<Image>(item)) return std::min(slot.width, slot.height);
+    if (auto* image = std::get_if<Image>(&item)) { // decision 063
+        if (image->role == ImageRole::Icon) return t.iconSize;
+        if (image->role == ImageRole::Thumbnail) return t.thumbnailHeight;
+        return std::min(slot.width, slot.height);
+    }
     if (isRing(item)) return ringSide;
     if (std::holds_alternative<Steps>(item)) return t.stepDotSize;
     if (std::holds_alternative<Swatch>(item)) return t.swatchSize;
@@ -64,6 +68,7 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
     if (std::holds_alternative<Text>(item) || std::holds_alternative<TextInput>(item) ||
         (std::holds_alternative<Progress>(item) && !isRing(item)))
         return std::nullopt;
+    if (auto* image = std::get_if<Image>(&item); image && image->role == ImageRole::Thumbnail) return std::nullopt; // across its row
     if (std::holds_alternative<Image>(item) || isRing(item)) return height;
     if (auto* steps = std::get_if<Steps>(&item)) {
         float n = static_cast<float>(std::max(steps->count, 0));

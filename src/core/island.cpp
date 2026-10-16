@@ -329,6 +329,7 @@ void handle(IslandState& s, const ListRevealed& e, Ms) { revealListRow(s, e); }
 void handle(IslandState& s, const ListDragStarted& e, Ms now) { startListDrag(s, e, now); }
 void handle(IslandState& s, const ListDragMoved& e, Ms now) { moveListDrag(s, e, now); }
 void handle(IslandState& s, const ListDragEnded&, Ms) { s.listDrag.reset(); }
+void handle(IslandState& s, const FocusTaken&, Ms) { s.focusRequest.reset(); }
 
 void handle(IslandState& s, const ClockSynced& e, Ms now) { s.clock = WallClock{ e.timeOfDay - now, e.hour24 }; }
 

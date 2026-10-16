@@ -12,7 +12,7 @@ void focusInput(IslandState& state, const InputFocused& e, Ms now); // only on t
 void submitText(IslandState& state, Ms now); // the field empties and keeps focus
 void showDialog(IslandState& state, const DialogShown& e, Ms now); // only over the shown card; typing stops
 
-// After every event: a draft, dialog or list drag whose card isn't the one shown any more is dropped.
+// After every event: a draft, dialog, list drag or focus request whose card isn't the one shown any more is dropped.
 // A field's unsent text is kept (IslandState::keptText, decision 050).
 void dropStaleOverlays(IslandState& state);
 

@@ -50,8 +50,6 @@ float glyphSizeOf(const Button& button)
     return button.compact ? t.iconSize : t.buttonGlyphSize;
 }
 
-// "<slot>/<row>/<item>" -> "<slot>/<row>"
-std::string rowOf(const std::string& key) { return key.substr(0, key.rfind('/')); }
 
 // A focused text field keeps its background: you can see where you're typing,
 // with the pointer anywhere (decision 016).
@@ -202,7 +200,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     if (view.arc) armRing(compositor_, view.arc, std::get<Progress>(placed.item).timeline, now);
     if (!view.bars.empty()) animateBars(view);
     if (view.highlight && focusedField(placed.item)) view.highlight.Opacity(1.0f);
-    if (revealsOnHover(placed.item) && rowOf(placed.key) != hoveredRow_) view.visual.Opacity(0.0f); // until its row is hovered
+    if (revealsOnHover(placed.item) && hoverGroup(placed) != hoveredRow_) view.visual.Opacity(0.0f); // until its row is hovered
     else if (fade) fadeIn(compositor_, view.visual);
     return view;
 }
@@ -300,7 +298,7 @@ void ElementVisuals::paint(View& view)
             else paintGlyph(dc, dw, button->glyph, glyphSizeOf(*button), pixelSize(size), color);
             if (button->on && *button->on) paintToggleDot(dc, pixelSize(size), t.buttonGlyphSize);
         } else if (auto* image = std::get_if<Image>(&item)) {
-            paintImage(dc, image->data.get(), size, view.placed.cornerRadius);
+            paintImage(dc, image->data.get(), size, view.placed.cornerRadius, image->contain);
         } else if (auto* input = std::get_if<TextInput>(&item)) {
             paintInput(dc, dw, *input, size); // its background is the hover shape, nested like a button's
         } else if (auto* steps = std::get_if<Steps>(&item)) {
@@ -347,7 +345,7 @@ void ElementVisuals::setHoveredRow(const std::string& row)
     if (row == hoveredRow_) return;
     hoveredRow_ = row;
     for (auto& [key, view] : views_)
-        if (revealsOnHover(view.placed.item)) fadeTo(compositor_, view.visual, rowOf(key) == row ? 1.0f : 0.0f, tokens().hoverFadeDuration);
+        if (revealsOnHover(view.placed.item)) fadeTo(compositor_, view.visual, hoverGroup(view.placed) == row ? 1.0f : 0.0f, tokens().hoverFadeDuration);
 }
 
 void ElementVisuals::setHovered(const std::string& key)

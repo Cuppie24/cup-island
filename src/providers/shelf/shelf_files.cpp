@@ -1,12 +1,17 @@
 #include "providers/shelf/shelf_files.h"
 
+#include "core/tokens.h"
 #include "platform/log.h"
+#include "platform/shell_images.h"
 #include "platform/text_input.h"
 #include "platform/win.h"
 
 #include <shellapi.h>
+#include <shlobj.h>
 
+#include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <fstream>
 #include <memory>
 #include <thread>
@@ -107,6 +112,12 @@ std::string writeFile(const fs::path& target, const std::string& contents, std::
     return "";
 }
 
+// A worker thread's COM, for the shell's pictures and Explorer: started and ended with it.
+struct Com {
+    Com() { CoInitializeEx(nullptr, COINIT_MULTITHREADED); }
+    ~Com() { CoUninitialize(); }
+};
+
 // Only ever inside the store: a copy, never anything the user owns.
 bool inStore(const fs::path& path)
 {
@@ -167,6 +178,46 @@ ShelfHooks hooks(PostToUi postToUi)
     h.open = [](const std::string& path) {
         HINSTANCE result = ShellExecuteW(nullptr, nullptr, fromUtf8(path).c_str(), nullptr, nullptr, SW_SHOWNORMAL);
         if (reinterpret_cast<INT_PTR>(result) <= 32) platform::logLine("shelf: couldn't open an item (%lld)", static_cast<long long>(reinterpret_cast<INT_PTR>(result)));
+    };
+    // Explorer, with it selected (decision 063). Off the UI thread: a network drive can take a while.
+    h.reveal = [](const std::string& path) {
+        AllowSetForegroundWindow(ASFW_ANY); // Explorer comes to the front, not behind the island's click
+        std::thread([path] {
+            Com com;
+            PIDLIST_ABSOLUTE item = nullptr;
+            if (SUCCEEDED(SHParseDisplayName(fromUtf8(path).c_str(), nullptr, &item, 0, nullptr)) && item) {
+                if (FAILED(SHOpenFolderAndSelectItems(item, 0, nullptr, 0))) platform::logLine("shelf: couldn't show an item in its folder");
+                CoTaskMemFree(item);
+            } else {
+                platform::logLine("shelf: an item to show isn't there");
+            }
+        }).detach();
+    };
+    // A copy renamed in its own folder in the store, never anything outside it.
+    h.renameCopy = [postToUi](const std::string& stored, const std::string& name,
+                              std::function<void(const std::string&, const std::string&)> done) {
+        std::thread([postToUi, stored, name, done] {
+            fs::path from = fromUtf8(stored);
+            fs::path to = from.parent_path() / fromUtf8(name);
+            std::string problem;
+            if (!inStore(from)) problem = "Not on the shelf";
+            else if (!MoveFileExW(from.c_str(), to.c_str(), 0)) problem = problemFor(GetLastError());
+            if (!problem.empty()) platform::logLine("shelf: rename failed: %s", problem.c_str());
+            std::string renamed = problem.empty() ? platform::toUtf8(to.wstring()) : std::string();
+            postToUi([done, renamed, problem] { done(renamed, problem); });
+        }).detach();
+    };
+    // Windows' thumbnail, else its type's icon, at the size a card shows it (decision 063).
+    h.thumbnail = [postToUi](const std::string& path, std::function<void(std::shared_ptr<const ImageData>)> done) {
+        int pixels = static_cast<int>(std::lround(tokens().thumbnailHeight)); // tokens are already scaled for the display
+        std::thread([postToUi, path, pixels, done] {
+            std::shared_ptr<const ImageData> image;
+            {
+                Com com;
+                image = platform::shellImage(fromUtf8(path).wstring(), std::max(pixels, 16));
+            }
+            postToUi([done, image] { done(image); });
+        }).detach();
     };
     h.checkLinks = [postToUi](const std::vector<std::string>& paths, std::function<void(std::vector<bool>)> done) {
         std::thread([postToUi, paths, done] {

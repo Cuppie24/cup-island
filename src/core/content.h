@@ -18,7 +18,7 @@ using Ms = std::chrono::milliseconds;
 // Built-in icons; the renderer maps them to font glyphs.
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
                    Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre,
-                   Minus, Plus, Pin, Pinned, Link };
+                   Minus, Plus, Pin, Pinned, Link, Folder, File, Package, ViewGrid, ViewList, Reveal };
 
 // Display: a big number, the card's centre (a timer). Heading: a group's name over its rows (Settings'
 // "Dark" and "Light"): small, but heavy and full-strength, so it reads as a divider (decision 037).
@@ -77,9 +77,15 @@ struct Text {
     std::string wrapped;
     bool operator==(const Text&) const = default;
 };
+// How big an Image is (decision 063). Art: the slot's square (media's
+// cover). Icon: an icon's size, in a list row. Thumbnail: thumbnailHeight
+// tall across its whole row, a grid cell's picture.
+enum class ImageRole { Art, Icon, Thumbnail };
 struct Image {
     std::shared_ptr<const ImageData> data;
     std::string actionId; // clickable when set: sent back to the provider (media art opens its app)
+    ImageRole role = ImageRole::Art;
+    bool contain = false; // fitted inside its frame, never cropped: a file type's icon
     bool operator==(const Image&) const = default;
 };
 struct Icon { Glyph glyph = Glyph::Music; bool operator==(const Icon&) const = default; };
@@ -188,7 +194,11 @@ enum class RowSpan { Slot, MatchAbove, MatchBelow };
 //            control panel or a timer, nothing to put in an art square.
 //  List:     like Centred, with wider sides (listCardInset): a page of
 //            settings, rows edge to edge (decision 030).
-enum class CardLayout { Standard, Centred, List };
+//  Large:    like Centred, at largeCardSize: room for a grid of things (the
+//            Shelf, decision 063). A list in it fills what its other rows leave.
+enum class CardLayout { Standard, Centred, List, Large };
+
+struct Cell;
 
 // A horizontal row of items. Text and Progress stretch; everything else has a fixed size.
 struct Row {
@@ -230,7 +240,24 @@ struct Row {
     // Its content inset like a list item's, without being one (no padding,
     // nothing lit): a heading over list items lines up with their text.
     bool inset = false;
+    // A double-click anywhere on the row sends this (decision 063): open a file.
+    std::string openAction;
+    // A grid (decision 063): these cells, wrapped into as many columns as fit
+    // (gridCellMinWidth), each gridCellHeight tall; `items` are ignored. With
+    // `list`, the grid scrolls like a list, and Host::reveal names a cell.
+    std::vector<Cell> cells;
     bool operator==(const Row&) const = default;
+};
+
+// One of a grid's cells: its rows stacked in it (a thumbnail, a name), lit
+// as a whole under the pointer like a list item. `actions` sit in its
+// top-right corner over the rest, shown only while it's hovered.
+struct Cell {
+    std::string id;      // names it in element keys; no '/'
+    std::vector<Row> rows;
+    std::vector<Item> actions;
+    std::string openAction; // a double-click on it
+    bool operator==(const Cell&) const = default;
 };
 
 Row row(std::initializer_list<Item> items, Align align = Align::Start);

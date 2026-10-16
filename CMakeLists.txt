@@ -32,6 +32,7 @@ add_library(cup_core STATIC
     src/core/drop_layout.cpp
     src/core/easing.cpp
     src/core/fullscreen.cpp
+    src/core/grid_layout.cpp
     src/core/hit_test.cpp
     src/core/home.cpp
     src/core/island.cpp
@@ -102,6 +103,7 @@ if(CUP_BUILD_TESTS)
         tests/update_tests.cpp
         tests/shelf_tests.cpp
         tests/drop_tests.cpp
+        tests/grid_tests.cpp
         tests/scenario_runner.cpp
         tests/settings_tests.cpp
         tests/settings_new_tests.cpp
@@ -184,6 +186,7 @@ if(WIN32)
         src/platform/liquid_bridge.cpp
         src/platform/pill_renderer.cpp
         src/platform/render_layer.cpp
+        src/platform/shell_images.cpp
         src/platform/single_instance.cpp
         src/platform/text_input.cpp
         src/platform/stay_on_top.cpp

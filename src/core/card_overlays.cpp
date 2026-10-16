@@ -61,6 +61,7 @@ void dropStaleOverlays(IslandState& s)
     if (s.draft && !shown(s, s.draft->activityId)) dropDraft(s);
     if (s.dialog && !shown(s, s.dialog->activityId)) s.dialog.reset();
     if (s.listDrag && (!shown(s, s.listDrag->activityId) || s.dialog)) s.listDrag.reset();
+    if (s.focusRequest && !shown(s, s.focusRequest->activityId)) s.focusRequest.reset();
 }
 
 } // namespace cup

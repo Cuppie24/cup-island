@@ -32,6 +32,7 @@ void runUpdateTests();
 void runCoverTests();
 void runShelfTests();
 void runDropTests();
+void runGridTests();
 int runScenarioFile(const std::filesystem::path& file); // returns scenarios run
 }
 
@@ -63,6 +64,7 @@ int main(int argc, char** argv)
     runCoverTests();
     runShelfTests();
     runDropTests();
+    runGridTests();
 
     fs::path dir = argc > 1 ? fs::path(argv[1]) : fs::path(CUP_SCENARIO_DIR);
     std::vector<fs::path> files;

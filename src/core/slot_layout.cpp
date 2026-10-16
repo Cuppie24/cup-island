@@ -2,6 +2,7 @@
 
 #include "core/item_metrics.h"
 #include "core/card_overlays.h"
+#include "core/grid_layout.h"
 #include "core/lists.h"
 #include "core/text_wrap.h"
 #include "core/tokens.h"
@@ -74,6 +75,11 @@ RowSizes rowSizes(const Slot& rows, Rect frame)
 {
     RowSizes sizes;
     for (const Row& r : rows) {
+        if (!r.cells.empty()) { // a grid's line (decision 063)
+            sizes.ringSides.push_back(0);
+            sizes.heights.push_back(tokens().gridCellHeight);
+            continue;
+        }
         float others = 0;
         for (const auto* items : { &r.items, &r.leading, &r.trailing })
             for (const Item& item : *items)
@@ -93,14 +99,28 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 const MeasureText& measure)
 {
     const Tokens& t = tokens();
-    const Slot& rows = *slot.slot;
+    // Grids wrapped into lines of cells (decision 063); a reveal names a cell, so it scrolls to the cell's line.
+    WrappedGrids grids = wrapGrids(*slot.slot, slot.frame.width);
+    const Slot& rows = grids.any ? grids.rows : *slot.slot;
+    std::map<std::string, ListScroll> gridScrolls;
+    const std::map<std::string, ListScroll>* scrolls = source.scrolls;
+    if (grids.any && scrolls) {
+        gridScrolls = *scrolls;
+        for (const auto& [list, columns] : grids.columns)
+            if (auto it = gridScrolls.find(listKey(source.activityId, list)); it != gridScrolls.end() && it->second.reveal)
+                it->second.reveal = *it->second.reveal / columns;
+        scrolls = &gridScrolls;
+    }
 
     RowSizes sizes = rowSizes(rows, slot.frame);
     const std::vector<float> oneLine = sizes.heights; // a list's window counts rows of one line (decision 045)
     // Lists windowed, scrolled, a row dragged (decision 029); the rest stacked.
-    ListState lists{ source.activityId, source.scrolls, source.listDrag };
-    RowPlan plan = planRows(rows, sizes.heights, lists, &oneLine);
-    float contentTop = slot.frame.y + (slot.frame.height - plan.height) / 2; // centred vertically
+    ListState lists{ source.activityId, scrolls, source.listDrag };
+    float fill = slot.fill ? slot.frame.height : 0;
+    RowPlan plan = planRows(rows, sizes.heights, lists, &oneLine, fill);
+    // Centred vertically; a filled slot (a Large card) starts at its top.
+    auto topOf = [&](const RowPlan& p) { return slot.fill ? slot.frame.y : slot.frame.y + (slot.frame.height - p.height) / 2; };
+    float contentTop = topOf(plan);
     std::vector<float> wrapped(rows.size(), 0); // each row's wrapping text's height, once its width is known
 
     // Places every row into `target` and returns each row's content span.
@@ -138,6 +158,12 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
             // Keys number `items`, then `trailing`, then `leading`, so they stay stable as rows grow.
             // A row with an id is named by it, so its visuals follow it when a list reorders.
             std::string rowName = row.id.empty() ? std::to_string(r) : row.id;
+            if (!row.cells.empty()) { // a grid's line: its cells side by side (decision 063)
+                placeCells(row, grids.firstCell[r], { area.x, y, area.width, rowHeight }, list, slot.name + "/" + rowName, source,
+                           nestedRadius, now, target, measure);
+                contentSpans.push_back({ area.x, y, area.width, rowHeight });
+                continue;
+            }
             size_t first = target.size();
             auto place = [&](const Item& item, size_t index, float x, float w) {
                 float h = heightOf(item, slot.frame, ringSide);
@@ -184,6 +210,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 }
                 placed.providerId = source.providerId;
                 placed.activityId = source.activityId;
+                placed.openAction = row.openAction;
                 if (auto* label = std::get_if<TimeLabel>(&item)) placed.ticking = label->timeline;
                 target.push_back(std::move(placed));
             };
@@ -322,8 +349,8 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
         if (needed > sizes.heights[r]) sizes.heights[r] = needed, grew = true;
     }
     if (grew) {
-        plan = planRows(rows, sizes.heights, lists, &oneLine);
-        contentTop = slot.frame.y + (slot.frame.height - plan.height) / 2;
+        plan = planRows(rows, sizes.heights, lists, &oneLine, fill);
+        contentTop = topOf(plan);
     }
     placeRows(out, &spans);
     return plan.height;

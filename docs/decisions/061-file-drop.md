@@ -192,3 +192,5 @@ has a path, else Remove.
   finishes and is deleted.
 - Tests: `tests/scenarios/drop.scenario`, `tests/drop_tests.cpp`,
   `tests/shelf_tests.cpp`.
+- The Shelf's card was redone in decision 063: a Large card, cards or a
+  list, thumbnails, rename, Show in folder, double-click to open.

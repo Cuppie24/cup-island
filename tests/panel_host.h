@@ -28,7 +28,12 @@ struct PanelHost : Host {
     std::vector<Dialog> asked;
     void ask(Dialog d) override { asked.push_back(std::move(d)); }
     std::string revealed; // "<list>@<row>"
-    void reveal(const std::string&, const std::string& list, std::size_t row) override { revealed = list + "@" + std::to_string(row); }
+    bool focused = false; // the last reveal asked for the keyboard's focus
+    void reveal(const std::string&, const std::string& list, std::size_t row, bool focus) override
+    {
+        revealed = list + "@" + std::to_string(row);
+        focused = focus;
+    }
     std::map<std::string, std::string> store; // Host::load/save
     std::map<std::string, int> saves;         // per key
     std::string load(const std::string& key) const override { auto it = store.find(key); return it == store.end() ? "" : it->second; }

@@ -29,7 +29,7 @@ void warnIfClipped(const Tokens& t)
 {
     struct Named { const char* name; Vec2 size; };
     for (auto [name, size] : { Named{ "idleSize", t.idleSize }, Named{ "compactSize", t.compactSize },
-                               Named{ "alertSize", t.alertSize }, Named{ "expandedSize", t.expandedSize },
+                               Named{ "alertSize", t.alertSize }, Named{ "expandedSize", t.expandedSize }, Named{ "largeCardSize", t.largeCardSize },
                                Named{ "receptiveSize", t.receptiveSize }, Named{ "hiddenSize", t.hiddenSize } }) {
         if (size.x > t.canvas.x || size.y > t.canvas.y)
             log(std::string("tokens.json: ") + name + " is larger than canvasSize and will be clipped");

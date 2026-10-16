@@ -21,12 +21,13 @@
 //            tabrow top|bottom                                                       (Settings' Tab row, decision 048)
 //            ask <card>  close-dialog                                               (a provider's dialog, decision 020)
 //            edit <card> <action> <text> [at=<n>]                                   (a Text edited in place, decision 029)
-//            wheel <card> <list> <from> <delta> <max>  reveal <card> <list> <row>    (lists, decision 029)
+//            wheel <card> <list> <from> <delta> <max>  reveal <card> <list> <row> [focus]  (lists, decision 029;
+//            focus-taken                                                           focus: decision 063)
 //            pick <card> <list> <row> <y>  carry <y>  put-down
 //            screen <width>  hold  move <dx>  let-go  restore <dock> [fraction]      (lifting the island, decision 026)
 // Checks after "->":  <Mode>  queue=<n>  top=<activity>  bubble=<activity>  alert=<name>
 //                     expanded=<activity|panel|home>  pinned=<activity>  dragging=yes|no (the bubble)  preview=yes|no
-//                     zone=<zone>|none (the hovered drop zone)
+//                     zone=<zone>|none (the hovered drop zone)  focus=<card>/<list>/<row>|none (asked)
 //                     draft=<text>|empty|none  (_ for a space)  dialog=<card>|none
 //                     caret=<byte offset>  selected=<text>|none  (_ for a space)
 //                     lifted=yes|no  spot=centre|left|right|free  stay=yes|no  tabs=top|bottom
@@ -210,7 +211,8 @@ struct Runner {
         else if (cmd == "tabrow") apply(TabRowPlaced{ arg(1) != "bottom" });
         else if (cmd == "edit") apply(InputFocused{ "p", arg(1), arg(2), arg(3), /* editing */ true, at(4) });
         else if (cmd == "wheel") apply(ListScrolled{ arg(1), arg(2), std::stof(arg(3)), std::stof(arg(4)), std::stof(arg(5)) });
-        else if (cmd == "reveal") apply(ListRevealed{ arg(1), arg(2), std::stoul(arg(3)) });
+        else if (cmd == "reveal") apply(ListRevealed{ arg(1), arg(2), std::stoul(arg(3)), arg(4) == "focus" });
+        else if (cmd == "focus-taken") apply(FocusTaken{});
         else if (cmd == "pick") apply(ListDragStarted{ arg(1), arg(2), std::stoul(arg(3)), std::stof(arg(4)) });
         else if (cmd == "carry") apply(ListDragMoved{ std::stof(arg(1)) });
         else if (cmd == "put-down") apply(ListDragEnded{});
@@ -244,6 +246,10 @@ struct Runner {
             } else if (auto v = option(word, "dragging")) {
                 std::string got = state.bubbleDrag ? "yes" : "no";
                 if (got != *v) fail("dragging=" + *v + ", got " + got);
+            } else if (auto v = option(word, "focus")) {
+                const auto& f = state.focusRequest;
+                std::string got = f ? f->activityId + "/" + f->list + "/" + std::to_string(f->row) : "none";
+                if (got != *v) fail("focus=" + *v + ", got " + got);
             } else if (auto v = option(word, "zone")) {
                 std::string got = state.dropHover.empty() ? "none" : state.dropHover;
                 if (got != *v) fail("zone=" + *v + ", got " + got);

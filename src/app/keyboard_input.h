@@ -39,6 +39,10 @@ void setKeyboardHooks(KeyboardHooks hooks);
 // frame). Nothing: the pointer leads, or no card is open.
 std::optional<Focusable> keyFocus();
 
+// A provider's focus request (IslandState::focusRequest) was honoured since
+// the last call: the app tells core (FocusTaken), so it's taken once.
+bool takeFocusRequest();
+
 // The pointer moved (render-layer point). A real move takes the lead back;
 // Windows repeats one when windows change under a still pointer.
 void pointerMoved(Vec2 canvasPoint);

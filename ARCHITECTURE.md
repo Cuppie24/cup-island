@@ -40,6 +40,7 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 keyboard.h (arrow, Tab and digit focus, decisions 031, 033) + shortcuts.h (the shortcut table, decision 031),
                 badges.h (where notification dots go, decision 038),
                 drop.h (what a drag carries, its zones) + drag.h + drop_layout.h (Receptive, decision 061),
+                grid_layout.h (grids of cells in a card, decision 063),
                 cover_palette.h + island_tint.h (the island in the playing cover's colours, decision 051),
                 tokens.h (+ tokens_json.h, json_reader.h), easing.h
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
@@ -213,6 +214,7 @@ over the file's, so `tokens()` is always what's on screen.
 | Host lists: smooth scrolling, keep-in-view, drag to reorder, edit in place (decision 029) | done; rules tested, compositor side needs a Windows run |
 | Renderer: alert pulse, matched geometry | not yet |
 | File drop (decision 061): Receptive's zones from any provider, the Shelf's Link and Copy, the list, copies in its store | rules tested; the drop target and copies need a Windows run |
+| Large cards, grids of cells, double-click to open, focus hints; the Shelf's cards and list views, thumbnails, rename, Show in folder (decision 063) | rules tested; thumbnails, double-click and Explorer need a Windows run |
 | File drop, next: virtual files (Outlook, zip, phone), drag out of the shelf, a hot zone wider than the pill, the elevation alert | not yet |
 | Fullscreen detection (TR §9.2): borderless + exclusive, per monitor, maximized windows excluded | done; rules tested (`core/fullscreen`), hooks need Windows |
 | Real input for drag (OLE drop target): Explorer's files, links, text | done; needs a Windows run. The D key fakes one file |

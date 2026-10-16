@@ -16,9 +16,10 @@ enum class Kind { Link, Copy };
 // Missing: a link whose original is gone, or its drive is offline.
 enum class State { Ready, Copying, Failed, Missing };
 
-struct Item {
+struct Entry {
     std::uint64_t id = 0;   // stable while the app runs, and kept: buttons and the store's folders name it
-    std::string name;       // shown
+    std::string name;       // a link's original's name; a copy's file's name in the store
+    std::string label;      // a link renamed on the shelf (decision 063): shown instead of `name`; its file keeps its name
     Kind kind = Kind::Link;
     State state = State::Ready;
     DragKind what = DragKind::File;
@@ -27,15 +28,18 @@ struct Item {
     std::uint64_t bytes = 0; // Copy: what it takes in the store
     float progress = 0;     // Copying: 0..1
     std::string problem;    // Failed: why
-    bool operator==(const Item&) const = default;
+    bool operator==(const Entry&) const = default;
 };
+
+// What the shelf shows for it: a link's label, else its name.
+const std::string& shownName(const Entry& item);
 
 class Items {
 public:
-    const std::vector<Item>& all() const { return items_; } // oldest first
-    const Item* find(std::uint64_t id) const;
+    const std::vector<Entry>& all() const { return items_; } // oldest first
+    const Entry* find(std::uint64_t id) const;
 
-    std::uint64_t add(Item item);            // gives it the next id; returns it
+    std::uint64_t add(Entry item);            // gives it the next id; returns it
     bool remove(std::uint64_t id);
     void clear();
     bool setProgress(std::uint64_t id, float fraction);
@@ -44,6 +48,10 @@ public:
     bool failed(std::uint64_t id, const std::string& problem);
     bool keepAsLink(std::uint64_t id);       // a failed copy becomes a link to its source
     bool setMissing(std::uint64_t id, bool missing); // a link's original is gone, or back
+    // Renamed on the shelf (decision 063). A link: only its label (blank: its
+    // name again); a copy: its file was renamed in the store, now at `stored`.
+    bool relabel(std::uint64_t id, const std::string& label);
+    bool renamed(std::uint64_t id, const std::string& stored, const std::string& name);
 
     std::uint64_t storeUsed() const;         // every copy's bytes, finished or not
     bool anyLinks() const;
@@ -54,8 +62,8 @@ public:
     static Items load(const std::string& saved);
 
 private:
-    Item* at(std::uint64_t id);
-    std::vector<Item> items_;
+    Entry* at(std::uint64_t id);
+    std::vector<Entry> items_;
     std::uint64_t nextId_ = 1;
 };
 

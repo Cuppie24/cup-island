@@ -48,7 +48,7 @@ struct Tokens {
     // along its top edge (decision 026), and this tall (TR §5, §9.1). The
     // width here is only a minimum, and the width layout() uses until the
     // platform says (tests).
-    Vec2 canvas{ 500, 640 }; // room for the largest pill (a Centred card at its tallest, with tabs) and its shadow
+    Vec2 canvas{ 820, 640 }; // room for the largest pill (a Large card with tabs, decision 063) and its shadow
 
     // One knob for the island's overall size: every length below is
     // multiplied by it, on top of the display's scaling (decision 017).
@@ -60,7 +60,8 @@ struct Tokens {
     Vec2 compactSize{ 260, 32 };
     Vec2 alertSize{ 320, 64 };
     Vec2 expandedSize{ 440, 159 }; // every card and Home: the width a to-do's text needs (decisions 043, 047)
-    Vec2 receptiveSize{ 440, 180 }; // a drag over the island: its drop zones, big enough to land on (decision 061)
+    Vec2 largeCardSize{ 760, 540 };  // a Large card (CardLayout::Large): the Shelf's grid (decision 063)
+    Vec2 receptiveSize{ 760, 320 };  // a drag over the island: its drop zones, big enough to land on (decisions 061, 063)
     Vec2 hiddenSize{ 160, 0 };
     float maxCornerRadius = 28; // bottom corners: half the height, capped, so big shapes aren't blobs
     float flareRadius = 8;      // top corners curve outward into the screen edge (decision 025); 0 = square
@@ -172,6 +173,13 @@ struct Tokens {
     float tilePadding = 8;        // inside a tile, on every side
     float focusRingWidth = 2;     // the keyboard's focus ring (decision 033), drawn inside what has focus
     float dropZoneGap = 8;        // between a drag's drop zones (decision 061), side by side across the card
+    // A grid's cells (Row::cells, decision 063): as many columns as fit at
+    // least gridCellMinWidth, stretched to the row; a Thumbnail image is
+    // thumbnailHeight tall across its cell.
+    float gridCellMinWidth = 150;
+    float gridCellHeight = 172;
+    float gridGap = 10;
+    float thumbnailHeight = 108;
 
     // Morph between modes: ease-out, 250-350 ms budget (TR §5).
     Ms morphDuration{ 300 };

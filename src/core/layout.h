@@ -22,6 +22,7 @@ struct InList {
     std::string moveAction;  // its row's (Row::moveAction): it can be dragged to a new place
     bool dragged = false;    // its row is being dragged: it follows the pointer at once, the rest ease aside
     std::size_t dropAt = 0;  // dragged: the index it would land at if let go now
+    std::optional<std::size_t> cell; // in a grid (Row::cells): its cell's index among the grid's cells (`row` is its line)
     bool operator==(const InList&) const = default;
 };
 
@@ -39,8 +40,14 @@ struct Placed {
     std::string providerId;
     std::string activityId;
     std::optional<Timeline> ticking; // time labels: the text changes as playback moves
+    std::string openAction;      // its row's or cell's (Row::openAction): a double-click on it sends this
+    std::string group;           // a grid cell's key: hovered as one (hoverGroup); "" = its row's
     bool operator==(const Placed&) const = default;
 };
+
+// What lights and reveals together under the pointer (Button::revealOnHover):
+// a grid cell, or else the element's row ("<slot>/<row>").
+std::string hoverGroup(const Placed& placed);
 
 // The Split bubble (PS §3.1): the 2nd activity's `minimal` slot, in a
 // shape like the pill's.

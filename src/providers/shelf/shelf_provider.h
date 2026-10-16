@@ -8,10 +8,12 @@
 
 #include "core/provider.h"
 #include "providers/shelf/drop_plan.h"
+#include "providers/shelf/shelf_content.h"
 #include "providers/shelf/shelf_items.h"
 
 #include <functional>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -34,7 +36,15 @@ struct ShelfHooks {
     using Done = std::function<void(const std::string& stored, std::uint64_t bytes, const std::string& problem)>;
     std::function<void(const CopyJob& job, Progress progress, Done done)> copy;
     std::function<void(const std::string& stored)> removeCopy; // a copy in the store; never an original
-    std::function<void(const std::string& path)> open;         // in its app, as Explorer would
+    std::function<void(const std::string& path)> open;         // in its app, as Explorer would (a double-click)
+    std::function<void(const std::string& path)> reveal;       // Explorer, with it selected
+    // Renames a copy in its store folder, off the UI thread; `done` on the UI
+    // thread with its new place, or why not. Never a file outside the store.
+    std::function<void(const std::string& stored, const std::string& name,
+                       std::function<void(const std::string& renamed, const std::string& problem)> done)> renameCopy;
+    // Its picture, off the UI thread: Windows' thumbnail, or its type's icon;
+    // `done` on the UI thread, nothing if there's none.
+    std::function<void(const std::string& path, std::function<void(std::shared_ptr<const ImageData>)> done)> thumbnail;
     // Which of these still exist, off the UI thread (a network drive can be slow); `done` on the UI thread.
     std::function<void(const std::vector<std::string>& paths, std::function<void(std::vector<bool> present)> done)> checkLinks;
 };
@@ -48,22 +58,31 @@ public:
     void start(Host& host) override;
     void stop() override;
     void onAction(const Action& action) override;
-    void onCardShown(const std::string& activityId) override; // links are checked when they're seen, never at start
+    void onCardShown(const std::string& activityId) override; // links checked and pictures read when it's seen, never at start
     std::vector<DropZone> dropZones(const DragSummary& drag) override;
     void onDrop(const std::string& zoneId, const std::vector<DroppedItem>& items) override;
 
     const shelf::Items& items() const { return items_; }
+    shelf::View view() const { return view_; }
 
     static constexpr const char* kItemsKey = "items";
+    static constexpr const char* kViewKey = "view"; // "cards" (the default) or "list"
     static constexpr const char* kLinkZone = "shelf.link";
     static constexpr const char* kCopyZone = "shelf.copy";
 
 private:
     void changed(); // saves and shows the list
+    void show();    // shows it, nothing to save (progress, a picture)
     void startCopy(std::uint64_t id, const DroppedItem& dropped);
+    void rename(std::uint64_t id, const std::string& name);
+    void readThumbnails(); // for ready things without a picture, once each
     Host* host_ = nullptr;
     ShelfHooks hooks_;
     shelf::Items items_;
+    shelf::View view_ = shelf::View::Cards;
+    shelf::Thumbnails thumbnails_;     // by item id; in memory only
+    std::set<std::uint64_t> asked_;    // pictures asked for (an answer of none isn't asked again)
+    bool shown_ = false;               // its card has been seen: pictures are read from then on
     std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);
 };
 

@@ -53,27 +53,29 @@ int indexOf(const std::string& word, const char* const* names, int count, int fa
 
 } // namespace
 
-const Item* Items::find(std::uint64_t id) const
+const std::string& shownName(const Entry& item) { return item.label.empty() ? item.name : item.label; }
+
+const Entry* Items::find(std::uint64_t id) const
 {
-    auto it = std::find_if(items_.begin(), items_.end(), [&](const Item& i) { return i.id == id; });
+    auto it = std::find_if(items_.begin(), items_.end(), [&](const Entry& i) { return i.id == id; });
     return it == items_.end() ? nullptr : &*it;
 }
 
-Item* Items::at(std::uint64_t id) { return const_cast<Item*>(find(id)); }
+Entry* Items::at(std::uint64_t id) { return const_cast<Entry*>(find(id)); }
 
-std::uint64_t Items::add(Item item)
+std::uint64_t Items::add(Entry item)
 {
     item.id = nextId_++;
     items_.push_back(std::move(item));
     return items_.back().id;
 }
 
-bool Items::remove(std::uint64_t id) { return std::erase_if(items_, [&](const Item& i) { return i.id == id; }) > 0; }
+bool Items::remove(std::uint64_t id) { return std::erase_if(items_, [&](const Entry& i) { return i.id == id; }) > 0; }
 void Items::clear() { items_.clear(); }
 
 bool Items::setProgress(std::uint64_t id, float fraction)
 {
-    Item* item = at(id);
+    Entry* item = at(id);
     if (!item || item->state != State::Copying) return false;
     item->progress = std::clamp(fraction, 0.0f, 1.0f);
     return true;
@@ -81,7 +83,7 @@ bool Items::setProgress(std::uint64_t id, float fraction)
 
 bool Items::copied(std::uint64_t id, const std::string& stored, std::uint64_t bytes)
 {
-    Item* item = at(id);
+    Entry* item = at(id);
     if (!item || item->state != State::Copying) return false;
     item->state = State::Ready;
     item->path = stored;
@@ -92,7 +94,7 @@ bool Items::copied(std::uint64_t id, const std::string& stored, std::uint64_t by
 
 bool Items::failed(std::uint64_t id, const std::string& problem)
 {
-    Item* item = at(id);
+    Entry* item = at(id);
     if (!item || item->state != State::Copying) return false;
     item->state = State::Failed;
     item->problem = problem;
@@ -102,7 +104,7 @@ bool Items::failed(std::uint64_t id, const std::string& problem)
 
 bool Items::keepAsLink(std::uint64_t id)
 {
-    Item* item = at(id);
+    Entry* item = at(id);
     if (!item || item->state != State::Failed || item->source.empty()) return false;
     item->kind = Kind::Link;
     item->state = State::Ready;
@@ -114,7 +116,7 @@ bool Items::keepAsLink(std::uint64_t id)
 
 bool Items::setMissing(std::uint64_t id, bool missing)
 {
-    Item* item = at(id);
+    Entry* item = at(id);
     if (!item || item->kind != Kind::Link) return false;
     State want = missing ? State::Missing : State::Ready;
     if (item->state == want || (item->state != State::Ready && item->state != State::Missing)) return false;
@@ -122,26 +124,45 @@ bool Items::setMissing(std::uint64_t id, bool missing)
     return true;
 }
 
+bool Items::relabel(std::uint64_t id, const std::string& label)
+{
+    Entry* item = at(id);
+    if (!item || item->kind != Kind::Link) return false;
+    std::string next = label == item->name ? std::string() : label;
+    if (next == item->label) return false;
+    item->label = next;
+    return true;
+}
+
+bool Items::renamed(std::uint64_t id, const std::string& stored, const std::string& name)
+{
+    Entry* item = at(id);
+    if (!item || item->kind != Kind::Copy || item->state != State::Ready) return false;
+    item->path = stored;
+    item->name = name;
+    return true;
+}
+
 std::uint64_t Items::storeUsed() const
 {
     std::uint64_t used = 0;
-    for (const Item& i : items_)
+    for (const Entry& i : items_)
         if (i.kind == Kind::Copy) used += i.bytes;
     return used;
 }
 
 bool Items::anyLinks() const
 {
-    return std::any_of(items_.begin(), items_.end(), [](const Item& i) { return i.kind == Kind::Link; });
+    return std::any_of(items_.begin(), items_.end(), [](const Entry& i) { return i.kind == Kind::Link; });
 }
 
 std::string Items::save() const
 {
     std::string out;
-    for (const Item& i : items_) {
+    for (const Entry& i : items_) {
         out += std::to_string(i.id) + '\t' + (i.kind == Kind::Copy ? "copy" : "link") + '\t' + kState[static_cast<int>(i.state)] + '\t' +
                kWhat[static_cast<int>(i.what)] + '\t' + std::to_string(i.bytes) + '\t' + escape(i.name) + '\t' + escape(i.path) + '\t' +
-               escape(i.source) + '\t' + escape(i.problem) + '\n';
+               escape(i.source) + '\t' + escape(i.problem) + '\t' + escape(i.label) + '\n';
     }
     return out;
 }
@@ -153,7 +174,7 @@ Items Items::load(const std::string& saved)
     for (std::string line; std::getline(in, line);) {
         std::vector<std::string> c = cells(line);
         if (c.size() < 9) continue; // not ours: skipped
-        Item item;
+        Entry item;
         try {
             item.id = std::stoull(c[0]);
             item.bytes = std::stoull(c[4]);
@@ -167,6 +188,7 @@ Items Items::load(const std::string& saved)
         item.path = c[6];
         item.source = c[7];
         item.problem = c[8];
+        if (c.size() > 9) item.label = c[9]; // saved before decision 063: no label
         if (item.state == State::Copying) { // the app quit mid-copy (decision 061)
             item.state = State::Failed;
             item.problem = "The copy didn't finish";

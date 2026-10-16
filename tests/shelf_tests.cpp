@@ -123,14 +123,26 @@ struct Shelf {
     std::vector<ShelfHooks::Done> done;
     std::vector<std::string> removed, opened;
     std::function<void(std::vector<bool>)> checked;
+    std::vector<std::string> revealed, renames, pictures;
+    std::vector<std::function<void(const std::string&, const std::string&)>> renamed;
+    std::vector<std::function<void(std::shared_ptr<const ImageData>)>> pictured;
     ShelfProvider provider{ ShelfHooks{
         .copy = [this](const CopyJob& j, ShelfHooks::Progress p, ShelfHooks::Done d) { jobs.push_back(j); progress.push_back(p); done.push_back(d); },
         .removeCopy = [this](const std::string& s) { removed.push_back(s); },
         .open = [this](const std::string& p) { opened.push_back(p); },
+        .reveal = [this](const std::string& p) { revealed.push_back(p); },
+        .renameCopy = [this](const std::string& stored, const std::string& name, std::function<void(const std::string&, const std::string&)> d) {
+            renames.push_back(stored + ">" + name);
+            renamed.push_back(std::move(d));
+        },
+        .thumbnail = [this](const std::string& path, std::function<void(std::shared_ptr<const ImageData>)> d) {
+            pictures.push_back(path);
+            pictured.push_back(std::move(d));
+        },
         .checkLinks = [this](const std::vector<std::string>&, std::function<void(std::vector<bool>)> d) { checked = std::move(d); } } };
     Shelf() { provider.start(host); }
     void act(const std::string& action) { provider.onAction({ "shelf", kPanelId, action, 0 }); }
-    const shelf::Item& item(std::size_t i) const { return provider.items().all()[i]; }
+    const shelf::Entry& item(std::size_t i) const { return provider.items().all()[i]; }
 };
 
 DroppedItem dropped(const std::string& path, std::uint64_t mb)
@@ -153,7 +165,7 @@ void providerTests()
            "shelf: a mixed drop: one copying, the big one linked");
     expect(s.jobs.size() == 1 && s.jobs[0].source == "C:\\d\\a.pdf" && s.jobs[0].name == "a.pdf" && s.jobs[0].maxBytes == 1024 * kMB,
            "shelf: the copy is asked of the app, with the limit");
-    expect(s.host.revealed == std::string(action::kList) + "@0", "shelf: the newest is kept in view");
+    expect(s.host.revealed == std::string(action::kList) + "@0" && s.host.focused, "shelf: the newest is kept in view, with the keyboard's focus");
     s.progress[0](0.5f);
     expect(s.item(0).progress == 0.5f, "shelf: progress shows");
     s.done[0]("S:\\1\\a.pdf", 2 * kMB, "");
@@ -196,6 +208,99 @@ void providerTests()
     expect(restarted.provider.items().all() == s.provider.items().all(), "shelf: the list survives a restart");
 }
 
+// A published card's grid (cards view), or nothing.
+const Row* gridOf(const Panel& p)
+{
+    for (const Row& r : p.content.expandedCenter)
+        if (!r.cells.empty()) return &r;
+    return nullptr;
+}
+
+bool hasAction(const std::vector<cup::Item>& items, const std::string& prefix)
+{
+    for (const cup::Item& i : items)
+        if (auto* b = std::get_if<Button>(&i); b && b->actionId.starts_with(prefix)) return true;
+    return false;
+}
+
+void cardTests()
+{
+    Shelf s;
+    expect(s.provider.view() == View::Cards && s.host.published.back().content.card == CardLayout::Large, "card: Large, cards by default");
+    expect(s.host.published.back().content.tileLeading[0].items[0] == cup::Item{ Icon{ Glyph::Package } }, "card: the widget's icon is a box");
+    s.provider.onDrop(ShelfProvider::kLinkZone, { dropped("C:\\d\\a.pdf", 2), DroppedItem{ .what = folder("Photos"), .path = "C:\\Photos" } });
+    s.provider.onDrop(ShelfProvider::kCopyZone, { dropped("C:\\d\\b.png", 1) });
+    const Row* grid = gridOf(s.host.published.back());
+    expect(grid && grid->cells.size() == 3 && grid->list == action::kList, "card: one cell per thing, in a scrolling grid");
+    if (grid) {
+        const Cell& copying = grid->cells[0]; // the newest first
+        const Cell& link = grid->cells[2];
+        expect(copying.openAction.empty() && !hasAction(copying.actions, action::kReveal), "card: a copy under way can't be opened or shown yet");
+        expect(link.openAction == action::kOpen + std::to_string(s.item(0).id) && hasAction(link.actions, action::kReveal) &&
+               hasAction(link.actions, action::kRemove), "card: a ready thing opens on a double-click, and shows Show in folder and Remove");
+        bool hover = true;
+        for (const cup::Item& a : link.actions) hover = hover && std::get<Button>(a).revealOnHover;
+        expect(hover, "card: its buttons show only on hover");
+        auto* name = std::get_if<Text>(&link.rows[1].items[1]);
+        expect(name && name->value == "a.pdf" && name->editAction == action::kRename + std::to_string(s.item(0).id), "card: the name renames it");
+        expect(link.rows[1].items[0] == cup::Item{ Icon{ Glyph::Link } }, "card: a link's badge says so");
+    }
+
+    s.act(action::kView);
+    expect(s.provider.view() == View::List && s.host.store[ShelfProvider::kViewKey] == "list" && !gridOf(s.host.published.back()),
+           "card: the toggle switches to the list, and it's kept");
+    const Row* folderRow = nullptr;
+    for (const Row& r : s.host.published.back().content.expandedCenter)
+        if (r.id == "item-" + std::to_string(s.item(1).id)) folderRow = &r;
+    expect(folderRow && folderRow->items[0] == cup::Item{ Icon{ Glyph::Folder } } && folderRow->openAction.starts_with(action::kOpen),
+           "card: a folder has the folder icon, and opens on a double-click");
+    bool hover = folderRow != nullptr;
+    if (folderRow)
+        for (const cup::Item& a : folderRow->trailing) hover = hover && std::get<Button>(a).revealOnHover;
+    expect(hover, "card: in the list too, buttons only on hover");
+    Shelf again;
+    again.host.store = s.host.store;
+    again.provider.start(again.host);
+    expect(again.provider.view() == View::List, "card: the view survives a restart");
+
+    s.act(std::string(action::kReveal) + std::to_string(s.item(0).id));
+    s.provider.onAction({ "shelf", kPanelId, std::string(action::kOpen) + std::to_string(s.item(1).id), 0 });
+    expect(s.revealed == std::vector<std::string>{ "C:\\d\\a.pdf" } && s.opened == std::vector<std::string>{ "C:\\Photos" },
+           "card: Show in folder reveals it; a double-click opens it");
+
+    // Renaming: a link only on the shelf; a copy's file in the store.
+    s.provider.onAction({ "shelf", kPanelId, std::string(action::kRename) + std::to_string(s.item(0).id), 0, "  Taxes 2026 " });
+    expect(shownName(s.item(0)) == "Taxes 2026" && s.item(0).name == "a.pdf" && s.item(0).path == "C:\\d\\a.pdf" && s.renames.empty(),
+           "card: renaming a link changes its label only");
+    expect(Items::load(s.provider.items().save()).find(s.item(0).id)->label == "Taxes 2026", "card: the label is kept");
+    s.done[0]("S:\\3\\b.png", 1 * kMB, "");
+    std::uint64_t copy = s.item(2).id;
+    s.provider.onAction({ "shelf", kPanelId, std::string(action::kRename) + std::to_string(copy), 0, "c:d.png" });
+    expect(s.renames == std::vector<std::string>{ "S:\\3\\b.png>c_d.png" }, "card: renaming a copy renames its file, made safe");
+    s.renamed[0]("S:\\3\\c_d.png", "");
+    expect(s.item(2).path == "S:\\3\\c_d.png" && s.item(2).name == "c_d.png", "card: ...and it's found at its new name");
+    s.provider.onAction({ "shelf", kPanelId, std::string(action::kRename) + std::to_string(copy), 0, "x.partial" });
+    expect(s.renames.size() == 1, "card: never a name the next start would delete");
+
+    // Pictures: read once the card is seen, shown, forgotten with their thing.
+    expect(s.pictures.empty(), "card: no pictures read before the card is seen");
+    s.provider.onCardShown(kPanelId);
+    expect(s.pictures.size() == 3, "card: each ready thing's picture is asked for once seen");
+    auto image = std::make_shared<ImageData>(ImageData{ 1, 1, { 0, 0, 0, 255 } });
+    s.pictured[0](image);
+    s.act(action::kView); // back to cards
+    const Row* shown = gridOf(s.host.published.back());
+    bool pictured = false;
+    if (shown)
+        for (const Cell& c : shown->cells)
+            if (auto* img = std::get_if<Image>(&c.rows[0].items[0]); img && img->data == image) pictured = img->role == ImageRole::Thumbnail;
+    expect(pictured, "card: the picture is the cell's thumbnail");
+    s.provider.onCardShown(kPanelId);
+    expect(s.pictures.size() == 3, "card: a picture is asked for once");
+
+    expect(Items::load("1\tlink\tready\tfile\t0\ta\tC:\\a\t\t\n").all().size() == 1, "card: a list saved before labels still loads");
+}
+
 } // namespace
 
 void runShelfTests()
@@ -204,6 +309,7 @@ void runShelfTests()
     nameTests();
     itemsTests();
     providerTests();
+    cardTests();
 }
 
 } // namespace cup::test
