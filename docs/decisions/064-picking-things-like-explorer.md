@@ -24,9 +24,9 @@ A provider can't do that itself: keys and the pointer never reach it
     that picks what it touches; with Ctrl it adds to what was picked;
   - buttons on a thing are their own click, never a pick;
   - a double-click opens it (decision 063).
-- **Rename like Explorer:** a slow second click on the name of the one
-  thing picked renames it. It waits out the double-click time first, so
-  a double-click still opens instead. F2 renames too.
+- **Rename:** a click on a thing's name picks it alone and renames it at
+  once (first tried as Explorer's slow second click; too slow to find).
+  F2 renames the one thing picked.
 - **Keys:** Ctrl+A picks everything; Delete sends the card's
   `Content::deleteAction`; Enter opens the one thing picked; F2 renames
   it; the arrows move the keyboard's focus and pick what it lands on
@@ -43,6 +43,12 @@ A provider can't do that itself: keys and the pointer never reach it
   can't be copied (too large, a folder) is linked, and a toast says how
   many. The card stays open under the picker (`g_picking` keeps a click
   outside from closing it).
+
+**After a first look.** The selection and the box show at once, no fade:
+a fade lagged behind the pointer. The add card is one button, lit as a
+whole (`Cell::clickAnywhere`); the list's add row too. A name's hover is
+its whole stretch and a field's height (`Text::editHint`), the text drawn
+where it was.
 
 **Also in this round.** A backed button's disc is the same shape as its
 hover (both circles), and the hover lightens it: the disc is a shape under

@@ -42,7 +42,8 @@ bool isRing(const Item& item)
 float heightOf(const Item& item, Rect slot, float ringSide)
 {
     const Tokens& t = tokens();
-    if (auto* text = std::get_if<Text>(&item)) return lineHeight(text->style);
+    // A name that lights to say it renames (Text::editHint): as tall as a field's line, so it's easy to hit (decision 064).
+    if (auto* text = std::get_if<Text>(&item)) return text->editHint && !text->editAction.empty() ? lineHeight(text->style) + 2 * t.editInset : lineHeight(text->style);
     if (auto* image = std::get_if<Image>(&item)) { // decision 063
         if (image->role == ImageRole::Icon) return t.iconSize;
         if (image->role == ImageRole::Thumbnail) return t.thumbnailHeight;

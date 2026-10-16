@@ -69,12 +69,17 @@ void placeCells(const Row& line, std::size_t firstCell, Rect frame, const std::o
         std::size_t first = out.size();
         Rect inner{ box.x + pad, box.y + pad, std::max(0.0f, box.width - 2 * pad), std::max(0.0f, box.height - 2 * pad) };
         placeSlot({ cellKey, &cell.rows, inner }, inside, std::max(0.0f, radius - pad), now, out, measure);
-        // The whole cell is under the pointer, not just its pieces: its picture's area covers it.
-        for (std::size_t p = first; p < out.size(); ++p)
-            if (std::holds_alternative<Image>(out[p].item)) {
+        // The whole cell is under the pointer, not just its pieces: its picture's area covers it,
+        // or, clickable anywhere, its button's (one hover for the whole card: decision 064).
+        for (std::size_t p = first; p < out.size(); ++p) {
+            if (cell.clickAnywhere && std::holds_alternative<Button>(out[p].item)) {
+                out[p].hitFrame = box;
+                out[p].litByRow = true;
+            } else if (!cell.clickAnywhere && std::holds_alternative<Image>(out[p].item)) {
                 out[p].hitFrame = box;
                 break;
             }
+        }
         // Its actions over its top-right corner, right to left from the edge.
         float x = box.x + box.width - pad;
         for (std::size_t a = cell.actions.size(); a-- > 0;) {

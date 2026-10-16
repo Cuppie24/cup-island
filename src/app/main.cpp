@@ -706,12 +706,11 @@ void onPressRelease(Vec2 canvasPoint, Release how)
         return;
     }
     if (how == Release::Inside && onPill(canvasPoint) && openedByDoubleClick(point)) {
-        app::cancelRename(); // a double-click opens it, it doesn't rename it
         if (!g_pointer.pressedKey.empty()) g_renderer.releaseElement(std::exchange(g_pointer.pressedKey, std::string{}));
         else g_renderer.pressRelease(false);
         return;
     }
-    if (app::selectionReleased(point, how == Release::Inside && onPill(canvasPoint))) {
+    if (app::selectionReleased(how == Release::Inside && onPill(canvasPoint))) {
         updateHover();
         return;
     }
@@ -923,8 +922,6 @@ void onTimer(TimerId id)
         // Re-read the wall clock every time: it also does Tick's work, and a
         // clock or time-zone change shows within a minute (decision 009).
         dispatch(readWallClock(), "timer");
-    } else if (id == TimerId::Rename) {
-        app::renameDue(); // a slow second click on a picked thing's name (decision 064)
     } else if (id == TimerId::TokensReload) {
         Vec2 oldCanvas = tokens().canvas;
         if (!app::loadTokens(g_tokensFile, /* startup */ false)) return;
@@ -1118,7 +1115,6 @@ int main()
             dispatch(InputFocused{ name.providerId, name.activityId, text.editAction, text.value, true, std::nullopt, text.editMaxLength }, "rename");
         },
         .showBox = [](std::optional<Rect> box) { g_renderer.setSelectionBox(box); },
-        .renameTimer = [](std::optional<Ms> delay) { setTimer(TimerId::Rename, delay); },
         .dragOut = [](const std::string& providerId, const std::string& activityId, const std::string& list, const std::vector<std::string>& ids) {
             std::vector<std::string> paths = g_providers ? g_providers->dragOut(providerId, activityId, list, ids) : std::vector<std::string>{};
             if (paths.empty()) return;

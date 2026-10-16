@@ -3,10 +3,13 @@
 // a reveal naming a cell, a list filling a Large card, image roles.
 
 #include "core/grid_layout.h"
+#include "core/item_metrics.h"
 #include "core/hit_test.h"
 #include "core/layout.h"
 #include "core/tokens.h"
 #include "expect.h"
+
+#include <cmath>
 
 namespace cup::test {
 namespace {
@@ -14,7 +17,7 @@ namespace {
 Cell cellNamed(const std::string& id)
 {
     return { .id = id,
-             .rows = { row({ Image{ .role = ImageRole::Thumbnail } }), row({ Text{ .value = id, .editAction = "rename." + id } }) },
+             .rows = { row({ Image{ .role = ImageRole::Thumbnail } }), row({ Text{ .value = id, .editAction = "rename." + id, .editHint = true } }) },
              .actions = { Button{ .glyph = Glyph::Delete, .actionId = "remove." + id, .compact = true, .revealOnHover = true } },
              .openAction = "open." + id };
 }
@@ -97,6 +100,27 @@ void runGridTests()
     const Placed* picked = find(scene, "expandedCenter/grid.0/c1/1/0");
     expect(picked && picked->list && picked->list->item == "c1", "grid: a selectable grid's cells carry their ids");
     expect(scene.selected.size() == 2 && picked && picked->listRow && scene.selected[1] == *picked->listRow, "grid: each picked cell is lit, once");
+
+    // A cell clickable anywhere (the add card): its button takes the whole cell, lit as one.
+    {
+        Content c{ .card = CardLayout::Large };
+        Row grid{ .list = "items", .id = "grid", .selectable = true };
+        grid.cells.push_back({ .id = "add", .rows = { row({ Button{ .glyph = Glyph::Plus, .actionId = "add" } }) }, .fixed = true, .clickAnywhere = true });
+        c.expandedCenter.push_back(grid);
+        IslandState g;
+        g = reduce(g, PanelPublished{ { .id = "p", .content = c, .providerId = "p" } }, Ms{ 0 });
+        g = reduce(g, TileClicked{ "p" }, Ms{ 0 });
+        Scene gs = layout(g, Ms{ 0 });
+        const Placed* plus = find(gs, "expandedCenter/grid.0/add/0/0");
+        expect(plus && plus->listRow && plus->hitFrame == *plus->listRow && plus->litByRow && plus->list && plus->list->item.empty(),
+               "grid: a clickable cell is one button, lit as a whole, never picked");
+    }
+    // A name that lights to say it renames: its whole stretch, a field's height.
+    {
+        const Placed* nm = find(scene, "expandedCenter/grid.0/c1/1/0");
+        expect(nm && nm->frame.height == lineHeight(TextStyle::Body) + 2 * t.editInset && nm->listRow && nm->frame.width > nm->listRow->width / 2,
+               "grid: a hinted name is a field's height, across the cell");
+    }
 
     // Image roles in an ordinary row.
     Content listed{ .card = CardLayout::Centred, .expandedCenter = { row({ Image{ .role = ImageRole::Icon }, Text{ .value = "a" } }) } };

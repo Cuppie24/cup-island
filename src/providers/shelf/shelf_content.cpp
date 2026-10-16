@@ -109,7 +109,8 @@ Cell addCell()
     return { .id = "add",
              .rows = { row({ Button{ .glyph = Glyph::Plus, .actionId = action::kAdd } }, Align::Center),
                        row({ Text{ .value = "Add files", .style = TextStyle::Caption, .centred = true } }, Align::Center) },
-             .fixed = true };
+             .fixed = true,
+             .clickAnywhere = true }; // the whole card is the button, lit as one
 }
 
 std::string countOf(std::size_t n) { return n == 1 ? "1 item" : std::to_string(n) + " items"; }
@@ -153,7 +154,7 @@ Panel shelfPanel(const Items& items, View view, const Thumbnails& thumbnails, st
     } else {
         for (auto it = all.rbegin(); it != all.rend(); ++it) card.push_back(rowFor(*it, thumbnails));
         card.push_back(Row{ .items = { Button{ .glyph = Glyph::Plus, .actionId = action::kAdd, .label = "Add files", .compact = true, .withGlyph = true } },
-                            .align = Align::Center, .list = action::kList, .id = "add" });
+                            .align = Align::Center, .clickAnywhere = true, .list = action::kList, .id = "add", .listItem = true }); // the whole row
     }
     // Under the list, which fills the card: always at its foot, however far it's scrolled (decision 063).
     // Something picked: it deletes that (decision 064); else it clears the shelf.

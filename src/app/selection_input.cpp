@@ -21,11 +21,9 @@ struct Box {
 std::optional<Box> g_box;
 
 // A press on a thing already picked, with nothing held: on release it's the
-// only one picked (a press may still start a drag one day); on its name, a
-// slow second click renames it.
+// only one picked, unless the press became a drag out.
 struct Pending {
     std::string activityId, list, item;
-    std::string renameKey; // the name's element key, if it was the only one picked and the press was on its name
 };
 std::optional<Pending> g_pending;
 
@@ -35,7 +33,6 @@ struct DragStart {
     std::string providerId, activityId, list;
 };
 std::optional<DragStart> g_dragStart;
-std::string g_renameKey;   // waiting for the double-click time to pass
 
 const IslandState& state() { return g_hooks.state(); }
 const Scene& scene() { return g_hooks.scene(); }
@@ -92,13 +89,18 @@ bool selectionPressed(Vec2 point, const Placed* element)
         const std::string& item = under->list->item;
         bool picked = isSelected(state(), under->activityId, list, item);
         g_dragStart = DragStart{ point, under->providerId, under->activityId, list };
+        // On its name: picked alone, and the click renames it (the app's edit in place goes on from here).
+        bool onName = element && std::holds_alternative<Text>(element->item) && !std::get<Text>(element->item).editAction.empty();
+        if (onName && !ctrl && !shift) {
+            if (!onlyPicked(list, item)) g_hooks.dispatch(ItemSelected{ under->activityId, list, item }, "pick");
+            return false;
+        }
         if (ctrl || shift || !picked) {
             g_hooks.dispatch(ItemSelected{ under->activityId, list, item, shift, ctrl }, "pick");
             return true;
         }
-        // Already picked: decided on release. On the name of the only one picked, a slow second click renames it.
-        bool onName = element && std::holds_alternative<Text>(element->item) && !std::get<Text>(element->item).editAction.empty();
-        g_pending = Pending{ under->activityId, list, item, onName && onlyPicked(list, item) ? element->key : std::string() };
+        // Already picked: decided on release, so a press doesn't undo a multiple selection.
+        g_pending = Pending{ under->activityId, list, item };
         return true;
     }
     // The empty part of a selectable list: a box starts there (decision 064).
@@ -137,7 +139,7 @@ void selectionMoved(Vec2 point)
         g_hooks.dispatch(SelectionSet{ g_box->activityId, g_box->list, ids }, "pick box");
 }
 
-bool selectionReleased(Vec2 point, bool inside)
+bool selectionReleased(bool inside)
 {
     g_dragStart.reset();
     if (g_box) {
@@ -149,26 +151,7 @@ bool selectionReleased(Vec2 point, bool inside)
     Pending pending = *std::exchange(g_pending, std::nullopt);
     if (!inside) return true;
     g_hooks.dispatch(ItemSelected{ pending.activityId, pending.list, pending.item }, "pick");
-    // Rename only once no second click makes it a double-click (which opens it).
-    const Placed* name = pending.renameKey.empty() ? nullptr : nameOf(pending.item);
-    if (name && name->hitFrame.contains(point)) {
-        g_renameKey = pending.item;
-        g_hooks.renameTimer(Ms{ GetDoubleClickTime() });
-    }
     return true;
-}
-
-void renameDue()
-{
-    std::string item = std::exchange(g_renameKey, std::string());
-    if (item.empty()) return;
-    if (const Placed* name = nameOf(item); name && onlyPicked(name->list->id, item)) g_hooks.rename(*name);
-}
-
-void cancelRename()
-{
-    g_renameKey.clear();
-    g_hooks.renameTimer(std::nullopt);
 }
 
 bool selectionKey(WPARAM key, bool ctrl)

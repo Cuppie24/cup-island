@@ -275,6 +275,7 @@ struct Cell {
     std::vector<Item> actions;
     std::string openAction; // a double-click on it
     bool fixed = false;     // not one of the things in the grid: never selected (the Shelf's "add" card)
+    bool clickAnywhere = false; // its button takes clicks anywhere on it, and it lights as a whole (like Row::clickAnywhere)
     bool operator==(const Cell&) const = default;
 };
 

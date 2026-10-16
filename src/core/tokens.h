@@ -179,9 +179,9 @@ struct Tokens {
     // least gridCellMinWidth, stretched to the row; a Thumbnail image is
     // thumbnailHeight tall across its cell.
     float gridCellMinWidth = 112;
-    float gridCellHeight = 132;
+    float gridCellHeight = 140;
     float gridGap = 8;
-    float thumbnailHeight = 72;
+    float thumbnailHeight = 64;
     float listColumnWidth = 150; // Text::column: a file's kind and size, at its row's end (decision 064)
 
     // Morph between modes: ease-out, 250-350 ms budget (TR §5).

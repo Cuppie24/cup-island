@@ -306,7 +306,13 @@ void ElementVisuals::paint(View& view)
     bool drawn = device_->draw(view.surface, [&](ID2D1DeviceContext* dc) {
         if (auto* text = std::get_if<Text>(&item)) {
             if (view.marqueeWidth > 0) paintMarquee(dc, dw, *text, view.marqueeWidth, view.lead, t.marqueeGap, size.y);
-            else paintText(dc, dw, *text, size);
+            else if (hintedText(item)) { // its frame is its hover; the text sits editInset in, where it always was
+                D2D1_MATRIX_3X2_F was;
+                dc->GetTransform(&was);
+                dc->SetTransform(D2D1::Matrix3x2F::Translation(t.editInset, 0) * was);
+                paintText(dc, dw, *text, { std::max(0.0f, size.x - 2 * t.editInset), size.y });
+                dc->SetTransform(was);
+            } else paintText(dc, dw, *text, size);
         } else if (auto* icon = std::get_if<Icon>(&item)) {
             paintGlyph(dc, dw, icon->glyph, icon->compact ? t.smallIconSize : t.iconSize, pixelSize(size), t.iconColor); // the surface's whole pixels
         } else if (auto* button = std::get_if<Button>(&item)) {

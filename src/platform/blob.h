@@ -46,9 +46,10 @@ public:
     void setTiles(const std::vector<Rect>& tiles, float cornerRadius) { showMarks(tiles_, tiles, cornerRadius, tokens().tileColor); }
     void setTabs(const std::vector<Rect>& tabs, float cornerRadius) { showMarks(tabs_, tabs, cornerRadius, tokens().tileColor); }
     // Picked things in a card's list (decision 064): lit like the active tab.
-    void setSelectedItems(const std::vector<Rect>& items, float cornerRadius) { showMarks(selected_, items, cornerRadius, tokens().tabSelectedColor); }
+    // At once, no fade: picking follows the pointer (a box being drawn), a fade lags behind it.
+    void setSelectedItems(const std::vector<Rect>& items, float cornerRadius) { showMarks(selected_, items, cornerRadius, tokens().tabSelectedColor, true); }
     // The box being drawn round things to pick them; nullopt: none.
-    void setSelectionBox(std::optional<Rect> box) { showMark(box_, box, tokens().focusRingWidth * 2, tokens().selectionBoxColor, false); }
+    void setSelectionBox(std::optional<Rect> box) { showMark(box_, box, tokens().focusRingWidth * 2, tokens().selectionBoxColor, false, true); }
     // Notification dots (decision 038), over the content: Scene::badges.
     void setBadges(const std::vector<Vec2>& centres) { badges_.show(centres); }
 
@@ -93,8 +94,9 @@ private:
         wuc::CompositionColorBrush brush{ nullptr };
         std::optional<Rect> at;
     };
-    void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide);
-    void showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius, const Color& color); // one per rect
+    // instant: shown and hidden at once, no fade (the selection, decision 064).
+    void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide, bool instant = false);
+    void showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius, const Color& color, bool instant = false); // one per rect
     Mark selectedTab_, pinnedTab_, hovered_, box_;
     struct Ring { // the focus ring: stroked, not filled; over content_, not under it
         wuc::ShapeVisual visual{ nullptr };

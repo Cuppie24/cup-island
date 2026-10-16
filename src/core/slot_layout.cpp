@@ -195,7 +195,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                     if (auto* field = std::get_if<TextInput>(&placed.item); field && field->inPlace) {
                         float tall = std::max(h, rowHeight - above - listPadding(row));
                         placed.frame = { x, y + above + (rowHeight - above - tall) / 2, w, tall };
-                    } else {
+                    } else if (!text->editHint) { // a hinted one keeps its whole stretch, its hover with it; the text is drawn editInset in
                         placed.frame.x += t.editInset;
                         placed.frame.width = std::max(0.0f, w - 2 * t.editInset);
                     }

@@ -271,14 +271,14 @@ void Blob::setFocusRing(std::optional<Rect> area, float cornerRadius)
     fadeTo(compositor_, ring.visual, 1.0f, tokens().hoverFadeDuration);
 }
 
-void Blob::showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius, const Color& color)
+void Blob::showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius, const Color& color, bool instant)
 {
     if (marks.size() < at.size()) marks.resize(at.size());
     for (std::size_t i = 0; i < marks.size(); ++i)
-        showMark(marks[i], i < at.size() ? std::optional<Rect>(at[i]) : std::nullopt, cornerRadius, color, false);
+        showMark(marks[i], i < at.size() ? std::optional<Rect>(at[i]) : std::nullopt, cornerRadius, color, false, instant);
 }
 
-void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide)
+void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide, bool instant)
 {
     if (at == mark.at) return;
     std::optional<Rect> from = std::exchange(mark.at, at);
@@ -293,7 +293,12 @@ void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, cons
         content_.Children().InsertAtBottom(mark.visual); // under the content it marks
     }
     if (!at) {
-        fadeTo(compositor_, mark.visual, 0.0f, tokens().hoverFadeDuration);
+        if (instant) {
+            mark.visual.StopAnimation(L"Opacity");
+            mark.visual.Opacity(0.0f);
+        } else {
+            fadeTo(compositor_, mark.visual, 0.0f, tokens().hoverFadeDuration);
+        }
         return;
     }
     mark.visual.Size({ at->width, at->height });
@@ -309,7 +314,12 @@ void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, cons
         anim.Duration(tokens().morphDuration);
         mark.visual.StartAnimation(L"Offset", anim);
     }
-    fadeTo(compositor_, mark.visual, 1.0f, tokens().hoverFadeDuration);
+    if (instant) {
+        mark.visual.StopAnimation(L"Opacity");
+        mark.visual.Opacity(1.0f);
+    } else {
+        fadeTo(compositor_, mark.visual, 1.0f, tokens().hoverFadeDuration);
+    }
 }
 
 void Blob::pressDown()
