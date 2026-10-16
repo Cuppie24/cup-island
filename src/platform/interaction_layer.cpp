@@ -257,6 +257,11 @@ try {
         call(g_callbacks.onDisplaysChanged);
         return 0;
 
+    case WM_POWERBROADCAST: // only logged: a user's log then shows what happened around a sleep (decision 060)
+        if (wParam == PBT_APMSUSPEND) logLine("going to sleep");
+        else if (wParam == PBT_APMRESUMEAUTOMATIC) logLine("woke from sleep");
+        return TRUE;
+
     case WM_DESTROY:
         PostQuitMessage(0);
         return 0;

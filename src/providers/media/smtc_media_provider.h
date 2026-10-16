@@ -4,8 +4,10 @@
 // a session only when Windows says something changed.
 //
 // Threading: WinRT raises events on background threads; every handler just
-// posts to the UI thread. Everything else, including coroutine continuations
-// (they resume on the UI thread's apartment), runs on the UI thread.
+// posts to the UI thread. Everything else runs on the UI thread. Coroutines
+// return to it through post_ after every WinRT call (onUi): Windows usually
+// resumes them there itself, but not when it can't switch back (after sleep),
+// and then they ran on a pool thread and froze the island (decision 060).
 
 #include "core/provider.h"
 #include "providers/media/art_state.h"
@@ -13,11 +15,13 @@
 #include "providers/media/session_choice.h"
 #include "providers/media/smtc_reading.h"
 
+#include <coroutine>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace cup {
@@ -53,7 +57,18 @@ private:
     auto onUiThread(void (SmtcMediaProvider::*method)()); // event handler that posts `method`
     void guarded(void (SmtcMediaProvider::*method)());    // runs it; a vanished session's error is logged, not fatal
 
+    // co_await onUi(): back on the UI thread, through our own queue.
+    struct OnUi {
+        PostToUi post;
+        std::thread::id ui;
+        bool await_ready() const noexcept { return std::this_thread::get_id() == ui; }
+        void await_suspend(std::coroutine_handle<> resume) const { post([resume] { resume.resume(); }); }
+        void await_resume() const noexcept {}
+    };
+    OnUi onUi() const { return { post_, uiThread_ }; }
+
     PostToUi post_;
+    std::thread::id uiThread_; // start()'s thread
     Host* host_ = nullptr;
     std::unique_ptr<MediaPresenter> presenter_;
     std::shared_ptr<bool> alive_; // false after stop(): late callbacks become no-ops

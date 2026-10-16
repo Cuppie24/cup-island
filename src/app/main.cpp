@@ -94,6 +94,10 @@ IslandTint g_tint; // the playing cover's colour on the island (decision 051)
 bool g_coverColours = false; // ...if Settings has it on (decisions 052, 055)
 PillRenderer g_renderer;
 HWND g_inputHwnd{};
+// The island's state and its Composition visuals belong to this thread. A
+// dispatch from any other is re-queued here (decision 060).
+std::thread::id g_uiThread;
+winrt::Windows::System::DispatcherQueue g_uiQueue{ nullptr };
 std::filesystem::path g_tokensFile;
 RenderLayer g_render;
 std::string g_displayId; // the monitor the island is on (decision 023); "" = the main display
@@ -270,6 +274,13 @@ void tokensChanged(Vec2 oldCanvas, const char* reason);
 
 void dispatch(const Event& event, const char* reason)
 {
+    if (g_uiQueue && std::this_thread::get_id() != g_uiThread) {
+        // A provider's coroutine left on a pool thread (after sleep, decision 060).
+        // Composition used from there froze the island: run it on the UI thread instead.
+        logLine("dispatch (%s) came from a background thread: moved to the UI thread", reason);
+        g_uiQueue.TryEnqueue([event, why = std::string(reason)] { dispatch(event, why.c_str()); });
+        return;
+    }
     Ms t = now();
     Spot spot = g_state.spot;
     bool wasHidden = g_state.hidden;
@@ -946,6 +957,8 @@ int main()
 
     // WinRT events arrive on background threads; providers hop to this (UI) thread with it.
     auto uiQueue = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
+    g_uiQueue = uiQueue;
+    g_uiThread = std::this_thread::get_id();
     auto postToUi = [uiQueue](std::function<void()> work) { uiQueue.TryEnqueue([work = std::move(work)] { work(); }); };
 
     g_providers = std::make_unique<ProviderRegistry>(dispatch, now, ProviderRegistry::Store{
@@ -1051,6 +1064,7 @@ int main()
 
     removeTrayIcon();
     g_providers.reset(); // stops providers while the window still exists
+    g_uiQueue = nullptr; // a WinRT object: released before the apartment goes, not in a static destructor
     DestroyWindow(render.hwnd);
 
     // The queue finishes shutting down on this thread, so keep pumping until

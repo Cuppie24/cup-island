@@ -34,6 +34,7 @@ void SmtcMediaProvider::guarded(void (SmtcMediaProvider::*method)())
 void SmtcMediaProvider::start(Host& host)
 {
     host_ = &host;
+    uiThread_ = std::this_thread::get_id();
     presenter_ = std::make_unique<MediaPresenter>(host);
     presenter_->start();
     alive_ = std::make_shared<bool>(true);
@@ -67,10 +68,15 @@ void SmtcMediaProvider::stop()
 winrt::fire_and_forget SmtcMediaProvider::connect(std::shared_ptr<bool> alive)
 {
     Manager manager{ nullptr };
+    std::optional<winrt::hresult> failed;
     try {
         manager = co_await Manager::RequestAsync();
     } catch (winrt::hresult_error const& e) {
-        platform::logLine("media: session manager unavailable (0x%08x)", static_cast<unsigned>(e.code()));
+        failed = e.code(); // maybe thrown on a pool thread: handled below, on the UI thread
+    }
+    co_await onUi();
+    if (failed) {
+        platform::logLine("media: session manager unavailable (0x%08x)", static_cast<unsigned>(*failed));
         co_return;
     }
     if (!*alive) co_return;
@@ -214,9 +220,16 @@ winrt::fire_and_forget SmtcMediaProvider::load(std::shared_ptr<bool> alive)
     wmc::GlobalSystemMediaTransportControlsSessionMediaProperties properties{ nullptr };
     NowPlaying media;
     Ms began = loadStarted_;
+    std::optional<winrt::hresult> failed;
     try {
         properties = co_await session.TryGetMediaPropertiesAsync();
-        if (!*alive) co_return;
+    } catch (winrt::hresult_error const& e) {
+        failed = e.code(); // after sleep, thrown on a pool thread (0x80010100): handled below, on the UI thread
+    }
+    co_await onUi(); // decision 060
+    if (!*alive) co_return;
+    try {
+        if (failed) winrt::throw_hresult(*failed);
         if (session != session_) co_return; // another session is shown now: its read follows
         media = readNowPlaying(properties, session.GetPlaybackInfo(), session.GetTimelineProperties(), host_->now());
     } catch (winrt::hresult_error const& e) {
@@ -254,14 +267,17 @@ winrt::fire_and_forget SmtcMediaProvider::load(std::shared_ptr<bool> alive)
         platform::logLine("media: new track%s", thumbnail ? "" : " (no cover yet)");
     }
     if (auto id = art_.onRead(track, thumbnail != nullptr, propertiesChanged)) {
-        decodeArt(thumbnail, [this, alive, id = *id](std::shared_ptr<const ImageData> image) {
-            if (!*alive) return;
-            // The island's colour can only follow a new track once its cover is
-            // read: the gap between this line and "new track" is a late recolour's wait.
-            if (art_.onDecoded(id, std::move(image))) {
-                platform::logLine("media: cover shown");
-                refresh();
-            }
+        decodeArt(thumbnail, [this, alive, post = post_, id = *id](std::shared_ptr<const ImageData> image) {
+            // Decoding ends on whatever thread Windows chose (decision 060): back to the UI thread.
+            post([this, alive, id, image = std::move(image)]() mutable {
+                if (!*alive) return;
+                // The island's colour can only follow a new track once its cover is
+                // read: the gap between this line and "new track" is a late recolour's wait.
+                if (art_.onDecoded(id, std::move(image))) {
+                    platform::logLine("media: cover shown");
+                    guarded(&SmtcMediaProvider::refresh);
+                }
+            });
         });
         if (newTrack) refreshLater(tokens().mediaArtRecheck, true, alive); // the right picture may come in a later update
     }
