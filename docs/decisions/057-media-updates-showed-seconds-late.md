@@ -1,6 +1,6 @@
 # 057: Media updates showed seconds late (two bugs)
 
-Status: Accepted (fixed in 0.6.10 and the release after it); threads after sleep: 060
+Status: Accepted (fixed in 0.6.10 and the release after it); frozen after sleep (threads): 060
 
 **Symptom.** Pausing, playing or skipping in Spotify sometimes took 2–5 s
 to show on the island: the play/pause button, the progress bar, the
