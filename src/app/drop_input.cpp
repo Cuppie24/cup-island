@@ -43,6 +43,9 @@ platform::DropCallbacks dropCallbacks(DropHooks hooks)
         h->dispatch(Dropped{ zone ? zone->id : std::string() }, "drop");
         if (!zone) return DropEffect::None;
         if (ProviderRegistry* providers = h->providers()) providers->drop(*zone, items);
+        // The card opened like any other: keys reach it, and a click elsewhere
+        // closes it. Windows may refuse; then outside_clicks covers the click (decision 063).
+        if (h->window) SetForegroundWindow(h->window);
         return zone->effect;
     };
     return c;

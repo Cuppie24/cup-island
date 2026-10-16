@@ -1,6 +1,7 @@
 #include "platform/interaction_layer.h"
 
 #include "platform/drop_target.h"
+#include "platform/outside_clicks.h"
 #include "platform/log.h"
 #include "platform/single_instance.h"
 
@@ -153,6 +154,10 @@ try {
         call(g_callbacks.onShowRequested);
         return 0;
     }
+    if (message == outsideClickMessage()) { // open but never activated: a press elsewhere (decision 063)
+        call(g_callbacks.onClickOutside);
+        return 0;
+    }
     switch (message) {
     case WM_APP_COMPOSITOR_TICK:
         onCompositorTick();
@@ -265,6 +270,7 @@ try {
         return TRUE;
 
     case WM_DESTROY:
+        watchOutsideClicks(hwnd, false);
         revokeDropTarget(hwnd); // OLE wants it gone before the window (decision 061)
         PostQuitMessage(0);
         return 0;

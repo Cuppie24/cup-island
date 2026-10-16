@@ -118,6 +118,7 @@ struct Scene {
     float tileRadius = 0;          // tile background corners, nested in the card's (drop zones' too)
     std::vector<ZoneMark> zones;   // Receptive: where the drag can land
     std::vector<Vec2> badges;      // notification dots' centres (decision 038, core/badges.h)
+    bool steadyPress = false;      // its content asks a press not to squash the island (Content::steadyPress)
     bool dropTarget = false;       // the dragged bubble is over the pill: letting go swaps them (pill lightens)
     Vec2 bubbleTuck;               // no bubble: it shrinks to this point, on the top edge inside the pill
     std::string label;             // accessible name of what's shown

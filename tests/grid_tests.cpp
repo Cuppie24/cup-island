@@ -54,7 +54,7 @@ void runGridTests()
     expect(wrapped.rows[1].id == "g.1" && wrapped.firstCell[1] == 2 && wrapped.columns["l"] == 2 && wrapped.rows[1].list == "l",
            "grid: lines are named, know their first cell, and stay in the list");
 
-    IslandState s = shelfWith(12);
+    IslandState s = shelfWith(30);
     Scene scene = layout(s, Ms{ 0 });
     expect(scene.mode == Mode::Expanded && scene.size.x == t.largeCardSize.x && scene.size.y >= t.largeCardSize.y, "grid: a Large card is largeCardSize (and its tabs)");
     const Placed* name = find(scene, "expandedCenter/grid.0/c0/1/0");
@@ -86,9 +86,9 @@ void runGridTests()
                "grid: a list in a Large card fills it");
     }
     // A reveal names a cell: it scrolls to that cell's line.
-    s = reduce(s, ListRevealed{ "shelf", "items", 11 }, Ms{ 0 });
+    s = reduce(s, ListRevealed{ "shelf", "items", 29 }, Ms{ 0 });
     scene = layout(s, Ms{ 0 });
-    const Placed* last = find(scene, "expandedCenter/grid." + std::to_string(11 / columns) + "/c11/1/0");
+    const Placed* last = find(scene, "expandedCenter/grid." + std::to_string(29 / columns) + "/c29/1/0");
     expect(last && last->list && last->list->offset > 0 && last->frame.y >= last->list->viewport.y, "grid: revealing a cell scrolls to its line");
 
     // Image roles in an ordinary row.

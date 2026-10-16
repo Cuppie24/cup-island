@@ -56,6 +56,30 @@ keyboard's focus somewhere (decision 035), and an image smaller than its slot.
 - A drop goes first, scrolled to, with the keyboard's focus.
 - The widget's icon is a box (Package).
 
+**After a first look on Windows.**
+- **A click outside closes it after a drop too.** OLE never activates the
+  window under a drop, so no WM_ACTIVATE comes when the user clicks
+  elsewhere. After a drop the island asks to come to the front; and while
+  it's open but not the foreground window, a low-level mouse hook
+  (`platform/outside_clicks`) watches for a press outside it. Only then:
+  the hook is off whenever the island is active or closed.
+- **Buttons over a picture have a backdrop** (`Button::backed`): a disc of
+  the island's colour (`buttonBackdropOpacity`), so they read over a
+  thumbnail of the same colour.
+- **The link/copy badge is small** (`Icon::small`, `smallIconSize`), by the
+  "Link" or "Copy" under the name, with the item's size.
+- **A press doesn't squash the island on this card** (`Content::steadyPress`):
+  the provider's call, for a page of things to click.
+- **Smaller cards** (`gridCellMinWidth` 128, `gridCellHeight` 150,
+  `thumbnailHeight` 88).
+- **Clear sits at the card's foot**, with a bin (`Button::withGlyph`): a
+  list filling a Large card takes all the room left, however few its rows,
+  so what's under it never moves.
+- **The total size** of what's on the shelf (sizes known; folders aren't),
+  beside the count.
+- **A name lights under the pointer** (`Text::editHint`), like a field, so
+  it reads as something a click renames.
+
 **Consequences.** `content.h` (`Cell`, `Row::cells`, `Row::openAction`,
 `ImageRole`, `CardLayout::Large`), `layout.h` (`Placed::openAction`,
 `group`, `InList::cell`), `core/grid_layout`, `lists.cpp` (a filling list),

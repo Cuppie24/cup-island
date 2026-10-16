@@ -72,6 +72,9 @@ struct Text {
     // Wraps onto as many lines as it needs instead of ending in "…" (a
     // to-do, decision 045). The only stretching item in its row.
     bool wrap = false;
+    // Lit under the pointer, like a button, so it reads as something a click
+    // edits (the Shelf's names, decision 063). Only with an editAction.
+    bool editHint = false;
     // Host-filled: `value` with the spaces where its lines break turned into
     // '\n' (same length, so offsets hold). Empty: one line.
     std::string wrapped;
@@ -88,7 +91,11 @@ struct Image {
     bool contain = false; // fitted inside its frame, never cropped: a file type's icon
     bool operator==(const Image&) const = default;
 };
-struct Icon { Glyph glyph = Glyph::Music; bool operator==(const Icon&) const = default; };
+struct Icon {
+    Glyph glyph = Glyph::Music;
+    bool small = false; // smallIconSize: a badge beside a caption ("Copy · 2 MB", decision 063)
+    bool operator==(const Icon&) const = default;
+};
 struct Button {
     Glyph glyph = Glyph::Play;
     std::string actionId; // sent back to the provider when clicked
@@ -100,6 +107,8 @@ struct Button {
     bool destructive = false;   // its label in dangerColor: a dialog's "Clear"
     bool editsText = false;     // starts editing the Text whose editAction is this button's actionId (decision 029)
     bool badge = false;         // a dot on it: something new behind it, an update to install (decision 038)
+    bool withGlyph = false;     // a text button with its glyph before its label: "Clear" with a bin (decision 063)
+    bool backed = false;        // on a disc of the island's colour: readable over a picture (a grid cell's actions, decision 063)
     bool operator==(const Button&) const = default;
 };
 
@@ -301,6 +310,9 @@ struct Content {
     // sends, as a click on its back arrow would. Empty: Esc goes back to
     // Home or closes, as anywhere else (decision 033).
     std::string backAction;
+    // A press on its card doesn't squash the island (pressScale): a page of
+    // things to click and drag, where it reads as the page jumping (decision 063).
+    bool steadyPress = false;
     Slot compactLeading;
     Slot compactCenter;  // between the two compact squares, e.g. a swimming title
     Slot compactTrailing;

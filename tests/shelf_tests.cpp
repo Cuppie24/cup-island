@@ -227,10 +227,16 @@ void cardTests()
 {
     Shelf s;
     expect(s.provider.view() == View::Cards && s.host.published.back().content.card == CardLayout::Large, "card: Large, cards by default");
+    expect(s.host.published.back().content.steadyPress, "card: a press doesn't squash the island");
     expect(s.host.published.back().content.tileLeading[0].items[0] == cup::Item{ Icon{ Glyph::Package } }, "card: the widget's icon is a box");
     s.provider.onDrop(ShelfProvider::kLinkZone, { dropped("C:\\d\\a.pdf", 2), DroppedItem{ .what = folder("Photos"), .path = "C:\\Photos" } });
     s.provider.onDrop(ShelfProvider::kCopyZone, { dropped("C:\\d\\b.png", 1) });
     const Row* grid = gridOf(s.host.published.back());
+    const Slot& page = s.host.published.back().content.expandedCenter;
+    auto* summary = std::get_if<Text>(&page.front().items[1]);
+    expect(summary && summary->value == "3 things · 3 MB", "card: how many, and their total size");
+    auto* clear = std::get_if<Button>(&page.back().items[0]);
+    expect(clear && clear->actionId == action::kClear && clear->withGlyph && clear->glyph == Glyph::Delete, "card: Clear at the foot, with its icon");
     expect(grid && grid->cells.size() == 3 && grid->list == action::kList, "card: one cell per thing, in a scrolling grid");
     if (grid) {
         const Cell& copying = grid->cells[0]; // the newest first
@@ -241,9 +247,14 @@ void cardTests()
         bool hover = true;
         for (const cup::Item& a : link.actions) hover = hover && std::get<Button>(a).revealOnHover;
         expect(hover, "card: its buttons show only on hover");
-        auto* name = std::get_if<Text>(&link.rows[1].items[1]);
-        expect(name && name->value == "a.pdf" && name->editAction == action::kRename + std::to_string(s.item(0).id), "card: the name renames it");
-        expect(link.rows[1].items[0] == cup::Item{ Icon{ Glyph::Link } }, "card: a link's badge says so");
+        auto* name = std::get_if<Text>(&link.rows[1].items[0]);
+        expect(name && name->value == "a.pdf" && name->editAction == action::kRename + std::to_string(s.item(0).id) && name->editHint,
+               "card: the name renames it, and lights to say so");
+        auto* kind = std::get_if<Text>(&link.rows[2].items[1]);
+        expect(link.rows[2].items[0] == cup::Item{ Icon{ .glyph = Glyph::Link, .small = true } } && kind && kind->value == "Link · 2 MB",
+               "card: a small badge by what it is");
+        auto* steps = std::get_if<Button>(&link.actions.back());
+        expect(steps && steps->backed, "card: its buttons have a backdrop, readable over any picture");
     }
 
     s.act(action::kView);

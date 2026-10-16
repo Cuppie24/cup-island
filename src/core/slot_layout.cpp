@@ -54,7 +54,9 @@ Rect clipped(Rect r, Rect clip)
 // Rounded content (art, button hover shapes, text fields) only.
 float radiusFor(const Item& item, Rect frame, float nestedRadius)
 {
-    if (!std::holds_alternative<Image>(item) && !std::holds_alternative<Button>(item) && !std::holds_alternative<TextInput>(item)) return 0;
+    auto* text = std::get_if<Text>(&item);
+    bool hinted = text && text->editHint; // its hover shape is rounded like a field's (decision 063)
+    if (!std::holds_alternative<Image>(item) && !std::holds_alternative<Button>(item) && !std::holds_alternative<TextInput>(item) && !hinted) return 0;
     return std::min(nestedRadius, std::min(frame.width, frame.height) / 2);
 }
 

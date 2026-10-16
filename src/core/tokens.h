@@ -101,6 +101,8 @@ struct Tokens {
     float iconSize = 18;
     float buttonSize = 36;
     float smallButtonSize = 32;   // Button::compact: list rows (a to-do's checkbox)
+    float smallIconSize = 12;     // Icon::small: a badge beside a caption (decision 063)
+    float buttonBackdropOpacity = 0.8f; // Button::backed: its disc, the island's colour this opaque
     float revealGlyphSize = 14;   // Button::revealOnHover (a to-do's delete): a smaller glyph, the same button and hover shape
     float inputHeight = 36;       // a TextInput: a little taller than the rows, easy to click into
     float listItemPadding = 6;    // Row::listItem: above and below its content; = listItemInset, so a checkbox's corners nest in the row's (decision 006)
@@ -176,10 +178,10 @@ struct Tokens {
     // A grid's cells (Row::cells, decision 063): as many columns as fit at
     // least gridCellMinWidth, stretched to the row; a Thumbnail image is
     // thumbnailHeight tall across its cell.
-    float gridCellMinWidth = 150;
-    float gridCellHeight = 172;
-    float gridGap = 10;
-    float thumbnailHeight = 108;
+    float gridCellMinWidth = 128;
+    float gridCellHeight = 150;
+    float gridGap = 8;
+    float thumbnailHeight = 88;
 
     // Morph between modes: ease-out, 250-350 ms budget (TR §5).
     Ms morphDuration{ 300 };

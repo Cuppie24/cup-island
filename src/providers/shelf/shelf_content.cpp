@@ -23,9 +23,10 @@ Glyph kindGlyph(const Entry& item)
 std::string status(const Entry& item)
 {
     switch (item.state) {
-    case State::Ready:
-        if (item.kind == Kind::Link) return "Link";
-        return item.bytes ? "Copy · " + formatBytes(item.bytes) : "Copy";
+    case State::Ready: {
+        std::string kind = item.kind == Kind::Link ? "Link" : "Copy";
+        return item.bytes ? kind + " · " + formatBytes(item.bytes) : kind;
+    }
     case State::Copying: return "Copying…";
     case State::Failed: return item.problem;
     case State::Missing: return "Not found";
@@ -39,11 +40,12 @@ std::vector<cup::Item> actionsFor(const Entry& item)
 {
     std::string id = std::to_string(item.id);
     std::vector<cup::Item> actions;
+    // Backed: over a thumbnail of their own colour they'd vanish (decision 063).
     if (item.state == State::Ready && !item.path.empty())
-        actions.push_back(Button{ .glyph = Glyph::Reveal, .actionId = action::kReveal + id, .compact = true, .revealOnHover = true });
+        actions.push_back(Button{ .glyph = Glyph::Reveal, .actionId = action::kReveal + id, .compact = true, .revealOnHover = true, .backed = true });
     if (item.state == State::Failed && !item.source.empty())
-        actions.push_back(Button{ .actionId = action::kKeep + id, .label = "Keep as link", .compact = true, .revealOnHover = true });
-    actions.push_back(Button{ .glyph = Glyph::Delete, .actionId = action::kRemove + id, .compact = true, .revealOnHover = true });
+        actions.push_back(Button{ .actionId = action::kKeep + id, .label = "Keep as link", .compact = true, .revealOnHover = true, .backed = true });
+    actions.push_back(Button{ .glyph = Glyph::Delete, .actionId = action::kRemove + id, .compact = true, .revealOnHover = true, .backed = true });
     return actions;
 }
 
@@ -51,7 +53,7 @@ Text nameOf(const Entry& item, TextStyle style)
 {
     // Renamed in place; a copy still copying has no file to rename yet.
     std::string edit = item.state == State::Copying ? "" : action::kRename + std::to_string(item.id);
-    return Text{ .value = shownName(item), .style = style, .editAction = edit, .editMaxLength = 120 };
+    return Text{ .value = shownName(item), .style = style, .editAction = edit, .editMaxLength = 120, .editHint = !edit.empty() };
 }
 
 std::string opens(const Entry& item) { return item.state == State::Ready ? action::kOpen + std::to_string(item.id) : ""; }
@@ -62,15 +64,27 @@ std::shared_ptr<const ImageData> pictureOf(const Entry& item, const Thumbnails& 
     return it == thumbnails.end() ? nullptr : it->second;
 }
 
+// A link or a copy, at a glance (decision 061): a small badge by "Link" or "Copy".
+Icon badgeOf(const Entry& item)
+{
+    Glyph glyph = item.kind == Kind::Link ? Glyph::Link : Glyph::Copy;
+    if (item.state == State::Failed || item.state == State::Missing) glyph = Glyph::Warning;
+    return Icon{ .glyph = glyph, .small = true };
+}
+
+// Under its name: the badge and what it is, or a copy's progress.
+Row statusRow(const Entry& item)
+{
+    if (item.state == State::Copying)
+        return row({ Progress{ .timeline = { .position = Ms{ static_cast<long long>(item.progress * 1000) }, .duration = Ms{ 1000 } } } });
+    return row({ badgeOf(item), Text{ .value = status(item), .style = TextStyle::Caption } });
+}
+
 Cell cellFor(const Entry& item, const Thumbnails& thumbnails)
 {
-    Glyph badge = item.kind == Kind::Link ? Glyph::Link : Glyph::Copy; // a link or a copy, at a glance (decision 061)
-    if (item.state == State::Failed || item.state == State::Missing) badge = Glyph::Warning;
     Row picture = row({ Image{ .data = pictureOf(item, thumbnails), .role = ImageRole::Thumbnail, .contain = true } });
-    Row name = row({ Icon{ badge }, nameOf(item, TextStyle::Body) });
-    Row under = item.state == State::Copying
-                    ? row({ Progress{ .timeline = { .position = Ms{ static_cast<long long>(item.progress * 1000) }, .duration = Ms{ 1000 } } } })
-                    : row({ Text{ .value = status(item), .style = TextStyle::Caption } });
+    Row name = row({ nameOf(item, TextStyle::Body) });
+    Row under = statusRow(item);
     return { .id = "item-" + std::to_string(item.id), .rows = { picture, name, under }, .actions = actionsFor(item), .openAction = opens(item) };
 }
 
@@ -79,10 +93,12 @@ Row rowFor(const Entry& item, const Thumbnails& thumbnails)
     Row r{ .list = action::kList, .id = "item-" + std::to_string(item.id), .listItem = true, .openAction = opens(item) };
     if (auto picture = pictureOf(item, thumbnails)) r.items.push_back(Image{ .data = picture, .role = ImageRole::Icon, .contain = true });
     else r.items.push_back(Icon{ kindGlyph(item) });
-    r.items.push_back(Icon{ item.kind == Kind::Link ? Glyph::Link : Glyph::Copy });
     r.items.push_back(nameOf(item, TextStyle::Body));
     if (item.state == State::Copying) r.items.push_back(Progress{ .timeline = { .position = Ms{ static_cast<long long>(item.progress * 1000) }, .duration = Ms{ 1000 } } });
-    else r.items.push_back(Text{ .value = status(item), .style = TextStyle::Caption, .alignEnd = true });
+    else {
+        r.items.push_back(badgeOf(item));
+        r.items.push_back(Text{ .value = status(item), .style = TextStyle::Caption });
+    }
     r.trailing = actionsFor(item);
     return r;
 }
@@ -96,13 +112,16 @@ Panel shelfPanel(const Items& items, View view, const Thumbnails& thumbnails)
     Content content{
         .label = "Shelf",
         .card = CardLayout::Large,
-        .keepOpen = true, // a near miss between its things doesn't close it
+        .keepOpen = true,    // a near miss between its things doesn't close it
+        .steadyPress = true, // a page of things to click: the island doesn't squash under a press (decision 063)
         .tileLeading = { row({ Icon{ Glyph::Package } }, Align::Center) },
         .tile = { row({ Text{ "Shelf", TextStyle::Title } }), row({ Text{ glance, TextStyle::Caption } }) },
     };
     Slot& card = content.expandedCenter;
     Button toggle{ .glyph = view == View::Cards ? Glyph::ViewList : Glyph::ViewGrid, .actionId = action::kView, .compact = true };
-    card.push_back(Row{ .items = { Text{ .value = "Shelf", .style = TextStyle::Heading }, Text{ .value = all.empty() ? "" : things(all.size()), .style = TextStyle::Caption, .alignEnd = true } },
+    std::string summary = things(all.size());
+    if (std::uint64_t total = items.totalBytes()) summary += " · " + formatBytes(total);
+    card.push_back(Row{ .items = { Text{ .value = "Shelf", .style = TextStyle::Heading }, Text{ .value = all.empty() ? "" : summary, .style = TextStyle::Caption, .alignEnd = true } },
                         .trailing = { toggle } });
     if (all.empty()) {
         card.push_back(row({ Text{ .value = "Drag files, text or links onto the island", .style = TextStyle::Caption, .centred = true } }, Align::Center));
@@ -115,7 +134,9 @@ Panel shelfPanel(const Items& items, View view, const Thumbnails& thumbnails)
     } else {
         for (auto it = all.rbegin(); it != all.rend(); ++it) card.push_back(rowFor(*it, thumbnails));
     }
-    card.push_back(Row{ .items = { Button{ .actionId = action::kClear, .label = "Clear", .compact = true } }, .align = Align::Center });
+    // Under the list, which fills the card: always at its foot, however far it's scrolled (decision 063).
+    card.push_back(Row{ .items = { Button{ .glyph = Glyph::Delete, .actionId = action::kClear, .label = "Clear", .compact = true, .withGlyph = true } },
+                        .align = Align::Center });
     return { .id = kPanelId, .content = content };
 }
 

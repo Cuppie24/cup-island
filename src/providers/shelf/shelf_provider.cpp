@@ -130,6 +130,7 @@ void ShelfProvider::onDrop(const std::string& zoneId, const std::vector<DroppedI
         shelf::Entry item{ .name = shownName(d), .what = d.what.kind };
         if (zone.items[i] == shelf::Handling::Link) {
             item.path = d.path;
+            item.bytes = d.what.bytes.value_or(0); // shown in the shelf's total, never counted against its store
             items_.add(item);
         } else if (zone.items[i] == shelf::Handling::Copy) {
             item.kind = shelf::Kind::Copy;

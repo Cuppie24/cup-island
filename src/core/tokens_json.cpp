@@ -116,6 +116,8 @@ const Field kFields[] = {
     { "tilePadding", &Tokens::tilePadding },
     { "focusRingWidth", &Tokens::focusRingWidth },
     { "dropZoneGap", &Tokens::dropZoneGap },
+    { "smallIconSize", &Tokens::smallIconSize },
+    { "buttonBackdropOpacity", &Tokens::buttonBackdropOpacity },
     { "gridCellMinWidth", &Tokens::gridCellMinWidth },
     { "gridCellHeight", &Tokens::gridCellHeight },
     { "gridGap", &Tokens::gridGap },
@@ -368,7 +370,7 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
     // lightnesses and chromas (decision 051).
     auto unitless = [](const char* name) {
         std::string_view n(name);
-        return n.starts_with("cover") || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" ||
+        return n.starts_with("cover") || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" || n == "buttonBackdropOpacity" ||
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
     };
     Tokens out = t;

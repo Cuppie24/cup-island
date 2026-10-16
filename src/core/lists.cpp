@@ -27,7 +27,8 @@ float planList(const Slot& slot, const std::vector<float>& heights, const std::v
     float tallest = *std::max_element(windowHeights.begin() + static_cast<std::ptrdiff_t>(first),
                                       windowHeights.begin() + static_cast<std::ptrdiff_t>(first + count));
     float rows = slot[first].visibleRows > 0 ? slot[first].visibleRows : t.listVisibleRows;
-    float window = std::min(content, room ? *room : rows * (tallest + t.rowSpacing) - t.rowSpacing);
+    // Filling a Large card, it takes all the room, however few its rows: what's under it stays at the card's foot.
+    float window = room ? *room : std::min(content, rows * (tallest + t.rowSpacing) - t.rowSpacing);
     float max = std::max(0.0f, content - window);
 
     const std::string& id = slot[first].list;

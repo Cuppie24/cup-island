@@ -151,6 +151,13 @@ std::uint64_t Items::storeUsed() const
     return used;
 }
 
+std::uint64_t Items::totalBytes() const
+{
+    std::uint64_t total = 0;
+    for (const Entry& i : items_) total += i.bytes;
+    return total;
+}
+
 bool Items::anyLinks() const
 {
     return std::any_of(items_.begin(), items_.end(), [](const Entry& i) { return i.kind == Kind::Link; });

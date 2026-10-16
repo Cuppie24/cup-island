@@ -25,7 +25,7 @@ struct Entry {
     DragKind what = DragKind::File;
     std::string path;       // Link: the original; Copy: the copy in the store, once made
     std::string source;     // Copy: where it was copied from, if it has a place on disk ("Keep as link")
-    std::uint64_t bytes = 0; // Copy: what it takes in the store
+    std::uint64_t bytes = 0; // its size, when known (a folder's isn't); a copy's is what it takes in the store
     float progress = 0;     // Copying: 0..1
     std::string problem;    // Failed: why
     bool operator==(const Entry&) const = default;
@@ -54,6 +54,7 @@ public:
     bool renamed(std::uint64_t id, const std::string& stored, const std::string& name);
 
     std::uint64_t storeUsed() const;         // every copy's bytes, finished or not
+    std::uint64_t totalBytes() const;        // everything on the shelf whose size is known
     bool anyLinks() const;
 
     // One line per item, tab-separated. A copy still under way loads as failed:

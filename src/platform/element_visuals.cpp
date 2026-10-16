@@ -27,9 +27,11 @@ bool isRing(const Item& item)
 Color accentOf(const Placed& p) { return p.accent.value_or(tokens().liveColor); }
 
 // The shape under a hovered button, a text field's background, the dim over clickable art.
+bool hintedText(const Item& item);
+
 Color hoverColorOf(const Placed& p)
 {
-    if (std::holds_alternative<TextInput>(p.item)) return tokens().inputColor;
+    if (std::holds_alternative<TextInput>(p.item) || hintedText(p.item)) return tokens().inputColor; // a name says it's a field
     if (std::holds_alternative<Image>(p.item)) return tokens().artHoverColor;
     return tokens().buttonHoverColor;
 }
@@ -71,6 +73,13 @@ bool swims(const Item& item)
 {
     auto* text = std::get_if<Text>(&item);
     return text && text->marquee;
+}
+
+// An editable text that says so under the pointer (Text::editHint, decision 063): built like a button, its hover shape behind it.
+bool hintedText(const Item& item)
+{
+    auto* text = std::get_if<Text>(&item);
+    return text && text->editHint && !text->editAction.empty() && !text->marquee;
 }
 
 } // namespace
@@ -157,7 +166,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         view.waveform = parts.visual;
         view.bars = parts.bars;
         view.accent = parts.accent;
-    } else if (std::holds_alternative<Button>(placed.item) || std::holds_alternative<TextInput>(placed.item)) {
+    } else if (std::holds_alternative<Button>(placed.item) || std::holds_alternative<TextInput>(placed.item) || hintedText(placed.item)) {
         // A text field is built like a button: its background is the hover shape, shown only under the pointer.
         view.surface = device_->createSurface(size);
         ButtonParts parts = createButton(compositor_, size, placed.cornerRadius, view.surface, hoverColorOf(placed));
@@ -287,13 +296,15 @@ void ElementVisuals::paint(View& view)
             if (view.marqueeWidth > 0) paintMarquee(dc, dw, *text, view.marqueeWidth, view.lead, t.marqueeGap, size.y);
             else paintText(dc, dw, *text, size);
         } else if (auto* icon = std::get_if<Icon>(&item)) {
-            paintGlyph(dc, dw, icon->glyph, t.iconSize, pixelSize(size), t.iconColor); // the surface's whole pixels
+            paintGlyph(dc, dw, icon->glyph, icon->small ? t.smallIconSize : t.iconSize, pixelSize(size), t.iconColor); // the surface's whole pixels
         } else if (auto* button = std::get_if<Button>(&item)) {
             bool toggledOff = button->on && !*button->on;
             Color color = !button->enabled ? t.buttonDisabledColor : toggledOff ? t.buttonOffColor
                         : button->destructive         ? t.dangerColor
                                                       : t.buttonColor;
-            if (!button->label.empty()) paintLabel(dc, dw, button->label, size, color);
+            if (button->backed) paintBackdrop(dc, pixelSize(size)); // over a picture: readable whatever its colours
+            if (!button->label.empty() && button->withGlyph) paintGlyphLabel(dc, dw, button->glyph, button->label, size, color);
+            else if (!button->label.empty()) paintLabel(dc, dw, button->label, size, color);
             // Centred in the surface's whole pixels, like the hover shape around it, not the fractional frame.
             else paintGlyph(dc, dw, button->glyph, glyphSizeOf(*button), pixelSize(size), color);
             if (button->on && *button->on) paintToggleDot(dc, pixelSize(size), t.buttonGlyphSize);

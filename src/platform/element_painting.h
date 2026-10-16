@@ -18,6 +18,10 @@ void paintToggleDot(ID2D1DeviceContext* dc, Vec2 size, float glyphSize);
 void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float fontSize, Vec2 size, const Color& color);
 // A text button's label, centred.
 void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& label, Vec2 size, const Color& color);
+// A text button with its glyph before the label (Button::withGlyph, decision 063).
+void paintGlyphLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, const std::string& label, Vec2 size, const Color& color);
+// A button's disc (or a text button's pill) in the island's colour (Button::backed, decision 063).
+void paintBackdrop(ID2D1DeviceContext* dc, Vec2 size);
 // Where in `text` (a byte offset) a click at `at` (from its frame's top left) lands:
 // where editing it in place puts the caret (decision 043).
 std::size_t caretAt(IDWriteFactory* dw, const Text& text, Vec2 size, Vec2 at);

@@ -22,6 +22,7 @@ struct DropHooks {
     std::function<void(const Event&, const char* reason)> dispatch;
     std::function<ProviderRegistry*()> providers;
     std::function<Vec2(POINT screen)> toPill; // a screen point in the pill's coordinates
+    HWND window{};                            // the interaction window: brought to the front after a drop, if Windows lets it
 };
 
 // The drop target's callbacks, wired to the island. Set postToUi, storeFolder

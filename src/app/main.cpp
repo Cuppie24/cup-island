@@ -42,6 +42,7 @@
 #include "platform/autostart.h"
 #include "platform/displays.h"
 #include "platform/drop_target.h"
+#include "platform/outside_clicks.h"
 #include "platform/render_layer.h"
 #include "platform/single_instance.h"
 #include "platform/stay_on_top.h"
@@ -344,6 +345,8 @@ void dispatch(const Event& event, const char* reason)
         if (app::setTint(g_tint.shown)) tokensChanged(oldCanvas, "cover");
     }
 
+    // Open but never activated (after a drop): a press elsewhere must close it all the same (decision 063).
+    watchOutsideClicks(g_inputHwnd, mode(g_state) == Mode::Expanded && GetForegroundWindow() != g_inputHwnd);
     if (app::takeFocusRequest()) dispatch(FocusTaken{}, "focus taken"); // a provider's ask, honoured once (decision 063)
 
     // Hidden (a fullscreen app, decision 032): the shortcuts let go of their keys, so that app gets them.
@@ -368,6 +371,7 @@ app::DropHooks dropHooks()
         .toPill = [](POINT screen) {
             return Vec2{ static_cast<float>(screen.x - g_render.left) - g_scene.offset.x, static_cast<float>(screen.y - g_render.top) - g_scene.offset.y };
         },
+        .window = g_inputHwnd,
     };
 }
 
@@ -529,7 +533,7 @@ void onPressDown(Vec2 canvasPoint)
             g_pointer.listPress = *element;
             g_pointer.listPressY = point.y;
         }
-    } else {
+    } else if (!g_scene.steadyPress) { // a card can ask not to (Content::steadyPress, decision 063)
         g_renderer.pressDown(false);
     }
     updateHover();

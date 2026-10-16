@@ -184,6 +184,7 @@ if(WIN32)
         src/platform/interaction_layer.cpp
         src/platform/log.cpp
         src/platform/liquid_bridge.cpp
+        src/platform/outside_clicks.cpp
         src/platform/pill_renderer.cpp
         src/platform/render_layer.cpp
         src/platform/shell_images.cpp

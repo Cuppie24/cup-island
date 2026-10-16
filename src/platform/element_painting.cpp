@@ -230,6 +230,29 @@ void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& l
     drawString(dc, formatOf(dw, text).get(), widen(label), size, color);
 }
 
+void paintGlyphLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, const std::string& label, Vec2 size, const Color& color)
+{
+    const Tokens& t = tokens();
+    float pad = t.buttonLabelPadding, icon = t.iconSize;
+    D2D1_MATRIX_3X2_F was;
+    dc->GetTransform(&was);
+    dc->SetTransform(D2D1::Matrix3x2F::Translation(pad, 0) * was);
+    paintGlyph(dc, dw, glyph, icon, { icon, size.y }, color);
+    dc->SetTransform(was);
+    Text text{ .value = label, .style = TextStyle::Body, .centred = true };
+    float from = pad + icon + t.itemSpacing;
+    drawString(dc, formatOf(dw, text).get(), widen(label), D2D1::RectF(from, 0, std::max(from, size.x - pad) + 1, size.y), color);
+}
+
+void paintBackdrop(ID2D1DeviceContext* dc, Vec2 size)
+{
+    const Tokens& t = tokens();
+    Color disc = t.islandColor;
+    disc.a = static_cast<std::uint8_t>(std::clamp(t.buttonBackdropOpacity, 0.0f, 1.0f) * 255);
+    float r = std::min(size.x, size.y) / 2;
+    dc->FillRoundedRectangle({ D2D1::RectF(0, 0, size.x, size.y), r, r }, brushOf(dc, disc).get());
+}
+
 std::size_t caretAt(IDWriteFactory* dw, const Text& text, Vec2 size, Vec2 at)
 {
     // As drawn (paintText), but unbounded across: a click on a trimmed text's "…" lands at its end.
