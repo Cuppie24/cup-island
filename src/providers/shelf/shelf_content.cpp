@@ -69,7 +69,7 @@ Icon badgeOf(const Entry& item)
 {
     Glyph glyph = item.kind == Kind::Link ? Glyph::Link : Glyph::Copy;
     if (item.state == State::Failed || item.state == State::Missing) glyph = Glyph::Warning;
-    return Icon{ .glyph = glyph, .small = true };
+    return Icon{ .glyph = glyph, .compact = true };
 }
 
 // Under its name: the badge and what it is, or a copy's progress.

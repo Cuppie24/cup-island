@@ -251,7 +251,7 @@ void cardTests()
         expect(name && name->value == "a.pdf" && name->editAction == action::kRename + std::to_string(s.item(0).id) && name->editHint,
                "card: the name renames it, and lights to say so");
         auto* kind = std::get_if<Text>(&link.rows[2].items[1]);
-        expect(link.rows[2].items[0] == cup::Item{ Icon{ .glyph = Glyph::Link, .small = true } } && kind && kind->value == "Link · 2 MB",
+        expect(link.rows[2].items[0] == cup::Item{ Icon{ .glyph = Glyph::Link, .compact = true } } && kind && kind->value == "Link · 2 MB",
                "card: a small badge by what it is");
         auto* steps = std::get_if<Button>(&link.actions.back());
         expect(steps && steps->backed, "card: its buttons have a backdrop, readable over any picture");

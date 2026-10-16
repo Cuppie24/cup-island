@@ -58,7 +58,7 @@ float heightOf(const Item& item, Rect slot, float ringSide)
     // Seekable bars get a taller row to be easy to click; a bar nobody clicks is just its line.
     if (auto* bar = std::get_if<Progress>(&item)) return bar->seekable ? t.progressHitHeight : t.progressHeight;
     if (auto* label = std::get_if<TimeLabel>(&item)) return lineHeight(label->style);
-    if (auto* icon = std::get_if<Icon>(&item); icon && icon->small) return t.smallIconSize;
+    if (auto* icon = std::get_if<Icon>(&item); icon && icon->compact) return t.smallIconSize;
     return t.iconSize; // Icon, Waveform
 }
 
@@ -94,7 +94,7 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
         Text text{ widest, label->style };
         return (measure ? measure(text) : estimateTextWidth(text)) + 1; // +1: rounding never trips the "…"
     }
-    if (auto* icon = std::get_if<Icon>(&item); icon && icon->small) return t.smallIconSize;
+    if (auto* icon = std::get_if<Icon>(&item); icon && icon->compact) return t.smallIconSize;
     return t.iconSize; // Icon, Waveform
 }
 

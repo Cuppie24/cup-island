@@ -26,9 +26,9 @@ bool isRing(const Item& item)
 // Live data's colour: the content's accent, else the live colour (decision 010).
 Color accentOf(const Placed& p) { return p.accent.value_or(tokens().liveColor); }
 
-// The shape under a hovered button, a text field's background, the dim over clickable art.
-bool hintedText(const Item& item);
+bool hintedText(const Item& item); // below
 
+// The shape under a hovered button, a text field's background, the dim over clickable art.
 Color hoverColorOf(const Placed& p)
 {
     if (std::holds_alternative<TextInput>(p.item) || hintedText(p.item)) return tokens().inputColor; // a name says it's a field
@@ -296,7 +296,7 @@ void ElementVisuals::paint(View& view)
             if (view.marqueeWidth > 0) paintMarquee(dc, dw, *text, view.marqueeWidth, view.lead, t.marqueeGap, size.y);
             else paintText(dc, dw, *text, size);
         } else if (auto* icon = std::get_if<Icon>(&item)) {
-            paintGlyph(dc, dw, icon->glyph, icon->small ? t.smallIconSize : t.iconSize, pixelSize(size), t.iconColor); // the surface's whole pixels
+            paintGlyph(dc, dw, icon->glyph, icon->compact ? t.smallIconSize : t.iconSize, pixelSize(size), t.iconColor); // the surface's whole pixels
         } else if (auto* button = std::get_if<Button>(&item)) {
             bool toggledOff = button->on && !*button->on;
             Color color = !button->enabled ? t.buttonDisabledColor : toggledOff ? t.buttonOffColor

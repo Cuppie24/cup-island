@@ -93,7 +93,7 @@ struct Image {
 };
 struct Icon {
     Glyph glyph = Glyph::Music;
-    bool small = false; // smallIconSize: a badge beside a caption ("Copy · 2 MB", decision 063)
+    bool compact = false; // smallIconSize: a badge beside a caption ("Copy · 2 MB", decision 063). Not "small": windows.h #defines it
     bool operator==(const Icon&) const = default;
 };
 struct Button {

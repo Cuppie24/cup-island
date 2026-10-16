@@ -66,7 +66,7 @@ keyboard's focus somewhere (decision 035), and an image smaller than its slot.
 - **Buttons over a picture have a backdrop** (`Button::backed`): a disc of
   the island's colour (`buttonBackdropOpacity`), so they read over a
   thumbnail of the same colour.
-- **The link/copy badge is small** (`Icon::small`, `smallIconSize`), by the
+- **The link/copy badge is small** (`Icon::compact`, `smallIconSize`), by the
   "Link" or "Copy" under the name, with the item's size.
 - **A press doesn't squash the island on this card** (`Content::steadyPress`):
   the provider's call, for a page of things to click.
