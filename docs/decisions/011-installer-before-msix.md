@@ -1,6 +1,6 @@
 # 011: Ship a plain installer first, MSIX later
 
-Status: Proposed (TR §10 still says MSIX; update TR if accepted)
+Status: Proposed (TR §10 still says MSIX; update TR if accepted). Per-user only since decision 062
 
 **Context.** TR §10 asks for a signed MSIX. That needs a manifest, package
 identity and a code-signing certificate before anyone can install it

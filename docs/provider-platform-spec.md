@@ -67,7 +67,7 @@ The island has a **resting state** that depends only on the set of live activiti
 | --- | --- | --- | --- |
 | **Alert** | A provider posts an alert that the arbiter lets through | Alert duration elapses (default 3 s), or the user clicks (→ Expanded) | Grows to medium size showing the `alert` slot, with an attention animation |
 | **Expanded** | User clicks the island in Compact/Split/Alert | Click outside, Esc, 8 s with no pointer inside, or the shown activity ends | Large card with the `expanded.*` slots and action buttons. With several activities: a pager/switcher |
-| **Receptive** | A drag enters the island's hot zone and ≥ 1 provider accepts the dragged data types | Drag leaves, or the drop completes | Opens into a row of drop zones, one per accepting provider (e.g. "Shelf", "Send to phone") |
+| **Receptive** | A drag enters the island's hot zone and ≥ 1 provider accepts the dragged data types | Drag leaves, or the drop completes | Opens into the accepting providers' drop zones, each provider bringing one or more (the Shelf: "Link" and "Copy", decision 061). After a drop it stays Expanded on that provider's card |
 | **Hidden** | Fullscreen detected (TR §9.2), user toggled hide, or session locked | Condition clears | Not visible. Alerts are held or dropped per §6.4 |
 
 ### 3.2 State diagram
@@ -123,7 +123,7 @@ All of these are Composition animations on the host side (TR §5). Providers can
 | → Expanded | Morph with a spring. Elements with the same `id` in both slots (e.g. album art) move between positions instead of crossfading (matched geometry) | 350 ms |
 | Expanded → Resting | Reverse of the above | 300 ms |
 | → Receptive | Fast spring open; drop zones stagger in by 30 ms each | 250 ms |
-| Drop accepted | Zone flashes accent, then island collapses (into Compact if the drop created an activity) | 300 ms |
+| Drop accepted | Zone flashes accent, then the island stays Expanded on that provider's card, showing what was dropped (decision 061) | 300 ms |
 | Drop rejected / action failed | Horizontal shake, 3 cycles | 250 ms |
 | Content update in place | Text crossfade; numbers roll; progress animates to the new value | 200 ms |
 | Press (existing prototype) | Scale 0.96 on mouse-down, spring back on release | — |
@@ -270,7 +270,7 @@ This is written as a language-neutral interface. §8 covers how it maps to C++ a
 | `onActivate(context)` / `onDeactivate()` | Lifecycle. `context` carries settings, theme and locale |
 | `onAction(activityId, actionId)` | The user pressed a button, or the activity's primary tap action |
 | `onExpandedChanged(activityId, isExpanded)` | Lets the provider fetch richer data only when it will be seen |
-| `onDragEnter(dataTypes) → accept: bool` | Final say on accepting a specific drag |
+| `onDragEnter(summary) → zones` | Once per drag, at enter (never on every move): its drop zones for this drag, each with a label, a reason when greyed, and whether it's enabled. Built-ins only; Tier 2 plugins declare fixed zones in the manifest, so the source app's drag loop never waits on a pipe (decision 061) |
 | `onDrop(items) → result` | `accepted` / `rejected(reason)`. May start an activity (e.g. "3 files on Shelf") |
 | `onSettingsChanged(settings)` | User changed a setting |
 

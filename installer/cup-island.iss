@@ -21,9 +21,9 @@ AppVersion={#AppVersion}
 AppVerName={#AppName} {#AppVersion}
 DefaultDirName={autopf}\{#AppName}
 DisableProgramGroupPage=yes
-; Per-user install by default, so no admin prompt; the user can pick all-users instead.
+; Per-user only, never an admin prompt (decision 062): an all-users install made
+; silent updates prompt for admin and brought the island back elevated.
 PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 ; Windows 10 1809 or later (decision 015).
@@ -53,11 +53,44 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopico
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
 ; A silent install is the in-app updater's (decision 036): the island quit
-; to be replaced, so start it again.
-Filename: "{app}\{#AppExe}"; Flags: nowait skipifnotsilent
+; to be replaced, so start it again. Never elevated: an elevated island gets
+; no drag and drop from Explorer (decisions 061, 062).
+Filename: "{app}\{#AppExe}"; Flags: nowait skipifnotsilent runasoriginaluser
 
 [UninstallRun]
 ; The island has no window to close politely; stop it so its files can be removed.
 Filename: "{sys}\taskkill.exe"; Parameters: "/im {#AppExe} /f"; Flags: runhidden; RunOnceId: "StopCupIsland"
 ; Undo "Start with Windows" (Settings, src/platform/autostart.cpp), on by default since decision 030.
 Filename: "{sys}\reg.exe"; Parameters: "delete ""HKCU\Software\Microsoft\Windows\CurrentVersion\Run"" /v ""Cup Island"" /f"; Flags: runhidden; RunOnceId: "RemoveStartup"
+
+[Code]
+// An old all-users install (decision 062). A per-user setup would put a
+// second copy next to it, so stop before anything is changed.
+const
+  AllUsersKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{6CB3203D-53EC-4816-944E-3BC5A4DD3489}_is1';
+
+function InitializeSetup(): Boolean;
+var
+  Uninstaller: String;
+  ResultCode: Integer;
+begin
+  Result := True;
+  if not RegKeyExists(HKLM64, AllUsersKey) then Exit;
+  Result := False;
+  // The in-app update: leave the running island and its install as they are.
+  if WizardSilent() then begin
+    Log('Cup Island is installed for all users; this setup is per-user only. Nothing changed.');
+    Exit;
+  end;
+  if MsgBox('Cup Island is installed for all users on this PC. It now installs for each user, '
+          + 'so that copy has to be removed first (Windows will ask for admin rights).'
+          + #13#10#13#10 + 'Uninstall it now?', mbConfirmation, MB_YESNO) <> IDYES then Exit;
+  // Inno's uninstaller hands over to a copy of itself and returns at once,
+  // so there's nothing to wait for: the user runs setup again afterwards.
+  if RegQueryStringValue(HKLM64, AllUsersKey, 'UninstallString', Uninstaller)
+     and ShellExec('', RemoveQuotes(Uninstaller), '', '', SW_SHOWNORMAL, ewNoWait, ResultCode) then
+    MsgBox('When the uninstall has finished, run this setup again.', mbInformation, MB_OK)
+  else
+    MsgBox('Couldn''t start the uninstaller. Remove Cup Island in Settings > Apps, then run this setup again.',
+           mbError, MB_OK);
+end;
