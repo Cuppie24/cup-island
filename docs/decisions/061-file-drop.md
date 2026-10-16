@@ -1,6 +1,9 @@
 # 061: File drop: any provider can take a drop; the shelf links or copies
 
-Status: Proposed (not built yet; amends PS §3.1, §3.4, §7.2 and decision 028)
+Status: Accepted, partly built (amends PS §3.1, §3.4, §7.2). Built: the
+zones, the Shelf, Explorer's files, links and text. Not yet: virtual files,
+drag out of the shelf, the wider hot zone, the elevation alert (only logged).
+See "As built" at the end.
 
 **Context.** Dragging files onto the island should open the file drop
 (the Shelf, PS §10) whatever the island is showing. Four questions came
@@ -154,9 +157,9 @@ has a path, else Remove.
   then on. This replaces PS §3.4's "then island collapses".
 
 **Consequences.**
-- PS §3.1, §3.4 and §7.2 are updated to match. Decision 028 gains the file
-  store. `IslandState::dragging` and the `DragEntered`/`DragLeft`/`Dropped`
-  events already exist; `DragEntered` will carry the data kinds instead of
+- PS §3.1, §3.4 and §7.2 are updated to match. Decision 028 keeps its
+  rules: the copy store is the Shelf's (As built). `IslandState::dragging` and the `DragEntered`/`DragLeft`/`Dropped`
+  events already exist; `DragEntered` carries the zones offered instead of
   `accepted`.
 - New scenario lines: a drag opens Receptive from every resting and overlay
   state except Hidden; a drag leaving goes back to the previous card and
@@ -169,3 +172,23 @@ has a path, else Remove.
   on Windows: drags from Explorer, a USB drive, a network share, OneDrive
   online and offline, Outlook, a zip, a browser's link and text, and an
   elevated island.
+
+**As built (first version).**
+- **The copy store is the Shelf's, not the host's.** `Host::storeFile` waits
+  until a second provider needs a store: the Shelf's hooks
+  (`providers/shelf/shelf_files.cpp`) copy into
+  `%LOCALAPPDATA%\CupIsland\shelf\<item id>\`, so decision 028 is unchanged.
+- **Zones sit side by side**, the drag's whole card split between them
+  (`receptiveSize`, `dropZoneGap`), drawn like Home's widgets.
+- **Limits are in megabytes** (`shelfCopyMaxMB`, `shelfStoreMaxMB`): the
+  tokens reader parses numbers as floats, exact only to 2^24.
+- **A drop before the sizes are read** reads them then, once. A file whose
+  size is still unknown is planned as fitting; the copy stops if it turns
+  out larger than the limit (`CopyJob::maxBytes`) and the item offers
+  "Keep as link".
+- **A critical alert during a drag** waits for the drag to end, then closes
+  Expanded as it always would (`IslandState::criticalHeld`).
+- Copies aren't cancelled when their item is removed mid-copy: the copy
+  finishes and is deleted.
+- Tests: `tests/scenarios/drop.scenario`, `tests/drop_tests.cpp`,
+  `tests/shelf_tests.cpp`.

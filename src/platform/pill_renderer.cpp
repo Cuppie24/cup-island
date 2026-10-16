@@ -89,9 +89,10 @@ void PillRenderer::apply(const Scene& scene)
     // stays: the app re-aims it after every scene, and clearing it here would
     // blink it on each tick of a countdown on the same card.
     bool listRows = std::any_of(scene.elements.begin(), scene.elements.end(), [](const Placed& p) { return p.listRow.has_value(); });
-    if (!tabs && scene.tiles.empty() && !listRows) pill_.setHovered(std::nullopt, 0);
+    if (!tabs && scene.tiles.empty() && scene.zones.empty() && !listRows) pill_.setHovered(std::nullopt, 0);
     std::vector<Rect> tiles;
     for (const Tile& tile : scene.tiles) tiles.push_back(tile.frame);
+    for (const ZoneMark& zone : scene.zones) tiles.push_back(zone.frame); // a drag's drop zones look like Home's widgets (decision 061)
     pill_.setTiles(tiles, scene.tileRadius);
     pill_.setBadges(scene.badges);
 

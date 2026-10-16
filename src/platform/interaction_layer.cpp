@@ -1,4 +1,6 @@
 #include "platform/interaction_layer.h"
+
+#include "platform/drop_target.h"
 #include "platform/log.h"
 #include "platform/single_instance.h"
 
@@ -263,6 +265,7 @@ try {
         return TRUE;
 
     case WM_DESTROY:
+        revokeDropTarget(hwnd); // OLE wants it gone before the window (decision 061)
         PostQuitMessage(0);
         return 0;
     }

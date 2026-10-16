@@ -156,6 +156,7 @@ if(WIN32)
 
     add_executable(CupIsland
         assets/cup_island.rc
+        src/app/drop_input.cpp
         src/app/keyboard_input.cpp
         src/app/live_tokens.cpp
         src/app/main.cpp
@@ -166,6 +167,7 @@ if(WIN32)
         src/platform/blob_shape.cpp
         src/platform/crash_report.cpp
         src/platform/displays.cpp
+        src/platform/drop_target.cpp
         src/platform/element_art.cpp
         src/platform/element_painting.cpp
         src/platform/field_painting.cpp
@@ -193,6 +195,7 @@ if(WIN32)
         src/providers/media/browser_tabs.cpp
         src/providers/media/smtc_media_provider.cpp
         src/providers/media/smtc_reading.cpp
+        src/providers/shelf/shelf_files.cpp
         src/providers/system/theme_provider.cpp
         src/providers/update/github.cpp
     )

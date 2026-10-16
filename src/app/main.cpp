@@ -15,11 +15,12 @@
 //   M  toggle the demo music player (real media shows by itself)
 //   T  toggle a second activity (Split). Click the bubble to open it, or drag
 //      it onto the pill to make it the main one.
-//   C  post a critical alert               D  toggle a simulated accepted drag
+//   C  post a critical alert               D  toggle a simulated drag of one file (decision 061)
 //   H  toggle hidden                       Esc closes what's open (never the app)
 // Quit any time from the tray icon's right-click menu (Exit). Everything is logged to
 // %LOCALAPPDATA%\CupIsland\logs (platform/log.h); Debug builds also show it in a console.
 
+#include "app/drop_input.h"
 #include "app/keyboard_input.h"
 #include "app/live_tokens.h"
 #include "core/dialog.h"
@@ -40,6 +41,7 @@
 #include "platform/pill_renderer.h"
 #include "platform/autostart.h"
 #include "platform/displays.h"
+#include "platform/drop_target.h"
 #include "platform/render_layer.h"
 #include "platform/single_instance.h"
 #include "platform/stay_on_top.h"
@@ -52,11 +54,15 @@
 #include "providers/file_store.h"
 #include "providers/media/smtc_media_provider.h"
 #include "providers/pomodoro/pomodoro_provider.h"
+#include "providers/shelf/shelf_files.h"
+#include "providers/shelf/shelf_provider.h"
 #include "providers/system/settings_provider.h"
 #include "providers/system/theme_provider.h"
 #include "providers/update/github.h"
 #include "providers/update/update_provider.h"
 #include "providers/provider_registry.h"
+
+#include <ole2.h>
 
 #include <chrono>
 #include <cmath>
@@ -132,6 +138,19 @@ struct Pointer {
 Vec2 toPill(Vec2 point) { return { point.x - g_scene.offset.x, point.y - g_scene.offset.y }; }
 bool onPill(Vec2 point) { return Rect{ g_scene.offset.x, g_scene.offset.y, g_scene.size.x, g_scene.size.y }.contains(point); }
 bool onBubble(Vec2 point) { return g_scene.bubble && g_scene.bubble->frame.contains(point); }
+
+// OLE drag and drop doesn't cross integrity levels: started elevated, the
+// island gets no drops from a normal Explorer (decisions 061, 062).
+void logElevation()
+{
+    HANDLE token = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) return;
+    TOKEN_ELEVATION elevation{};
+    DWORD size = 0;
+    if (GetTokenInformation(token, TokenElevation, &elevation, sizeof elevation, &size) && elevation.TokenIsElevated)
+        logLine("running elevated (as administrator): drag and drop from Explorer won't reach the island");
+    CloseHandle(token);
+}
 
 Ms now()
 {
@@ -245,7 +264,12 @@ void updateHover()
     if (tile && !tile->clickable()) tile = nullptr; // widgets without a card or tap action don't react
     // A list item (a to-do) lights up as a whole row, like a tab (Row::listItem).
     const Placed* item = at && !g_pointer.scrub ? contentUnder(*at) : nullptr;
-    if (tab) g_renderer.setAreaHovered(tab->frame, g_scene.tabs->radius);
+    // A drag lights the zone it's over (decision 061): no mouse messages come during it.
+    const ZoneMark* zone = nullptr;
+    for (const ZoneMark& z : g_scene.zones)
+        if (z.hovered) zone = &z;
+    if (zone) g_renderer.setAreaHovered(zone->frame, g_scene.tileRadius);
+    else if (tab) g_renderer.setAreaHovered(tab->frame, g_scene.tabs->radius);
     else if (tile) g_renderer.setAreaHovered(tile->frame, g_scene.tileRadius);
     else if (item && item->listRow) g_renderer.setAreaHovered(item->listRow, item->listRowRadius);
     else g_renderer.setAreaHovered(std::nullopt, 0);
@@ -329,6 +353,20 @@ void dispatch(const Event& event, const char* reason)
     if (nowCard == wasCard || !g_providers) return;
     if (wasCard) g_providers->cardClosed(*wasCard);
     if (nowCard) g_providers->cardShown(*nowCard);
+}
+
+// What a drag over the island needs from the app (decision 061, app/drop_input.h).
+app::DropHooks dropHooks()
+{
+    return {
+        .state = []() -> const IslandState& { return g_state; },
+        .scene = []() -> const Scene& { return g_scene; },
+        .dispatch = dispatch,
+        .providers = [] { return g_providers.get(); },
+        .toPill = [](POINT screen) {
+            return Vec2{ static_cast<float>(screen.x - g_render.left) - g_scene.offset.x, static_cast<float>(screen.y - g_render.top) - g_scene.offset.y };
+        },
+    };
 }
 
 void toggleProvider(const char* id)
@@ -764,10 +802,7 @@ void onKey(WPARAM key)
         dispatch(AlertPosted{ { .level = Level::Critical, .content = content } }, "demo key");
         break;
     }
-    case 'D':
-        if (g_state.dragging) dispatch(DragLeft{}, "demo key");
-        else dispatch(DragEntered{ true }, "demo key");
-        break;
+    case 'D': app::toggleDemoDrag(dropHooks()); break;
     case 'H': dispatch(HiddenChanged{ !g_state.hidden }, "demo key"); break;
     }
 }
@@ -888,6 +923,9 @@ int main()
     reportPreviousCrash(); // a crash too abrupt for watchForCrashes() still shows up here
 
     winrt::init_apartment(winrt::apartment_type::single_threaded);
+    // Drag and drop needs OLE on this thread, not just its apartment (decision 061).
+    if (FAILED(OleInitialize(nullptr))) logLine("OLE didn't start: no drag and drop");
+    logElevation();
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     auto queueController = createDispatcherQueueForCurrentThread();
 
@@ -970,6 +1008,8 @@ int main()
     g_providers->add(std::make_unique<DemoMediaProvider>()); // M key
     g_providers->add(std::make_unique<ThemeProvider>(postToUi));
     g_providers->add(std::make_unique<PomodoroProvider>());
+    shelf_files::clearUnfinished(); // copies cut short by the last quit (decision 061)
+    g_providers->add(std::make_unique<ShelfProvider>(shelf_files::hooks(postToUi)));
     auto settings = std::make_unique<SettingsProvider>(SettingsHooks{
         .applyTheme = applyTheme,
         .copyLogs = [] { return copyLogToClipboard(g_inputHwnd); },
@@ -1030,10 +1070,18 @@ int main()
     // first (decision 019), then the system tiles.
     g_providers->start("media");
     g_providers->start("pomodoro");
+    g_providers->start("shelf");
     g_providers->start("system.theme");
     g_providers->start("system.settings");
     g_providers->start("system.update");
     dispatch(readWallClock(), "clock");
+
+    // Drags from Explorer, a browser, an editor (decision 061).
+    platform::DropCallbacks drops = app::dropCallbacks(dropHooks());
+    drops.postToUi = postToUi;
+    drops.storeFolder = shelf_files::storeFolder().wstring();
+    drops.maxChecked = tokens().shelfMaxCheckedItems;
+    registerDropTarget(g_inputHwnd, std::move(drops));
 
     // TR §9.2: hide over borderless/exclusive fullscreen apps on this monitor.
     watchFullscreen(render.hwnd, [](bool fullscreen) { dispatch(HiddenChanged{ fullscreen }, "fullscreen"); });

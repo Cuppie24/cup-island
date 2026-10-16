@@ -91,6 +91,7 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::ChevronLeft: return L"\uE76B";
     case Glyph::ChevronRight: return L"\uE76C";
     case Glyph::Download: return L"\uE896";
+    case Glyph::Link: return L"\uE71B";
     case Glyph::Centre: return L"\uE8E3"; // AlignCenter: back to the middle
     case Glyph::Minus: return L"\uE738";  // Remove
     case Glyph::Plus: return L"\uE710";   // Add
