@@ -118,10 +118,10 @@ bool selectionPressed(Vec2 point, const Placed* element)
 void selectionMoved(Vec2 point)
 {
     if (g_dragStart) {
-        bool far = std::abs(point.x - g_dragStart->from.x) > GetSystemMetrics(SM_CXDRAG) ||
+        bool beyond = std::abs(point.x - g_dragStart->from.x) > GetSystemMetrics(SM_CXDRAG) ||
                    std::abs(point.y - g_dragStart->from.y) > GetSystemMetrics(SM_CYDRAG);
         const auto& picked = state().selection;
-        if (far && picked && picked->list == g_dragStart->list && picked->activityId == g_dragStart->activityId) {
+        if (beyond && picked && picked->list == g_dragStart->list && picked->activityId == g_dragStart->activityId) {
             DragStart start = *std::exchange(g_dragStart, std::nullopt);
             g_pending.reset(); // dragged, not clicked: the selection stays as it is
             std::vector<std::string> ids = picked->ids;
