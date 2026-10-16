@@ -190,6 +190,9 @@ void Blob::refreshAnimations(bool coloursOnly)
     for (std::vector<Mark>* marks : { &tiles_, &tabs_ })
         for (Mark& mark : *marks)
             if (mark.brush) fadeColor(mark.brush, t.tileColor);
+    for (Mark& mark : selected_)
+        if (mark.brush) fadeColor(mark.brush, t.tabSelectedColor);
+    if (box_.brush) fadeColor(box_.brush, t.selectionBoxColor);
     if (focusRing_.brush) fadeColor(focusRing_.brush, t.focusRingColor);
     badges_.recolor();
     elements_.refresh(coloursOnly);
@@ -268,11 +271,11 @@ void Blob::setFocusRing(std::optional<Rect> area, float cornerRadius)
     fadeTo(compositor_, ring.visual, 1.0f, tokens().hoverFadeDuration);
 }
 
-void Blob::showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius)
+void Blob::showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius, const Color& color)
 {
     if (marks.size() < at.size()) marks.resize(at.size());
     for (std::size_t i = 0; i < marks.size(); ++i)
-        showMark(marks[i], i < at.size() ? std::optional<Rect>(at[i]) : std::nullopt, cornerRadius, tokens().tileColor, false);
+        showMark(marks[i], i < at.size() ? std::optional<Rect>(at[i]) : std::nullopt, cornerRadius, color, false);
 }
 
 void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide)

@@ -60,7 +60,7 @@ void ShelfProvider::stop()
 
 void ShelfProvider::show()
 {
-    if (host_) host_->publishPanel(shelf::shelfPanel(items_, view_, thumbnails_));
+    if (host_) host_->publishPanel(shelf::shelfPanel(items_, view_, thumbnails_, picked_.size()));
 }
 
 void ShelfProvider::changed()
@@ -123,6 +123,12 @@ std::vector<DropZone> ShelfProvider::dropZones(const DragSummary& drag)
 void ShelfProvider::onDrop(const std::string& zoneId, const std::vector<DroppedItem>& dropped)
 {
     if (!host_ || (zoneId != kLinkZone && zoneId != kCopyZone)) return;
+    add(zoneId, dropped);
+}
+
+std::size_t ShelfProvider::add(const std::string& zoneId, const std::vector<DroppedItem>& dropped)
+{
+    std::size_t linked = 0;
     shelf::DropPlan plan = shelf::planDrop(summaryOf(dropped), shelf::limitsNow(items_.storeUsed()));
     const shelf::ZonePlan& zone = zoneId == kLinkZone ? plan.link : plan.copy;
     for (std::size_t i = 0; i < dropped.size() && i < zone.items.size(); ++i) {
@@ -132,6 +138,7 @@ void ShelfProvider::onDrop(const std::string& zoneId, const std::vector<DroppedI
             item.path = d.path;
             item.bytes = d.what.bytes.value_or(0); // shown in the shelf's total, never counted against its store
             items_.add(item);
+            ++linked;
         } else if (zone.items[i] == shelf::Handling::Copy) {
             item.kind = shelf::Kind::Copy;
             item.state = shelf::State::Copying;
@@ -143,6 +150,27 @@ void ShelfProvider::onDrop(const std::string& zoneId, const std::vector<DroppedI
     changed();
     // The newest, first: in view, with the keyboard's focus (decision 063).
     if (!items_.all().empty()) host_->reveal(shelf::kPanelId, act::kList, 0, true);
+    return linked;
+}
+
+void ShelfProvider::remove(std::uint64_t id)
+{
+    const shelf::Entry* item = items_.find(id);
+    if (!item) return;
+    // A copy goes from the store; a link only from the list (its original stays).
+    if (item->kind == shelf::Kind::Copy && !item->path.empty() && hooks_.removeCopy) hooks_.removeCopy(item->path);
+    items_.remove(id);
+    thumbnails_.erase(id);
+    std::erase(picked_, id);
+}
+
+void ShelfProvider::onSelectionChanged(const std::string& activityId, const std::string& list, const std::vector<std::string>& ids)
+{
+    if (activityId != shelf::kPanelId || list != act::kList) return;
+    picked_.clear();
+    for (const std::string& row : ids)
+        if (auto id = shelf::itemOfRow(row)) picked_.push_back(*id);
+    show(); // its foot says Delete N items
 }
 
 void ShelfProvider::startCopy(std::uint64_t id, const DroppedItem& d)
@@ -178,6 +206,29 @@ void ShelfProvider::onAction(const Action& a)
         show();
         return;
     }
+    if (a.actionId == act::kAdd && hooks_.pickFiles) { // Windows' picker: kept as copies, as the Copy zone would (decision 064)
+        auto alive = alive_;
+        hooks_.pickFiles([this, alive](std::vector<DroppedItem> picked) {
+            if (!*alive || !host_ || picked.empty()) return;
+            std::size_t linked = add(kCopyZone, picked);
+            if (linked == 0) return;
+            // Some couldn't be copied (too large, a folder): say so, in a toast.
+            std::string what = linked == 1 ? "1 file was added as a link" : std::to_string(linked) + " files were added as links";
+            host_->postAlert({ .activityId = shelf::kPanelId, .content = { .label = what,
+                                 .alertLeading = { row({ Icon{ Glyph::Link } }) },
+                                 .alertCenter = { row({ Text{ what, TextStyle::Title } }), row({ Text{ "Too large to copy, or a folder", TextStyle::Caption } }) } } });
+        });
+        return;
+    }
+    if (a.actionId == act::kDeleteSelected) {
+        if (!picked_.empty()) host_->ask(shelf::deleteQuestion(items_, picked_));
+        return;
+    }
+    if (a.actionId == act::kDeleteSelectedConfirmed) {
+        for (std::uint64_t id : std::vector<std::uint64_t>(picked_)) remove(id);
+        changed();
+        return;
+    }
     if (a.actionId == act::kClear) {
         if (!items_.all().empty()) host_->ask(shelf::clearQuestion(items_));
         return;
@@ -187,6 +238,7 @@ void ShelfProvider::onAction(const Action& a)
             if (item.kind == shelf::Kind::Copy && !item.path.empty() && hooks_.removeCopy) hooks_.removeCopy(item.path);
         items_.clear();
         thumbnails_.clear();
+        picked_.clear();
         changed();
         return;
     }
@@ -198,14 +250,11 @@ void ShelfProvider::onAction(const Action& a)
         if (item && item->state == shelf::State::Ready && hooks_.reveal) hooks_.reveal(item->path);
     } else if (auto id = idAfter(a.actionId, act::kRename)) {
         rename(*id, a.text);
-    } else if (auto id = idAfter(a.actionId, act::kRemove)) {
-        const shelf::Entry* item = items_.find(*id);
-        if (!item) return;
-        // A copy goes from the store; a link only from the list (its original stays).
-        if (item->kind == shelf::Kind::Copy && !item->path.empty() && hooks_.removeCopy) hooks_.removeCopy(item->path);
-        items_.remove(*id);
-        thumbnails_.erase(*id);
+    } else if (auto id = idAfter(a.actionId, act::kRemoveConfirmed)) {
+        remove(*id);
         changed();
+    } else if (auto id = idAfter(a.actionId, act::kRemove)) {
+        if (const shelf::Entry* item = items_.find(*id)) host_->ask(shelf::removeQuestion(*item)); // asks first (decision 064)
     } else if (auto id = idAfter(a.actionId, act::kKeep)) {
         if (items_.keepAsLink(*id)) changed();
     }

@@ -278,7 +278,7 @@ void animateWaveform(Compositor const& c, const WaveformParts& parts, float heig
 // --- Button ------------------------------------------------------------------
 
 ButtonParts createButton(Compositor const& c, Vec2 frame, float cornerRadius, CompositionDrawingSurface const& glyph,
-                         const Color& hover)
+                         const Color& hover, std::optional<Color> base)
 {
     auto shape = c.CreateRoundedRectangleGeometry();
     shape.Size(toFloat2(frame));
@@ -298,6 +298,15 @@ ButtonParts createButton(Compositor const& c, Vec2 frame, float cornerRadius, Co
     glyphVisual.Size(toFloat2(frame));
 
     parts.visual = c.CreateContainerVisual();
+    if (base) { // the disc, then the hover over it: the shape lightens under the pointer, not a square beside it
+        parts.base = brushOf(c, *base);
+        auto disc = c.CreateSpriteShape(shape);
+        disc.FillBrush(parts.base);
+        auto under = c.CreateShapeVisual();
+        under.Size(toFloat2(frame));
+        under.Shapes().Append(disc);
+        parts.visual.Children().InsertAtTop(under);
+    }
     parts.visual.Children().InsertAtTop(parts.highlight);
     parts.visual.Children().InsertAtTop(glyphVisual);
     return parts;

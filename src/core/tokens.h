@@ -178,10 +178,11 @@ struct Tokens {
     // A grid's cells (Row::cells, decision 063): as many columns as fit at
     // least gridCellMinWidth, stretched to the row; a Thumbnail image is
     // thumbnailHeight tall across its cell.
-    float gridCellMinWidth = 128;
-    float gridCellHeight = 150;
+    float gridCellMinWidth = 112;
+    float gridCellHeight = 132;
     float gridGap = 8;
-    float thumbnailHeight = 88;
+    float thumbnailHeight = 72;
+    float listColumnWidth = 150; // Text::column: a file's kind and size, at its row's end (decision 064)
 
     // Morph between modes: ease-out, 250-350 ms budget (TR §5).
     Ms morphDuration{ 300 };
@@ -274,6 +275,7 @@ struct Tokens {
     Color stepDoneColor{ 255, 255, 255, 191 };
     Color stepTodoColor{ 255, 255, 255, 51 };
     Color tabSelectedColor{ 255, 255, 255, 41 };
+    Color selectionBoxColor{ 10, 132, 255, 51 };   // the box drawn round files to pick them (decision 064)
     Color hoverColor{ 255, 255, 255, 20 };         // a tab or tile under the pointer
     Color tileColor{ 255, 255, 255, 20 };          // Home's tile and Expanded's tab backgrounds, always shown
     Color focusRingColor{ 255, 255, 255, 153 };    // around what the keyboard has focus on (decision 033): a theme's accent

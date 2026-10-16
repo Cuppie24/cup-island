@@ -23,7 +23,7 @@ IslandState shelfWith(std::size_t cells)
 {
     Content c{ .label = "Shelf", .card = CardLayout::Large, .keepOpen = true };
     c.expandedCenter.push_back(row({ Text{ .value = "Shelf", .style = TextStyle::Heading } }));
-    Row grid{ .list = "items", .id = "grid" };
+    Row grid{ .list = "items", .id = "grid", .selectable = true };
     for (std::size_t i = 0; i < cells; ++i) grid.cells.push_back(cellNamed("c" + std::to_string(i)));
     c.expandedCenter.push_back(grid);
     IslandState s;
@@ -90,6 +90,13 @@ void runGridTests()
     scene = layout(s, Ms{ 0 });
     const Placed* last = find(scene, "expandedCenter/grid." + std::to_string(29 / columns) + "/c29/1/0");
     expect(last && last->list && last->list->offset > 0 && last->frame.y >= last->list->viewport.y, "grid: revealing a cell scrolls to its line");
+
+    // Picked cells (decision 064): known by their ids, lit once each.
+    s = reduce(s, SelectionSet{ "shelf", "items", { "c0", "c1" } }, Ms{ 0 });
+    scene = layout(s, Ms{ 0 });
+    const Placed* picked = find(scene, "expandedCenter/grid.0/c1/1/0");
+    expect(picked && picked->list && picked->list->item == "c1", "grid: a selectable grid's cells carry their ids");
+    expect(scene.selected.size() == 2 && picked && picked->listRow && scene.selected[1] == *picked->listRow, "grid: each picked cell is lit, once");
 
     // Image roles in an ordinary row.
     Content listed{ .card = CardLayout::Centred, .expandedCenter = { row({ Image{ .role = ImageRole::Icon }, Text{ .value = "a" } }) } };

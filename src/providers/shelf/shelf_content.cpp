@@ -90,22 +90,43 @@ Cell cellFor(const Entry& item, const Thumbnails& thumbnails)
 
 Row rowFor(const Entry& item, const Thumbnails& thumbnails)
 {
-    Row r{ .list = action::kList, .id = "item-" + std::to_string(item.id), .listItem = true, .openAction = opens(item) };
+    Row r{ .list = action::kList, .id = "item-" + std::to_string(item.id), .listItem = true, .openAction = opens(item), .selectable = true };
     if (auto picture = pictureOf(item, thumbnails)) r.items.push_back(Image{ .data = picture, .role = ImageRole::Icon, .contain = true });
     else r.items.push_back(Icon{ kindGlyph(item) });
-    r.items.push_back(nameOf(item, TextStyle::Body));
+    r.items.push_back(nameOf(item, TextStyle::Body)); // the rest of the row: the name gets the room (decision 064)
     if (item.state == State::Copying) r.items.push_back(Progress{ .timeline = { .position = Ms{ static_cast<long long>(item.progress * 1000) }, .duration = Ms{ 1000 } } });
     else {
         r.items.push_back(badgeOf(item));
-        r.items.push_back(Text{ .value = status(item), .style = TextStyle::Caption });
+        r.items.push_back(Text{ .value = status(item), .style = TextStyle::Caption, .column = true });
     }
     r.trailing = actionsFor(item);
     return r;
 }
 
+// The last card: Windows' file picker, the files kept as copies (decision 064).
+Cell addCell()
+{
+    return { .id = "add",
+             .rows = { row({ Button{ .glyph = Glyph::Plus, .actionId = action::kAdd } }, Align::Center),
+                       row({ Text{ .value = "Add files", .style = TextStyle::Caption, .centred = true } }, Align::Center) },
+             .fixed = true };
+}
+
+std::string countOf(std::size_t n) { return n == 1 ? "1 item" : std::to_string(n) + " items"; }
+
 } // namespace
 
-Panel shelfPanel(const Items& items, View view, const Thumbnails& thumbnails)
+std::optional<std::uint64_t> itemOfRow(const std::string& rowId)
+{
+    if (!rowId.starts_with("item-")) return std::nullopt;
+    try {
+        return std::stoull(rowId.substr(5));
+    } catch (...) {
+        return std::nullopt;
+    }
+}
+
+Panel shelfPanel(const Items& items, View view, const Thumbnails& thumbnails, std::size_t picked)
 {
     const auto& all = items.all();
     std::string glance = all.empty() ? "Drop files on the island" : things(all.size());
@@ -114,6 +135,7 @@ Panel shelfPanel(const Items& items, View view, const Thumbnails& thumbnails)
         .card = CardLayout::Large,
         .keepOpen = true,    // a near miss between its things doesn't close it
         .steadyPress = true, // a page of things to click: the island doesn't squash under a press (decision 063)
+        .deleteAction = action::kDeleteSelected, // the Delete key, with things picked (decision 064)
         .tileLeading = { row({ Icon{ Glyph::Package } }, Align::Center) },
         .tile = { row({ Text{ "Shelf", TextStyle::Title } }), row({ Text{ glance, TextStyle::Caption } }) },
     };
@@ -123,21 +145,43 @@ Panel shelfPanel(const Items& items, View view, const Thumbnails& thumbnails)
     if (std::uint64_t total = items.totalBytes()) summary += " · " + formatBytes(total);
     card.push_back(Row{ .items = { Text{ .value = "Shelf", .style = TextStyle::Heading }, Text{ .value = all.empty() ? "" : summary, .style = TextStyle::Caption, .alignEnd = true } },
                         .trailing = { toggle } });
-    if (all.empty()) {
-        card.push_back(row({ Text{ .value = "Drag files, text or links onto the island", .style = TextStyle::Caption, .centred = true } }, Align::Center));
-        return { .id = kPanelId, .content = content };
-    }
     if (view == View::Cards) {
-        Row grid{ .list = action::kList, .id = "grid" };
+        Row grid{ .list = action::kList, .id = "grid", .selectable = true };
         for (auto it = all.rbegin(); it != all.rend(); ++it) grid.cells.push_back(cellFor(*it, thumbnails)); // the newest first
+        grid.cells.push_back(addCell());
         card.push_back(grid);
     } else {
         for (auto it = all.rbegin(); it != all.rend(); ++it) card.push_back(rowFor(*it, thumbnails));
+        card.push_back(Row{ .items = { Button{ .glyph = Glyph::Plus, .actionId = action::kAdd, .label = "Add files", .compact = true, .withGlyph = true } },
+                            .align = Align::Center, .list = action::kList, .id = "add" });
     }
     // Under the list, which fills the card: always at its foot, however far it's scrolled (decision 063).
-    card.push_back(Row{ .items = { Button{ .glyph = Glyph::Delete, .actionId = action::kClear, .label = "Clear", .compact = true, .withGlyph = true } },
-                        .align = Align::Center });
+    // Something picked: it deletes that (decision 064); else it clears the shelf.
+    if (picked > 0)
+        card.push_back(Row{ .items = { Button{ .glyph = Glyph::Delete, .actionId = action::kDeleteSelected, .label = "Delete " + countOf(picked),
+                                               .compact = true, .destructive = true, .withGlyph = true } },
+                            .align = Align::Center });
+    else if (!all.empty())
+        card.push_back(Row{ .items = { Button{ .glyph = Glyph::Delete, .actionId = action::kClear, .label = "Clear", .compact = true, .withGlyph = true } },
+                            .align = Align::Center });
     return { .id = kPanelId, .content = content };
+}
+
+Dialog removeQuestion(const Entry& item)
+{
+    std::string message = item.kind == Kind::Link ? "It goes from the shelf; the original stays where it is." : "Its copy on the shelf is deleted.";
+    return { .activityId = kPanelId, .title = "Remove \"" + shownName(item) + "\"?", .message = message, .confirmLabel = "Remove",
+             .confirmAction = action::kRemoveConfirmed + std::to_string(item.id), .destructive = true };
+}
+
+Dialog deleteQuestion(const Items& items, const std::vector<std::uint64_t>& ids)
+{
+    bool links = false;
+    for (std::uint64_t id : ids)
+        if (const Entry* item = items.find(id); item && item->kind == Kind::Link) links = true;
+    std::string message = countOf(ids.size()) + " will be removed from the shelf." + (links ? " Originals are kept." : "");
+    return { .activityId = kPanelId, .title = "Delete " + countOf(ids.size()) + "?", .message = message, .confirmLabel = "Delete",
+             .confirmAction = action::kDeleteSelectedConfirmed, .destructive = true };
 }
 
 Dialog clearQuestion(const Items& items)

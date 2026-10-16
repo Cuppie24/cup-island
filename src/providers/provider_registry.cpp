@@ -136,6 +136,12 @@ void ProviderRegistry::closeRequested(const ShownCard& card)
     if (Entry* e = find(card.providerId); e && e->running) e->provider->onCloseRequested(card.activityId);
 }
 
+void ProviderRegistry::selectionChanged(const std::string& providerId, const std::string& activityId, const std::string& list,
+                                        const std::vector<std::string>& ids)
+{
+    if (Entry* e = find(providerId); e && e->running) e->provider->onSelectionChanged(activityId, list, ids);
+}
+
 std::vector<DropZone> ProviderRegistry::dropZones(const DragSummary& drag)
 {
     std::vector<DropZone> zones;

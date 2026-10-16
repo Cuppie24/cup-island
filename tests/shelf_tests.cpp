@@ -179,8 +179,11 @@ void providerTests()
     expect(s.item(2).kind == Kind::Link && s.item(2).path == "\\\\nas\\x.iso", "shelf: ...and be kept as a link");
 
     s.act(std::string(action::kRemove) + std::to_string(s.item(1).id)); // the link to the film
+    expect(s.host.asked.size() == 1 && s.host.asked.back().message.find("original stays") != std::string::npos && s.provider.items().all().size() == 3,
+           "shelf: Remove asks first, and says the original stays");
+    s.act(std::string(action::kRemoveConfirmed) + std::to_string(s.item(1).id));
     expect(s.removed.empty() && s.provider.items().all().size() == 2, "shelf: removing a link never touches its original");
-    s.act(std::string(action::kRemove) + std::to_string(s.item(0).id));
+    s.act(std::string(action::kRemoveConfirmed) + std::to_string(s.item(0).id));
     expect(s.removed == std::vector<std::string>{ "S:\\1\\a.pdf" }, "shelf: removing a copy deletes it from the store");
 
     s.act(std::string(action::kOpen) + std::to_string(s.item(0).id));
@@ -191,14 +194,14 @@ void providerTests()
     expect(s.item(0).state == State::Missing, "shelf: a link whose original is gone shows it, checked when the card is seen");
 
     s.act(action::kClear);
-    expect(s.host.asked.size() == 1 && s.host.asked[0].message.find("Originals are kept") != std::string::npos && !s.provider.items().all().empty(),
+    expect(s.host.asked.size() == 2 && s.host.asked.back().message.find("Originals are kept") != std::string::npos && !s.provider.items().all().empty(),
            "shelf: Clear asks first, and says originals stay");
     s.act(action::kClearConfirmed);
     expect(s.provider.items().all().empty(), "shelf: ...cleared once confirmed");
 
     s.provider.onDrop(ShelfProvider::kLinkZone, { DroppedItem{ .what = text(5), .text = "Hello world" } });
     expect(s.jobs.back().contents == textFileBody("Hello world") && s.jobs.back().name == "Hello world.txt", "shelf: dropped text is written as a .txt");
-    s.act(std::string(action::kRemove) + std::to_string(s.item(0).id));
+    s.act(std::string(action::kRemoveConfirmed) + std::to_string(s.item(0).id));
     s.done.back()("S:\\9\\Hello world.txt", 14, "");
     expect(s.removed.back() == "S:\\9\\Hello world.txt", "shelf: a copy that finishes after its item was removed is deleted");
 
@@ -237,7 +240,8 @@ void cardTests()
     expect(summary && summary->value == "3 things · 3 MB", "card: how many, and their total size");
     auto* clear = std::get_if<Button>(&page.back().items[0]);
     expect(clear && clear->actionId == action::kClear && clear->withGlyph && clear->glyph == Glyph::Delete, "card: Clear at the foot, with its icon");
-    expect(grid && grid->cells.size() == 3 && grid->list == action::kList, "card: one cell per thing, in a scrolling grid");
+    expect(grid && grid->cells.size() == 4 && grid->list == action::kList && grid->selectable, "card: one cell per thing, in a scrolling grid, picked like files");
+    expect(grid && grid->cells.back().fixed && hasAction(grid->cells.back().rows[0].items, action::kAdd), "card: an add card last, never picked");
     if (grid) {
         const Cell& copying = grid->cells[0]; // the newest first
         const Cell& link = grid->cells[2];
@@ -312,6 +316,35 @@ void cardTests()
     expect(Items::load("1\tlink\tready\tfile\t0\ta\tC:\\a\t\t\n").all().size() == 1, "card: a list saved before labels still loads");
 }
 
+void selectionTests()
+{
+    Shelf s;
+    s.provider.onDrop(ShelfProvider::kLinkZone, { dropped("C:\\a", 1), dropped("C:\\b", 1), dropped("C:\\c", 1) });
+    auto foot = [&] { return std::get<Button>(s.host.published.back().content.expandedCenter.back().items[0]); };
+    expect(foot().actionId == action::kClear, "picked: nothing picked, the foot clears");
+    std::string a = "item-" + std::to_string(s.item(0).id), c = "item-" + std::to_string(s.item(2).id);
+    s.provider.onSelectionChanged(kPanelId, action::kList, { c, a });
+    expect(foot().label == "Delete 2 items" && foot().actionId == action::kDeleteSelected && foot().destructive, "picked: the foot deletes them");
+    s.act(action::kDeleteSelected);
+    expect(!s.host.asked.empty() && s.host.asked.back().title == "Delete 2 items?" && s.provider.items().all().size() == 3, "picked: Delete asks first");
+    s.act(action::kDeleteSelectedConfirmed);
+    expect(s.provider.items().all().size() == 1 && s.item(0).path == "C:\\b" && foot().actionId == action::kClear, "picked: ...then they go");
+    expect(s.host.published.back().content.deleteAction == action::kDeleteSelected, "picked: the Delete key does the same");
+
+    // The add card: Windows' picker, kept as copies; what can't be copied is linked, and a toast says so.
+    std::function<void(std::vector<DroppedItem>)> picked;
+    Shelf p;
+    ShelfProvider adder{ ShelfHooks{ .copy = [&](const CopyJob&, ShelfHooks::Progress, ShelfHooks::Done) {},
+                                      .pickFiles = [&](std::function<void(std::vector<DroppedItem>)> d) { picked = std::move(d); } } };
+    adder.start(p.host);
+    adder.onAction({ "shelf", kPanelId, action::kAdd, 0 });
+    expect(static_cast<bool>(picked), "add: the picker opens");
+    picked({ dropped("C:\\small.pdf", 1), dropped("C:\\film.mkv", 4300) });
+    expect(adder.items().all().size() == 2 && adder.items().all()[0].kind == Kind::Copy && adder.items().all()[1].kind == Kind::Link,
+           "add: copies, as the Copy zone would; too large ones linked");
+    expect(p.host.alerts.size() == 1 && p.host.alerts[0].content.label == "1 file was added as a link", "add: a toast says what was linked");
+}
+
 } // namespace
 
 void runShelfTests()
@@ -321,6 +354,7 @@ void runShelfTests()
     itemsTests();
     providerTests();
     cardTests();
+    selectionTests();
 }
 
 } // namespace cup::test

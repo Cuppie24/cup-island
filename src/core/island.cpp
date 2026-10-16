@@ -5,6 +5,7 @@
 #include "core/drag.h"
 #include "core/lift.h"
 #include "core/lists.h"
+#include "core/selection.h"
 #include "core/split.h"
 #include "core/text_edit.h"
 #include "core/tokens.h"
@@ -92,6 +93,7 @@ void settle(IslandState& s, Ms now)
         if (timedOut || !expandedViewExists(s)) collapse(s);
     }
     dropStaleOverlays(s); // a draft or dialog goes with its card
+    settleSelection(s);   // a selection goes with its card (decision 064)
     settleDrag(s, now);   // a drag that left and didn't come back
     if (s.criticalHeld && !s.dragging) {
         s.criticalHeld = false;
@@ -188,6 +190,10 @@ void handle(IslandState& s, const StayOpenToggled&, Ms now)
 // goes back to Home; anything else closes.
 void handle(IslandState& s, const EscapePressed&, Ms now)
 {
+    if (s.selection) { // like Explorer: Esc lets go of what's selected first (decision 064)
+        s.selection.reset();
+        return;
+    }
     if (s.cardFromHome && !s.homeOpen && !s.panels.empty()) openHome(s, now);
     else collapse(s);
 }
@@ -330,6 +336,9 @@ void handle(IslandState& s, const ListDragStarted& e, Ms now) { startListDrag(s,
 void handle(IslandState& s, const ListDragMoved& e, Ms now) { moveListDrag(s, e, now); }
 void handle(IslandState& s, const ListDragEnded&, Ms) { s.listDrag.reset(); }
 void handle(IslandState& s, const FocusTaken&, Ms) { s.focusRequest.reset(); }
+void handle(IslandState& s, const ItemSelected& e, Ms now) { selectItem(s, e, now); } // selection.h, decision 064
+void handle(IslandState& s, const SelectionSet& e, Ms now) { setSelection(s, e, now); }
+void handle(IslandState& s, const SelectionCleared&, Ms) { s.selection.reset(); }
 
 void handle(IslandState& s, const ClockSynced& e, Ms now) { s.clock = WallClock{ e.timeOfDay - now, e.hour24 }; }
 

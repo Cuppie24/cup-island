@@ -84,7 +84,9 @@ void placeCells(const Row& line, std::size_t firstCell, Rect frame, const std::o
             x -= w;
             Rect at{ x, box.y + pad, w, h };
             out.push_back({ .key = cellKey + "/actions/" + std::to_string(a), .item = action, .frame = at, .hitFrame = at,
-                            .cornerRadius = std::min(std::max(0.0f, radius - pad), std::min(w, h) / 2),
+                            // A backed one is a disc, its hover too (decision 064); the rest nest in the cell's corner.
+                            .cornerRadius = std::get_if<Button>(&action) && std::get<Button>(action).backed
+                                                ? std::min(w, h) / 2 : std::min(std::max(0.0f, radius - pad), std::min(w, h) / 2),
                             .providerId = source.providerId, .activityId = source.activityId });
             x -= t.itemSpacing;
         }
@@ -98,6 +100,7 @@ void placeCells(const Row& line, std::size_t firstCell, Rect frame, const std::o
             if (list) {
                 placed.list = list;
                 placed.list->cell = firstCell + i;
+                if (line.selectable && !cell.fixed) placed.list->item = cell.id; // decision 064
                 placed.hitFrame = clippedTo(placed.hitFrame, list->viewport);
                 placed.listRow = clippedTo(*placed.listRow, list->viewport);
             }

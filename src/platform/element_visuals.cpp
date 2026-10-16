@@ -28,6 +28,16 @@ Color accentOf(const Placed& p) { return p.accent.value_or(tokens().liveColor); 
 
 bool hintedText(const Item& item); // below
 
+// A backed button's disc (Button::backed, decisions 063, 064): the island's colour, a little see-through.
+std::optional<Color> backdropOf(const Placed& p)
+{
+    auto* button = std::get_if<Button>(&p.item);
+    if (!button || !button->backed) return std::nullopt;
+    Color disc = tokens().islandColor;
+    disc.a = static_cast<std::uint8_t>(std::clamp(tokens().buttonBackdropOpacity, 0.0f, 1.0f) * 255);
+    return disc;
+}
+
 // The shape under a hovered button, a text field's background, the dim over clickable art.
 Color hoverColorOf(const Placed& p)
 {
@@ -169,9 +179,10 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     } else if (std::holds_alternative<Button>(placed.item) || std::holds_alternative<TextInput>(placed.item) || hintedText(placed.item)) {
         // A text field is built like a button: its background is the hover shape, shown only under the pointer.
         view.surface = device_->createSurface(size);
-        ButtonParts parts = createButton(compositor_, size, placed.cornerRadius, view.surface, hoverColorOf(placed));
+        ButtonParts parts = createButton(compositor_, size, placed.cornerRadius, view.surface, hoverColorOf(placed), backdropOf(placed));
         view.visual = parts.visual;
         view.hover = parts.hover;
+        view.base = parts.base;
         view.highlight = placed.litByRow ? nullptr : parts.highlight; // lit by its row instead (Placed::litByRow): stays hidden
     } else if (clickableArt(placed.item)) {
         view.surface = device_->createSurface(size);
@@ -276,6 +287,7 @@ void ElementVisuals::recolor(View& view)
     if (view.accent) fadeColor(view.accent, accentOf(view.placed));
     if (view.knobBrush) fadeColor(view.knobBrush, t.knobColor);
     if (view.hover) fadeColor(view.hover, hoverColorOf(view.placed));
+    if (view.base) if (auto disc = backdropOf(view.placed)) fadeColor(view.base, *disc);
     if (view.toggle.knob) {
         bool on = std::get<Switch>(view.placed.item).on;
         fadeColor(view.toggle.track, switchTrackColor(on));
@@ -302,7 +314,6 @@ void ElementVisuals::paint(View& view)
             Color color = !button->enabled ? t.buttonDisabledColor : toggledOff ? t.buttonOffColor
                         : button->destructive         ? t.dangerColor
                                                       : t.buttonColor;
-            if (button->backed) paintBackdrop(dc, pixelSize(size)); // over a picture: readable whatever its colours
             if (!button->label.empty() && button->withGlyph) paintGlyphLabel(dc, dw, button->glyph, button->label, size, color);
             else if (!button->label.empty()) paintLabel(dc, dw, button->label, size, color);
             // Centred in the surface's whole pixels, like the hover shape around it, not the fractional frame.

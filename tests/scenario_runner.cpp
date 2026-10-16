@@ -23,10 +23,13 @@
 //            edit <card> <action> <text> [at=<n>]                                   (a Text edited in place, decision 029)
 //            wheel <card> <list> <from> <delta> <max>  reveal <card> <list> <row> [focus]  (lists, decision 029;
 //            focus-taken                                                           focus: decision 063)
+//            panel <id> files|grid <n>   choose <card> <id> [shift] [ctrl]   choose-set <card> <ids...>   choose-none
+//                                                                          (selection, decision 064; the list is "files")
 //            pick <card> <list> <row> <y>  carry <y>  put-down
 //            screen <width>  hold  move <dx>  let-go  restore <dock> [fraction]      (lifting the island, decision 026)
 // Checks after "->":  <Mode>  queue=<n>  top=<activity>  bubble=<activity>  alert=<name>
 //                     expanded=<activity|panel|home>  pinned=<activity>  dragging=yes|no (the bubble)  preview=yes|no
+//                     chosen=<id,id...>|none (the selection)
 //                     zone=<zone>|none (the hovered drop zone)  focus=<card>/<list>/<row>|none (asked)
 //                     draft=<text>|empty|none  (_ for a space)  dialog=<card>|none
 //                     caret=<byte offset>  selected=<text>|none  (_ for a space)
@@ -177,6 +180,16 @@ struct Runner {
             Panel p{ .id = arg(1), .content = { .label = arg(1) } };
             if (arg(2) != "static") p.content.expandedCenter = { row({ Text{ arg(1) } }) };
             p.content.keepOpen = arg(2) == "keep";
+            // files <n>: a list of n selectable rows a, b, c… (decision 064); `grid`: as one grid's cells.
+            if (arg(2) == "files" || arg(2) == "grid") {
+                Row grid{ .list = "files", .id = "grid", .selectable = true };
+                for (int i = 0; i < std::stoi(arg(3)); ++i) {
+                    std::string id(1, static_cast<char>('a' + i));
+                    if (arg(2) == "grid") grid.cells.push_back({ .id = id, .rows = { row({ Text{ id } }) } });
+                    else p.content.expandedCenter.push_back(Row{ .items = { Text{ id } }, .list = "files", .id = id, .selectable = true });
+                }
+                if (arg(2) == "grid") p.content.expandedCenter.push_back(grid);
+            }
             apply(PanelPublished{ p });
         }
         else if (cmd == "unpanel") apply(PanelRemoved{ arg(1) });
@@ -213,6 +226,9 @@ struct Runner {
         else if (cmd == "wheel") apply(ListScrolled{ arg(1), arg(2), std::stof(arg(3)), std::stof(arg(4)), std::stof(arg(5)) });
         else if (cmd == "reveal") apply(ListRevealed{ arg(1), arg(2), std::stoul(arg(3)), arg(4) == "focus" });
         else if (cmd == "focus-taken") apply(FocusTaken{});
+        else if (cmd == "choose") apply(ItemSelected{ arg(1), "files", arg(2), arg(3) == "shift" || arg(4) == "shift", arg(3) == "ctrl" || arg(4) == "ctrl" });
+        else if (cmd == "choose-set") apply(SelectionSet{ arg(1), "files", { w.begin() + 2, std::find(w.begin(), w.end(), std::string("->")) } });
+        else if (cmd == "choose-none") apply(SelectionCleared{});
         else if (cmd == "pick") apply(ListDragStarted{ arg(1), arg(2), std::stoul(arg(3)), std::stof(arg(4)) });
         else if (cmd == "carry") apply(ListDragMoved{ std::stof(arg(1)) });
         else if (cmd == "put-down") apply(ListDragEnded{});
@@ -250,6 +266,12 @@ struct Runner {
                 const auto& f = state.focusRequest;
                 std::string got = f ? f->activityId + "/" + f->list + "/" + std::to_string(f->row) : "none";
                 if (got != *v) fail("focus=" + *v + ", got " + got);
+            } else if (auto v = option(word, "chosen")) {
+                std::string got;
+                if (state.selection)
+                    for (const std::string& id : state.selection->ids) got += (got.empty() ? "" : ",") + id;
+                if (got.empty()) got = "none";
+                if (got != *v) fail("chosen=" + *v + ", got " + got);
             } else if (auto v = option(word, "zone")) {
                 std::string got = state.dropHover.empty() ? "none" : state.dropHover;
                 if (got != *v) fail("zone=" + *v + ", got " + got);

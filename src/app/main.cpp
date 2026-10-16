@@ -22,6 +22,7 @@
 
 #include "app/drop_input.h"
 #include "app/keyboard_input.h"
+#include "app/selection_input.h"
 #include "app/live_tokens.h"
 #include "core/dialog.h"
 #include "core/hit_test.h"
@@ -98,6 +99,7 @@ const auto g_startTime = std::chrono::steady_clock::now();
 IslandState g_state;
 Scene g_scene;
 IslandTint g_tint; // the playing cover's colour on the island (decision 051)
+bool g_picking = false; // Windows' file picker is open over the Shelf (decision 064)
 bool g_coverColours = false; // ...if Settings has it on (decisions 052, 055)
 PillRenderer g_renderer;
 HWND g_inputHwnd{};
@@ -514,6 +516,11 @@ void onPressDown(Vec2 canvasPoint)
         pressField(*element, canvasPoint, point);
         return;
     }
+    // A selectable list's thing, or its empty part: picked like files in Explorer (decision 064).
+    if (app::selectionPressed(point, element)) {
+        updateHover();
+        return;
+    }
     if (const Tile* tile = element ? nullptr : tileAt(g_scene, point)) {
         // Opens its card on release, if still on the same tile. A widget with no
         // card takes the click too, so it doesn't fall through and close Home.
@@ -558,6 +565,7 @@ void onPointerMoved(Vec2 canvasPoint, bool inside)
     }
     Vec2 point = toPill(canvasPoint);
     g_pointer.at = inside && onPill(canvasPoint) ? std::optional<Vec2>(point) : std::nullopt;
+    app::selectionMoved(point); // a box being drawn round things (decision 064)
     if (const Placed* field = g_pointer.selecting.empty() || !g_state.draft ? nullptr : findElement(g_pointer.selecting)) {
         std::size_t at = g_renderer.caretAt(*field, point); // off either end: its first or last character
         if (at != g_state.draft->caret) dispatch(CaretPlaced{ at, true }, "select");
@@ -697,8 +705,13 @@ void onPressRelease(Vec2 canvasPoint, Release how)
         return;
     }
     if (how == Release::Inside && onPill(canvasPoint) && openedByDoubleClick(point)) {
+        app::cancelRename(); // a double-click opens it, it doesn't rename it
         if (!g_pointer.pressedKey.empty()) g_renderer.releaseElement(std::exchange(g_pointer.pressedKey, std::string{}));
         else g_renderer.pressRelease(false);
+        return;
+    }
+    if (app::selectionReleased(point, how == Release::Inside && onPill(canvasPoint))) {
+        updateHover();
         return;
     }
     if (!g_pointer.pressedKey.empty()) {
@@ -811,6 +824,7 @@ void onKey(WPARAM key)
     }
     // Alt combinations (WM_SYSKEYDOWN) are only for recording a shortcut; Windows handles the rest (not Alt+F4: decision 049).
     if (alt) return;
+    if (app::selectionKey(key, ctrl)) return; // Ctrl+A, Delete, Enter, F2 with things picked (decision 064)
     if (app::navigationKey(key)) return; // the arrows, Tab, Home/End, 1 to 9, Enter and Space (decisions 031, 033)
     switch (key) {
     case VK_ESCAPE: {
@@ -908,6 +922,8 @@ void onTimer(TimerId id)
         // Re-read the wall clock every time: it also does Tick's work, and a
         // clock or time-zone change shows within a minute (decision 009).
         dispatch(readWallClock(), "timer");
+    } else if (id == TimerId::Rename) {
+        app::renameDue(); // a slow second click on a picked thing's name (decision 064)
     } else if (id == TimerId::TokensReload) {
         Vec2 oldCanvas = tokens().canvas;
         if (!app::loadTokens(g_tokensFile, /* startup */ false)) return;
@@ -1001,6 +1017,7 @@ int main()
     callbacks.onPressDown = onPressDown;
     callbacks.onPressRelease = onPressRelease;
     callbacks.onClickOutside = [] {
+        if (g_picking) return; // Windows' file picker took the focus: not a click outside
         finishEditing("edit kept"); // the card closes: what was typed into a to-do stays
         dispatch(ClickedOutside{}, "click outside");
     };
@@ -1052,7 +1069,17 @@ int main()
     g_providers->add(std::make_unique<ThemeProvider>(postToUi));
     g_providers->add(std::make_unique<PomodoroProvider>());
     shelf_files::clearUnfinished(); // copies cut short by the last quit (decision 061)
-    g_providers->add(std::make_unique<ShelfProvider>(shelf_files::hooks(postToUi)));
+    {
+        // Windows' file picker is modal and takes the focus: the card stays open under it (decision 064).
+        ShelfHooks shelfHooks = shelf_files::hooks(postToUi, g_inputHwnd);
+        shelfHooks.pickFiles = [pick = shelfHooks.pickFiles](std::function<void(std::vector<DroppedItem>)> done) {
+            g_picking = true;
+            pick(std::move(done));
+            g_picking = false;
+            SetForegroundWindow(g_inputHwnd);
+        };
+        g_providers->add(std::make_unique<ShelfProvider>(std::move(shelfHooks)));
+    }
     auto settings = std::make_unique<SettingsProvider>(SettingsHooks{
         .applyTheme = applyTheme,
         .copyLogs = [] { return copyLogToClipboard(g_inputHwnd); },
@@ -1079,6 +1106,19 @@ int main()
     });
     g_settings = settings.get();
     g_settings->setHotkeysActive(!g_state.hidden); // started under a fullscreen app: none until it's gone
+    app::setSelectionHooks({
+        .state = []() -> const IslandState& { return g_state; },
+        .scene = []() -> const Scene& { return g_scene; },
+        .dispatch = dispatch,
+        .act = act,
+        .rename = [](const Placed& name) {
+            const Text& text = std::get<Text>(name.item);
+            SetFocus(g_inputHwnd);
+            dispatch(InputFocused{ name.providerId, name.activityId, text.editAction, text.value, true, std::nullopt, text.editMaxLength }, "rename");
+        },
+        .showBox = [](std::optional<Rect> box) { g_renderer.setSelectionBox(box); },
+        .renameTimer = [](std::optional<Ms> delay) { setTimer(TimerId::Rename, delay); },
+    });
     app::setKeyboardHooks({
         .state = []() -> const IslandState& { return g_state; },
         .scene = []() -> const Scene& { return g_scene; },

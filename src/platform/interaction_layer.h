@@ -14,7 +14,7 @@ namespace cup::platform {
 // The window's class: also how a second launch finds the running island (single_instance.h).
 inline constexpr wchar_t kInteractionWindowClass[] = L"CupIslandInputWindow";
 
-enum class TimerId : UINT_PTR { Deadline = 1, TokensReload = 2 };
+enum class TimerId : UINT_PTR { Deadline = 1, TokensReload = 2, Rename = 3 }; // Rename: a slow second click (decision 064)
 
 // How a press ended. Inside/Outside: released over this window or off it.
 // Cancelled: capture was taken away mid-press.

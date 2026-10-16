@@ -53,6 +53,7 @@ private:
         bool scrubbing = false;
         // Shape colours, kept so a recolour fades them (decision 051); null when unused.
         wuc::CompositionColorBrush track{ nullptr }, accent{ nullptr }, knobBrush{ nullptr }, hover{ nullptr };
+        wuc::CompositionColorBrush base{ nullptr };                 // a backed button's disc (decision 064)
         SwitchParts toggle; // a Switch's track and knob (decision 053)
     };
 

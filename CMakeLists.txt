@@ -45,6 +45,7 @@ add_library(cup_core STATIC
     src/core/lift.cpp
     src/core/lists.cpp
     src/core/placement.cpp
+    src/core/selection.cpp
     src/core/shortcuts.cpp
     src/core/slot_layout.cpp
     src/core/split.cpp
@@ -162,6 +163,7 @@ if(WIN32)
         src/app/keyboard_input.cpp
         src/app/live_tokens.cpp
         src/app/main.cpp
+        src/app/selection_input.cpp
         src/platform/autostart.cpp
         src/platform/badge_dots.cpp
         src/platform/blob.cpp

@@ -1,0 +1,53 @@
+# Picking things in a card's list like files in Explorer (decision 064).
+
+scenario: a click picks one; another click picks another instead
+panel shelf files 5
+tile shelf                          -> Expanded chosen=none
+choose shelf b                      -> chosen=b
+choose shelf d                      -> chosen=d
+
+scenario: Ctrl adds and takes away; Shift picks a range from the anchor
+panel shelf files 5
+tile shelf
+choose shelf b                      -> chosen=b
+choose shelf d ctrl                 -> chosen=b,d
+choose shelf b ctrl                 -> chosen=d
+choose shelf a                      -> chosen=a
+choose shelf c shift                -> chosen=a,b,c
+choose shelf e shift                -> chosen=a,b,c,d,e   # the anchor stays where it was
+choose shelf b shift                -> chosen=a,b
+
+scenario: Ctrl+Shift adds a range to what's there
+panel shelf files 6
+tile shelf
+choose shelf a
+choose shelf c ctrl                 -> chosen=a,c
+choose shelf e shift ctrl           -> chosen=a,c,d,e
+
+scenario: a box, or Ctrl+A, picks a set; only things in the list
+panel shelf grid 4
+tile shelf
+choose-set shelf d b x              -> chosen=b,d   # in the list's order
+choose-none                         -> chosen=none
+
+scenario: Esc lets go of the selection first, then closes
+panel shelf files 3
+tile shelf
+choose shelf a
+esc                                 -> Expanded chosen=none
+esc                                 -> Idle
+
+scenario: the selection goes with its card
+panel shelf files 3
+panel other
+tile shelf
+choose shelf a                      -> chosen=a
+home                                -> chosen=none
+choose shelf a                      -> chosen=none  # not on the shown card: nothing
+
+scenario: a thing that goes is no longer picked
+panel shelf files 3
+tile shelf
+choose shelf a
+choose shelf c ctrl                 -> chosen=a,c
+panel shelf files 2                 -> chosen=a

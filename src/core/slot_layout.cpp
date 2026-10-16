@@ -206,6 +206,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 placed.cornerRadius = radiusFor(placed.item, placed.frame, row.listItem ? std::max(0.0f, rowRadius - t.listItemInset) : nestedRadius);
                 placed.accent = source.content ? source.content->accent : std::nullopt;
                 placed.list = list;
+                if (placed.list && row.selectable) placed.list->item = rowName; // picked by its id (decision 064)
                 if (row.listItem) {
                     placed.listRow = Rect{ background.x, y, background.width, rowHeight };
                     placed.listRowRadius = rowRadius;

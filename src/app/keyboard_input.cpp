@@ -1,5 +1,7 @@
 #include "app/keyboard_input.h"
 
+#include "app/selection_input.h"
+
 #include "core/keyboard.h"
 #include "core/shortcuts.h"
 #include "platform/hotkeys.h"
@@ -29,6 +31,13 @@ void land(const std::optional<Focusable>& f)
     if (f) {
         g_focus = f->id;
         if (f->list) dispatch(ListRevealed{ f->activityId, f->list->id, f->list->cell.value_or(f->list->row) }, "keys: scroll to focus"); // a grid's: its cell
+        // On a thing in a selectable list: it's picked, Shift extends, like Explorer's arrows (decision 064).
+        if (f->list && !f->list->item.empty() && f->id.rfind("el:", 0) == 0)
+            for (const Placed& p : scene().elements)
+                if (p.key == f->id.substr(3)) {
+                    focusLanded(p, GetKeyState(VK_SHIFT) < 0, GetKeyState(VK_CONTROL) < 0);
+                    break;
+                }
     }
     dispatch(PointerMoved{}, "keys");
 }

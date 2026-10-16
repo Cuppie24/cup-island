@@ -53,6 +53,7 @@ public:
 
     // Expanded's tabs and Home's tiles: light up the one under the pointer (pill coordinates), or none.
     void setAreaHovered(std::optional<Rect> area, float cornerRadius) { pill_.setHovered(area, cornerRadius); }
+    void setSelectionBox(std::optional<Rect> box) { pill_.setSelectionBox(box); } // decision 064
     // The keyboard's focus ring (decision 033): around what has focus (pill coordinates), or none.
     void setFocusRing(std::optional<Rect> area, float cornerRadius) { pill_.setFocusRing(area, cornerRadius); }
 

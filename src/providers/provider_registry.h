@@ -45,6 +45,10 @@ public:
     // Ctrl+W on an activity's card: asks its provider to close it (Provider::onCloseRequested).
     void closeRequested(const ShownCard& card);
 
+    // What's selected on a provider's card changed (Provider::onSelectionChanged, decision 064).
+    void selectionChanged(const std::string& providerId, const std::string& activityId, const std::string& list,
+                          const std::vector<std::string>& ids);
+
     // A drag over the island (decision 061): every running provider's zones
     // for it, each stamped with its provider. None: nobody takes it.
     std::vector<DropZone> dropZones(const DragSummary& drag);

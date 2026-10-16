@@ -244,15 +244,6 @@ void paintGlyphLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, co
     drawString(dc, formatOf(dw, text).get(), widen(label), D2D1::RectF(from, 0, std::max(from, size.x - pad) + 1, size.y), color);
 }
 
-void paintBackdrop(ID2D1DeviceContext* dc, Vec2 size)
-{
-    const Tokens& t = tokens();
-    Color disc = t.islandColor;
-    disc.a = static_cast<std::uint8_t>(std::clamp(t.buttonBackdropOpacity, 0.0f, 1.0f) * 255);
-    float r = std::min(size.x, size.y) / 2;
-    dc->FillRoundedRectangle({ D2D1::RectF(0, 0, size.x, size.y), r, r }, brushOf(dc, disc).get());
-}
-
 std::size_t caretAt(IDWriteFactory* dw, const Text& text, Vec2 size, Vec2 at)
 {
     // As drawn (paintText), but unbounded across: a click on a trimmed text's "…" lands at its end.

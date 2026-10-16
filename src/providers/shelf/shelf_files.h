@@ -16,6 +16,7 @@ std::filesystem::path storeFolder();
 // At start: copies the app quit in the middle of are deleted (their items load as failed).
 void clearUnfinished();
 
-ShelfHooks hooks(std::function<void(std::function<void()>)> postToUi);
+// `owner`: the window Windows' file picker belongs to (the add card, decision 064).
+ShelfHooks hooks(std::function<void(std::function<void()>)> postToUi, void* owner);
 
 } // namespace cup::shelf_files

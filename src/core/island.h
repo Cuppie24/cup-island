@@ -107,6 +107,15 @@ struct Dialog {
     bool operator==(const Dialog&) const = default;
 };
 
+// Things picked in one list on the shown card (Row::selectable, decision 064),
+// in the list's order. `anchor`: where a Shift+click's range starts.
+struct Selection {
+    std::string activityId, list;
+    std::vector<std::string> ids;
+    std::string anchor;
+    bool operator==(const Selection&) const = default;
+};
+
 // --- Events -------------------------------------------------------------
 struct ActivityStarted { Activity activity; };           // existing id = replace
 struct ActivityUpdated { std::string id; Content content; };
@@ -164,7 +173,11 @@ struct DialogClosed {};                  // answered or dismissed: the app sends
 // included), `max` how far it can go (both from the scene).
 struct ListScrolled { std::string activityId, list; float from = 0, delta = 0, max = 0; };
 struct ListRevealed { std::string activityId, list; std::size_t row = 0; bool focus = false; }; // Host::reveal
-struct FocusTaken {};                    // the app moved the keyboard's focus as IslandState::focusRequest asked
+struct FocusTaken {};
+// Picking things in a card's list, like files in Explorer (decision 064).
+struct ItemSelected { std::string activityId, list, id; bool range = false, toggle = false; }; // a click; Shift: range, Ctrl: toggle
+struct SelectionSet { std::string activityId, list; std::vector<std::string> ids; };          // a box drawn round them, Ctrl+A
+struct SelectionCleared {};                    // the app moved the keyboard's focus as IslandState::focusRequest asked
 struct ListDragStarted { std::string activityId, list; std::size_t row = 0; float y = 0; };
 struct ListDragMoved { float y = 0; };
 struct ListDragEnded {};                 // dropped (the app sends the move first) or cancelled
@@ -186,7 +199,8 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            InputFocused, TextTyped, TextErased, CaretMoved, CaretPlaced, WordSelected, AllSelected,
                            InputSubmitted, InputCancelled,
                            DialogShown, DialogClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,
-                           ListDragEnded, StayOpenToggled, TabRowPlaced, FocusTaken>;
+                           ListDragEnded, StayOpenToggled, TabRowPlaced, FocusTaken,
+                           ItemSelected, SelectionSet, SelectionCleared>;
 
 // --- State --------------------------------------------------------------
 struct WallClock {
@@ -230,6 +244,7 @@ struct IslandState {
     // with focus, decision 063): the app takes it once (FocusTaken). It goes
     // with its card, like a draft.
     std::optional<ListRevealed> focusRequest;
+    std::optional<Selection> selection; // what's picked in the shown card's list (decision 064)
     // Pinned open (decision 046): Expanded doesn't time out, and a click
     // outside the island or on a card's empty space doesn't close it. Esc
     // and the card going away still do; closing unpins it.

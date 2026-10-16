@@ -66,6 +66,7 @@ float heightOf(const Item& item, Rect slot, float ringSide)
 std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureText& measure)
 {
     const Tokens& t = tokens();
+    if (auto* text = std::get_if<Text>(&item); text && text->column) return tokens().listColumnWidth;
     if (std::holds_alternative<Text>(item) || std::holds_alternative<TextInput>(item) ||
         (std::holds_alternative<Progress>(item) && !isRing(item)))
         return std::nullopt;

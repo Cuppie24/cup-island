@@ -45,6 +45,8 @@ struct ShelfHooks {
     // Its picture, off the UI thread: Windows' thumbnail, or its type's icon;
     // `done` on the UI thread, nothing if there's none.
     std::function<void(const std::string& path, std::function<void(std::shared_ptr<const ImageData>)> done)> thumbnail;
+    // Windows' file picker (the add card, decision 064): `done` on the UI thread with what was picked, sizes read; nothing if cancelled.
+    std::function<void(std::function<void(std::vector<DroppedItem>)> done)> pickFiles;
     // Which of these still exist, off the UI thread (a network drive can be slow); `done` on the UI thread.
     std::function<void(const std::vector<std::string>& paths, std::function<void(std::vector<bool> present)> done)> checkLinks;
 };
@@ -61,6 +63,7 @@ public:
     void onCardShown(const std::string& activityId) override; // links checked and pictures read when it's seen, never at start
     std::vector<DropZone> dropZones(const DragSummary& drag) override;
     void onDrop(const std::string& zoneId, const std::vector<DroppedItem>& items) override;
+    void onSelectionChanged(const std::string& activityId, const std::string& list, const std::vector<std::string>& ids) override;
 
     const shelf::Items& items() const { return items_; }
     shelf::View view() const { return view_; }
@@ -75,6 +78,8 @@ private:
     void show();    // shows it, nothing to save (progress, a picture)
     void startCopy(std::uint64_t id, const DroppedItem& dropped);
     void rename(std::uint64_t id, const std::string& name);
+    void remove(std::uint64_t id); // off the shelf: a copy deleted from the store, a link only from the list
+    std::size_t add(const std::string& zoneId, const std::vector<DroppedItem>& items); // as that zone plans; returns how many became links
     void readThumbnails(); // for ready things without a picture, once each
     Host* host_ = nullptr;
     ShelfHooks hooks_;
@@ -83,6 +88,7 @@ private:
     shelf::Thumbnails thumbnails_;     // by item id; in memory only
     std::set<std::uint64_t> asked_;    // pictures asked for (an answer of none isn't asked again)
     bool shown_ = false;               // its card has been seen: pictures are read from then on
+    std::vector<std::uint64_t> picked_; // what's selected on its card (decision 064)
     std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);
 };
 

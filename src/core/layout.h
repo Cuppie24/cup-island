@@ -23,6 +23,7 @@ struct InList {
     bool dragged = false;    // its row is being dragged: it follows the pointer at once, the rest ease aside
     std::size_t dropAt = 0;  // dragged: the index it would land at if let go now
     std::optional<std::size_t> cell; // in a grid (Row::cells): its cell's index among the grid's cells (`row` is its line)
+    std::string item;        // a selectable list's (Row::selectable): its row's or cell's id; "" = not selectable
     bool operator==(const InList&) const = default;
 };
 
@@ -117,6 +118,8 @@ struct Scene {
     std::vector<Tile> tiles;       // Home
     float tileRadius = 0;          // tile background corners, nested in the card's (drop zones' too)
     std::vector<ZoneMark> zones;   // Receptive: where the drag can land
+    std::vector<Rect> selected;    // selected rows and cells (decision 064): lit like the active tab
+    float selectedRadius = 0;
     std::vector<Vec2> badges;      // notification dots' centres (decision 038, core/badges.h)
     bool steadyPress = false;      // its content asks a press not to squash the island (Content::steadyPress)
     bool dropTarget = false;       // the dragged bubble is over the pill: letting go swaps them (pill lightens)

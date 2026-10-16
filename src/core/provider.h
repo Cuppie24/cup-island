@@ -82,6 +82,9 @@ public:
     // or ignore it (what a media player does: it closes when the music
     // does). Ignoring is the default: nothing ends behind a provider's back.
     virtual void onCloseRequested(const std::string& /*activityId*/) {}
+    // What's selected in one of its card's lists changed (Row::selectable,
+    // decision 064): the ids, in the list's order; none = nothing selected.
+    virtual void onSelectionChanged(const std::string& /*activityId*/, const std::string& /*list*/, const std::vector<std::string>& /*ids*/) {}
     // A drag over the island (decision 061): where it can land for this
     // provider. Asked when it enters and again when its sizes are in, never
     // as it moves, so it must be quick. None (the default): not for it.

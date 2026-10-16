@@ -8,6 +8,7 @@
 
 #include <shellapi.h>
 #include <shlobj.h>
+#include <shobjidl.h>
 
 #include <algorithm>
 #include <atomic>
@@ -143,7 +144,54 @@ void clearUnfinished()
     if (!partial.empty()) platform::logLine("shelf: removed %zu unfinished copies", partial.size());
 }
 
-ShelfHooks hooks(PostToUi postToUi)
+namespace {
+
+// What was picked, as a drop would carry it: a file's size, or that it's a folder.
+std::vector<DroppedItem> describe(const std::vector<std::wstring>& paths)
+{
+    std::vector<DroppedItem> items;
+    for (const std::wstring& path : paths) {
+        DroppedItem item{ .what = { DragKind::File, platform::toUtf8(fs::path(path).filename().wstring()), std::nullopt }, .path = platform::toUtf8(path) };
+        WIN32_FILE_ATTRIBUTE_DATA info{};
+        if (GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &info)) {
+            if (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) item.what.kind = DragKind::Folder;
+            else item.what.bytes = (static_cast<std::uint64_t>(info.nFileSizeHigh) << 32) | info.nFileSizeLow;
+        }
+        items.push_back(std::move(item));
+    }
+    return items;
+}
+
+// Windows' own file picker, several at once (decision 064). Modal: it runs
+// its own message loop on the UI thread until it's closed.
+std::vector<std::wstring> pick(HWND owner)
+{
+    std::vector<std::wstring> paths;
+    winrt::com_ptr<IFileOpenDialog> dialog;
+    if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(dialog.put())))) return paths;
+    FILEOPENDIALOGOPTIONS options{};
+    dialog->GetOptions(&options);
+    dialog->SetOptions(options | FOS_ALLOWMULTISELECT | FOS_FILEMUSTEXIST | FOS_FORCEFILESYSTEM);
+    dialog->SetTitle(L"Add to the shelf");
+    if (FAILED(dialog->Show(owner))) return paths; // cancelled
+    winrt::com_ptr<IShellItemArray> picked;
+    if (FAILED(dialog->GetResults(picked.put()))) return paths;
+    DWORD count = 0;
+    picked->GetCount(&count);
+    for (DWORD i = 0; i < count; ++i) {
+        winrt::com_ptr<IShellItem> item;
+        PWSTR path = nullptr;
+        if (SUCCEEDED(picked->GetItemAt(i, item.put())) && SUCCEEDED(item->GetDisplayName(SIGDN_FILESYSPATH, &path))) {
+            paths.push_back(path);
+            CoTaskMemFree(path);
+        }
+    }
+    return paths;
+}
+
+} // namespace
+
+ShelfHooks hooks(PostToUi postToUi, void* owner)
 {
     ShelfHooks h;
     h.copy = [postToUi](const CopyJob& job, ShelfHooks::Progress progress, ShelfHooks::Done done) {
@@ -217,6 +265,14 @@ ShelfHooks hooks(PostToUi postToUi)
                 image = platform::shellImage(fromUtf8(path).wstring(), std::max(pixels, 16));
             }
             postToUi([done, image] { done(image); });
+        }).detach();
+    };
+    h.pickFiles = [postToUi, owner](std::function<void(std::vector<DroppedItem>)> done) {
+        std::vector<std::wstring> paths = pick(static_cast<HWND>(owner));
+        if (paths.empty()) return;
+        std::thread([postToUi, paths, done] { // sizes off the UI thread: a network folder can be slow
+            std::vector<DroppedItem> items = describe(paths);
+            postToUi([done, items] { done(items); });
         }).detach();
     };
     h.checkLinks = [postToUi](const std::vector<std::string>& paths, std::function<void(std::vector<bool>)> done) {

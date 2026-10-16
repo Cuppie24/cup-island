@@ -75,6 +75,9 @@ struct Text {
     // Lit under the pointer, like a button, so it reads as something a click
     // edits (the Shelf's names, decision 063). Only with an editAction.
     bool editHint = false;
+    // A column at its row's end, listColumnWidth wide, so the stretching text
+    // before it (a file's name) gets the rest: a file's kind and size (decision 064).
+    bool column = false;
     // Host-filled: `value` with the spaces where its lines break turned into
     // '\n' (same length, so offsets hold). Empty: one line.
     std::string wrapped;
@@ -255,6 +258,11 @@ struct Row {
     // (gridCellMinWidth), each gridCellHeight tall; `items` are ignored. With
     // `list`, the grid scrolls like a list, and Host::reveal names a cell.
     std::vector<Cell> cells;
+    // Its list's rows (a grid's cells) are picked like files in Explorer
+    // (decision 064): a click selects one, Ctrl and Shift add, a box drawn
+    // round them, Ctrl+A. The host keeps the selection and tells the
+    // provider (Provider::onSelectionChanged). Rows need an `id`.
+    bool selectable = false;
     bool operator==(const Row&) const = default;
 };
 
@@ -266,6 +274,7 @@ struct Cell {
     std::vector<Row> rows;
     std::vector<Item> actions;
     std::string openAction; // a double-click on it
+    bool fixed = false;     // not one of the things in the grid: never selected (the Shelf's "add" card)
     bool operator==(const Cell&) const = default;
 };
 
@@ -313,6 +322,9 @@ struct Content {
     // A press on its card doesn't squash the island (pressScale): a page of
     // things to click and drag, where it reads as the page jumping (decision 063).
     bool steadyPress = false;
+    // The Delete key on its card, with something selected (Row::selectable):
+    // sends this; the provider knows what's selected (decision 064).
+    std::string deleteAction;
     Slot compactLeading;
     Slot compactCenter;  // between the two compact squares, e.g. a swimming title
     Slot compactTrailing;
