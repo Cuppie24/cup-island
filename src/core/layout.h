@@ -87,6 +87,15 @@ struct Tile {
     bool clickable() const { return opens || !tapAction.empty(); } // lights up under the pointer
 };
 
+// One of a drag's drop zones (decision 061), drawn like a Home tile; its
+// icon and lines of text are elements. The hovered one lights up.
+struct ZoneMark {
+    Rect frame;         // pill coordinates
+    std::string id;     // the DropZone's
+    bool enabled = true;
+    bool hovered = false;
+};
+
 struct Scene {
     Mode mode = Mode::Idle;
     Vec2 size;                     // pill target size, render-layer coordinates
@@ -99,7 +108,8 @@ struct Scene {
     std::optional<BubbleScene> bubble;
     std::optional<TabStrip> tabs;  // Expanded with several activities, or activities and panels
     std::vector<Tile> tiles;       // Home
-    float tileRadius = 0;          // tile background corners, nested in the card's
+    float tileRadius = 0;          // tile background corners, nested in the card's (drop zones' too)
+    std::vector<ZoneMark> zones;   // Receptive: where the drag can land
     std::vector<Vec2> badges;      // notification dots' centres (decision 038, core/badges.h)
     bool dropTarget = false;       // the dragged bubble is over the pill: letting go swaps them (pill lightens)
     Vec2 bubbleTuck;               // no bubble: it shrinks to this point, on the top edge inside the pill
@@ -131,6 +141,10 @@ const Placed* listAt(const Scene& scene, Vec2 point);
 
 // The Home tile under `point` (pill coordinates), if any.
 const Tile* tileAt(const Scene& scene, Vec2 point);
+
+// The drop zone a drag at `point` (pill coordinates) would land on: enabled
+// ones only, so a greyed zone or the gap between zones takes nothing.
+const ZoneMark* zoneAt(const Scene& scene, Vec2 point);
 
 // When the scene next changes without any event (a time label's second
 // ticking over, the idle clock's minute), so the app can arm its timer. Nothing = static.

@@ -60,7 +60,7 @@ struct Tokens {
     Vec2 compactSize{ 260, 32 };
     Vec2 alertSize{ 320, 64 };
     Vec2 expandedSize{ 440, 159 }; // every card and Home: the width a to-do's text needs (decisions 043, 047)
-    Vec2 receptiveSize{ 380, 84 };
+    Vec2 receptiveSize{ 440, 180 }; // a drag over the island: its drop zones, big enough to land on (decision 061)
     Vec2 hiddenSize{ 160, 0 };
     float maxCornerRadius = 28; // bottom corners: half the height, capped, so big shapes aren't blobs
     float flareRadius = 8;      // top corners curve outward into the screen edge (decision 025); 0 = square
@@ -171,6 +171,7 @@ struct Tokens {
     float tileGap = 8;
     float tilePadding = 8;        // inside a tile, on every side
     float focusRingWidth = 2;     // the keyboard's focus ring (decision 033), drawn inside what has focus
+    float dropZoneGap = 8;        // between a drag's drop zones (decision 061), side by side across the card
 
     // Morph between modes: ease-out, 250-350 ms budget (TR §5).
     Ms morphDuration{ 300 };
@@ -197,6 +198,7 @@ struct Tokens {
     // Arbitration (PS §6).
     Ms alertDuration{ 3000 };
     Ms expandedIdleTimeout{ 8000 };
+    Ms dropLeaveGrace{ 150 }; // a drag that leaves and comes back this soon (the island resized under it) never ended
     Ms heldAlertMaxAge{ 30000 };
     std::size_t alertQueueCapacity = 5;
 
@@ -287,6 +289,13 @@ struct Tokens {
     Ms pomodoroLongBreak{ 900000 };
     std::size_t pomodoroRounds = 4;
     std::size_t todoMaxLength = 150; // characters in a to-do: wraps onto a few lines at most (decision 045)
+    // The Shelf (decision 061): a file copied only up to this size, all copies
+    // together up to the store's; past either, it's linked. Megabytes: the
+    // reader's numbers are floats, exact only to 2^24. Only the first
+    // shelfMaxCheckedItems of a drag have their size read.
+    std::size_t shelfCopyMaxMB = 1024;
+    std::size_t shelfStoreMaxMB = 10240;
+    std::size_t shelfMaxCheckedItems = 200;
     // Lists (Row::list, decision 029): the window shows this many rows (the
     // half says there's more), the wheel moves scrollStep per notch, easing
     // over scrollDuration; a press dragged dragStartDistance picks a row up.

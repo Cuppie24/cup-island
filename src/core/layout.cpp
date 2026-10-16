@@ -2,6 +2,7 @@
 
 #include "core/badges.h"
 #include "core/dialog.h"
+#include "core/drop_layout.h"
 #include "core/home.h"
 #include "core/lift.h"
 #include "core/slot_layout.h"
@@ -187,6 +188,7 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
         scene.tileRadius = std::min(nestedRadius, tokens().tileHeight / 2);
         scene.tiles = homeTilesFor(state, contentSize, scene.tileRadius, now, scene.elements);
     }
+    if (scene.mode == Mode::Receptive) placeDropZones(state, contentSize, scene, measureText); // decision 061
 
     if (source.content) {
         scene.label = source.content->label;
@@ -237,6 +239,13 @@ const Tile* tileAt(const Scene& scene, Vec2 point)
 {
     for (const Tile& tile : scene.tiles)
         if (tile.frame.contains(point)) return &tile;
+    return nullptr;
+}
+
+const ZoneMark* zoneAt(const Scene& scene, Vec2 point)
+{
+    for (const ZoneMark& zone : scene.zones)
+        if (zone.enabled && zone.frame.contains(point)) return &zone;
     return nullptr;
 }
 

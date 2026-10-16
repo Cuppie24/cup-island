@@ -28,6 +28,8 @@ add_library(cup_core STATIC
     src/core/content.cpp
     src/core/cover_palette.cpp
     src/core/dialog.cpp
+    src/core/drag.cpp
+    src/core/drop_layout.cpp
     src/core/easing.cpp
     src/core/fullscreen.cpp
     src/core/hit_test.cpp
@@ -71,6 +73,11 @@ add_library(cup_providers STATIC
     src/providers/update/release.cpp
     src/providers/update/update_provider.cpp
     src/providers/provider_registry.cpp
+    src/providers/shelf/drop_plan.cpp
+    src/providers/shelf/safe_names.cpp
+    src/providers/shelf/shelf_content.cpp
+    src/providers/shelf/shelf_items.cpp
+    src/providers/shelf/shelf_provider.cpp
 )
 target_link_libraries(cup_providers PUBLIC cup_core)
 
@@ -93,6 +100,8 @@ if(CUP_BUILD_TESTS)
         tests/provider_tests.cpp
         tests/unit_tests.cpp
         tests/update_tests.cpp
+        tests/shelf_tests.cpp
+        tests/drop_tests.cpp
         tests/scenario_runner.cpp
         tests/settings_tests.cpp
         tests/settings_new_tests.cpp

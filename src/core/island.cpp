@@ -2,6 +2,7 @@
 
 #include "core/alert_queue.h"
 #include "core/card_overlays.h"
+#include "core/drag.h"
 #include "core/lift.h"
 #include "core/lists.h"
 #include "core/split.h"
@@ -86,10 +87,16 @@ void settle(IslandState& s, Ms now)
     if (!s.pinnedId.empty() && !findActivity(s, s.pinnedId)) s.pinnedId.clear(); // a pick dies with its activity
 
     if (isExpanded(s)) {
-        bool timedOut = now >= s.lastPointerAt + tokens().expandedIdleTimeout && !typing(s) && !s.stayOpen;
+        // Not under a drag: the card is still there when it leaves (decision 061).
+        bool timedOut = now >= s.lastPointerAt + tokens().expandedIdleTimeout && !typing(s) && !s.stayOpen && !s.dragging;
         if (timedOut || !expandedViewExists(s)) collapse(s);
     }
     dropStaleOverlays(s); // a draft or dialog goes with its card
+    settleDrag(s, now);   // a drag that left and didn't come back
+    if (s.criticalHeld && !s.dragging) {
+        s.criticalHeld = false;
+        collapse(s);
+    }
 
     settleAlerts(s, now); // after Expanded may have closed: alerts it held back can show
 
@@ -159,7 +166,11 @@ void handle(IslandState& s, const ActivityEnded& e, Ms)
 
 void handle(IslandState& s, const AlertPosted& e, Ms now)
 {
-    if (postAlert(s, e.alert, now)) collapse(s); // only critical interrupts Expanded
+    // Only critical interrupts Expanded; under a drag, once it ends (decision 061).
+    if (postAlert(s, e.alert, now)) {
+        if (s.dragging) s.criticalHeld = true;
+        else collapse(s);
+    }
 }
 void handle(IslandState& s, const PillClicked&, Ms now) { onClick(s, now); }
 void handle(IslandState& s, const ClickedOutside&, Ms)
@@ -182,15 +193,16 @@ void handle(IslandState& s, const EscapePressed&, Ms now)
 }
 void handle(IslandState& s, const PointerMoved&, Ms now) { s.lastPointerAt = now; }
 
-void handle(IslandState& s, const DragEntered& e, Ms)
+// A drag over the island (drag.h, decision 061). A drop on a zone opens its
+// card, the Shelf's, and leaves it open showing what came in.
+void handle(IslandState& s, const DragEntered& e, Ms) { enterDrag(s, e); }
+void handle(IslandState& s, const DragZonesChanged& e, Ms) { changeDragZones(s, e); }
+void handle(IslandState& s, const DropHovered& e, Ms) { hoverZone(s, e); }
+void handle(IslandState& s, const DragLeft&, Ms now) { leaveDrag(s, now); }
+void handle(IslandState& s, const Dropped& e, Ms now)
 {
-    if (!e.accepted) return;
-    s.dragging = true;
-    suspendShowingAlert(s);
+    if (auto card = dropOnZone(s, e, now); card && !card->empty()) expand(s, *card, now);
 }
-
-void handle(IslandState& s, const DragLeft&, Ms) { s.dragging = false; }
-void handle(IslandState& s, const Dropped&, Ms) { s.dragging = false; }
 
 void handle(IslandState& s, const HiddenChanged& e, Ms)
 {
@@ -361,7 +373,8 @@ std::optional<Ms> nextDeadline(const IslandState& s)
     if (s.alert) consider(s.alertUntil);
     for (const auto& a : s.activities)
         if (a.expiresAt) consider(*a.expiresAt);
-    if (isExpanded(s) && !typing(s) && !s.stayOpen) consider(s.lastPointerAt + tokens().expandedIdleTimeout);
+    if (isExpanded(s) && !typing(s) && !s.stayOpen && !s.dragging) consider(s.lastPointerAt + tokens().expandedIdleTimeout);
+    if (auto drag = dragDeadline(s)) consider(*drag);
     for (const auto& a : s.alertQueue) consider(a.postedAt + tokens().heldAlertMaxAge + Ms{ 1 });
     if (auto lift = liftDeadline(s)) consider(*lift);
     return next;

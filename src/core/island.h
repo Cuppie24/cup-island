@@ -5,6 +5,7 @@
 // Rules come from docs/provider-platform-spec.md (PS) §3 and §6.
 
 #include "core/content.h"
+#include "core/drop.h"
 #include "core/geometry.h"
 #include "core/placement.h"
 
@@ -115,9 +116,13 @@ struct PillClicked {};
 struct ClickedOutside {};
 struct EscapePressed {};
 struct PointerMoved {};                 // inside the pill; resets Expanded's idle timeout
-struct DragEntered { bool accepted; };  // accepted: some provider takes the dragged types
-struct DragLeft {};
-struct Dropped {};
+// A drag over the island (decision 061): the zones providers offer for it.
+// None: nobody takes it, nothing happens.
+struct DragEntered { std::vector<DropZone> zones; };
+struct DragZonesChanged { std::vector<DropZone> zones; }; // asked again: the files' sizes are in
+struct DropHovered { std::string zone; };  // the zone under the pointer; "" = none
+struct DragLeft {};                        // Receptive holds a moment (dropLeaveGrace): it may come back
+struct Dropped { std::string zone; };      // let go over this zone ("" or greyed: nothing lands)
 struct HiddenChanged { bool hidden; };  // fullscreen app, user toggle, locked session
 struct Tick {};                         // a deadline from nextDeadline() was reached
 struct BubbleClicked {};                // Split: expand the bubble's (2nd-ranked) activity
@@ -172,7 +177,7 @@ struct ClockSynced {
 
 using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, AlertPosted,
                            PillClicked, ClickedOutside, EscapePressed, PointerMoved,
-                           DragEntered, DragLeft, Dropped, HiddenChanged, Tick,
+                           DragEntered, DragZonesChanged, DropHovered, DragLeft, Dropped, HiddenChanged, Tick,
                            BubbleClicked, ActivityPromoted, ActivitySwitched,
                            BubbleDragged, BubbleReleased, BubbleDragCancelled,
                            IslandPressed, IslandDragged, IslandReleased, ScreenResized, SpotRestored,
@@ -205,7 +210,11 @@ struct IslandState {
     bool homeOpen = false;             // Expanded, showing Home (expandedId empty)
     bool cardFromHome = false;         // that card was opened from a Home widget: Esc goes back to Home (decision 033)
     Ms lastPointerAt{};
-    bool dragging = false;             // an accepted drag is over the island
+    bool dragging = false;             // an accepted drag is over the island (decision 061)
+    std::vector<DropZone> dropZones;   // ...the zones it can land on
+    std::string dropHover;             // ...the one under the pointer
+    std::optional<Ms> dragLeftAt;      // ...it left: Receptive ends dropLeaveGrace after, unless it comes back
+    bool criticalHeld = false;         // ...a critical alert came during it: Expanded closes for it once it ends
     bool hidden = false;
     std::optional<WallClock> clock;    // unknown until the platform syncs it
     std::optional<Draft> draft;        // a TextInput has focus (decision 016)

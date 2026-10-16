@@ -136,6 +136,24 @@ void ProviderRegistry::closeRequested(const ShownCard& card)
     if (Entry* e = find(card.providerId); e && e->running) e->provider->onCloseRequested(card.activityId);
 }
 
+std::vector<DropZone> ProviderRegistry::dropZones(const DragSummary& drag)
+{
+    std::vector<DropZone> zones;
+    for (auto& e : entries_) {
+        if (!e.running) continue;
+        for (DropZone zone : e.provider->dropZones(drag)) {
+            zone.providerId = e.provider->id();
+            zones.push_back(std::move(zone));
+        }
+    }
+    return zones;
+}
+
+void ProviderRegistry::drop(const DropZone& zone, const std::vector<DroppedItem>& items)
+{
+    if (Entry* e = find(zone.providerId); e && e->running && zone.enabled) e->provider->onDrop(zone.id, items);
+}
+
 std::optional<Ms> ProviderRegistry::nextWake() const
 {
     std::optional<Ms> next;

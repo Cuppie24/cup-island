@@ -6,8 +6,10 @@
 //
 // Commands:  start <id> [level] [relevance] [expires=<ms>]   update <id>   end <id>
 //            alert <name> [level] [for=<activity|panel>] [key=<coalesceKey>] [refresh]
-//            click  outside  esc  pointer  drag-enter  drag-rejected
-//            drag-leave  drop  hide  show  wait <ms>
+//            click  outside  esc  pointer  hide  show  wait <ms>
+//            drag-enter [<card>:<zone>[!] ...]  drag-update <zones...>  drag-rejected  (a drag, decision 061:
+//            hover <zone>|none  drag-leave  drop [<zone>]              ! = greyed; no zones: shelf:copy;
+//                                                                     drop without one: on the hovered zone)
 //            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel
 //            panel <id> [static|keep]  unpanel <id>  home  tile <id>  (static: a widget with no card;
 //                                                                     keep: its card stays open on a click, decision 030)
@@ -23,7 +25,8 @@
 //            pick <card> <list> <row> <y>  carry <y>  put-down
 //            screen <width>  hold  move <dx>  let-go  restore <dock> [fraction]      (lifting the island, decision 026)
 // Checks after "->":  <Mode>  queue=<n>  top=<activity>  bubble=<activity>  alert=<name>
-//                     expanded=<activity|panel|home>  pinned=<activity>  dragging=yes|no  preview=yes|no
+//                     expanded=<activity|panel|home>  pinned=<activity>  dragging=yes|no (the bubble)  preview=yes|no
+//                     zone=<zone>|none (the hovered drop zone)
 //                     draft=<text>|empty|none  (_ for a space)  dialog=<card>|none
 //                     caret=<byte offset>  selected=<text>|none  (_ for a space)
 //                     lifted=yes|no  spot=centre|left|right|free  stay=yes|no  tabs=top|bottom
@@ -74,6 +77,22 @@ std::optional<std::string> option(const std::string& word, const std::string& ke
 {
     if (word.rfind(key + "=", 0) != 0) return std::nullopt;
     return word.substr(key.size() + 1);
+}
+
+// "shelf:copy!" -> a zone "copy" on the card "shelf", greyed.
+std::vector<DropZone> zonesFrom(const std::vector<std::string>& w, std::size_t from)
+{
+    std::vector<DropZone> zones;
+    for (std::size_t i = from; i < w.size() && w[i] != "->"; ++i) {
+        std::string word = w[i];
+        bool greyed = !word.empty() && word.back() == '!';
+        if (greyed) word.pop_back();
+        auto colon = word.find(':');
+        std::string card = colon == std::string::npos ? "shelf" : word.substr(0, colon);
+        std::string id = colon == std::string::npos ? word : word.substr(colon + 1);
+        zones.push_back({ .providerId = card, .id = id, .cardId = card, .label = id, .enabled = !greyed });
+    }
+    return zones;
 }
 
 struct Runner {
@@ -134,10 +153,16 @@ struct Runner {
         else if (cmd == "outside") apply(ClickedOutside{});
         else if (cmd == "esc") apply(EscapePressed{});
         else if (cmd == "pointer") apply(PointerMoved{});
-        else if (cmd == "drag-enter") apply(DragEntered{ true });
-        else if (cmd == "drag-rejected") apply(DragEntered{ false });
+        else if (cmd == "drag-enter") {
+            std::vector<DropZone> zones = zonesFrom(w, 1);
+            if (zones.empty()) zones = zonesFrom({ "shelf:copy" }, 0);
+            apply(DragEntered{ zones });
+        }
+        else if (cmd == "drag-update") apply(DragZonesChanged{ zonesFrom(w, 1) });
+        else if (cmd == "drag-rejected") apply(DragEntered{});
+        else if (cmd == "hover") apply(DropHovered{ arg(1) == "none" ? "" : arg(1) });
         else if (cmd == "drag-leave") apply(DragLeft{});
-        else if (cmd == "drop") apply(Dropped{});
+        else if (cmd == "drop") apply(Dropped{ arg(1).empty() ? state.dropHover : arg(1) });
         else if (cmd == "hide") apply(HiddenChanged{ true });
         else if (cmd == "show") apply(HiddenChanged{ false });
         else if (cmd == "wait") wait(Ms{ std::stoi(arg(1)) });
@@ -219,6 +244,9 @@ struct Runner {
             } else if (auto v = option(word, "dragging")) {
                 std::string got = state.bubbleDrag ? "yes" : "no";
                 if (got != *v) fail("dragging=" + *v + ", got " + got);
+            } else if (auto v = option(word, "zone")) {
+                std::string got = state.dropHover.empty() ? "none" : state.dropHover;
+                if (got != *v) fail("zone=" + *v + ", got " + got);
             } else if (auto v = option(word, "preview")) {
                 std::string got = swapPreview(state) ? "yes" : "no";
                 if (got != *v) fail("preview=" + *v + ", got " + got);

@@ -6,6 +6,7 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace cup {
 
@@ -79,6 +80,12 @@ public:
     // or ignore it (what a media player does: it closes when the music
     // does). Ignoring is the default: nothing ends behind a provider's back.
     virtual void onCloseRequested(const std::string& /*activityId*/) {}
+    // A drag over the island (decision 061): where it can land for this
+    // provider. Asked when it enters and again when its sizes are in, never
+    // as it moves, so it must be quick. None (the default): not for it.
+    virtual std::vector<DropZone> dropZones(const DragSummary& /*drag*/) { return {}; }
+    // Let go over one of its zones: the dropped things, for it alone (PS §9).
+    virtual void onDrop(const std::string& /*zoneId*/, const std::vector<DroppedItem>& /*items*/) {}
 };
 
 } // namespace cup

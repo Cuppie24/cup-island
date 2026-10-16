@@ -45,6 +45,12 @@ public:
     // Ctrl+W on an activity's card: asks its provider to close it (Provider::onCloseRequested).
     void closeRequested(const ShownCard& card);
 
+    // A drag over the island (decision 061): every running provider's zones
+    // for it, each stamped with its provider. None: nobody takes it.
+    std::vector<DropZone> dropZones(const DragSummary& drag);
+    // A drop on a zone: to its provider alone.
+    void drop(const DropZone& zone, const std::vector<DroppedItem>& items);
+
     // Wake-ups providers asked for (Host::wakeAt): the earliest, for the app's
     // one timer, and calling onWake() on every provider whose time has come.
     std::optional<Ms> nextWake() const;
