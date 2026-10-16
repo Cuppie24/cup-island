@@ -60,8 +60,8 @@ struct Tokens {
     Vec2 compactSize{ 260, 32 };
     Vec2 alertSize{ 320, 64 };
     Vec2 expandedSize{ 440, 159 }; // every card and Home: the width a to-do's text needs (decisions 043, 047)
-    Vec2 largeCardSize{ 760, 540 };  // a Large card (CardLayout::Large): the Shelf's grid (decision 063)
-    Vec2 receptiveSize{ 760, 320 };  // a drag over the island: its drop zones, big enough to land on (decisions 061, 063)
+    Vec2 largeCardSize{ 600, 420 };  // a Large card (CardLayout::Large): the Shelf's grid (decision 063)
+    Vec2 receptiveSize{ 520, 200 };  // a drag over the island: its drop zones, big enough to land on (decisions 061, 063)
     Vec2 hiddenSize{ 160, 0 };
     float maxCornerRadius = 28; // bottom corners: half the height, capped, so big shapes aren't blobs
     float flareRadius = 8;      // top corners curve outward into the screen edge (decision 025); 0 = square

@@ -11,12 +11,14 @@ card (decision 047), a grid, a double-click, a provider pointing the
 keyboard's focus somewhere (decision 035), and an image smaller than its slot.
 
 **Decision.**
-- **A Large card preset** (`CardLayout::Large`, `largeCardSize` 760×540):
+- **A Large card preset** (`CardLayout::Large`, `largeCardSize`, first 760×540, now 600×420):
   stacked like a Centred card, but at its own size, and a list in it fills
   what its other rows leave. `canvasSize` grows to 820 wide so it and its
   shadow fit. Every other card keeps decision 047's width; Large is for
-  cards whose content is a collection. Receptive grows too (760×320), so
-  the drop zones are big and a drop morphs only a little into the card.
+  cards whose content is a collection. Receptive grows too (first 760×320, now
+  520×200), so the drop zones are big and a drop morphs only a little into
+  the card. Both were made smaller after a first look: they covered too
+  much of the screen.
 - **Grids** (`Row::cells`, `core/grid_layout`): a row of cells, wrapped
   into as many columns as fit at `gridCellMinWidth`, each `gridCellHeight`
   tall. The host turns them into lines before planning lists, so a grid in
