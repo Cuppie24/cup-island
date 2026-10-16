@@ -11,7 +11,7 @@ bool cardShown(const IslandState& s, const std::string& activityId) { return !s.
 
 // One list's rows [first, end): placed into `plan` from `top` on. Returns the window's height.
 float planList(const Slot& slot, const std::vector<float>& heights, const std::vector<float>& windowHeights, const ListState& state,
-               std::size_t first, std::size_t end, float top, RowPlan& plan)
+               std::size_t first, std::size_t end, float top, RowPlan& plan, std::optional<float> room)
 {
     const Tokens& t = tokens();
     std::size_t count = end - first;
@@ -27,7 +27,8 @@ float planList(const Slot& slot, const std::vector<float>& heights, const std::v
     float tallest = *std::max_element(windowHeights.begin() + static_cast<std::ptrdiff_t>(first),
                                       windowHeights.begin() + static_cast<std::ptrdiff_t>(first + count));
     float rows = slot[first].visibleRows > 0 ? slot[first].visibleRows : t.listVisibleRows;
-    float window = std::min(content, rows * (tallest + t.rowSpacing) - t.rowSpacing);
+    // Filling a Large card, it takes all the room, however few its rows: what's under it stays at the card's foot.
+    float window = room ? *room : std::min(content, rows * (tallest + t.rowSpacing) - t.rowSpacing);
     float max = std::max(0.0f, content - window);
 
     const std::string& id = slot[first].list;
@@ -98,11 +99,23 @@ float planList(const Slot& slot, const std::vector<float>& heights, const std::v
 
 std::string listKey(const std::string& activityId, const std::string& list) { return activityId + "/" + list; }
 
-RowPlan planRows(const Slot& slot, const std::vector<float>& heights, const ListState& state, const std::vector<float>* windowHeights)
+RowPlan planRows(const Slot& slot, const std::vector<float>& heights, const ListState& state, const std::vector<float>* windowHeights,
+                 float fill)
 {
     const Tokens& t = tokens();
     RowPlan plan;
     plan.rows.resize(slot.size());
+    // Filling: what the rows outside lists take, with the gaps between groups.
+    std::optional<float> room;
+    if (fill > 0) {
+        float others = 0;
+        int groups = 0;
+        for (std::size_t r = 0; r < slot.size(); ++r) {
+            if (slot[r].list.empty()) others += heights[r];
+            if (slot[r].list.empty() || r == 0 || slot[r - 1].list != slot[r].list) ++groups;
+        }
+        room = std::max(0.0f, fill - others - t.rowSpacing * static_cast<float>(std::max(0, groups - 1)));
+    }
     float y = 0;
     for (std::size_t r = 0; r < slot.size();) {
         if (slot[r].list.empty()) {
@@ -113,7 +126,8 @@ RowPlan planRows(const Slot& slot, const std::vector<float>& heights, const List
         }
         std::size_t end = r;
         while (end < slot.size() && slot[end].list == slot[r].list) ++end;
-        y += planList(slot, heights, windowHeights ? *windowHeights : heights, state, r, end, y, plan) + t.rowSpacing;
+        y += planList(slot, heights, windowHeights ? *windowHeights : heights, state, r, end, y, plan, room) + t.rowSpacing;
+        room.reset(); // only the first list fills
         r = end;
     }
     plan.height = slot.empty() ? 0 : y - t.rowSpacing;
@@ -128,7 +142,11 @@ void scrollList(IslandState& s, const ListScrolled& e, Ms now)
     s.lastPointerAt = now;
 }
 
-void revealListRow(IslandState& s, const ListRevealed& e) { s.scrolls[listKey(e.activityId, e.list)].reveal = e.row; }
+void revealListRow(IslandState& s, const ListRevealed& e)
+{
+    s.scrolls[listKey(e.activityId, e.list)].reveal = e.row;
+    if (e.focus) s.focusRequest = e;
+}
 
 void startListDrag(IslandState& s, const ListDragStarted& e, Ms now)
 {

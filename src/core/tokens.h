@@ -48,7 +48,7 @@ struct Tokens {
     // along its top edge (decision 026), and this tall (TR §5, §9.1). The
     // width here is only a minimum, and the width layout() uses until the
     // platform says (tests).
-    Vec2 canvas{ 500, 640 }; // room for the largest pill (a Centred card at its tallest, with tabs) and its shadow
+    Vec2 canvas{ 820, 640 }; // room for the largest pill (a Large card with tabs, decision 063) and its shadow
 
     // One knob for the island's overall size: every length below is
     // multiplied by it, on top of the display's scaling (decision 017).
@@ -60,7 +60,8 @@ struct Tokens {
     Vec2 compactSize{ 260, 32 };
     Vec2 alertSize{ 320, 64 };
     Vec2 expandedSize{ 440, 159 }; // every card and Home: the width a to-do's text needs (decisions 043, 047)
-    Vec2 receptiveSize{ 380, 84 };
+    Vec2 largeCardSize{ 700, 420 };  // a Large card (CardLayout::Large): the Shelf's grid (decision 063)
+    Vec2 receptiveSize{ 620, 200 };  // a drag over the island: its drop zones, big enough to land on (decisions 061, 063)
     Vec2 hiddenSize{ 160, 0 };
     float maxCornerRadius = 28; // bottom corners: half the height, capped, so big shapes aren't blobs
     float flareRadius = 8;      // top corners curve outward into the screen edge (decision 025); 0 = square
@@ -100,6 +101,8 @@ struct Tokens {
     float iconSize = 18;
     float buttonSize = 36;
     float smallButtonSize = 32;   // Button::compact: list rows (a to-do's checkbox)
+    float smallIconSize = 12;     // Icon::small: a badge beside a caption (decision 063)
+    float buttonBackdropOpacity = 0.8f; // Button::backed: its disc, the island's colour this opaque
     float revealGlyphSize = 14;   // Button::revealOnHover (a to-do's delete): a smaller glyph, the same button and hover shape
     float inputHeight = 36;       // a TextInput: a little taller than the rows, easy to click into
     float listItemPadding = 6;    // Row::listItem: above and below its content; = listItemInset, so a checkbox's corners nest in the row's (decision 006)
@@ -171,6 +174,17 @@ struct Tokens {
     float tileGap = 8;
     float tilePadding = 8;        // inside a tile, on every side
     float focusRingWidth = 2;     // the keyboard's focus ring (decision 033), drawn inside what has focus
+    float dropZoneGap = 8;        // between a drag's drop zones (decision 061), side by side across the card
+    // A grid's cells (Row::cells, decision 063): as many columns as fit at
+    // least gridCellMinWidth, stretched to the row; a Thumbnail image is
+    // thumbnailHeight tall across its cell.
+    float gridCellMinWidth = 112;
+    float gridCellHeight = 140;
+    float gridGap = 8;
+    float thumbnailHeight = 64;
+    float listColumnWidth = 150; // Text::column: a file's kind and size, at its row's end (decision 064)
+    float menuWidth = 200;       // the context menu (decision 066)
+    float menuPadding = 6;       // inside its panel, round its items
 
     // Morph between modes: ease-out, 250-350 ms budget (TR §5).
     Ms morphDuration{ 300 };
@@ -197,6 +211,7 @@ struct Tokens {
     // Arbitration (PS §6).
     Ms alertDuration{ 3000 };
     Ms expandedIdleTimeout{ 8000 };
+    Ms dropLeaveGrace{ 150 }; // a drag that leaves and comes back this soon (the island resized under it) never ended
     Ms heldAlertMaxAge{ 30000 };
     std::size_t alertQueueCapacity = 5;
 
@@ -262,6 +277,7 @@ struct Tokens {
     Color stepDoneColor{ 255, 255, 255, 191 };
     Color stepTodoColor{ 255, 255, 255, 51 };
     Color tabSelectedColor{ 255, 255, 255, 41 };
+    Color selectionBoxColor{ 10, 132, 255, 51 };   // the box drawn round files to pick them (decision 064)
     Color hoverColor{ 255, 255, 255, 20 };         // a tab or tile under the pointer
     Color tileColor{ 255, 255, 255, 20 };          // Home's tile and Expanded's tab backgrounds, always shown
     Color focusRingColor{ 255, 255, 255, 153 };    // around what the keyboard has focus on (decision 033): a theme's accent
@@ -287,6 +303,13 @@ struct Tokens {
     Ms pomodoroLongBreak{ 900000 };
     std::size_t pomodoroRounds = 4;
     std::size_t todoMaxLength = 150; // characters in a to-do: wraps onto a few lines at most (decision 045)
+    // The Shelf (decision 061): a file copied only up to this size, all copies
+    // together up to the store's; past either, it's linked. Megabytes: the
+    // reader's numbers are floats, exact only to 2^24. Only the first
+    // shelfMaxCheckedItems of a drag have their size read.
+    std::size_t shelfCopyMaxMB = 1024;
+    std::size_t shelfStoreMaxMB = 10240;
+    std::size_t shelfMaxCheckedItems = 200;
     // Lists (Row::list, decision 029): the window shows this many rows (the
     // half says there's more), the wheel moves scrollStep per notch, easing
     // over scrollDuration; a press dragged dragStartDistance picks a row up.

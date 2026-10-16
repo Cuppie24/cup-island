@@ -27,6 +27,7 @@ struct SlotFrame {
     const Slot* slot;
     Rect frame;          // pill (or bubble) coordinates
     bool square = false; // a one-glyph square (compact ends, an alert's leading, the bubble): content always centred in it
+    bool fill = false;   // a list in it takes the height its other rows leave (a Large card, decision 063)
 };
 
 // Appends the slot's items to `out`, rows stacked and centred vertically in the frame.

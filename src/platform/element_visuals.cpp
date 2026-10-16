@@ -26,10 +26,22 @@ bool isRing(const Item& item)
 // Live data's colour: the content's accent, else the live colour (decision 010).
 Color accentOf(const Placed& p) { return p.accent.value_or(tokens().liveColor); }
 
+bool hintedText(const Item& item); // below
+
+// A backed button's disc (Button::backed, decisions 063, 064): the island's colour, a little see-through.
+std::optional<Color> backdropOf(const Placed& p)
+{
+    auto* button = std::get_if<Button>(&p.item);
+    if (!button || !button->backed) return std::nullopt;
+    Color disc = tokens().islandColor;
+    disc.a = static_cast<std::uint8_t>(std::clamp(tokens().buttonBackdropOpacity, 0.0f, 1.0f) * 255);
+    return disc;
+}
+
 // The shape under a hovered button, a text field's background, the dim over clickable art.
 Color hoverColorOf(const Placed& p)
 {
-    if (std::holds_alternative<TextInput>(p.item)) return tokens().inputColor;
+    if (std::holds_alternative<TextInput>(p.item) || hintedText(p.item)) return tokens().inputColor; // a name says it's a field
     if (std::holds_alternative<Image>(p.item)) return tokens().artHoverColor;
     return tokens().buttonHoverColor;
 }
@@ -50,8 +62,6 @@ float glyphSizeOf(const Button& button)
     return button.compact ? t.iconSize : t.buttonGlyphSize;
 }
 
-// "<slot>/<row>/<item>" -> "<slot>/<row>"
-std::string rowOf(const std::string& key) { return key.substr(0, key.rfind('/')); }
 
 // A focused text field keeps its background: you can see where you're typing,
 // with the pointer anywhere (decision 016).
@@ -75,10 +85,25 @@ bool swims(const Item& item)
     return text && text->marquee;
 }
 
+// An editable text that says so under the pointer (Text::editHint, decision 063): built like a button, its hover shape behind it.
+bool hintedText(const Item& item)
+{
+    auto* text = std::get_if<Text>(&item);
+    return text && text->editHint && !text->editAction.empty() && !text->marquee;
+}
+
 } // namespace
 
-void ElementVisuals::init(wuc::Compositor const& compositor, GraphicsDevice& device, wuc::ContainerVisual const& parent)
+wuc::ContainerVisual ElementVisuals::parentFor(const Placed& placed)
 {
+    if (overlay_ && placed.key.rfind("menu/", 0) == 0) return overlay_;
+    return lists_.parentFor(placed);
+}
+
+void ElementVisuals::init(wuc::Compositor const& compositor, GraphicsDevice& device, wuc::ContainerVisual const& parent,
+                          wuc::ContainerVisual const& overlay)
+{
+    overlay_ = overlay;
     compositor_ = compositor;
     device_ = &device;
     parent_ = parent;
@@ -159,12 +184,13 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         view.waveform = parts.visual;
         view.bars = parts.bars;
         view.accent = parts.accent;
-    } else if (std::holds_alternative<Button>(placed.item) || std::holds_alternative<TextInput>(placed.item)) {
+    } else if (std::holds_alternative<Button>(placed.item) || std::holds_alternative<TextInput>(placed.item) || hintedText(placed.item)) {
         // A text field is built like a button: its background is the hover shape, shown only under the pointer.
         view.surface = device_->createSurface(size);
-        ButtonParts parts = createButton(compositor_, size, placed.cornerRadius, view.surface, hoverColorOf(placed));
+        ButtonParts parts = createButton(compositor_, size, placed.cornerRadius, view.surface, hoverColorOf(placed), backdropOf(placed));
         view.visual = parts.visual;
         view.hover = parts.hover;
+        view.base = parts.base;
         view.highlight = placed.litByRow ? nullptr : parts.highlight; // lit by its row instead (Placed::litByRow): stays hidden
     } else if (clickableArt(placed.item)) {
         view.surface = device_->createSurface(size);
@@ -194,7 +220,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     place(view);
     view.visual.Size(toFloat2(pixelSize(visualSize)));
     view.visual.CenterPoint({ visualSize.x / 2, visualSize.y / 2, 0 });
-    lists_.parentFor(placed).Children().InsertAtTop(view.visual);
+    parentFor(placed).Children().InsertAtTop(view.visual);
     if (placed.list) lists_.setGliding(view.visual, !placed.list->dragged); // after its first place: it appears there
 
     if (view.surface) paint(view);
@@ -202,7 +228,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     if (view.arc) armRing(compositor_, view.arc, std::get<Progress>(placed.item).timeline, now);
     if (!view.bars.empty()) animateBars(view);
     if (view.highlight && focusedField(placed.item)) view.highlight.Opacity(1.0f);
-    if (revealsOnHover(placed.item) && rowOf(placed.key) != hoveredRow_) view.visual.Opacity(0.0f); // until its row is hovered
+    if (revealsOnHover(placed.item) && hoverGroup(placed) != hoveredRow_) view.visual.Opacity(0.0f); // until its row is hovered
     else if (fade) fadeIn(compositor_, view.visual);
     return view;
 }
@@ -233,7 +259,7 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     }
     bool wasFocused = focusedField(view.placed.item);
     bool wasDragged = view.placed.list && view.placed.list->dragged, dragged = placed.list && placed.list->dragged;
-    auto parent = lists_.parentFor(placed); // keeps the list's window and scroll in step
+    auto parent = parentFor(placed); // keeps the list's window and scroll in step
     if (dragged != wasDragged) {
         lists_.setGliding(view.visual, !dragged); // picked up: follows the pointer; let go: glides to its place
         if (dragged) { // carried over the others
@@ -269,6 +295,7 @@ void ElementVisuals::recolor(View& view)
     if (view.accent) fadeColor(view.accent, accentOf(view.placed));
     if (view.knobBrush) fadeColor(view.knobBrush, t.knobColor);
     if (view.hover) fadeColor(view.hover, hoverColorOf(view.placed));
+    if (view.base) if (auto disc = backdropOf(view.placed)) fadeColor(view.base, *disc);
     if (view.toggle.knob) {
         bool on = std::get<Switch>(view.placed.item).on;
         fadeColor(view.toggle.track, switchTrackColor(on));
@@ -287,20 +314,27 @@ void ElementVisuals::paint(View& view)
     bool drawn = device_->draw(view.surface, [&](ID2D1DeviceContext* dc) {
         if (auto* text = std::get_if<Text>(&item)) {
             if (view.marqueeWidth > 0) paintMarquee(dc, dw, *text, view.marqueeWidth, view.lead, t.marqueeGap, size.y);
-            else paintText(dc, dw, *text, size);
+            else if (hintedText(item)) { // its frame is its hover; the text sits editInset in, where it always was
+                D2D1_MATRIX_3X2_F was;
+                dc->GetTransform(&was);
+                dc->SetTransform(D2D1::Matrix3x2F::Translation(t.editInset, 0) * was);
+                paintText(dc, dw, *text, { std::max(0.0f, size.x - 2 * t.editInset), size.y });
+                dc->SetTransform(was);
+            } else paintText(dc, dw, *text, size);
         } else if (auto* icon = std::get_if<Icon>(&item)) {
-            paintGlyph(dc, dw, icon->glyph, t.iconSize, pixelSize(size), t.iconColor); // the surface's whole pixels
+            paintGlyph(dc, dw, icon->glyph, icon->compact ? t.smallIconSize : t.iconSize, pixelSize(size), t.iconColor); // the surface's whole pixels
         } else if (auto* button = std::get_if<Button>(&item)) {
             bool toggledOff = button->on && !*button->on;
             Color color = !button->enabled ? t.buttonDisabledColor : toggledOff ? t.buttonOffColor
                         : button->destructive         ? t.dangerColor
                                                       : t.buttonColor;
-            if (!button->label.empty()) paintLabel(dc, dw, button->label, size, color);
+            if (!button->label.empty() && button->withGlyph) paintGlyphLabel(dc, dw, button->glyph, button->label, size, color);
+            else if (!button->label.empty()) paintLabel(dc, dw, button->label, size, color);
             // Centred in the surface's whole pixels, like the hover shape around it, not the fractional frame.
             else paintGlyph(dc, dw, button->glyph, glyphSizeOf(*button), pixelSize(size), color);
             if (button->on && *button->on) paintToggleDot(dc, pixelSize(size), t.buttonGlyphSize);
         } else if (auto* image = std::get_if<Image>(&item)) {
-            paintImage(dc, image->data.get(), size, view.placed.cornerRadius);
+            paintImage(dc, image->data.get(), size, view.placed.cornerRadius, image->contain);
         } else if (auto* input = std::get_if<TextInput>(&item)) {
             paintInput(dc, dw, *input, size); // its background is the hover shape, nested like a button's
         } else if (auto* steps = std::get_if<Steps>(&item)) {
@@ -347,7 +381,7 @@ void ElementVisuals::setHoveredRow(const std::string& row)
     if (row == hoveredRow_) return;
     hoveredRow_ = row;
     for (auto& [key, view] : views_)
-        if (revealsOnHover(view.placed.item)) fadeTo(compositor_, view.visual, rowOf(key) == row ? 1.0f : 0.0f, tokens().hoverFadeDuration);
+        if (revealsOnHover(view.placed.item)) fadeTo(compositor_, view.visual, hoverGroup(view.placed) == row ? 1.0f : 0.0f, tokens().hoverFadeDuration);
 }
 
 void ElementVisuals::setHovered(const std::string& key)

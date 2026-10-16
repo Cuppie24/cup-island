@@ -43,8 +43,16 @@ public:
     void setFocusRing(std::optional<Rect> area, float cornerRadius);
     // Home's tiles (decision 009) and Expanded's tabs (decision 007): a faint
     // background under each, always shown; hover and selection add to it.
-    void setTiles(const std::vector<Rect>& tiles, float cornerRadius) { showMarks(tiles_, tiles, cornerRadius); }
-    void setTabs(const std::vector<Rect>& tabs, float cornerRadius) { showMarks(tabs_, tabs, cornerRadius); }
+    void setTiles(const std::vector<Rect>& tiles, float cornerRadius) { showMarks(tiles_, tiles, cornerRadius, tokens().tileColor); }
+    void setTabs(const std::vector<Rect>& tabs, float cornerRadius) { showMarks(tabs_, tabs, cornerRadius, tokens().tileColor); }
+    // Picked things in a card's list (decision 064): lit like the active tab.
+    // At once, no fade: picking follows the pointer (a box being drawn), a fade lags behind it.
+    void setSelectedItems(const std::vector<Rect>& items, float cornerRadius) { showMarks(selected_, items, cornerRadius, tokens().tabSelectedColor, true); }
+    // The context menu's panel (decision 066): over the card, under its items; nullopt: none.
+    void setMenu(std::optional<Rect> panel, float cornerRadius);
+    void setMenuHovered(std::optional<Rect> item, float cornerRadius); // a menu item under the pointer: over the panel, under the items
+    // The box being drawn round things to pick them; nullopt: none.
+    void setSelectionBox(std::optional<Rect> box) { showMark(box_, box, tokens().focusRingWidth * 2, tokens().selectionBoxColor, false, true); }
     // Notification dots (decision 038), over the content: Scene::badges.
     void setBadges(const std::vector<Vec2>& centres) { badges_.show(centres); }
 
@@ -89,9 +97,12 @@ private:
         wuc::CompositionColorBrush brush{ nullptr };
         std::optional<Rect> at;
     };
-    void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide);
-    void showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius); // tileColor, one per rect
-    Mark selectedTab_, pinnedTab_, hovered_;
+    // instant: shown and hidden at once, no fade (the selection, decision 064).
+    void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide, bool instant = false,
+                  bool overlay = false); // overlay: in overlay_, over the content
+    void showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius, const Color& color, bool instant = false); // one per rect
+    Mark selectedTab_, pinnedTab_, hovered_, box_, menuBase_, menuWash_, menuHover_;
+    wuc::ContainerVisual overlay_{ nullptr }; // over the content: the context menu (decision 066)
     struct Ring { // the focus ring: stroked, not filled; over content_, not under it
         wuc::ShapeVisual visual{ nullptr };
         wuc::CompositionRoundedRectangleGeometry shape{ nullptr };
@@ -100,7 +111,7 @@ private:
         std::optional<Rect> at;
         float radius = 0;
     } focusRing_;
-    std::vector<Mark> tiles_, tabs_; // grow to the most shown; spare ones stay faded out
+    std::vector<Mark> tiles_, tabs_, selected_; // grow to the most shown; spare ones stay faded out
     BadgeDots badges_;
     ElementVisuals elements_;
     Vec2 size_, offset_;

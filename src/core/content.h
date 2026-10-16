@@ -18,7 +18,7 @@ using Ms = std::chrono::milliseconds;
 // Built-in icons; the renderer maps them to font glyphs.
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
                    Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre,
-                   Minus, Plus, Pin, Pinned };
+                   Minus, Plus, Pin, Pinned, Link, Folder, File, Package, ViewGrid, ViewList, Reveal };
 
 // Display: a big number, the card's centre (a timer). Heading: a group's name over its rows (Settings'
 // "Dark" and "Light"): small, but heavy and full-strength, so it reads as a divider (decision 037).
@@ -72,17 +72,33 @@ struct Text {
     // Wraps onto as many lines as it needs instead of ending in "…" (a
     // to-do, decision 045). The only stretching item in its row.
     bool wrap = false;
+    // Lit under the pointer, like a button, so it reads as something a click
+    // edits (the Shelf's names, decision 063). Only with an editAction.
+    bool editHint = false;
+    // A column at its row's end, listColumnWidth wide, so the stretching text
+    // before it (a file's name) gets the rest: a file's kind and size (decision 064).
+    bool column = false;
     // Host-filled: `value` with the spaces where its lines break turned into
     // '\n' (same length, so offsets hold). Empty: one line.
     std::string wrapped;
     bool operator==(const Text&) const = default;
 };
+// How big an Image is (decision 063). Art: the slot's square (media's
+// cover). Icon: an icon's size, in a list row. Thumbnail: thumbnailHeight
+// tall across its whole row, a grid cell's picture.
+enum class ImageRole { Art, Icon, Thumbnail };
 struct Image {
     std::shared_ptr<const ImageData> data;
     std::string actionId; // clickable when set: sent back to the provider (media art opens its app)
+    ImageRole role = ImageRole::Art;
+    bool contain = false; // fitted inside its frame, never cropped: a file type's icon
     bool operator==(const Image&) const = default;
 };
-struct Icon { Glyph glyph = Glyph::Music; bool operator==(const Icon&) const = default; };
+struct Icon {
+    Glyph glyph = Glyph::Music;
+    bool compact = false; // smallIconSize: a badge beside a caption ("Copy · 2 MB", decision 063). Not "small": windows.h #defines it
+    bool operator==(const Icon&) const = default;
+};
 struct Button {
     Glyph glyph = Glyph::Play;
     std::string actionId; // sent back to the provider when clicked
@@ -94,6 +110,8 @@ struct Button {
     bool destructive = false;   // its label in dangerColor: a dialog's "Clear"
     bool editsText = false;     // starts editing the Text whose editAction is this button's actionId (decision 029)
     bool badge = false;         // a dot on it: something new behind it, an update to install (decision 038)
+    bool withGlyph = false;     // a text button with its glyph before its label: "Clear" with a bin (decision 063)
+    bool backed = false;        // on a disc of the island's colour: readable over a picture (a grid cell's actions, decision 063)
     bool operator==(const Button&) const = default;
 };
 
@@ -188,7 +206,11 @@ enum class RowSpan { Slot, MatchAbove, MatchBelow };
 //            control panel or a timer, nothing to put in an art square.
 //  List:     like Centred, with wider sides (listCardInset): a page of
 //            settings, rows edge to edge (decision 030).
-enum class CardLayout { Standard, Centred, List };
+//  Large:    like Centred, at largeCardSize: room for a grid of things (the
+//            Shelf, decision 063). A list in it fills what its other rows leave.
+enum class CardLayout { Standard, Centred, List, Large };
+
+struct Cell;
 
 // A horizontal row of items. Text and Progress stretch; everything else has a fixed size.
 struct Row {
@@ -230,7 +252,31 @@ struct Row {
     // Its content inset like a list item's, without being one (no padding,
     // nothing lit): a heading over list items lines up with their text.
     bool inset = false;
+    // A double-click anywhere on the row sends this (decision 063): open a file.
+    std::string openAction;
+    // A grid (decision 063): these cells, wrapped into as many columns as fit
+    // (gridCellMinWidth), each gridCellHeight tall; `items` are ignored. With
+    // `list`, the grid scrolls like a list, and Host::reveal names a cell.
+    std::vector<Cell> cells;
+    // Its list's rows (a grid's cells) are picked like files in Explorer
+    // (decision 064): a click selects one, Ctrl and Shift add, a box drawn
+    // round them, Ctrl+A. The host keeps the selection and tells the
+    // provider (Provider::onSelectionChanged). Rows need an `id`.
+    bool selectable = false;
     bool operator==(const Row&) const = default;
+};
+
+// One of a grid's cells: its rows stacked in it (a thumbnail, a name), lit
+// as a whole under the pointer like a list item. `actions` sit in its
+// top-right corner over the rest, shown only while it's hovered.
+struct Cell {
+    std::string id;      // names it in element keys; no '/'
+    std::vector<Row> rows;
+    std::vector<Item> actions;
+    std::string openAction; // a double-click on it
+    bool fixed = false;     // not one of the things in the grid: never selected (the Shelf's "add" card)
+    bool clickAnywhere = false; // its button takes clicks anywhere on it, and it lights as a whole (like Row::clickAnywhere)
+    bool operator==(const Cell&) const = default;
 };
 
 Row row(std::initializer_list<Item> items, Align align = Align::Start);
@@ -274,6 +320,12 @@ struct Content {
     // sends, as a click on its back arrow would. Empty: Esc goes back to
     // Home or closes, as anywhere else (decision 033).
     std::string backAction;
+    // A press on its card doesn't squash the island (pressScale): a page of
+    // things to click and drag, where it reads as the page jumping (decision 063).
+    bool steadyPress = false;
+    // The Delete key on its card, with something selected (Row::selectable):
+    // sends this; the provider knows what's selected (decision 064).
+    std::string deleteAction;
     Slot compactLeading;
     Slot compactCenter;  // between the two compact squares, e.g. a swimming title
     Slot compactTrailing;

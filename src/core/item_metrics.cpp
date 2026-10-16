@@ -42,8 +42,13 @@ bool isRing(const Item& item)
 float heightOf(const Item& item, Rect slot, float ringSide)
 {
     const Tokens& t = tokens();
-    if (auto* text = std::get_if<Text>(&item)) return lineHeight(text->style);
-    if (std::holds_alternative<Image>(item)) return std::min(slot.width, slot.height);
+    // A name that lights to say it renames (Text::editHint): as tall as a field's line, so it's easy to hit (decision 064).
+    if (auto* text = std::get_if<Text>(&item)) return text->editHint && !text->editAction.empty() ? lineHeight(text->style) + 2 * t.editInset : lineHeight(text->style);
+    if (auto* image = std::get_if<Image>(&item)) { // decision 063
+        if (image->role == ImageRole::Icon) return t.iconSize;
+        if (image->role == ImageRole::Thumbnail) return t.thumbnailHeight;
+        return std::min(slot.width, slot.height);
+    }
     if (isRing(item)) return ringSide;
     if (std::holds_alternative<Steps>(item)) return t.stepDotSize;
     if (std::holds_alternative<Swatch>(item)) return t.swatchSize;
@@ -54,6 +59,7 @@ float heightOf(const Item& item, Rect slot, float ringSide)
     // Seekable bars get a taller row to be easy to click; a bar nobody clicks is just its line.
     if (auto* bar = std::get_if<Progress>(&item)) return bar->seekable ? t.progressHitHeight : t.progressHeight;
     if (auto* label = std::get_if<TimeLabel>(&item)) return lineHeight(label->style);
+    if (auto* icon = std::get_if<Icon>(&item); icon && icon->compact) return t.smallIconSize;
     return t.iconSize; // Icon, Waveform
 }
 
@@ -61,9 +67,11 @@ float heightOf(const Item& item, Rect slot, float ringSide)
 std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureText& measure)
 {
     const Tokens& t = tokens();
+    if (auto* text = std::get_if<Text>(&item); text && text->column) return tokens().listColumnWidth;
     if (std::holds_alternative<Text>(item) || std::holds_alternative<TextInput>(item) ||
         (std::holds_alternative<Progress>(item) && !isRing(item)))
         return std::nullopt;
+    if (auto* image = std::get_if<Image>(&item); image && image->role == ImageRole::Thumbnail) return std::nullopt; // across its row
     if (std::holds_alternative<Image>(item) || isRing(item)) return height;
     if (auto* steps = std::get_if<Steps>(&item)) {
         float n = static_cast<float>(std::max(steps->count, 0));
@@ -78,7 +86,8 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
     if (auto* button = std::get_if<Button>(&item)) {
         if (button->label.empty()) return button->compact ? t.smallButtonSize : t.buttonSize;
         Text text{ button->label, TextStyle::Body };
-        return (measure ? measure(text) : estimateTextWidth(text)) + 2 * t.buttonLabelPadding;
+        float glyph = button->withGlyph ? t.iconSize + t.itemSpacing : 0; // its glyph before the label (decision 063)
+        return (measure ? measure(text) : estimateTextWidth(text)) + 2 * t.buttonLabelPadding + glyph;
     }
     if (auto* label = std::get_if<TimeLabel>(&item)) {
         if (label->style == TextStyle::Digits) return t.timeLabelWidth; // a column, so rows of labels line up
@@ -87,6 +96,7 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
         Text text{ widest, label->style };
         return (measure ? measure(text) : estimateTextWidth(text)) + 1; // +1: rounding never trips the "…"
     }
+    if (auto* icon = std::get_if<Icon>(&item); icon && icon->compact) return t.smallIconSize;
     return t.iconSize; // Icon, Waveform
 }
 

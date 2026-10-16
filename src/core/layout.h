@@ -22,6 +22,8 @@ struct InList {
     std::string moveAction;  // its row's (Row::moveAction): it can be dragged to a new place
     bool dragged = false;    // its row is being dragged: it follows the pointer at once, the rest ease aside
     std::size_t dropAt = 0;  // dragged: the index it would land at if let go now
+    std::optional<std::size_t> cell; // in a grid (Row::cells): its cell's index among the grid's cells (`row` is its line)
+    std::string item;        // a selectable list's (Row::selectable): its row's or cell's id; "" = not selectable
     bool operator==(const InList&) const = default;
 };
 
@@ -39,8 +41,14 @@ struct Placed {
     std::string providerId;
     std::string activityId;
     std::optional<Timeline> ticking; // time labels: the text changes as playback moves
+    std::string openAction;      // its row's or cell's (Row::openAction): a double-click on it sends this
+    std::string group;           // a grid cell's key: hovered as one (hoverGroup); "" = its row's
     bool operator==(const Placed&) const = default;
 };
+
+// What lights and reveals together under the pointer (Button::revealOnHover):
+// a grid cell, or else the element's row ("<slot>/<row>").
+std::string hoverGroup(const Placed& placed);
 
 // The Split bubble (PS §3.1): the 2nd activity's `minimal` slot, in a
 // shape like the pill's.
@@ -87,6 +95,21 @@ struct Tile {
     bool clickable() const { return opens || !tapAction.empty(); } // lights up under the pointer
 };
 
+// One of a drag's drop zones (decision 061), drawn like a Home tile; its
+// icon and lines of text are elements. The hovered one lights up.
+struct ZoneMark {
+    Rect frame;         // pill coordinates
+    std::string id;     // the DropZone's
+    bool enabled = true;
+    bool hovered = false;
+};
+
+// The context menu's panel (decision 066): over the card, under its items.
+struct MenuPanel {
+    Rect frame;   // pill coordinates
+    float radius = 0;
+};
+
 struct Scene {
     Mode mode = Mode::Idle;
     Vec2 size;                     // pill target size, render-layer coordinates
@@ -99,8 +122,13 @@ struct Scene {
     std::optional<BubbleScene> bubble;
     std::optional<TabStrip> tabs;  // Expanded with several activities, or activities and panels
     std::vector<Tile> tiles;       // Home
-    float tileRadius = 0;          // tile background corners, nested in the card's
+    float tileRadius = 0;          // tile background corners, nested in the card's (drop zones' too)
+    std::vector<ZoneMark> zones;   // Receptive: where the drag can land
+    std::vector<Rect> selected;    // selected rows and cells (decision 064): lit like the active tab
+    std::optional<MenuPanel> menu; // the context menu (decision 066); its items are the first elements
+    float selectedRadius = 0;
     std::vector<Vec2> badges;      // notification dots' centres (decision 038, core/badges.h)
+    bool steadyPress = false;      // its content asks a press not to squash the island (Content::steadyPress)
     bool dropTarget = false;       // the dragged bubble is over the pill: letting go swaps them (pill lightens)
     Vec2 bubbleTuck;               // no bubble: it shrinks to this point, on the top edge inside the pill
     std::string label;             // accessible name of what's shown
@@ -131,6 +159,10 @@ const Placed* listAt(const Scene& scene, Vec2 point);
 
 // The Home tile under `point` (pill coordinates), if any.
 const Tile* tileAt(const Scene& scene, Vec2 point);
+
+// The drop zone a drag at `point` (pill coordinates) would land on: enabled
+// ones only, so a greyed zone or the gap between zones takes nothing.
+const ZoneMark* zoneAt(const Scene& scene, Vec2 point);
 
 // When the scene next changes without any event (a time label's second
 // ticking over, the idle clock's minute), so the app can arm its timer. Nothing = static.

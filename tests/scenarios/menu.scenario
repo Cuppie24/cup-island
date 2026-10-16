@@ -1,0 +1,36 @@
+# The island's context menu over a card (decision 066).
+
+scenario: a menu opens only over the shown card
+panel shelf files 3
+menu shelf                          -> menu=none
+tile shelf
+menu other                          -> menu=none
+menu shelf                          -> Expanded menu=shelf
+
+scenario: Esc closes the menu first, then the selection, then the card
+panel shelf files 3
+tile shelf
+choose shelf a
+menu shelf                          -> menu=shelf chosen=a
+esc                                 -> Expanded menu=none chosen=a
+esc                                 -> Expanded chosen=none
+esc                                 -> Idle
+
+scenario: chosen or closed, it goes; the card stays
+panel shelf files 3
+tile shelf
+menu shelf
+menu-close                          -> Expanded menu=none
+
+scenario: a question over the card closes it
+panel shelf files 3
+tile shelf
+menu shelf
+ask shelf                           -> dialog=shelf menu=none
+
+scenario: it goes with its card
+panel shelf files 3
+panel other
+tile shelf
+menu shelf                          -> menu=shelf
+home                                -> menu=none

@@ -7,6 +7,7 @@
 #include "core/tokens.h"
 #include "platform/win.h"
 
+#include <optional>
 #include <vector>
 
 namespace cup::platform {
@@ -64,10 +65,12 @@ struct ButtonParts {
     wuc::ContainerVisual visual{ nullptr };
     wuc::ShapeVisual highlight{ nullptr };
     wuc::CompositionColorBrush hover{ nullptr };
+    wuc::CompositionColorBrush base{ nullptr }; // a backed button's disc (Button::backed), always shown
 };
 // `hover`: the shape's colour (buttonHoverColor; a text field uses inputColor).
+// `base`: a backed button's disc, the same shape, under the hover (decision 064).
 ButtonParts createButton(wuc::Compositor const& c, Vec2 frame, float cornerRadius, wuc::CompositionDrawingSurface const& glyph,
-                         const Color& hover);
+                         const Color& hover, std::optional<Color> base = std::nullopt);
 
 // Swimming text: shows `surface` (see paintMarquee) through soft-edged mask,
 // pausing at the start, then scrolling `travel` pixels left, forever.

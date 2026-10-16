@@ -6,6 +6,7 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace cup {
 
@@ -44,8 +45,10 @@ public:
     virtual void ask(Dialog dialog) = 0;
 
     // Scrolls a list on this provider's card (Row::list) just enough to show
-    // its `row`th row, now and as long as the user doesn't scroll it (decision 029).
-    virtual void reveal(const std::string& activityId, const std::string& list, std::size_t row) = 0;
+    // its `row`th row (a grid's: its cell), now and as long as the user doesn't
+    // scroll it (decision 029). `focus`: the keyboard's focus goes to it too, a
+    // hint the host takes once (a file just dropped, decision 063).
+    virtual void reveal(const std::string& activityId, const std::string& list, std::size_t row, bool focus = false) = 0;
 
     // Whatever the provider keeps between runs (decision 028): text under a
     // key, its own (keys are per provider; the format is the provider's).
@@ -79,6 +82,29 @@ public:
     // or ignore it (what a media player does: it closes when the music
     // does). Ignoring is the default: nothing ends behind a provider's back.
     virtual void onCloseRequested(const std::string& /*activityId*/) {}
+    // What's selected in one of its card's lists changed (Row::selectable,
+    // decision 064): the ids, in the list's order; none = nothing selected.
+    virtual void onSelectionChanged(const std::string& /*activityId*/, const std::string& /*list*/, const std::vector<std::string>& /*ids*/) {}
+    // Picked things dragged out of its card (decision 065): their files'
+    // paths (UTF-8), for Windows to drag to Explorer or another app. None:
+    // nothing to drag. Asked once, when the drag starts.
+    virtual std::vector<std::string> dragOut(const std::string& /*activityId*/, const std::string& /*list*/, const std::vector<std::string>& /*ids*/)
+    {
+        return {};
+    }
+    // A right-click (or Shift+F10) on its card's list (decision 066): the
+    // menu's items for what's picked (`ids`; none: the list's empty part).
+    // Asked once, when it opens. None: no menu.
+    virtual std::vector<MenuItem> contextMenu(const std::string& /*activityId*/, const std::string& /*list*/, const std::vector<std::string>& /*ids*/)
+    {
+        return {};
+    }
+    // A drag over the island (decision 061): where it can land for this
+    // provider. Asked when it enters and again when its sizes are in, never
+    // as it moves, so it must be quick. None (the default): not for it.
+    virtual std::vector<DropZone> dropZones(const DragSummary& /*drag*/) { return {}; }
+    // Let go over one of its zones: the dropped things, for it alone (PS §9).
+    virtual void onDrop(const std::string& /*zoneId*/, const std::vector<DroppedItem>& /*items*/) {}
 };
 
 } // namespace cup

@@ -1,0 +1,109 @@
+# File drop (decision 061): a drag over the island shows the zones providers
+# offer for it, whatever was showing; a drop on one opens its card and stays.
+
+scenario: a drag opens Receptive from every resting state
+drag-enter                          -> Receptive
+drag-leave
+wait 150                            -> Idle
+start media
+drag-enter                          -> Receptive
+drag-leave
+wait 150                            -> Compact
+start timer
+drag-enter                          -> Receptive
+drag-leave
+wait 150                            -> Split
+
+scenario: ...and over an alert, Home or a card
+alert copied                        -> Alert
+drag-enter                          -> Receptive
+drag-leave
+wait 150                            -> Alert alert=copied
+panel shelf
+home                                -> Expanded expanded=home
+drag-enter                          -> Receptive
+drag-leave
+wait 150                            -> Expanded expanded=home
+
+scenario: hidden wins over a drag
+start media
+hide                                -> Hidden
+drag-enter                          -> Hidden
+show                                -> Receptive
+
+scenario: nobody takes it: nothing happens
+start media
+drag-rejected                       -> Compact
+
+scenario: leaving and coming back within the grace is the same drag
+start media
+drag-enter shelf:link shelf:copy
+hover copy                          -> Receptive zone=copy
+drag-leave                          -> Receptive zone=none
+wait 100
+drag-enter shelf:link shelf:copy    -> Receptive
+wait 100                            -> Receptive   # the grace was cancelled
+drag-leave
+wait 149                            -> Receptive
+wait 1                              -> Compact
+
+scenario: hovering names only zones of this drag
+drag-enter shelf:link shelf:copy
+hover copy                          -> zone=copy
+hover other                         -> zone=none
+hover link                          -> zone=link
+hover none                          -> zone=none
+
+scenario: a drop on a zone opens its card and stays open
+panel shelf
+start media
+drag-enter shelf:link shelf:copy
+hover copy
+drop                                -> Expanded expanded=shelf
+wait 7999                           -> Expanded expanded=shelf   # the idle clock starts at the drop
+wait 1                              -> Compact
+
+scenario: a drop on a greyed zone lands nothing
+panel shelf
+start media
+drag-enter shelf:link shelf:copy!
+drop copy                           -> Compact
+drag-enter shelf:link shelf:copy!
+hover copy                          -> zone=none  # greyed: it isn't hovered either
+drop link                           -> Expanded expanded=shelf
+
+scenario: sizes arriving can grey a zone
+panel shelf
+drag-enter shelf:link shelf:copy
+hover copy                          -> zone=copy
+drag-update shelf:link shelf:copy!  -> Receptive zone=none
+drop copy                           -> Idle
+
+scenario: a drag over a card leaves it as it was: draft and pin
+panel timer keep
+tile timer                          -> Expanded expanded=timer
+focus timer add
+type buy milk
+pin                                 -> stay=yes
+drag-enter                          -> Receptive
+drag-leave
+wait 150                            -> Expanded expanded=timer draft=buy_milk stay=yes
+
+scenario: a long drag doesn't time out the card under it
+start media
+click                               -> Expanded
+drag-enter
+wait 20000                          -> Receptive
+drag-leave
+wait 150                            -> Expanded
+wait 7999                           -> Expanded   # the idle clock starts when the drag ends
+wait 1                              -> Compact
+
+scenario: a critical alert during a drag closes the card once it ends
+start media
+click                               -> Expanded
+drag-enter
+alert fire critical                 -> Receptive queue=1
+wait 1000                           -> Receptive  # the card stays under the drag
+drag-leave
+wait 150                            -> Alert alert=fire

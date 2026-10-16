@@ -28,6 +28,7 @@ const Field kFields[] = {
     { "compactSize", &Tokens::compactSize },
     { "alertSize", &Tokens::alertSize },
     { "expandedSize", &Tokens::expandedSize },
+    { "largeCardSize", &Tokens::largeCardSize },
     { "receptiveSize", &Tokens::receptiveSize },
     { "hiddenSize", &Tokens::hiddenSize },
     { "maxCornerRadius", &Tokens::maxCornerRadius },
@@ -114,6 +115,16 @@ const Field kFields[] = {
     { "tileGap", &Tokens::tileGap },
     { "tilePadding", &Tokens::tilePadding },
     { "focusRingWidth", &Tokens::focusRingWidth },
+    { "dropZoneGap", &Tokens::dropZoneGap },
+    { "smallIconSize", &Tokens::smallIconSize },
+    { "buttonBackdropOpacity", &Tokens::buttonBackdropOpacity },
+    { "gridCellMinWidth", &Tokens::gridCellMinWidth },
+    { "gridCellHeight", &Tokens::gridCellHeight },
+    { "gridGap", &Tokens::gridGap },
+    { "thumbnailHeight", &Tokens::thumbnailHeight },
+    { "listColumnWidth", &Tokens::listColumnWidth },
+    { "menuWidth", &Tokens::menuWidth },
+    { "menuPadding", &Tokens::menuPadding },
     { "morphDurationMs", &Tokens::morphDuration, true },
     { "morphEase", &Tokens::morphEase },
     { "contentFadeDurationMs", &Tokens::contentFadeDuration },
@@ -128,6 +139,7 @@ const Field kFields[] = {
     { "pressReleaseEase", &Tokens::pressReleaseEase },
     { "alertDurationMs", &Tokens::alertDuration, true },
     { "expandedIdleTimeoutMs", &Tokens::expandedIdleTimeout },
+    { "dropLeaveGraceMs", &Tokens::dropLeaveGrace },
     { "heldAlertMaxAgeMs", &Tokens::heldAlertMaxAge },
     { "alertQueueCapacity", &Tokens::alertQueueCapacity },
     { "mediaPausedLingerMs", &Tokens::mediaPausedLinger, true },
@@ -170,6 +182,7 @@ const Field kFields[] = {
     { "stepDoneColor", &Tokens::stepDoneColor },
     { "stepTodoColor", &Tokens::stepTodoColor },
     { "tabSelectedColor", &Tokens::tabSelectedColor },
+    { "selectionBoxColor", &Tokens::selectionBoxColor },
     { "hoverColor", &Tokens::hoverColor },
     { "tileColor", &Tokens::tileColor },
     { "focusRingColor", &Tokens::focusRingColor },
@@ -192,6 +205,9 @@ const Field kFields[] = {
     { "pomodoroLongBreakMs", &Tokens::pomodoroLongBreak },
     { "pomodoroRounds", &Tokens::pomodoroRounds },
     { "todoMaxLength", &Tokens::todoMaxLength },
+    { "shelfCopyMaxMB", &Tokens::shelfCopyMaxMB },
+    { "shelfStoreMaxMB", &Tokens::shelfStoreMaxMB },
+    { "shelfMaxCheckedItems", &Tokens::shelfMaxCheckedItems },
     { "listVisibleRows", &Tokens::listVisibleRows },
     { "scrollStep", &Tokens::scrollStep },
     { "scrollDurationMs", &Tokens::scrollDuration },
@@ -358,7 +374,7 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
     // lightnesses and chromas (decision 051).
     auto unitless = [](const char* name) {
         std::string_view n(name);
-        return n.starts_with("cover") || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" ||
+        return n.starts_with("cover") || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" || n == "buttonBackdropOpacity" ||
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
     };
     Tokens out = t;

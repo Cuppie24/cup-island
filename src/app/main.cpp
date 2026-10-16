@@ -15,12 +15,14 @@
 //   M  toggle the demo music player (real media shows by itself)
 //   T  toggle a second activity (Split). Click the bubble to open it, or drag
 //      it onto the pill to make it the main one.
-//   C  post a critical alert               D  toggle a simulated accepted drag
+//   C  post a critical alert               D  toggle a simulated drag of one file (decision 061)
 //   H  toggle hidden                       Esc closes what's open (never the app)
 // Quit any time from the tray icon's right-click menu (Exit). Everything is logged to
 // %LOCALAPPDATA%\CupIsland\logs (platform/log.h); Debug builds also show it in a console.
 
+#include "app/drop_input.h"
 #include "app/keyboard_input.h"
+#include "app/selection_input.h"
 #include "app/live_tokens.h"
 #include "core/dialog.h"
 #include "core/hit_test.h"
@@ -28,6 +30,7 @@
 #include "core/island_tint.h"
 #include "core/layout.h"
 #include "core/placement.h"
+#include "core/selection.h"
 #include "core/tabs.h"
 #include "core/text_edit.h"
 #include "core/tokens.h"
@@ -40,6 +43,9 @@
 #include "platform/pill_renderer.h"
 #include "platform/autostart.h"
 #include "platform/displays.h"
+#include "platform/drag_source.h"
+#include "platform/drop_target.h"
+#include "platform/outside_clicks.h"
 #include "platform/render_layer.h"
 #include "platform/single_instance.h"
 #include "platform/stay_on_top.h"
@@ -52,12 +58,17 @@
 #include "providers/file_store.h"
 #include "providers/media/smtc_media_provider.h"
 #include "providers/pomodoro/pomodoro_provider.h"
+#include "providers/shelf/shelf_files.h"
+#include "providers/shelf/shelf_provider.h"
 #include "providers/system/settings_provider.h"
 #include "providers/system/theme_provider.h"
 #include "providers/update/github.h"
 #include "providers/update/update_provider.h"
 #include "providers/provider_registry.h"
 
+#include <ole2.h>
+
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -91,6 +102,7 @@ const auto g_startTime = std::chrono::steady_clock::now();
 IslandState g_state;
 Scene g_scene;
 IslandTint g_tint; // the playing cover's colour on the island (decision 051)
+bool g_picking = false; // Windows' file picker is open over the Shelf (decision 064)
 bool g_coverColours = false; // ...if Settings has it on (decisions 052, 055)
 PillRenderer g_renderer;
 HWND g_inputHwnd{};
@@ -126,12 +138,26 @@ struct Pointer {
     Ms lastClickAt{};                // ...the presses before it, for double- and triple-clicks
     Vec2 lastClickPoint;
     int clicks = 0;
+    bool menuDismissed = false;      // a press that only closed the island's menu: its release does nothing (decision 066)
 } g_pointer;
 
 // Pointer callbacks get render-layer points; content works in pill coordinates.
 Vec2 toPill(Vec2 point) { return { point.x - g_scene.offset.x, point.y - g_scene.offset.y }; }
 bool onPill(Vec2 point) { return Rect{ g_scene.offset.x, g_scene.offset.y, g_scene.size.x, g_scene.size.y }.contains(point); }
 bool onBubble(Vec2 point) { return g_scene.bubble && g_scene.bubble->frame.contains(point); }
+
+// OLE drag and drop doesn't cross integrity levels: started elevated, the
+// island gets no drops from a normal Explorer (decisions 061, 062).
+void logElevation()
+{
+    HANDLE token = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) return;
+    TOKEN_ELEVATION elevation{};
+    DWORD size = 0;
+    if (GetTokenInformation(token, TokenElevation, &elevation, sizeof elevation, &size) && elevation.TokenIsElevated)
+        logLine("running elevated (as administrator): drag and drop from Explorer won't reach the island");
+    CloseHandle(token);
+}
 
 Ms now()
 {
@@ -210,7 +236,7 @@ const Placed* contentUnder(Vec2 point)
 std::string rowUnder(Vec2 point)
 {
     const Placed* p = contentUnder(point);
-    return p ? p->key.substr(0, p->key.rfind('/')) : std::string();
+    return p ? hoverGroup(*p) : std::string(); // a grid's cell, else its row (decision 063)
 }
 
 // Where hover feedback comes from: the keyboard's focus while it leads (decision 031), else the pointer.
@@ -245,7 +271,16 @@ void updateHover()
     if (tile && !tile->clickable()) tile = nullptr; // widgets without a card or tap action don't react
     // A list item (a to-do) lights up as a whole row, like a tab (Row::listItem).
     const Placed* item = at && !g_pointer.scrub ? contentUnder(*at) : nullptr;
-    if (tab) g_renderer.setAreaHovered(tab->frame, g_scene.tabs->radius);
+    // A drag lights the zone it's over (decision 061): no mouse messages come during it.
+    const ZoneMark* zone = nullptr;
+    for (const ZoneMark& z : g_scene.zones)
+        if (z.hovered) zone = &z;
+    // A menu's item lights over its panel (decision 066), not under it with the card's.
+    bool menuItem = item && item->listRow && item->key.rfind("menu/", 0) == 0;
+    g_renderer.setMenuHovered(menuItem ? item->listRow : std::nullopt, item ? item->listRowRadius : 0);
+    if (menuItem) g_renderer.setAreaHovered(std::nullopt, 0);
+    else if (zone) g_renderer.setAreaHovered(zone->frame, g_scene.tileRadius);
+    else if (tab) g_renderer.setAreaHovered(tab->frame, g_scene.tabs->radius);
     else if (tile) g_renderer.setAreaHovered(tile->frame, g_scene.tileRadius);
     else if (item && item->listRow) g_renderer.setAreaHovered(item->listRow, item->listRowRadius);
     else g_renderer.setAreaHovered(std::nullopt, 0);
@@ -272,6 +307,24 @@ void saveSpot();
 void onLifted();
 void tokensChanged(Vec2 oldCanvas, const char* reason);
 
+// The provider whose card (panel or activity) this is.
+std::string providerOf(const std::string& activityId)
+{
+    if (const Activity* a = findActivity(g_state, activityId)) return a->providerId;
+    if (const Panel* p = findPanel(g_state, activityId)) return p->providerId;
+    return {};
+}
+
+// What's picked changed (decision 064): its provider is told, and one that
+// lost its selection (another card, another list) is told it's empty.
+void tellSelection(const std::optional<Selection>& was, const std::optional<Selection>& now)
+{
+    if (was == now || !g_providers) return;
+    bool sameList = was && now && was->activityId == now->activityId && was->list == now->list;
+    if (was && !sameList) g_providers->selectionChanged(providerOf(was->activityId), was->activityId, was->list, {});
+    if (now && (!was || was->ids != now->ids || !sameList)) g_providers->selectionChanged(providerOf(now->activityId), now->activityId, now->list, now->ids);
+}
+
 void dispatch(const Event& event, const char* reason)
 {
     if (g_uiQueue && std::this_thread::get_id() != g_uiThread) {
@@ -285,6 +338,7 @@ void dispatch(const Event& event, const char* reason)
     Spot spot = g_state.spot;
     bool wasHidden = g_state.hidden;
     std::optional<ShownCard> wasCard = shownCard(g_state);
+    std::optional<Selection> wasSelection = g_state.selection;
     g_state = reduce(g_state, event, t);
     Scene next = layout(g_state, t, [](const Text& text) { return g_renderer.measure(text); });
 
@@ -320,6 +374,12 @@ void dispatch(const Event& event, const char* reason)
         if (app::setTint(g_tint.shown)) tokensChanged(oldCanvas, "cover");
     }
 
+    // Open but never activated (after a drop): a press elsewhere must close it all the same (decision 063).
+    watchOutsideClicks(g_inputHwnd, mode(g_state) == Mode::Expanded && GetForegroundWindow() != g_inputHwnd);
+    if (app::takeFocusRequest()) dispatch(FocusTaken{}, "focus taken"); // a provider's ask, honoured once (decision 063)
+    // Before the card check below returns: a provider that republishes dispatches again.
+    tellSelection(wasSelection, g_state.selection);
+
     // Hidden (a fullscreen app, decision 032): the shortcuts let go of their keys, so that app gets them.
     // Last: Settings republishes, which dispatches again.
     if (g_state.hidden != wasHidden && g_settings) g_settings->setHotkeysActive(!g_state.hidden);
@@ -329,6 +389,21 @@ void dispatch(const Event& event, const char* reason)
     if (nowCard == wasCard || !g_providers) return;
     if (wasCard) g_providers->cardClosed(*wasCard);
     if (nowCard) g_providers->cardShown(*nowCard);
+}
+
+// What a drag over the island needs from the app (decision 061, app/drop_input.h).
+app::DropHooks dropHooks()
+{
+    return {
+        .state = []() -> const IslandState& { return g_state; },
+        .scene = []() -> const Scene& { return g_scene; },
+        .dispatch = dispatch,
+        .providers = [] { return g_providers.get(); },
+        .toPill = [](POINT screen) {
+            return Vec2{ static_cast<float>(screen.x - g_render.left) - g_scene.offset.x, static_cast<float>(screen.y - g_render.top) - g_scene.offset.y };
+        },
+        .window = g_inputHwnd,
+    };
 }
 
 void toggleProvider(const char* id)
@@ -454,7 +529,18 @@ void onPressDown(Vec2 canvasPoint)
     }
     Vec2 point = toPill(canvasPoint);
     g_pointer.at = point;
-    if (const Tab* tab = tabUnder(point)) {
+    // The island's menu: a press off its items only closes it, like Explorer's (decision 066).
+    bool onMenu = false;
+    if (g_state.menu) {
+        auto hit = hitTest(g_scene, point);
+        onMenu = hit && hit->key.rfind("menu/", 0) == 0;
+        if (!onMenu) {
+            dispatch(MenuClosed{}, "menu dismissed");
+            g_pointer.menuDismissed = true;
+            return;
+        }
+    }
+    if (const Tab* tab = onMenu ? nullptr : tabUnder(point)) {
         g_pointer.tabPress = tab->id; // switches on release, if still on the same tab
         return;
     }
@@ -468,6 +554,11 @@ void onPressDown(Vec2 canvasPoint)
     }
     if (element && std::holds_alternative<TextInput>(element->item)) {
         pressField(*element, canvasPoint, point);
+        return;
+    }
+    // A selectable list's thing, or its empty part: picked like files in Explorer (decision 064).
+    if (!onMenu && app::selectionPressed(point, element)) {
+        updateHover();
         return;
     }
     if (const Tile* tile = element ? nullptr : tileAt(g_scene, point)) {
@@ -489,7 +580,7 @@ void onPressDown(Vec2 canvasPoint)
             g_pointer.listPress = *element;
             g_pointer.listPressY = point.y;
         }
-    } else {
+    } else if (!g_scene.steadyPress) { // a card can ask not to (Content::steadyPress, decision 063)
         g_renderer.pressDown(false);
     }
     updateHover();
@@ -514,6 +605,7 @@ void onPointerMoved(Vec2 canvasPoint, bool inside)
     }
     Vec2 point = toPill(canvasPoint);
     g_pointer.at = inside && onPill(canvasPoint) ? std::optional<Vec2>(point) : std::nullopt;
+    app::selectionMoved(point); // a box being drawn round things (decision 064)
     if (const Placed* field = g_pointer.selecting.empty() || !g_state.draft ? nullptr : findElement(g_pointer.selecting)) {
         std::size_t at = g_renderer.caretAt(*field, point); // off either end: its first or last character
         if (at != g_state.draft->caret) dispatch(CaretPlaced{ at, true }, "select");
@@ -554,9 +646,33 @@ void clickTile(const Tile& tile)
     }
 }
 
+// One of the island's menu items (decision 066): the menu closes, then its
+// action goes to the provider, Rename edits the name in place, Select all is the host's.
+void chooseMenuItem(const std::string& actionId)
+{
+    Menu menu = *g_state.menu;
+    dispatch(MenuClosed{}, "menu chosen");
+    auto item = std::find_if(menu.items.begin(), menu.items.end(), [&](const MenuItem& i) { return i.actionId == actionId; });
+    if (item == menu.items.end()) return;
+    if (actionId == kMenuSelectAll) {
+        dispatch(SelectionSet{ menu.activityId, menu.list, selectableItems(g_state, menu.activityId, menu.list) }, "pick all");
+    } else if (item->editsText) {
+        const Text* text = editedText(g_scene, menu.activityId, actionId);
+        if (!text) return;
+        SetFocus(g_inputHwnd);
+        dispatch(InputFocused{ menu.providerId, menu.activityId, actionId, text->value, true, std::nullopt, text->editMaxLength }, "rename");
+    } else {
+        act({ menu.providerId, menu.activityId, actionId });
+    }
+}
+
 // `at`: where a click was (pill coordinates); none for Enter or Space.
 void clickElement(const Hit& hit, std::optional<Vec2> at = std::nullopt)
 {
+    if (g_state.menu && hit.key.rfind("menu/", 0) == 0) {
+        chooseMenuItem(hit.action.actionId);
+        return;
+    }
     const Placed* element = findElement(hit.key);
     auto* text = element ? std::get_if<Text>(&element->item) : nullptr;
     if (text && !text->editAction.empty()) {
@@ -573,6 +689,38 @@ void clickElement(const Hit& hit, std::optional<Vec2> at = std::nullopt)
     } else if (!element || !startEditing(*element)) {
         act(hit.action);
     }
+}
+
+// The last click on something a double-click opens (Row::openAction, decision 063).
+struct OpenClick {
+    std::string action;
+    Ms at{};
+    Vec2 point;
+} g_openClick;
+
+// A second click on the same thing, soon and close enough, is a double-click: true if it opened it.
+bool openedByDoubleClick(Vec2 point)
+{
+    const Placed* under = contentUnder(point);
+    // A button on it (Remove, Show in folder) is its own click, never half of an open.
+    auto hit = hitTest(g_scene, point);
+    const Placed* pressed = hit ? findElement(hit->key) : nullptr;
+    if (pressed && std::holds_alternative<Button>(pressed->item)) under = nullptr;
+    if (!under || under->openAction.empty()) {
+        g_openClick = {};
+        return false;
+    }
+    Ms t = now();
+    bool twice = g_openClick.action == under->openAction && t - g_openClick.at <= Ms{ GetDoubleClickTime() } &&
+                 std::abs(point.x - g_openClick.point.x) <= GetSystemMetrics(SM_CXDOUBLECLK) &&
+                 std::abs(point.y - g_openClick.point.y) <= GetSystemMetrics(SM_CYDOUBLECLK);
+    if (!twice) {
+        g_openClick = { under->openAction, t, point };
+        return false;
+    }
+    g_openClick = {};
+    act({ under->providerId, under->activityId, under->openAction, 0 });
+    return true;
 }
 
 void onPressRelease(Vec2 canvasPoint, Release how)
@@ -599,6 +747,7 @@ void onPressRelease(Vec2 canvasPoint, Release how)
         if (tile && tile->id == id) clickTile(*tile);
         return;
     }
+    if (std::exchange(g_pointer.menuDismissed, false)) return;
     if (g_pointer.bubblePress) {
         g_pointer.bubblePress.reset();
         if (!g_pointer.dragged) g_renderer.pressRelease(true);
@@ -618,6 +767,15 @@ void onPressRelease(Vec2 canvasPoint, Release how)
         g_renderer.endScrub(bar.key, commit ? std::optional<float>(g_pointer.scrubFraction) : std::nullopt, now());
         if (commit) g_providers->route({ bar.providerId, bar.activityId, "seek", g_pointer.scrubFraction });
         dispatch(PointerMoved{}, "seek");
+        return;
+    }
+    if (how == Release::Inside && onPill(canvasPoint) && !g_state.menu && openedByDoubleClick(point)) {
+        if (!g_pointer.pressedKey.empty()) g_renderer.releaseElement(std::exchange(g_pointer.pressedKey, std::string{}));
+        else g_renderer.pressRelease(false);
+        return;
+    }
+    if (app::selectionReleased(how == Release::Inside && onPill(canvasPoint))) {
+        updateHover();
         return;
     }
     if (!g_pointer.pressedKey.empty()) {
@@ -730,6 +888,16 @@ void onKey(WPARAM key)
     }
     // Alt combinations (WM_SYSKEYDOWN) are only for recording a shortcut; Windows handles the rest (not Alt+F4: decision 049).
     if (alt) return;
+    // Shift+F10 and the menu key: the island's menu for what's picked (decision 066).
+    if (key == VK_APPS || (key == VK_F10 && GetKeyState(VK_SHIFT) < 0)) {
+        app::openMenu(std::nullopt);
+        return;
+    }
+    if (g_state.menu && key == VK_ESCAPE) { // the menu goes first, before the selection and the card
+        dispatch(EscapePressed{}, "esc");
+        return;
+    }
+    if (app::selectionKey(key, ctrl)) return; // Ctrl+A, Delete, Enter, F2 with things picked (decision 064)
     if (app::navigationKey(key)) return; // the arrows, Tab, Home/End, 1 to 9, Enter and Space (decisions 031, 033)
     switch (key) {
     case VK_ESCAPE: {
@@ -764,10 +932,7 @@ void onKey(WPARAM key)
         dispatch(AlertPosted{ { .level = Level::Critical, .content = content } }, "demo key");
         break;
     }
-    case 'D':
-        if (g_state.dragging) dispatch(DragLeft{}, "demo key");
-        else dispatch(DragEntered{ true }, "demo key");
-        break;
+    case 'D': app::toggleDemoDrag(dropHooks()); break;
     case 'H': dispatch(HiddenChanged{ !g_state.hidden }, "demo key"); break;
     }
 }
@@ -888,6 +1053,9 @@ int main()
     reportPreviousCrash(); // a crash too abrupt for watchForCrashes() still shows up here
 
     winrt::init_apartment(winrt::apartment_type::single_threaded);
+    // Drag and drop needs OLE on this thread, not just its apartment (decision 061).
+    if (FAILED(OleInitialize(nullptr))) logLine("OLE didn't start: no drag and drop");
+    logElevation();
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     auto queueController = createDispatcherQueueForCurrentThread();
 
@@ -920,8 +1088,13 @@ int main()
     callbacks.onPressDown = onPressDown;
     callbacks.onPressRelease = onPressRelease;
     callbacks.onClickOutside = [] {
+        if (g_picking) return; // Windows' file picker took the focus: not a click outside
         finishEditing("edit kept"); // the card closes: what was typed into a to-do stays
         dispatch(ClickedOutside{}, "click outside");
+    };
+    callbacks.onContextMenu = [](std::optional<Vec2> point) {
+        if (g_picking || g_state.draft) return; // a field has its own keys; Windows' picker is up
+        app::openMenu(point ? std::optional<Vec2>(toPill(*point)) : std::nullopt);
     };
     callbacks.onPointerMoved = onPointerMoved;
     callbacks.onPointerLeft = [] {
@@ -970,6 +1143,18 @@ int main()
     g_providers->add(std::make_unique<DemoMediaProvider>()); // M key
     g_providers->add(std::make_unique<ThemeProvider>(postToUi));
     g_providers->add(std::make_unique<PomodoroProvider>());
+    shelf_files::clearUnfinished(); // copies cut short by the last quit (decision 061)
+    {
+        // Windows' file picker is modal and takes the focus: the card stays open under it (decision 064).
+        ShelfHooks shelfHooks = shelf_files::hooks(postToUi, g_inputHwnd);
+        shelfHooks.pickFiles = [pick = shelfHooks.pickFiles](std::function<void(std::vector<DroppedItem>)> done) {
+            g_picking = true;
+            pick(std::move(done));
+            g_picking = false;
+            SetForegroundWindow(g_inputHwnd);
+        };
+        g_providers->add(std::make_unique<ShelfProvider>(std::move(shelfHooks)));
+    }
     auto settings = std::make_unique<SettingsProvider>(SettingsHooks{
         .applyTheme = applyTheme,
         .copyLogs = [] { return copyLogToClipboard(g_inputHwnd); },
@@ -996,6 +1181,28 @@ int main()
     });
     g_settings = settings.get();
     g_settings->setHotkeysActive(!g_state.hidden); // started under a fullscreen app: none until it's gone
+    app::setSelectionHooks({
+        .state = []() -> const IslandState& { return g_state; },
+        .scene = []() -> const Scene& { return g_scene; },
+        .dispatch = dispatch,
+        .act = act,
+        .rename = [](const Placed& name) {
+            const Text& text = std::get<Text>(name.item);
+            SetFocus(g_inputHwnd);
+            dispatch(InputFocused{ name.providerId, name.activityId, text.editAction, text.value, true, std::nullopt, text.editMaxLength }, "rename");
+        },
+        .showBox = [](std::optional<Rect> box) { g_renderer.setSelectionBox(box); },
+        .dragOut = [](const std::string& providerId, const std::string& activityId, const std::string& list, const std::vector<std::string>& ids) {
+            std::vector<std::string> paths = g_providers ? g_providers->dragOut(providerId, activityId, list, ids) : std::vector<std::string>{};
+            if (paths.empty()) return;
+            logLine("dragging %zu out", paths.size());
+            dragFilesOut(g_inputHwnd, paths); // modal; the capture it takes ends the press
+            dispatch(PointerMoved{}, "dragged out"); // busy here: the card stays open
+        },
+        .contextMenu = [](const std::string& providerId, const std::string& activityId, const std::string& list, const std::vector<std::string>& ids) {
+            return g_providers ? g_providers->contextMenu(providerId, activityId, list, ids) : std::vector<MenuItem>{};
+        },
+    });
     app::setKeyboardHooks({
         .state = []() -> const IslandState& { return g_state; },
         .scene = []() -> const Scene& { return g_scene; },
@@ -1030,10 +1237,18 @@ int main()
     // first (decision 019), then the system tiles.
     g_providers->start("media");
     g_providers->start("pomodoro");
+    g_providers->start("shelf");
     g_providers->start("system.theme");
     g_providers->start("system.settings");
     g_providers->start("system.update");
     dispatch(readWallClock(), "clock");
+
+    // Drags from Explorer, a browser, an editor (decision 061).
+    platform::DropCallbacks drops = app::dropCallbacks(dropHooks());
+    drops.postToUi = postToUi;
+    drops.storeFolder = shelf_files::storeFolder().wstring();
+    drops.maxChecked = tokens().shelfMaxCheckedItems;
+    registerDropTarget(g_inputHwnd, std::move(drops));
 
     // TR §9.2: hide over borderless/exclusive fullscreen apps on this monitor.
     watchFullscreen(render.hwnd, [](bool fullscreen) { dispatch(HiddenChanged{ fullscreen }, "fullscreen"); });

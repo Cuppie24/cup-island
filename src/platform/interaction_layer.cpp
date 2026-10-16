@@ -1,4 +1,7 @@
 #include "platform/interaction_layer.h"
+
+#include "platform/drop_target.h"
+#include "platform/outside_clicks.h"
 #include "platform/log.h"
 #include "platform/single_instance.h"
 
@@ -151,6 +154,10 @@ try {
         call(g_callbacks.onShowRequested);
         return 0;
     }
+    if (message == outsideClickMessage()) { // open but never activated: a press elsewhere (decision 063)
+        call(g_callbacks.onClickOutside);
+        return 0;
+    }
     switch (message) {
     case WM_APP_COMPOSITOR_TICK:
         onCompositorTick();
@@ -196,6 +203,17 @@ try {
         if (LOWORD(lParam) != HTCLIENT) break;
         showCursor();
         return TRUE;
+
+    case WM_CONTEXTMENU: { // a right-click's release, or the keyboard's (lParam -1): the island's own menu (decision 066)
+        if (lParam == -1) {
+            call(g_callbacks.onContextMenu, std::optional<Vec2>{});
+        } else {
+            POINT pt{ GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) }; // screen coordinates
+            ScreenToClient(hwnd, &pt);
+            call(g_callbacks.onContextMenu, std::optional<Vec2>(pointFrom(MAKELPARAM(pt.x, pt.y))));
+        }
+        return 0;
+    }
 
     case WM_MOUSEWHEEL: {
         // Notches, positive = towards the user (down). Touchpads send fractions
@@ -263,6 +281,8 @@ try {
         return TRUE;
 
     case WM_DESTROY:
+        watchOutsideClicks(hwnd, false);
+        revokeDropTarget(hwnd); // OLE wants it gone before the window (decision 061)
         PostQuitMessage(0);
         return 0;
     }

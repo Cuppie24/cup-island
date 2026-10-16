@@ -104,6 +104,7 @@ void SmtcMediaProvider::watchAllSessions()
 void SmtcMediaProvider::onPlaybackChanged()
 {
     platform::logLine("media: playback changed"); // play/pause from any app: should show on the island at once
+    playbackAt_ = host_->now();
     pickSession();
     recheckSoon(alive_);
 }
@@ -242,6 +243,14 @@ winrt::fire_and_forget SmtcMediaProvider::load(std::shared_ptr<bool> alive)
         co_return;
     }
     readFailures_ = 0;
+    // For a while after a play/pause, every read says what it saw, so a late one shows whether it read
+    // a stale state, a stale session, or nothing at all (the island once took 2–20 s after a drag out).
+    if (playbackAt_ && host_->now() - *playbackAt_ < Ms{ 30000 }) {
+        Session current = manager_.GetCurrentSession();
+        platform::logLine("media: read %s from %s (%s), %lld ms after the change, took %lld ms", media.timeline.playing ? "playing" : "paused",
+                          appName(session.SourceAppUserModelId()).c_str(), current && current == session ? "Windows' main" : "not Windows' main",
+                          static_cast<long long>((host_->now() - *playbackAt_).count()), static_cast<long long>((host_->now() - began).count()));
+    }
     if (Ms took = host_->now() - began; took > Ms{ 250 })
         platform::logLine("media: read took %lld ms", static_cast<long long>(took.count()));
     if (shownPlaying_ != media.timeline.playing) {

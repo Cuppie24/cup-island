@@ -45,6 +45,24 @@ public:
     // Ctrl+W on an activity's card: asks its provider to close it (Provider::onCloseRequested).
     void closeRequested(const ShownCard& card);
 
+    // What's selected on a provider's card changed (Provider::onSelectionChanged, decision 064).
+    void selectionChanged(const std::string& providerId, const std::string& activityId, const std::string& list,
+                          const std::vector<std::string>& ids);
+
+    // Picked things dragged out of a provider's card: their files' paths (Provider::dragOut, decision 065).
+    std::vector<std::string> dragOut(const std::string& providerId, const std::string& activityId, const std::string& list,
+                                     const std::vector<std::string>& ids);
+
+    // A context menu's items, from the card's provider (Provider::contextMenu, decision 066).
+    std::vector<MenuItem> contextMenu(const std::string& providerId, const std::string& activityId, const std::string& list,
+                                      const std::vector<std::string>& ids);
+
+    // A drag over the island (decision 061): every running provider's zones
+    // for it, each stamped with its provider. None: nobody takes it.
+    std::vector<DropZone> dropZones(const DragSummary& drag);
+    // A drop on a zone: to its provider alone.
+    void drop(const DropZone& zone, const std::vector<DroppedItem>& items);
+
     // Wake-ups providers asked for (Host::wakeAt): the earliest, for the app's
     // one timer, and calling onWake() on every provider whose time has come.
     std::optional<Ms> nextWake() const;

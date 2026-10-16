@@ -3,9 +3,10 @@
 scenario: accepted drag opens receptive, then returns
 start media
 drag-enter                          -> Receptive
-drag-leave                          -> Compact
+drag-leave                          -> Receptive   # a moment's grace (decision 061)
+wait 150                            -> Compact
 drag-enter
-drop                                -> Compact
+drop                                -> Compact     # not on a zone: nothing lands
 
 scenario: rejected drag is ignored
 drag-rejected                       -> Idle
@@ -14,12 +15,14 @@ scenario: drag wins over expanded, which resumes after
 start media
 click
 drag-enter                          -> Receptive
-drag-leave                          -> Expanded
+drag-leave
+wait 150                            -> Expanded
 
 scenario: drag replays the interrupted alert afterwards
 alert copied                        -> Alert
 drag-enter                          -> Receptive queue=1
-drag-leave                          -> Alert alert=copied
+drag-leave
+wait 150                            -> Alert alert=copied
 
 scenario: hidden drops active alerts and holds urgent ones
 start media

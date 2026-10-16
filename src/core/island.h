@@ -5,6 +5,7 @@
 // Rules come from docs/provider-platform-spec.md (PS) §3 and §6.
 
 #include "core/content.h"
+#include "core/drop.h"
 #include "core/geometry.h"
 #include "core/placement.h"
 
@@ -106,6 +107,34 @@ struct Dialog {
     bool operator==(const Dialog&) const = default;
 };
 
+// Things picked in one list on the shown card (Row::selectable, decision 064),
+// in the list's order. `anchor`: where a Shift+click's range starts.
+struct Selection {
+    std::string activityId, list;
+    std::vector<std::string> ids;
+    std::string anchor;
+    bool operator==(const Selection&) const = default;
+};
+
+// The island's own context menu over a card (decision 066): a right-click,
+// or Shift+F10. Its items come from the card's provider (Provider::contextMenu).
+struct MenuItem {
+    Glyph glyph = Glyph::Edit;
+    std::string label;
+    std::string actionId;     // sent to the provider; kMenuSelectAll is the host's
+    bool destructive = false;
+    bool editsText = false;   // starts editing the Text whose editAction is actionId (Rename, decision 029)
+    bool operator==(const MenuItem&) const = default;
+};
+inline constexpr const char* kMenuSelectAll = "menu.selectAll"; // everything in the menu's list (decision 064)
+
+struct Menu {
+    std::string providerId, activityId, list; // whose card, and the list it's about
+    std::vector<MenuItem> items;
+    Vec2 at;                                  // where it was asked for, pill coordinates
+    bool operator==(const Menu&) const = default;
+};
+
 // --- Events -------------------------------------------------------------
 struct ActivityStarted { Activity activity; };           // existing id = replace
 struct ActivityUpdated { std::string id; Content content; };
@@ -115,9 +144,13 @@ struct PillClicked {};
 struct ClickedOutside {};
 struct EscapePressed {};
 struct PointerMoved {};                 // inside the pill; resets Expanded's idle timeout
-struct DragEntered { bool accepted; };  // accepted: some provider takes the dragged types
-struct DragLeft {};
-struct Dropped {};
+// A drag over the island (decision 061): the zones providers offer for it.
+// None: nobody takes it, nothing happens.
+struct DragEntered { std::vector<DropZone> zones; };
+struct DragZonesChanged { std::vector<DropZone> zones; }; // asked again: the files' sizes are in
+struct DropHovered { std::string zone; };  // the zone under the pointer; "" = none
+struct DragLeft {};                        // Receptive holds a moment (dropLeaveGrace): it may come back
+struct Dropped { std::string zone; };      // let go over this zone ("" or greyed: nothing lands)
 struct HiddenChanged { bool hidden; };  // fullscreen app, user toggle, locked session
 struct Tick {};                         // a deadline from nextDeadline() was reached
 struct BubbleClicked {};                // Split: expand the bubble's (2nd-ranked) activity
@@ -158,7 +191,14 @@ struct DialogClosed {};                  // answered or dismissed: the app sends
 // The wheel over a list (decision 029): `from` is the offset shown (a reveal
 // included), `max` how far it can go (both from the scene).
 struct ListScrolled { std::string activityId, list; float from = 0, delta = 0, max = 0; };
-struct ListRevealed { std::string activityId, list; std::size_t row = 0; }; // Host::reveal
+struct ListRevealed { std::string activityId, list; std::size_t row = 0; bool focus = false; }; // Host::reveal
+struct FocusTaken {};                    // the app moved the keyboard's focus as IslandState::focusRequest asked
+// Picking things in a card's list, like files in Explorer (decision 064).
+struct ItemSelected { std::string activityId, list, id; bool range = false, toggle = false; }; // a click; Shift: range, Ctrl: toggle
+struct SelectionSet { std::string activityId, list; std::vector<std::string> ids; };          // a box drawn round them, Ctrl+A
+struct SelectionCleared {};
+struct MenuOpened { Menu menu; };        // only over the shown card
+struct MenuClosed {};                    // chosen, Esc, a click elsewhere (decision 066)
 struct ListDragStarted { std::string activityId, list; std::size_t row = 0; float y = 0; };
 struct ListDragMoved { float y = 0; };
 struct ListDragEnded {};                 // dropped (the app sends the move first) or cancelled
@@ -172,7 +212,7 @@ struct ClockSynced {
 
 using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, AlertPosted,
                            PillClicked, ClickedOutside, EscapePressed, PointerMoved,
-                           DragEntered, DragLeft, Dropped, HiddenChanged, Tick,
+                           DragEntered, DragZonesChanged, DropHovered, DragLeft, Dropped, HiddenChanged, Tick,
                            BubbleClicked, ActivityPromoted, ActivitySwitched,
                            BubbleDragged, BubbleReleased, BubbleDragCancelled,
                            IslandPressed, IslandDragged, IslandReleased, ScreenResized, SpotRestored,
@@ -180,7 +220,8 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            InputFocused, TextTyped, TextErased, CaretMoved, CaretPlaced, WordSelected, AllSelected,
                            InputSubmitted, InputCancelled,
                            DialogShown, DialogClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,
-                           ListDragEnded, StayOpenToggled, TabRowPlaced>;
+                           ListDragEnded, StayOpenToggled, TabRowPlaced, FocusTaken,
+                           ItemSelected, SelectionSet, SelectionCleared, MenuOpened, MenuClosed>;
 
 // --- State --------------------------------------------------------------
 struct WallClock {
@@ -205,7 +246,11 @@ struct IslandState {
     bool homeOpen = false;             // Expanded, showing Home (expandedId empty)
     bool cardFromHome = false;         // that card was opened from a Home widget: Esc goes back to Home (decision 033)
     Ms lastPointerAt{};
-    bool dragging = false;             // an accepted drag is over the island
+    bool dragging = false;             // an accepted drag is over the island (decision 061)
+    std::vector<DropZone> dropZones;   // ...the zones it can land on
+    std::string dropHover;             // ...the one under the pointer
+    std::optional<Ms> dragLeftAt;      // ...it left: Receptive ends dropLeaveGrace after, unless it comes back
+    bool criticalHeld = false;         // ...a critical alert came during it: Expanded closes for it once it ends
     bool hidden = false;
     std::optional<WallClock> clock;    // unknown until the platform syncs it
     std::optional<Draft> draft;        // a TextInput has focus (decision 016)
@@ -216,6 +261,12 @@ struct IslandState {
     std::optional<Dialog> dialog;      // a question over the shown card (decision 020)
     std::map<std::string, ListScroll> scrolls; // lists' scroll, by "<activityId>/<list>" (decision 029)
     std::optional<ListDrag> listDrag;  // a list row being dragged
+    // A provider asks the keyboard's focus onto a list's row (Host::reveal
+    // with focus, decision 063): the app takes it once (FocusTaken). It goes
+    // with its card, like a draft.
+    std::optional<ListRevealed> focusRequest;
+    std::optional<Selection> selection; // what's picked in the shown card's list (decision 064)
+    std::optional<Menu> menu;           // the context menu over the shown card (decision 066)
     // Pinned open (decision 046): Expanded doesn't time out, and a click
     // outside the island or on a card's empty space doesn't close it. Esc
     // and the card going away still do; closing unpins it.

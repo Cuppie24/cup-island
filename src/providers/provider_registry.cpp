@@ -44,9 +44,9 @@ public:
         registry_.dispatch_(DialogShown{ std::move(dialog) }, providerId_.c_str());
     }
 
-    void reveal(const std::string& activityId, const std::string& list, std::size_t row) override
+    void reveal(const std::string& activityId, const std::string& list, std::size_t row, bool focus) override
     {
-        registry_.dispatch_(ListRevealed{ activityId, list, row }, providerId_.c_str());
+        registry_.dispatch_(ListRevealed{ activityId, list, row, focus }, providerId_.c_str());
     }
 
     void wakeAt(std::optional<Ms> at) override
@@ -134,6 +134,44 @@ void ProviderRegistry::cardShown(const ShownCard& card)
 void ProviderRegistry::closeRequested(const ShownCard& card)
 {
     if (Entry* e = find(card.providerId); e && e->running) e->provider->onCloseRequested(card.activityId);
+}
+
+void ProviderRegistry::selectionChanged(const std::string& providerId, const std::string& activityId, const std::string& list,
+                                        const std::vector<std::string>& ids)
+{
+    if (Entry* e = find(providerId); e && e->running) e->provider->onSelectionChanged(activityId, list, ids);
+}
+
+std::vector<std::string> ProviderRegistry::dragOut(const std::string& providerId, const std::string& activityId, const std::string& list,
+                                                  const std::vector<std::string>& ids)
+{
+    Entry* e = find(providerId);
+    return e && e->running ? e->provider->dragOut(activityId, list, ids) : std::vector<std::string>{};
+}
+
+std::vector<MenuItem> ProviderRegistry::contextMenu(const std::string& providerId, const std::string& activityId, const std::string& list,
+                                                   const std::vector<std::string>& ids)
+{
+    Entry* e = find(providerId);
+    return e && e->running ? e->provider->contextMenu(activityId, list, ids) : std::vector<MenuItem>{};
+}
+
+std::vector<DropZone> ProviderRegistry::dropZones(const DragSummary& drag)
+{
+    std::vector<DropZone> zones;
+    for (auto& e : entries_) {
+        if (!e.running) continue;
+        for (DropZone zone : e.provider->dropZones(drag)) {
+            zone.providerId = e.provider->id();
+            zones.push_back(std::move(zone));
+        }
+    }
+    return zones;
+}
+
+void ProviderRegistry::drop(const DropZone& zone, const std::vector<DroppedItem>& items)
+{
+    if (Entry* e = find(zone.providerId); e && e->running && zone.enabled) e->provider->onDrop(zone.id, items);
 }
 
 std::optional<Ms> ProviderRegistry::nextWake() const

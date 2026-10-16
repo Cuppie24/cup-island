@@ -34,6 +34,8 @@ struct InteractionCallbacks {
     std::function<void(wchar_t character)> onChar; // typed text (WM_CHAR), for a focused text field
     std::function<void(float scale)> onDpiChanged; // the display's scale changed (1.0 = 100%)
     std::function<void(Vec2 point, float notches)> onWheel; // wheel notches over the pill (fractions from touchpads); positive = down
+    // A right-click at `point`, or Shift+F10 / the menu key (nothing: where the selection is). Decision 066.
+    std::function<void(std::optional<Vec2> point)> onContextMenu;
     std::function<void(TimerId)> onTimer;
     std::function<void()> onShowRequested; // the app was launched again (single_instance.h)
     std::function<void()> onDisplaysChanged; // a monitor was plugged, unplugged, resized or rearranged

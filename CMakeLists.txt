@@ -28,8 +28,11 @@ add_library(cup_core STATIC
     src/core/content.cpp
     src/core/cover_palette.cpp
     src/core/dialog.cpp
+    src/core/drag.cpp
+    src/core/drop_layout.cpp
     src/core/easing.cpp
     src/core/fullscreen.cpp
+    src/core/grid_layout.cpp
     src/core/hit_test.cpp
     src/core/home.cpp
     src/core/island.cpp
@@ -41,7 +44,9 @@ add_library(cup_core STATIC
     src/core/layout.cpp
     src/core/lift.cpp
     src/core/lists.cpp
+    src/core/menu_layout.cpp
     src/core/placement.cpp
+    src/core/selection.cpp
     src/core/shortcuts.cpp
     src/core/slot_layout.cpp
     src/core/split.cpp
@@ -71,6 +76,11 @@ add_library(cup_providers STATIC
     src/providers/update/release.cpp
     src/providers/update/update_provider.cpp
     src/providers/provider_registry.cpp
+    src/providers/shelf/drop_plan.cpp
+    src/providers/shelf/safe_names.cpp
+    src/providers/shelf/shelf_content.cpp
+    src/providers/shelf/shelf_items.cpp
+    src/providers/shelf/shelf_provider.cpp
 )
 target_link_libraries(cup_providers PUBLIC cup_core)
 
@@ -93,6 +103,9 @@ if(CUP_BUILD_TESTS)
         tests/provider_tests.cpp
         tests/unit_tests.cpp
         tests/update_tests.cpp
+        tests/shelf_tests.cpp
+        tests/drop_tests.cpp
+        tests/grid_tests.cpp
         tests/scenario_runner.cpp
         tests/settings_tests.cpp
         tests/settings_new_tests.cpp
@@ -147,9 +160,11 @@ if(WIN32)
 
     add_executable(CupIsland
         assets/cup_island.rc
+        src/app/drop_input.cpp
         src/app/keyboard_input.cpp
         src/app/live_tokens.cpp
         src/app/main.cpp
+        src/app/selection_input.cpp
         src/platform/autostart.cpp
         src/platform/badge_dots.cpp
         src/platform/blob.cpp
@@ -157,6 +172,8 @@ if(WIN32)
         src/platform/blob_shape.cpp
         src/platform/crash_report.cpp
         src/platform/displays.cpp
+        src/platform/drag_source.cpp
+        src/platform/drop_target.cpp
         src/platform/element_art.cpp
         src/platform/element_painting.cpp
         src/platform/field_painting.cpp
@@ -171,8 +188,10 @@ if(WIN32)
         src/platform/interaction_layer.cpp
         src/platform/log.cpp
         src/platform/liquid_bridge.cpp
+        src/platform/outside_clicks.cpp
         src/platform/pill_renderer.cpp
         src/platform/render_layer.cpp
+        src/platform/shell_images.cpp
         src/platform/single_instance.cpp
         src/platform/text_input.cpp
         src/platform/stay_on_top.cpp
@@ -184,13 +203,14 @@ if(WIN32)
         src/providers/media/browser_tabs.cpp
         src/providers/media/smtc_media_provider.cpp
         src/providers/media/smtc_reading.cpp
+        src/providers/shelf/shelf_files.cpp
         src/providers/system/theme_provider.cpp
         src/providers/update/github.cpp
     )
     # The icon isn't an #include, so the build doesn't see it change on its own.
     set_source_files_properties(assets/cup_island.rc PROPERTIES OBJECT_DEPENDS ${CMAKE_SOURCE_DIR}/assets/cup_island.ico)
     target_include_directories(CupIsland PRIVATE "${CMAKE_BINARY_DIR}/generated") # cup_version.h, for the code and the .rc
-    target_link_libraries(CupIsland PRIVATE cup_providers WindowsApp CoreMessaging User32 Advapi32 Ole32 Dbghelp d3d11 d2d1 dwrite dxgi dwmapi shell32 Shcore wevtapi)
+    target_link_libraries(CupIsland PRIVATE cup_providers WindowsApp CoreMessaging User32 Advapi32 Ole32 Dbghelp d3d11 d2d1 dwrite dxgi dwmapi shell32 Shcore wevtapi uuid)
     # Release: a GUI app, no console window (quit from the tray icon). Debug keeps
     # the console for the log. mainCRTStartup lets main() stay the entry point.
     # /DEBUG writes the pdb; it would turn off /OPT:REF and /OPT:ICF, so they're asked back.

@@ -6,8 +6,10 @@
 //
 // Commands:  start <id> [level] [relevance] [expires=<ms>]   update <id>   end <id>
 //            alert <name> [level] [for=<activity|panel>] [key=<coalesceKey>] [refresh]
-//            click  outside  esc  pointer  drag-enter  drag-rejected
-//            drag-leave  drop  hide  show  wait <ms>
+//            click  outside  esc  pointer  hide  show  wait <ms>
+//            drag-enter [<card>:<zone>[!] ...]  drag-update <zones...>  drag-rejected  (a drag, decision 061:
+//            hover <zone>|none  drag-leave  drop [<zone>]              ! = greyed; no zones: shelf:copy;
+//                                                                     drop without one: on the hovered zone)
 //            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel
 //            panel <id> [static|keep]  unpanel <id>  home  tile <id>  (static: a widget with no card;
 //                                                                     keep: its card stays open on a click, decision 030)
@@ -19,11 +21,17 @@
 //            tabrow top|bottom                                                       (Settings' Tab row, decision 048)
 //            ask <card>  close-dialog                                               (a provider's dialog, decision 020)
 //            edit <card> <action> <text> [at=<n>]                                   (a Text edited in place, decision 029)
-//            wheel <card> <list> <from> <delta> <max>  reveal <card> <list> <row>    (lists, decision 029)
+//            wheel <card> <list> <from> <delta> <max>  reveal <card> <list> <row> [focus]  (lists, decision 029;
+//            focus-taken                                                           focus: decision 063)
+//            panel <id> files|grid <n>   choose <card> <id> [shift] [ctrl]   choose-set <card> <ids...>   choose-none
+//                                                                          (selection, decision 064; the list is "files")
+//            menu <card>  menu-close                                         (the context menu, decision 066)
 //            pick <card> <list> <row> <y>  carry <y>  put-down
 //            screen <width>  hold  move <dx>  let-go  restore <dock> [fraction]      (lifting the island, decision 026)
 // Checks after "->":  <Mode>  queue=<n>  top=<activity>  bubble=<activity>  alert=<name>
-//                     expanded=<activity|panel|home>  pinned=<activity>  dragging=yes|no  preview=yes|no
+//                     expanded=<activity|panel|home>  pinned=<activity>  dragging=yes|no (the bubble)  preview=yes|no
+//                     chosen=<id,id...>|none (the selection)  menu=<card>|none
+//                     zone=<zone>|none (the hovered drop zone)  focus=<card>/<list>/<row>|none (asked)
 //                     draft=<text>|empty|none  (_ for a space)  dialog=<card>|none
 //                     caret=<byte offset>  selected=<text>|none  (_ for a space)
 //                     lifted=yes|no  spot=centre|left|right|free  stay=yes|no  tabs=top|bottom
@@ -74,6 +82,22 @@ std::optional<std::string> option(const std::string& word, const std::string& ke
 {
     if (word.rfind(key + "=", 0) != 0) return std::nullopt;
     return word.substr(key.size() + 1);
+}
+
+// "shelf:copy!" -> a zone "copy" on the card "shelf", greyed.
+std::vector<DropZone> zonesFrom(const std::vector<std::string>& w, std::size_t from)
+{
+    std::vector<DropZone> zones;
+    for (std::size_t i = from; i < w.size() && w[i] != "->"; ++i) {
+        std::string word = w[i];
+        bool greyed = !word.empty() && word.back() == '!';
+        if (greyed) word.pop_back();
+        auto colon = word.find(':');
+        std::string card = colon == std::string::npos ? "shelf" : word.substr(0, colon);
+        std::string id = colon == std::string::npos ? word : word.substr(colon + 1);
+        zones.push_back({ .providerId = card, .id = id, .cardId = card, .label = id, .enabled = !greyed });
+    }
+    return zones;
 }
 
 struct Runner {
@@ -134,10 +158,16 @@ struct Runner {
         else if (cmd == "outside") apply(ClickedOutside{});
         else if (cmd == "esc") apply(EscapePressed{});
         else if (cmd == "pointer") apply(PointerMoved{});
-        else if (cmd == "drag-enter") apply(DragEntered{ true });
-        else if (cmd == "drag-rejected") apply(DragEntered{ false });
+        else if (cmd == "drag-enter") {
+            std::vector<DropZone> zones = zonesFrom(w, 1);
+            if (zones.empty()) zones = zonesFrom({ "shelf:copy" }, 0);
+            apply(DragEntered{ zones });
+        }
+        else if (cmd == "drag-update") apply(DragZonesChanged{ zonesFrom(w, 1) });
+        else if (cmd == "drag-rejected") apply(DragEntered{});
+        else if (cmd == "hover") apply(DropHovered{ arg(1) == "none" ? "" : arg(1) });
         else if (cmd == "drag-leave") apply(DragLeft{});
-        else if (cmd == "drop") apply(Dropped{});
+        else if (cmd == "drop") apply(Dropped{ arg(1).empty() ? state.dropHover : arg(1) });
         else if (cmd == "hide") apply(HiddenChanged{ true });
         else if (cmd == "show") apply(HiddenChanged{ false });
         else if (cmd == "wait") wait(Ms{ std::stoi(arg(1)) });
@@ -151,6 +181,16 @@ struct Runner {
             Panel p{ .id = arg(1), .content = { .label = arg(1) } };
             if (arg(2) != "static") p.content.expandedCenter = { row({ Text{ arg(1) } }) };
             p.content.keepOpen = arg(2) == "keep";
+            // files <n>: a list of n selectable rows a, b, c… (decision 064); `grid`: as one grid's cells.
+            if (arg(2) == "files" || arg(2) == "grid") {
+                Row grid{ .list = "files", .id = "grid", .selectable = true };
+                for (int i = 0; i < std::stoi(arg(3)); ++i) {
+                    std::string id(1, static_cast<char>('a' + i));
+                    if (arg(2) == "grid") grid.cells.push_back({ .id = id, .rows = { row({ Text{ id } }) } });
+                    else p.content.expandedCenter.push_back(Row{ .items = { Text{ id } }, .list = "files", .id = id, .selectable = true });
+                }
+                if (arg(2) == "grid") p.content.expandedCenter.push_back(grid);
+            }
             apply(PanelPublished{ p });
         }
         else if (cmd == "unpanel") apply(PanelRemoved{ arg(1) });
@@ -185,7 +225,13 @@ struct Runner {
         else if (cmd == "tabrow") apply(TabRowPlaced{ arg(1) != "bottom" });
         else if (cmd == "edit") apply(InputFocused{ "p", arg(1), arg(2), arg(3), /* editing */ true, at(4) });
         else if (cmd == "wheel") apply(ListScrolled{ arg(1), arg(2), std::stof(arg(3)), std::stof(arg(4)), std::stof(arg(5)) });
-        else if (cmd == "reveal") apply(ListRevealed{ arg(1), arg(2), std::stoul(arg(3)) });
+        else if (cmd == "reveal") apply(ListRevealed{ arg(1), arg(2), std::stoul(arg(3)), arg(4) == "focus" });
+        else if (cmd == "focus-taken") apply(FocusTaken{});
+        else if (cmd == "choose") apply(ItemSelected{ arg(1), "files", arg(2), arg(3) == "shift" || arg(4) == "shift", arg(3) == "ctrl" || arg(4) == "ctrl" });
+        else if (cmd == "choose-set") apply(SelectionSet{ arg(1), "files", { w.begin() + 2, std::find(w.begin(), w.end(), std::string("->")) } });
+        else if (cmd == "choose-none") apply(SelectionCleared{});
+        else if (cmd == "menu") apply(MenuOpened{ { arg(1), arg(1), "files", { MenuItem{ .label = "Open", .actionId = "open" } }, { 20, 20 } } });
+        else if (cmd == "menu-close") apply(MenuClosed{});
         else if (cmd == "pick") apply(ListDragStarted{ arg(1), arg(2), std::stoul(arg(3)), std::stof(arg(4)) });
         else if (cmd == "carry") apply(ListDragMoved{ std::stof(arg(1)) });
         else if (cmd == "put-down") apply(ListDragEnded{});
@@ -219,6 +265,22 @@ struct Runner {
             } else if (auto v = option(word, "dragging")) {
                 std::string got = state.bubbleDrag ? "yes" : "no";
                 if (got != *v) fail("dragging=" + *v + ", got " + got);
+            } else if (auto v = option(word, "focus")) {
+                const auto& f = state.focusRequest;
+                std::string got = f ? f->activityId + "/" + f->list + "/" + std::to_string(f->row) : "none";
+                if (got != *v) fail("focus=" + *v + ", got " + got);
+            } else if (auto v = option(word, "menu")) {
+                std::string got = state.menu ? state.menu->activityId : "none";
+                if (got != *v) fail("menu=" + *v + ", got " + got);
+            } else if (auto v = option(word, "chosen")) {
+                std::string got;
+                if (state.selection)
+                    for (const std::string& id : state.selection->ids) got += (got.empty() ? "" : ",") + id;
+                if (got.empty()) got = "none";
+                if (got != *v) fail("chosen=" + *v + ", got " + got);
+            } else if (auto v = option(word, "zone")) {
+                std::string got = state.dropHover.empty() ? "none" : state.dropHover;
+                if (got != *v) fail("zone=" + *v + ", got " + got);
             } else if (auto v = option(word, "preview")) {
                 std::string got = swapPreview(state) ? "yes" : "no";
                 if (got != *v) fail("preview=" + *v + ", got " + got);

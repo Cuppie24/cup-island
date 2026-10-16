@@ -39,6 +39,9 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 lift.h + placement.h (moving the island along the top edge, decision 026),
                 keyboard.h (arrow, Tab and digit focus, decisions 031, 033) + shortcuts.h (the shortcut table, decision 031),
                 badges.h (where notification dots go, decision 038),
+                drop.h (what a drag carries, its zones) + drag.h + drop_layout.h (Receptive, decision 061),
+                grid_layout.h (grids of cells in a card, decision 063), selection.h (picking like Explorer, decision 064),
+                menu_layout.h (the island's context menu, decision 066),
                 cover_palette.h + island_tint.h (the island in the playing cover's colours, decision 051),
                 tokens.h (+ tokens_json.h, json_reader.h), easing.h
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
@@ -46,7 +49,8 @@ src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interacti
                 per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules and the media widget, SMTC provider for real Windows media),
-                pomodoro/ (the first panel), system/ (Home's theme and Settings widgets:
+                pomodoro/ (the first panel), shelf/ (file drop: Link and Copy zones, the list; shelf_files.cpp
+                copies on Windows, decision 061), system/ (Home's theme and Settings widgets:
                 app themes, display, Start with Windows, Copy logs), update/ (updates from GitHub
                 Releases: versions and offers, pure; github.cpp fetches and installs, decision 036)
 src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload; keyboard_input.cpp: keyboard focus,
@@ -209,9 +213,15 @@ over the file's, so `tokens()` is always what's on screen.
 | Pomodoro session survives a restart: saved with the wall clock, caught up on start (decision 027) | done; tested |
 | Providers' store: `Host::load/save/wallClock`, a file per key, legacy files moved in (decision 028) | done; tested |
 | Host lists: smooth scrolling, keep-in-view, drag to reorder, edit in place (decision 029) | done; rules tested, compositor side needs a Windows run |
-| Renderer: alert pulse, receptive drop zones, matched geometry | not yet |
+| Renderer: alert pulse, matched geometry | not yet |
+| File drop (decision 061): Receptive's zones from any provider, the Shelf's Link and Copy, the list, copies in its store | rules tested; the drop target and copies need a Windows run |
+| Large cards, grids of cells, double-click to open, focus hints; the Shelf's cards and list views, thumbnails, rename, Show in folder (decision 063) | rules tested; thumbnails, double-click and Explorer need a Windows run |
+| Picking things like Explorer: click, Ctrl, Shift, a box, Ctrl+A, Delete, Enter, F2; Delete N items, the add card (decision 064) | rules tested; the mouse, keys and picker need a Windows run |
+| Dragging picked files out to Explorer or another app, copy or link only (decision 065) | provider part tested; the drag needs a Windows run |
+| The island's own context menu (right-click, Shift+F10); the Shelf's cards without buttons (decision 066) | rules tested; the menu's mouse, keys and look need a Windows run |
+| File drop, next: virtual files (Outlook, zip, phone), a hot zone wider than the pill, the elevation alert | not yet |
 | Fullscreen detection (TR §9.2): borderless + exclusive, per monitor, maximized windows excluded | done; rules tested (`core/fullscreen`), hooks need Windows |
-| Real input for drag (OLE drop target) | not yet; the D key simulates it |
+| Real input for drag (OLE drop target): Explorer's files, links, text | done; needs a Windows run. The D key fakes one file |
 | Provider API (PS §7 Tier 1), registry, demo music player | done, tested |
 | Switching activities (decision 007): bubble click, drag-to-swap, Expanded tabs, sticky pick | done; rules tested, tab visuals need Windows |
 | Real media provider (SMTC, TR §6): art, controls, seek, multi-app switch, paused linger | done; rules tested, WinRT part needs Windows |
