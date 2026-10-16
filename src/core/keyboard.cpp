@@ -40,8 +40,11 @@ std::vector<Focusable> focusables(const Scene& scene)
     // A dialog keeps focus to itself (decision 033): Cancel and its answer,
     // not the tabs or Home behind it, as a dialog does anywhere.
     bool dialog = std::any_of(scene.elements.begin(), scene.elements.end(), [](const Placed& p) { return dialogButton(p.item); });
+    // A context menu does the same (decision 066): its items, top to bottom.
+    bool menu = scene.menu.has_value();
     for (const Placed& p : scene.elements) {
         if (!clickable(p.item) || (dialog && !dialogButton(p.item))) continue;
+        if (menu && p.key.rfind("menu/", 0) != 0) continue;
         // A whole-row button (Row::clickAnywhere) is aimed at by its row, which is what lights up.
         Rect frame = p.listRow ? *p.listRow : p.frame;
         if (p.list) frame = p.frame.height > 0 ? Rect{ frame.x, p.frame.y, frame.width, p.frame.height } : frame; // where the row is, scrolled
@@ -49,7 +52,7 @@ std::vector<Focusable> focusables(const Scene& scene)
         float radius = p.listRow ? p.listRowRadius : p.cornerRadius;
         found.push_back({ "el:" + p.key, frame, point, p.list, p.activityId, radius });
     }
-    if (dialog) return found; // in reading order already: one row, Cancel first
+    if (dialog || menu) return found; // in reading order already: one row, Cancel first; a menu's items in order
     // Every tile, clickable or not: a static one (no card, no tap) is still a stop,
     // or down from above it would jump a row (decision 033).
     for (const Tile& tile : scene.tiles) found.push_back({ "tile:" + tile.id, tile.frame, centre(tile.frame), std::nullopt, tile.id, scene.tileRadius });

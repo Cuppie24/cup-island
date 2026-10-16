@@ -48,6 +48,9 @@ public:
     // Picked things in a card's list (decision 064): lit like the active tab.
     // At once, no fade: picking follows the pointer (a box being drawn), a fade lags behind it.
     void setSelectedItems(const std::vector<Rect>& items, float cornerRadius) { showMarks(selected_, items, cornerRadius, tokens().tabSelectedColor, true); }
+    // The context menu's panel (decision 066): over the card, under its items; nullopt: none.
+    void setMenu(std::optional<Rect> panel, float cornerRadius);
+    void setMenuHovered(std::optional<Rect> item, float cornerRadius); // a menu item under the pointer: over the panel, under the items
     // The box being drawn round things to pick them; nullopt: none.
     void setSelectionBox(std::optional<Rect> box) { showMark(box_, box, tokens().focusRingWidth * 2, tokens().selectionBoxColor, false, true); }
     // Notification dots (decision 038), over the content: Scene::badges.
@@ -95,9 +98,11 @@ private:
         std::optional<Rect> at;
     };
     // instant: shown and hidden at once, no fade (the selection, decision 064).
-    void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide, bool instant = false);
+    void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide, bool instant = false,
+                  bool overlay = false); // overlay: in overlay_, over the content
     void showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius, const Color& color, bool instant = false); // one per rect
-    Mark selectedTab_, pinnedTab_, hovered_, box_;
+    Mark selectedTab_, pinnedTab_, hovered_, box_, menuBase_, menuWash_, menuHover_;
+    wuc::ContainerVisual overlay_{ nullptr }; // over the content: the context menu (decision 066)
     struct Ring { // the focus ring: stroked, not filled; over content_, not under it
         wuc::ShapeVisual visual{ nullptr };
         wuc::CompositionRoundedRectangleGeometry shape{ nullptr };

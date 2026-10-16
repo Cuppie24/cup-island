@@ -204,6 +204,17 @@ try {
         showCursor();
         return TRUE;
 
+    case WM_CONTEXTMENU: { // a right-click's release, or the keyboard's (lParam -1): the island's own menu (decision 066)
+        if (lParam == -1) {
+            call(g_callbacks.onContextMenu, std::optional<Vec2>{});
+        } else {
+            POINT pt{ GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) }; // screen coordinates
+            ScreenToClient(hwnd, &pt);
+            call(g_callbacks.onContextMenu, std::optional<Vec2>(pointFrom(MAKELPARAM(pt.x, pt.y))));
+        }
+        return 0;
+    }
+
     case WM_MOUSEWHEEL: {
         // Notches, positive = towards the user (down). Touchpads send fractions
         // of a notch as they go: passed on as they come, so lists glide with

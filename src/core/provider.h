@@ -92,6 +92,13 @@ public:
     {
         return {};
     }
+    // A right-click (or Shift+F10) on its card's list (decision 066): the
+    // menu's items for what's picked (`ids`; none: the list's empty part).
+    // Asked once, when it opens. None: no menu.
+    virtual std::vector<MenuItem> contextMenu(const std::string& /*activityId*/, const std::string& /*list*/, const std::vector<std::string>& /*ids*/)
+    {
+        return {};
+    }
     // A drag over the island (decision 061): where it can land for this
     // provider. Asked when it enters and again when its sizes are in, never
     // as it moves, so it must be quick. None (the default): not for it.

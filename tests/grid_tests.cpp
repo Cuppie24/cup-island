@@ -4,6 +4,7 @@
 
 #include "core/grid_layout.h"
 #include "core/item_metrics.h"
+#include "core/menu_layout.h"
 #include "core/hit_test.h"
 #include "core/layout.h"
 #include "core/tokens.h"
@@ -120,6 +121,34 @@ void runGridTests()
         const Placed* nm = find(scene, "expandedCenter/grid.0/c1/1/0");
         expect(nm && nm->frame.height == lineHeight(TextStyle::Body) + 2 * t.editInset && nm->listRow && nm->frame.width > nm->listRow->width / 2,
                "grid: a hinted name is a field's height, across the cell");
+    }
+
+    // The context menu (decision 066): kept in the card, flipped at its edges, its items first.
+    {
+        Rect card{ 10, 10, 400, 300 };
+        expect(menuFrame({ 50, 50 }, { 200, 100 }, card) == Rect{ 50, 50, 200, 100 }, "menu: at the pointer");
+        expect(menuFrame({ 350, 280 }, { 200, 100 }, card) == Rect{ 150, 180, 200, 100 }, "menu: flipped left and up at the card's edges");
+        IslandState m = shelfWith(3);
+        m = reduce(m, MenuOpened{ { "shelf", "shelf", "items", { MenuItem{ .label = "Open", .actionId = "open" }, MenuItem{ .label = "Remove", .actionId = "remove" } }, { 40, 60 } } }, Ms{ 0 });
+        Scene ms = layout(m, Ms{ 0 });
+        expect(ms.menu && ms.elements.front().key.rfind("menu/", 0) == 0, "menu: its panel, and its items first");
+        const Placed* open = find(ms, "menu/0/0");
+        auto hit = open ? hitTest(ms, { ms.menu->frame.x + ms.menu->frame.width - 10, open->frame.y + open->frame.height / 2 }) : std::nullopt;
+        expect(hit && hit->action.actionId == "open", "menu: an item takes clicks across its whole row, over the card");
+    }
+
+    // A whole-row button in a list item (the list's add row): its click area is its lit background.
+    {
+        Content c{ .card = CardLayout::Centred,
+                   .expandedCenter = { Row{ .items = { Button{ .glyph = Glyph::Plus, .actionId = "add", .label = "Add files", .compact = true } },
+                                            .align = Align::Center, .clickAnywhere = true, .id = "add", .listItem = true } } };
+        IslandState l;
+        l = reduce(l, PanelPublished{ { .id = "p", .content = c, .providerId = "p" } }, Ms{ 0 });
+        l = reduce(l, TileClicked{ "p" }, Ms{ 0 });
+        Scene ls = layout(l, Ms{ 0 });
+        const Placed* add = find(ls, "expandedCenter/add/0");
+        expect(add && add->listRow && add->hitFrame.x <= add->listRow->x && add->hitFrame.x + add->hitFrame.width >= add->listRow->x + add->listRow->width,
+               "grid: a whole-row button's click area is its row's background, end to end");
     }
 
     // Image roles in an ordinary row.

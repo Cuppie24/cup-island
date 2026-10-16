@@ -190,6 +190,10 @@ void handle(IslandState& s, const StayOpenToggled&, Ms now)
 // goes back to Home; anything else closes.
 void handle(IslandState& s, const EscapePressed&, Ms now)
 {
+    if (s.menu) { // a menu first (decision 066), then the selection, then the card
+        s.menu.reset();
+        return;
+    }
     if (s.selection) { // like Explorer: Esc lets go of what's selected first (decision 064)
         s.selection.reset();
         return;
@@ -339,6 +343,8 @@ void handle(IslandState& s, const FocusTaken&, Ms) { s.focusRequest.reset(); }
 void handle(IslandState& s, const ItemSelected& e, Ms now) { selectItem(s, e, now); } // selection.h, decision 064
 void handle(IslandState& s, const SelectionSet& e, Ms now) { setSelection(s, e, now); }
 void handle(IslandState& s, const SelectionCleared&, Ms) { s.selection.reset(); }
+void handle(IslandState& s, const MenuOpened& e, Ms now) { openMenu(s, e, now); } // decision 066
+void handle(IslandState& s, const MenuClosed&, Ms) { s.menu.reset(); }
 
 void handle(IslandState& s, const ClockSynced& e, Ms now) { s.clock = WallClock{ e.timeOfDay - now, e.hour24 }; }
 

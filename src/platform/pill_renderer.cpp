@@ -95,6 +95,8 @@ void PillRenderer::apply(const Scene& scene)
     for (const ZoneMark& zone : scene.zones) tiles.push_back(zone.frame); // a drag's drop zones look like Home's widgets (decision 061)
     pill_.setTiles(tiles, scene.tileRadius);
     pill_.setSelectedItems(scene.selected, scene.selectedRadius); // picked things (decision 064)
+    pill_.setMenu(scene.menu ? std::optional<Rect>(scene.menu->frame) : std::nullopt, scene.menu ? scene.menu->radius : 0); // decision 066
+    if (!scene.menu) pill_.setMenuHovered(std::nullopt, 0); // closed: its hover light goes with it
     pill_.setBadges(scene.badges);
 
     // While the bubble is dragged it just follows the cursor: no neck, no

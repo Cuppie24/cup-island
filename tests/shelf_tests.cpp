@@ -245,20 +245,15 @@ void cardTests()
     if (grid) {
         const Cell& copying = grid->cells[0]; // the newest first
         const Cell& link = grid->cells[2];
-        expect(copying.openAction.empty() && !hasAction(copying.actions, action::kReveal), "card: a copy under way can't be opened or shown yet");
-        expect(link.openAction == action::kOpen + std::to_string(s.item(0).id) && hasAction(link.actions, action::kReveal) &&
-               hasAction(link.actions, action::kRemove), "card: a ready thing opens on a double-click, and shows Show in folder and Remove");
-        bool hover = true;
-        for (const cup::Item& a : link.actions) hover = hover && std::get<Button>(a).revealOnHover;
-        expect(hover, "card: its buttons show only on hover");
+        expect(copying.openAction.empty() && link.openAction == action::kOpen + std::to_string(s.item(0).id),
+               "card: a ready thing opens on a double-click; a copy under way can't yet");
+        expect(link.actions.empty() && copying.actions.empty(), "card: no buttons on cards: the right-click menu has them (decision 066)");
         auto* name = std::get_if<Text>(&link.rows[1].items[0]);
         expect(name && name->value == "a.pdf" && name->editAction == action::kRename + std::to_string(s.item(0).id) && name->editHint,
                "card: the name renames it, and lights to say so");
         auto* kind = std::get_if<Text>(&link.rows[2].items[1]);
         expect(link.rows[2].items[0] == cup::Item{ Icon{ .glyph = Glyph::Link, .compact = true } } && kind && kind->value == "Link · 2 MB",
                "card: a small badge by what it is");
-        auto* steps = std::get_if<Button>(&link.actions.back());
-        expect(steps && steps->backed, "card: its buttons have a backdrop, readable over any picture");
     }
 
     s.act(action::kView);
@@ -328,6 +323,18 @@ void selectionTests()
     ShelfProvider& shelf = s.provider;
     expect(shelf.dragOut(kPanelId, action::kList, { c, a }) == std::vector<std::string>{ "C:\\c", "C:\\a" } &&
            shelf.dragOut("other", action::kList, { a }).empty(), "picked: dragged out, their files go");
+    auto labels = [](const std::vector<MenuItem>& menu) {
+        std::string out;
+        for (const MenuItem& m : menu) out += (out.empty() ? "" : ",") + m.label;
+        return out;
+    };
+    auto one = shelf.contextMenu(kPanelId, action::kList, { a });
+    expect(labels(one) == "Open,Show in folder,Rename,Remove,Select all", "menu: one thing, like Explorer: " + labels(one));
+    expect(one[2].editsText && one[2].actionId == action::kRename + std::to_string(s.item(0).id) && one[3].destructive,
+           "menu: Rename edits its name in place; Remove reads as dangerous");
+    expect(labels(shelf.contextMenu(kPanelId, action::kList, { c, a })) == "Delete 2 items,Select all", "menu: several: Delete N items");
+    expect(labels(shelf.contextMenu(kPanelId, action::kList, {})) == "Select all", "menu: on the list's empty part, Select all");
+    expect(shelf.contextMenu(kPanelId, action::kList, {}).back().actionId == kMenuSelectAll, "menu: Select all is the host's");
     s.act(action::kDeleteSelected);
     expect(!s.host.asked.empty() && s.host.asked.back().title == "Delete 2 items?" && s.provider.items().all().size() == 3, "picked: Delete asks first");
     s.act(action::kDeleteSelectedConfirmed);

@@ -39,9 +39,13 @@ void dragFilesOut(HWND window, const std::vector<std::string>& paths)
             SUCCEEDED(array->BindToHandler(nullptr, BHID_DataObject, IID_PPV_ARGS(data.put())))) {
             g_out = true;
             DWORD effect = DROPEFFECT_NONE;
+            ULONGLONG began = GetTickCount64();
             HRESULT hr = SHDoDragDrop(window, data.get(), nullptr, DROPEFFECT_COPY | DROPEFFECT_LINK, &effect);
             g_out = false;
             if (FAILED(hr)) logLine("drag out failed (0x%08lx)", static_cast<unsigned long>(hr));
+            // Its end, to line up with what follows it (play/pause once showed late after a drag out).
+            else logLine("drag out ended (%s, %llu ms)", hr == DRAGDROP_S_DROP ? (effect & DROPEFFECT_LINK ? "linked" : "copied") : "cancelled",
+                         static_cast<unsigned long long>(GetTickCount64() - began));
         }
     }
     for (PIDLIST_ABSOLUTE item : items) CoTaskMemFree(item);

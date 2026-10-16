@@ -149,6 +149,13 @@ std::vector<std::string> ProviderRegistry::dragOut(const std::string& providerId
     return e && e->running ? e->provider->dragOut(activityId, list, ids) : std::vector<std::string>{};
 }
 
+std::vector<MenuItem> ProviderRegistry::contextMenu(const std::string& providerId, const std::string& activityId, const std::string& list,
+                                                   const std::vector<std::string>& ids)
+{
+    Entry* e = find(providerId);
+    return e && e->running ? e->provider->contextMenu(activityId, list, ids) : std::vector<MenuItem>{};
+}
+
 std::vector<DropZone> ProviderRegistry::dropZones(const DragSummary& drag)
 {
     std::vector<DropZone> zones;

@@ -314,7 +314,10 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                     left = std::min(left, target[i].hitFrame.x);
                     right = std::max(right, target[i].hitFrame.x + target[i].hitFrame.width);
                 }
-                if (row.listItem) left = std::min(left, background.x); // from the background's edge
+                if (row.listItem) { // from the background's edge to its other one: the lit area is the click area
+                    left = std::min(left, background.x);
+                    right = std::max(right, background.x + background.width);
+                }
                 Rect whole{ left, y - t.rowSpacing / 2, right - left, rowHeight + t.rowSpacing };
                 for (std::size_t i = first; i < first + middle; ++i)
                     if (std::holds_alternative<Button>(target[i].item) || std::holds_alternative<Switch>(target[i].item)) {

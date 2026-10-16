@@ -19,7 +19,9 @@ namespace cup::platform {
 
 class ElementVisuals {
 public:
-    void init(wuc::Compositor const& compositor, GraphicsDevice& device, wuc::ContainerVisual const& parent);
+    // `overlay`: over everything else, for the context menu's items (decision 066).
+    void init(wuc::Compositor const& compositor, GraphicsDevice& device, wuc::ContainerVisual const& parent,
+              wuc::ContainerVisual const& overlay = nullptr);
     void apply(const std::vector<Placed>& elements, Ms now);
     // Tokens changed. Colours only (a theme, a cover): shapes fade to the new
     // colours and text is redrawn in place. Anything else (tokens.json, display
@@ -71,6 +73,8 @@ private:
     wuc::ContainerVisual parent_{ nullptr };
     std::map<std::string, View> views_;
     ListViewports lists_; // scrolling lists' clipped, eased containers (decision 029)
+    wuc::ContainerVisual overlay_{ nullptr };
+    wuc::ContainerVisual parentFor(const Placed& placed); // the menu's items in the overlay, the rest where their lists put them
     std::string hovered_;
     std::string hoveredRow_;
     bool deviceLost_ = false;

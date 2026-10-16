@@ -123,6 +123,8 @@ const Field kFields[] = {
     { "gridGap", &Tokens::gridGap },
     { "thumbnailHeight", &Tokens::thumbnailHeight },
     { "listColumnWidth", &Tokens::listColumnWidth },
+    { "menuWidth", &Tokens::menuWidth },
+    { "menuPadding", &Tokens::menuPadding },
     { "morphDurationMs", &Tokens::morphDuration, true },
     { "morphEase", &Tokens::morphEase },
     { "contentFadeDurationMs", &Tokens::contentFadeDuration },

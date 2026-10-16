@@ -56,12 +56,20 @@ void showDialog(IslandState& s, const DialogShown& e, Ms now)
     s.lastPointerAt = now;
 }
 
+void openMenu(IslandState& s, const MenuOpened& e, Ms now)
+{
+    if (!shown(s, e.menu.activityId) || s.dialog || e.menu.items.empty()) return;
+    s.menu = e.menu;
+    s.lastPointerAt = now;
+}
+
 void dropStaleOverlays(IslandState& s)
 {
     if (s.draft && !shown(s, s.draft->activityId)) dropDraft(s);
     if (s.dialog && !shown(s, s.dialog->activityId)) s.dialog.reset();
     if (s.listDrag && (!shown(s, s.listDrag->activityId) || s.dialog)) s.listDrag.reset();
     if (s.focusRequest && !shown(s, s.focusRequest->activityId)) s.focusRequest.reset();
+    if (s.menu && (!shown(s, s.menu->activityId) || s.dialog)) s.menu.reset(); // a menu goes with its card, and under a question
 }
 
 } // namespace cup

@@ -11,6 +11,7 @@ namespace cup {
 void focusInput(IslandState& state, const InputFocused& e, Ms now); // only on the shown card, not under a dialog
 void submitText(IslandState& state, Ms now); // the field empties and keeps focus
 void showDialog(IslandState& state, const DialogShown& e, Ms now); // only over the shown card; typing stops
+void openMenu(IslandState& state, const MenuOpened& e, Ms now);    // only over the shown card, never under a dialog
 
 // After every event: a draft, dialog, list drag or focus request whose card isn't the one shown any more is dropped.
 // A field's unsent text is kept (IslandState::keptText, decision 050).

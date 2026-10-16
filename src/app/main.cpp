@@ -30,6 +30,7 @@
 #include "core/island_tint.h"
 #include "core/layout.h"
 #include "core/placement.h"
+#include "core/selection.h"
 #include "core/tabs.h"
 #include "core/text_edit.h"
 #include "core/tokens.h"
@@ -67,6 +68,7 @@
 
 #include <ole2.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -136,6 +138,7 @@ struct Pointer {
     Ms lastClickAt{};                // ...the presses before it, for double- and triple-clicks
     Vec2 lastClickPoint;
     int clicks = 0;
+    bool menuDismissed = false;      // a press that only closed the island's menu: its release does nothing (decision 066)
 } g_pointer;
 
 // Pointer callbacks get render-layer points; content works in pill coordinates.
@@ -272,7 +275,11 @@ void updateHover()
     const ZoneMark* zone = nullptr;
     for (const ZoneMark& z : g_scene.zones)
         if (z.hovered) zone = &z;
-    if (zone) g_renderer.setAreaHovered(zone->frame, g_scene.tileRadius);
+    // A menu's item lights over its panel (decision 066), not under it with the card's.
+    bool menuItem = item && item->listRow && item->key.rfind("menu/", 0) == 0;
+    g_renderer.setMenuHovered(menuItem ? item->listRow : std::nullopt, item ? item->listRowRadius : 0);
+    if (menuItem) g_renderer.setAreaHovered(std::nullopt, 0);
+    else if (zone) g_renderer.setAreaHovered(zone->frame, g_scene.tileRadius);
     else if (tab) g_renderer.setAreaHovered(tab->frame, g_scene.tabs->radius);
     else if (tile) g_renderer.setAreaHovered(tile->frame, g_scene.tileRadius);
     else if (item && item->listRow) g_renderer.setAreaHovered(item->listRow, item->listRowRadius);
@@ -501,7 +508,18 @@ void onPressDown(Vec2 canvasPoint)
     }
     Vec2 point = toPill(canvasPoint);
     g_pointer.at = point;
-    if (const Tab* tab = tabUnder(point)) {
+    // The island's menu: a press off its items only closes it, like Explorer's (decision 066).
+    bool onMenu = false;
+    if (g_state.menu) {
+        auto hit = hitTest(g_scene, point);
+        onMenu = hit && hit->key.rfind("menu/", 0) == 0;
+        if (!onMenu) {
+            dispatch(MenuClosed{}, "menu dismissed");
+            g_pointer.menuDismissed = true;
+            return;
+        }
+    }
+    if (const Tab* tab = onMenu ? nullptr : tabUnder(point)) {
         g_pointer.tabPress = tab->id; // switches on release, if still on the same tab
         return;
     }
@@ -518,7 +536,7 @@ void onPressDown(Vec2 canvasPoint)
         return;
     }
     // A selectable list's thing, or its empty part: picked like files in Explorer (decision 064).
-    if (app::selectionPressed(point, element)) {
+    if (!onMenu && app::selectionPressed(point, element)) {
         updateHover();
         return;
     }
@@ -607,9 +625,33 @@ void clickTile(const Tile& tile)
     }
 }
 
+// One of the island's menu items (decision 066): the menu closes, then its
+// action goes to the provider, Rename edits the name in place, Select all is the host's.
+void chooseMenuItem(const std::string& actionId)
+{
+    Menu menu = *g_state.menu;
+    dispatch(MenuClosed{}, "menu chosen");
+    auto item = std::find_if(menu.items.begin(), menu.items.end(), [&](const MenuItem& i) { return i.actionId == actionId; });
+    if (item == menu.items.end()) return;
+    if (actionId == kMenuSelectAll) {
+        dispatch(SelectionSet{ menu.activityId, menu.list, selectableItems(g_state, menu.activityId, menu.list) }, "pick all");
+    } else if (item->editsText) {
+        const Text* text = editedText(g_scene, menu.activityId, actionId);
+        if (!text) return;
+        SetFocus(g_inputHwnd);
+        dispatch(InputFocused{ menu.providerId, menu.activityId, actionId, text->value, true, std::nullopt, text->editMaxLength }, "rename");
+    } else {
+        act({ menu.providerId, menu.activityId, actionId });
+    }
+}
+
 // `at`: where a click was (pill coordinates); none for Enter or Space.
 void clickElement(const Hit& hit, std::optional<Vec2> at = std::nullopt)
 {
+    if (g_state.menu && hit.key.rfind("menu/", 0) == 0) {
+        chooseMenuItem(hit.action.actionId);
+        return;
+    }
     const Placed* element = findElement(hit.key);
     auto* text = element ? std::get_if<Text>(&element->item) : nullptr;
     if (text && !text->editAction.empty()) {
@@ -684,6 +726,7 @@ void onPressRelease(Vec2 canvasPoint, Release how)
         if (tile && tile->id == id) clickTile(*tile);
         return;
     }
+    if (std::exchange(g_pointer.menuDismissed, false)) return;
     if (g_pointer.bubblePress) {
         g_pointer.bubblePress.reset();
         if (!g_pointer.dragged) g_renderer.pressRelease(true);
@@ -705,7 +748,7 @@ void onPressRelease(Vec2 canvasPoint, Release how)
         dispatch(PointerMoved{}, "seek");
         return;
     }
-    if (how == Release::Inside && onPill(canvasPoint) && openedByDoubleClick(point)) {
+    if (how == Release::Inside && onPill(canvasPoint) && !g_state.menu && openedByDoubleClick(point)) {
         if (!g_pointer.pressedKey.empty()) g_renderer.releaseElement(std::exchange(g_pointer.pressedKey, std::string{}));
         else g_renderer.pressRelease(false);
         return;
@@ -824,6 +867,15 @@ void onKey(WPARAM key)
     }
     // Alt combinations (WM_SYSKEYDOWN) are only for recording a shortcut; Windows handles the rest (not Alt+F4: decision 049).
     if (alt) return;
+    // Shift+F10 and the menu key: the island's menu for what's picked (decision 066).
+    if (key == VK_APPS || (key == VK_F10 && GetKeyState(VK_SHIFT) < 0)) {
+        app::openMenu(std::nullopt);
+        return;
+    }
+    if (g_state.menu && key == VK_ESCAPE) { // the menu goes first, before the selection and the card
+        dispatch(EscapePressed{}, "esc");
+        return;
+    }
     if (app::selectionKey(key, ctrl)) return; // Ctrl+A, Delete, Enter, F2 with things picked (decision 064)
     if (app::navigationKey(key)) return; // the arrows, Tab, Home/End, 1 to 9, Enter and Space (decisions 031, 033)
     switch (key) {
@@ -1019,6 +1071,10 @@ int main()
         finishEditing("edit kept"); // the card closes: what was typed into a to-do stays
         dispatch(ClickedOutside{}, "click outside");
     };
+    callbacks.onContextMenu = [](std::optional<Vec2> point) {
+        if (g_picking || g_state.draft) return; // a field has its own keys; Windows' picker is up
+        app::openMenu(point ? std::optional<Vec2>(toPill(*point)) : std::nullopt);
+    };
     callbacks.onPointerMoved = onPointerMoved;
     callbacks.onPointerLeft = [] {
         g_pointer.at.reset();
@@ -1121,6 +1177,9 @@ int main()
             logLine("dragging %zu out", paths.size());
             dragFilesOut(g_inputHwnd, paths); // modal; the capture it takes ends the press
             dispatch(PointerMoved{}, "dragged out"); // busy here: the card stays open
+        },
+        .contextMenu = [](const std::string& providerId, const std::string& activityId, const std::string& list, const std::vector<std::string>& ids) {
+            return g_providers ? g_providers->contextMenu(providerId, activityId, list, ids) : std::vector<MenuItem>{};
         },
     });
     app::setKeyboardHooks({

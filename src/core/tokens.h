@@ -183,6 +183,8 @@ struct Tokens {
     float gridGap = 8;
     float thumbnailHeight = 64;
     float listColumnWidth = 150; // Text::column: a file's kind and size, at its row's end (decision 064)
+    float menuWidth = 200;       // the context menu (decision 066)
+    float menuPadding = 6;       // inside its panel, round its items
 
     // Morph between modes: ease-out, 250-350 ms budget (TR §5).
     Ms morphDuration{ 300 };

@@ -25,11 +25,12 @@
 //            focus-taken                                                           focus: decision 063)
 //            panel <id> files|grid <n>   choose <card> <id> [shift] [ctrl]   choose-set <card> <ids...>   choose-none
 //                                                                          (selection, decision 064; the list is "files")
+//            menu <card>  menu-close                                         (the context menu, decision 066)
 //            pick <card> <list> <row> <y>  carry <y>  put-down
 //            screen <width>  hold  move <dx>  let-go  restore <dock> [fraction]      (lifting the island, decision 026)
 // Checks after "->":  <Mode>  queue=<n>  top=<activity>  bubble=<activity>  alert=<name>
 //                     expanded=<activity|panel|home>  pinned=<activity>  dragging=yes|no (the bubble)  preview=yes|no
-//                     chosen=<id,id...>|none (the selection)
+//                     chosen=<id,id...>|none (the selection)  menu=<card>|none
 //                     zone=<zone>|none (the hovered drop zone)  focus=<card>/<list>/<row>|none (asked)
 //                     draft=<text>|empty|none  (_ for a space)  dialog=<card>|none
 //                     caret=<byte offset>  selected=<text>|none  (_ for a space)
@@ -229,6 +230,8 @@ struct Runner {
         else if (cmd == "choose") apply(ItemSelected{ arg(1), "files", arg(2), arg(3) == "shift" || arg(4) == "shift", arg(3) == "ctrl" || arg(4) == "ctrl" });
         else if (cmd == "choose-set") apply(SelectionSet{ arg(1), "files", { w.begin() + 2, std::find(w.begin(), w.end(), std::string("->")) } });
         else if (cmd == "choose-none") apply(SelectionCleared{});
+        else if (cmd == "menu") apply(MenuOpened{ { arg(1), arg(1), "files", { MenuItem{ .label = "Open", .actionId = "open" } }, { 20, 20 } } });
+        else if (cmd == "menu-close") apply(MenuClosed{});
         else if (cmd == "pick") apply(ListDragStarted{ arg(1), arg(2), std::stoul(arg(3)), std::stof(arg(4)) });
         else if (cmd == "carry") apply(ListDragMoved{ std::stof(arg(1)) });
         else if (cmd == "put-down") apply(ListDragEnded{});
@@ -266,6 +269,9 @@ struct Runner {
                 const auto& f = state.focusRequest;
                 std::string got = f ? f->activityId + "/" + f->list + "/" + std::to_string(f->row) : "none";
                 if (got != *v) fail("focus=" + *v + ", got " + got);
+            } else if (auto v = option(word, "menu")) {
+                std::string got = state.menu ? state.menu->activityId : "none";
+                if (got != *v) fail("menu=" + *v + ", got " + got);
             } else if (auto v = option(word, "chosen")) {
                 std::string got;
                 if (state.selection)

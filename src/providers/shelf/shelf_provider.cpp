@@ -175,6 +175,35 @@ std::vector<std::string> ShelfProvider::dragOut(const std::string& activityId, c
     return paths;
 }
 
+std::vector<MenuItem> ShelfProvider::contextMenu(const std::string& activityId, const std::string& list, const std::vector<std::string>& ids)
+{
+    std::vector<MenuItem> menu;
+    if (activityId != shelf::kPanelId || list != act::kList) return menu;
+    std::vector<const shelf::Entry*> picked;
+    for (const std::string& row : ids)
+        if (auto id = shelf::itemOfRow(row))
+            if (const shelf::Entry* item = items_.find(*id)) picked.push_back(item);
+    if (picked.size() == 1) {
+        const shelf::Entry& item = *picked[0];
+        std::string id = std::to_string(item.id);
+        bool ready = item.state == shelf::State::Ready && !item.path.empty();
+        if (ready) {
+            menu.push_back({ .glyph = Glyph::OpenApp, .label = "Open", .actionId = act::kOpen + id });
+            menu.push_back({ .glyph = Glyph::Reveal, .label = "Show in folder", .actionId = act::kReveal + id });
+        }
+        if (item.state != shelf::State::Copying)
+            menu.push_back({ .glyph = Glyph::Edit, .label = "Rename", .actionId = act::kRename + id, .editsText = true });
+        if (item.state == shelf::State::Failed && !item.source.empty())
+            menu.push_back({ .glyph = Glyph::Link, .label = "Keep as link", .actionId = act::kKeep + id });
+        menu.push_back({ .glyph = Glyph::Delete, .label = "Remove", .actionId = act::kRemove + id, .destructive = true });
+    } else if (picked.size() > 1) {
+        menu.push_back({ .glyph = Glyph::Delete, .label = "Delete " + std::to_string(picked.size()) + " items", .actionId = act::kDeleteSelected,
+                         .destructive = true });
+    }
+    if (!items_.all().empty()) menu.push_back({ .glyph = Glyph::Checked, .label = "Select all", .actionId = kMenuSelectAll });
+    return menu;
+}
+
 void ShelfProvider::onSelectionChanged(const std::string& activityId, const std::string& list, const std::vector<std::string>& ids)
 {
     if (activityId != shelf::kPanelId || list != act::kList) return;

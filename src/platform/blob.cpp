@@ -109,7 +109,11 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     content_.Clip(c.CreateInsetClip());
     body_.Children().InsertAtTop(content_);
     badges_.build(c, body_, content_); // dots over the content (decision 038)
-    elements_.init(c, device, content_);
+    overlay_ = c.CreateContainerVisual(); // the context menu, over everything in the card (decision 066)
+    bind(c, overlay_, L"Size", L"pill.Size", body_, shape_);
+    overlay_.Clip(c.CreateInsetClip());
+    body_.Children().InsertAtTop(overlay_);
+    elements_.init(c, device, content_, overlay_);
 
     buildShadow(c, parent); // under the body
     parent.Children().InsertAtTop(body_);
@@ -193,6 +197,9 @@ void Blob::refreshAnimations(bool coloursOnly)
     for (Mark& mark : selected_)
         if (mark.brush) fadeColor(mark.brush, t.tabSelectedColor);
     if (box_.brush) fadeColor(box_.brush, t.selectionBoxColor);
+    if (menuBase_.brush) fadeColor(menuBase_.brush, t.islandColor);
+    if (menuWash_.brush) fadeColor(menuWash_.brush, t.tileColor);
+    if (menuHover_.brush) fadeColor(menuHover_.brush, t.hoverColor);
     if (focusRing_.brush) fadeColor(focusRing_.brush, t.focusRingColor);
     badges_.recolor();
     elements_.refresh(coloursOnly);
@@ -248,7 +255,7 @@ void Blob::setFocusRing(std::optional<Rect> area, float cornerRadius)
         ring.visual.Opacity(0.0f);
         // Above the content, which adds its visuals at the top of content_ as
         // they come: a sibling over it stays over them all.
-        body_.Children().InsertAbove(ring.visual, content_);
+        body_.Children().InsertAbove(ring.visual, overlay_ ? overlay_ : content_); // over a menu too
     }
     float width = tokens().focusRingWidth;
     ring.stroke.StrokeThickness(width);
@@ -278,7 +285,24 @@ void Blob::showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, floa
         showMark(marks[i], i < at.size() ? std::optional<Rect>(at[i]) : std::nullopt, cornerRadius, color, false, instant);
 }
 
-void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide, bool instant)
+void Blob::setMenu(std::optional<Rect> panel, float cornerRadius)
+{
+    // The island's own colour, with the tiles' wash over it: it stands apart from the card it covers.
+    showMark(menuWash_, panel, cornerRadius, tokens().tileColor, false, true, true);
+    showMark(menuBase_, panel, cornerRadius, tokens().islandColor, false, true, true);
+}
+
+void Blob::setMenuHovered(std::optional<Rect> item, float cornerRadius)
+{
+    bool made = menuHover_.visual != nullptr;
+    showMark(menuHover_, item, cornerRadius, tokens().hoverColor, false, true, true);
+    if (!made && menuHover_.visual && menuWash_.visual) { // over the panel, not under it
+        overlay_.Children().Remove(menuHover_.visual);
+        overlay_.Children().InsertAbove(menuHover_.visual, menuWash_.visual);
+    }
+}
+
+void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide, bool instant, bool overlay)
 {
     if (at == mark.at) return;
     std::optional<Rect> from = std::exchange(mark.at, at);
@@ -290,7 +314,7 @@ void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, cons
         mark.visual = compositor_.CreateShapeVisual();
         mark.visual.Shapes().Append(fill);
         mark.visual.Opacity(0.0f);
-        content_.Children().InsertAtBottom(mark.visual); // under the content it marks
+        (overlay && overlay_ ? overlay_ : content_).Children().InsertAtBottom(mark.visual); // under the content it marks
     }
     if (!at) {
         if (instant) {

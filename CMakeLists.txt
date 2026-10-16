@@ -44,6 +44,7 @@ add_library(cup_core STATIC
     src/core/layout.cpp
     src/core/lift.cpp
     src/core/lists.cpp
+    src/core/menu_layout.cpp
     src/core/placement.cpp
     src/core/selection.cpp
     src/core/shortcuts.cpp

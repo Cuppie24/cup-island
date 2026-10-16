@@ -116,6 +116,25 @@ struct Selection {
     bool operator==(const Selection&) const = default;
 };
 
+// The island's own context menu over a card (decision 066): a right-click,
+// or Shift+F10. Its items come from the card's provider (Provider::contextMenu).
+struct MenuItem {
+    Glyph glyph = Glyph::Edit;
+    std::string label;
+    std::string actionId;     // sent to the provider; kMenuSelectAll is the host's
+    bool destructive = false;
+    bool editsText = false;   // starts editing the Text whose editAction is actionId (Rename, decision 029)
+    bool operator==(const MenuItem&) const = default;
+};
+inline constexpr const char* kMenuSelectAll = "menu.selectAll"; // everything in the menu's list (decision 064)
+
+struct Menu {
+    std::string providerId, activityId, list; // whose card, and the list it's about
+    std::vector<MenuItem> items;
+    Vec2 at;                                  // where it was asked for, pill coordinates
+    bool operator==(const Menu&) const = default;
+};
+
 // --- Events -------------------------------------------------------------
 struct ActivityStarted { Activity activity; };           // existing id = replace
 struct ActivityUpdated { std::string id; Content content; };
@@ -173,11 +192,13 @@ struct DialogClosed {};                  // answered or dismissed: the app sends
 // included), `max` how far it can go (both from the scene).
 struct ListScrolled { std::string activityId, list; float from = 0, delta = 0, max = 0; };
 struct ListRevealed { std::string activityId, list; std::size_t row = 0; bool focus = false; }; // Host::reveal
-struct FocusTaken {};
+struct FocusTaken {};                    // the app moved the keyboard's focus as IslandState::focusRequest asked
 // Picking things in a card's list, like files in Explorer (decision 064).
 struct ItemSelected { std::string activityId, list, id; bool range = false, toggle = false; }; // a click; Shift: range, Ctrl: toggle
 struct SelectionSet { std::string activityId, list; std::vector<std::string> ids; };          // a box drawn round them, Ctrl+A
-struct SelectionCleared {};                    // the app moved the keyboard's focus as IslandState::focusRequest asked
+struct SelectionCleared {};
+struct MenuOpened { Menu menu; };        // only over the shown card
+struct MenuClosed {};                    // chosen, Esc, a click elsewhere (decision 066)
 struct ListDragStarted { std::string activityId, list; std::size_t row = 0; float y = 0; };
 struct ListDragMoved { float y = 0; };
 struct ListDragEnded {};                 // dropped (the app sends the move first) or cancelled
@@ -200,7 +221,7 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            InputSubmitted, InputCancelled,
                            DialogShown, DialogClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,
                            ListDragEnded, StayOpenToggled, TabRowPlaced, FocusTaken,
-                           ItemSelected, SelectionSet, SelectionCleared>;
+                           ItemSelected, SelectionSet, SelectionCleared, MenuOpened, MenuClosed>;
 
 // --- State --------------------------------------------------------------
 struct WallClock {
@@ -245,6 +266,7 @@ struct IslandState {
     // with its card, like a draft.
     std::optional<ListRevealed> focusRequest;
     std::optional<Selection> selection; // what's picked in the shown card's list (decision 064)
+    std::optional<Menu> menu;           // the context menu over the shown card (decision 066)
     // Pinned open (decision 046): Expanded doesn't time out, and a click
     // outside the island or on a card's empty space doesn't close it. Esc
     // and the card going away still do; closing unpins it.

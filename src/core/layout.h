@@ -104,6 +104,12 @@ struct ZoneMark {
     bool hovered = false;
 };
 
+// The context menu's panel (decision 066): over the card, under its items.
+struct MenuPanel {
+    Rect frame;   // pill coordinates
+    float radius = 0;
+};
+
 struct Scene {
     Mode mode = Mode::Idle;
     Vec2 size;                     // pill target size, render-layer coordinates
@@ -119,6 +125,7 @@ struct Scene {
     float tileRadius = 0;          // tile background corners, nested in the card's (drop zones' too)
     std::vector<ZoneMark> zones;   // Receptive: where the drag can land
     std::vector<Rect> selected;    // selected rows and cells (decision 064): lit like the active tab
+    std::optional<MenuPanel> menu; // the context menu (decision 066); its items are the first elements
     float selectedRadius = 0;
     std::vector<Vec2> badges;      // notification dots' centres (decision 038, core/badges.h)
     bool steadyPress = false;      // its content asks a press not to squash the island (Content::steadyPress)

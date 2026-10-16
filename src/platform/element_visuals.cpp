@@ -94,8 +94,16 @@ bool hintedText(const Item& item)
 
 } // namespace
 
-void ElementVisuals::init(wuc::Compositor const& compositor, GraphicsDevice& device, wuc::ContainerVisual const& parent)
+wuc::ContainerVisual ElementVisuals::parentFor(const Placed& placed)
 {
+    if (overlay_ && placed.key.rfind("menu/", 0) == 0) return overlay_;
+    return lists_.parentFor(placed);
+}
+
+void ElementVisuals::init(wuc::Compositor const& compositor, GraphicsDevice& device, wuc::ContainerVisual const& parent,
+                          wuc::ContainerVisual const& overlay)
+{
+    overlay_ = overlay;
     compositor_ = compositor;
     device_ = &device;
     parent_ = parent;
@@ -212,7 +220,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     place(view);
     view.visual.Size(toFloat2(pixelSize(visualSize)));
     view.visual.CenterPoint({ visualSize.x / 2, visualSize.y / 2, 0 });
-    lists_.parentFor(placed).Children().InsertAtTop(view.visual);
+    parentFor(placed).Children().InsertAtTop(view.visual);
     if (placed.list) lists_.setGliding(view.visual, !placed.list->dragged); // after its first place: it appears there
 
     if (view.surface) paint(view);
@@ -251,7 +259,7 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     }
     bool wasFocused = focusedField(view.placed.item);
     bool wasDragged = view.placed.list && view.placed.list->dragged, dragged = placed.list && placed.list->dragged;
-    auto parent = lists_.parentFor(placed); // keeps the list's window and scroll in step
+    auto parent = parentFor(placed); // keeps the list's window and scroll in step
     if (dragged != wasDragged) {
         lists_.setGliding(view.visual, !dragged); // picked up: follows the pointer; let go: glides to its place
         if (dragged) { // carried over the others

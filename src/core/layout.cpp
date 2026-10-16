@@ -5,6 +5,7 @@
 #include "core/drop_layout.h"
 #include "core/home.h"
 #include "core/lift.h"
+#include "core/menu_layout.h"
 #include "core/selection.h"
 #include "core/slot_layout.h"
 #include "core/split.h"
@@ -221,6 +222,7 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     }
     scene.tabs = tabStripFor(state, scene.size, nestedRadius, measureText, scene.elements);
     markSelection(state, scene); // what's picked, where it ended up (decision 064)
+    placeMenu(state, scene, measureText); // over it all, its items first (decision 066)
     scene.badges = badgeCentres(scene);
     return scene;
 }

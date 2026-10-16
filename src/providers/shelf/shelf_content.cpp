@@ -85,7 +85,8 @@ Cell cellFor(const Entry& item, const Thumbnails& thumbnails)
     Row picture = row({ Image{ .data = pictureOf(item, thumbnails), .role = ImageRole::Thumbnail, .contain = true } });
     Row name = row({ nameOf(item, TextStyle::Body) });
     Row under = statusRow(item);
-    return { .id = "item-" + std::to_string(item.id), .rows = { picture, name, under }, .actions = actionsFor(item), .openAction = opens(item) };
+    // No buttons on a card: its right-click menu has them (decision 066).
+    return { .id = "item-" + std::to_string(item.id), .rows = { picture, name, under }, .openAction = opens(item) };
 }
 
 Row rowFor(const Entry& item, const Thumbnails& thumbnails)

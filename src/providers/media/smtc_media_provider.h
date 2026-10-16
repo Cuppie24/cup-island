@@ -84,6 +84,7 @@ private:
     // around a pause or skip, and each dropped the read before it, so nothing
     // showed until it went quiet (seconds; decision 005).
     bool loading_ = false;
+    std::optional<Ms> playbackAt_; // the last play/pause from any app: reads for a while after it are logged (diagnosing late play/pause)
     Ms loadStarted_{};  // a read older than mediaReadStuck doesn't hold the next back
     bool reloadWanted_ = false;
     std::optional<bool> shownPlaying_; // logged when it changes, to time pauses

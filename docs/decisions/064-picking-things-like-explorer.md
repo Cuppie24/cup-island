@@ -31,7 +31,9 @@ A provider can't do that itself: keys and the pointer never reach it
   `Content::deleteAction`; Enter opens the one thing picked; F2 renames
   it; the arrows move the keyboard's focus and pick what it lands on
   (Shift extends, Ctrl only moves); Esc lets go of the selection first,
-  then steps back as before (decision 033).
+  then steps back as before (decision 033). A right-click, Shift+F10 or
+  the menu key opens the island's menu (decision 066), and Esc closes it
+  before anything else.
 - **The provider is told** (`Provider::onSelectionChanged`) and acts on it:
   the Shelf's foot reads **Delete N items** while something is picked,
   else Clear; Delete asks first.

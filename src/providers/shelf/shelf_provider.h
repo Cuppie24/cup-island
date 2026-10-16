@@ -66,6 +66,8 @@ public:
     void onSelectionChanged(const std::string& activityId, const std::string& list, const std::vector<std::string>& ids) override;
     // The picked things' files, to drag out (decision 065): a copy's in the store, a link's original. Only what's there.
     std::vector<std::string> dragOut(const std::string& activityId, const std::string& list, const std::vector<std::string>& ids) override;
+    // The right-click menu (decision 066), like Explorer's: one thing's actions, Delete N items for several, Select all.
+    std::vector<MenuItem> contextMenu(const std::string& activityId, const std::string& list, const std::vector<std::string>& ids) override;
 
     const shelf::Items& items() const { return items_; }
     shelf::View view() const { return view_; }

@@ -24,6 +24,9 @@ struct SelectionHooks {
     // Picked things dragged out (decision 065): their provider's files, dragged by Windows. Modal.
     std::function<void(const std::string& providerId, const std::string& activityId, const std::string& list,
                        const std::vector<std::string>& ids)> dragOut;
+    // The menu a provider offers for picked things (decision 066); none: no menu.
+    std::function<std::vector<MenuItem>(const std::string& providerId, const std::string& activityId, const std::string& list,
+                                        const std::vector<std::string>& ids)> contextMenu;
 };
 
 void setSelectionHooks(SelectionHooks hooks);
@@ -38,6 +41,12 @@ bool selectionReleased(bool inside);       // true if the selection took the rel
 
 // Ctrl+A, Delete, Enter, F2 on a card with a selectable list. True if taken.
 bool selectionKey(WPARAM key, bool ctrl);
+
+// A right-click at `point` (pill coordinates), or Shift+F10 / the menu key
+// (none): the island's menu for what's picked, like Explorer's (decision 066).
+// A right-click on a thing not picked picks it alone; on the empty part of
+// the list it clears the selection. True if a menu opened.
+bool openMenu(std::optional<Vec2> point);
 
 // The keyboard's focus landed on a thing (arrows): it's picked, Shift extends.
 void focusLanded(const Placed& on, bool shift, bool ctrl);

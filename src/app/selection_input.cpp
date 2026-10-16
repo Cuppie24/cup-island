@@ -154,9 +154,45 @@ bool selectionReleased(bool inside)
     return true;
 }
 
+bool openMenu(std::optional<Vec2> point)
+{
+    if (mode(state()) != Mode::Expanded || state().dialog) return false;
+    const Placed* under = nullptr; // the thing right-clicked
+    const Placed* list = nullptr;  // anything in the list it's about
+    for (const Placed& p : scene().elements) {
+        if (!selectable(&p)) continue;
+        if (point && p.hitFrame.contains(*point)) {
+            under = list = &p;
+            break;
+        }
+        if (!list && (!point || p.list->viewport.contains(*point))) list = &p;
+    }
+    if (!list) return false;
+    std::string providerId = list->providerId, activityId = list->activityId, listId = list->list->id;
+    if (under && !isSelected(state(), activityId, listId, under->list->item))
+        g_hooks.dispatch(ItemSelected{ activityId, listId, under->list->item }, "pick");
+    else if (point && !under)
+        g_hooks.dispatch(SelectionCleared{}, "pick none");
+    const auto& picked = state().selection;
+    std::vector<std::string> ids;
+    if (picked && picked->activityId == activityId && picked->list == listId) ids = picked->ids;
+    // From the keyboard: at the first picked thing, else the list's corner.
+    Vec2 at = point.value_or(Vec2{ list->list->viewport.x, list->list->viewport.y });
+    if (!point && !ids.empty())
+        for (const auto& [item, frame] : itemsOf(listId))
+            if (item == ids[0]) {
+                at = { frame.x + frame.width / 2, frame.y + frame.height / 2 };
+                break;
+            }
+    std::vector<MenuItem> items = g_hooks.contextMenu(providerId, activityId, listId, ids);
+    if (items.empty()) return false;
+    g_hooks.dispatch(MenuOpened{ Menu{ providerId, activityId, listId, std::move(items), at } }, "menu");
+    return state().menu.has_value();
+}
+
 bool selectionKey(WPARAM key, bool ctrl)
 {
-    if (mode(state()) != Mode::Expanded) return false;
+    if (mode(state()) != Mode::Expanded || state().menu) return false; // a menu's keys are its own (keyboard.cpp)
     // The card's selectable list, if it has one on screen.
     const Placed* any = nullptr;
     for (const Placed& p : scene().elements)
