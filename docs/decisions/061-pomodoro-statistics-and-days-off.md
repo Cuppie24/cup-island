@@ -45,7 +45,9 @@ on, with time counted that they hadn't worked.
   off (a Switch's colours). One row, not seven: the week reads at a glance
   and the page stays short. They're `Button::round`, a labelled circle
   any provider can use. Closing the card leaves the page.
-- **Debug builds** (the demo keys' switch, `NDEBUG`) add a "Fake
+- **Debug builds** (the demo keys' switch, `NDEBUG`), or any build started
+  under a debugger (`IsDebuggerPresent`: Visual Studio's preset dropdown
+  starts on Release), add a "Fake
   statistics" row to that page: each click shows a made-up history (3 in a
   row with best 5; then new records), then the real one again. A made-up
   history is never saved.

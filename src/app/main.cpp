@@ -970,7 +970,9 @@ int main()
     g_providers->add(std::make_unique<SmtcMediaProvider>(postToUi));
     g_providers->add(std::make_unique<DemoMediaProvider>()); // M key
     g_providers->add(std::make_unique<ThemeProvider>(postToUi));
-    g_providers->add(std::make_unique<PomodoroProvider>(kDemoKeys)); // Debug: fake statistics on its settings page
+    // Fake statistics on its settings page (decision 061): Debug builds, or any build started under a
+    // debugger (Visual Studio's preset dropdown starts on Release, which has a pdb and debugs fine).
+    g_providers->add(std::make_unique<PomodoroProvider>(kDemoKeys || IsDebuggerPresent()));
     auto settings = std::make_unique<SettingsProvider>(SettingsHooks{
         .applyTheme = applyTheme,
         .copyLogs = [] { return copyLogToClipboard(g_inputHwnd); },
