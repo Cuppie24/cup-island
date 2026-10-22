@@ -1,6 +1,6 @@
 # 014: Who decides what a card looks like
 
-Status: Accepted
+Status: Accepted; the card's ring is back, around the time, by 065
 
 **Context.** Pomodoro's card needed a different shape than media's: the
 controls on top, a big countdown in the middle with its ring, the phase

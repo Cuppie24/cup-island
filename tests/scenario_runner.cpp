@@ -9,8 +9,9 @@
 //            click  outside  esc  pointer  drag-enter  drag-rejected
 //            drag-leave  drop  hide  show  wait <ms>
 //            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel
-//            panel <id> [static|keep]  unpanel <id>  home  tile <id>  (static: a widget with no card;
-//                                                                     keep: its card stays open on a click, decision 030)
+//            panel <id> [static|keep|awake]  unpanel <id>  home  tile <id>  (static: a widget with no card;
+//                                                                     keep: its card stays open on a click, decision 030;
+//                                                                     awake: keep, and no idle timeout, decision 062)
 //            focus <card> <action> [at=<n>|max=<chars>]  type <text...>  erase [word]  submit  cancel-input   (a TextInput, decision 016)
 //            delete [word]  caret <left|right|word-left|word-right|start|end> [select]
 //            place <n> [select]  select-word <n>  select-all                     (caret and selection, decision 043)
@@ -113,6 +114,7 @@ struct Runner {
             for (size_t i = 2; i < w.size(); ++i) {
                 if (auto l = parseLevel(w[i])) a.level = *l;
                 else if (auto v = option(w[i], "expires")) a.expiresAt = now + Ms{ std::stoi(*v) };
+                else if (w[i] == "awake") a.content.noIdleTimeout = true;
                 else a.relevance = std::stof(w[i]);
             }
             apply(ActivityStarted{ a });
@@ -150,7 +152,8 @@ struct Runner {
         else if (cmd == "panel") {
             Panel p{ .id = arg(1), .content = { .label = arg(1) } };
             if (arg(2) != "static") p.content.expandedCenter = { row({ Text{ arg(1) } }) };
-            p.content.keepOpen = arg(2) == "keep";
+            p.content.keepOpen = arg(2) == "keep" || arg(2) == "awake";
+            p.content.noIdleTimeout = arg(2) == "awake";
             apply(PanelPublished{ p });
         }
         else if (cmd == "unpanel") apply(PanelRemoved{ arg(1) });

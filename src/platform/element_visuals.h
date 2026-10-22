@@ -54,6 +54,7 @@ private:
         // Shape colours, kept so a recolour fades them (decision 051); null when unused.
         wuc::CompositionColorBrush track{ nullptr }, accent{ nullptr }, knobBrush{ nullptr }, hover{ nullptr };
         SwitchParts toggle; // a Switch's track and knob (decision 053)
+        bool lit = false;   // a secondary button under the pointer: drawn at full strength (decision 064)
     };
 
     View create(const Placed& placed, Ms now, bool fade = true); // fade: fades in (not when a text turns into its field)

@@ -1,6 +1,6 @@
 # 027: A Pomodoro session survives a restart
 
-Status: Accepted
+Status: Superseded in part by 061 (a session comes back paused; no catch-up)
 
 **Context.** Quitting the app (an update, a crash, a reboot) threw away a
 running Pomodoro session: the user came back to a dormant timer and had to

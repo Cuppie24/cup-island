@@ -1,5 +1,5 @@
 #pragma once
-// A Pomodoro session's phases, and how it outlives the app (decision 027).
+// A Pomodoro session's phases, and how it outlives the app (decisions 027, 061).
 // Pure: the wall clock is passed in, so a restart's catch-up is tested on Linux.
 
 #include "core/content.h"
@@ -16,6 +16,7 @@ struct PomodoroSession {
     PomodoroPhase phase = PomodoroPhase::Focus;
     std::size_t round = 1; // 1-based focus round
     Timeline timeline;     // the phase: duration, position, playing = not paused
+    int focusSkipped = 0;  // focus phases ended with Skip: too many and it doesn't count as finished (decision 061)
 };
 
 // How long focus and breaks last: the user's, set on the dormant card
@@ -41,14 +42,12 @@ Ms phaseDuration(PomodoroPhase phase, const PomodoroPlan& plan);
 // break after the last round. Nothing after the long break: the session is done.
 std::optional<PomodoroSession> followingPhase(const PomodoroSession& s, const PomodoroPlan& plan, Ms now);
 
-// One line: where the session is at `now`, stamped with the wall clock
-// (`wallNow`, ms since the epoch). The app's own clock starts over each run.
-std::string saveSession(const PomodoroSession& s, Ms now, Ms wallNow);
+// One line: the phase, the round, how far into it at `now`, and the skips.
+std::string saveSession(const PomodoroSession& s, Ms now);
 
-// The session as it stands now: a running one has gone on while the app was
-// closed (phases that ended meanwhile pass quietly, no alerts); a paused one
-// is where it was. Nothing if none was saved, the text is unreadable, or the
-// session ended meanwhile. A clock set back counts as no time passed.
-std::optional<PomodoroSession> resumeSession(const std::string& saved, const PomodoroPlan& plan, Ms now, Ms wallNow);
+// The saved session, paused where it was (decision 061: no time passes while
+// the app is closed; the user picks up when they're back). Nothing if none
+// was saved or the text is unreadable. Reads decision 027's older lines too.
+std::optional<PomodoroSession> resumeSession(const std::string& saved, Ms now);
 
 } // namespace cup

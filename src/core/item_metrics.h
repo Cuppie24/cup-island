@@ -11,10 +11,12 @@ namespace cup {
 
 float lineHeight(TextStyle style); // a line of text in this style
 bool isRing(const Item& item);
+// A Dial's diameter: its widest time and its label, as a block, fit inside the circle, dialInset in (decision 065).
+float dialDiameter(const Dial& dial, const MeasureText& measure);
 
 // Natural height of an item. Images fill the slot's square; a ring is
 // `ringSide` (its row's height, or the slot's square when alone).
-float heightOf(const Item& item, Rect slot, float ringSide);
+float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& measure = {});
 
 // Fixed width, or nothing for items that stretch (Text, TextInput, a bar).
 std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureText& measure);

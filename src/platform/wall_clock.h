@@ -9,4 +9,7 @@ namespace cup::platform {
 
 ClockSynced readWallClock();
 
+// Local time minus UTC right now, daylight saving included (Host::utcOffset).
+Ms utcOffset();
+
 } // namespace cup::platform

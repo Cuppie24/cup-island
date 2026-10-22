@@ -96,6 +96,8 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Plus: return L"\uE710";   // Add
     case Glyph::Pin: return L"\uE718";
     case Glyph::Pinned: return L"\uE840"; // Pinned, the outline with its needle; paintGlyph fills it (PinnedFill under it)
+    case Glyph::Chart: return L"\uE9D2"; // AreaChart: the statistics (decision 066)
+    case Glyph::Fire: return L"\U0001F525"; // not in the icon fonts: Segoe UI Emoji's, in colour (paintGlyph)
     }
     return L"?";
 }
@@ -156,7 +158,8 @@ namespace {
 
 void drawString(ID2D1DeviceContext* dc, IDWriteTextFormat* f, const std::wstring& text, D2D1_RECT_F rect, const Color& color)
 {
-    dc->DrawText(text.c_str(), static_cast<UINT32>(text.size()), f, rect, brushOf(dc, color).get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
+    dc->DrawText(text.c_str(), static_cast<UINT32>(text.size()), f, rect, brushOf(dc, color).get(),
+                 D2D1_DRAW_TEXT_OPTIONS_CLIP | D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT); // an emoji in its colours (🔥, decision 064)
 }
 
 void drawString(ID2D1DeviceContext* dc, IDWriteTextFormat* f, const std::wstring& text, Vec2 size, const Color& color)
@@ -205,22 +208,72 @@ winrt::com_ptr<IDWriteTextLayout> wrappedLayout(IDWriteFactory* dw, const Text& 
 
 } // namespace
 
-void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec2 size)
+
+void paintDivider(ID2D1DeviceContext* dc, Vec2 size)
 {
-    if (!text.struck && text.wrapped.empty()) {
-        drawString(dc, formatOf(dw, text).get(), widen(text.value), size, lookOf(text.style).color);
-        return;
-    }
-    // Wrapped, or struck through (a solved to-do): a layout carries the lines and the strikethrough.
-    auto layout = wrappedLayout(dw, text, size.x, size.y);
-    if (text.struck) layout->SetStrikethrough(TRUE, DWRITE_TEXT_RANGE{ 0, static_cast<UINT32>(widen(text.value).size()) });
-    dc->DrawTextLayout(D2D1::Point2F(0, 0), layout.get(), brushOf(dc, lookOf(text.style).color).get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
+    dc->FillRectangle(D2D1::RectF(0, 0, size.x, size.y), brushOf(dc, tokens().trackColor).get());
 }
 
-void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& label, Vec2 size, const Color& color)
+void paintDial(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Dial& dial, Vec2 size)
 {
-    Text text{ .value = label, .style = TextStyle::Body, .centred = true };
+    Text time{ .value = dial.shown, .style = TextStyle::Display, .centred = true };
+    Text label{ .value = dial.label, .style = TextStyle::Caption, .centred = true };
+    float timeHeight = lineHeight(TextStyle::Display), labelHeight = dial.label.empty() ? 0 : lineHeight(TextStyle::Caption);
+    float top = (size.y - timeHeight - labelHeight) / 2;
+    drawString(dc, formatOf(dw, time).get(), widen(time.value), D2D1::RectF(0, top, size.x, top + timeHeight), lookOf(time.style).color);
+    if (labelHeight > 0)
+        drawString(dc, formatOf(dw, label).get(), widen(label.value), D2D1::RectF(0, top + timeHeight, size.x, top + timeHeight + labelHeight),
+                   lookOf(label.style).color);
+}
+
+void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec2 size)
+{
+    Color color = lookOf(text.style).color;
+    if (!text.struck && text.wrapped.empty() && !text.brightDigits) {
+        drawString(dc, formatOf(dw, text).get(), widen(text.value), size, color);
+        return;
+    }
+    // Wrapped, struck through (a solved to-do) or with bright digits: a layout carries the lines,
+    // the strikethrough, and each digit run's brush (decision 068).
+    auto layout = wrappedLayout(dw, text, size.x, size.y);
+    if (text.struck) layout->SetStrikethrough(TRUE, DWRITE_TEXT_RANGE{ 0, static_cast<UINT32>(widen(text.value).size()) });
+    auto bright = brushOf(dc, tokens().titleTextColor); // kept alive until drawn
+    if (text.brightDigits) {
+        std::wstring value = widen(text.wrapped.empty() ? text.value : text.wrapped);
+        for (UINT32 i = 0; i < value.size();) {
+            if (value[i] < L'0' || value[i] > L'9') { ++i; continue; }
+            UINT32 start = i;
+            while (i < value.size() && value[i] >= L'0' && value[i] <= L'9') ++i;
+            layout->SetDrawingEffect(bright.get(), DWRITE_TEXT_RANGE{ start, i - start });
+        }
+    }
+    dc->DrawTextLayout(D2D1::Point2F(0, 0), layout.get(), brushOf(dc, color).get(),
+                       D2D1_DRAW_TEXT_OPTIONS_CLIP | D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
+}
+
+void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& label, Vec2 size, const Color& color, TextStyle style)
+{
+    Text text{ .value = label, .style = style, .centred = true };
     drawString(dc, formatOf(dw, text).get(), widen(label), size, color);
+}
+
+void paintPrimaryButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size, bool lit)
+{
+    const Tokens& t = tokens();
+    float r = std::min(size.x, size.y) / 2;
+    Color fill = button.enabled ? t.buttonColor : t.buttonDisabledColor;
+    if (lit && button.enabled) fill.a = static_cast<std::uint8_t>(std::lround(fill.a * std::clamp(t.primaryHoverOpacity, 0.0f, 1.0f)));
+    dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(size.x / 2, size.y / 2), r, r), brushOf(dc, fill).get());
+    paintGlyph(dc, dw, button.glyph, t.primaryGlyphSize, size, t.islandColor);
+}
+
+void paintRoundButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size)
+{
+    const Tokens& t = tokens();
+    bool on = button.on.value_or(false);
+    float r = std::min(size.x, size.y) / 2;
+    dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(size.x / 2, size.y / 2), r, r), brushOf(dc, on ? t.liveColor : t.trackColor).get());
+    paintLabel(dc, dw, button.label, size, on ? t.islandColor : t.buttonColor);
 }
 
 std::size_t caretAt(IDWriteFactory* dw, const Text& text, Vec2 size, Vec2 at)
@@ -256,7 +309,9 @@ void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, 
 
 void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float fontSize, Vec2 size, const Color& color)
 {
-    auto f = format(dw, iconFamily(dw), fontSize, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_TEXT_ALIGNMENT_CENTER); // icons: as designed
+    // Fire (days in a row, decision 061) is an emoji: Segoe UI Emoji, on every Windows 10 and 11, drawn in its own colours.
+    bool emoji = glyph == Glyph::Fire;
+    auto f = format(dw, emoji ? L"Segoe UI Emoji" : iconFamily(dw), fontSize, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_TEXT_ALIGNMENT_CENTER); // icons: as designed
     auto layoutOf = [&](const wchar_t* text) {
         winrt::com_ptr<IDWriteTextLayout> layout;
         winrt::check_hresult(dw->CreateTextLayout(text, static_cast<UINT32>(wcslen(text)), f.get(), size.x, size.y, layout.put()));
@@ -276,7 +331,7 @@ void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float f
     // PinnedFill (U+E841) is only a fill layer, with no needle: it goes under the Pinned outline (decision 046),
     // in the same place, so the two line up.
     if (glyph == Glyph::Pinned) dc->DrawTextLayout(at, layoutOf(L"\uE841").get(), brush.get());
-    dc->DrawTextLayout(at, glyphLayout.get(), brush.get());
+    dc->DrawTextLayout(at, glyphLayout.get(), brush.get(), emoji ? D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT : D2D1_DRAW_TEXT_OPTIONS_NONE);
 }
 
 void paintToggleDot(ID2D1DeviceContext* dc, Vec2 size, float glyphSize)

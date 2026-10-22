@@ -50,7 +50,9 @@ float centredCardHeight(const Source& source, Vec2 size, float tabSpace, const M
     const Tokens& t = tokens();
     const Content& c = *source.content;
     Rect frame = stackFrame(c, size);
-    float needed = slotHeight(c.expandedCenter, { frame.x, frame.y, frame.width, size.y }, source, measure) + 2 * frame.y;
+    // A page within the card keeps the card's main view's height (Content::sizedLike, decision 070).
+    const Slot& sizing = c.sizedLike.empty() ? c.expandedCenter : c.sizedLike;
+    float needed = slotHeight(sizing, { frame.x, frame.y, frame.width, size.y }, source, measure) + 2 * frame.y;
     // A List card (Settings) is never as squeezed as an activity's: listCardMinHeight at least.
     float least = c.card == CardLayout::List ? std::max(t.expandedSize.y, t.listCardMinHeight) : t.expandedSize.y;
     return std::clamp(needed, least, std::max(least, t.canvas.y - tabSpace));

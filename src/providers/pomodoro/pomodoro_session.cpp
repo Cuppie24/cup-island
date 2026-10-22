@@ -79,37 +79,33 @@ std::optional<PomodoroSession> followingPhase(const PomodoroSession& s, const Po
     return next;
 }
 
-// "pomodoro1 <phase> <round> <playing> <position ms> <duration ms> <wall ms>"
-std::string saveSession(const PomodoroSession& s, Ms now, Ms wallNow)
+// "pomodoro2 <phase> <round> <position ms> <duration ms> <focus skipped>"
+std::string saveSession(const PomodoroSession& s, Ms now)
 {
     std::ostringstream out;
-    out << "pomodoro1 " << static_cast<int>(s.phase) << ' ' << s.round << ' ' << (s.timeline.playing ? 1 : 0) << ' '
-        << s.timeline.positionAt(now).count() << ' ' << s.timeline.duration.count() << ' ' << wallNow.count() << '\n';
+    out << "pomodoro2 " << static_cast<int>(s.phase) << ' ' << s.round << ' ' << s.timeline.positionAt(now).count() << ' '
+        << s.timeline.duration.count() << ' ' << s.focusSkipped << '\n';
     return out.str();
 }
 
-std::optional<PomodoroSession> resumeSession(const std::string& saved, const PomodoroPlan& plan, Ms now, Ms wallNow)
+std::optional<PomodoroSession> resumeSession(const std::string& saved, Ms now)
 {
     std::istringstream in(saved);
     std::string tag;
-    int phase = 0, playing = 0;
+    int phase = 0, playing = 0, skipped = 0;
     long long round = 0, position = 0, duration = 0, wall = 0;
-    if (!(in >> tag >> phase >> round >> playing >> position >> duration >> wall) || tag != "pomodoro1") return std::nullopt;
-    if (phase < 0 || phase > 2 || round < 1 || duration <= 0 || position < 0) return std::nullopt;
-
-    PomodoroSession s{ static_cast<Phase>(phase), static_cast<std::size_t>(round),
-                       { .position = Ms{ std::min(position, duration) }, .duration = Ms{ duration }, .anchoredAt = now, .playing = playing != 0 } };
-    if (!s.timeline.playing) return s;
-    // It kept running while the app was closed: walk through the phases that ended meanwhile.
-    Ms left = s.timeline.position + Ms{ std::max(0LL, wallNow.count() - wall) };
-    while (left >= s.timeline.duration) {
-        left -= s.timeline.duration;
-        auto next = followingPhase(s, plan, now);
-        if (!next) return std::nullopt;
-        s = *next;
+    if (!(in >> tag)) return std::nullopt;
+    if (tag == "pomodoro2") {
+        if (!(in >> phase >> round >> position >> duration >> skipped)) return std::nullopt;
+    } else if (tag == "pomodoro1") { // decision 027's: playing and the wall clock, no longer needed
+        if (!(in >> phase >> round >> playing >> position >> duration >> wall)) return std::nullopt;
+    } else {
+        return std::nullopt;
     }
-    s.timeline.position = left;
-    return s;
+    if (phase < 0 || phase > 2 || round < 1 || duration <= 0 || position < 0 || skipped < 0) return std::nullopt;
+    return PomodoroSession{ static_cast<Phase>(phase), static_cast<std::size_t>(round),
+                            { .position = Ms{ std::min(position, duration) }, .duration = Ms{ duration }, .anchoredAt = now, .playing = false },
+                            skipped };
 }
 
 } // namespace cup

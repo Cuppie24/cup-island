@@ -16,4 +16,15 @@ ClockSynced readWallClock()
     return { timeOfDay, hour24 };
 }
 
+Ms utcOffset()
+{
+    // Bias is UTC minus local, in minutes; the season's bias goes on top. Since Windows 2000.
+    TIME_ZONE_INFORMATION zone{};
+    DWORD which = GetTimeZoneInformation(&zone);
+    long bias = zone.Bias;
+    if (which == TIME_ZONE_ID_DAYLIGHT) bias += zone.DaylightBias;
+    else if (which == TIME_ZONE_ID_STANDARD) bias += zone.StandardBias;
+    return Ms{ -bias * 60000LL };
+}
+
 } // namespace cup::platform

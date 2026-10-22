@@ -55,6 +55,9 @@ public:
     // Wall time (ms since the epoch), for what must mean the same moment
     // after a restart; now() starts over with each run.
     virtual Ms wallClock() const = 0;
+    // Local time minus UTC, now: where the user's day starts (Pomodoro's
+    // "today", decision 061). Default: UTC, for hosts that don't know (tests).
+    virtual Ms utcOffset() const { return Ms{ 0 }; }
 };
 
 // Keys never reach a provider (decision 035): the host owns focus and

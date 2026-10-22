@@ -207,12 +207,6 @@ const Placed* contentUnder(Vec2 point)
     return nullptr;
 }
 
-std::string rowUnder(Vec2 point)
-{
-    const Placed* p = contentUnder(point);
-    return p ? p->key.substr(0, p->key.rfind('/')) : std::string();
-}
-
 // Where hover feedback comes from: the keyboard's focus while it leads (decision 031), else the pointer.
 std::optional<Vec2> hoverPoint()
 {
@@ -235,7 +229,7 @@ void updateHover()
     // being edited (then it's a field); a field being drag-selected keeps it, even off it.
     const Placed* under = key.empty() ? nullptr : findElement(key);
     setTextCursor(!g_pointer.selecting.empty() || (under && std::holds_alternative<TextInput>(under->item)));
-    g_renderer.setHoveredRow(at ? rowUnder(*at) : std::string()); // reveals a to-do's delete button
+    g_renderer.setHoveredRow(at ? rowAt(g_scene, *at) : std::string()); // reveals a to-do's delete button, the plan's − and + (decision 063)
 
     // Tabs light up as a whole, except the active one, which is already marked (decision 007).
     // Home's tiles too, unless the pointer is on one of their buttons (decision 009).
@@ -965,11 +959,14 @@ int main()
         .load = [](const std::string& provider, const std::string& key) { return store().load(provider, key); },
         .save = [](const std::string& provider, const std::string& key, const std::string& text) { store().save(provider, key, text); },
         .wallClock = wallClock,
+        .utcOffset = platform::utcOffset,
     });
     g_providers->add(std::make_unique<SmtcMediaProvider>(postToUi));
     g_providers->add(std::make_unique<DemoMediaProvider>()); // M key
     g_providers->add(std::make_unique<ThemeProvider>(postToUi));
-    g_providers->add(std::make_unique<PomodoroProvider>());
+    // Fake statistics on its settings page (decision 061): Debug builds, or any build started under a
+    // debugger (Visual Studio's preset dropdown starts on Release, which has a pdb and debugs fine).
+    g_providers->add(std::make_unique<PomodoroProvider>(kDemoKeys || IsDebuggerPresent()));
     auto settings = std::make_unique<SettingsProvider>(SettingsHooks{
         .applyTheme = applyTheme,
         .copyLogs = [] { return copyLogToClipboard(g_inputHwnd); },

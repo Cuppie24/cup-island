@@ -445,7 +445,7 @@ void runTodoTests()
     send(DialogClosed{});
     expect(saved.empty(), "confirmed: all cleared");
     Scene empty = layout(state, now);
-    expect(!firstOf(empty, [](const Placed& p) { auto* b = std::get_if<Button>(&p.item); return b && !b->label.empty(); }),
+    expect(!firstOf(empty, [](const Placed& p) { auto* b = std::get_if<Button>(&p.item); return b && b->label.rfind("Clear", 0) == 0; }),
            "nothing to clear: no clear buttons");
 
     // Starting keeps the list on the running card.

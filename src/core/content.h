@@ -18,7 +18,7 @@ using Ms = std::chrono::milliseconds;
 // Built-in icons; the renderer maps them to font glyphs.
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
                    Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre,
-                   Minus, Plus, Pin, Pinned };
+                   Minus, Plus, Pin, Pinned, Fire, Chart };
 
 // Display: a big number, the card's centre (a timer). Heading: a group's name over its rows (Settings'
 // "Dark" and "Light"): small, but heavy and full-strength, so it reads as a divider (decision 037).
@@ -64,6 +64,10 @@ struct Text {
     bool marquee = false;  // too long: scrolls ("swims") in a loop instead of ending in "…"
     bool centred = false;  // centred in its frame (wins over alignEnd)
     bool struck = false;   // struck through: a solved to-do
+    // Its numbers (every run of digits) in the brightest text colour, the rest
+    // in its style's: values picked out among quiet words, in one text, so
+    // the spacing is the font's ("2 cycles · 3 h 20 min", decision 068).
+    bool brightDigits = false;
     // Editable in place (decisions 029, 043): a click on it, or a Button with
     // `editsText` and this actionId, turns it into a field holding its text;
     // Enter sends the provider Action{editAction, text}, Esc leaves it as it was.
@@ -72,6 +76,10 @@ struct Text {
     // Wraps onto as many lines as it needs instead of ending in "…" (a
     // to-do, decision 045). The only stretching item in its row.
     bool wrap = false;
+    // Laid out as wide as this text would be instead of its own (at a row's
+    // edges, or in a hugging row): a value that changes keeps one column, and
+    // rows with it line up ("120 min" for "5 min" and "25 min", decision 063).
+    std::string sizedAs;
     // Host-filled: `value` with the spaces where its lines break turned into
     // '\n' (same length, so offsets hold). Empty: one line.
     std::string wrapped;
@@ -94,6 +102,18 @@ struct Button {
     bool destructive = false;   // its label in dangerColor: a dialog's "Clear"
     bool editsText = false;     // starts editing the Text whose editAction is this button's actionId (decision 029)
     bool badge = false;         // a dot on it: something new behind it, an update to install (decision 038)
+    // A circle buttonSize wide with a short label ("Mo") instead of a glyph,
+    // filled when `on` like a Switch: one of a set picked together (Pomodoro's days off, decision 061).
+    bool round = false;
+    // A label button that's a way into more, not a main control: its label in
+    // Caption style and colour, like the text it stands in for (Pomodoro's statistics line, decision 063).
+    bool quiet = false;
+    // Secondary: a glyph in buttonOffColor that brightens to buttonColor under
+    // the pointer: settings, steppers, less-used controls (decision 064).
+    bool secondary = false;
+    // Primary: the card's one main action (Pomodoro's ▶ / ⏸), a filled circle
+    // primaryButtonSize wide, its glyph in the island's colour (decision 064).
+    bool primary = false;
     bool operator==(const Button&) const = default;
 };
 
@@ -172,7 +192,28 @@ struct Switch {
     bool operator==(const Switch&) const = default;
 };
 
-using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch, Tag, Switch>;
+// A thin line across its row, in the track colour: sets a group apart more
+// than a gap does (Pomodoro's records under today, decision 064). Stretches.
+struct Divider {
+    bool operator==(const Divider&) const = default;
+};
+
+// A ring filling with its Timeline (in the accent, like a Progress ring),
+// the time left big in its middle and a short label under it ("Focus").
+// One item, not a ring holding other items: the content model stays flat.
+// Its size follows from its digits: as wide as the widest the time can be,
+// with the label, inside the circle, dialInset in (decision 065).
+struct Dial {
+    Timeline timeline;
+    std::string label;
+    std::string shown; // host-filled: the time left at layout, like a TimeLabel's text
+    // Sized for this long a time instead of its own (at least "00:00"), so it
+    // stays one size from phase to phase: a 5:00 break in a 25:00 focus's ring.
+    Ms sizedFor{};
+    bool operator==(const Dial&) const = default;
+};
+
+using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch, Tag, Switch, Divider, Dial>;
 
 enum class Align { Start, Center, End };
 
@@ -195,8 +236,8 @@ struct Row {
     std::vector<Item> items;
     Align align = Align::Start;
     bool loose = false; // wider gaps between items (controls: easier to hit, harder to mis-hit)
-    // Fixed-size items pinned to the row's start / end edge, e.g. shuffle and
-    // repeat around centred media controls. `items` still centre across the
+    // Fixed-size items (or texts, as wide as they are) pinned to the row's
+    // start / end edge, e.g. shuffle and repeat around centred media controls. `items` still centre across the
     // full width. Keys number items, then trailing, then leading.
     std::vector<Item> leading;
     std::vector<Item> trailing;
@@ -210,6 +251,9 @@ struct Row {
     std::string list;
     // The list's window in rows, read from its first row; 0: listVisibleRows.
     // A list that is the whole card (Settings' root page) sizes it to the card.
+    // Negative: the window fills what's left of the slot under the rows above
+    // it (the list must be the slot's last): a page of settings in a card
+    // whose height is set by another view (Content::sizedLike, decision 070).
     float visibleRows = 0;
     // Drag to reorder (decision 029): pressed and dragged, the row moves among
     // the list's rows of the same `sortGroup`; dropped in a new place, its
@@ -230,6 +274,21 @@ struct Row {
     // Its content inset like a list item's, without being one (no padding,
     // nothing lit): a heading over list items lines up with their text.
     bool inset = false;
+    // Its texts as wide as they are, not stretched, so the row is centred as
+    // one line (with Align::Center): a few short statistics (decision 061).
+    // Too wide for the slot: laid out as usual.
+    bool hug = false;
+    // Columns: its items share the row's width equally, each centred in its
+    // share. Rows of the same count line up: a table, value rows over caption
+    // rows (Pomodoro's statistics, decision 064).
+    bool even = false;
+    // Starts one of a card's groups (the timer, its progress, its controls):
+    // groupGap of space above it, more than between rows (decision 066).
+    bool apart = false;
+    // At most narrowRowWidth wide, centred: short columns kept together in the
+    // middle while the rows around it (a page's title, its back arrow at the
+    // card's edge) keep the card's width (Pomodoro's statistics, decision 070).
+    bool narrow = false;
     bool operator==(const Row&) const = default;
 };
 
@@ -270,10 +329,20 @@ struct Content {
     // settings, where a near miss shouldn't close it. Esc, a click outside
     // the island or the idle timeout still do (decision 030).
     bool keepOpen = false;
+    // ...and doesn't close when left alone either (expandedIdleTimeout): a
+    // timer kept in view while working (Pomodoro, decision 062).
+    bool noIdleTimeout = false;
     // A card on one of its own pages (Settings' Theme page): the action Esc
     // sends, as a click on its back arrow would. Empty: Esc goes back to
     // Home or closes, as anywhere else (decision 033).
     std::string backAction;
+    // A page within the card (its statistics, its settings): the card keeps
+    // the height these rows, its main view, give it, and the page lays out in
+    // that height, centred, instead of setting its own (decision 070). Empty: not a page.
+    Slot sizedLike;
+    // ...and the page starts at the top instead of centred: a page that
+    // scrolls (a fill list, Row::visibleRows < 0) rather than one that fits.
+    bool pageAtTop = false;
     Slot compactLeading;
     Slot compactCenter;  // between the two compact squares, e.g. a swimming title
     Slot compactTrailing;

@@ -37,11 +37,23 @@ bool isRing(const Item& item)
     return progress && progress->shape == ProgressShape::Ring;
 }
 
+float dialDiameter(const Dial& dial, const MeasureText& measure)
+{
+    // The longest it's sized for, and never under two digits a side: the ring keeps its size whatever the time.
+    std::string shape = formatDuration(std::max({ dial.timeline.duration, dial.sizedFor, Ms{ 600000 } }));
+    std::string widest = widestDigits(shape, TextStyle::Display, measure);
+    Text time{ widest, TextStyle::Display };
+    float w = measure ? measure(time) : estimateTextWidth(time);
+    float h = lineHeight(TextStyle::Display) + (dial.label.empty() ? 0 : lineHeight(TextStyle::Caption));
+    return std::ceil(std::sqrt(w * w + h * h) + 2 * tokens().dialInset); // the block's corners touch the circle
+}
+
 // Natural height of an item. Images fill the slot's square; a ring is
 // `ringSide` (its row's height, or the slot's square when alone).
-float heightOf(const Item& item, Rect slot, float ringSide)
+float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& measure)
 {
     const Tokens& t = tokens();
+    if (auto* dial = std::get_if<Dial>(&item)) return dialDiameter(*dial, measure);
     if (auto* text = std::get_if<Text>(&item)) return lineHeight(text->style);
     if (std::holds_alternative<Image>(item)) return std::min(slot.width, slot.height);
     if (isRing(item)) return ringSide;
@@ -49,22 +61,23 @@ float heightOf(const Item& item, Rect slot, float ringSide)
     if (std::holds_alternative<Swatch>(item)) return t.swatchSize;
     if (std::holds_alternative<Switch>(item)) return t.switchSize.y;
     if (std::holds_alternative<Tag>(item)) return t.tagHeight;
-    if (auto* button = std::get_if<Button>(&item)) return button->compact ? t.smallButtonSize : t.buttonSize;
+    if (auto* button = std::get_if<Button>(&item)) return button->primary ? t.primaryButtonSize : button->compact ? t.smallButtonSize : t.buttonSize;
     if (std::holds_alternative<TextInput>(item)) return t.inputHeight;
+    if (std::holds_alternative<Divider>(item)) return t.dividerThickness;
     // Seekable bars get a taller row to be easy to click; a bar nobody clicks is just its line.
     if (auto* bar = std::get_if<Progress>(&item)) return bar->seekable ? t.progressHitHeight : t.progressHeight;
     if (auto* label = std::get_if<TimeLabel>(&item)) return lineHeight(label->style);
     return t.iconSize; // Icon, Waveform
 }
 
-// Fixed width, or nothing for items that stretch (Text, Progress).
+// Fixed width, or nothing for items that stretch (Text, Progress, Divider).
 std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureText& measure)
 {
     const Tokens& t = tokens();
-    if (std::holds_alternative<Text>(item) || std::holds_alternative<TextInput>(item) ||
+    if (std::holds_alternative<Text>(item) || std::holds_alternative<TextInput>(item) || std::holds_alternative<Divider>(item) ||
         (std::holds_alternative<Progress>(item) && !isRing(item)))
         return std::nullopt;
-    if (std::holds_alternative<Image>(item) || isRing(item)) return height;
+    if (std::holds_alternative<Image>(item) || isRing(item) || std::holds_alternative<Dial>(item)) return height; // squares
     if (auto* steps = std::get_if<Steps>(&item)) {
         float n = static_cast<float>(std::max(steps->count, 0));
         return std::max(0.0f, n * t.stepDotSize + (n - 1) * t.stepDotGap);
@@ -76,8 +89,10 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
         return (measure ? measure(text) : estimateTextWidth(text)) + 2 * t.tagPadding;
     }
     if (auto* button = std::get_if<Button>(&item)) {
+        if (button->primary) return t.primaryButtonSize;
+        if (button->round) return t.buttonSize;
         if (button->label.empty()) return button->compact ? t.smallButtonSize : t.buttonSize;
-        Text text{ button->label, TextStyle::Body };
+        Text text{ button->label, button->quiet ? TextStyle::Caption : TextStyle::Body };
         return (measure ? measure(text) : estimateTextWidth(text)) + 2 * t.buttonLabelPadding;
     }
     if (auto* label = std::get_if<TimeLabel>(&item)) {

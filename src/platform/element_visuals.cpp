@@ -50,6 +50,14 @@ float glyphSizeOf(const Button& button)
     return button.compact ? t.iconSize : t.buttonGlyphSize;
 }
 
+// What a ring follows: a Progress ring's timeline, or a Dial's (decision 065).
+Timeline ringTimeline(const Item& item)
+{
+    if (auto* dial = std::get_if<Dial>(&item)) return dial->timeline;
+    auto* progress = std::get_if<Progress>(&item);
+    return progress ? progress->timeline : Timeline{};
+}
+
 // "<slot>/<row>/<item>" -> "<slot>/<row>"
 std::string rowOf(const std::string& key) { return key.substr(0, key.rfind('/')); }
 
@@ -137,6 +145,18 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     if (auto* toggle = std::get_if<Switch>(&placed.item)) {
         view.toggle = createSwitch(compositor_, size, toggle->on);
         view.visual = view.toggle.visual;
+    } else if (std::holds_alternative<Dial>(placed.item)) {
+        // A Dial (decision 065): the ring's shapes, with its time painted on a surface laid over them.
+        RingParts parts = createRing(compositor_, size, accentOf(placed));
+        view.visual = parts.visual;
+        view.arc = parts.arc;
+        view.track = parts.track;
+        view.accent = parts.accent;
+        view.surface = device_->createSurface(size);
+        auto middle = compositor_.CreateSpriteVisual();
+        middle.Brush(compositor_.CreateSurfaceBrush(view.surface));
+        middle.Size(toFloat2(size));
+        parts.visual.Children().InsertAtTop(middle);
     } else if (isRing(placed.item)) {
         RingParts parts = createRing(compositor_, size, accentOf(placed));
         view.visual = parts.visual;
@@ -162,10 +182,11 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     } else if (std::holds_alternative<Button>(placed.item) || std::holds_alternative<TextInput>(placed.item)) {
         // A text field is built like a button: its background is the hover shape, shown only under the pointer.
         view.surface = device_->createSurface(size);
+        auto* button = std::get_if<Button>(&placed.item); // a primary one shows hover in its own fill (decision 066)
         ButtonParts parts = createButton(compositor_, size, placed.cornerRadius, view.surface, hoverColorOf(placed));
         view.visual = parts.visual;
         view.hover = parts.hover;
-        view.highlight = placed.litByRow ? nullptr : parts.highlight; // lit by its row instead (Placed::litByRow): stays hidden
+        view.highlight = placed.litByRow || (button && button->primary) ? nullptr : parts.highlight; // lit by its row, or by its fill: stays hidden
     } else if (clickableArt(placed.item)) {
         view.surface = device_->createSurface(size);
         view.glyphSurface = device_->createSurface(size);
@@ -199,7 +220,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
 
     if (view.surface) paint(view);
     if (view.fill) armProgress(compositor_, view.fill, std::get<Progress>(placed.item).timeline, size.x, now);
-    if (view.arc) armRing(compositor_, view.arc, std::get<Progress>(placed.item).timeline, now);
+    if (view.arc) armRing(compositor_, view.arc, ringTimeline(placed.item), now);
     if (!view.bars.empty()) animateBars(view);
     if (view.highlight && focusedField(placed.item)) view.highlight.Opacity(1.0f);
     if (revealsOnHover(placed.item) && rowOf(placed.key) != hoveredRow_) view.visual.Opacity(0.0f); // until its row is hovered
@@ -232,6 +253,8 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
         return true;
     }
     bool wasFocused = focusedField(view.placed.item);
+    Timeline wasRing = ringTimeline(view.placed.item);
+    bool wasRevealed = revealsOnHover(view.placed.item);
     bool wasDragged = view.placed.list && view.placed.list->dragged, dragged = placed.list && placed.list->dragged;
     auto parent = lists_.parentFor(placed); // keeps the list's window and scroll in step
     if (dragged != wasDragged) {
@@ -242,6 +265,12 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
         }
     }
     view.placed = placed;
+    // Its key now holds an item shown on hover, or one that no longer is (a page replacing the
+    // card: the plan's − and + keys become days off, decision 063): its opacity follows.
+    if (revealsOnHover(placed.item) != wasRevealed) {
+        view.visual.StopAnimation(L"Opacity"); // a hover fade still running would carry on past this
+        view.visual.Opacity(revealsOnHover(placed.item) && rowOf(placed.key) != hoveredRow_ ? 0.0f : 1.0f);
+    }
     if (newPicture) { // a cover read after its track showed (decision 056): painted anew, fading in over the old
         auto size = view.surface.Size();
         view.surface = device_->createSurface({ size.Width, size.Height });
@@ -257,7 +286,9 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     if (view.surface && !newPicture) paint(view);
     // While scrubbing, the bar belongs to the pointer; endScrub() re-arms it.
     if (view.fill && !view.scrubbing) armProgress(compositor_, view.fill, std::get<Progress>(placed.item).timeline, placed.frame.width, now);
-    if (view.arc) armRing(compositor_, view.arc, std::get<Progress>(placed.item).timeline, now);
+    // A Dial changes every second (its time); its ring is re-armed only when its timeline does.
+    if (view.arc && (!std::holds_alternative<Dial>(placed.item) || ringTimeline(placed.item) != wasRing))
+        armRing(compositor_, view.arc, ringTimeline(placed.item), now);
     if (!view.bars.empty()) animateBars(view);
     return false;
 }
@@ -292,13 +323,17 @@ void ElementVisuals::paint(View& view)
             paintGlyph(dc, dw, icon->glyph, t.iconSize, pixelSize(size), t.iconColor); // the surface's whole pixels
         } else if (auto* button = std::get_if<Button>(&item)) {
             bool toggledOff = button->on && !*button->on;
-            Color color = !button->enabled ? t.buttonDisabledColor : toggledOff ? t.buttonOffColor
+            bool idle = button->secondary && !view.lit; // grey until hovered (decision 064)
+            Color color = !button->enabled ? t.buttonDisabledColor : toggledOff || idle ? t.buttonOffColor
                         : button->destructive         ? t.dangerColor
                                                       : t.buttonColor;
-            if (!button->label.empty()) paintLabel(dc, dw, button->label, size, color);
+            if (button->primary) paintPrimaryButton(dc, dw, *button, pixelSize(size), view.lit);
+            else if (button->round) paintRoundButton(dc, dw, *button, size);
+            else if (button->quiet) paintLabel(dc, dw, button->label, size, t.captionTextColor, TextStyle::Caption); // a way into more (decision 063)
+            else if (!button->label.empty()) paintLabel(dc, dw, button->label, size, color);
             // Centred in the surface's whole pixels, like the hover shape around it, not the fractional frame.
             else paintGlyph(dc, dw, button->glyph, glyphSizeOf(*button), pixelSize(size), color);
-            if (button->on && *button->on) paintToggleDot(dc, pixelSize(size), t.buttonGlyphSize);
+            if (button->on && *button->on && !button->round) paintToggleDot(dc, pixelSize(size), t.buttonGlyphSize);
         } else if (auto* image = std::get_if<Image>(&item)) {
             paintImage(dc, image->data.get(), size, view.placed.cornerRadius);
         } else if (auto* input = std::get_if<TextInput>(&item)) {
@@ -307,6 +342,10 @@ void ElementVisuals::paint(View& view)
             paintSteps(dc, *steps, size, accentOf(view.placed));
         } else if (auto* tag = std::get_if<Tag>(&item)) {
             paintTag(dc, dw, *tag, size);
+        } else if (auto* dial = std::get_if<Dial>(&item)) {
+            paintDial(dc, dw, *dial, size);
+        } else if (std::holds_alternative<Divider>(item)) {
+            paintDivider(dc, size);
         } else if (auto* swatch = std::get_if<Swatch>(&item)) {
             paintSwatch(dc, *swatch, size);
         }
@@ -366,6 +405,10 @@ void ElementVisuals::showHover(const std::string& key, bool on)
     if (view.highlight) fadeTo(compositor_, view.highlight, on || focusedField(view.placed.item) ? 1.0f : 0.0f, tokens().hoverFadeDuration);
     if (view.knob && !view.scrubbing) showKnob(compositor_, view.knob, on);
     if (view.art.overlay) showArtOverlay(compositor_, view.art, on);
+    if (auto* button = std::get_if<Button>(&view.placed.item); button && (button->secondary || button->primary) && view.lit != on) {
+        view.lit = on; // grey to full strength and back (decision 064); a primary's fill softens (decision 066)
+        paint(view);
+    }
 }
 
 void ElementVisuals::press(const std::string& key)

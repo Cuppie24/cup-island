@@ -32,6 +32,11 @@ Item resolve(const Item& item, Ms now, const Source& source)
         std::string value = label->countdown ? left : label->remaining ? "-" + left : formatDuration(position);
         return Text{ .value = value, .style = label->style, .alignEnd = label->remaining, .marquee = false, .centred = label->countdown };
     }
+    if (auto* dial = std::get_if<Dial>(&item)) { // the time left at `now`, for the renderer to draw (decision 065)
+        Dial shown = *dial;
+        shown.shown = formatDuration(dial->timeline.duration - dial->timeline.positionAt(now));
+        return shown;
+    }
     // A Text being edited in place is a focused field with the draft (decisions 029, 043).
     if (auto* text = std::get_if<Text>(&item); text && !text->editAction.empty()) {
         const Draft* d = source.draft;
@@ -54,6 +59,8 @@ Rect clipped(Rect r, Rect clip)
 float radiusFor(const Item& item, Rect frame, float nestedRadius)
 {
     if (!std::holds_alternative<Image>(item) && !std::holds_alternative<Button>(item) && !std::holds_alternative<TextInput>(item)) return 0;
+    if (auto* b = std::get_if<Button>(&item); b && (b->primary || b->round || (b->secondary && b->label.empty())))
+        return std::min(frame.width, frame.height) / 2; // circles: their hover and press follow the circle (decisions 066, 067)
     return std::min(nestedRadius, std::min(frame.width, frame.height) / 2);
 }
 
@@ -62,7 +69,7 @@ float radiusFor(const Item& item, Rect frame, float nestedRadius)
 float listPadding(const Row& row) { return row.listItem ? 2 * tokens().listItemPadding : 0; }
 
 // Room above a group's first row (Row::section, decision 037).
-float sectionGap(const Row& row) { return row.section ? tokens().sectionGap : 0; }
+float sectionGap(const Row& row) { return row.section ? tokens().sectionGap : row.apart ? tokens().groupGap : 0; } // Row::apart: decision 066
 
 // Each row's ring side (a ring matches the other items in its row; alone, it
 // fills the slot's square) and natural height.
@@ -70,18 +77,18 @@ struct RowSizes {
     std::vector<float> ringSides, heights;
 };
 
-RowSizes rowSizes(const Slot& rows, Rect frame)
+RowSizes rowSizes(const Slot& rows, Rect frame, const MeasureText& measure)
 {
     RowSizes sizes;
     for (const Row& r : rows) {
         float others = 0;
         for (const auto* items : { &r.items, &r.leading, &r.trailing })
             for (const Item& item : *items)
-                if (!isRing(item)) others = std::max(others, heightOf(item, frame, 0));
+                if (!isRing(item)) others = std::max(others, heightOf(item, frame, 0, measure));
         float ringSide = others > 0 ? others : std::min(frame.width, frame.height);
         float h = 0;
         for (const auto* items : { &r.items, &r.leading, &r.trailing })
-            for (const Item& item : *items) h = std::max(h, heightOf(item, frame, ringSide));
+            for (const Item& item : *items) h = std::max(h, heightOf(item, frame, ringSide, measure));
         sizes.ringSides.push_back(ringSide);
         sizes.heights.push_back(h + listPadding(r) + sectionGap(r));
     }
@@ -95,12 +102,14 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
     const Tokens& t = tokens();
     const Slot& rows = *slot.slot;
 
-    RowSizes sizes = rowSizes(rows, slot.frame);
+    RowSizes sizes = rowSizes(rows, slot.frame, measure);
     const std::vector<float> oneLine = sizes.heights; // a list's window counts rows of one line (decision 045)
     // Lists windowed, scrolled, a row dragged (decision 029); the rest stacked.
     ListState lists{ source.activityId, source.scrolls, source.listDrag };
-    RowPlan plan = planRows(rows, sizes.heights, lists, &oneLine);
-    float contentTop = slot.frame.y + (slot.frame.height - plan.height) / 2; // centred vertically
+    // A page that starts at the top (Content::pageAtTop): its card's height is another view's, and it scrolls in it.
+    bool atTop = source.content && source.content->pageAtTop && slot.slot == &source.content->expandedCenter;
+    RowPlan plan = planRows(rows, sizes.heights, lists, &oneLine, slot.frame.height);
+    float contentTop = atTop ? slot.frame.y : slot.frame.y + (slot.frame.height - plan.height) / 2; // centred vertically
     std::vector<float> wrapped(rows.size(), 0); // each row's wrapping text's height, once its width is known
 
     // Places every row into `target` and returns each row's content span.
@@ -117,6 +126,10 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
             std::size_t neighbour = row.span == RowSpan::MatchAbove ? r - 1 : r + 1;
             if (spans && row.span != RowSpan::Slot && neighbour < rows.size() && (*spans)[neighbour].width > 0)
                 area = { (*spans)[neighbour].x, slot.frame.y, (*spans)[neighbour].width, slot.frame.height };
+            if (row.narrow) { // Row::narrow: a short row kept together in the middle (decision 070)
+                float w = std::min(area.width, t.narrowRowWidth);
+                area = { area.x + (area.width - w) / 2, area.y, w, area.height };
+            }
             Rect background = area; // a list item's hover background spans the row; its content sits inside
             if (row.listItem || row.inset) {
                 // What's at an edge sits listItemTextInset in, clear of the background's
@@ -140,7 +153,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
             std::string rowName = row.id.empty() ? std::to_string(r) : row.id;
             size_t first = target.size();
             auto place = [&](const Item& item, size_t index, float x, float w) {
-                float h = heightOf(item, slot.frame, ringSide);
+                float h = heightOf(item, slot.frame, ringSide, measure);
                 Placed placed;
                 placed.key = slot.name + "/" + rowName + "/" + std::to_string(index);
                 placed.item = resolve(item, now, source);
@@ -185,66 +198,102 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 placed.providerId = source.providerId;
                 placed.activityId = source.activityId;
                 if (auto* label = std::get_if<TimeLabel>(&item)) placed.ticking = label->timeline;
+                if (auto* dial = std::get_if<Dial>(&item)) placed.ticking = dial->timeline; // its time changes too
                 target.push_back(std::move(placed));
             };
-            auto widthOf = [&](const Item& item) { return fixedWidthOf(item, heightOf(item, slot.frame, ringSide), measure); };
+            auto widthOf = [&](const Item& item) { return fixedWidthOf(item, heightOf(item, slot.frame, ringSide, measure), measure); };
+
+            // A text as wide as it is: in a hugging row, and at a row's edges (a count beside a big timer).
+            auto naturalOf = [&](const Item& item) -> std::optional<float> {
+                if (auto w = widthOf(item)) return w;
+                if (auto* text = std::get_if<Text>(&item); text && !text->wrap) {
+                    Text sized = *text; // Text::sizedAs: as wide as its sample, so a changing value keeps its column
+                    if (!text->sizedAs.empty()) sized.value = text->sizedAs;
+                    return (measure ? measure(sized) : estimateTextWidth(sized)) + 1;
+                }
+                return std::nullopt;
+            };
 
             // Edge groups: packed with the normal spacing, kept `gap` away from the middle.
             auto edgeWidth = [&](const std::vector<Item>& group) {
                 float w = 0;
-                for (const Item& item : group) w += widthOf(item).value_or(0) + t.itemSpacing;
+                for (const Item& item : group) w += naturalOf(item).value_or(0) + t.itemSpacing;
                 return group.empty() ? 0.0f : w - t.itemSpacing + gap;
             };
             float leadingWidth = edgeWidth(row.leading), trailingWidth = edgeWidth(row.trailing);
             float available = area.width - leadingWidth - trailingWidth;
+            // Row::hug: texts as wide as they are, like fixed items, if the whole row fits.
+            bool hug = row.hug && [&] {
+                float w = gap * static_cast<float>(row.items.empty() ? 0 : row.items.size() - 1);
+                for (const Item& item : row.items) {
+                    auto natural = naturalOf(item);
+                    if (!natural) return false;
+                    w += *natural;
+                }
+                return w <= available;
+            }();
+            auto itemWidth = [&](const Item& item) { return hug ? naturalOf(item) : widthOf(item); };
 
-            float fixed = 0;
-            int stretchCount = 0;
-            for (const Item& item : row.items) {
-                if (auto w = widthOf(item)) fixed += *w;
-                else ++stretchCount;
-            }
-            float spacing = gap * static_cast<float>(row.items.empty() ? 0 : row.items.size() - 1);
-            float used = fixed + spacing;
-            float spare = std::max(0.0f, available - used);
-            float stretchWidth = stretchCount > 0 ? spare / static_cast<float>(stretchCount) : 0;
-            // Only texts stretch (a setting's name and its value): each gets its
-            // own width and the last the rest; short of room, each gives up its
-            // share. An even split would cut "Keyboard shortcuts" beside an
-            // empty value (decision 037).
-            std::vector<float> textWidths;
-            if (stretchCount >= 2 && std::all_of(row.items.begin(), row.items.end(), [&](const Item& item) {
-                    return widthOf(item) || std::holds_alternative<Text>(item);
-                })) {
-                float natural = 0;
-                for (const Item& item : row.items)
-                    if (auto* text = std::get_if<Text>(&item); text && !widthOf(item)) {
-                        textWidths.push_back((measure ? measure(*text) : estimateTextWidth(*text)) + 1); // +1: rounding never trips the "…"
-                        natural += textWidths.back();
-                    }
-                if (natural <= spare) textWidths.back() += spare - natural;
-                else for (float& w : textWidths) w *= spare / natural;
-            }
-            std::size_t nextText = 0;
+            if (row.even && !row.items.empty()) {
+                // Row::even: equal shares, each item centred in its own; a text takes its whole share.
+                float n = static_cast<float>(row.items.size());
+                float share = std::max(0.0f, (available - gap * (n - 1)) / n);
+                float x = area.x + leadingWidth;
+                for (size_t i = 0; i < row.items.size(); ++i) {
+                    std::optional<float> fixedW = widthOf(row.items[i]);
+                    float w = fixedW ? std::min(*fixedW, share) : share;
+                    place(row.items[i], i, x + (share - w) / 2, w);
+                    x += share + gap;
+                }
+            } else {
+                float fixed = 0;
+                int stretchCount = 0;
+                for (const Item& item : row.items) {
+                    if (auto w = itemWidth(item)) fixed += *w;
+                    else ++stretchCount;
+                }
+                float spacing = gap * static_cast<float>(row.items.empty() ? 0 : row.items.size() - 1);
+                float used = fixed + spacing;
+                float spare = std::max(0.0f, available - used);
+                float stretchWidth = stretchCount > 0 ? spare / static_cast<float>(stretchCount) : 0;
+                // Only texts stretch (a setting's name and its value): each gets its
+                // own width and the last the rest; short of room, each gives up its
+                // share. An even split would cut "Keyboard shortcuts" beside an
+                // empty value (decision 037).
+                std::vector<float> textWidths;
+                if (stretchCount >= 2 && std::all_of(row.items.begin(), row.items.end(), [&](const Item& item) {
+                        return widthOf(item) || std::holds_alternative<Text>(item);
+                    })) {
+                    float natural = 0;
+                    for (const Item& item : row.items)
+                        if (auto* text = std::get_if<Text>(&item); text && !widthOf(item)) {
+                            textWidths.push_back((measure ? measure(*text) : estimateTextWidth(*text)) + 1); // +1: rounding never trips the "…"
+                            natural += textWidths.back();
+                        }
+                    if (natural <= spare) textWidths.back() += spare - natural;
+                    else for (float& w : textWidths) w *= spare / natural;
+                }
+                std::size_t nextText = 0;
 
-            Align align = slot.square ? Align::Center : row.align;
-            float x = area.x + leadingWidth;
-            if (stretchCount == 0 && align == Align::End) x += spare;
-            if (stretchCount == 0 && align == Align::Center) {
-                // Centred on the whole row, so edge groups don't pull the middle off
-                // centre; nudged sideways only as far as needed to clear them.
-                x = area.x + std::clamp((area.width - used) / 2, leadingWidth, leadingWidth + spare);
-            }
-            for (size_t i = 0; i < row.items.size(); ++i) {
-                // A text takes the next of the texts' widths; a fixed item (a tag, a button) takes none of them.
-                std::optional<float> fixedW = widthOf(row.items[i]);
-                float w = fixedW ? *fixedW : textWidths.empty() ? stretchWidth : textWidths[nextText++];
-                place(row.items[i], i, x, w);
-                x += w + gap;
+                Align align = slot.square ? Align::Center : row.align;
+                float x = area.x + leadingWidth;
+                if (stretchCount == 0 && align == Align::End) x += spare;
+                if (stretchCount == 0 && align == Align::Center) {
+                    // Centred on the whole row, so edge groups don't pull the middle off
+                    // centre; nudged sideways only as far as needed to clear them.
+                    x = area.x + std::clamp((area.width - used) / 2, leadingWidth, leadingWidth + spare);
+                }
+                for (size_t i = 0; i < row.items.size(); ++i) {
+                    // A text takes the next of the texts' widths; a fixed item (a tag, a button) takes none of them.
+                    std::optional<float> fixedW = itemWidth(row.items[i]);
+                    float w = fixedW ? *fixedW : textWidths.empty() ? stretchWidth : textWidths[nextText++];
+                    place(row.items[i], i, x, w);
+                    x += w + gap;
+                }
             }
             auto placeEdge = [&](const std::vector<Item>& group, size_t firstIndex, float x) {
                 for (size_t i = 0; i < group.size(); ++i) {
-                    float w = widthOf(group[i]).value_or(0);
+                    float w = naturalOf(group[i]).value_or(0);
                     place(group[i], firstIndex + i, x, w);
                     x += w + t.itemSpacing;
                 }
@@ -322,8 +371,8 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
         if (needed > sizes.heights[r]) sizes.heights[r] = needed, grew = true;
     }
     if (grew) {
-        plan = planRows(rows, sizes.heights, lists, &oneLine);
-        contentTop = slot.frame.y + (slot.frame.height - plan.height) / 2;
+        plan = planRows(rows, sizes.heights, lists, &oneLine, slot.frame.height);
+        contentTop = atTop ? slot.frame.y : slot.frame.y + (slot.frame.height - plan.height) / 2;
     }
     placeRows(out, &spans);
     return plan.height;
