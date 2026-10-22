@@ -232,6 +232,7 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
         return true;
     }
     bool wasFocused = focusedField(view.placed.item);
+    bool wasRevealed = revealsOnHover(view.placed.item);
     bool wasDragged = view.placed.list && view.placed.list->dragged, dragged = placed.list && placed.list->dragged;
     auto parent = lists_.parentFor(placed); // keeps the list's window and scroll in step
     if (dragged != wasDragged) {
@@ -242,6 +243,12 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
         }
     }
     view.placed = placed;
+    // Its key now holds an item shown on hover, or one that no longer is (a page replacing the
+    // card: the plan's − and + keys become days off, decision 063): its opacity follows.
+    if (revealsOnHover(placed.item) != wasRevealed) {
+        view.visual.StopAnimation(L"Opacity"); // a hover fade still running would carry on past this
+        view.visual.Opacity(revealsOnHover(placed.item) && rowOf(placed.key) != hoveredRow_ ? 0.0f : 1.0f);
+    }
     if (newPicture) { // a cover read after its track showed (decision 056): painted anew, fading in over the old
         auto size = view.surface.Size();
         view.surface = device_->createSurface({ size.Width, size.Height });
