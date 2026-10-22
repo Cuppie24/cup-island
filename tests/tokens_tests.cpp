@@ -140,8 +140,9 @@ void runTokensTests()
     expect(x.bodyFontSize == d.bodyFontSize * k && x.expandedPadding == d.expandedPadding * k &&
            x.dragStartDistance == d.dragStartDistance * k && x.marqueeSpeed == d.marqueeSpeed * k,
            "fonts, paddings, distances and px/s speeds scale");
-    expect(x.pressScale == d.pressScale && x.buttonPressScale == d.buttonPressScale && x.islandScale == d.islandScale,
-           "factors don't, the size knob included");
+    expect(x.pressScale == d.pressScale && x.buttonPressScale == d.buttonPressScale && x.islandScale == d.islandScale &&
+           x.primaryHoverOpacity == d.primaryHoverOpacity && x.playGlyphNudge == d.playGlyphNudge,
+           "factors don't, the size knob and shares (a hover's opacity, ▶'s nudge) included");
     expect(x.morphDuration == d.morphDuration && x.morphEase == d.morphEase && x.alertQueueCapacity == d.alertQueueCapacity &&
            x.islandColor == d.islandColor, "durations, curves, counts and colours don't");
     Tokens asWritten = d;

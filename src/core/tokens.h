@@ -102,6 +102,7 @@ struct Tokens {
     float buttonSize = 36;
     float primaryButtonSize = 56;  // Button::primary: the card's main action, a filled circle (decision 064)
     float primaryGlyphSize = 22;
+    float playGlyphNudge = 0.08f;  // a primary ▶ moved right by this share of its width: a triangle's optical centre (decision 071)
     float dividerThickness = 1;    // a Divider's line
     float dialInset = 10;          // a Dial: room between its time (and label) and its ring (decision 065)
     float groupGap = 20;           // Row::apart: space above a card's group (decision 066)
