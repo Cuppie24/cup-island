@@ -117,8 +117,12 @@ void planTests()
     const Placed* mode = big;
     expect(start && std::get<Button>(start->item).primary && start->frame.width == t.primaryButtonSize &&
            std::abs(start->frame.x + start->frame.width / 2 - card.size.x / 2) < 0.51f, "▶: the one primary button, centred");
-    expect(today && std::get<Text>(today->item).value == "0 cycles · 0 min" && std::get<Text>(today->item).style == TextStyle::Caption &&
-           std::abs(today->frame.x + today->frame.width / 2 - card.size.x / 2) < 0.51f, "today: one quiet centred line");
+    const Placed* todayEnd = find(card, "expandedCenter/2/3");
+    auto todayText = [&](int i) { return std::get<Text>(find(card, "expandedCenter/2/" + std::to_string(i))->item); };
+    expect(today && todayEnd && todayText(0).value == "0" && todayText(1).value == "cycles" && todayText(3).value == "0 min" &&
+           std::abs((today->frame.x + todayEnd->frame.x + todayEnd->frame.width) / 2 - card.size.x / 2) < 0.51f, "today: one quiet centred line");
+    expect(todayText(0).bright && !todayText(1).bright && todayText(3).bright && todayText(1).style == TextStyle::Caption &&
+           todayText(0).style == TextStyle::Caption, "its numbers bright, at the words' size (decision 068)");
     expect(start->frame.y - (mode->frame.y + mode->frame.height) >= t.groupGap && today->frame.y - (start->frame.y + start->frame.height) >= t.groupGap,
            "a group's room above ▶ and above today (decision 066)");
     expect(card.size.y <= t.canvas.y, "the card fits the canvas");

@@ -64,6 +64,7 @@ struct Text {
     bool marquee = false;  // too long: scrolls ("swims") in a loop instead of ending in "…"
     bool centred = false;  // centred in its frame (wins over alignEnd)
     bool struck = false;   // struck through: a solved to-do
+    bool bright = false;   // in the brightest text colour, at its style's size: a value among dim words (decision 068)
     // Editable in place (decisions 029, 043): a click on it, or a Button with
     // `editsText` and this actionId, turns it into a field holding its text;
     // Enter sends the provider Action{editAction, text}, Esc leaves it as it was.

@@ -208,6 +208,13 @@ winrt::com_ptr<IDWriteTextLayout> wrappedLayout(IDWriteFactory* dw, const Text& 
 
 } // namespace
 
+namespace {
+
+// Its style's colour, or the brightest text's when it's a value to pick out (Text::bright, decision 068).
+Color colorOf(const Text& text) { return text.bright ? tokens().titleTextColor : lookOf(text.style).color; }
+
+} // namespace
+
 void paintDivider(ID2D1DeviceContext* dc, Vec2 size)
 {
     dc->FillRectangle(D2D1::RectF(0, 0, size.x, size.y), brushOf(dc, tokens().trackColor).get());
@@ -228,13 +235,13 @@ void paintDial(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Dial& dial, Vec
 void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec2 size)
 {
     if (!text.struck && text.wrapped.empty()) {
-        drawString(dc, formatOf(dw, text).get(), widen(text.value), size, lookOf(text.style).color);
+        drawString(dc, formatOf(dw, text).get(), widen(text.value), size, colorOf(text));
         return;
     }
     // Wrapped, or struck through (a solved to-do): a layout carries the lines and the strikethrough.
     auto layout = wrappedLayout(dw, text, size.x, size.y);
     if (text.struck) layout->SetStrikethrough(TRUE, DWRITE_TEXT_RANGE{ 0, static_cast<UINT32>(widen(text.value).size()) });
-    dc->DrawTextLayout(D2D1::Point2F(0, 0), layout.get(), brushOf(dc, lookOf(text.style).color).get(),
+    dc->DrawTextLayout(D2D1::Point2F(0, 0), layout.get(), brushOf(dc, colorOf(text)).get(),
                        D2D1_DRAW_TEXT_OPTIONS_CLIP | D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
 }
 
@@ -289,7 +296,7 @@ void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, 
     start.centred = false;
     auto f = formatOf(dw, start);
     std::wstring value = widen(text.value);
-    Color color = lookOf(text.style).color;
+    Color color = colorOf(text);
     // A pixel of slack, so rounding never trips the "…" trimming.
     for (float x : { lead, lead + width + gap }) drawString(dc, f.get(), value, D2D1::RectF(x, 0, x + width + 1, height), color);
 }

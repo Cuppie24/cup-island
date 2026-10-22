@@ -90,12 +90,17 @@ Row dialRow(const Timeline& timeline, const std::string& label, const PomodoroPl
 
 Row caption(const std::string& text) { return row({ Text{ .value = text, .style = TextStyle::Caption, .centred = true } }, Align::Center); }
 
-// Today under ▶, a group of its own (decisions 063, 066): cycles (sessions)
-// finished and focus time, quiet. The chart button opens the rest.
+// Today under ▶, a group of its own (decisions 063, 066, 068): cycles
+// (sessions) finished and focus time, quiet, the numbers picked out bright.
+// The chart button opens the rest.
 Row todayRow(const PomodoroGlance& g)
 {
-    std::string text = std::to_string(g.finishedToday) + (g.finishedToday == 1 ? " cycle" : " cycles") + " · " + spent(g.focusToday);
-    return Row{ .items = { Text{ .value = text, .style = TextStyle::Caption, .centred = true } }, .align = Align::Center, .hug = true,
+    auto words = [](std::string text) { return Text{ .value = std::move(text), .style = TextStyle::Caption }; };
+    auto value = [](std::string text) { return Text{ .value = std::move(text), .style = TextStyle::Caption, .bright = true }; };
+    return Row{ .items = { value(std::to_string(g.finishedToday)), words(g.finishedToday == 1 ? "cycle" : "cycles"), words("·"),
+                           value(spent(g.focusToday)) },
+                .align = Align::Center,
+                .hug = true,
                 .apart = true };
 }
 

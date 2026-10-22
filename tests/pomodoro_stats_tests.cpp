@@ -161,12 +161,11 @@ struct Timer {
         }
         return out;
     }
-    // Today's line under ▶: quiet text, centred as one (Row::hug).
+    // Today's line under ▶ as words: quiet texts, centred as one (Row::hug).
     std::string line()
     {
         for (const Row& r : panels.back().content.expandedCenter)
-            if (r.hug && !r.items.empty())
-                if (auto* text = std::get_if<Text>(&r.items[0])) return text->value;
+            if (r.hug) return words(r.items);
         return "";
     }
     // The top-left corner: days in a row.
