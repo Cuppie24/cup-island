@@ -66,6 +66,7 @@ private:
     DaysOff daysOff_{};
     PomodoroPage page_ = PomodoroPage::Timer; // the card's page: the timer, or its statistics or settings
     PomodoroGlance shownGlance_; // what the dormant card says now
+    std::optional<Todo> deleted_; // the last to-do deleted, for its toast's Undo (decision 071)
     bool debug_ = false;
     int fake_ = 0; // a made-up history shown (fakeStats), never saved; 0: the real one
 };

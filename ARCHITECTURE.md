@@ -34,7 +34,7 @@ So "why did X happen?" is always answered in `core/`, by a scenario test.
 ## Layout
 
 ```
-src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (what providers show), layout.h
+src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (what providers show), layout.h, dialog.h + toast.h (a card's question and note, decisions 020, 071)
                 (+ slot_layout.h), split.h, tabs.h, home.h, hit_test.h, provider.h (Provider/Host API),
                 lift.h + placement.h (moving the island along the top edge, decision 026),
                 keyboard.h (arrow, Tab and digit focus, decisions 031, 033) + shortcuts.h (the shortcut table, decision 031),
@@ -207,7 +207,8 @@ over the file's, so `tokens()` is always what's on screen.
 | Island shadow: a DropShadow under the pill and the bubble, masked by a live snapshot of each (decision 018) | done; needs a Windows run to judge |
 | Dialogs over a card, scrolling lists, buttons shown on hover (decision 020) | done; rules tested, Windows side needs a run |
 | Pomodoro session survives a restart, back paused where it was (decisions 027, 061) | done; tested |
-| Pomodoro statistics: finished today, best day, days in a row with days off, focus time; days off on the timer's own settings page (decision 061); its card doesn't close when left alone (decision 062); a calmer card: numbers open the statistics (decision 063); primary / secondary buttons, tables (`Row::even`), dividers, more padding (decision 064); the dial: the time in a ring (decision 065); a statistics button, one ring size, round hovers, groups apart (decision 066); corner click zones, room above the dial, centred page titles (decision 067); bright digits among quiet words (decisions 068, 069); the corners in their own row (decision 069); pages keep the card's size, narrow rows, room between groups (decision 070) | done; rules tested, the gear and page need a Windows run |
+| Pomodoro statistics: finished today, best day, days in a row with days off, focus time; days off on the timer's own settings page (decision 061); its card doesn't close when left alone (decision 062); a calmer card: numbers open the statistics (decision 063); primary / secondary buttons, tables (`Row::even`), dividers, more padding (decision 064); the dial: the time in a ring (decision 065); a statistics button, one ring size, round hovers, groups apart (decision 066); corner click zones, room above the dial, centred page titles (decision 067); bright digits among quiet words (decisions 068, 069); the corners in their own row (decision 069); pages keep the card's size, narrow rows, room between groups (decision 070) |
+| To-dos: a collapsed Done row, unticked ones back in place, deleted with an Undo toast; carried rows stay under the pointer while scrolling; Reset statistics; no press squash where an empty click does nothing; a wider island (decision 071) | done; rules tested, drawing needs Windows | done; rules tested, the gear and page need a Windows run |
 | Providers' store: `Host::load/save/wallClock`, a file per key, legacy files moved in (decision 028) | done; tested |
 | Host lists: smooth scrolling, keep-in-view, drag to reorder, edit in place (decision 029) | done; rules tested, compositor side needs a Windows run |
 | Renderer: alert pulse, receptive drop zones, matched geometry | not yet |

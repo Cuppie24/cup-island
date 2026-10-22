@@ -60,6 +60,7 @@ void dropStaleOverlays(IslandState& s)
 {
     if (s.draft && !shown(s, s.draft->activityId)) dropDraft(s);
     if (s.dialog && !shown(s, s.dialog->activityId)) s.dialog.reset();
+    if (s.toast && !shown(s, s.toast->activityId)) s.toast.reset();
     if (s.listDrag && (!shown(s, s.listDrag->activityId) || s.dialog)) s.listDrag.reset();
 }
 

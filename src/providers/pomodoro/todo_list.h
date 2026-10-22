@@ -20,6 +20,7 @@ inline constexpr const char* kEdit = "todo.edit.";      // + the item's id: Acti
 inline constexpr const char* kMove = "todo.move.";      // + the item's id: Action::value = its new index (dragged)
 inline constexpr const char* kList = "todos";           // the card's list (Row::list): scrolled by the host
 inline constexpr const char* kShowDone = "todo.done.show"; // the Done row: shows or hides the solved ones (decision 071)
+inline constexpr const char* kUndoDelete = "todo.undo";    // the delete toast's Undo: the last deleted one back (decision 071)
 // The clear buttons only ask (a dialog); its confirm button sends the "...Confirmed" one.
 inline constexpr const char* kClearDone = "todo.clearDone";
 inline constexpr const char* kClearAll = "todo.clearAll";

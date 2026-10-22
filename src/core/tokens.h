@@ -204,6 +204,7 @@ struct Tokens {
 
     // Arbitration (PS §6).
     Ms alertDuration{ 3000 };
+    Ms toastDuration{ 5000 }; // a toast at a card's bottom goes after this (decision 071)
     Ms expandedIdleTimeout{ 8000 };
     Ms heldAlertMaxAge{ 30000 };
     std::size_t alertQueueCapacity = 5;

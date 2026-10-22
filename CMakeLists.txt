@@ -28,6 +28,7 @@ add_library(cup_core STATIC
     src/core/content.cpp
     src/core/cover_palette.cpp
     src/core/dialog.cpp
+    src/core/toast.cpp
     src/core/easing.cpp
     src/core/fullscreen.cpp
     src/core/hit_test.cpp

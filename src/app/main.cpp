@@ -363,6 +363,7 @@ void act(const Action& action)
         return;
     }
     g_providers->route(action);
+    if (g_state.toast && action.actionId == g_state.toast->actionId) dispatch(ToastClosed{}, "toast acted"); // done: it goes (decision 071)
     dispatch(PointerMoved{}, "action"); // the user is busy here: keep Expanded open
 }
 

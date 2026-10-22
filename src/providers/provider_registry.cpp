@@ -45,6 +45,12 @@ public:
         registry_.dispatch_(DialogShown{ std::move(dialog) }, providerId_.c_str());
     }
 
+    void toast(Toast toast) override
+    {
+        toast.providerId = providerId_;
+        registry_.dispatch_(ToastShown{ std::move(toast) }, providerId_.c_str());
+    }
+
     void reveal(const std::string& activityId, const std::string& list, std::size_t row) override
     {
         registry_.dispatch_(ListRevealed{ activityId, list, row }, providerId_.c_str());

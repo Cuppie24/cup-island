@@ -381,6 +381,19 @@ void runTodoTests()
     registry.route(onBin->action);
     expect(saved.find("Old done") == std::string::npos && !state.dialog, "deleted at once, no question");
 
+    // ...with a toast to undo it (decision 071): at the card's bottom, its Undo puts it back in its place.
+    Scene toasted = layout(state, now);
+    const Placed* note = textNamed(toasted, "To-do deleted");
+    const Placed* undo = firstOf(toasted, [](const Placed& p) { auto* b = std::get_if<Button>(&p.item); return b && b->label == "Undo"; });
+    expect(state.toast && note && undo && std::get<Button>(undo->item).actionId == todo_action::kUndoDelete &&
+           note->frame.y > toasted.elements.front().frame.y && toasted.size.y > top.size.y - 1, "a toast: \"To-do deleted\", Undo");
+    registry.route({ "pomodoro", PomodoroProvider::kPanelId, std::get<Button>(undo->item).actionId, 0 });
+    send(ToastClosed{}); // the app: its action was clicked
+    expect(saved.find("[x] Old done") != std::string::npos && !state.toast, "undone: back, and the toast goes");
+    registry.route(onBin->action); // deleted again, for the rest of the test
+    send(ToastClosed{});
+    expect(saved.find("Old done") == std::string::npos, "deleted again");
+
     // A click on the task (not its checkbox or delete) edits it in place: no edit button (decision 043).
     Scene editable = layout(state, now);
     const Placed* mum = textNamed(editable, "Call mum");

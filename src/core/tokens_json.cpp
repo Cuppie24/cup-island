@@ -135,6 +135,7 @@ const Field kFields[] = {
     { "pressReleaseDurationMs", &Tokens::pressReleaseDuration },
     { "pressReleaseEase", &Tokens::pressReleaseEase },
     { "alertDurationMs", &Tokens::alertDuration, true },
+    { "toastDurationMs", &Tokens::toastDuration, true },
     { "expandedIdleTimeoutMs", &Tokens::expandedIdleTimeout },
     { "heldAlertMaxAgeMs", &Tokens::heldAlertMaxAge },
     { "alertQueueCapacity", &Tokens::alertQueueCapacity },

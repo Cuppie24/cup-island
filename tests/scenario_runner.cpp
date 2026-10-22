@@ -19,6 +19,7 @@
 //            pin                                                                     (Expanded's pin, decision 046)
 //            tabrow top|bottom                                                       (Settings' Tab row, decision 048)
 //            ask <card>  close-dialog                                               (a provider's dialog, decision 020)
+//            toast <card>  toast-acted                                              (a provider's toast, decision 071)
 //            edit <card> <action> <text> [at=<n>]                                   (a Text edited in place, decision 029)
 //            wheel <card> <list> <from> <delta> <max>  reveal <card> <list> <row>    (lists, decision 029)
 //            pick <card> <list> <row> <y>  carry <y>  put-down
@@ -29,6 +30,7 @@
 //                     caret=<byte offset>  selected=<text>|none  (_ for a space)
 //                     lifted=yes|no  spot=centre|left|right|free  stay=yes|no  tabs=top|bottom
 //                     scroll=<card>/<list>:<offset>[+reveal]  carried=<row>|none  squash=yes|no (a press on empty space, decision 071)
+//                     toast=<card>|none
 // Levels: passive active timeSensitive critical.  '#' starts a comment.
 
 #include "core/island.h"
@@ -184,6 +186,8 @@ struct Runner {
         else if (cmd == "cancel-input") apply(InputCancelled{});
         else if (cmd == "ask") apply(DialogShown{ { .providerId = "p", .activityId = arg(1), .title = "Sure?", .confirmAction = "yes" } });
         else if (cmd == "close-dialog") apply(DialogClosed{});
+        else if (cmd == "toast") apply(ToastShown{ { .activityId = arg(1), .text = "Deleted", .actionLabel = "Undo", .actionId = "undo" } });
+        else if (cmd == "toast-acted") apply(ToastClosed{});
         else if (cmd == "pin") apply(StayOpenToggled{});
         else if (cmd == "tabrow") apply(TabRowPlaced{ arg(1) != "bottom" });
         else if (cmd == "edit") apply(InputFocused{ "p", arg(1), arg(2), arg(3), /* editing */ true, at(4) });
@@ -219,6 +223,9 @@ struct Runner {
             } else if (auto v = option(word, "pinned")) {
                 std::string id = state.pinnedId.empty() ? "none" : state.pinnedId;
                 if (id != *v) fail("pinned=" + *v + ", got " + id);
+            } else if (auto v = option(word, "toast")) {
+                std::string got = state.toast ? state.toast->activityId : "none";
+                if (got != *v) fail("toast=" + *v + ", got " + got);
             } else if (auto v = option(word, "squash")) {
                 std::string got = pressSquashes(state) ? "yes" : "no";
                 if (got != *v) fail("squash=" + *v + ", got " + got);

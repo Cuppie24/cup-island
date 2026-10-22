@@ -109,6 +109,19 @@ struct Dialog {
     bool operator==(const Dialog&) const = default;
 };
 
+// A short note at the bottom of a card, with one action, that goes by
+// itself after toastDuration (decision 071): "To-do deleted · Undo". One at a
+// time: a new one replaces it; its card closing takes it away.
+struct Toast {
+    std::string providerId;  // set by the host
+    std::string activityId;  // the card it shows on
+    std::string text;
+    std::string actionLabel; // its button's ("Undo"); empty: no button
+    std::string actionId;    // sent to the provider when its button is clicked
+    Ms until{};              // set by the host: when it goes
+    bool operator==(const Toast&) const = default;
+};
+
 // --- Events -------------------------------------------------------------
 struct ActivityStarted { Activity activity; };           // existing id = replace
 struct ActivityUpdated { std::string id; Content content; };
@@ -158,6 +171,8 @@ struct InputSubmitted {};                // Enter: the app sent the text; the fi
 struct InputCancelled {};                // Esc: stop typing, drop the draft
 struct DialogShown { Dialog dialog; };   // a provider asked (Host::ask)
 struct DialogClosed {};                  // answered or dismissed: the app sends confirmAction first if confirmed
+struct ToastShown { Toast toast; };      // a provider posted one (Host::toast)
+struct ToastClosed {};                   // its action was clicked: it goes at once
 // The wheel over a list (decision 029): `from` is the offset shown (a reveal
 // included), `max` how far it can go (both from the scene).
 struct ListScrolled { std::string activityId, list; float from = 0, delta = 0, max = 0; };
@@ -182,7 +197,7 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            PanelPublished, PanelRemoved, HomeOpened, ActivityOpened, TileClicked, ClockSynced,
                            InputFocused, TextTyped, TextErased, CaretMoved, CaretPlaced, WordSelected, AllSelected,
                            InputSubmitted, InputCancelled,
-                           DialogShown, DialogClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,
+                           DialogShown, DialogClosed, ToastShown, ToastClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,
                            ListDragEnded, StayOpenToggled, TabRowPlaced>;
 
 // --- State --------------------------------------------------------------
@@ -217,6 +232,7 @@ struct IslandState {
     // Esc. The field shows it, and focused again it carries on from it.
     std::map<std::string, std::string> keptText;
     std::optional<Dialog> dialog;      // a question over the shown card (decision 020)
+    std::optional<Toast> toast;        // a note at a card's bottom (decision 071)
     std::map<std::string, ListScroll> scrolls; // lists' scroll, by "<activityId>/<list>" (decision 029)
     std::optional<ListDrag> listDrag;  // a list row being dragged
     // Pinned open (decision 046): Expanded doesn't time out, and a click
