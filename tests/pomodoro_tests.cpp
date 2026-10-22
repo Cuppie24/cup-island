@@ -52,9 +52,9 @@ struct Island {
 };
 
 const std::string kTile = std::string("tile/") + PomodoroProvider::kPanelId;
-const std::string kStart = "expandedCenter/3/0"; // ▶, under the dormant card's time and its focus and break rows
-const std::string kPause = "expandedCenter/4/0"; // the running card's controls: under the dots, above the to-dos
-const std::string kStop = "expandedCenter/4/2";
+const std::string kStart = "expandedCenter/2/0"; // ▶, under the dormant card's time and "Focus"
+const std::string kPause = "expandedCenter/4/1"; // the running card's controls: under the dots, above the to-dos; ⏸ in the middle
+const std::string kStop = "expandedCenter/4/0";
 
 const Placed* find(const Scene& scene, const std::string& key)
 {
@@ -88,7 +88,7 @@ void planTests()
     expect(loadPlan("plan1 99999999999 0").focus == t.pomodoroFocusMax && loadPlan("plan1 99999999999 0").rest == t.pomodoroBreakStep,
            "plan: out of range is clamped");
 
-    // On the dormant card: Focus and Break rows with − and +; the length is kept and used.
+    // The dormant card (decisions 063, 064): the focus time, "Focus" under it, ▶, today; the plan on the settings page.
     std::string saved;
     ProviderRegistry::Store store{
         .load = [&](const std::string&, const std::string& key) { return key == PomodoroProvider::kPlanKey ? saved : ""; },
@@ -104,70 +104,75 @@ void planTests()
         const Placed* p = find(sc, key);
         return p && std::holds_alternative<Text>(p->item) ? std::get<Text>(p->item).value : std::string();
     };
-    // The plan rows (decisions 044, 063): the name, then − the length + at the end.
-    expect(textAt(card, "expandedCenter/1/0") == "Focus" && textAt(card, "expandedCenter/1/2") == "25 min", "a Focus row with its length");
-    expect(textAt(card, "expandedCenter/2/0") == "Break" && textAt(card, "expandedCenter/2/2") == "5 min", "a Break row with its length");
-    expect(std::get<Text>(find(card, "expandedCenter/1/0")->item).style == TextStyle::Caption, "the name quiet: the length is what matters");
-    const Placed* minus = find(card, "expandedCenter/1/1");
-    const Placed* value = find(card, "expandedCenter/1/2");
-    const Placed* plus = find(card, "expandedCenter/1/3");
-    expect(minus && plus && std::get<Button>(minus->item).glyph == Glyph::Minus && std::get<Button>(plus->item).glyph == Glyph::Plus,
-           "− and + around the length");
-    expect(std::get<Button>(minus->item).revealOnHover && std::get<Button>(plus->item).revealOnHover, "shown while the row is hovered");
-    expect(minus->frame.width == t.buttonSize && plus->frame.width == t.buttonSize, "full-size buttons, easy to hit");
-    expect(minus->frame.x + minus->frame.width <= value->frame.x && value->frame.x + value->frame.width <= plus->frame.x,
-           "−, the length, +, side by side");
-    expect(plus->frame.x + plus->frame.width > card.size.x - t.expandedPadding - t.listItemInset - 1, "at the row's end");
-    const Placed* breakValue = find(card, "expandedCenter/2/2");
-    expect(breakValue && breakValue->frame.x == value->frame.x && breakValue->frame.width == value->frame.width &&
-           find(card, "expandedCenter/2/1")->frame.x == minus->frame.x, "both rows line up: 5 min and 25 min in one column");
-    // Hovering anywhere along a plan row, not just on an item, reveals its buttons.
-    const Placed* name = find(card, "expandedCenter/1/0");
-    float between = (name->frame.x + name->frame.width + minus->frame.x) / 2;
-    expect(rowAt(card, { between, minus->frame.y + minus->frame.height / 2 }) == "expandedCenter/1", "the row under the pointer, between its items");
-    expect(rowAt(card, { -5, minus->frame.y }).empty(), "off the card: no row");
-    expect(card.size.y <= t.canvas.y, "the card fits the canvas");
-    // Today (decision 063): quiet, under ▶, a group of its own; it opens the statistics page.
-    const Placed* today = find(card, "expandedCenter/4/0");
+    const Placed* big = find(card, "expandedCenter/0/0");
+    const Placed* mode = find(card, "expandedCenter/1/0");
     const Placed* start = find(card, kStart);
+    const Placed* today = find(card, "expandedCenter/3/0");
+    expect(textAt(card, "expandedCenter/0/0") == "25:00" && textAt(card, "expandedCenter/1/0") == "Focus" &&
+           std::get<Text>(mode->item).style == TextStyle::Caption && mode->frame.y > big->frame.y, "the focus time, \"Focus\" under it");
+    expect(start && std::get<Button>(start->item).primary && start->frame.width == t.primaryButtonSize &&
+           std::abs(start->frame.x + start->frame.width / 2 - card.size.x / 2) < 0.51f, "▶: the one primary button, centred");
     expect(today && std::get<Button>(today->item).label == "0 cycles · 0 min" && std::get<Button>(today->item).quiet &&
            std::abs(today->frame.x + today->frame.width / 2 - card.size.x / 2) < 0.51f, "today: one quiet centred line");
-    expect(start->frame.y - (value->frame.y + value->frame.height) >= t.sectionGap && today->frame.y - (start->frame.y + start->frame.height) >= t.sectionGap,
+    expect(start->frame.y - (mode->frame.y + mode->frame.height) >= t.sectionGap && today->frame.y - (start->frame.y + start->frame.height) >= t.sectionGap,
            "room above ▶ and above today: three groups");
-    // The gear alone in the top-right corner; the days in a row in the top-left one, a way into the statistics.
+    expect(card.size.y <= t.canvas.y, "the card fits the canvas");
+    // The gear alone in the top-right corner, grey until pointed at; the days in a row in the top-left one.
     const Placed* gear = find(card, "expandedCenter/0/1");
-    const Placed* big = find(card, "expandedCenter/0/0");
     const Placed* days = find(card, "expandedCenter/0/2");
-    expect(gear && std::get<Button>(gear->item).glyph == Glyph::Settings && gear->frame.x > big->frame.x + big->frame.width &&
-           gear->frame.x + gear->frame.width > card.size.x - t.expandedPadding - 1 && gear->frame.y < big->frame.y + big->frame.height,
-           "a gear in the top-right corner, beside the big time");
+    expect(gear && std::get<Button>(gear->item).glyph == Glyph::Settings && std::get<Button>(gear->item).secondary &&
+           gear->frame.x > big->frame.x + big->frame.width && gear->frame.x + gear->frame.width > card.size.x - t.expandedPadding - 1 &&
+           gear->frame.y < big->frame.y + big->frame.height, "a grey gear in the top-right corner, beside the big time");
     expect(days && std::get<Button>(days->item).label == "0 days" && std::get<Button>(days->item).actionId == pomodoro_action::kOpenStats &&
            days->frame.x + days->frame.width < big->frame.x, "the days in a row in the top-left corner");
-    expect(island.press("expandedCenter/4/0") && textAt(island.scene(), "expandedCenter/0/0") == "Statistics", "today's line opens the statistics");
+    expect(island.press("expandedCenter/3/0") && textAt(island.scene(), "expandedCenter/0/0") == "Statistics", "today's line opens the statistics");
+    Scene stats = island.scene();
+    for (const Placed& p : stats.elements)
+        if (p.key.rfind("tab/", 0) != 0) expect(p.frame.y + p.frame.height <= stats.size.y - t.expandedPadding + 0.01f, "fits the statistics: " + p.key);
     island.registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kBack, 0 });
     expect(island.press("expandedCenter/0/2") && textAt(island.scene(), "expandedCenter/0/0") == "Statistics", "so do the days in a row");
     island.registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kBack, 0 });
+
+    // The settings page: the plan first (Focus  − 25 min +), then the days off.
     expect(island.press("expandedCenter/0/1"), "the gear opens the settings page");
     Scene page = island.scene();
     expect(textAt(page, "expandedCenter/0/0") == "Timer settings" && page.size.y <= t.canvas.y, "the page fits the canvas");
-    const Placed* mon = find(page, "expandedCenter/2/0");
-    const Placed* sun = find(page, "expandedCenter/2/6");
+    expect(textAt(page, "expandedCenter/1/0") == "Focus" && textAt(page, "expandedCenter/1/2") == "25 min", "a Focus row with its length");
+    expect(textAt(page, "expandedCenter/2/0") == "Break" && textAt(page, "expandedCenter/2/2") == "5 min", "a Break row with its length");
+    const Placed* minus = find(page, "expandedCenter/1/1");
+    const Placed* value = find(page, "expandedCenter/1/2");
+    const Placed* plus = find(page, "expandedCenter/1/3");
+    expect(minus && plus && std::get<Button>(minus->item).glyph == Glyph::Minus && std::get<Button>(plus->item).glyph == Glyph::Plus &&
+           std::get<Button>(minus->item).secondary && !std::get<Button>(minus->item).revealOnHover, "− and + around the length, grey, always there");
+    expect(minus->frame.width == t.buttonSize && plus->frame.width == t.buttonSize, "full-size buttons, easy to hit");
+    expect(minus->frame.x + minus->frame.width <= value->frame.x && value->frame.x + value->frame.width <= plus->frame.x,
+           "−, the length, +, side by side");
+    const Placed* breakValue = find(page, "expandedCenter/2/2");
+    expect(breakValue && breakValue->frame.x == value->frame.x && breakValue->frame.width == value->frame.width &&
+           find(page, "expandedCenter/2/1")->frame.x == minus->frame.x, "both rows line up: 5 min and 25 min in one column");
+    // Hovering anywhere along a row, not just on an item, counts as on it (Row's hover band, decision 063).
+    const Placed* name = find(page, "expandedCenter/1/0");
+    float between = (name->frame.x + name->frame.width + minus->frame.x) / 2;
+    expect(rowAt(page, { between, minus->frame.y + minus->frame.height / 2 }) == "expandedCenter/1", "the row under the pointer, between its items");
+    expect(rowAt(page, { -5, minus->frame.y }).empty(), "off the card: no row");
+    const Placed* mon = find(page, "expandedCenter/4/0");
+    const Placed* sun = find(page, "expandedCenter/4/6");
     expect(mon && sun && mon->frame.width == t.buttonSize && mon->frame.height == t.buttonSize && sun->frame.y == mon->frame.y &&
            sun->frame.x > mon->frame.x && std::abs((mon->frame.x + sun->frame.x + sun->frame.width) / 2 - page.size.x / 2) < 0.51f,
            "the days: seven circles in one centred row");
     for (const Placed& p : page.elements)
         if (p.key.rfind("tab/", 0) != 0) expect(p.frame.y + p.frame.height <= page.size.y - t.expandedPadding + 0.01f, "fits the page: " + p.key);
-    auto shown = shownCard(island.state); // Esc, as the app does: the card's backAction first (decision 033)
-    expect(shown && backAction(island.state) == pomodoro_action::kBack, "Esc on the page: back");
-    island.registry.route({ shown->providerId, shown->activityId, backAction(island.state), 0 });
-    expect(island.state.expandedId == PomodoroProvider::kPanelId && textAt(island.scene(), "expandedCenter/1/0") == "Focus", "back to the timer");
 
     island.press("expandedCenter/1/3");
     island.press("expandedCenter/1/3");
     island.press("expandedCenter/2/1");
     Scene after = island.scene();
-    expect(textAt(after, "expandedCenter/0/0") == "35:00" && textAt(after, "expandedCenter/1/2") == "35 min" &&
-           textAt(after, "expandedCenter/2/2") == "4 min", "each click a step; the big time follows focus");
+    expect(textAt(after, "expandedCenter/1/2") == "35 min" && textAt(after, "expandedCenter/2/2") == "4 min", "each click a step");
+    auto shown = shownCard(island.state); // Esc, as the app does: the card's backAction first (decision 033)
+    expect(shown && backAction(island.state) == pomodoro_action::kBack, "Esc on the page: back");
+    island.registry.route({ shown->providerId, shown->activityId, backAction(island.state), 0 });
+    expect(island.state.expandedId == PomodoroProvider::kPanelId && textAt(island.scene(), "expandedCenter/0/0") == "35:00",
+           "back to the timer; the big time follows focus");
     expect(loadPlan(saved).focus == Ms{ 35 * 60000 } && loadPlan(saved).rest == Ms{ 4 * 60000 }, "kept in the store");
     expect(island.press(kStart) && island.registry.nextWake() == Ms{ 35 * 60000 }, "started: focus lasts the planned time");
     island.wake();

@@ -157,7 +157,8 @@ namespace {
 
 void drawString(ID2D1DeviceContext* dc, IDWriteTextFormat* f, const std::wstring& text, D2D1_RECT_F rect, const Color& color)
 {
-    dc->DrawText(text.c_str(), static_cast<UINT32>(text.size()), f, rect, brushOf(dc, color).get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
+    dc->DrawText(text.c_str(), static_cast<UINT32>(text.size()), f, rect, brushOf(dc, color).get(),
+                 D2D1_DRAW_TEXT_OPTIONS_CLIP | D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT); // an emoji in its colours (🔥, decision 064)
 }
 
 void drawString(ID2D1DeviceContext* dc, IDWriteTextFormat* f, const std::wstring& text, Vec2 size, const Color& color)
@@ -215,13 +216,23 @@ void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec
     // Wrapped, or struck through (a solved to-do): a layout carries the lines and the strikethrough.
     auto layout = wrappedLayout(dw, text, size.x, size.y);
     if (text.struck) layout->SetStrikethrough(TRUE, DWRITE_TEXT_RANGE{ 0, static_cast<UINT32>(widen(text.value).size()) });
-    dc->DrawTextLayout(D2D1::Point2F(0, 0), layout.get(), brushOf(dc, lookOf(text.style).color).get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
+    dc->DrawTextLayout(D2D1::Point2F(0, 0), layout.get(), brushOf(dc, lookOf(text.style).color).get(),
+                       D2D1_DRAW_TEXT_OPTIONS_CLIP | D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
 }
 
 void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& label, Vec2 size, const Color& color, TextStyle style)
 {
     Text text{ .value = label, .style = style, .centred = true };
     drawString(dc, formatOf(dw, text).get(), widen(label), size, color);
+}
+
+void paintPrimaryButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size)
+{
+    const Tokens& t = tokens();
+    float r = std::min(size.x, size.y) / 2;
+    dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(size.x / 2, size.y / 2), r, r),
+                    brushOf(dc, button.enabled ? t.buttonColor : t.buttonDisabledColor).get());
+    paintGlyph(dc, dw, button.glyph, t.primaryGlyphSize, size, t.islandColor);
 }
 
 void paintRoundButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size)

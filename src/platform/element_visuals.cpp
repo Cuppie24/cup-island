@@ -299,10 +299,12 @@ void ElementVisuals::paint(View& view)
             paintGlyph(dc, dw, icon->glyph, t.iconSize, pixelSize(size), t.iconColor); // the surface's whole pixels
         } else if (auto* button = std::get_if<Button>(&item)) {
             bool toggledOff = button->on && !*button->on;
-            Color color = !button->enabled ? t.buttonDisabledColor : toggledOff ? t.buttonOffColor
+            bool idle = button->secondary && !view.lit; // grey until hovered (decision 064)
+            Color color = !button->enabled ? t.buttonDisabledColor : toggledOff || idle ? t.buttonOffColor
                         : button->destructive         ? t.dangerColor
                                                       : t.buttonColor;
-            if (button->round) paintRoundButton(dc, dw, *button, size);
+            if (button->primary) paintPrimaryButton(dc, dw, *button, pixelSize(size));
+            else if (button->round) paintRoundButton(dc, dw, *button, size);
             else if (button->quiet) paintLabel(dc, dw, button->label, size, t.captionTextColor, TextStyle::Caption); // a way into more (decision 063)
             else if (!button->label.empty()) paintLabel(dc, dw, button->label, size, color);
             // Centred in the surface's whole pixels, like the hover shape around it, not the fractional frame.
@@ -316,6 +318,8 @@ void ElementVisuals::paint(View& view)
             paintSteps(dc, *steps, size, accentOf(view.placed));
         } else if (auto* tag = std::get_if<Tag>(&item)) {
             paintTag(dc, dw, *tag, size);
+        } else if (std::holds_alternative<Divider>(item)) {
+            dc->FillRectangle(D2D1::RectF(0, 0, size.x, size.y), brushOf(dc, t.trackColor).get());
         } else if (auto* swatch = std::get_if<Swatch>(&item)) {
             paintSwatch(dc, *swatch, size);
         }
@@ -375,6 +379,10 @@ void ElementVisuals::showHover(const std::string& key, bool on)
     if (view.highlight) fadeTo(compositor_, view.highlight, on || focusedField(view.placed.item) ? 1.0f : 0.0f, tokens().hoverFadeDuration);
     if (view.knob && !view.scrubbing) showKnob(compositor_, view.knob, on);
     if (view.art.overlay) showArtOverlay(compositor_, view.art, on);
+    if (auto* button = std::get_if<Button>(&view.placed.item); button && button->secondary && view.lit != on) {
+        view.lit = on; // grey to full strength and back (decision 064)
+        paint(view);
+    }
 }
 
 void ElementVisuals::press(const std::string& key)

@@ -220,49 +220,62 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
             }();
             auto itemWidth = [&](const Item& item) { return hug ? naturalOf(item) : widthOf(item); };
 
-            float fixed = 0;
-            int stretchCount = 0;
-            for (const Item& item : row.items) {
-                if (auto w = itemWidth(item)) fixed += *w;
-                else ++stretchCount;
-            }
-            float spacing = gap * static_cast<float>(row.items.empty() ? 0 : row.items.size() - 1);
-            float used = fixed + spacing;
-            float spare = std::max(0.0f, available - used);
-            float stretchWidth = stretchCount > 0 ? spare / static_cast<float>(stretchCount) : 0;
-            // Only texts stretch (a setting's name and its value): each gets its
-            // own width and the last the rest; short of room, each gives up its
-            // share. An even split would cut "Keyboard shortcuts" beside an
-            // empty value (decision 037).
-            std::vector<float> textWidths;
-            if (stretchCount >= 2 && std::all_of(row.items.begin(), row.items.end(), [&](const Item& item) {
-                    return widthOf(item) || std::holds_alternative<Text>(item);
-                })) {
-                float natural = 0;
-                for (const Item& item : row.items)
-                    if (auto* text = std::get_if<Text>(&item); text && !widthOf(item)) {
-                        textWidths.push_back((measure ? measure(*text) : estimateTextWidth(*text)) + 1); // +1: rounding never trips the "…"
-                        natural += textWidths.back();
-                    }
-                if (natural <= spare) textWidths.back() += spare - natural;
-                else for (float& w : textWidths) w *= spare / natural;
-            }
-            std::size_t nextText = 0;
+            if (row.even && !row.items.empty()) {
+                // Row::even: equal shares, each item centred in its own; a text takes its whole share.
+                float n = static_cast<float>(row.items.size());
+                float share = std::max(0.0f, (available - gap * (n - 1)) / n);
+                float x = area.x + leadingWidth;
+                for (size_t i = 0; i < row.items.size(); ++i) {
+                    std::optional<float> fixedW = widthOf(row.items[i]);
+                    float w = fixedW ? std::min(*fixedW, share) : share;
+                    place(row.items[i], i, x + (share - w) / 2, w);
+                    x += share + gap;
+                }
+            } else {
+                float fixed = 0;
+                int stretchCount = 0;
+                for (const Item& item : row.items) {
+                    if (auto w = itemWidth(item)) fixed += *w;
+                    else ++stretchCount;
+                }
+                float spacing = gap * static_cast<float>(row.items.empty() ? 0 : row.items.size() - 1);
+                float used = fixed + spacing;
+                float spare = std::max(0.0f, available - used);
+                float stretchWidth = stretchCount > 0 ? spare / static_cast<float>(stretchCount) : 0;
+                // Only texts stretch (a setting's name and its value): each gets its
+                // own width and the last the rest; short of room, each gives up its
+                // share. An even split would cut "Keyboard shortcuts" beside an
+                // empty value (decision 037).
+                std::vector<float> textWidths;
+                if (stretchCount >= 2 && std::all_of(row.items.begin(), row.items.end(), [&](const Item& item) {
+                        return widthOf(item) || std::holds_alternative<Text>(item);
+                    })) {
+                    float natural = 0;
+                    for (const Item& item : row.items)
+                        if (auto* text = std::get_if<Text>(&item); text && !widthOf(item)) {
+                            textWidths.push_back((measure ? measure(*text) : estimateTextWidth(*text)) + 1); // +1: rounding never trips the "…"
+                            natural += textWidths.back();
+                        }
+                    if (natural <= spare) textWidths.back() += spare - natural;
+                    else for (float& w : textWidths) w *= spare / natural;
+                }
+                std::size_t nextText = 0;
 
-            Align align = slot.square ? Align::Center : row.align;
-            float x = area.x + leadingWidth;
-            if (stretchCount == 0 && align == Align::End) x += spare;
-            if (stretchCount == 0 && align == Align::Center) {
-                // Centred on the whole row, so edge groups don't pull the middle off
-                // centre; nudged sideways only as far as needed to clear them.
-                x = area.x + std::clamp((area.width - used) / 2, leadingWidth, leadingWidth + spare);
-            }
-            for (size_t i = 0; i < row.items.size(); ++i) {
-                // A text takes the next of the texts' widths; a fixed item (a tag, a button) takes none of them.
-                std::optional<float> fixedW = itemWidth(row.items[i]);
-                float w = fixedW ? *fixedW : textWidths.empty() ? stretchWidth : textWidths[nextText++];
-                place(row.items[i], i, x, w);
-                x += w + gap;
+                Align align = slot.square ? Align::Center : row.align;
+                float x = area.x + leadingWidth;
+                if (stretchCount == 0 && align == Align::End) x += spare;
+                if (stretchCount == 0 && align == Align::Center) {
+                    // Centred on the whole row, so edge groups don't pull the middle off
+                    // centre; nudged sideways only as far as needed to clear them.
+                    x = area.x + std::clamp((area.width - used) / 2, leadingWidth, leadingWidth + spare);
+                }
+                for (size_t i = 0; i < row.items.size(); ++i) {
+                    // A text takes the next of the texts' widths; a fixed item (a tag, a button) takes none of them.
+                    std::optional<float> fixedW = itemWidth(row.items[i]);
+                    float w = fixedW ? *fixedW : textWidths.empty() ? stretchWidth : textWidths[nextText++];
+                    place(row.items[i], i, x, w);
+                    x += w + gap;
+                }
             }
             auto placeEdge = [&](const std::vector<Item>& group, size_t firstIndex, float x) {
                 for (size_t i = 0; i < group.size(); ++i) {

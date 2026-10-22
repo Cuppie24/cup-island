@@ -180,7 +180,10 @@ struct Timer {
         act(pomodoro_action::kBack);
         return rows;
     }
-    bool pageSays(const std::string& row) { auto rows = statsPage(); return std::find(rows.begin(), rows.end(), row) != rows.end(); }
+    // The statistics page's table rows as words: today's values, what they are (or "[Record]"), the records.
+    std::string today3() { return statsPage()[2]; }
+    std::string todayCaptions() { return statsPage()[3]; }
+    std::string records() { return statsPage()[6]; }
 };
 
 void providerTests()
@@ -189,9 +192,9 @@ void providerTests()
     Timer timer;
     expect(timer.line() == "0 cycles · 0 min" && timer.corner() == "0 days", "a first run: today's values, 0 days in a row");
     auto first = timer.statsPage();
-    expect(first.size() == 9 && first[0] == "Statistics" && first[1] == "Now" && first[2] == "Finished today 0" && first[3] == "Days in a row 0 days" &&
-           first[4] == "Focused today 0 min" && first[5] == "Best" && first[6] == "Finished in a day 0" && first[8] == "Focused in a day 0 min",
-           "the statistics page: now, then the bests");
+    expect(first.size() == 8 && first[0] == "Statistics" && first[1] == "Today" && first[2] == "0 0m 0" &&
+           first[3] == "cycles focus time days in a row" && first[4].empty() && first[5] == "🏆 Personal records" && first[6] == "0 0m 0 days" &&
+           first[7] == "most cycles best focus day best streak", "the statistics page: today, a line, the records; each a value over its caption");
 
     timer.session();
     PomodoroDay day = timer.today();
@@ -201,8 +204,8 @@ void providerTests()
     expect(!timer.alerts.empty() && timer.alerts.back().content.label == "Session done" &&
            std::get<Text>(timer.alerts.back().content.alertCenter[1].items[0]).value == "1 finished today", "the last alert says how many today");
     expect(timer.line() == "1 cycle · 1 h 40 min" && timer.corner() == "1 day", "the card: today's values, the run in the corner");
-    expect(timer.pageSays("Finished today [Record] 1") && timer.pageSays("Days in a row [Record] 1 day") &&
-           timer.pageSays("Focused today [Record] 1 h 40 min") && timer.pageSays("Finished in a day 1"), "the page: records, and the new bests");
+    expect(timer.today3() == "1 1h 40m 1" && timer.todayCaptions() == "[Record] [Record] [Record]" && timer.records() == "1 1h 40m 1 day",
+           "the page: records tagged, and the new records below");
 
     // One focus phase skipped still counts; two don't; a break skipped doesn't matter.
     timer.session({ 2, 3 });
@@ -233,24 +236,26 @@ void providerTests()
     timer.pass(Ms{ kDay });
     timer.registry.cardShown({ "pomodoro", PomodoroProvider::kPanelId });
     expect(timer.line() == "0 cycles · 0 min" && timer.corner() == "1 day", "a new day: none today yet, the run still on");
-    expect(timer.pageSays("Finished today 0") && timer.pageSays("Finished in a day 2"), "yesterday's 2 is the best");
+    expect(timer.today3().rfind("0 0m", 0) == 0 && timer.records().rfind("2 ", 0) == 0 && timer.todayCaptions() == "cycles focus time [Record]",
+           "yesterday's 2 is the best; the run of 1 is still a record");
     std::size_t published = timer.panels.size();
     timer.registry.cardShown({ "pomodoro", PomodoroProvider::kPanelId });
     expect(timer.panels.size() == published, "shown again the same day: nothing to change");
     timer.session();
-    expect(timer.corner() == "2 days" && timer.pageSays("Days in a row [Record] 2 days") && timer.pageSays("Finished today 1"),
+    expect(timer.corner() == "2 days" && timer.today3().rfind("1 ", 0) == 0 && timer.todayCaptions() == "cycles focus time [Record]",
            "two days in a row: a record; 1 today isn't");
 
     // A run broken: the old one is the best to beat; from three days on, a fire.
     timer.pass(Ms{ 2 * kDay });
     timer.registry.cardShown({ "pomodoro", PomodoroProvider::kPanelId });
-    expect(timer.corner() == "0 days" && timer.pageSays("Days in a row 0 days") && timer.pageSays("Days in a row 2 days"),
+    expect(timer.corner() == "0 days" && timer.today3() == "0 0m 0" && timer.records().find("2 days") != std::string::npos,
            "a day missed: 0 in the corner, best 2");
     for (int day = 0; day < 3; ++day) {
         timer.session();
         if (day < 2) timer.pass(Ms{ kDay });
     }
-    expect(timer.corner() == "fire 3 days" && timer.pageSays("Days in a row [Record] 3 days"), "three days: a fire, and a record");
+    expect(timer.corner() == "fire 3 days" && timer.today3().find("🔥 3") != std::string::npos && timer.todayCaptions().find("[Record]") != std::string::npos,
+           "three days: a fire, and a record");
 }
 
 // The card as laid out: the corner's count beside the big time, which stays
@@ -282,11 +287,19 @@ void layoutTests()
     Panel stats = pomodoroPanel();
     stats.content = withStatsPage(stats.content, { .finishedToday = 2, .bestDay = 4 });
     Scene page = shown(stats);
-    const Placed* name = at(page, "expandedCenter/2/0");
-    const Placed* value = at(page, "expandedCenter/2/1");
-    expect(name && value && value->frame.x + value->frame.width - name->frame.x <= t.narrowCardWidth + 0.01f &&
-           std::abs((name->frame.x + value->frame.x + value->frame.width) / 2 - page.size.x / 2) < 1.0f,
-           "the statistics: rows narrowCardWidth wide, in the middle");
+    const Placed* first = at(page, "expandedCenter/2/0");
+    const Placed* third = at(page, "expandedCenter/2/2");
+    const Placed* firstCaption = at(page, "expandedCenter/3/0");
+    const Placed* thirdCaption = at(page, "expandedCenter/3/2");
+    const Placed* line = at(page, "expandedCenter/4/0");
+    expect(first && third && third->frame.x + third->frame.width - first->frame.x <= t.narrowCardWidth + 0.01f &&
+           std::abs((first->frame.x + third->frame.x + third->frame.width) / 2 - page.size.x / 2) < 1.0f,
+           "the statistics: a table narrowCardWidth wide, in the middle");
+    expect(first && third && firstCaption && thirdCaption && std::abs(first->frame.width - third->frame.width) < 0.01f &&
+           firstCaption->frame.x == first->frame.x && thirdCaption->frame.x == third->frame.x && firstCaption->frame.y > first->frame.y,
+           "equal columns: each value over its caption");
+    expect(line && std::holds_alternative<Divider>(line->item) && line->frame.height == t.dividerThickness &&
+           std::abs(line->frame.width - (third->frame.x + third->frame.width - first->frame.x)) < 0.01f, "a line across under today");
 }
 
 // Debug builds: the settings page's row steps through made-up histories, never saved.
@@ -306,10 +319,10 @@ void fakeStatsTests()
     expect(timer.card(timer.panels.back().content).back() == "Fake statistics", "Debug: a Fake statistics row");
     timer.act(pomodoro_action::kFakeStats);
     timer.act(pomodoro_action::kBack);
-    expect(timer.corner() == "fire 3 days" && timer.pageSays("Finished today 2") && timer.pageSays("Finished in a day 4") &&
-           timer.pageSays("Days in a row 5 days"), "fake 1: bests to beat, a fire");
+    expect(timer.corner() == "fire 3 days" && timer.today3() == "2 3h 20m 🔥 3" && timer.todayCaptions() == "cycles focus time days in a row" &&
+           timer.records() == "4 6h 40m 5 days", "fake 1: records to beat, a fire");
     timer.act(pomodoro_action::kFakeStats);
-    expect(timer.corner() == "fire 6 days" && timer.pageSays("Finished today [Record] 5") && timer.pageSays("Days in a row [Record] 6 days"),
+    expect(timer.corner() == "fire 6 days" && timer.today3() == "5 8h 20m 🔥 6" && timer.todayCaptions() == "[Record] [Record] [Record]",
            "fake 2: records");
     timer.session();
     expect(timer.store[PomodoroProvider::kStatsKey] == real, "made up: never saved");
@@ -328,18 +341,18 @@ void settingsPageTests()
     timer.act(pomodoro_action::kOpenSettings);
     Content page = timer.panels.back().content;
     auto texts = timer.card(page);
-    const Row& days = page.expandedCenter[2];
+    const Row& days = page.expandedCenter[4];
     auto day = [&](const Row& r, std::size_t i) { return std::get<Button>(r.items[i]); };
-    expect(texts.size() == 4 && texts[0] == "Timer settings" && texts[1] == "Days off" && days.items.size() == 7 &&
+    expect(texts.size() == 6 && texts[0] == "Timer settings" && texts[1] == "Focus" && texts[2] == "Break" && texts[3] == "Days off" && days.items.size() == 7 &&
            day(days, 0).label == "Mo" && day(days, 6).label == "Su" && day(days, 0).round && day(days, 0).on == false,
-           "the page: a title, then one row of seven round days, Monday first, none off");
+           "the page: a title, the plan, then one row of seven round days, Monday first, none off");
     expect(page.backAction == pomodoro_action::kBack && std::get<Button>(page.expandedCenter[0].leading[0]).actionId == pomodoro_action::kBack,
            "a back arrow; Esc goes back too");
     expect(!page.tile.empty(), "the widget stays as it was");
 
     timer.act(std::string(pomodoro_action::kToggleDayOff) + "5");
     page = timer.panels.back().content;
-    expect(day(page.expandedCenter[2], 5).on == true && day(page.expandedCenter[2], 4).on == false, "Saturday off: lit");
+    expect(day(page.expandedCenter[4], 5).on == true && day(page.expandedCenter[4], 4).on == false, "Saturday off: lit");
     expect(loadDaysOff(timer.store[PomodoroProvider::kDaysOffKey])[5], "kept in the store");
     timer.act(std::string(pomodoro_action::kToggleDayOff) + "9");
     expect(timer.panels.back().content == page, "no such day: nothing changes");

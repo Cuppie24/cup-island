@@ -59,10 +59,10 @@ struct Tokens {
     Vec2 idleSize{ 160, 28 };
     Vec2 compactSize{ 260, 32 };
     Vec2 alertSize{ 320, 64 };
-    Vec2 expandedSize{ 440, 159 }; // every card and Home: the width a to-do's text needs (decisions 043, 047)
+    Vec2 expandedSize{ 440, 171 }; // every card and Home: the width a to-do's text needs (decisions 043, 047)
     Vec2 receptiveSize{ 380, 84 };
     Vec2 hiddenSize{ 160, 0 };
-    float maxCornerRadius = 28; // bottom corners: half the height, capped, so big shapes aren't blobs
+    float maxCornerRadius = 34; // bottom corners: half the height, capped, so big shapes aren't blobs
     float flareRadius = 8;      // top corners curve outward into the screen edge (decision 025); 0 = square
 
     // Content layout inside the pill (PS §5.1 slots). Fonts are in pixels.
@@ -70,7 +70,7 @@ struct Tokens {
     // gets the nested radius (pill radius - padding), so corners stay concentric.
     float compactInset = 4;     // compact padding
     float alertPadding = 8;
-    float expandedPadding = 12;
+    float expandedPadding = 18;
     float narrowCardWidth = 300;  // CardLayout::Narrow: its rows' width (decision 061)
     float listCardInset = 8;      // CardLayout::List: at least this much more on the left and right (decision 030)
     float listCardWidth = 400;    // ...and its rows no wider than this, centred (a full-width card's, at the shipped sizes)
@@ -100,6 +100,9 @@ struct Tokens {
     float inputFontSize = 15;   // a TextInput's text and placeholder: noticeable even when it isn't focused
     float iconSize = 18;
     float buttonSize = 36;
+    float primaryButtonSize = 56;  // Button::primary: the card's main action, a filled circle (decision 064)
+    float primaryGlyphSize = 22;
+    float dividerThickness = 1;    // a Divider's line
     float smallButtonSize = 32;   // Button::compact: list rows (a to-do's checkbox)
     float revealGlyphSize = 14;   // Button::revealOnHover (a to-do's delete): a smaller glyph, the same button and hover shape
     float inputHeight = 36;       // a TextInput: a little taller than the rows, easy to click into

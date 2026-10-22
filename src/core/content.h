@@ -104,6 +104,12 @@ struct Button {
     // A label button that's a way into more, not a main control: its label in
     // Caption style and colour, like the text it stands in for (Pomodoro's statistics line, decision 063).
     bool quiet = false;
+    // Secondary: a glyph in buttonOffColor that brightens to buttonColor under
+    // the pointer: settings, steppers, less-used controls (decision 064).
+    bool secondary = false;
+    // Primary: the card's one main action (Pomodoro's ▶ / ⏸), a filled circle
+    // primaryButtonSize wide, its glyph in the island's colour (decision 064).
+    bool primary = false;
     bool operator==(const Button&) const = default;
 };
 
@@ -182,7 +188,13 @@ struct Switch {
     bool operator==(const Switch&) const = default;
 };
 
-using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch, Tag, Switch>;
+// A thin line across its row, in the track colour: sets a group apart more
+// than a gap does (Pomodoro's records under today, decision 064). Stretches.
+struct Divider {
+    bool operator==(const Divider&) const = default;
+};
+
+using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch, Tag, Switch, Divider>;
 
 enum class Align { Start, Center, End };
 
@@ -246,6 +258,10 @@ struct Row {
     // one line (with Align::Center): a few short statistics (decision 061).
     // Too wide for the slot: laid out as usual.
     bool hug = false;
+    // Columns: its items share the row's width equally, each centred in its
+    // share. Rows of the same count line up: a table, value rows over caption
+    // rows (Pomodoro's statistics, decision 064).
+    bool even = false;
     bool operator==(const Row&) const = default;
 };
 

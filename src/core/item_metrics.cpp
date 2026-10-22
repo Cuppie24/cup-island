@@ -49,19 +49,20 @@ float heightOf(const Item& item, Rect slot, float ringSide)
     if (std::holds_alternative<Swatch>(item)) return t.swatchSize;
     if (std::holds_alternative<Switch>(item)) return t.switchSize.y;
     if (std::holds_alternative<Tag>(item)) return t.tagHeight;
-    if (auto* button = std::get_if<Button>(&item)) return button->compact ? t.smallButtonSize : t.buttonSize;
+    if (auto* button = std::get_if<Button>(&item)) return button->primary ? t.primaryButtonSize : button->compact ? t.smallButtonSize : t.buttonSize;
     if (std::holds_alternative<TextInput>(item)) return t.inputHeight;
+    if (std::holds_alternative<Divider>(item)) return t.dividerThickness;
     // Seekable bars get a taller row to be easy to click; a bar nobody clicks is just its line.
     if (auto* bar = std::get_if<Progress>(&item)) return bar->seekable ? t.progressHitHeight : t.progressHeight;
     if (auto* label = std::get_if<TimeLabel>(&item)) return lineHeight(label->style);
     return t.iconSize; // Icon, Waveform
 }
 
-// Fixed width, or nothing for items that stretch (Text, Progress).
+// Fixed width, or nothing for items that stretch (Text, Progress, Divider).
 std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureText& measure)
 {
     const Tokens& t = tokens();
-    if (std::holds_alternative<Text>(item) || std::holds_alternative<TextInput>(item) ||
+    if (std::holds_alternative<Text>(item) || std::holds_alternative<TextInput>(item) || std::holds_alternative<Divider>(item) ||
         (std::holds_alternative<Progress>(item) && !isRing(item)))
         return std::nullopt;
     if (std::holds_alternative<Image>(item) || isRing(item)) return height;
@@ -76,6 +77,7 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
         return (measure ? measure(text) : estimateTextWidth(text)) + 2 * t.tagPadding;
     }
     if (auto* button = std::get_if<Button>(&item)) {
+        if (button->primary) return t.primaryButtonSize;
         if (button->round) return t.buttonSize;
         if (button->label.empty()) return button->compact ? t.smallButtonSize : t.buttonSize;
         Text text{ button->label, button->quiet ? TextStyle::Caption : TextStyle::Body };

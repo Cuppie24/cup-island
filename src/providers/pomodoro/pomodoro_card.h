@@ -56,9 +56,9 @@ Panel pomodoroPanel(const TodoList& todos = {}, const PomodoroPlan& plan = defau
 Content pomodoroContent(const PomodoroSession& session, const TodoList& todos = {});
 // The card on its statistics page instead: now and the bests, a "Record" tag on what beats its best.
 Content withStatsPage(Content card, const PomodoroGlance& glance);
-// The card on its settings page instead: the days off. The rest of `card` (its widget, compact) stays.
+// The card on its settings page instead: the plan (dimmed while `running`), the days off. The rest of `card` (its widget, compact) stays.
 // `fake`: Debug builds, which made-up history is shown (0: the real one); nothing: no debug row.
-Content withSettingsPage(Content card, const DaysOff& off, std::optional<int> fake = std::nullopt);
+Content withSettingsPage(Content card, const PomodoroPlan& plan, bool running, const DaysOff& off, std::optional<int> fake = std::nullopt);
 // The question the stop button asks before ending a running session.
 Dialog stopQuestion(const PomodoroSession& session);
 // Focus and breaks have their own colours (decision 010), in tokens.json.

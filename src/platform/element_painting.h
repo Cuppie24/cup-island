@@ -19,6 +19,8 @@ void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float f
 // A text button's label, centred.
 void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& label, Vec2 size, const Color& color,
                 TextStyle style = TextStyle::Body);
+// Button::primary: a filled circle in the button colour, its glyph in the island's (decision 064).
+void paintPrimaryButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size);
 // Button::round: its circle (a Switch's colours: the theme's live colour when on, its track's when off) and label.
 void paintRoundButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size);
 // Where in `text` (a byte offset) a click at `at` (from its frame's top left) lands:

@@ -1,6 +1,6 @@
 # 063: A calmer Pomodoro card
 
-Status: Accepted
+Status: Accepted; the plan moved to the settings page by 064
 
 **Context.** With statistics (061) the dormant card had seven buttons (a
 chart, the gear, four − / +, ▶) and three lines of text of equal weight

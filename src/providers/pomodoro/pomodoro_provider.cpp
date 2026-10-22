@@ -220,7 +220,7 @@ void PomodoroProvider::showDormant()
 
 Content PomodoroProvider::onPage(Content card) const
 {
-    if (page_ == PomodoroPage::Settings) return withSettingsPage(std::move(card), daysOff_, fakeRow());
+    if (page_ == PomodoroPage::Settings) return withSettingsPage(std::move(card), plan_, session_.has_value(), daysOff_, fakeRow());
     if (page_ == PomodoroPage::Stats) return withStatsPage(std::move(card), glanceOf(stats_, daysOff_, localDay(host_->wallClock(), host_->utcOffset())));
     return card;
 }
