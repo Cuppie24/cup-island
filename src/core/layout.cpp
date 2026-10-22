@@ -29,7 +29,7 @@ Source sourceFor(const IslandState& s, Mode mode)
 }
 
 // Centred and List cards are one stack of rows across the card (decision 014).
-bool stacked(const Content& c) { return c.card == CardLayout::Centred || c.card == CardLayout::List || c.card == CardLayout::Narrow; }
+bool stacked(const Content& c) { return c.card == CardLayout::Centred || c.card == CardLayout::List; }
 
 // That stack's frame: the card less its padding. A List card's is narrower
 // and centred (decision 030): a few short rows don't need the island's width.
@@ -37,10 +37,6 @@ Rect stackFrame(const Content& c, Vec2 size)
 {
     const Tokens& t = tokens();
     float p = t.expandedPadding;
-    if (c.card == CardLayout::Narrow) { // a few short rows: kept together in the middle (decision 061)
-        float width = std::min(std::max(0.0f, size.x - 2 * p), t.narrowCardWidth);
-        return { (size.x - width) / 2, p, width, size.y - 2 * p };
-    }
     if (c.card != CardLayout::List) return { p, p, std::max(0.0f, size.x - 2 * p), size.y - 2 * p };
     float width = std::min(std::max(0.0f, size.x - 2 * (p + t.listCardInset)), t.listCardWidth);
     float top = p + t.listCardVerticalInset; // room above and below: a page of settings, not a packed activity card
@@ -54,7 +50,9 @@ float centredCardHeight(const Source& source, Vec2 size, float tabSpace, const M
     const Tokens& t = tokens();
     const Content& c = *source.content;
     Rect frame = stackFrame(c, size);
-    float needed = slotHeight(c.expandedCenter, { frame.x, frame.y, frame.width, size.y }, source, measure) + 2 * frame.y;
+    // A page within the card keeps the card's main view's height (Content::sizedLike, decision 070).
+    const Slot& sizing = c.sizedLike.empty() ? c.expandedCenter : c.sizedLike;
+    float needed = slotHeight(sizing, { frame.x, frame.y, frame.width, size.y }, source, measure) + 2 * frame.y;
     // A List card (Settings) is never as squeezed as an activity's: listCardMinHeight at least.
     float least = c.card == CardLayout::List ? std::max(t.expandedSize.y, t.listCardMinHeight) : t.expandedSize.y;
     return std::clamp(needed, least, std::max(least, t.canvas.y - tabSpace));

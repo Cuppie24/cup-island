@@ -1,6 +1,6 @@
 # 061: Pomodoro statistics, days off, and coming back paused
 
-Status: Accepted
+Status: Accepted; the pages keep the card's size, and Row::narrow replaces CardLayout::Narrow, by 070
 
 **Context.** Pomodoro kept nothing about what was done: no "how am I doing
 today", no reason to come back tomorrow. And a session kept running while

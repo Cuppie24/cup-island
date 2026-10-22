@@ -70,16 +70,17 @@ std::string shortSpent(Ms duration)
 
 std::string days(int n) { return std::to_string(n) + (n == 1 ? " day" : " days"); }
 
-// The card's top row, its corners (decisions 066, 067): while dormant the days
-// in a row on the left (a fire from three on, the number bright), the
+// The card's top row, its corners (decisions 066, 067, 070): while dormant the
+// days in a row on the left, none while there are none (a fire from three on,
+// the number bright), the
 // statistics and the gear on the right, grey until pointed at. Everything
 // else starts under it.
-Row cornersRow(int daysInARow = -1) // -1: no days (the running card)
+Row cornersRow(int daysInARow = 0) // 0: no days shown (and the running card shows none)
 {
     Row r{ .trailing = { Button{ .glyph = Glyph::Chart, .actionId = act::kOpenStats, .secondary = true },
                          Button{ .glyph = Glyph::Settings, .actionId = act::kOpenSettings, .secondary = true } } };
     if (daysInARow >= 3) r.leading.push_back(Icon{ Glyph::Fire });
-    if (daysInARow >= 0) r.leading.push_back(Text{ .value = days(daysInARow), .style = TextStyle::Caption, .brightDigits = true });
+    if (daysInARow > 0) r.leading.push_back(Text{ .value = days(daysInARow) + " in a row", .style = TextStyle::Caption, .brightDigits = true });
     return r;
 }
 
@@ -109,7 +110,7 @@ Row todayRow(const PomodoroGlance& g)
 // columns (Row::even), a value row over its caption row, so they line up.
 Row valuesRow(std::initializer_list<std::string> values)
 {
-    Row r{ .align = Align::Center, .even = true };
+    Row r{ .align = Align::Center, .even = true, .narrow = true };
     for (const std::string& v : values) r.items.push_back(Text{ .value = v, .style = TextStyle::Title, .centred = true });
     return r;
 }
@@ -117,7 +118,7 @@ Row valuesRow(std::initializer_list<std::string> values)
 // What each value is; a "Record" tag in its place when it beats its best.
 Row captionsRow(std::initializer_list<std::pair<const char*, bool>> captions)
 {
-    Row r{ .align = Align::Center, .even = true };
+    Row r{ .align = Align::Center, .even = true, .narrow = true };
     for (auto [text, record] : captions)
         if (record) r.items.push_back(Tag{ "Record" });
         else r.items.push_back(Text{ .value = text, .style = TextStyle::Caption, .centred = true });
@@ -242,8 +243,11 @@ Content pomodoroContent(const PomodoroSession& s, const TodoList& todos, const P
 // weekday for days off.
 Content withSettingsPage(Content card, const PomodoroPlan& plan, bool running, const DaysOff& off, std::optional<int> fake)
 {
-    Slot page{ pageTitle("Timer settings"), planRow("Focus", plan.focus, true, plan, running), planRow("Break", plan.rest, false, plan, running),
-               heading("Days off", true) };
+    Row focus = planRow("Focus", plan.focus, true, plan, running);
+    focus.apart = true; // room under the title: groups apart, as on the card (decision 070)
+    Row daysOff = heading("Days off", false);
+    daysOff.apart = true;
+    Slot page{ pageTitle("Timer settings"), focus, planRow("Break", plan.rest, false, plan, running), daysOff };
     Row days{ .align = Align::Center }; // one row of circles, Monday first; a lit one is off
     for (std::size_t i = 0; i < off.size(); ++i)
         days.items.push_back(Button{ .actionId = act::kToggleDayOff + std::to_string(i), .on = off[i], .label = kDayNames[i], .round = true });
@@ -251,12 +255,20 @@ Content withSettingsPage(Content card, const PomodoroPlan& plan, bool running, c
     page.push_back(caption("A day off doesn't break your days in a row."));
     if (fake) { // Debug builds: try the statistics with a made-up history, never saved
         const char* const shown[] = { "Real", "3 in a row, best 5", "New records" };
-        page.push_back(heading("Debug", true));
+        Row debug = heading("Debug", false);
+        debug.apart = true;
+        page.push_back(debug);
         page.push_back(Row{ .items = { Text{ "Fake statistics" }, Text{ .value = shown[*fake % 3], .style = TextStyle::Caption, .alignEnd = true },
                                        Button{ .glyph = Glyph::ChevronRight, .actionId = act::kFakeStats, .compact = true } },
                             .clickAnywhere = true,
                             .listItem = true });
     }
+    // Everything under the title is one list filling the card, which keeps the timer's height: it
+    // scrolls when there's more than fits, from the top (decision 070).
+    for (std::size_t i = 1; i < page.size(); ++i) page[i].list = act::kSettingsList;
+    page[1].visibleRows = -1;
+    card.sizedLike = std::move(card.expandedCenter);
+    card.pageAtTop = true;
     card.expandedCenter = std::move(page);
     card.backAction = act::kBack; // Esc goes back to the timer, like the arrow (decision 033)
     return card;
@@ -270,16 +282,23 @@ Content withStatsPage(Content card, const PomodoroGlance& g)
     bool cyclesRecord = g.finishedToday > g.bestDay && g.finishedToday > 0, focusRecord = g.focusToday > g.bestFocus && g.focusToday >= Ms{ 60000 },
          runRecord = g.daysInARow > g.bestRun && g.daysInARow > 0;
     std::string run = (g.daysInARow >= 3 ? "🔥 " : "") + std::to_string(g.daysInARow); // the fire from three on, as in the corner
+    card.sizedLike = card.expandedCenter; // the card keeps the timer's height; the page centres in it (decision 070)
+    // Each group a gap apart (decision 070); the tables and the line narrow, kept together in
+    // the middle, while the title keeps the card's width, its back arrow at the edge.
+    auto label = [](const std::string& text) {
+        Row r = caption(text);
+        r.apart = true;
+        return r;
+    };
     card.expandedCenter = { pageTitle("Statistics"),
-                            caption("Today"),
+                            label("Today"),
                             valuesRow({ std::to_string(g.finishedToday), shortSpent(g.focusToday), run }),
                             captionsRow({ { "cycles", cyclesRecord }, { "focus time", focusRecord }, { "days in a row", runRecord } }),
-                            Row{ .items = { Divider{} }, .section = true },
-                            caption("🏆 Personal records"),
+                            Row{ .items = { Divider{} }, .apart = true, .narrow = true },
+                            label("🏆 Personal records"),
                             valuesRow({ std::to_string(std::max(g.finishedToday, g.bestDay)), shortSpent(std::max(g.focusToday, g.bestFocus)),
                                         days(std::max(g.daysInARow, g.bestRun)) }),
                             captionsRow({ { "most cycles", false }, { "best focus day", false }, { "best streak", false } }) };
-    card.card = CardLayout::Narrow; // three short columns: kept together in the middle, not at the card's edges
     card.backAction = act::kBack; // Esc goes back to the timer, like the arrow (decision 033)
     return card;
 }

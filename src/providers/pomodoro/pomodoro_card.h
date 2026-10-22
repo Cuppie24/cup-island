@@ -32,6 +32,7 @@ inline constexpr const char* kOpenStats = "stats.open";
 inline constexpr const char* kOpenSettings = "settings.open";
 inline constexpr const char* kBack = "settings.back";
 inline constexpr const char* kToggleDayOff = "dayoff."; // + 0 (Monday) .. 6 (Sunday)
+inline constexpr const char* kSettingsList = "timersettings"; // the settings page under its title (Row::list): scrolls
 inline constexpr const char* kFakeStats = "debug.fakestats"; // Debug builds: the next made-up history (fakeStats)
 } // namespace pomodoro_action
 

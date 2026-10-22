@@ -71,7 +71,7 @@ struct Tokens {
     float compactInset = 4;     // compact padding
     float alertPadding = 8;
     float expandedPadding = 18;
-    float narrowCardWidth = 300;  // CardLayout::Narrow: its rows' width (decision 061)
+    float narrowRowWidth = 300;   // Row::narrow: at most this wide, centred (decision 070)
     float listCardInset = 8;      // CardLayout::List: at least this much more on the left and right (decision 030)
     float listCardWidth = 400;    // ...and its rows no wider than this, centred (a full-width card's, at the shipped sizes)
     float listCardVerticalInset = 6;  // ...this much more above and below its rows

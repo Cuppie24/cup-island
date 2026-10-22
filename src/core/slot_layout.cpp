@@ -106,8 +106,10 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
     const std::vector<float> oneLine = sizes.heights; // a list's window counts rows of one line (decision 045)
     // Lists windowed, scrolled, a row dragged (decision 029); the rest stacked.
     ListState lists{ source.activityId, source.scrolls, source.listDrag };
-    RowPlan plan = planRows(rows, sizes.heights, lists, &oneLine);
-    float contentTop = slot.frame.y + (slot.frame.height - plan.height) / 2; // centred vertically
+    // A page that starts at the top (Content::pageAtTop): its card's height is another view's, and it scrolls in it.
+    bool atTop = source.content && source.content->pageAtTop && slot.slot == &source.content->expandedCenter;
+    RowPlan plan = planRows(rows, sizes.heights, lists, &oneLine, slot.frame.height);
+    float contentTop = atTop ? slot.frame.y : slot.frame.y + (slot.frame.height - plan.height) / 2; // centred vertically
     std::vector<float> wrapped(rows.size(), 0); // each row's wrapping text's height, once its width is known
 
     // Places every row into `target` and returns each row's content span.
@@ -124,6 +126,10 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
             std::size_t neighbour = row.span == RowSpan::MatchAbove ? r - 1 : r + 1;
             if (spans && row.span != RowSpan::Slot && neighbour < rows.size() && (*spans)[neighbour].width > 0)
                 area = { (*spans)[neighbour].x, slot.frame.y, (*spans)[neighbour].width, slot.frame.height };
+            if (row.narrow) { // Row::narrow: a short row kept together in the middle (decision 070)
+                float w = std::min(area.width, t.narrowRowWidth);
+                area = { area.x + (area.width - w) / 2, area.y, w, area.height };
+            }
             Rect background = area; // a list item's hover background spans the row; its content sits inside
             if (row.listItem || row.inset) {
                 // What's at an edge sits listItemTextInset in, clear of the background's
@@ -365,8 +371,8 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
         if (needed > sizes.heights[r]) sizes.heights[r] = needed, grew = true;
     }
     if (grew) {
-        plan = planRows(rows, sizes.heights, lists, &oneLine);
-        contentTop = slot.frame.y + (slot.frame.height - plan.height) / 2;
+        plan = planRows(rows, sizes.heights, lists, &oneLine, slot.frame.height);
+        contentTop = atTop ? slot.frame.y : slot.frame.y + (slot.frame.height - plan.height) / 2;
     }
     placeRows(out, &spans);
     return plan.height;

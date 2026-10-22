@@ -32,8 +32,9 @@ struct RowPlan {
 // `heights`: each row's natural height. Rows outside a list stack as before.
 // `windowHeights`: what a list's window is sized by (its rows on one line,
 // so a wrapped one doesn't stretch it, decision 045); none: `heights`.
+// `room`: the slot's height, which a fill list's window takes the rest of (Row::visibleRows < 0).
 RowPlan planRows(const Slot& slot, const std::vector<float>& heights, const ListState& state,
-                 const std::vector<float>* windowHeights = nullptr);
+                 const std::vector<float>* windowHeights = nullptr, float room = 0);
 
 std::string listKey(const std::string& activityId, const std::string& list); // "<activityId>/<list>"
 

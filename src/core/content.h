@@ -229,9 +229,7 @@ enum class RowSpan { Slot, MatchAbove, MatchBelow };
 //            control panel or a timer, nothing to put in an art square.
 //  List:     like Centred, with wider sides (listCardInset): a page of
 //            settings, rows edge to edge (decision 030).
-//  Narrow:   like Centred, its rows only narrowCardWidth wide, in the middle:
-//            a few short name-and-value rows (Pomodoro's statistics, decision 061).
-enum class CardLayout { Standard, Centred, List, Narrow };
+enum class CardLayout { Standard, Centred, List };
 
 // A horizontal row of items. Text and Progress stretch; everything else has a fixed size.
 struct Row {
@@ -253,6 +251,9 @@ struct Row {
     std::string list;
     // The list's window in rows, read from its first row; 0: listVisibleRows.
     // A list that is the whole card (Settings' root page) sizes it to the card.
+    // Negative: the window fills what's left of the slot under the rows above
+    // it (the list must be the slot's last): a page of settings in a card
+    // whose height is set by another view (Content::sizedLike, decision 070).
     float visibleRows = 0;
     // Drag to reorder (decision 029): pressed and dragged, the row moves among
     // the list's rows of the same `sortGroup`; dropped in a new place, its
@@ -284,6 +285,10 @@ struct Row {
     // Starts one of a card's groups (the timer, its progress, its controls):
     // groupGap of space above it, more than between rows (decision 066).
     bool apart = false;
+    // At most narrowRowWidth wide, centred: short columns kept together in the
+    // middle while the rows around it (a page's title, its back arrow at the
+    // card's edge) keep the card's width (Pomodoro's statistics, decision 070).
+    bool narrow = false;
     bool operator==(const Row&) const = default;
 };
 
@@ -331,6 +336,13 @@ struct Content {
     // sends, as a click on its back arrow would. Empty: Esc goes back to
     // Home or closes, as anywhere else (decision 033).
     std::string backAction;
+    // A page within the card (its statistics, its settings): the card keeps
+    // the height these rows, its main view, give it, and the page lays out in
+    // that height, centred, instead of setting its own (decision 070). Empty: not a page.
+    Slot sizedLike;
+    // ...and the page starts at the top instead of centred: a page that
+    // scrolls (a fill list, Row::visibleRows < 0) rather than one that fits.
+    bool pageAtTop = false;
     Slot compactLeading;
     Slot compactCenter;  // between the two compact squares, e.g. a swimming title
     Slot compactTrailing;

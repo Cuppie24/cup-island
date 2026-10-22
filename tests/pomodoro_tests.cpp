@@ -144,21 +144,42 @@ void planTests()
            "a grey gear in the top-right corner, a row of its own above the dial (decision 069)");
     expect(!hitTest(card, { gear->frame.x + gear->frame.width / 2, gear->frame.y + gear->frame.height + 30 }),
            "its click zone is its own row's, not down the dial's side");
-    expect(days && std::get<Text>(days->item).value == "0 days" && std::get<Text>(days->item).brightDigits &&
-           days->frame.x < t.expandedPadding + 1 && days->frame.y + days->frame.height <= big->frame.y,
-           "the days in a row in the top-left corner, one text, the number bright");
+    expect(!days, "no days in a row yet: nothing in the top-left corner (decision 070)");
     expect(island.press("expandedCenter/0/0") && textAt(island.scene(), "expandedCenter/0/0") == "Statistics", "the chart opens the statistics");
     Scene stats = island.scene();
     const Placed* title = find(stats, "expandedCenter/0/0");
     expect(title && std::abs(title->frame.x + title->frame.width / 2 - stats.size.x / 2) < 0.51f, "its title centred on the card, back arrow or not");
     for (const Placed& p : stats.elements)
         if (p.key.rfind("tab/", 0) != 0) expect(p.frame.y + p.frame.height <= stats.size.y - t.expandedPadding + 0.01f, "fits the statistics: " + p.key);
+    // Decision 070: the page keeps the timer card's size, its content centred in it, its back arrow at the card's
+    // edge, its tables narrower than the card, each group apart.
+    expect(stats.size.y == card.size.y, "the statistics keep the timer card's height");
+    float top = stats.size.y, bottom = 0;
+    for (const Placed& p : stats.elements)
+        if (p.key.rfind("tab/", 0) != 0) top = std::min(top, p.frame.y), bottom = std::max(bottom, p.frame.y + p.frame.height);
+    float above = top - (card.tabs ? card.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap : 0), below = stats.size.y - bottom;
+    expect(card.tabs || std::abs(above - below) < 1.0f, "its content centred vertically");
+    const Placed* arrow = find(stats, "expandedCenter/0/1");
+    const Placed* cell = find(stats, "expandedCenter/2/0");
+    expect(arrow && std::get<Button>(arrow->item).glyph == Glyph::ChevronLeft && arrow->frame.x < t.expandedPadding + 1 &&
+           cell && cell->frame.x > arrow->frame.x + arrow->frame.width, "the back arrow at the card's left edge, the table narrower");
+    const Placed* todayLabel = find(stats, "expandedCenter/1/0");
+    expect(todayLabel && title && todayLabel->frame.y - (title->frame.y + title->frame.height) >= t.groupGap, "room between the title and today");
     island.registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kBack, 0 });
 
     // The settings page: the plan first (Focus  − 25 min +), then the days off.
     expect(island.press("expandedCenter/0/1"), "the gear opens the settings page");
     Scene page = island.scene();
     expect(textAt(page, "expandedCenter/0/0") == "Timer settings" && page.size.y <= t.canvas.y, "the page fits the canvas");
+    expect(page.size.y == card.size.y, "the settings keep the timer card's height (decision 070)");
+    const Placed* pageTitleText = find(page, "expandedCenter/0/0");
+    const Placed* focusName = find(page, "expandedCenter/1/0");
+    expect(pageTitleText && focusName && focusName->frame.y - (pageTitleText->frame.y + pageTitleText->frame.height) >= t.groupGap &&
+           pageTitleText->frame.y < (page.tabs ? page.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap : 0) + t.expandedPadding + t.buttonSize,
+           "from the top, room under the title");
+    expect(focusName->list && focusName->list->id == pomodoro_action::kSettingsList &&
+           focusName->list->viewport.y + focusName->list->viewport.height <= page.size.y - t.expandedPadding + 0.01f,
+           "the rest one list, within the card (it scrolls when there's more: pomodoro_stats_tests)");
     expect(textAt(page, "expandedCenter/1/0") == "Focus" && textAt(page, "expandedCenter/1/2") == "25 min", "a Focus row with its length");
     expect(textAt(page, "expandedCenter/2/0") == "Break" && textAt(page, "expandedCenter/2/2") == "5 min", "a Break row with its length");
     const Placed* minus = find(page, "expandedCenter/1/1");
