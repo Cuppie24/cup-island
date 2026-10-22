@@ -15,8 +15,11 @@ a Title.
   at rest (decision 064). Providers don't set it, and icons elsewhere
   (tabs, compact) keep `iconColor`.
 - **One line where there's one thing to say:** the theme and Settings
-  widgets are one row, the icon beside its word, centred in the tile like
-  the other widgets' rows.
+  widgets are one row, their word centred in the tile, and their icon in
+  the side square (`tileLeading`) like the media and timer widgets'. Inline
+  at the row's start, the icon sat left of the others (which centre theirs
+  in that square, where the cover or ring goes when live) and the word
+  started further left than their titles: the grid didn't line up.
 - **Settings' word is a Title**, bold like every other widget's main line.
 
 **Consequences.** A widget with a lone icon line and a text line under it

@@ -37,9 +37,9 @@ void runSettingsTests()
     expect(widget.id == SettingsProvider::kPanelId && widget.tapAction.empty() && hasCard(widget.content) &&
            widget.content.card == CardLayout::List && widget.content.keepOpen,
            "settings: a widget that opens a list card, which a click between rows doesn't close");
-    expect(glyphAt(widget, 0) == Glyph::Settings && textAt(widget, 0, 1) == "Settings" && widget.content.tile.size() == 1 &&
-           std::get<Text>(widget.content.tile[0].items[1]).style == TextStyle::Title,
-           "settings: the gear beside its name, bold like the other widgets (decision 073)");
+    expect(leadGlyph(widget) == Glyph::Settings && textAt(widget, 0, 0) == "Settings" && widget.content.tile.size() == 1 &&
+           std::get<Text>(widget.content.tile[0].items[0]).style == TextStyle::Title,
+           "settings: the gear in the side square, its name bold like the other widgets' (decision 073)");
     expect(applied == "Lime" && saves == 0 && valueOf(widget, "Theme") == "Lime",
            "settings: the saved theme applies at start, and its row says so");
     const Row& themeRow = *rowNamed(widget, "Theme");
