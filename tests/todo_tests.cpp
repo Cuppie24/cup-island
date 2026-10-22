@@ -29,6 +29,53 @@ const Placed* firstOf(const Scene& scene, const std::function<bool(const Placed&
 }
 
 // Long to-dos wrap onto more lines and their rows grow (decision 045).
+// Order (decision 071): an unticked to-do goes back to its place among the open ones.
+std::string texts(const TodoList& list)
+{
+    std::string out;
+    for (const Todo& t : list.items()) out += t.text + (t.done ? "*" : "") + "|";
+    return out;
+}
+
+void orderTests()
+{
+    TodoList list;
+    list.add("a\nb\nc\nd");
+    auto id = [&](const std::string& text) {
+        for (const Todo& t : list.items())
+            if (t.text == text) return t.id;
+        return std::uint64_t{ 0 };
+    };
+    list.toggle(id("b"));
+    expect(texts(list) == "a|c|d|b*|", "ticked: down with the solved ones");
+    list.toggle(id("b"));
+    expect(texts(list) == "a|b|c|d|", "unticked: back in its place, not at the end");
+    list.move(id("d"), 0);
+    list.toggle(id("a"));
+    list.toggle(id("a"));
+    expect(texts(list) == "d|a|b|c|", "after a drag, the new order is the place it goes back to");
+    list.toggle(id("b"));
+    TodoList reloaded = TodoList::load(list.save());
+    expect(texts(reloaded) == "d|a|c|b*|", "saved and loaded: open first, solved after");
+    for (const Todo& t : reloaded.items())
+        if (t.text == "b") reloaded.toggle(t.id);
+    expect(texts(reloaded) == "d|a|b|c|", "unticked after a restart: still back in its place");
+
+    Todo removed = list.items()[1]; // "a"
+    list.remove(removed.id);
+    list.restore(removed);
+    expect(texts(list) == "d|a|c|b*|", "a deleted one restored in its place (a toast's Undo)");
+    list.restore(removed);
+    expect(texts(list) == "d|a|c|b*|", "restored once only");
+
+    expect(!list.doneShown() && list.apply(todo_action::kShowDone, "") && list.doneShown(), "the Done row shows the solved ones");
+    list.add("e");
+    list.toggle(id("e"));
+    // The rows: d a c, the Done row (3), then b e (4, 5): a solved one dragged to row 4 is the solved group's first.
+    list.apply(todo_action::kMove + std::to_string(id("e")), "", 4);
+    expect(texts(list) == "d|a|c|e*|b*|", "a move counts the Done row among the list's rows");
+}
+
 void wrapTests()
 {
     const Tokens& t = tokens();
@@ -133,6 +180,7 @@ void keptTextTests()
 
 void runTodoTests()
 {
+    orderTests();
     keptTextTests();
     wrapTests();
     // The list itself.
@@ -209,8 +257,15 @@ void runTodoTests()
            "the dormant card has the field");
     expect(firstOf(card, [](const Placed& p) { auto* t = std::get_if<Text>(&p.item); return t && t->value == "Old open"; }),
            "the saved list is loaded");
-    const Placed* oldDone = firstOf(card, [](const Placed& p) { auto* t = std::get_if<Text>(&p.item); return t && t->value == "Old done"; });
-    expect(oldDone && std::get<Text>(oldDone->item).struck, "solved ones are struck through");
+    // Solved ones wait under the Done row, collapsed to start with (decision 071).
+    auto named = [](const Scene& sc, const std::string& value) {
+        return firstOf(sc, [&](const Placed& p) { auto* t = std::get_if<Text>(&p.item); return t && t->value == value; });
+    };
+    expect(!named(card, "Old done") && named(card, "Done · 1"), "the solved one hidden under \"Done · 1\"");
+    registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kShowDone, 0 }); // the Done row clicked
+    Scene opened = layout(state, now);
+    const Placed* oldDone = named(opened, "Old done");
+    expect(oldDone && std::get<Text>(oldDone->item).struck, "opened: solved ones show, struck through");
 
     // Only the checkbox ticks a to-do; its text is a click into editing it (decision 043).
     const Placed* openText = firstOf(card, [](const Placed& p) { auto* t = std::get_if<Text>(&p.item); return t && t->value == "Old open"; });
@@ -284,13 +339,16 @@ void runTodoTests()
     Scene full = layout(state, now);
     auto boxes = boxesOf(full);
     float step = tk.smallButtonSize + 2 * tk.listItemPadding + tk.rowSpacing;
-    expect(rowTexts(full) == "Old open|Call mum|Email Anna|Book flights|Old done|", "one list, open ones first");
+    expect(rowTexts(full) == "Old open|Call mum|Email Anna|Book flights|Done · 1|Old done|", "one list: open ones, the Done row, solved ones");
     expect(boxes.size() == 5 && boxes[0]->list && boxes[0]->list->id == todo_action::kList, "every to-do is in it");
     Rect window = boxes[0]->list->viewport;
     expect(std::abs(window.height - (tk.listVisibleRows * step - tk.rowSpacing)) < 0.01f, "a window of listVisibleRows rows");
     expect(full.size.y > tk.expandedSize.y && full.size.y <= tk.canvas.y, "the card grew to fit, within the canvas");
-    const Placed* lastBox = boxes[4];
-    expect(lastBox->frame.y + lastBox->frame.height > window.y + window.height &&
+    const Placed* lastBox = firstOf(full, [](const Placed& p) { // the Done row's chevron: the row the window cuts
+        auto* b = std::get_if<Button>(&p.item);
+        return b && b->actionId == todo_action::kShowDone;
+    });
+    expect(lastBox && lastBox->frame.y + lastBox->frame.height > window.y + window.height &&
            lastBox->hitFrame.y + lastBox->hitFrame.height <= window.y + window.height + 0.01f, "the last one runs past it: clipped, clicks too");
     expect(listAt(full, { window.x + 5, window.y + 5 }) && !listAt(full, { field->frame.x + 5, field->frame.y + 5 }), "the wheel works over the list only");
 
@@ -303,7 +361,7 @@ void runTodoTests()
     };
     wheel(1000);
     Scene bottom = layout(state, now);
-    float max = 5 * step - tk.rowSpacing - window.height;
+    float max = 6 * step - tk.rowSpacing - window.height; // five to-dos and the Done row
     expect(std::abs(state.scrolls[key].offset - max) < 0.01f && std::abs(boxesOf(bottom)[0]->frame.y - (boxes[0]->frame.y - max)) < 0.01f,
            "scrolled to the end, no further");
     wheel(-1000);
@@ -406,12 +464,12 @@ void runTodoTests()
     registry.route({ "pomodoro", PomodoroProvider::kPanelId, std::get<Button>(zBox->item).actionId, 0 });
     Scene grouped = layout(state, now);
     const Placed* solved = textNamed(grouped, "z");
-    expect(solved && std::get<Text>(solved->item).struck && solved->list->row == 6, "ticked: it's the solved group's first");
+    expect(solved && std::get<Text>(solved->item).struck && solved->list->row == 7, "ticked: it's the solved group's first, under the Done row");
     send(ListDragStarted{ PomodoroProvider::kPanelId, todo_action::kList, solved->list->row, solved->frame.y });
     send(ListDragMoved{ solved->frame.y - 10 * step });
     Scene carriedUp = layout(state, now);
     const Placed* liftedZ = textNamed(carriedUp, "z");
-    expect(liftedZ && liftedZ->list->dropAt == 6, "it stays below the open ones");
+    expect(liftedZ && liftedZ->list->dropAt == 7, "it stays below the open ones and the Done row");
     send(ListDragEnded{});
     registry.route({ "pomodoro", PomodoroProvider::kPanelId, std::get<Button>(zBox->item).actionId, 0 }); // open again
 

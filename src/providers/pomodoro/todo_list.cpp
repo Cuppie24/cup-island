@@ -34,7 +34,7 @@ bool TodoList::add(const std::string& text)
         line = trim(line);
         if (line.empty()) continue;
         line = capped(line);
-        items_.push_back({ nextId_++, line, false });
+        items_.push_back({ nextId_++, line, false, nextRank_++ });
         added = true;
     }
     group();
@@ -43,7 +43,9 @@ bool TodoList::add(const std::string& text)
 
 void TodoList::group()
 {
-    std::stable_partition(items_.begin(), items_.end(), [](const Todo& t) { return !t.done; });
+    auto open = std::stable_partition(items_.begin(), items_.end(), [](const Todo& t) { return !t.done; });
+    // Open ones by rank: one unticked goes back where it was (decision 071).
+    std::stable_sort(items_.begin(), open, [](const Todo& a, const Todo& b) { return a.rank < b.rank; });
 }
 
 bool TodoList::toggle(std::uint64_t id)
@@ -55,6 +57,13 @@ bool TodoList::toggle(std::uint64_t id)
         return true;
     }
     return false;
+}
+
+void TodoList::restore(const Todo& todo)
+{
+    if (std::any_of(items_.begin(), items_.end(), [&](const Todo& t) { return t.id == todo.id; })) return;
+    items_.push_back(todo);
+    group();
 }
 
 bool TodoList::remove(std::uint64_t id)
@@ -89,6 +98,12 @@ bool TodoList::move(std::uint64_t id, std::size_t index)
     Todo moving = *it;
     items_.erase(it);
     items_.insert(items_.begin() + static_cast<std::ptrdiff_t>(to), moving);
+    if (!moving.done) { // an open one's new rank: between its new neighbours (decision 071)
+        Todo& moved = items_[to];
+        bool before = to > 0, after = to + 1 < open;
+        double prev = before ? items_[to - 1].rank : 0, next = after ? items_[to + 1].rank : 0;
+        moved.rank = before && after ? (prev + next) / 2 : before ? prev + 1 : after ? next - 1 : moved.rank;
+    }
     return true;
 }
 
@@ -109,6 +124,10 @@ bool TodoList::apply(const std::string& actionId, const std::string& text, float
     if (actionId == act::kAdd) return add(text);
     if (actionId == act::kClearDoneConfirmed) return clearDone();
     if (actionId == act::kClearAllConfirmed) return clearAll();
+    if (actionId == act::kShowDone) {
+        doneShown_ = !doneShown_;
+        return true;
+    }
     // "<prefix><id>": the item it names, or nothing if that isn't a number.
     auto idAfter = [&](const char* prefix) -> std::optional<std::uint64_t> {
         std::string p = prefix;
@@ -122,14 +141,22 @@ bool TodoList::apply(const std::string& actionId, const std::string& text, float
     if (auto id = idAfter(act::kToggle)) return toggle(*id);
     if (auto id = idAfter(act::kDelete)) return remove(*id);
     if (auto id = idAfter(act::kEdit)) return rename(*id, text);
-    if (auto id = idAfter(act::kMove)) return value >= 0 && move(*id, static_cast<std::size_t>(std::lround(value)));
+    if (auto id = idAfter(act::kMove)) {
+        if (value < 0) return false;
+        auto index = static_cast<std::size_t>(std::lround(value));
+        auto it = std::find_if(items_.begin(), items_.end(), [&](const Todo& t) { return t.id == *id; });
+        if (it != items_.end() && it->done && index > 0) --index; // the Done row comes before the solved ones
+        return move(*id, index);
+    }
     return false;
 }
 
 std::string TodoList::save() const
 {
+    std::vector<Todo> ranked = items_;
+    std::stable_sort(ranked.begin(), ranked.end(), [](const Todo& a, const Todo& b) { return a.rank < b.rank; });
     std::string out;
-    for (const Todo& t : items_) out += (t.done ? "[x] " : "[ ] ") + t.text + "\n";
+    for (const Todo& t : ranked) out += (t.done ? "[x] " : "[ ] ") + t.text + "\n";
     return out;
 }
 
@@ -143,7 +170,7 @@ TodoList TodoList::load(const std::string& saved)
         line = trim(line);
         if (line.empty()) continue;
         line = capped(line);
-        list.items_.push_back({ list.nextId_++, line, done });
+        list.items_.push_back({ list.nextId_++, line, done, list.nextRank_++ }); // saved in rank order
     }
     list.group(); // a list saved before grouping
     return list;
@@ -167,7 +194,8 @@ void appendTodoRows(Slot& slot, const TodoList& list)
     const auto& items = list.items();
     slot.push_back(row({ TextInput{ .actionId = act::kAdd, .placeholder = "Add a to-do…", .maxLength = tokens().todoMaxLength } }));
 
-    for (const Todo& t : items) {
+    // The open ones, then the Done row (decision 071), then the solved ones while it's open: all one list.
+    auto todoRow = [&](const Todo& t) {
         std::string id = std::to_string(t.id);
         Button box{ .glyph = t.done ? Glyph::Checked : Glyph::Unchecked, .actionId = act::kToggle + id, .compact = true };
         Text text{ .value = t.text, .style = t.done ? TextStyle::Caption : TextStyle::Body, .struck = t.done, .editAction = act::kEdit + id,
@@ -175,6 +203,18 @@ void appendTodoRows(Slot& slot, const TodoList& list)
         Button remove{ .glyph = Glyph::Delete, .actionId = act::kDelete + id, .compact = true, .revealOnHover = true };
         slot.push_back(Row{ .items = { box, text }, .trailing = { remove }, .list = act::kList,
                             .moveAction = act::kMove + id, .sortGroup = t.done ? 1 : 0, .id = "todo-" + id, .listItem = true });
+    };
+    auto done = static_cast<std::size_t>(std::count_if(items.begin(), items.end(), [](const Todo& t) { return t.done; }));
+    for (const Todo& t : items)
+        if (!t.done) todoRow(t);
+    if (done > 0) {
+        Button chevron{ .glyph = list.doneShown() ? Glyph::ChevronDown : Glyph::ChevronRight, .actionId = act::kShowDone, .compact = true,
+                        .secondary = true };
+        slot.push_back(Row{ .items = { chevron, Text{ .value = "Done · " + std::to_string(done), .style = TextStyle::Caption, .brightDigits = true } },
+                            .clickAnywhere = true, .list = act::kList, .sortGroup = 2, .id = "done", .listItem = true });
+        if (list.doneShown())
+            for (const Todo& t : items)
+                if (t.done) todoRow(t);
     }
 
     if (items.empty()) return;
