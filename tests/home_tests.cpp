@@ -96,6 +96,10 @@ void runHomeTests()
     const Placed* label = find(home, "tile/a/0/0");
     expect(label && label->frame.x == a.frame.x + t.tilePadding, "tile content keeps the tile's padding");
     expect(!find(home, "tile/a/0/1"), "a widget's button is left out");
+    IslandState iconic = reduce(IslandState{}, PanelPublished{ { .id = "i", .content = { .tile = { row({ Icon{ Glyph::Sun }, Text{ "Light" } }) } } } }, Ms{ 0 });
+    Scene iconHome = layout(reduce(iconic, PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    const Placed* widgetIcon = find(iconHome, "tile/i/0/0");
+    expect(widgetIcon && std::get<Icon>(widgetIcon->item).quiet, "a widget's icon is quiet, like a secondary button (decision 073)");
     expect(!hitTest(home, { a.frame.x + a.frame.width - t.tilePadding - 2, a.frame.y + a.frame.height / 2 }) && a.opens,
            "nothing on it takes the click: the tile opens its card");
     expect(tileAt(home, { a.frame.x + 2, a.frame.y + 2 }) && tileAt(home, { a.frame.x + 2, a.frame.y + 2 })->id == "a",
@@ -142,6 +146,8 @@ void runHomeTests()
     Scene media = layout(reduce(tabbed, ActivitySwitched{ "media" }, Ms{ 0 }), Ms{ 0 });
     expect(media.tabs->active && media.tabs->tabs[*media.tabs->active].id == "media" && media.tiles.empty(),
            "an activity's tab shows its card");
+    expect(!homeIcon->muted && find(card, "tab/home/lead")->muted && find(media, "tab/home/lead")->muted,
+           "Home's button in colour only on Home: grey on a card, a dormant one's too (decision 072)");
     Scene single = layout(reduce(reduce(s, ActivityStarted{ { .id = "solo" } }, Ms{ 0 }), PillClicked{}, Ms{ 0 }), Ms{ 0 });
     expect(single.tabs && single.tabs->tabs.size() == 2, "one activity plus panels: Home and its tab");
     Scene bare = layout(reduce(s, PillClicked{}, Ms{ 0 }), Ms{ 0 });

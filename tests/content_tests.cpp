@@ -274,6 +274,12 @@ void runContentTests()
     expect(mediaTab && std::get<Text>(mediaTab->item).value == "Song - Artist" && !std::get<Text>(mediaTab->item).marquee,
            "tab title: the compact centre text, not swimming");
     expect(syncTab && std::get<Text>(syncTab->item).value == "Sync", "no compact centre: the activity's name");
+    for (const auto& p : opened.elements)
+        if (p.key.rfind("tab/", 0) == 0)
+            expect(p.muted == (p.activityId != "sync"), "only the shown tab's content is in colour (decision 072): " + p.key);
+    expect(find(opened, "tab/pin/lead") && find(opened, "tab/pin/lead")->muted, "the pin while off: grey too");
+    Scene pinned = layout(reduce(reduce(three, PillClicked{}, Ms{ 0 }), StayOpenToggled{}, Ms{ 0 }), Ms{ 0 });
+    expect(find(pinned, "tab/pin/lead") && !find(pinned, "tab/pin/lead")->muted, "pinned: the pin in colour, like the shown tab");
     expect(artLead && artLead->cornerRadius > 0, "tab art radius nested");
     expect(glyphLead && glyphLead->frame.y + glyphLead->frame.height / 2 == strip.tabs[1].frame.y + strip.tabs[1].frame.height / 2,
            "tab glyph centred vertically");

@@ -239,6 +239,7 @@ void updateHover()
     // Home's tiles too, unless the pointer is on one of their buttons (decision 009).
     const Tab* tab = g_scene.tabs && at ? tabAt(*g_scene.tabs, *at) : nullptr;
     if (tab && isCurrent(*tab)) tab = nullptr;
+    g_renderer.setHoveredTab(tab ? std::optional<std::string>(tab->id) : std::nullopt); // its grey content in colour (decision 072)
     const Tile* tile = at && key.empty() ? tileAt(g_scene, *at) : nullptr;
     if (tile && !tile->clickable()) tile = nullptr; // widgets without a card or tap action don't react
     // A list item (a to-do) lights up as a whole row, like a tab (Row::listItem).

@@ -29,6 +29,9 @@ public:
     // Pointer feedback on content (decision 002), by element key. Unknown keys are ignored.
     void setHovered(const std::string& key); // "" = nothing; buttons light up, progress shows its knob
     void setHoveredRow(const std::string& row); // "<slot>/<row>" under the pointer, "" = none: reveals its revealOnHover buttons
+    // The tab under the pointer (Tab::id, "" = Home), none = std::nullopt: its muted content
+    // (Placed::muted) is drawn in colour and at full strength meanwhile (decision 072).
+    void setHoveredTab(const std::optional<std::string>& tab);
     void press(const std::string& key);      // buttons
     void release(const std::string& key);
     void scrub(const std::string& key, float fraction); // progress follows the pointer and ignores updates
@@ -55,6 +58,7 @@ private:
         wuc::CompositionColorBrush track{ nullptr }, accent{ nullptr }, knobBrush{ nullptr }, hover{ nullptr };
         SwitchParts toggle; // a Switch's track and knob (decision 053)
         bool lit = false;   // a secondary button under the pointer: drawn at full strength (decision 064)
+        bool grey = false;  // drawn muted now: an inactive tab's, its tab not hovered (decision 072)
     };
 
     View create(const Placed& placed, Ms now, bool fade = true); // fade: fades in (not when a text turns into its field)
@@ -63,6 +67,8 @@ private:
     void recolor(View& view); // fades its shapes to the current colours and redraws its pixels
     void animateBars(View& view);
     void showHover(const std::string& key, bool on);
+    bool greyNow(const Placed& placed) const;
+    void setGrey(View& view, bool grey);
     void fadeOutAndRemove(wuc::Visual const& visual);
     void place(View& view); // its offset, in its list's scroller or the content
 
@@ -73,6 +79,7 @@ private:
     ListViewports lists_; // scrolling lists' clipped, eased containers (decision 029)
     std::string hovered_;
     std::string hoveredRow_;
+    std::optional<std::string> hoveredTab_;
     bool deviceLost_ = false;
 };
 

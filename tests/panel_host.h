@@ -61,9 +61,11 @@ inline std::string cardItem(const Panel& p, std::size_t row, std::size_t item)
     return text ? text->value : "?";
 }
 
-inline Glyph glyphAt(const Panel& p, std::size_t row)
+// The widget's side-square icon (tileLeading, decision 073).
+inline Glyph leadGlyph(const Panel& p)
 {
-    auto* icon = std::get_if<Icon>(&p.content.tile[row].items[0]);
+    if (p.content.tileLeading.empty() || p.content.tileLeading[0].items.empty()) return Glyph::Warning;
+    auto* icon = std::get_if<Icon>(&p.content.tileLeading[0].items[0]);
     return icon ? icon->glyph : Glyph::Warning;
 }
 

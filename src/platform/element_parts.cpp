@@ -38,11 +38,11 @@ constexpr float kPeaks[] = { 0.6f, 1.0f, 0.78f };
 
 } // namespace
 
-void fadeIn(Compositor const& c, Visual const& visual)
+void fadeIn(Compositor const& c, Visual const& visual, float opacity)
 {
     auto anim = c.CreateScalarKeyFrameAnimation();
     anim.InsertKeyFrame(0.0f, 0.0f);
-    anim.InsertKeyFrame(1.0f, 1.0f, easeOf(c, tokens().morphEase));
+    anim.InsertKeyFrame(1.0f, opacity, easeOf(c, tokens().morphEase));
     anim.Duration(atLeast1(tokens().contentFadeDuration));
     anim.DelayTime(tokens().contentFadeDelay); // let the pill start morphing first
     anim.DelayBehavior(AnimationDelayBehavior::SetInitialValueBeforeDelay);

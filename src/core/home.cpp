@@ -41,6 +41,7 @@ std::vector<std::vector<Entry>> rowsFor(const std::vector<Entry>& entries, std::
 
 // A widget shows information only (decision 019): its buttons and text
 // fields are left out, so a click anywhere on it means "open the card".
+// Its icons are made quiet (decision 073).
 Slot informationOnly(const Slot& slot)
 {
     auto interactive = [](const Item& item) {
@@ -50,6 +51,11 @@ Slot informationOnly(const Slot& slot)
     for (Row& r : out)
         for (auto* items : { &r.items, &r.leading, &r.trailing }) std::erase_if(*items, interactive);
     std::erase_if(out, [](const Row& r) { return r.items.empty() && r.leading.empty() && r.trailing.empty(); });
+    // Its icons quieter than its text: a secondary button's grey (decision 073).
+    for (Row& r : out)
+        for (auto* items : { &r.items, &r.leading, &r.trailing })
+            for (Item& item : *items)
+                if (auto* icon = std::get_if<Icon>(&item)) icon->quiet = true;
     return out;
 }
 

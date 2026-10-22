@@ -289,7 +289,9 @@ Panel settingsPanel(const SettingsView& view)
                           : view.page == SettingsPage::MusicColours ? musicColoursPage(view)
                           : view.page == SettingsPage::Shortcuts ? shortcutsPage(view)
                                                                  : listPage(view),
-        .tile = { row({ Icon{ Glyph::Settings } }), row({ Text{ "Settings" } }) },
+        // One line, the gear in the side square like the other widgets' icons, bold like their titles (decision 073).
+        .tileLeading = { row({ Icon{ Glyph::Settings } }, Align::Center) },
+        .tile = { row({ Text{ "Settings", TextStyle::Title } }) },
     };
     return { .id = kSettingsPanelId, .content = content };
 }
