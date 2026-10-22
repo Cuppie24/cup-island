@@ -70,38 +70,36 @@ std::string shortSpent(Ms duration)
 
 std::string days(int n) { return std::to_string(n) + (n == 1 ? " day" : " days"); }
 
-// The card's top row: the time in a ring that fills as it goes, the phase
-// under it (decision 065), the ring one size whatever the phase (sized for
-// the plan's longest). In the top-right corner the statistics and the gear,
-// grey until pointed at (decision 066); while dormant, the days in a row in
-// the top-left one (a fire from three on). The corners sit at the ring's top
-// (Row::edgesAtTop), and the ring stays centred on the card.
-Row dialRow(const Timeline& timeline, const std::string& label, const PomodoroPlan& plan, int daysInARow = -1) // -1: no corner
+// The card's top row, its corners (decisions 066, 067): while dormant the days
+// in a row on the left (a fire from three on, the number bright), the
+// statistics and the gear on the right, grey until pointed at. Everything
+// else starts under it.
+Row cornersRow(int daysInARow = -1) // -1: no days (the running card)
+{
+    Row r{ .trailing = { Button{ .glyph = Glyph::Chart, .actionId = act::kOpenStats, .secondary = true },
+                         Button{ .glyph = Glyph::Settings, .actionId = act::kOpenSettings, .secondary = true } } };
+    if (daysInARow >= 3) r.leading.push_back(Icon{ Glyph::Fire });
+    if (daysInARow >= 0) r.leading.push_back(Text{ .value = days(daysInARow), .style = TextStyle::Caption, .brightDigits = true });
+    return r;
+}
+
+// The time in a ring that fills as it goes, the phase under it (decision
+// 065); one size whatever the phase (sized for the plan's longest).
+Row dialRow(const Timeline& timeline, const std::string& label, const PomodoroPlan& plan)
 {
     Ms longest = std::max({ plan.focus, plan.rest, tokens().pomodoroLongBreak });
-    Row r{ .items = { Dial{ .timeline = timeline, .label = label, .sizedFor = longest } }, .align = Align::Center,
-           .trailing = { Button{ .glyph = Glyph::Chart, .actionId = act::kOpenStats, .secondary = true },
-                         Button{ .glyph = Glyph::Settings, .actionId = act::kOpenSettings, .secondary = true } },
-           .edgesAtTop = true };
-    if (daysInARow >= 3) r.leading.push_back(Icon{ Glyph::Fire });
-    if (daysInARow >= 0) { // the number bright among the quiet word, like today's line (decision 068)
-        r.leading.push_back(Text{ .value = std::to_string(daysInARow), .style = TextStyle::Caption, .bright = true });
-        r.leading.push_back(Text{ .value = daysInARow == 1 ? "day" : "days", .style = TextStyle::Caption });
-    }
-    return r;
+    return row({ Dial{ .timeline = timeline, .label = label, .sizedFor = longest } }, Align::Center);
 }
 
 Row caption(const std::string& text) { return row({ Text{ .value = text, .style = TextStyle::Caption, .centred = true } }, Align::Center); }
 
 // Today under ▶, a group of its own (decisions 063, 066, 068): cycles
-// (sessions) finished and focus time, quiet, the numbers picked out bright.
-// The chart button opens the rest.
+// (sessions) finished and focus time, quiet, the numbers bright. One text,
+// so its spaces are the font's. The chart button opens the rest.
 Row todayRow(const PomodoroGlance& g)
 {
-    auto words = [](std::string text) { return Text{ .value = std::move(text), .style = TextStyle::Caption }; };
-    auto value = [](std::string text) { return Text{ .value = std::move(text), .style = TextStyle::Caption, .bright = true }; };
-    return Row{ .items = { value(std::to_string(g.finishedToday)), words(g.finishedToday == 1 ? "cycle" : "cycles"), words("·"),
-                           value(spent(g.focusToday)) },
+    std::string text = std::to_string(g.finishedToday) + (g.finishedToday == 1 ? " cycle" : " cycles") + " · " + spent(g.focusToday);
+    return Row{ .items = { Text{ .value = text, .style = TextStyle::Caption, .centred = true, .brightDigits = true } },
                 .align = Align::Center,
                 .hug = true,
                 .apart = true };
@@ -182,7 +180,8 @@ Panel pomodoroPanel(const TodoList& todos, const PomodoroPlan& plan, const Pomod
         .card = CardLayout::Centred,
         .keepOpen = true, // a click between the controls or to-dos doesn't close it (Content::keepOpen)
         .noIdleTimeout = true, // nor does being left alone: a timer kept in view (decision 062)
-        .expandedCenter = { dialRow({ .duration = plan.focus }, "Focus", plan, glance.daysInARow),
+        .expandedCenter = { cornersRow(glance.daysInARow),
+                            dialRow({ .duration = plan.focus }, "Focus", plan),
                             Row{ .items = { Button{ .glyph = Glyph::Play, .actionId = act::kStart, .primary = true } }, .align = Align::Center,
                                  .apart = true } }, // a group of its own (decision 066)
         .tileLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
@@ -224,6 +223,7 @@ Content pomodoroContent(const PomodoroSession& s, const TodoList& todos, const P
         .compactTrailing = { row({ ring }, Align::Center) },
         .minimal = { row({ ring }, Align::Center) },
         .expandedCenter = {
+            cornersRow(),
             dialRow(s.timeline, name, plan), // the ring fills as the phase goes: no bar (decision 065)
             Row{ .items = { Steps{ total, done } }, .align = Align::Center, .apart = true }, // groups apart (decision 066)
             row({ Text{ .value = caption, .style = TextStyle::Caption, .centred = true } }, Align::Center),

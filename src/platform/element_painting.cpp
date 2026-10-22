@@ -208,12 +208,6 @@ winrt::com_ptr<IDWriteTextLayout> wrappedLayout(IDWriteFactory* dw, const Text& 
 
 } // namespace
 
-namespace {
-
-// Its style's colour, or the brightest text's when it's a value to pick out (Text::bright, decision 068).
-Color colorOf(const Text& text) { return text.bright ? tokens().titleTextColor : lookOf(text.style).color; }
-
-} // namespace
 
 void paintDivider(ID2D1DeviceContext* dc, Vec2 size)
 {
@@ -234,14 +228,26 @@ void paintDial(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Dial& dial, Vec
 
 void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec2 size)
 {
-    if (!text.struck && text.wrapped.empty()) {
-        drawString(dc, formatOf(dw, text).get(), widen(text.value), size, colorOf(text));
+    Color color = lookOf(text.style).color;
+    if (!text.struck && text.wrapped.empty() && !text.brightDigits) {
+        drawString(dc, formatOf(dw, text).get(), widen(text.value), size, color);
         return;
     }
-    // Wrapped, or struck through (a solved to-do): a layout carries the lines and the strikethrough.
+    // Wrapped, struck through (a solved to-do) or with bright digits: a layout carries the lines,
+    // the strikethrough, and each digit run's brush (decision 068).
     auto layout = wrappedLayout(dw, text, size.x, size.y);
     if (text.struck) layout->SetStrikethrough(TRUE, DWRITE_TEXT_RANGE{ 0, static_cast<UINT32>(widen(text.value).size()) });
-    dc->DrawTextLayout(D2D1::Point2F(0, 0), layout.get(), brushOf(dc, colorOf(text)).get(),
+    auto bright = brushOf(dc, tokens().titleTextColor); // kept alive until drawn
+    if (text.brightDigits) {
+        std::wstring value = widen(text.wrapped.empty() ? text.value : text.wrapped);
+        for (UINT32 i = 0; i < value.size();) {
+            if (value[i] < L'0' || value[i] > L'9') { ++i; continue; }
+            UINT32 start = i;
+            while (i < value.size() && value[i] >= L'0' && value[i] <= L'9') ++i;
+            layout->SetDrawingEffect(bright.get(), DWRITE_TEXT_RANGE{ start, i - start });
+        }
+    }
+    dc->DrawTextLayout(D2D1::Point2F(0, 0), layout.get(), brushOf(dc, color).get(),
                        D2D1_DRAW_TEXT_OPTIONS_CLIP | D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
 }
 
@@ -296,7 +302,7 @@ void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, 
     start.centred = false;
     auto f = formatOf(dw, start);
     std::wstring value = widen(text.value);
-    Color color = colorOf(text);
+    Color color = lookOf(text.style).color;
     // A pixel of slack, so rounding never trips the "…" trimming.
     for (float x : { lead, lead + width + gap }) drawString(dc, f.get(), value, D2D1::RectF(x, 0, x + width + 1, height), color);
 }

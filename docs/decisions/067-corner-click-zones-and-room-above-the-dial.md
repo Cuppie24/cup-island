@@ -1,6 +1,6 @@
 # 067: Corner click zones, room above the dial, centred page titles
 
-Status: Accepted (amends 066)
+Status: Accepted (amends 066); the corners got their own row by 069
 
 **Context.** The second run showed: the statistics and settings buttons
 answered the pointer all down the ring's side; the ring touched the card's

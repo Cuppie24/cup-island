@@ -1,6 +1,6 @@
 # 068: Bright values among quiet words
 
-Status: Accepted
+Status: Accepted; Text::bright became Text::brightDigits (one text) by 069
 
 **Context.** Pomodoro's today line ("2 cycles · 3 h 20 min") was one quiet
 caption. The mockup it follows picks the numbers out: bright values, dim

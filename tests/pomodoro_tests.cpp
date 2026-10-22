@@ -53,9 +53,9 @@ struct Island {
 };
 
 const std::string kTile = std::string("tile/") + PomodoroProvider::kPanelId;
-const std::string kStart = "expandedCenter/1/0"; // ▶, under the dormant card's dial
-const std::string kPause = "expandedCenter/3/1"; // the running card's controls: under the dots, above the to-dos; ⏸ in the middle
-const std::string kStop = "expandedCenter/3/0";
+const std::string kStart = "expandedCenter/2/0"; // ▶, under the dormant card's corners and dial
+const std::string kPause = "expandedCenter/4/1"; // the running card's controls: under the dots, above the to-dos; ⏸ in the middle
+const std::string kStop = "expandedCenter/4/0";
 
 const Placed* find(const Scene& scene, const std::string& key)
 {
@@ -105,9 +105,9 @@ void planTests()
         const Placed* p = find(sc, key);
         return p && std::holds_alternative<Text>(p->item) ? std::get<Text>(p->item).value : std::string();
     };
-    const Placed* big = find(card, "expandedCenter/0/0"); // the dial
+    const Placed* big = find(card, "expandedCenter/1/0"); // the dial, under the corners' row
     const Placed* start = find(card, kStart);
-    const Placed* today = find(card, "expandedCenter/2/0");
+    const Placed* today = find(card, "expandedCenter/3/0");
     expect(big && std::holds_alternative<Dial>(big->item) && std::get<Dial>(big->item).shown == "25:00" && std::get<Dial>(big->item).label == "Focus" &&
            big->frame.width == big->frame.height && std::abs(big->frame.x + big->frame.width / 2 - card.size.x / 2) < 0.51f,
            "the focus time in its ring, \"Focus\" under it, centred");
@@ -117,12 +117,10 @@ void planTests()
     const Placed* mode = big;
     expect(start && std::get<Button>(start->item).primary && start->frame.width == t.primaryButtonSize &&
            std::abs(start->frame.x + start->frame.width / 2 - card.size.x / 2) < 0.51f, "▶: the one primary button, centred");
-    const Placed* todayEnd = find(card, "expandedCenter/2/3");
-    auto todayText = [&](int i) { return std::get<Text>(find(card, "expandedCenter/2/" + std::to_string(i))->item); };
-    expect(today && todayEnd && todayText(0).value == "0" && todayText(1).value == "cycles" && todayText(3).value == "0 min" &&
-           std::abs((today->frame.x + todayEnd->frame.x + todayEnd->frame.width) / 2 - card.size.x / 2) < 0.51f, "today: one quiet centred line");
-    expect(todayText(0).bright && !todayText(1).bright && todayText(3).bright && todayText(1).style == TextStyle::Caption &&
-           todayText(0).style == TextStyle::Caption, "its numbers bright, at the words' size (decision 068)");
+    const Text& todayText = std::get<Text>(today->item);
+    expect(todayText.value == "0 cycles · 0 min" && todayText.style == TextStyle::Caption && todayText.brightDigits &&
+           std::abs(today->frame.x + today->frame.width / 2 - card.size.x / 2) < 0.51f,
+           "today: one quiet centred text, its numbers bright, its spaces the font's (decision 068)");
     expect(start->frame.y - (mode->frame.y + mode->frame.height) >= t.groupGap && today->frame.y - (start->frame.y + start->frame.height) >= t.groupGap,
            "a group's room above ▶ and above today (decision 066)");
     expect(card.size.y <= t.canvas.y, "the card fits the canvas");
@@ -135,24 +133,21 @@ void planTests()
     expect(dialDiameter(Dial{ .timeline = { .duration = Ms{ 60000 } } }, {}) == dialDiameter(Dial{ .timeline = { .duration = Ms{ 3000000 } } }, {}),
            "under an hour, one size: never fewer than two digits a side");
     // The statistics and the gear in the top-right corner, grey until pointed at; the days in a row in the top-left one.
-    const Placed* chart = find(card, "expandedCenter/0/1"); // the dial's row: the dial, then trailing, then leading
-    const Placed* gear = find(card, "expandedCenter/0/2");
-    const Placed* days = find(card, "expandedCenter/0/3");
+    const Placed* chart = find(card, "expandedCenter/0/0"); // the corners' row: trailing, then leading
+    const Placed* gear = find(card, "expandedCenter/0/1");
+    const Placed* days = find(card, "expandedCenter/0/2");
     expect(chart && std::get<Button>(chart->item).glyph == Glyph::Chart && std::get<Button>(chart->item).secondary &&
-           std::get<Button>(chart->item).actionId == pomodoro_action::kOpenStats && chart->frame.x > big->frame.x + big->frame.width,
+           std::get<Button>(chart->item).actionId == pomodoro_action::kOpenStats,
            "a grey statistics button, beside the gear");
     expect(gear && std::get<Button>(gear->item).glyph == Glyph::Settings && std::get<Button>(gear->item).secondary && gear->frame.x > chart->frame.x &&
-           gear->frame.x + gear->frame.width > card.size.x - t.expandedPadding - 1 && big->frame.y - gear->frame.y >= t.groupGap - 0.01f,
-           "a grey gear in the top-right corner, the dial a group's room lower (decision 067)");
-    expect(gear->hitFrame.y + gear->hitFrame.height < gear->frame.y + gear->frame.height + t.itemSpacing &&
-           !hitTest(card, { gear->frame.x + gear->frame.width / 2, gear->frame.y + gear->frame.height + 30 }),
-           "its click zone is the gear's own, not all down the dial's side");
-    const Placed* daysWord = find(card, "expandedCenter/0/4");
-    expect(days && daysWord && std::get<Text>(days->item).value == "0" && std::get<Text>(days->item).bright &&
-           std::get<Text>(daysWord->item).value == "days" && !std::get<Text>(daysWord->item).bright &&
-           days->frame.x < t.expandedPadding + 1 && days->frame.y == gear->frame.y && daysWord->frame.x > days->frame.x,
-           "the days in a row in the top-left corner: the number bright, the word quiet");
-    expect(island.press("expandedCenter/0/1") && textAt(island.scene(), "expandedCenter/0/0") == "Statistics", "the chart opens the statistics");
+           gear->frame.x + gear->frame.width > card.size.x - t.expandedPadding - 1 && gear->frame.y + gear->frame.height <= big->frame.y,
+           "a grey gear in the top-right corner, a row of its own above the dial (decision 069)");
+    expect(!hitTest(card, { gear->frame.x + gear->frame.width / 2, gear->frame.y + gear->frame.height + 30 }),
+           "its click zone is its own row's, not down the dial's side");
+    expect(days && std::get<Text>(days->item).value == "0 days" && std::get<Text>(days->item).brightDigits &&
+           days->frame.x < t.expandedPadding + 1 && days->frame.y + days->frame.height <= big->frame.y,
+           "the days in a row in the top-left corner, one text, the number bright");
+    expect(island.press("expandedCenter/0/0") && textAt(island.scene(), "expandedCenter/0/0") == "Statistics", "the chart opens the statistics");
     Scene stats = island.scene();
     const Placed* title = find(stats, "expandedCenter/0/0");
     expect(title && std::abs(title->frame.x + title->frame.width / 2 - stats.size.x / 2) < 0.51f, "its title centred on the card, back arrow or not");
@@ -161,7 +156,7 @@ void planTests()
     island.registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kBack, 0 });
 
     // The settings page: the plan first (Focus  − 25 min +), then the days off.
-    expect(island.press("expandedCenter/0/2"), "the gear opens the settings page");
+    expect(island.press("expandedCenter/0/1"), "the gear opens the settings page");
     Scene page = island.scene();
     expect(textAt(page, "expandedCenter/0/0") == "Timer settings" && page.size.y <= t.canvas.y, "the page fits the canvas");
     expect(textAt(page, "expandedCenter/1/0") == "Focus" && textAt(page, "expandedCenter/1/2") == "25 min", "a Focus row with its length");
@@ -199,7 +194,7 @@ void planTests()
     expect(shown && backAction(island.state) == pomodoro_action::kBack, "Esc on the page: back");
     island.registry.route({ shown->providerId, shown->activityId, backAction(island.state), 0 });
     Scene back = island.scene();
-    const Placed* dialAfter = find(back, "expandedCenter/0/0");
+    const Placed* dialAfter = find(back, "expandedCenter/1/0");
     expect(island.state.expandedId == PomodoroProvider::kPanelId && dialAfter && std::get<Dial>(dialAfter->item).shown == "35:00",
            "back to the timer; the big time follows focus");
     expect(loadPlan(saved).focus == Ms{ 35 * 60000 } && loadPlan(saved).rest == Ms{ 4 * 60000 }, "kept in the store");
@@ -306,9 +301,9 @@ void runPomodoroTests()
             if (p.key == key) return &p;
         return nullptr;
     };
-    const Placed* bigTimer = at("expandedCenter/0/0");
-    const Placed* dots = at("expandedCenter/1/0");
-    const Placed* caption = at("expandedCenter/2/0");
+    const Placed* bigTimer = at("expandedCenter/1/0");
+    const Placed* dots = at("expandedCenter/2/0");
+    const Placed* caption = at("expandedCenter/3/0");
     const Placed* pauseButton = at(kPause);
     const Placed* field = nullptr;
     for (const Placed& p : card.elements)

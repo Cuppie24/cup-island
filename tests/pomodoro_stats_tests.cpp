@@ -169,7 +169,7 @@ struct Timer {
         return "";
     }
     // The top-left corner: days in a row.
-    std::string corner() { return words(panels.back().content.expandedCenter[0].leading); }
+    std::string corner() { return words(panels.back().content.expandedCenter[0].leading); } // the corners' row
     // The statistics page's rows, opened from the card and closed again.
     std::vector<std::string> statsPage()
     {
@@ -275,15 +275,13 @@ void layoutTests()
             if (p.key == key) return &p;
         return nullptr;
     };
-    const Placed* big = at(card, "expandedCenter/0/0");
-    const Placed* fire = at(card, "expandedCenter/0/3"); // items, then trailing (the chart, the gear), then leading
-    const Placed* days = at(card, "expandedCenter/0/4");
-    const Placed* word = at(card, "expandedCenter/0/5");
-    expect(fire && days && word && std::get<Icon>(fire->item).glyph == Glyph::Fire && std::get<Text>(days->item).value == "12" &&
-           std::get<Text>(word->item).value == "days" && word->frame.x > days->frame.x &&
+    const Placed* big = at(card, "expandedCenter/1/0"); // the dial, under the corners' row
+    const Placed* fire = at(card, "expandedCenter/0/2"); // the corners: trailing (the chart, the gear), then leading
+    const Placed* days = at(card, "expandedCenter/0/3");
+    expect(fire && days && std::get<Icon>(fire->item).glyph == Glyph::Fire && std::get<Text>(days->item).value == "12 days" &&
            fire->frame.x < days->frame.x && fire->frame.x < t.expandedPadding + 1, "the fire, then the count, in the top-left corner");
-    expect(big && word && word->frame.x + word->frame.width < big->frame.x && days->frame.width > 5, "the count at its width, clear of the time");
-    expect(big && std::abs(big->frame.x + big->frame.width / 2 - card.size.x / 2) < 0.51f, "the time still centred on the card");
+    expect(big && days && days->frame.y + days->frame.height <= big->frame.y && days->frame.width > 20, "the count at its width, above the dial");
+    expect(big && std::abs(big->frame.x + big->frame.width / 2 - card.size.x / 2) < 0.51f, "the dial centred on the card");
 
     Panel stats = pomodoroPanel();
     stats.content = withStatsPage(stats.content, { .finishedToday = 2, .bestDay = 4 });
@@ -360,7 +358,7 @@ void settingsPageTests()
     expect(timer.panels.back().content == page, "no such day: nothing changes");
 
     timer.act(pomodoro_action::kBack);
-    const Row& timerRow = timer.panels.back().content.expandedCenter[0];
+    const Row& timerRow = timer.panels.back().content.expandedCenter[1]; // under the corners
     expect(!timerRow.items.empty() && std::holds_alternative<Dial>(timerRow.items[0]), "back: the timer");
 
     // Running: the gear opens the same page over the session; closing the card leaves it.

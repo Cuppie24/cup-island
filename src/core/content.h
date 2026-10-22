@@ -64,7 +64,10 @@ struct Text {
     bool marquee = false;  // too long: scrolls ("swims") in a loop instead of ending in "…"
     bool centred = false;  // centred in its frame (wins over alignEnd)
     bool struck = false;   // struck through: a solved to-do
-    bool bright = false;   // in the brightest text colour, at its style's size: a value among dim words (decision 068)
+    // Its numbers (every run of digits) in the brightest text colour, the rest
+    // in its style's: values picked out among quiet words, in one text, so
+    // the spacing is the font's ("2 cycles · 3 h 20 min", decision 068).
+    bool brightDigits = false;
     // Editable in place (decisions 029, 043): a click on it, or a Button with
     // `editsText` and this actionId, turns it into a field holding its text;
     // Enter sends the provider Action{editAction, text}, Esc leaves it as it was.
@@ -278,9 +281,6 @@ struct Row {
     // share. Rows of the same count line up: a table, value rows over caption
     // rows (Pomodoro's statistics, decision 064).
     bool even = false;
-    // Its leading and trailing items at the row's top instead of centred on
-    // it: corner controls beside a tall item, the card's top corners (decision 065).
-    bool edgesAtTop = false;
     // Starts one of a card's groups (the timer, its progress, its controls):
     // groupGap of space above it, more than between rows (decision 066).
     bool apart = false;
