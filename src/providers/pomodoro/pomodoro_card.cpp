@@ -70,14 +70,15 @@ std::string shortSpent(Ms duration)
 
 std::string days(int n) { return std::to_string(n) + (n == 1 ? " day" : " days"); }
 
-// The card's top row: its big time, the gear in the top-right corner, and
-// while dormant the days in a row in the top-left one (a fire from three
-// on), quiet, a way into the statistics page (decisions 061, 063).
-Row topRow(Item big, int daysInARow = -1) // -1: no corner (the running card)
+// The card's top row: the time in a ring that fills as it goes, the phase
+// under it (decision 065); the gear in the top-right corner, and while dormant
+// the days in a row in the top-left one (a fire from three on), quiet, a way
+// into the statistics page (decisions 061, 063). The corners sit at the
+// ring's top (Row::edgesAtTop), and the ring stays centred on the card.
+Row dialRow(const Timeline& timeline, const std::string& label, int daysInARow = -1) // -1: no corner (the running card)
 {
-    // Hugging: the big time as wide as it is, so it centres on the card, not in the room the corners leave.
-    Row r{ .items = { std::move(big) }, .align = Align::Center,
-           .trailing = { Button{ .glyph = Glyph::Settings, .actionId = act::kOpenSettings, .secondary = true } }, .hug = true };
+    Row r{ .items = { Dial{ .timeline = timeline, .label = label } }, .align = Align::Center,
+           .trailing = { Button{ .glyph = Glyph::Settings, .actionId = act::kOpenSettings, .secondary = true } }, .edgesAtTop = true };
     if (daysInARow >= 3) r.leading.push_back(Icon{ Glyph::Fire });
     if (daysInARow >= 0) r.leading.push_back(Button{ .actionId = act::kOpenStats, .label = days(daysInARow), .quiet = true });
     return r;
@@ -150,9 +151,9 @@ Dialog stopQuestion(const PomodoroSession& s)
              .confirmAction = act::kStopConfirmed, .destructive = true };
 }
 
-// Dormant (decisions 061, 063, 064): the focus time big, "Focus" under it,
-// then ▶, the card's one main action, today's line, and the to-dos (decision
-// 016). The plan is on the settings page; days in a row in the top-left
+// Dormant (decisions 061, 063, 064, 065): the focus time in its empty ring,
+// "Focus" under it, then ▶, the card's one main action, today's line, and the
+// to-dos (decision 016). The plan is on the settings page; days in a row in the top-left
 // corner. The widget is laid out like the running one: the timer icon where
 // the ring goes, the focus time, the rounds.
 Panel pomodoroPanel(const TodoList& todos, const PomodoroPlan& plan, const PomodoroGlance& glance)
@@ -165,10 +166,9 @@ Panel pomodoroPanel(const TodoList& todos, const PomodoroPlan& plan, const Pomod
         .card = CardLayout::Centred,
         .keepOpen = true, // a click between the controls or to-dos doesn't close it (Content::keepOpen)
         .noIdleTimeout = true, // nor does being left alone: a timer kept in view (decision 062)
-        .expandedCenter = { topRow(Text{ .value = formatDuration(plan.focus), .style = TextStyle::Display, .centred = true }, glance.daysInARow),
-                            caption("Focus"),
+        .expandedCenter = { dialRow({ .duration = plan.focus }, "Focus", glance.daysInARow),
                             Row{ .items = { Button{ .glyph = Glyph::Play, .actionId = act::kStart, .primary = true } }, .align = Align::Center,
-                                 .section = true } }, // apart from the time
+                                 .section = true } }, // apart from the dial
         .tileLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
         .tile = { row({ Text{ formatDuration(plan.focus), TextStyle::Title } }), row({ Text{ rounds, TextStyle::Caption } }) },
     };
@@ -178,23 +178,21 @@ Panel pomodoroPanel(const TodoList& todos, const PomodoroPlan& plan, const Pomod
 }
 
 // Compact: the countdown centred, the ring filling on the right; no phase
-// name (the colour says it). Expanded, a centred card (decision 014): a big
-// countdown on top, a bar for the phase under it (as wide as the dots), a
-// dot per phase and what they mean, then the controls, right above the
-// to-dos they're about. The ring is for compact,
-// the bubble and the widget, where there's no room for a big countdown.
-// The widget (decision 019): the ring filling, the time left, the phase and round.
+// name (the colour says it). Expanded, a centred card: the dial (the time
+// left in a ring filling with the phase, its name under it, decision 065), a
+// dot per phase and how many are done, then the controls, right above the
+// to-dos they're about. The widget (decision 019): the ring filling, the
+// time left, the phase and round.
 Content pomodoroContent(const PomodoroSession& s, const TodoList& todos)
 {
     std::string name = nameOf(s.phase);
     int done = phasesDone(s), total = phaseCount();
-    std::string caption = name + " · " + std::to_string(done) + " of " + std::to_string(total) + " done";
+    std::string caption = std::to_string(done) + " of " + std::to_string(total) + " done"; // the dial says the phase
     if (!s.timeline.playing) caption = "Paused · " + caption;
     std::string glance = s.timeline.playing ? name : "Paused";
     if (s.phase != Phase::LongBreak) glance += " · " + std::to_string(s.round) + "/" + std::to_string(tokens().pomodoroRounds);
     TimeLabel tileLeft{ .timeline = s.timeline, .countdown = true, .style = TextStyle::Title };
     TimeLabel compactLeft{ .timeline = s.timeline, .countdown = true, .style = TextStyle::Body };
-    TimeLabel bigLeft{ .timeline = s.timeline, .countdown = true, .style = TextStyle::Display };
     Progress ring{ .timeline = s.timeline, .shape = ProgressShape::Ring };
     Button pause{ .glyph = s.timeline.playing ? Glyph::Pause : Glyph::Play, .actionId = act::kPause, .primary = true };
     Button stop{ .glyph = Glyph::Stop, .actionId = act::kStop, .secondary = true };
@@ -210,8 +208,7 @@ Content pomodoroContent(const PomodoroSession& s, const TodoList& todos)
         .compactTrailing = { row({ ring }, Align::Center) },
         .minimal = { row({ ring }, Align::Center) },
         .expandedCenter = {
-            topRow(bigLeft),
-            Row{ .items = { Progress{ .timeline = s.timeline } }, .span = RowSpan::MatchBelow }, // as wide as the dots
+            dialRow(s.timeline, name), // the ring fills as the phase goes: no bar (decision 065)
             row({ Steps{ total, done } }, Align::Center),
             row({ Text{ .value = caption, .style = TextStyle::Caption, .centred = true } }, Align::Center),
             Row{ .items = { stop, pause, skip }, .align = Align::Center, .loose = true }, // the main one in the middle (decision 064)

@@ -194,7 +194,19 @@ struct Divider {
     bool operator==(const Divider&) const = default;
 };
 
-using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch, Tag, Switch, Divider>;
+// A ring filling with its Timeline (in the accent, like a Progress ring),
+// the time left big in its middle and a short label under it ("Focus").
+// One item, not a ring holding other items: the content model stays flat.
+// Its size follows from its digits: as wide as the widest the time can be,
+// with the label, inside the circle, dialInset in (decision 065).
+struct Dial {
+    Timeline timeline;
+    std::string label;
+    std::string shown; // host-filled: the time left at layout, like a TimeLabel's text
+    bool operator==(const Dial&) const = default;
+};
+
+using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch, Tag, Switch, Divider, Dial>;
 
 enum class Align { Start, Center, End };
 
@@ -262,6 +274,9 @@ struct Row {
     // share. Rows of the same count line up: a table, value rows over caption
     // rows (Pomodoro's statistics, decision 064).
     bool even = false;
+    // Its leading and trailing items at the row's top instead of centred on
+    // it: corner controls beside a tall item, the card's top corners (decision 065).
+    bool edgesAtTop = false;
     bool operator==(const Row&) const = default;
 };
 

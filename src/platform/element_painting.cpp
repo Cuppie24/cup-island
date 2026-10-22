@@ -207,6 +207,18 @@ winrt::com_ptr<IDWriteTextLayout> wrappedLayout(IDWriteFactory* dw, const Text& 
 
 } // namespace
 
+void paintDial(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Dial& dial, Vec2 size)
+{
+    Text time{ .value = dial.shown, .style = TextStyle::Display, .centred = true };
+    Text label{ .value = dial.label, .style = TextStyle::Caption, .centred = true };
+    float timeHeight = lineHeight(TextStyle::Display), labelHeight = dial.label.empty() ? 0 : lineHeight(TextStyle::Caption);
+    float top = (size.y - timeHeight - labelHeight) / 2;
+    drawString(dc, formatOf(dw, time).get(), widen(time.value), D2D1::RectF(0, top, size.x, top + timeHeight), lookOf(time.style).color);
+    if (labelHeight > 0)
+        drawString(dc, formatOf(dw, label).get(), widen(label.value), D2D1::RectF(0, top + timeHeight, size.x, top + timeHeight + labelHeight),
+                   lookOf(label.style).color);
+}
+
 void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec2 size)
 {
     if (!text.struck && text.wrapped.empty()) {

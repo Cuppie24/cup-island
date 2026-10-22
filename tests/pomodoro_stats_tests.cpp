@@ -358,7 +358,8 @@ void settingsPageTests()
     expect(timer.panels.back().content == page, "no such day: nothing changes");
 
     timer.act(pomodoro_action::kBack);
-    expect(timer.card(timer.panels.back().content)[1] == "Focus", "back: the timer");
+    const Row& timerRow = timer.panels.back().content.expandedCenter[0];
+    expect(!timerRow.items.empty() && std::holds_alternative<Dial>(timerRow.items[0]), "back: the timer");
 
     // Running: the gear opens the same page over the session; closing the card leaves it.
     timer.act(pomodoro_action::kStart);

@@ -32,6 +32,11 @@ Item resolve(const Item& item, Ms now, const Source& source)
         std::string value = label->countdown ? left : label->remaining ? "-" + left : formatDuration(position);
         return Text{ .value = value, .style = label->style, .alignEnd = label->remaining, .marquee = false, .centred = label->countdown };
     }
+    if (auto* dial = std::get_if<Dial>(&item)) { // the time left at `now`, for the renderer to draw (decision 065)
+        Dial shown = *dial;
+        shown.shown = formatDuration(dial->timeline.duration - dial->timeline.positionAt(now));
+        return shown;
+    }
     // A Text being edited in place is a focused field with the draft (decisions 029, 043).
     if (auto* text = std::get_if<Text>(&item); text && !text->editAction.empty()) {
         const Draft* d = source.draft;
@@ -70,18 +75,18 @@ struct RowSizes {
     std::vector<float> ringSides, heights;
 };
 
-RowSizes rowSizes(const Slot& rows, Rect frame)
+RowSizes rowSizes(const Slot& rows, Rect frame, const MeasureText& measure)
 {
     RowSizes sizes;
     for (const Row& r : rows) {
         float others = 0;
         for (const auto* items : { &r.items, &r.leading, &r.trailing })
             for (const Item& item : *items)
-                if (!isRing(item)) others = std::max(others, heightOf(item, frame, 0));
+                if (!isRing(item)) others = std::max(others, heightOf(item, frame, 0, measure));
         float ringSide = others > 0 ? others : std::min(frame.width, frame.height);
         float h = 0;
         for (const auto* items : { &r.items, &r.leading, &r.trailing })
-            for (const Item& item : *items) h = std::max(h, heightOf(item, frame, ringSide));
+            for (const Item& item : *items) h = std::max(h, heightOf(item, frame, ringSide, measure));
         sizes.ringSides.push_back(ringSide);
         sizes.heights.push_back(h + listPadding(r) + sectionGap(r));
     }
@@ -95,7 +100,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
     const Tokens& t = tokens();
     const Slot& rows = *slot.slot;
 
-    RowSizes sizes = rowSizes(rows, slot.frame);
+    RowSizes sizes = rowSizes(rows, slot.frame, measure);
     const std::vector<float> oneLine = sizes.heights; // a list's window counts rows of one line (decision 045)
     // Lists windowed, scrolled, a row dragged (decision 029); the rest stacked.
     ListState lists{ source.activityId, source.scrolls, source.listDrag };
@@ -139,8 +144,8 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
             // A row with an id is named by it, so its visuals follow it when a list reorders.
             std::string rowName = row.id.empty() ? std::to_string(r) : row.id;
             size_t first = target.size();
-            auto place = [&](const Item& item, size_t index, float x, float w) {
-                float h = heightOf(item, slot.frame, ringSide);
+            auto place = [&](const Item& item, size_t index, float x, float w, bool edge = false) {
+                float h = heightOf(item, slot.frame, ringSide, measure);
                 Placed placed;
                 placed.key = slot.name + "/" + rowName + "/" + std::to_string(index);
                 placed.item = resolve(item, now, source);
@@ -158,7 +163,8 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                     wrapped[r] = std::max(wrapped[r], h);
                 }
                 float above = sectionGap(row); // the gap is empty: content centres in the rest
-                placed.frame = { x, y + above + (rowHeight - above - h) / 2, w, h };
+                bool atTop = edge && row.edgesAtTop; // Row::edgesAtTop: corner controls beside a tall item
+                placed.frame = { x, y + above + (atTop ? 0 : (rowHeight - above - h) / 2), w, h };
                 // Editable text owns its whole stretch, but is drawn editInset in from each side.
                 // Edited in place, the field fills that stretch (so its background keeps the row's
                 // gaps to the checkbox and delete button) and is as tall as the row's content, with
@@ -185,9 +191,10 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 placed.providerId = source.providerId;
                 placed.activityId = source.activityId;
                 if (auto* label = std::get_if<TimeLabel>(&item)) placed.ticking = label->timeline;
+                if (auto* dial = std::get_if<Dial>(&item)) placed.ticking = dial->timeline; // its time changes too
                 target.push_back(std::move(placed));
             };
-            auto widthOf = [&](const Item& item) { return fixedWidthOf(item, heightOf(item, slot.frame, ringSide), measure); };
+            auto widthOf = [&](const Item& item) { return fixedWidthOf(item, heightOf(item, slot.frame, ringSide, measure), measure); };
 
             // A text as wide as it is: in a hugging row, and at a row's edges (a count beside a big timer).
             auto naturalOf = [&](const Item& item) -> std::optional<float> {
@@ -280,7 +287,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
             auto placeEdge = [&](const std::vector<Item>& group, size_t firstIndex, float x) {
                 for (size_t i = 0; i < group.size(); ++i) {
                     float w = naturalOf(group[i]).value_or(0);
-                    place(group[i], firstIndex + i, x, w);
+                    place(group[i], firstIndex + i, x, w, /* edge */ true);
                     x += w + t.itemSpacing;
                 }
             };

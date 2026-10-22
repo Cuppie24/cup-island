@@ -37,11 +37,21 @@ bool isRing(const Item& item)
     return progress && progress->shape == ProgressShape::Ring;
 }
 
+float dialDiameter(const Dial& dial, const MeasureText& measure)
+{
+    std::string widest = widestDigits(formatDuration(dial.timeline.duration), TextStyle::Display, measure);
+    Text time{ widest, TextStyle::Display };
+    float w = measure ? measure(time) : estimateTextWidth(time);
+    float h = lineHeight(TextStyle::Display) + (dial.label.empty() ? 0 : lineHeight(TextStyle::Caption));
+    return std::ceil(std::sqrt(w * w + h * h) + 2 * tokens().dialInset); // the block's corners touch the circle
+}
+
 // Natural height of an item. Images fill the slot's square; a ring is
 // `ringSide` (its row's height, or the slot's square when alone).
-float heightOf(const Item& item, Rect slot, float ringSide)
+float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& measure)
 {
     const Tokens& t = tokens();
+    if (auto* dial = std::get_if<Dial>(&item)) return dialDiameter(*dial, measure);
     if (auto* text = std::get_if<Text>(&item)) return lineHeight(text->style);
     if (std::holds_alternative<Image>(item)) return std::min(slot.width, slot.height);
     if (isRing(item)) return ringSide;
@@ -65,7 +75,7 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
     if (std::holds_alternative<Text>(item) || std::holds_alternative<TextInput>(item) || std::holds_alternative<Divider>(item) ||
         (std::holds_alternative<Progress>(item) && !isRing(item)))
         return std::nullopt;
-    if (std::holds_alternative<Image>(item) || isRing(item)) return height;
+    if (std::holds_alternative<Image>(item) || isRing(item) || std::holds_alternative<Dial>(item)) return height; // squares
     if (auto* steps = std::get_if<Steps>(&item)) {
         float n = static_cast<float>(std::max(steps->count, 0));
         return std::max(0.0f, n * t.stepDotSize + (n - 1) * t.stepDotGap);

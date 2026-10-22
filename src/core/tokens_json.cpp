@@ -63,6 +63,7 @@ const Field kFields[] = {
     { "primaryButtonSize", &Tokens::primaryButtonSize },
     { "primaryGlyphSize", &Tokens::primaryGlyphSize },
     { "dividerThickness", &Tokens::dividerThickness },
+    { "dialInset", &Tokens::dialInset },
     { "smallButtonSize", &Tokens::smallButtonSize },
     { "revealGlyphSize", &Tokens::revealGlyphSize },
     { "inputHeight", &Tokens::inputHeight },

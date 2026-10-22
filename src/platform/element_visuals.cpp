@@ -50,6 +50,14 @@ float glyphSizeOf(const Button& button)
     return button.compact ? t.iconSize : t.buttonGlyphSize;
 }
 
+// What a ring follows: a Progress ring's timeline, or a Dial's (decision 065).
+Timeline ringTimeline(const Item& item)
+{
+    if (auto* dial = std::get_if<Dial>(&item)) return dial->timeline;
+    auto* progress = std::get_if<Progress>(&item);
+    return progress ? progress->timeline : Timeline{};
+}
+
 // "<slot>/<row>/<item>" -> "<slot>/<row>"
 std::string rowOf(const std::string& key) { return key.substr(0, key.rfind('/')); }
 
@@ -137,6 +145,18 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     if (auto* toggle = std::get_if<Switch>(&placed.item)) {
         view.toggle = createSwitch(compositor_, size, toggle->on);
         view.visual = view.toggle.visual;
+    } else if (std::holds_alternative<Dial>(placed.item)) {
+        // A Dial (decision 065): the ring's shapes, with its time painted on a surface laid over them.
+        RingParts parts = createRing(compositor_, size, accentOf(placed));
+        view.visual = parts.visual;
+        view.arc = parts.arc;
+        view.track = parts.track;
+        view.accent = parts.accent;
+        view.surface = device_->createSurface(size);
+        auto middle = compositor_.CreateSpriteVisual();
+        middle.Brush(compositor_.CreateSurfaceBrush(view.surface));
+        middle.Size(toFloat2(size));
+        parts.visual.Children().InsertAtTop(middle);
     } else if (isRing(placed.item)) {
         RingParts parts = createRing(compositor_, size, accentOf(placed));
         view.visual = parts.visual;
@@ -199,7 +219,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
 
     if (view.surface) paint(view);
     if (view.fill) armProgress(compositor_, view.fill, std::get<Progress>(placed.item).timeline, size.x, now);
-    if (view.arc) armRing(compositor_, view.arc, std::get<Progress>(placed.item).timeline, now);
+    if (view.arc) armRing(compositor_, view.arc, ringTimeline(placed.item), now);
     if (!view.bars.empty()) animateBars(view);
     if (view.highlight && focusedField(placed.item)) view.highlight.Opacity(1.0f);
     if (revealsOnHover(placed.item) && rowOf(placed.key) != hoveredRow_) view.visual.Opacity(0.0f); // until its row is hovered
@@ -232,6 +252,7 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
         return true;
     }
     bool wasFocused = focusedField(view.placed.item);
+    Timeline wasRing = ringTimeline(view.placed.item);
     bool wasRevealed = revealsOnHover(view.placed.item);
     bool wasDragged = view.placed.list && view.placed.list->dragged, dragged = placed.list && placed.list->dragged;
     auto parent = lists_.parentFor(placed); // keeps the list's window and scroll in step
@@ -264,7 +285,9 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     if (view.surface && !newPicture) paint(view);
     // While scrubbing, the bar belongs to the pointer; endScrub() re-arms it.
     if (view.fill && !view.scrubbing) armProgress(compositor_, view.fill, std::get<Progress>(placed.item).timeline, placed.frame.width, now);
-    if (view.arc) armRing(compositor_, view.arc, std::get<Progress>(placed.item).timeline, now);
+    // A Dial changes every second (its time); its ring is re-armed only when its timeline does.
+    if (view.arc && (!std::holds_alternative<Dial>(placed.item) || ringTimeline(placed.item) != wasRing))
+        armRing(compositor_, view.arc, ringTimeline(placed.item), now);
     if (!view.bars.empty()) animateBars(view);
     return false;
 }
@@ -318,6 +341,8 @@ void ElementVisuals::paint(View& view)
             paintSteps(dc, *steps, size, accentOf(view.placed));
         } else if (auto* tag = std::get_if<Tag>(&item)) {
             paintTag(dc, dw, *tag, size);
+        } else if (auto* dial = std::get_if<Dial>(&item)) {
+            paintDial(dc, dw, *dial, size);
         } else if (std::holds_alternative<Divider>(item)) {
             dc->FillRectangle(D2D1::RectF(0, 0, size.x, size.y), brushOf(dc, t.trackColor).get());
         } else if (auto* swatch = std::get_if<Swatch>(&item)) {

@@ -48,7 +48,7 @@ struct Tokens {
     // along its top edge (decision 026), and this tall (TR §5, §9.1). The
     // width here is only a minimum, and the width layout() uses until the
     // platform says (tests).
-    Vec2 canvas{ 500, 640 }; // room for the largest pill (a Centred card at its tallest, with tabs) and its shadow
+    Vec2 canvas{ 500, 680 }; // room for the largest pill (a Centred card at its tallest, with tabs) and its shadow
 
     // One knob for the island's overall size: every length below is
     // multiplied by it, on top of the display's scaling (decision 017).
@@ -85,14 +85,14 @@ struct Tokens {
     float titleFontSize = 17;   // the type ramp steps 2 px: caption 13, body 15, title 17 (decision 024)
     float bodyFontSize = 15;
     float captionFontSize = 13; // the smallest text: ~11 px on screen at 100% after islandScale
-    float displayFontSize = 34; // TextStyle::Display: a timer as the card's centre
+    float displayFontSize = 48; // TextStyle::Display: a timer as the card's centre
     float headingFontSize = 14; // TextStyle::Heading: a group's name, a little over caption size
     // Font weights, 100..900 (400 regular, 600 semibold; decision 024). Segoe UI Variable
     // (Windows 11) takes any value in between; other fonts use the nearest weight they have.
     float titleFontWeight = 700;   // bold: Segoe UI Variable's heaviest
     float bodyFontWeight = 600;    // semibold: text on the island reads heavier than on a page (decision 024)
     float captionFontWeight = 600;
-    float displayFontWeight = 450; // big and still the lightest, like a clock face
+    float displayFontWeight = 300; // big and still the lightest, like a clock face
     float headingFontWeight = 700; // a heading stands out from the rows under it: bold, and the title colour
     // Darkens antialiased text strokes (DirectWrite's grayscale enhanced
     // contrast): 0 = none, 1 = Windows' usual, higher = bolder-looking edges.
@@ -103,6 +103,7 @@ struct Tokens {
     float primaryButtonSize = 56;  // Button::primary: the card's main action, a filled circle (decision 064)
     float primaryGlyphSize = 22;
     float dividerThickness = 1;    // a Divider's line
+    float dialInset = 10;          // a Dial: room between its time (and label) and its ring (decision 065)
     float smallButtonSize = 32;   // Button::compact: list rows (a to-do's checkbox)
     float revealGlyphSize = 14;   // Button::revealOnHover (a to-do's delete): a smaller glyph, the same button and hover shape
     float inputHeight = 36;       // a TextInput: a little taller than the rows, easy to click into
