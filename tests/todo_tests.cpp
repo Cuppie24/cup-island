@@ -9,6 +9,7 @@
 #include "core/text_wrap.h"
 #include "core/item_metrics.h"
 #include "core/tokens.h"
+#include "core/tokens_json.h"
 #include "expect.h"
 #include "providers/pomodoro/pomodoro_provider.h"
 #include "providers/provider_registry.h"
@@ -396,6 +397,19 @@ void runTodoTests()
            t.frame.y + t.frame.height <= toasted.size.y - tokens().expandedPadding + 0.01f &&
            std::abs(t.frame.x + t.frame.width / 2 - toasted.size.x / 2) < 0.51f, "\"To-do deleted · Undo\" in a pill at the card's bottom, centred");
     expect(std::abs(t.slide - (toasted.size.y - t.frame.y)) < 0.01f, "it slides up from just below the card's bottom edge, like a toast");
+    {
+        // At a fractional scale (islandScale 0.85), on whole pixels: its button as many pixels from the pill's top as its bottom.
+        Tokens saved = tokens();
+        setTokens(scaleTokens(saved, 0.85f));
+        Scene small = layout(state, now);
+        const ToastScene& st = *small.toast;
+        const Placed* button = nullptr;
+        for (const Placed& p : st.elements)
+            if (std::holds_alternative<Button>(p.item)) button = &p;
+        Rect pill = snapToPixels(st.frame), b = snapToPixels(button->frame);
+        expect(pill == st.frame && b.y - pill.y == (pill.y + pill.height) - (b.y + b.height), "fractional scale: Undo exactly centred in its pill");
+        setTokens(saved);
+    }
     IslandState noToast = state;
     noToast.toast.reset();
     Scene without = layout(noToast, now); // the same card without its toast: nothing else differs
