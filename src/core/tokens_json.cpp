@@ -62,7 +62,9 @@ const Field kFields[] = {
     { "buttonSize", &Tokens::buttonSize },
     { "primaryButtonSize", &Tokens::primaryButtonSize },
     { "primaryGlyphSize", &Tokens::primaryGlyphSize },
+    { "playGlyphNudge", &Tokens::playGlyphNudge },
     { "dividerThickness", &Tokens::dividerThickness },
+    { "toastPadding", &Tokens::toastPadding },
     { "dialInset", &Tokens::dialInset },
     { "groupGap", &Tokens::groupGap },
     { "primaryHoverOpacity", &Tokens::primaryHoverOpacity },
@@ -134,6 +136,8 @@ const Field kFields[] = {
     { "pressReleaseDurationMs", &Tokens::pressReleaseDuration },
     { "pressReleaseEase", &Tokens::pressReleaseEase },
     { "alertDurationMs", &Tokens::alertDuration, true },
+    { "toastDurationMs", &Tokens::toastDuration, true },
+    { "toastSlideDurationMs", &Tokens::toastSlideDuration, true },
     { "expandedIdleTimeoutMs", &Tokens::expandedIdleTimeout },
     { "heldAlertMaxAgeMs", &Tokens::heldAlertMaxAge },
     { "alertQueueCapacity", &Tokens::alertQueueCapacity },
@@ -363,10 +367,11 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
     float scale = displayScale * t.islandScale;
     // Factors, not lengths: a press squashes to 96% at any scale, and the size
     // knob isn't a size. Nor are font weights, text contrast or the cover's
-    // lightnesses and chromas (decision 051).
+    // lightnesses and chromas (decision 051), nor the shares below.
     auto unitless = [](const char* name) {
         std::string_view n(name);
         return n.starts_with("cover") || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" ||
+               n == "primaryHoverOpacity" || n == "playGlyphNudge" || // a share of an opacity, of a width (decisions 066, 071)
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
     };
     Tokens out = t;

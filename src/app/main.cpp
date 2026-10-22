@@ -188,6 +188,9 @@ const Placed* findElement(const std::string& key)
 {
     for (const auto& p : g_scene.elements)
         if (p.key == key) return &p;
+    if (g_scene.toast) // a floating toast's (decision 071)
+        for (const auto& p : g_scene.toast->elements)
+            if (p.key == key) return &p;
     return nullptr;
 }
 
@@ -202,6 +205,7 @@ bool isCurrent(const Tab& tab)
 // "<slot>/<row>" of whatever content is under a pill-coordinate point, "" if none.
 const Placed* contentUnder(Vec2 point)
 {
+    if (g_scene.toast && g_scene.toast->frame.contains(point)) return nullptr; // the toast floats over it (decision 071)
     for (const Placed& p : g_scene.elements)
         if (p.hitFrame.contains(point) && p.key.rfind("tab/", 0) != 0) return &p;
     return nullptr;
@@ -363,6 +367,7 @@ void act(const Action& action)
         return;
     }
     g_providers->route(action);
+    if (g_state.toast && action.actionId == g_state.toast->actionId) dispatch(ToastClosed{}, "toast acted"); // done: it goes (decision 071)
     dispatch(PointerMoved{}, "action"); // the user is busy here: keep Expanded open
 }
 
@@ -483,7 +488,7 @@ void onPressDown(Vec2 canvasPoint)
             g_pointer.listPress = *element;
             g_pointer.listPressY = point.y;
         }
-    } else {
+    } else if (pressSquashes(g_state)) { // not where an empty click does nothing (decision 071)
         g_renderer.pressDown(false);
     }
     updateHover();
@@ -517,7 +522,7 @@ void onPointerMoved(Vec2 canvasPoint, bool inside)
         const Placed& row = *g_pointer.listPress;
         if (!g_state.listDrag && std::abs(point.y - g_pointer.listPressY) >= tokens().dragStartDistance) {
             if (!g_pointer.pressedKey.empty()) g_renderer.releaseElement(std::exchange(g_pointer.pressedKey, std::string{})); // not a click now
-            dispatch(ListDragStarted{ row.activityId, row.list->id, row.list->row, g_pointer.listPressY }, "pick up row");
+            dispatch(ListDragStarted{ row.activityId, row.list->id, row.list->row, g_pointer.listPressY, row.list->offset }, "pick up row");
         }
         if (g_state.listDrag) {
             dispatch(ListDragMoved{ point.y }, "carry row");

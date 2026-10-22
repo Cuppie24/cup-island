@@ -48,7 +48,7 @@ struct Tokens {
     // along its top edge (decision 026), and this tall (TR §5, §9.1). The
     // width here is only a minimum, and the width layout() uses until the
     // platform says (tests).
-    Vec2 canvas{ 500, 720 }; // room for the largest pill (a Centred card at its tallest, with tabs) and its shadow
+    Vec2 canvas{ 540, 720 }; // room for the largest pill (a Centred card at its tallest, with tabs) and its shadow
 
     // One knob for the island's overall size: every length below is
     // multiplied by it, on top of the display's scaling (decision 017).
@@ -59,7 +59,7 @@ struct Tokens {
     Vec2 idleSize{ 160, 28 };
     Vec2 compactSize{ 260, 32 };
     Vec2 alertSize{ 320, 64 };
-    Vec2 expandedSize{ 440, 171 }; // every card and Home: the width a to-do's text needs (decisions 043, 047)
+    Vec2 expandedSize{ 480, 171 }; // every card and Home: the width a to-do's text needs (decisions 043, 047)
     Vec2 receptiveSize{ 380, 84 };
     Vec2 hiddenSize{ 160, 0 };
     float maxCornerRadius = 34; // bottom corners: half the height, capped, so big shapes aren't blobs
@@ -73,7 +73,7 @@ struct Tokens {
     float expandedPadding = 18;
     float narrowRowWidth = 300;   // Row::narrow: at most this wide, centred (decision 070)
     float listCardInset = 8;      // CardLayout::List: at least this much more on the left and right (decision 030)
-    float listCardWidth = 400;    // ...and its rows no wider than this, centred (a full-width card's, at the shipped sizes)
+    float listCardWidth = 440;    // ...and its rows no wider than this, centred (a full-width card's, at the shipped sizes)
     float listCardVerticalInset = 6;  // ...this much more above and below its rows
     float listCardVisibleRows = 9.5f; // ...and a page that is one list (Settings' root) scrolls past this many rows (decision 037)
     float listCardMinHeight = 240;    // ...and never shorter than this: room to breathe (decision 030)
@@ -102,6 +102,8 @@ struct Tokens {
     float buttonSize = 36;
     float primaryButtonSize = 56;  // Button::primary: the card's main action, a filled circle (decision 064)
     float primaryGlyphSize = 22;
+    float playGlyphNudge = 0.08f;  // a primary ▶ moved right by this share of its width: a triangle's optical centre (decision 071)
+    Vec2 toastPadding{ 14, 6 };    // a toast: room around its text and button inside its pill (decision 071)
     float dividerThickness = 1;    // a Divider's line
     float dialInset = 10;          // a Dial: room between its time (and label) and its ring (decision 065)
     float groupGap = 20;           // Row::apart: space above a card's group (decision 066)
@@ -203,6 +205,9 @@ struct Tokens {
 
     // Arbitration (PS §6).
     Ms alertDuration{ 3000 };
+    Ms toastDuration{ 5000 }; // a toast at a card's bottom goes after this (decision 071)
+    Ms toastSlideDuration{ 260 }; // ...and slides up from below the card's edge, fading in, and back down, over this
+
     Ms expandedIdleTimeout{ 8000 };
     Ms heldAlertMaxAge{ 30000 };
     std::size_t alertQueueCapacity = 5;

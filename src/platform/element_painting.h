@@ -15,7 +15,9 @@ float measureText(IDWriteFactory* dw, const Text& text);
 void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, float width, float lead, float gap, float height);
 // The "this toggle is on" dot under a glyph of `glyphSize` centred in `size`.
 void paintToggleDot(ID2D1DeviceContext* dc, Vec2 size, float glyphSize);
-void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float fontSize, Vec2 size, const Color& color);
+// `precise`: exactly centred on its ink, unsnapped, a ▶ optically nudged (a primary button's glyph, decision 071).
+void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float fontSize, Vec2 size, const Color& color,
+                bool precise = false);
 // A text button's label, centred.
 void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& label, Vec2 size, const Color& color,
                 TextStyle style = TextStyle::Body);

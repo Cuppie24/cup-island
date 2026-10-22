@@ -120,6 +120,13 @@ wait 60000                          -> Expanded expanded=focus
 home                                -> Expanded expanded=home
 wait 8000                           -> Compact
 
+scenario: a press on empty space squashes only where the click would close something (decision 071)
+panel settings keep
+start media                         -> Compact squash=yes
+click                               -> Expanded expanded=media squash=yes
+home                                -> Expanded expanded=home squash=no
+tile settings                       -> Expanded expanded=settings squash=no
+
 scenario: the Open Home shortcut (Ctrl+Q) opens Home from anywhere (decision 032)
 panel focus
 home                                -> Expanded expanded=home

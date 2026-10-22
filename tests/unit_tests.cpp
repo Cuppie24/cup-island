@@ -16,6 +16,11 @@ namespace cup::test {
 
 void runUnitTests()
 {
+    // Pixel snapping (decision 071): each edge to the nearest pixel, so the centre stays (rounding the size up drifted it low).
+    Rect snapped = snapToPixels({ 10.4f, 20.6f, 27.2f, 27.2f });
+    expect(snapped == Rect{ 10, 21, 28, 27 }, "both edges to the nearest pixel");
+    expect(std::abs((snapped.y + snapped.height / 2) - (20.6f + 13.6f)) <= 0.5f, "the centre within half a pixel of where it was");
+
     // Offsets between the draft's UTF-8 bytes and DirectWrite's UTF-16 units (decision 043).
     std::string mixed = "aé€😀b"; // 1, 2, 3 and 4 bytes; the emoji is a surrogate pair
     expect(utf16Index(mixed, 0) == 0 && utf16Index(mixed, 1) == 1 && utf16Index(mixed, 3) == 2 && utf16Index(mixed, 6) == 3,

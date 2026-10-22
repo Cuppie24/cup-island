@@ -43,6 +43,11 @@ public:
     // Cancel, Esc or the card closing just dismisses it.
     virtual void ask(Dialog dialog) = 0;
 
+    // A short note at the bottom of this provider's card, with one action
+    // ("Undo"), gone by itself after toastDuration (decision 071). Its
+    // button sends Action{toast.actionId}. Default: no toasts (tests' hosts).
+    virtual void toast(Toast /*toast*/) {}
+
     // Scrolls a list on this provider's card (Row::list) just enough to show
     // its `row`th row, now and as long as the user doesn't scroll it (decision 029).
     virtual void reveal(const std::string& activityId, const std::string& list, std::size_t row) = 0;

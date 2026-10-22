@@ -109,6 +109,8 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     content_.Clip(c.CreateInsetClip());
     body_.Children().InsertAtTop(content_);
     badges_.build(c, body_, content_); // dots over the content (decision 038)
+    toast_.build(c, device, body_, content_); // a toast floats over the content too (decision 071)
+    bind(c, toast_.frame(), L"Size", L"pill.Size", body_, shape_); // clipped to the card, like the content
     elements_.init(c, device, content_);
 
     buildShadow(c, parent); // under the body
@@ -192,6 +194,7 @@ void Blob::refreshAnimations(bool coloursOnly)
             if (mark.brush) fadeColor(mark.brush, t.tileColor);
     if (focusRing_.brush) fadeColor(focusRing_.brush, t.focusRingColor);
     badges_.recolor();
+    toast_.refresh(coloursOnly);
     elements_.refresh(coloursOnly);
 }
 
@@ -293,6 +296,7 @@ void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, cons
         fadeTo(compositor_, mark.visual, 0.0f, tokens().hoverFadeDuration);
         return;
     }
+    at = snapToPixels(*at); // on the pixels the content it marks is on (decision 071)
     mark.visual.Size({ at->width, at->height });
     mark.shape.Size({ at->width, at->height });
     mark.shape.CornerRadius({ cornerRadius, cornerRadius });

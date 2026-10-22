@@ -15,7 +15,14 @@ namespace {
 Vec2 pixelSize(Vec2 size) { return { std::ceil(size.x), std::ceil(size.y) }; }
 wfn::float3 pixelOffset(float x, float y) { return { std::round(x), std::round(y), 0.0f }; }
 
-Vec2 sizeOf(const Placed& p) { return { p.frame.width, p.frame.height }; }
+// Its size in whole pixels, from both of its edges rounded, as its offset is
+// (pixelOffset): rounding the size up instead grew it at the bottom and right,
+// so a button's hover and glyph sat up to a pixel low in their row (decision 071).
+Vec2 sizeOf(const Placed& p)
+{
+    Rect snapped = snapToPixels(p.frame);
+    return { snapped.width, snapped.height };
+}
 
 bool isRing(const Item& item)
 {

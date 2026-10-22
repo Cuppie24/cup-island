@@ -54,7 +54,8 @@ float planList(const Slot& slot, const std::vector<float>& heights, const std::v
         !slot[first + drag->row].moveAction.empty()) {
         std::size_t f = drag->row;
         float h = heights[first + f];
-        float dragTop = std::clamp(natural[f] + drag->y - drag->grabY, 0.0f, content - h);
+        // Where the pointer has carried it, plus however far the list has scrolled under it since (decision 071).
+        float dragTop = std::clamp(natural[f] + drag->y - drag->grabY + offset - drag->grabOffset, 0.0f, content - h);
         // It moves only among its sortGroup's neighbours.
         std::size_t lo = f, hi = f;
         int group = slot[first + f].sortGroup;
@@ -90,7 +91,8 @@ float planList(const Slot& slot, const std::vector<float>& heights, const std::v
         RowSpot& spot = plan.rows[first + i];
         spot.y = top + tops[i] - offset;
         spot.list = InList{ .id = id, .row = i, .viewport = { 0, top, 0, window }, .offset = offset, .max = max,
-                            .moveAction = slot[first + i].moveAction, .dragged = from == i, .dropAt = from == i ? *to : i };
+                            .moveAction = slot[first + i].moveAction, .dragged = from == i, .dropAt = from == i ? *to : i,
+                            .carrying = from.has_value() };
     }
     return window;
 }
@@ -135,7 +137,7 @@ void revealListRow(IslandState& s, const ListRevealed& e) { s.scrolls[listKey(e.
 void startListDrag(IslandState& s, const ListDragStarted& e, Ms now)
 {
     if (!cardShown(s, e.activityId) || s.dialog) return;
-    s.listDrag = ListDrag{ e.activityId, e.list, e.row, e.y, e.y };
+    s.listDrag = ListDrag{ e.activityId, e.list, e.row, e.y, e.y, e.offset };
     s.lastPointerAt = now;
 }
 

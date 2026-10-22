@@ -166,6 +166,13 @@ Dialog stopQuestion(const PomodoroSession& s)
              .confirmAction = act::kStopConfirmed, .destructive = true };
 }
 
+Dialog resetQuestion()
+{
+    return { .activityId = kPomodoroPanelId, .title = "Reset statistics?",
+             .message = "Every day before today is cleared: records and days in a row start over. Today's count stays.",
+             .confirmLabel = "Reset", .confirmAction = act::kResetStatsConfirmed, .destructive = true };
+}
+
 // Dormant (decisions 061, 063, 064, 065): the focus time in its empty ring,
 // "Focus" under it, then ▶, the card's one main action, today's line, and the
 // to-dos (decision 016). The plan is on the settings page; days in a row in the top-left
@@ -298,7 +305,10 @@ Content withStatsPage(Content card, const PomodoroGlance& g)
                             label("🏆 Personal records"),
                             valuesRow({ std::to_string(std::max(g.finishedToday, g.bestDay)), shortSpent(std::max(g.focusToday, g.bestFocus)),
                                         days(std::max(g.daysInARow, g.bestRun)) }),
-                            captionsRow({ { "most cycles", false }, { "best focus day", false }, { "best streak", false } }) };
+                            captionsRow({ { "most cycles", false }, { "best focus day", false }, { "best streak", false } }),
+                            // Reset (decision 071): quiet, a group of its own, and it asks first.
+                            Row{ .items = { Button{ .actionId = act::kResetStats, .label = "Reset statistics", .quiet = true } }, .align = Align::Center,
+                                 .apart = true } };
     card.backAction = act::kBack; // Esc goes back to the timer, like the arrow (decision 033)
     return card;
 }

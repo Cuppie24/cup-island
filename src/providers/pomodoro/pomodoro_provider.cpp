@@ -84,6 +84,22 @@ void PomodoroProvider::onAction(const Action& action)
         host_->ask(clearQuestion(action.actionId, todos_, kPanelId)); // clears only once confirmed (decision 020)
         return;
     }
+    // Deleted at once, with a toast to undo it (decision 071): the one deleted is kept until then.
+    if (action.actionId == todo::kUndoDelete) {
+        if (deleted_) todos_.restore(*deleted_);
+        deleted_.reset();
+        host_->save(kTodosKey, todos_.save());
+        showCards();
+        return;
+    }
+    if (startsWith(action.actionId, todo::kDelete)) {
+        std::uint64_t id = std::strtoull(action.actionId.c_str() + std::char_traits<char>::length(todo::kDelete), nullptr, 10);
+        auto it = std::find_if(todos_.items().begin(), todos_.items().end(), [&](const Todo& t) { return t.id == id; });
+        if (it != todos_.items().end()) {
+            deleted_ = *it;
+            host_->toast({ .activityId = kPanelId, .text = "To-do deleted", .actionLabel = "Undo", .actionId = todo::kUndoDelete });
+        }
+    }
     if (todos_.apply(action.actionId, action.text, action.value)) {
         if (startsWith(action.actionId, todo::kToggle)) countTodo(action.actionId);
         host_->save(kTodosKey, todos_.save());
@@ -98,6 +114,18 @@ void PomodoroProvider::onAction(const Action& action)
     if (action.actionId == act::kOpenStats || action.actionId == act::kOpenSettings || action.actionId == act::kBack) {
         page_ = action.actionId == act::kOpenStats ? PomodoroPage::Stats : action.actionId == act::kOpenSettings ? PomodoroPage::Settings
                                                                                                                 : PomodoroPage::Timer;
+        showCards();
+        return;
+    }
+    // Reset statistics (decision 071): asks first; confirmed, every day but today goes.
+    if (action.actionId == act::kResetStats) {
+        host_->ask(resetQuestion());
+        return;
+    }
+    if (action.actionId == act::kResetStatsConfirmed) {
+        long long today = localDay(host_->wallClock(), host_->utcOffset());
+        std::erase_if(stats_.days, [&](const PomodoroDay& d) { return d.day != today; });
+        saveStats();
         showCards();
         return;
     }

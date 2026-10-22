@@ -2,6 +2,7 @@
 
 #include "core/badges.h"
 #include "core/dialog.h"
+#include "core/toast.h"
 #include "core/home.h"
 #include "core/lift.h"
 #include "core/slot_layout.h"
@@ -215,6 +216,12 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
         }
         for (Tile& tile : scene.tiles) tile.frame.y += tabSpace;
     }
+    // A toast floats over the card's bottom, above its content, which doesn't move for it (decision 071).
+    if (scene.mode == Mode::Expanded && source.content && !dialogOver(state, source.activityId))
+        if (const Toast* toast = toastOn(state, source.activityId)) {
+            float bottom = scene.size.y - tokens().expandedPadding - (tabSpace > 0 && !state.tabsOnTop ? tabSpace : 0);
+            scene.toast = placeToast(*toast, source, scene.size, bottom, now, measureText);
+        }
     scene.tabs = tabStripFor(state, scene.size, nestedRadius, measureText, scene.elements);
     scene.badges = badgeCentres(scene);
     return scene;

@@ -89,6 +89,9 @@ struct ListDrag {
     std::string activityId, list;
     std::size_t row = 0;   // its index in the list
     float grabY = 0, y = 0; // the pointer's y (pill coordinates) when it was picked up, and now
+    // The list's scroll when it was picked up: the wheel scrolls the list under
+    // a carried row, which stays under the pointer (decision 071).
+    float grabOffset = 0;
     bool operator==(const ListDrag&) const = default;
 };
 
@@ -104,6 +107,19 @@ struct Dialog {
     std::string confirmAction;
     bool destructive = false;  // the confirm button reads as dangerous (red)
     bool operator==(const Dialog&) const = default;
+};
+
+// A short note at the bottom of a card, with one action, that goes by
+// itself after toastDuration (decision 071): "To-do deleted · Undo". One at a
+// time: a new one replaces it; its card closing takes it away.
+struct Toast {
+    std::string providerId;  // set by the host
+    std::string activityId;  // the card it shows on
+    std::string text;
+    std::string actionLabel; // its button's ("Undo"); empty: no button
+    std::string actionId;    // sent to the provider when its button is clicked
+    Ms until{};              // set by the host: when it goes
+    bool operator==(const Toast&) const = default;
 };
 
 // --- Events -------------------------------------------------------------
@@ -155,11 +171,13 @@ struct InputSubmitted {};                // Enter: the app sent the text; the fi
 struct InputCancelled {};                // Esc: stop typing, drop the draft
 struct DialogShown { Dialog dialog; };   // a provider asked (Host::ask)
 struct DialogClosed {};                  // answered or dismissed: the app sends confirmAction first if confirmed
+struct ToastShown { Toast toast; };      // a provider posted one (Host::toast)
+struct ToastClosed {};                   // its action was clicked: it goes at once
 // The wheel over a list (decision 029): `from` is the offset shown (a reveal
 // included), `max` how far it can go (both from the scene).
 struct ListScrolled { std::string activityId, list; float from = 0, delta = 0, max = 0; };
 struct ListRevealed { std::string activityId, list; std::size_t row = 0; }; // Host::reveal
-struct ListDragStarted { std::string activityId, list; std::size_t row = 0; float y = 0; };
+struct ListDragStarted { std::string activityId, list; std::size_t row = 0; float y = 0; float offset = 0; }; // offset: the list's, as shown
 struct ListDragMoved { float y = 0; };
 struct ListDragEnded {};                 // dropped (the app sends the move first) or cancelled
 struct StayOpenToggled {};               // Expanded's pin, at the tab row's right end (decision 046)
@@ -179,7 +197,7 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            PanelPublished, PanelRemoved, HomeOpened, ActivityOpened, TileClicked, ClockSynced,
                            InputFocused, TextTyped, TextErased, CaretMoved, CaretPlaced, WordSelected, AllSelected,
                            InputSubmitted, InputCancelled,
-                           DialogShown, DialogClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,
+                           DialogShown, DialogClosed, ToastShown, ToastClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,
                            ListDragEnded, StayOpenToggled, TabRowPlaced>;
 
 // --- State --------------------------------------------------------------
@@ -214,6 +232,7 @@ struct IslandState {
     // Esc. The field shows it, and focused again it carries on from it.
     std::map<std::string, std::string> keptText;
     std::optional<Dialog> dialog;      // a question over the shown card (decision 020)
+    std::optional<Toast> toast;        // a note at a card's bottom (decision 071)
     std::map<std::string, ListScroll> scrolls; // lists' scroll, by "<activityId>/<list>" (decision 029)
     std::optional<ListDrag> listDrag;  // a list row being dragged
     // Pinned open (decision 046): Expanded doesn't time out, and a click
@@ -256,6 +275,11 @@ std::optional<ShownCard> shownActivity(const IslandState& state);
 // What Esc sends to the shown card's provider first: its Content::backAction,
 // so a page goes back to its list before anything closes (decision 033). "" = none.
 std::string backAction(const IslandState& state);
+
+// Whether a press on the island's empty space squashes it (the press
+// feedback of a click that collapses it). Not where that click does nothing:
+// Home, a card that stays open on it (Content::keepOpen), a pinned island (decision 071).
+bool pressSquashes(const IslandState& state);
 
 // Local time of day at `now`, once the platform has synced the clock.
 std::optional<Ms> timeOfDay(const IslandState& state, Ms now);

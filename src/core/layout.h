@@ -22,6 +22,9 @@ struct InList {
     std::string moveAction;  // its row's (Row::moveAction): it can be dragged to a new place
     bool dragged = false;    // its row is being dragged: it follows the pointer at once, the rest ease aside
     std::size_t dropAt = 0;  // dragged: the index it would land at if let go now
+    // One of its rows is being carried: the list scrolls at once, not eased, so
+    // the carried row (in the list's scroller) stays under the pointer (decision 071).
+    bool carrying = false;
     bool operator==(const InList&) const = default;
 };
 
@@ -87,6 +90,16 @@ struct Tile {
     bool clickable() const { return opens || !tapAction.empty(); } // lights up under the pointer
 };
 
+// A toast (decision 071): a pill floating over the card's bottom, above its
+// content, which doesn't move for it; its text and button in it.
+struct ToastScene {
+    Rect frame;    // pill coordinates
+    float radius = 0;
+    float slide = 0; // how far it slides up into place: from just below the card's bottom edge
+    std::vector<Placed> elements; // keys "toast/..."
+    bool operator==(const ToastScene&) const = default;
+};
+
 struct Scene {
     Mode mode = Mode::Idle;
     Vec2 size;                     // pill target size, render-layer coordinates
@@ -101,6 +114,7 @@ struct Scene {
     std::vector<Tile> tiles;       // Home
     float tileRadius = 0;          // tile background corners, nested in the card's
     std::vector<Vec2> badges;      // notification dots' centres (decision 038, core/badges.h)
+    std::optional<ToastScene> toast; // a toast floating over the card's bottom (decision 071, core/toast.h)
     bool dropTarget = false;       // the dragged bubble is over the pill: letting go swaps them (pill lightens)
     Vec2 bubbleTuck;               // no bubble: it shrinks to this point, on the top edge inside the pill
     std::string label;             // accessible name of what's shown

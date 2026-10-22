@@ -38,3 +38,15 @@ panel focus
 click
 tile focus
 ask focus                           -> dialog=focus
+
+scenario: a toast at a card's bottom goes by itself, when acted on, or with its card (decision 071)
+panel notes keep
+click
+tile notes                          -> Expanded expanded=notes
+toast notes                         -> Expanded toast=notes
+wait 4999                           -> Expanded toast=notes
+wait 1                              -> Expanded toast=none
+toast notes                         -> Expanded toast=notes
+toast-acted                         -> Expanded toast=none
+toast notes                         -> Expanded toast=notes
+esc                                 -> Expanded expanded=home toast=none

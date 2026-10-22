@@ -90,6 +90,7 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Settings: return L"\uE713";
     case Glyph::ChevronLeft: return L"\uE76B";
     case Glyph::ChevronRight: return L"\uE76C";
+    case Glyph::ChevronDown: return L"\uE70D"; // the Done row, open (decision 071)
     case Glyph::Download: return L"\uE896";
     case Glyph::Centre: return L"\uE8E3"; // AlignCenter: back to the middle
     case Glyph::Minus: return L"\uE738";  // Remove
@@ -264,7 +265,7 @@ void paintPrimaryButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button
     Color fill = button.enabled ? t.buttonColor : t.buttonDisabledColor;
     if (lit && button.enabled) fill.a = static_cast<std::uint8_t>(std::lround(fill.a * std::clamp(t.primaryHoverOpacity, 0.0f, 1.0f)));
     dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(size.x / 2, size.y / 2), r, r), brushOf(dc, fill).get());
-    paintGlyph(dc, dw, button.glyph, t.primaryGlyphSize, size, t.islandColor);
+    paintGlyph(dc, dw, button.glyph, t.primaryGlyphSize, size, t.islandColor, /* precise */ true); // centred on its circle
 }
 
 void paintRoundButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size)
@@ -307,7 +308,7 @@ void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, 
     for (float x : { lead, lead + width + gap }) drawString(dc, f.get(), value, D2D1::RectF(x, 0, x + width + 1, height), color);
 }
 
-void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float fontSize, Vec2 size, const Color& color)
+void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float fontSize, Vec2 size, const Color& color, bool precise)
 {
     // Fire (days in a row, decision 061) is an emoji: Segoe UI Emoji, on every Windows 10 and 11, drawn in its own colours.
     bool emoji = glyph == Glyph::Fire;
@@ -326,12 +327,18 @@ void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float f
     if (SUCCEEDED(glyphLayout->GetOverhangMetrics(&ink))) {
         float left = -ink.left, right = size.x + ink.right, top = -ink.top, bottom = size.y + ink.bottom;
         at = D2D1::Point2F(size.x / 2 - (left + right) / 2, size.y / 2 - (top + bottom) / 2);
+        // A triangle centred by its box looks left of centre (its weight is at its flat side): nudged
+        // right by a share of its width, as players do (a primary button's ▶, decision 071).
+        if (precise && glyph == Glyph::Play) at.x += (right - left) * tokens().playGlyphNudge;
     }
     auto brush = brushOf(dc, color);
     // PinnedFill (U+E841) is only a fill layer, with no needle: it goes under the Pinned outline (decision 046),
     // in the same place, so the two line up.
     if (glyph == Glyph::Pinned) dc->DrawTextLayout(at, layoutOf(L"\uE841").get(), brush.get());
-    dc->DrawTextLayout(at, glyphLayout.get(), brush.get(), emoji ? D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT : D2D1_DRAW_TEXT_OPTIONS_NONE);
+    // Precise: not snapped to the pixel grid, which could move it up to half a pixel off its circle's centre.
+    D2D1_DRAW_TEXT_OPTIONS options = emoji ? D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT : D2D1_DRAW_TEXT_OPTIONS_NONE;
+    if (precise) options = options | D2D1_DRAW_TEXT_OPTIONS_NO_SNAP;
+    dc->DrawTextLayout(at, glyphLayout.get(), brush.get(), options);
 }
 
 void paintToggleDot(ID2D1DeviceContext* dc, Vec2 size, float glyphSize)

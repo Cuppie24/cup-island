@@ -97,7 +97,8 @@ void settle(IslandState& s, Ms now)
         bool timedOut = now >= s.lastPointerAt + tokens().expandedIdleTimeout && !typing(s) && !s.stayOpen && !shownCardIgnoresIdle(s);
         if (timedOut || !expandedViewExists(s)) collapse(s);
     }
-    dropStaleOverlays(s); // a draft or dialog goes with its card
+    if (s.toast && now >= s.toast->until) s.toast.reset(); // a toast goes by itself (decision 071)
+    dropStaleOverlays(s); // a draft, dialog or toast goes with its card
 
     settleAlerts(s, now); // after Expanded may have closed: alerts it held back can show
 
@@ -320,6 +321,12 @@ void handle(IslandState& s, const InputSubmitted&, Ms now) { submitText(s, now);
 void handle(IslandState& s, const InputCancelled&, Ms) { dropDraft(s); } // Esc: stop typing; the text waits (decision 050)
 void handle(IslandState& s, const DialogShown& e, Ms now) { showDialog(s, e, now); }
 void handle(IslandState& s, const DialogClosed&, Ms) { s.dialog.reset(); }
+void handle(IslandState& s, const ToastShown& e, Ms now)
+{
+    s.toast = e.toast;
+    s.toast->until = now + tokens().toastDuration;
+}
+void handle(IslandState& s, const ToastClosed&, Ms) { s.toast.reset(); }
 void handle(IslandState& s, const ListScrolled& e, Ms now) { scrollList(s, e, now); } // lists.h, decision 029
 void handle(IslandState& s, const ListRevealed& e, Ms) { revealListRow(s, e); }
 void handle(IslandState& s, const ListDragStarted& e, Ms now) { startListDrag(s, e, now); }
@@ -329,6 +336,12 @@ void handle(IslandState& s, const ListDragEnded&, Ms) { s.listDrag.reset(); }
 void handle(IslandState& s, const ClockSynced& e, Ms now) { s.clock = WallClock{ e.timeOfDay - now, e.hour24 }; }
 
 } // namespace
+
+bool pressSquashes(const IslandState& s)
+{
+    if (mode(s) != Mode::Expanded) return true;
+    return !s.homeOpen && !shownCardKeepsOpen(s) && !s.stayOpen;
+}
 
 // --- Public API -------------------------------------------------------------
 
@@ -371,6 +384,7 @@ std::optional<Ms> nextDeadline(const IslandState& s)
         if (a.expiresAt) consider(*a.expiresAt);
     if (isExpanded(s) && !typing(s) && !s.stayOpen && !shownCardIgnoresIdle(s)) consider(s.lastPointerAt + tokens().expandedIdleTimeout);
     for (const auto& a : s.alertQueue) consider(a.postedAt + tokens().heldAlertMaxAge + Ms{ 1 });
+    if (s.toast) consider(s.toast->until);
     if (auto lift = liftDeadline(s)) consider(*lift);
     return next;
 }

@@ -7,6 +7,7 @@
 #include "core/layout.h"
 #include "core/tokens.h"
 #include "platform/badge_dots.h"
+#include "platform/toast_layer.h"
 #include "platform/element_visuals.h"
 #include "platform/graphics_device.h"
 #include "platform/win.h"
@@ -47,6 +48,9 @@ public:
     void setTabs(const std::vector<Rect>& tabs, float cornerRadius) { showMarks(tabs_, tabs, cornerRadius); }
     // Notification dots (decision 038), over the content: Scene::badges.
     void setBadges(const std::vector<Vec2>& centres) { badges_.show(centres); }
+    // A toast floating over the content (decision 071): Scene::toast; nullopt fades it out.
+    void setToast(const std::optional<ToastScene>& toast, Ms now) { toast_.show(toast, now); }
+    ElementVisuals& toastElements() { return toast_.elements(); } // hover and press on its button
 
     // Tactile click feedback: squash on press, spring back on release.
     void pressDown();
@@ -102,6 +106,7 @@ private:
     } focusRing_;
     std::vector<Mark> tiles_, tabs_; // grow to the most shown; spare ones stay faded out
     BadgeDots badges_;
+    ToastLayer toast_;
     ElementVisuals elements_;
     Vec2 size_, offset_;
     Vec2 centre_;            // last cursor position while following

@@ -28,6 +28,7 @@ add_library(cup_core STATIC
     src/core/content.cpp
     src/core/cover_palette.cpp
     src/core/dialog.cpp
+    src/core/toast.cpp
     src/core/easing.cpp
     src/core/fullscreen.cpp
     src/core/hit_test.cpp
@@ -155,6 +156,7 @@ if(WIN32)
         src/app/main.cpp
         src/platform/autostart.cpp
         src/platform/badge_dots.cpp
+        src/platform/toast_layer.cpp
         src/platform/blob.cpp
         src/platform/blob_motion.cpp
         src/platform/blob_shape.cpp
