@@ -96,6 +96,7 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Plus: return L"\uE710";   // Add
     case Glyph::Pin: return L"\uE718";
     case Glyph::Pinned: return L"\uE840"; // Pinned, the outline with its needle; paintGlyph fills it (PinnedFill under it)
+    case Glyph::Chart: return L"\uE9D2"; // AreaChart: the statistics (decision 066)
     case Glyph::Fire: return L"\U0001F525"; // not in the icon fonts: Segoe UI Emoji's, in colour (paintGlyph)
     }
     return L"?";
@@ -243,12 +244,13 @@ void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& l
     drawString(dc, formatOf(dw, text).get(), widen(label), size, color);
 }
 
-void paintPrimaryButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size)
+void paintPrimaryButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size, bool lit)
 {
     const Tokens& t = tokens();
     float r = std::min(size.x, size.y) / 2;
-    dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(size.x / 2, size.y / 2), r, r),
-                    brushOf(dc, button.enabled ? t.buttonColor : t.buttonDisabledColor).get());
+    Color fill = button.enabled ? t.buttonColor : t.buttonDisabledColor;
+    if (lit && button.enabled) fill.a = static_cast<std::uint8_t>(std::lround(fill.a * std::clamp(t.primaryHoverOpacity, 0.0f, 1.0f)));
+    dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(size.x / 2, size.y / 2), r, r), brushOf(dc, fill).get());
     paintGlyph(dc, dw, button.glyph, t.primaryGlyphSize, size, t.islandColor);
 }
 

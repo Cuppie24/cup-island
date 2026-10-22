@@ -182,10 +182,15 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     } else if (std::holds_alternative<Button>(placed.item) || std::holds_alternative<TextInput>(placed.item)) {
         // A text field is built like a button: its background is the hover shape, shown only under the pointer.
         view.surface = device_->createSurface(size);
-        ButtonParts parts = createButton(compositor_, size, placed.cornerRadius, view.surface, hoverColorOf(placed));
+        // A secondary button's hover is a smaller circle round its glyph; a primary one shows hover in its own fill (decision 066).
+        auto* button = std::get_if<Button>(&placed.item);
+        bool secondary = button && button->secondary && button->label.empty();
+        Vec2 hoverSize = secondary ? pixelSize({ t.secondaryHoverSize, t.secondaryHoverSize }) : Vec2{};
+        float radius = secondary ? hoverSize.x / 2 : placed.cornerRadius;
+        ButtonParts parts = createButton(compositor_, size, radius, view.surface, hoverColorOf(placed), hoverSize);
         view.visual = parts.visual;
         view.hover = parts.hover;
-        view.highlight = placed.litByRow ? nullptr : parts.highlight; // lit by its row instead (Placed::litByRow): stays hidden
+        view.highlight = placed.litByRow || (button && button->primary) ? nullptr : parts.highlight; // lit by its row, or by its fill: stays hidden
     } else if (clickableArt(placed.item)) {
         view.surface = device_->createSurface(size);
         view.glyphSurface = device_->createSurface(size);
@@ -326,7 +331,7 @@ void ElementVisuals::paint(View& view)
             Color color = !button->enabled ? t.buttonDisabledColor : toggledOff || idle ? t.buttonOffColor
                         : button->destructive         ? t.dangerColor
                                                       : t.buttonColor;
-            if (button->primary) paintPrimaryButton(dc, dw, *button, pixelSize(size));
+            if (button->primary) paintPrimaryButton(dc, dw, *button, pixelSize(size), view.lit);
             else if (button->round) paintRoundButton(dc, dw, *button, size);
             else if (button->quiet) paintLabel(dc, dw, button->label, size, t.captionTextColor, TextStyle::Caption); // a way into more (decision 063)
             else if (!button->label.empty()) paintLabel(dc, dw, button->label, size, color);
@@ -404,8 +409,8 @@ void ElementVisuals::showHover(const std::string& key, bool on)
     if (view.highlight) fadeTo(compositor_, view.highlight, on || focusedField(view.placed.item) ? 1.0f : 0.0f, tokens().hoverFadeDuration);
     if (view.knob && !view.scrubbing) showKnob(compositor_, view.knob, on);
     if (view.art.overlay) showArtOverlay(compositor_, view.art, on);
-    if (auto* button = std::get_if<Button>(&view.placed.item); button && button->secondary && view.lit != on) {
-        view.lit = on; // grey to full strength and back (decision 064)
+    if (auto* button = std::get_if<Button>(&view.placed.item); button && (button->secondary || button->primary) && view.lit != on) {
+        view.lit = on; // grey to full strength and back (decision 064); a primary's fill softens (decision 066)
         paint(view);
     }
 }

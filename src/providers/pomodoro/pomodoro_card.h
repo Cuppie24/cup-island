@@ -26,8 +26,8 @@ inline constexpr const char* kFocusLess = "plan.focus.less";
 inline constexpr const char* kFocusMore = "plan.focus.more";
 inline constexpr const char* kBreakLess = "plan.break.less";
 inline constexpr const char* kBreakMore = "plan.break.more";
-// The pages (decision 061): the days in a row and today's line open statistics (decision 063), the gear
-// settings; the back arrow (or Esc) leaves them.
+// The pages (decision 061): the chart button opens statistics, the gear settings (decision 066); the back
+// arrow (or Esc) leaves them.
 inline constexpr const char* kOpenStats = "stats.open";
 inline constexpr const char* kOpenSettings = "settings.open";
 inline constexpr const char* kBack = "settings.back";
@@ -53,7 +53,7 @@ struct PomodoroGlance {
 PomodoroGlance glanceOf(const PomodoroStats& stats, const DaysOff& off, long long today);
 
 Panel pomodoroPanel(const TodoList& todos = {}, const PomodoroPlan& plan = defaultPlan(), const PomodoroGlance& glance = {});
-Content pomodoroContent(const PomodoroSession& session, const TodoList& todos = {});
+Content pomodoroContent(const PomodoroSession& session, const TodoList& todos = {}, const PomodoroPlan& plan = defaultPlan());
 // The card on its statistics page instead: now and the bests, a "Record" tag on what beats its best.
 Content withStatsPage(Content card, const PomodoroGlance& glance);
 // The card on its settings page instead: the plan (dimmed while `running`), the days off. The rest of `card` (its widget, compact) stays.

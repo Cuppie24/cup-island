@@ -18,7 +18,7 @@ using Ms = std::chrono::milliseconds;
 // Built-in icons; the renderer maps them to font glyphs.
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
                    Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre,
-                   Minus, Plus, Pin, Pinned, Fire };
+                   Minus, Plus, Pin, Pinned, Fire, Chart };
 
 // Display: a big number, the card's centre (a timer). Heading: a group's name over its rows (Settings'
 // "Dark" and "Light"): small, but heavy and full-strength, so it reads as a divider (decision 037).
@@ -203,6 +203,9 @@ struct Dial {
     Timeline timeline;
     std::string label;
     std::string shown; // host-filled: the time left at layout, like a TimeLabel's text
+    // Sized for this long a time instead of its own (at least "00:00"), so it
+    // stays one size from phase to phase: a 5:00 break in a 25:00 focus's ring.
+    Ms sizedFor{};
     bool operator==(const Dial&) const = default;
 };
 
@@ -277,6 +280,9 @@ struct Row {
     // Its leading and trailing items at the row's top instead of centred on
     // it: corner controls beside a tall item, the card's top corners (decision 065).
     bool edgesAtTop = false;
+    // Starts one of a card's groups (the timer, its progress, its controls):
+    // groupGap of space above it, more than between rows (decision 066).
+    bool apart = false;
     bool operator==(const Row&) const = default;
 };
 

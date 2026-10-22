@@ -117,29 +117,39 @@ void planTests()
     const Placed* mode = big;
     expect(start && std::get<Button>(start->item).primary && start->frame.width == t.primaryButtonSize &&
            std::abs(start->frame.x + start->frame.width / 2 - card.size.x / 2) < 0.51f, "▶: the one primary button, centred");
-    expect(today && std::get<Button>(today->item).label == "0 cycles · 0 min" && std::get<Button>(today->item).quiet &&
+    expect(today && std::get<Text>(today->item).value == "0 cycles · 0 min" && std::get<Text>(today->item).style == TextStyle::Caption &&
            std::abs(today->frame.x + today->frame.width / 2 - card.size.x / 2) < 0.51f, "today: one quiet centred line");
-    expect(start->frame.y - (mode->frame.y + mode->frame.height) >= t.sectionGap && today->frame.y - (start->frame.y + start->frame.height) >= t.sectionGap,
-           "room above ▶ and above today: three groups");
+    expect(start->frame.y - (mode->frame.y + mode->frame.height) >= t.groupGap && today->frame.y - (start->frame.y + start->frame.height) >= t.groupGap,
+           "a group's room above ▶ and above today (decision 066)");
     expect(card.size.y <= t.canvas.y, "the card fits the canvas");
-    // The gear alone in the top-right corner, grey until pointed at; the days in a row in the top-left one.
-    const Placed* gear = find(card, "expandedCenter/0/1"); // the dial's row: the dial, the gear trailing, the days leading
-    const Placed* days = find(card, "expandedCenter/0/2");
-    expect(gear && std::get<Button>(gear->item).glyph == Glyph::Settings && std::get<Button>(gear->item).secondary &&
-           gear->frame.x + gear->frame.width > card.size.x - t.expandedPadding - 1 && gear->frame.y == big->frame.y && gear->frame.x > big->frame.x + big->frame.width,
+    // A ring of one size: sized for the plan's longest phase, so a 5:00 break keeps a 25:00 focus's ring.
+    PomodoroPlan usual = defaultPlan();
+    Dial focusDial{ .timeline = { .duration = usual.focus }, .sizedFor = std::max({ usual.focus, usual.rest, t.pomodoroLongBreak }) };
+    Dial breakDial = focusDial;
+    breakDial.timeline.duration = usual.rest;
+    expect(dialDiameter(breakDial, {}) == dialDiameter(focusDial, {}), "a break's ring as big as focus's");
+    expect(dialDiameter(Dial{ .timeline = { .duration = Ms{ 60000 } } }, {}) == dialDiameter(Dial{ .timeline = { .duration = Ms{ 3000000 } } }, {}),
+           "under an hour, one size: never fewer than two digits a side");
+    // The statistics and the gear in the top-right corner, grey until pointed at; the days in a row in the top-left one.
+    const Placed* chart = find(card, "expandedCenter/0/1"); // the dial's row: the dial, then trailing, then leading
+    const Placed* gear = find(card, "expandedCenter/0/2");
+    const Placed* days = find(card, "expandedCenter/0/3");
+    expect(chart && std::get<Button>(chart->item).glyph == Glyph::Chart && std::get<Button>(chart->item).secondary &&
+           std::get<Button>(chart->item).actionId == pomodoro_action::kOpenStats && chart->frame.x > big->frame.x + big->frame.width,
+           "a grey statistics button, beside the gear");
+    expect(gear && std::get<Button>(gear->item).glyph == Glyph::Settings && std::get<Button>(gear->item).secondary && gear->frame.x > chart->frame.x &&
+           gear->frame.x + gear->frame.width > card.size.x - t.expandedPadding - 1 && gear->frame.y == big->frame.y,
            "a grey gear in the top-right corner, level with the dial's top");
-    expect(days && std::get<Button>(days->item).label == "0 days" && std::get<Button>(days->item).actionId == pomodoro_action::kOpenStats &&
-           days->frame.x < t.expandedPadding + t.buttonLabelPadding + 1 && days->frame.y == gear->frame.y, "the days in a row in the top-left corner");
-    expect(island.press("expandedCenter/2/0") && textAt(island.scene(), "expandedCenter/0/0") == "Statistics", "today's line opens the statistics");
+    expect(days && std::get<Text>(days->item).value == "0 days" && days->frame.x < t.expandedPadding + 1 && days->frame.y == gear->frame.y,
+           "the days in a row in the top-left corner, plain text");
+    expect(island.press("expandedCenter/0/1") && textAt(island.scene(), "expandedCenter/0/0") == "Statistics", "the chart opens the statistics");
     Scene stats = island.scene();
     for (const Placed& p : stats.elements)
         if (p.key.rfind("tab/", 0) != 0) expect(p.frame.y + p.frame.height <= stats.size.y - t.expandedPadding + 0.01f, "fits the statistics: " + p.key);
     island.registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kBack, 0 });
-    expect(island.press("expandedCenter/0/2") && textAt(island.scene(), "expandedCenter/0/0") == "Statistics", "so do the days in a row");
-    island.registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kBack, 0 });
 
     // The settings page: the plan first (Focus  − 25 min +), then the days off.
-    expect(island.press("expandedCenter/0/1"), "the gear opens the settings page");
+    expect(island.press("expandedCenter/0/2"), "the gear opens the settings page");
     Scene page = island.scene();
     expect(textAt(page, "expandedCenter/0/0") == "Timer settings" && page.size.y <= t.canvas.y, "the page fits the canvas");
     expect(textAt(page, "expandedCenter/1/0") == "Focus" && textAt(page, "expandedCenter/1/2") == "25 min", "a Focus row with its length");

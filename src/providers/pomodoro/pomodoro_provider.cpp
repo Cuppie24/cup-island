@@ -254,7 +254,7 @@ void PomodoroProvider::publish()
 {
     const Timeline& tl = session_->timeline;
     host_->save(kSessionKey, saveSession(*session_, host_->now()));
-    Content content = pomodoroContent(*session_, todos_);
+    Content content = pomodoroContent(*session_, todos_, plan_);
     content = onPage(std::move(content));
     host_->startActivity({ .id = kPanelId, .relevance = 0.4f, .content = std::move(content) });
     host_->wakeAt(tl.playing ? std::optional<Ms>(tl.anchoredAt + (tl.duration - tl.position)) : std::nullopt);

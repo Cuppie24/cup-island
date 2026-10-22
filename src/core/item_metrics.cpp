@@ -39,7 +39,9 @@ bool isRing(const Item& item)
 
 float dialDiameter(const Dial& dial, const MeasureText& measure)
 {
-    std::string widest = widestDigits(formatDuration(dial.timeline.duration), TextStyle::Display, measure);
+    // The longest it's sized for, and never under two digits a side: the ring keeps its size whatever the time.
+    std::string shape = formatDuration(std::max({ dial.timeline.duration, dial.sizedFor, Ms{ 600000 } }));
+    std::string widest = widestDigits(shape, TextStyle::Display, measure);
     Text time{ widest, TextStyle::Display };
     float w = measure ? measure(time) : estimateTextWidth(time);
     float h = lineHeight(TextStyle::Display) + (dial.label.empty() ? 0 : lineHeight(TextStyle::Caption));

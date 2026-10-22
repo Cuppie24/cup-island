@@ -161,12 +161,12 @@ struct Timer {
         }
         return out;
     }
-    // Today's line under ▶: the quiet button into the statistics.
+    // Today's line under ▶: quiet text, centred as one (Row::hug).
     std::string line()
     {
         for (const Row& r : panels.back().content.expandedCenter)
-            if (!r.items.empty())
-                if (auto* b = std::get_if<Button>(&r.items[0]); b && b->quiet) return b->label;
+            if (r.hug && !r.items.empty())
+                if (auto* text = std::get_if<Text>(&r.items[0])) return text->value;
         return "";
     }
     // The top-left corner: days in a row.
@@ -277,9 +277,9 @@ void layoutTests()
         return nullptr;
     };
     const Placed* big = at(card, "expandedCenter/0/0");
-    const Placed* fire = at(card, "expandedCenter/0/2"); // items, then trailing (the gear), then leading
-    const Placed* days = at(card, "expandedCenter/0/3");
-    expect(fire && days && std::get<Icon>(fire->item).glyph == Glyph::Fire && std::get<Button>(days->item).label == "12 days" &&
+    const Placed* fire = at(card, "expandedCenter/0/3"); // items, then trailing (the chart, the gear), then leading
+    const Placed* days = at(card, "expandedCenter/0/4");
+    expect(fire && days && std::get<Icon>(fire->item).glyph == Glyph::Fire && std::get<Text>(days->item).value == "12 days" &&
            fire->frame.x < days->frame.x && fire->frame.x < t.expandedPadding + 1, "the fire, then the count, in the top-left corner");
     expect(big && days && days->frame.x + days->frame.width < big->frame.x && days->frame.width > 20, "the count at its width, clear of the time");
     expect(big && std::abs(big->frame.x + big->frame.width / 2 - card.size.x / 2) < 0.51f, "the time still centred on the card");
@@ -335,8 +335,9 @@ void settingsPageTests()
     Timer timer;
     const Content& dormant = timer.panels.back().content;
     const Row& top = dormant.expandedCenter[0];
-    expect(top.trailing.size() == 1 && std::get<Button>(top.trailing[0]).glyph == Glyph::Settings &&
-           std::get<Button>(top.trailing[0]).actionId == pomodoro_action::kOpenSettings, "the gear alone in the card's top-right corner");
+    expect(top.trailing.size() == 2 && std::get<Button>(top.trailing[0]).actionId == pomodoro_action::kOpenStats &&
+           std::get<Button>(top.trailing[1]).glyph == Glyph::Settings && std::get<Button>(top.trailing[1]).actionId == pomodoro_action::kOpenSettings,
+           "the statistics, then the gear, in the card's top-right corner");
 
     timer.act(pomodoro_action::kOpenSettings);
     Content page = timer.panels.back().content;

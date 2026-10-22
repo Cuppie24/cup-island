@@ -59,6 +59,7 @@ Rect clipped(Rect r, Rect clip)
 float radiusFor(const Item& item, Rect frame, float nestedRadius)
 {
     if (!std::holds_alternative<Image>(item) && !std::holds_alternative<Button>(item) && !std::holds_alternative<TextInput>(item)) return 0;
+    if (auto* b = std::get_if<Button>(&item); b && (b->primary || b->round)) return std::min(frame.width, frame.height) / 2; // circles
     return std::min(nestedRadius, std::min(frame.width, frame.height) / 2);
 }
 
@@ -67,7 +68,7 @@ float radiusFor(const Item& item, Rect frame, float nestedRadius)
 float listPadding(const Row& row) { return row.listItem ? 2 * tokens().listItemPadding : 0; }
 
 // Room above a group's first row (Row::section, decision 037).
-float sectionGap(const Row& row) { return row.section ? tokens().sectionGap : 0; }
+float sectionGap(const Row& row) { return row.section ? tokens().sectionGap : row.apart ? tokens().groupGap : 0; } // Row::apart: decision 066
 
 // Each row's ring side (a ring matches the other items in its row; alone, it
 // fills the slot's square) and natural height.
