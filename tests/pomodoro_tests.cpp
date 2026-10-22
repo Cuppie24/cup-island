@@ -115,20 +115,22 @@ void planTests()
     expect(value->frame.x + value->frame.width <= minus->frame.x && minus->frame.x + minus->frame.width <= plus->frame.x,
            "the length, then − then +, side by side");
     expect(card.size.y <= t.canvas.y, "the card fits the canvas");
-    // The statistics (decision 061): one line under ▶, its items side by side at their own widths, centred.
+    // Today (decision 061): one line under ▶, its texts side by side at their own widths, centred.
     const Placed* firstStat = find(card, "expandedCenter/4/0");
-    const Placed* lastStat = find(card, "expandedCenter/4/4");
-    expect(firstStat && lastStat && textAt(card, "expandedCenter/4/0") == "0 today" && textAt(card, "expandedCenter/4/4") == "0 min" &&
+    const Placed* lastStat = find(card, "expandedCenter/4/2");
+    expect(firstStat && lastStat && textAt(card, "expandedCenter/4/0") == "0 cycles today" && textAt(card, "expandedCenter/4/2") == "Focus time: 0 min" &&
            firstStat->frame.y == lastStat->frame.y &&
            std::abs((firstStat->frame.x + lastStat->frame.x + lastStat->frame.width) / 2 - card.size.x / 2) < 1.0f,
-           "the statistics: one centred line");
-    // The gear (decision 061): the top row's trailing button, in the card's top-right corner.
-    const Placed* gear = find(card, "expandedCenter/0/1");
+           "today: one centred line");
+    // Statistics and the gear (decision 061): the top row's trailing buttons, in the card's top-right corner.
+    const Placed* chart = find(card, "expandedCenter/0/1");
+    const Placed* gear = find(card, "expandedCenter/0/2");
     const Placed* big = find(card, "expandedCenter/0/0");
-    expect(gear && std::get<Button>(gear->item).glyph == Glyph::Settings && gear->frame.x > big->frame.x + big->frame.width &&
+    expect(chart && gear && std::get<Button>(chart->item).glyph == Glyph::Chart && chart->frame.x > big->frame.x + big->frame.width &&
+           gear->frame.x > chart->frame.x && std::get<Button>(gear->item).glyph == Glyph::Settings &&
            gear->frame.x + gear->frame.width > card.size.x - t.expandedPadding - 1 && gear->frame.y < big->frame.y + big->frame.height,
            "a gear in the top-right corner, beside the big time");
-    expect(island.press("expandedCenter/0/1"), "the gear opens the settings page");
+    expect(island.press("expandedCenter/0/2"), "the gear opens the settings page");
     Scene page = island.scene();
     expect(textAt(page, "expandedCenter/0/0") == "Timer settings" && page.size.y <= t.canvas.y, "the page fits the canvas");
     const Placed* mon = find(page, "expandedCenter/2/0");

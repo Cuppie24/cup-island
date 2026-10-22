@@ -36,7 +36,7 @@ void PomodoroProvider::start(Host& host)
     plan_ = loadPlan(host_->load(kPlanKey));
     stats_ = loadStats(host_->load(kStatsKey));
     daysOff_ = loadDaysOff(host_->load(kDaysOffKey));
-    settingsOpen_ = false;
+    page_ = PomodoroPage::Timer;
     showDormant();
     // A session from before a restart is back, paused where it was (decision 061).
     session_ = resumeSession(host_->load(kSessionKey), host_->now());
@@ -61,11 +61,11 @@ void PomodoroProvider::onCloseRequested(const std::string& activityId)
     if (activityId == kPanelId) onAction({ id(), kPanelId, act::kStop });
 }
 
-// Closed on its settings page: it opens on the timer next time, like Settings on its list.
+// Closed on one of its pages: it opens on the timer next time, like Settings on its list.
 void PomodoroProvider::onCardClosed(const std::string& activityId)
 {
-    if (!host_ || activityId != kPanelId || !settingsOpen_) return;
-    settingsOpen_ = false;
+    if (!host_ || activityId != kPanelId || page_ == PomodoroPage::Timer) return;
+    page_ = PomodoroPage::Timer;
     showCards();
 }
 
@@ -94,9 +94,10 @@ void PomodoroProvider::onAction(const Action& action)
         }
         return;
     }
-    // The settings page (decision 061): open, back, and a day off on or off.
-    if (action.actionId == act::kOpenSettings || action.actionId == act::kBack) {
-        settingsOpen_ = action.actionId == act::kOpenSettings;
+    // Its pages (decision 061): statistics, settings, and back to the timer.
+    if (action.actionId == act::kOpenStats || action.actionId == act::kOpenSettings || action.actionId == act::kBack) {
+        page_ = action.actionId == act::kOpenStats ? PomodoroPage::Stats : action.actionId == act::kOpenSettings ? PomodoroPage::Settings
+                                                                                                                : PomodoroPage::Timer;
         showCards();
         return;
     }
@@ -213,8 +214,15 @@ void PomodoroProvider::showDormant()
 {
     shownGlance_ = glanceOf(stats_, daysOff_, localDay(host_->wallClock(), host_->utcOffset()));
     Panel panel = pomodoroPanel(todos_, plan_, shownGlance_);
-    if (settingsOpen_ && !session_) panel.content = withSettingsPage(std::move(panel.content), daysOff_, fakeRow());
+    if (!session_) panel.content = onPage(std::move(panel.content));
     host_->publishPanel(std::move(panel));
+}
+
+Content PomodoroProvider::onPage(Content card) const
+{
+    if (page_ == PomodoroPage::Settings) return withSettingsPage(std::move(card), daysOff_, fakeRow());
+    if (page_ == PomodoroPage::Stats) return withStatsPage(std::move(card), glanceOf(stats_, daysOff_, localDay(host_->wallClock(), host_->utcOffset())));
+    return card;
 }
 
 std::optional<int> PomodoroProvider::fakeRow() const { return debug_ ? std::optional<int>(fake_) : std::nullopt; }
@@ -247,7 +255,7 @@ void PomodoroProvider::publish()
     const Timeline& tl = session_->timeline;
     host_->save(kSessionKey, saveSession(*session_, host_->now()));
     Content content = pomodoroContent(*session_, todos_);
-    if (settingsOpen_) content = withSettingsPage(std::move(content), daysOff_, fakeRow());
+    content = onPage(std::move(content));
     host_->startActivity({ .id = kPanelId, .relevance = 0.4f, .content = std::move(content) });
     host_->wakeAt(tl.playing ? std::optional<Ms>(tl.anchoredAt + (tl.duration - tl.position)) : std::nullopt);
 }

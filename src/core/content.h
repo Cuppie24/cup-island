@@ -18,7 +18,7 @@ using Ms = std::chrono::milliseconds;
 // Built-in icons; the renderer maps them to font glyphs.
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
                    Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre,
-                   Minus, Plus, Pin, Pinned, Fire };
+                   Minus, Plus, Pin, Pinned, Fire, Chart };
 
 // Display: a big number, the card's centre (a timer). Heading: a group's name over its rows (Settings'
 // "Dark" and "Light"): small, but heavy and full-strength, so it reads as a divider (decision 037).
@@ -198,8 +198,8 @@ struct Row {
     std::vector<Item> items;
     Align align = Align::Start;
     bool loose = false; // wider gaps between items (controls: easier to hit, harder to mis-hit)
-    // Fixed-size items pinned to the row's start / end edge, e.g. shuffle and
-    // repeat around centred media controls. `items` still centre across the
+    // Fixed-size items (or texts, as wide as they are) pinned to the row's
+    // start / end edge, e.g. shuffle and repeat around centred media controls. `items` still centre across the
     // full width. Keys number items, then trailing, then leading.
     std::vector<Item> leading;
     std::vector<Item> trailing;

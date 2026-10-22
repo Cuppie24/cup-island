@@ -1,7 +1,7 @@
 #pragma once
 // Pomodoro's content, pure (tested on its own): the dormant panel, a running
-// session, the stop question, and the timer's own settings page behind the
-// gear in the card's top-right corner (decision 061).
+// session, the stop question, and the timer's own pages behind the buttons
+// in the card's top-right corner: statistics and settings (decision 061).
 
 #include "core/island.h"
 #include "providers/pomodoro/pomodoro_session.h"
@@ -26,27 +26,35 @@ inline constexpr const char* kFocusLess = "plan.focus.less";
 inline constexpr const char* kFocusMore = "plan.focus.more";
 inline constexpr const char* kBreakLess = "plan.break.less";
 inline constexpr const char* kBreakMore = "plan.break.more";
-// The settings page (decision 061): the gear opens it, the back arrow (or Esc) leaves it.
+// The pages (decision 061): the chart opens statistics, the gear settings; the back arrow (or Esc) leaves them.
+inline constexpr const char* kOpenStats = "stats.open";
 inline constexpr const char* kOpenSettings = "settings.open";
 inline constexpr const char* kBack = "settings.back";
 inline constexpr const char* kToggleDayOff = "dayoff."; // + 0 (Monday) .. 6 (Sunday)
 inline constexpr const char* kFakeStats = "debug.fakestats"; // Debug builds: the next made-up history (fakeStats)
 } // namespace pomodoro_action
 
-// What the dormant card says about how it's going (decision 061). The bests
-// leave out today and the current run: beating them is a record.
+// Which page the card shows (decision 061).
+enum class PomodoroPage { Timer, Stats, Settings };
+
+// How it's going (decision 061): today's values on the dormant card, and
+// with their bests on the statistics page. The bests leave out today and
+// the current run: beating them is a record.
 struct PomodoroGlance {
     int finishedToday = 0;
     int bestDay = 0;
     int daysInARow = 0;
     int bestRun = 0;
     Ms focusToday{};
+    Ms bestFocus{};
     bool operator==(const PomodoroGlance&) const = default;
 };
 PomodoroGlance glanceOf(const PomodoroStats& stats, const DaysOff& off, long long today);
 
 Panel pomodoroPanel(const TodoList& todos = {}, const PomodoroPlan& plan = defaultPlan(), const PomodoroGlance& glance = {});
 Content pomodoroContent(const PomodoroSession& session, const TodoList& todos = {});
+// The card on its statistics page instead: now and the bests, a "Record" tag on what beats its best.
+Content withStatsPage(Content card, const PomodoroGlance& glance);
 // The card on its settings page instead: the days off. The rest of `card` (its widget, compact) stays.
 // `fake`: Debug builds, which made-up history is shown (0: the real one); nothing: no debug row.
 Content withSettingsPage(Content card, const DaysOff& off, std::optional<int> fake = std::nullopt);

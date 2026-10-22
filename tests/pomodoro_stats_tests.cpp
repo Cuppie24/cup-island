@@ -147,31 +147,48 @@ struct Timer {
             texts.push_back(!r.items.empty() && std::holds_alternative<Text>(r.items[0]) ? std::get<Text>(r.items[0]).value : "");
         return texts;
     }
-    // The statistics line (the card's Row::hug row) as words: texts, "[Record]" for a tag, "fire" for the icon.
+    // Items as words: texts, "[Record]" for a tag, "fire" for the icon.
+    static std::string words(const std::vector<Item>& items)
+    {
+        std::string out;
+        for (const Item& item : items) {
+            if (!out.empty()) out += " ";
+            if (auto* text = std::get_if<Text>(&item)) out += text->value;
+            if (auto* tag = std::get_if<Tag>(&item)) out += "[" + tag->text + "]";
+            if (auto* icon = std::get_if<Icon>(&item)) out += icon->glyph == Glyph::Fire ? "fire" : "icon";
+        }
+        return out;
+    }
+    // Today's line under ▶ (the card's Row::hug row).
     std::string line()
     {
-        for (const Row& r : panels.back().content.expandedCenter) {
-            if (!r.hug) continue;
-            std::string words;
-            for (const Item& item : r.items) {
-                if (!words.empty()) words += " ";
-                if (auto* text = std::get_if<Text>(&item)) words += text->value;
-                if (auto* tag = std::get_if<Tag>(&item)) words += "[" + tag->text + "]";
-                if (auto* icon = std::get_if<Icon>(&item)) words += icon->glyph == Glyph::Fire ? "fire" : "icon";
-            }
-            return words;
-        }
+        for (const Row& r : panels.back().content.expandedCenter)
+            if (r.hug) return words(r.items);
         return "";
     }
-    bool says(const std::string& text) { return line().find(text) != std::string::npos; }
+    // The top-left corner: days in a row.
+    std::string corner() { return words(panels.back().content.expandedCenter[0].leading); }
+    // The statistics page's rows, opened from the card and closed again.
+    std::vector<std::string> statsPage()
+    {
+        act(pomodoro_action::kOpenStats);
+        std::vector<std::string> rows;
+        for (const Row& r : panels.back().content.expandedCenter) rows.push_back(words(r.items));
+        act(pomodoro_action::kBack);
+        return rows;
+    }
+    bool pageSays(const std::string& row) { auto rows = statsPage(); return std::find(rows.begin(), rows.end(), row) != rows.end(); }
 };
 
 void providerTests()
 {
     const Tokens& t = tokens();
     Timer timer;
-    expect(timer.line() == "0 today · 0 days · 0 min",
-           "a first run: every statistic in one line, all none, no bests yet");
+    expect(timer.line() == "0 cycles today · Focus time: 0 min" && timer.corner() == "0 days in a row", "a first run: today's values, 0 days in a row");
+    auto first = timer.statsPage();
+    expect(first.size() == 9 && first[0] == "Statistics" && first[1] == "Now" && first[2] == "Finished today 0" && first[3] == "Days in a row 0 days" &&
+           first[4] == "Focused today 0 min" && first[5] == "Best" && first[6] == "Finished in a day 0" && first[8] == "Focused in a day 0 min",
+           "the statistics page: now, then the bests");
 
     timer.session();
     PomodoroDay day = timer.today();
@@ -180,8 +197,9 @@ void providerTests()
     expect(day.focus == static_cast<long long>(t.pomodoroRounds) * t.pomodoroFocus, "and the focus time");
     expect(!timer.alerts.empty() && timer.alerts.back().content.label == "Session done" &&
            std::get<Text>(timer.alerts.back().content.alertCenter[1].items[0]).value == "1 finished today", "the last alert says how many today");
-    expect(timer.line() == "1 today [Record] · 1 day [Record] · 1 h 40 min",
-           "the dormant card: records, the bests hidden");
+    expect(timer.line() == "1 cycle today · Focus time: 1 h 40 min" && timer.corner() == "1 day in a row", "the card: today's values, the run in the corner");
+    expect(timer.pageSays("Finished today [Record] 1") && timer.pageSays("Days in a row [Record] 1 day") &&
+           timer.pageSays("Focused today [Record] 1 h 40 min") && timer.pageSays("Finished in a day 1"), "the page: records, and the new bests");
 
     // One focus phase skipped still counts; two don't; a break skipped doesn't matter.
     timer.session({ 2, 3 });
@@ -211,22 +229,25 @@ void providerTests()
     // The next day: today starts over; the card follows once it's shown again.
     timer.pass(Ms{ kDay });
     timer.registry.cardShown({ "pomodoro", PomodoroProvider::kPanelId });
-    expect(timer.says("0 today best 2 · 1 day [Record] ·"), "a new day: none today yet, the run still on");
+    expect(timer.line() == "0 cycles today · Focus time: 0 min" && timer.corner() == "1 day in a row", "a new day: none today yet, the run still on");
+    expect(timer.pageSays("Finished today 0") && timer.pageSays("Finished in a day 2"), "yesterday's 2 is the best");
     std::size_t published = timer.panels.size();
     timer.registry.cardShown({ "pomodoro", PomodoroProvider::kPanelId });
     expect(timer.panels.size() == published, "shown again the same day: nothing to change");
     timer.session();
-    expect(timer.says("1 today best 2 · 2 days [Record] ·"), "two days in a row: a record");
+    expect(timer.corner() == "2 days in a row" && timer.pageSays("Days in a row [Record] 2 days") && timer.pageSays("Finished today 1"),
+           "two days in a row: a record; 1 today isn't");
 
     // A run broken: the old one is the best to beat; from three days on, a fire.
     timer.pass(Ms{ 2 * kDay });
     timer.registry.cardShown({ "pomodoro", PomodoroProvider::kPanelId });
-    expect(timer.says("· 0 days best 2 ·"), "a day missed: none now, best 2");
+    expect(timer.corner() == "0 days in a row" && timer.pageSays("Days in a row 0 days") && timer.pageSays("Days in a row 2 days"),
+           "a day missed: 0 in the corner, best 2");
     for (int day = 0; day < 3; ++day) {
         timer.session();
         if (day < 2) timer.pass(Ms{ kDay });
     }
-    expect(timer.says("· fire 3 days [Record] ·"), "three days: a fire, and a record");
+    expect(timer.corner() == "fire 3 days in a row" && timer.pageSays("Days in a row [Record] 3 days"), "three days: a fire, and a record");
 }
 
 // Debug builds: the settings page's row steps through made-up histories, never saved.
@@ -246,13 +267,15 @@ void fakeStatsTests()
     expect(timer.card(timer.panels.back().content).back() == "Fake statistics", "Debug: a Fake statistics row");
     timer.act(pomodoro_action::kFakeStats);
     timer.act(pomodoro_action::kBack);
-    expect(timer.says("2 today best 4 · fire 3 days best 5 ·"), "fake 1: bests to beat, a fire");
+    expect(timer.corner() == "fire 3 days in a row" && timer.pageSays("Finished today 2") && timer.pageSays("Finished in a day 4") &&
+           timer.pageSays("Days in a row 5 days"), "fake 1: bests to beat, a fire");
     timer.act(pomodoro_action::kFakeStats);
-    expect(timer.says("5 today [Record] · fire 6 days [Record] ·"), "fake 2: records, bests hidden");
+    expect(timer.corner() == "fire 6 days in a row" && timer.pageSays("Finished today [Record] 5") && timer.pageSays("Days in a row [Record] 6 days"),
+           "fake 2: records");
     timer.session();
     expect(timer.store[PomodoroProvider::kStatsKey] == real, "made up: never saved");
     timer.act(pomodoro_action::kFakeStats);
-    expect(timer.says("1 today [Record]"), "the third click: the real statistics again");
+    expect(timer.line() == "1 cycle today · Focus time: 1 h 40 min", "the third click: the real statistics again");
 }
 
 void settingsPageTests()
@@ -260,8 +283,9 @@ void settingsPageTests()
     Timer timer;
     const Content& dormant = timer.panels.back().content;
     const Row& top = dormant.expandedCenter[0];
-    expect(top.trailing.size() == 1 && std::get<Button>(top.trailing[0]).glyph == Glyph::Settings &&
-           std::get<Button>(top.trailing[0]).actionId == pomodoro_action::kOpenSettings, "a gear in the card's top-right corner");
+    expect(top.trailing.size() == 2 && std::get<Button>(top.trailing[0]).actionId == pomodoro_action::kOpenStats &&
+           std::get<Button>(top.trailing[1]).glyph == Glyph::Settings && std::get<Button>(top.trailing[1]).actionId == pomodoro_action::kOpenSettings,
+           "statistics, then the gear, in the card's top-right corner");
 
     timer.act(pomodoro_action::kOpenSettings);
     Content page = timer.panels.back().content;

@@ -96,6 +96,7 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Plus: return L"\uE710";   // Add
     case Glyph::Pin: return L"\uE718";
     case Glyph::Pinned: return L"\uE840"; // Pinned, the outline with its needle; paintGlyph fills it (PinnedFill under it)
+    case Glyph::Chart: return L"\uE9D2"; // AreaChart: statistics
     case Glyph::Fire: return L"\U0001F525"; // not in the icon fonts: Segoe UI Emoji's, in colour (paintGlyph)
     }
     return L"?";

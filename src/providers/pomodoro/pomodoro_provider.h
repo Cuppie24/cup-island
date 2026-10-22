@@ -31,7 +31,7 @@ public:
     void onAction(const Action& action) override;
     void onWake() override;          // the current phase's time is up
     void onCloseRequested(const std::string& activityId) override; // Ctrl+W: like the stop button, asks first
-    void onCardClosed(const std::string& activityId) override;     // back from the settings page
+    void onCardClosed(const std::string& activityId) override;     // back from a page to the timer
     void onCardShown(const std::string& activityId) override;      // a new day: the dormant card's "today" follows
 
     static constexpr const char* kPanelId = kPomodoroPanelId; // the panel and its activity
@@ -55,6 +55,7 @@ private:
     void countTodo(const std::string& actionId); // a to-do ticked or unticked: today's count
     PomodoroDay& today();                       // today's statistics, to change (then saveStats)
     void saveStats();
+    Content onPage(Content card) const;         // the card as the page shown makes it
     std::optional<int> fakeRow() const;        // what the settings page's debug row shows; nothing outside Debug builds
 
     Host* host_ = nullptr;
@@ -63,7 +64,7 @@ private:
     PomodoroPlan plan_;
     PomodoroStats stats_;
     DaysOff daysOff_{};
-    bool settingsOpen_ = false; // the card shows its settings page
+    PomodoroPage page_ = PomodoroPage::Timer; // the card's page: the timer, or its statistics or settings
     PomodoroGlance shownGlance_; // what the dormant card says now
     bool debug_ = false;
     int fake_ = 0; // a made-up history shown (fakeStats), never saved; 0: the real one

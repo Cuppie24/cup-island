@@ -189,20 +189,22 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
             };
             auto widthOf = [&](const Item& item) { return fixedWidthOf(item, heightOf(item, slot.frame, ringSide), measure); };
 
-            // Edge groups: packed with the normal spacing, kept `gap` away from the middle.
-            auto edgeWidth = [&](const std::vector<Item>& group) {
-                float w = 0;
-                for (const Item& item : group) w += widthOf(item).value_or(0) + t.itemSpacing;
-                return group.empty() ? 0.0f : w - t.itemSpacing + gap;
-            };
-            float leadingWidth = edgeWidth(row.leading), trailingWidth = edgeWidth(row.trailing);
-            float available = area.width - leadingWidth - trailingWidth;
-            // Row::hug: texts as wide as they are, like fixed items, if the whole row fits.
+            // A text as wide as it is: in a hugging row, and at a row's edges (a count beside a big timer).
             auto naturalOf = [&](const Item& item) -> std::optional<float> {
                 if (auto w = widthOf(item)) return w;
                 if (auto* text = std::get_if<Text>(&item); text && !text->wrap) return (measure ? measure(*text) : estimateTextWidth(*text)) + 1;
                 return std::nullopt;
             };
+
+            // Edge groups: packed with the normal spacing, kept `gap` away from the middle.
+            auto edgeWidth = [&](const std::vector<Item>& group) {
+                float w = 0;
+                for (const Item& item : group) w += naturalOf(item).value_or(0) + t.itemSpacing;
+                return group.empty() ? 0.0f : w - t.itemSpacing + gap;
+            };
+            float leadingWidth = edgeWidth(row.leading), trailingWidth = edgeWidth(row.trailing);
+            float available = area.width - leadingWidth - trailingWidth;
+            // Row::hug: texts as wide as they are, like fixed items, if the whole row fits.
             bool hug = row.hug && [&] {
                 float w = gap * static_cast<float>(row.items.empty() ? 0 : row.items.size() - 1);
                 for (const Item& item : row.items) {
@@ -260,7 +262,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
             }
             auto placeEdge = [&](const std::vector<Item>& group, size_t firstIndex, float x) {
                 for (size_t i = 0; i < group.size(); ++i) {
-                    float w = widthOf(group[i]).value_or(0);
+                    float w = naturalOf(group[i]).value_or(0);
                     place(group[i], firstIndex + i, x, w);
                     x += w + t.itemSpacing;
                 }
