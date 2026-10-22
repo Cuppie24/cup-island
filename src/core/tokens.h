@@ -276,7 +276,7 @@ struct Tokens {
     Color stepTodoColor{ 255, 255, 255, 51 };
     Color tabSelectedColor{ 255, 255, 255, 41 };
     Color hoverColor{ 255, 255, 255, 20 };         // a tab or tile under the pointer
-    Color tileColor{ 255, 255, 255, 20 };          // Home's tile and Expanded's tab backgrounds, always shown
+    Color tileColor{ 255, 255, 255, 20 };          // Home's tile backgrounds, always shown (tabs have none, decision 072)
     Color focusRingColor{ 255, 255, 255, 153 };    // around what the keyboard has focus on (decision 033): a theme's accent
     Color inputColor{ 255, 255, 255, 26 };         // a text field's background (decision 016)
     Color placeholderTextColor{ 255, 255, 255, 128 }; // "Add a to-do…": like body text, a little dimmer

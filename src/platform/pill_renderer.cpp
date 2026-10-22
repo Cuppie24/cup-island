@@ -78,11 +78,7 @@ void PillRenderer::apply(const Scene& scene)
     pill_.setEars(!scene.flushLeft, !(scene.flushRight && !scene.bubble));
     pill_.setHighlighted(scene.dropTarget);
     const TabStrip* tabs = scene.tabs ? &*scene.tabs : nullptr;
-    std::vector<Rect> tabFrames;
-    if (tabs)
-        for (const auto& tab : tabs->tabs) tabFrames.push_back(tab.frame);
-    if (tabs && tabs->pin) tabFrames.push_back(tabs->pin->frame); // its faint background, like Home's button
-    pill_.setTabs(tabFrames, tabs ? tabs->radius : 0);
+    // No background under a tab that isn't shown, only its hover (decision 072).
     pill_.setPinnedTab(tabs && tabs->pin && tabs->pinned ? std::optional<Rect>(tabs->pin->frame) : std::nullopt, tabs ? tabs->radius : 0);
     pill_.setSelectedTab(tabs && tabs->active ? std::optional<Rect>(tabs->tabs[*tabs->active].frame) : std::nullopt, tabs ? tabs->radius : 0);
     // Nothing left that lights up as an area: drop a stale hover. A list row's

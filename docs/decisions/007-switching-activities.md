@@ -27,9 +27,9 @@ second activity, and sometimes to make it the main one.
   centred, shrinking only when they don't fit. Inside a tab, icon and title
   are centred as one group; that needs the title's real width, so
   `layout()` takes a `MeasureText` the platform answers with DirectWrite
-  (tests use a per-character estimate). Every tab has a faint background
-  (`tileColor`, like Home's tiles) so it reads as a button; the active tab's
-  is stronger and slides to a newly picked tab; hover lightens a tab further. Clicking a tab (`ActivitySwitched`) shows that activity's card *and*
+  (tests use a per-character estimate). The active tab has a background
+  (no other tab has one since decision 072: they're grey instead), which
+  is stronger than a hover and slides to a newly picked tab; hover lightens a tab further. Clicking a tab (`ActivitySwitched`) shows that activity's card *and*
   makes it the pick, so collapsing shows it in the pill.
   (Tried before: "next"/"pin" buttons in the top row, hard to read and
   crowding the title; then a detached side card listing the others, which

@@ -189,9 +189,8 @@ void Blob::refreshAnimations(bool coloursOnly)
     for (Mark* mark : { &selectedTab_, &pinnedTab_ })
         if (mark->brush) fadeColor(mark->brush, t.tabSelectedColor);
     if (hovered_.brush) fadeColor(hovered_.brush, t.hoverColor);
-    for (std::vector<Mark>* marks : { &tiles_, &tabs_ })
-        for (Mark& mark : *marks)
-            if (mark.brush) fadeColor(mark.brush, t.tileColor);
+    for (Mark& mark : tiles_)
+        if (mark.brush) fadeColor(mark.brush, t.tileColor);
     if (focusRing_.brush) fadeColor(focusRing_.brush, t.focusRingColor);
     badges_.recolor();
     toast_.refresh(coloursOnly);

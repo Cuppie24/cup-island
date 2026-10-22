@@ -42,10 +42,9 @@ public:
     // The keyboard's focus (decision 033): a ring inside `area`, over the
     // content, so it shows which one Enter clicks even with the pointer elsewhere.
     void setFocusRing(std::optional<Rect> area, float cornerRadius);
-    // Home's tiles (decision 009) and Expanded's tabs (decision 007): a faint
-    // background under each, always shown; hover and selection add to it.
+    // Home's tiles (decision 009): a faint background under each, always shown;
+    // hover adds to it. Tabs have none: only hover and selection (decision 072).
     void setTiles(const std::vector<Rect>& tiles, float cornerRadius) { showMarks(tiles_, tiles, cornerRadius); }
-    void setTabs(const std::vector<Rect>& tabs, float cornerRadius) { showMarks(tabs_, tabs, cornerRadius); }
     // Notification dots (decision 038), over the content: Scene::badges.
     void setBadges(const std::vector<Vec2>& centres) { badges_.show(centres); }
     // A toast floating over the content (decision 071): Scene::toast; nullopt fades it out.
@@ -104,7 +103,7 @@ private:
         std::optional<Rect> at;
         float radius = 0;
     } focusRing_;
-    std::vector<Mark> tiles_, tabs_; // grow to the most shown; spare ones stay faded out
+    std::vector<Mark> tiles_; // grows to the most shown; spare ones stay faded out
     BadgeDots badges_;
     ToastLayer toast_;
     ElementVisuals elements_;

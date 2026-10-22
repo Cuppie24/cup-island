@@ -13,6 +13,11 @@ busy and the current tab hard to pick out.
   whole tab at `tabMutedOpacity`. Home's button counts as a tab (grey
   unless Home is shown, a dormant panel's card included), and so does the
   pin while off; pinned, it's lit like the shown tab and in colour.
+- **No background of its own**: a tab that isn't shown, Home's button and
+  the pin while off used to sit on a faint `tileColor` background, always
+  drawn. It's gone; with the grey it was noise. Only the shown tab's
+  (`tabSelectedColor`, the pin's while pinned) and the hover remain. Home's
+  tiles keep theirs.
 - **Under the pointer** (or the keyboard's focus), a grey tab shows in
   colour at full strength, over `hoverFadeDuration`, on top of its usual
   hover background.
