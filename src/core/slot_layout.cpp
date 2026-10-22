@@ -59,7 +59,8 @@ Rect clipped(Rect r, Rect clip)
 float radiusFor(const Item& item, Rect frame, float nestedRadius)
 {
     if (!std::holds_alternative<Image>(item) && !std::holds_alternative<Button>(item) && !std::holds_alternative<TextInput>(item)) return 0;
-    if (auto* b = std::get_if<Button>(&item); b && (b->primary || b->round)) return std::min(frame.width, frame.height) / 2; // circles
+    if (auto* b = std::get_if<Button>(&item); b && (b->primary || b->round || (b->secondary && b->label.empty())))
+        return std::min(frame.width, frame.height) / 2; // circles: their hover and press follow the circle (decisions 066, 067)
     return std::min(nestedRadius, std::min(frame.width, frame.height) / 2);
 }
 
@@ -69,6 +70,9 @@ float listPadding(const Row& row) { return row.listItem ? 2 * tokens().listItemP
 
 // Room above a group's first row (Row::section, decision 037).
 float sectionGap(const Row& row) { return row.section ? tokens().sectionGap : row.apart ? tokens().groupGap : 0; } // Row::apart: decision 066
+
+// Row::edgesAtTop: its middle items this far under its corners, so they have room above (decision 067).
+float cornerRoom(const Row& row) { return row.edgesAtTop ? tokens().groupGap : 0; }
 
 // Each row's ring side (a ring matches the other items in its row; alone, it
 // fills the slot's square) and natural height.
@@ -89,7 +93,7 @@ RowSizes rowSizes(const Slot& rows, Rect frame, const MeasureText& measure)
         for (const auto* items : { &r.items, &r.leading, &r.trailing })
             for (const Item& item : *items) h = std::max(h, heightOf(item, frame, ringSide, measure));
         sizes.ringSides.push_back(ringSide);
-        sizes.heights.push_back(h + listPadding(r) + sectionGap(r));
+        sizes.heights.push_back(h + listPadding(r) + sectionGap(r) + cornerRoom(r));
     }
     return sizes;
 }
@@ -164,8 +168,10 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                     wrapped[r] = std::max(wrapped[r], h);
                 }
                 float above = sectionGap(row); // the gap is empty: content centres in the rest
-                bool atTop = edge && row.edgesAtTop; // Row::edgesAtTop: corner controls beside a tall item
-                placed.frame = { x, y + above + (atTop ? 0 : (rowHeight - above - h) / 2), w, h };
+                // Row::edgesAtTop: corner controls at the row's top, the middle under them (decision 067).
+                float top = y + above, room = rowHeight - above;
+                if (row.edgesAtTop && !edge) top += cornerRoom(row), room -= cornerRoom(row);
+                placed.frame = { x, edge && row.edgesAtTop ? top : top + (room - h) / 2, w, h };
                 // Editable text owns its whole stretch, but is drawn editInset in from each side.
                 // Edited in place, the field fills that stretch (so its background keeps the row's
                 // gaps to the checkbox and delete button) and is as tall as the row's content, with
@@ -316,6 +322,13 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 float right = i + 1 == placed.size() ? f.x + f.width + gap / 2 : (f.x + f.width + placed[i + 1]->frame.x) / 2;
                 placed[i]->hitFrame = { left, y - t.rowSpacing / 2, right - left, rowHeight + t.rowSpacing };
             }
+            // Corner controls at a tall row's top click (and light up) only around themselves,
+            // not all down the middle item's side (decision 067).
+            if (row.edgesAtTop)
+                for (size_t i = first + row.items.size(); i < target.size(); ++i) {
+                    Rect& hit = target[i].hitFrame;
+                    hit.height = target[i].frame.y + target[i].frame.height + gap / 2 - hit.y;
+                }
             // A list item: its button takes clicks anywhere across the row's
             // `items` (Row::clickAnywhere: a row of Settings). Edge items keep their own.
             std::size_t middle = row.items.size();

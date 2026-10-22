@@ -48,7 +48,7 @@ struct Tokens {
     // along its top edge (decision 026), and this tall (TR §5, §9.1). The
     // width here is only a minimum, and the width layout() uses until the
     // platform says (tests).
-    Vec2 canvas{ 500, 680 }; // room for the largest pill (a Centred card at its tallest, with tabs) and its shadow
+    Vec2 canvas{ 500, 700 }; // room for the largest pill (a Centred card at its tallest, with tabs) and its shadow
 
     // One knob for the island's overall size: every length below is
     // multiplied by it, on top of the display's scaling (decision 017).
@@ -105,7 +105,6 @@ struct Tokens {
     float dividerThickness = 1;    // a Divider's line
     float dialInset = 10;          // a Dial: room between its time (and label) and its ring (decision 065)
     float groupGap = 20;           // Row::apart: space above a card's group (decision 066)
-    float secondaryHoverSize = 30; // Button::secondary: its hover circle, smaller than its click area (decision 066)
     float primaryHoverOpacity = 0.8f; // Button::primary under the pointer: its fill this much as strong (decision 066)
     float smallButtonSize = 32;   // Button::compact: list rows (a to-do's checkbox)
     float revealGlyphSize = 14;   // Button::revealOnHover (a to-do's delete): a smaller glyph, the same button and hover shape

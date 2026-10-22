@@ -118,10 +118,13 @@ Row captionsRow(std::initializer_list<std::pair<const char*, bool>> captions)
     return r;
 }
 
+// A page's title, centred on the card (hugging: not in the room after the back arrow).
 Row pageTitle(const char* title)
 {
     return Row{ .items = { Text{ .value = title, .style = TextStyle::Title, .centred = true } },
-                .leading = { Button{ .glyph = Glyph::ChevronLeft, .actionId = act::kBack, .secondary = true } } };
+                .align = Align::Center,
+                .leading = { Button{ .glyph = Glyph::ChevronLeft, .actionId = act::kBack, .secondary = true } },
+                .hug = true };
 }
 
 Row heading(const char* text, bool section)

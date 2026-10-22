@@ -20,11 +20,12 @@ Row settingRow(const char* name, const std::string& value, const char* openActio
                 .listItem = true };
 }
 
-// A choice page's title, with a back arrow at its start.
+// A choice page's title, with a back arrow at its start. Hugging: the title
+// as wide as it is, centred on the card, not in the room after the arrow.
 Row pageTitle(const char* title)
 {
     return Row{ .items = { Text{ .value = title, .style = TextStyle::Title, .centred = true } },
-                .leading = { Button{ Glyph::ChevronLeft, P::kBack } } };
+                .align = Align::Center, .leading = { Button{ Glyph::ChevronLeft, P::kBack } }, .hug = true };
 }
 
 // A group's name over its rows (decision 037): heavy and full-strength, with

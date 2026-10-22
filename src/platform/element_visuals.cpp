@@ -182,12 +182,8 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     } else if (std::holds_alternative<Button>(placed.item) || std::holds_alternative<TextInput>(placed.item)) {
         // A text field is built like a button: its background is the hover shape, shown only under the pointer.
         view.surface = device_->createSurface(size);
-        // A secondary button's hover is a smaller circle round its glyph; a primary one shows hover in its own fill (decision 066).
-        auto* button = std::get_if<Button>(&placed.item);
-        bool secondary = button && button->secondary && button->label.empty();
-        Vec2 hoverSize = secondary ? pixelSize({ t.secondaryHoverSize, t.secondaryHoverSize }) : Vec2{};
-        float radius = secondary ? hoverSize.x / 2 : placed.cornerRadius;
-        ButtonParts parts = createButton(compositor_, size, radius, view.surface, hoverColorOf(placed), hoverSize);
+        auto* button = std::get_if<Button>(&placed.item); // a primary one shows hover in its own fill (decision 066)
+        ButtonParts parts = createButton(compositor_, size, placed.cornerRadius, view.surface, hoverColorOf(placed));
         view.visual = parts.visual;
         view.hover = parts.hover;
         view.highlight = placed.litByRow || (button && button->primary) ? nullptr : parts.highlight; // lit by its row, or by its fill: stays hidden

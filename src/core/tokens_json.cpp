@@ -65,7 +65,6 @@ const Field kFields[] = {
     { "dividerThickness", &Tokens::dividerThickness },
     { "dialInset", &Tokens::dialInset },
     { "groupGap", &Tokens::groupGap },
-    { "secondaryHoverSize", &Tokens::secondaryHoverSize },
     { "primaryHoverOpacity", &Tokens::primaryHoverOpacity },
     { "smallButtonSize", &Tokens::smallButtonSize },
     { "revealGlyphSize", &Tokens::revealGlyphSize },

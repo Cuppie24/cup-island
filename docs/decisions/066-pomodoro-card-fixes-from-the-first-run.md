@@ -1,6 +1,6 @@
 # 066: The Pomodoro card after its first run
 
-Status: Accepted (amends 063, 064, 065)
+Status: Accepted (amends 063, 064, 065); secondary hover back to full size by 067
 
 **Context.** The first Windows run of the dial card (065) showed: the ring
 shrank on a break ("5:00" is narrower than "25:00"); the gear's hover was

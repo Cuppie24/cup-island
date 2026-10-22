@@ -138,12 +138,17 @@ void planTests()
            std::get<Button>(chart->item).actionId == pomodoro_action::kOpenStats && chart->frame.x > big->frame.x + big->frame.width,
            "a grey statistics button, beside the gear");
     expect(gear && std::get<Button>(gear->item).glyph == Glyph::Settings && std::get<Button>(gear->item).secondary && gear->frame.x > chart->frame.x &&
-           gear->frame.x + gear->frame.width > card.size.x - t.expandedPadding - 1 && gear->frame.y == big->frame.y,
-           "a grey gear in the top-right corner, level with the dial's top");
+           gear->frame.x + gear->frame.width > card.size.x - t.expandedPadding - 1 && big->frame.y - gear->frame.y >= t.groupGap - 0.01f,
+           "a grey gear in the top-right corner, the dial a group's room lower (decision 067)");
+    expect(gear->hitFrame.y + gear->hitFrame.height < gear->frame.y + gear->frame.height + t.itemSpacing &&
+           !hitTest(card, { gear->frame.x + gear->frame.width / 2, gear->frame.y + gear->frame.height + 30 }),
+           "its click zone is the gear's own, not all down the dial's side");
     expect(days && std::get<Text>(days->item).value == "0 days" && days->frame.x < t.expandedPadding + 1 && days->frame.y == gear->frame.y,
            "the days in a row in the top-left corner, plain text");
     expect(island.press("expandedCenter/0/1") && textAt(island.scene(), "expandedCenter/0/0") == "Statistics", "the chart opens the statistics");
     Scene stats = island.scene();
+    const Placed* title = find(stats, "expandedCenter/0/0");
+    expect(title && std::abs(title->frame.x + title->frame.width / 2 - stats.size.x / 2) < 0.51f, "its title centred on the card, back arrow or not");
     for (const Placed& p : stats.elements)
         if (p.key.rfind("tab/", 0) != 0) expect(p.frame.y + p.frame.height <= stats.size.y - t.expandedPadding + 0.01f, "fits the statistics: " + p.key);
     island.registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kBack, 0 });

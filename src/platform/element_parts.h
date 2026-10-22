@@ -65,10 +65,9 @@ struct ButtonParts {
     wuc::ShapeVisual highlight{ nullptr };
     wuc::CompositionColorBrush hover{ nullptr };
 };
-// `hover`: the shape's colour (buttonHoverColor; a text field uses inputColor). `hoverSize`: the
-// shape's size, centred in the frame (a secondary button's circle, decision 066); zero: the frame's.
+// `hover`: the shape's colour (buttonHoverColor; a text field uses inputColor).
 ButtonParts createButton(wuc::Compositor const& c, Vec2 frame, float cornerRadius, wuc::CompositionDrawingSurface const& glyph,
-                         const Color& hover, Vec2 hoverSize = {});
+                         const Color& hover);
 
 // Swimming text: shows `surface` (see paintMarquee) through soft-edged mask,
 // pausing at the start, then scrolling `travel` pixels left, forever.
