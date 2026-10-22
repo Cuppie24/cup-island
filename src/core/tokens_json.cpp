@@ -191,6 +191,7 @@ const Field kFields[] = {
     { "pomodoroBreakMaxMs", &Tokens::pomodoroBreakMax },
     { "pomodoroLongBreakMs", &Tokens::pomodoroLongBreak },
     { "pomodoroRounds", &Tokens::pomodoroRounds },
+    { "pomodoroFocusSkipsAllowed", &Tokens::pomodoroFocusSkipsAllowed },
     { "todoMaxLength", &Tokens::todoMaxLength },
     { "listVisibleRows", &Tokens::listVisibleRows },
     { "scrollStep", &Tokens::scrollStep },

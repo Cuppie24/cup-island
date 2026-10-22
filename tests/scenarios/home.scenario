@@ -107,6 +107,19 @@ click
 tile settings
 wait 8000                           -> Idle
 
+scenario: a card with no idle timeout stays when left alone, still closes on Esc or outside (decision 062)
+panel focus awake
+click
+tile focus                          -> Expanded expanded=focus
+wait 60000                          -> Expanded expanded=focus
+outside                             -> Idle
+click
+tile focus
+start focus awake                   -> Expanded expanded=focus top=focus
+wait 60000                          -> Expanded expanded=focus
+home                                -> Expanded expanded=home
+wait 8000                           -> Compact
+
 scenario: the Open Home shortcut (Ctrl+Q) opens Home from anywhere (decision 032)
 panel focus
 home                                -> Expanded expanded=home

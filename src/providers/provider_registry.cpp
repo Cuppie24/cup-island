@@ -26,6 +26,7 @@ public:
     }
 
     Ms now() const override { return registry_.clock_(); }
+    Ms utcOffset() const override { return registry_.store_.utcOffset ? registry_.store_.utcOffset() : Ms{ 0 }; }
 
     void publishPanel(Panel panel) override
     {

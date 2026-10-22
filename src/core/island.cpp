@@ -79,6 +79,14 @@ bool shownCardKeepsOpen(const IslandState& s)
     return p && p->content.keepOpen;
 }
 
+// The shown card stays up however long it's left alone (decision 062).
+bool shownCardIgnoresIdle(const IslandState& s)
+{
+    if (const Activity* a = findActivity(s, s.expandedId)) return a->content.noIdleTimeout;
+    const Panel* p = findPanel(s, s.expandedId);
+    return p && p->content.noIdleTimeout;
+}
+
 // Runs after every event: expire timers, drop stale state, show the next alert.
 void settle(IslandState& s, Ms now)
 {
@@ -86,7 +94,7 @@ void settle(IslandState& s, Ms now)
     if (!s.pinnedId.empty() && !findActivity(s, s.pinnedId)) s.pinnedId.clear(); // a pick dies with its activity
 
     if (isExpanded(s)) {
-        bool timedOut = now >= s.lastPointerAt + tokens().expandedIdleTimeout && !typing(s) && !s.stayOpen;
+        bool timedOut = now >= s.lastPointerAt + tokens().expandedIdleTimeout && !typing(s) && !s.stayOpen && !shownCardIgnoresIdle(s);
         if (timedOut || !expandedViewExists(s)) collapse(s);
     }
     dropStaleOverlays(s); // a draft or dialog goes with its card
@@ -361,7 +369,7 @@ std::optional<Ms> nextDeadline(const IslandState& s)
     if (s.alert) consider(s.alertUntil);
     for (const auto& a : s.activities)
         if (a.expiresAt) consider(*a.expiresAt);
-    if (isExpanded(s) && !typing(s) && !s.stayOpen) consider(s.lastPointerAt + tokens().expandedIdleTimeout);
+    if (isExpanded(s) && !typing(s) && !s.stayOpen && !shownCardIgnoresIdle(s)) consider(s.lastPointerAt + tokens().expandedIdleTimeout);
     for (const auto& a : s.alertQueue) consider(a.postedAt + tokens().heldAlertMaxAge + Ms{ 1 });
     if (auto lift = liftDeadline(s)) consider(*lift);
     return next;

@@ -61,8 +61,10 @@ add_library(cup_providers STATIC
     src/providers/media/now_playing.cpp
     src/providers/media/session_choice.cpp
     src/providers/media/tab_match.cpp
+    src/providers/pomodoro/pomodoro_card.cpp
     src/providers/pomodoro/pomodoro_provider.cpp
     src/providers/pomodoro/pomodoro_session.cpp
+    src/providers/pomodoro/pomodoro_stats.cpp
     src/providers/pomodoro/todo_list.cpp
     src/providers/system/settings_card.cpp
     src/providers/system/settings_provider.cpp
@@ -89,6 +91,7 @@ if(CUP_BUILD_TESTS)
         tests/main.cpp
         tests/media_tests.cpp
         tests/placement_tests.cpp
+        tests/pomodoro_stats_tests.cpp
         tests/pomodoro_tests.cpp
         tests/provider_tests.cpp
         tests/unit_tests.cpp

@@ -965,6 +965,7 @@ int main()
         .load = [](const std::string& provider, const std::string& key) { return store().load(provider, key); },
         .save = [](const std::string& provider, const std::string& key, const std::string& text) { store().save(provider, key, text); },
         .wallClock = wallClock,
+        .utcOffset = platform::utcOffset,
     });
     g_providers->add(std::make_unique<SmtcMediaProvider>(postToUi));
     g_providers->add(std::make_unique<DemoMediaProvider>()); // M key

@@ -190,7 +190,7 @@ over the file's, so `tokens()` is always what's on screen.
   format is documented at the top of `tests/scenario_runner.cpp`.
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing), `list_card_tests.cpp` (Settings' List card), `badge_tests.cpp` (notification dots),
   `home_tests.cpp` (tiles, Home tab, idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
-  `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop),
+  `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop), `pomodoro_stats_tests.cpp` (statistics, days off),
   `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
@@ -206,7 +206,8 @@ over the file's, so `tokens()` is always what's on screen.
 | Display scaling: tokens in logical pixels, scaled per the primary display, live on a scale change (decision 017) | done; scaling tested, Windows side needs a run |
 | Island shadow: a DropShadow under the pill and the bubble, masked by a live snapshot of each (decision 018) | done; needs a Windows run to judge |
 | Dialogs over a card, scrolling lists, buttons shown on hover (decision 020) | done; rules tested, Windows side needs a run |
-| Pomodoro session survives a restart: saved with the wall clock, caught up on start (decision 027) | done; tested |
+| Pomodoro session survives a restart, back paused where it was (decisions 027, 061) | done; tested |
+| Pomodoro statistics: finished today, best day, days in a row with days off, focus time; days off on the timer's own settings page (decision 061); its card doesn't close when left alone (decision 062) | done; rules tested, the gear and page need a Windows run |
 | Providers' store: `Host::load/save/wallClock`, a file per key, legacy files moved in (decision 028) | done; tested |
 | Host lists: smooth scrolling, keep-in-view, drag to reorder, edit in place (decision 029) | done; rules tested, compositor side needs a Windows run |
 | Renderer: alert pulse, receptive drop zones, matched geometry | not yet |

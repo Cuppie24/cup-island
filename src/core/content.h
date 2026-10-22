@@ -270,6 +270,9 @@ struct Content {
     // settings, where a near miss shouldn't close it. Esc, a click outside
     // the island or the idle timeout still do (decision 030).
     bool keepOpen = false;
+    // ...and doesn't close when left alone either (expandedIdleTimeout): a
+    // timer kept in view while working (Pomodoro, decision 062).
+    bool noIdleTimeout = false;
     // A card on one of its own pages (Settings' Theme page): the action Esc
     // sends, as a click on its back arrow would. Empty: Esc goes back to
     // Home or closes, as anywhere else (decision 033).

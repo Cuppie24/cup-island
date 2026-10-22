@@ -286,6 +286,8 @@ struct Tokens {
     Ms pomodoroBreakMax{ 3600000 };
     Ms pomodoroLongBreak{ 900000 };
     std::size_t pomodoroRounds = 4;
+    // A session counts as finished (decision 061) with at most this many focus phases skipped.
+    std::size_t pomodoroFocusSkipsAllowed = 1;
     std::size_t todoMaxLength = 150; // characters in a to-do: wraps onto a few lines at most (decision 045)
     // Lists (Row::list, decision 029): the window shows this many rows (the
     // half says there's more), the wheel moves scrollStep per notch, easing

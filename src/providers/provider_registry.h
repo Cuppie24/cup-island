@@ -24,6 +24,7 @@ public:
         std::function<std::string(const std::string& providerId, const std::string& key)> load;
         std::function<void(const std::string& providerId, const std::string& key, const std::string& text)> save;
         Clock wallClock;
+        Clock utcOffset; // Host::utcOffset; unset: UTC
     };
 
     ProviderRegistry(Dispatch dispatch, Clock clock, Store store = {});
