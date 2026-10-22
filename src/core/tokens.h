@@ -218,6 +218,9 @@ struct Tokens {
     // After any app starts/stops playing, ask Windows again this much later:
     // its "current session" can switch slightly after the playback event.
     Ms mediaSessionRecheck{ 300 };
+    // With no session left, what's shown stays this long before it ends:
+    // some apps drop theirs for a moment on every track change (decision 074).
+    Ms mediaSessionGoneGrace{ 1500 };
     // A track shows at once; its cover fades in over this when it's read (decision 056).
     Ms mediaArtFade{ 400 };
     // After a track change, the cover is read again this much later: apps

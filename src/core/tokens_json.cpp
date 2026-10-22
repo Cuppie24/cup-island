@@ -144,6 +144,7 @@ const Field kFields[] = {
     { "alertQueueCapacity", &Tokens::alertQueueCapacity },
     { "mediaPausedLingerMs", &Tokens::mediaPausedLinger, true },
     { "mediaSessionRecheckMs", &Tokens::mediaSessionRecheck },
+    { "mediaSessionGoneGraceMs", &Tokens::mediaSessionGoneGrace },
     { "mediaArtFadeMs", &Tokens::mediaArtFade },
     { "mediaArtRecheckMs", &Tokens::mediaArtRecheck },
     { "mediaReadStuckMs", &Tokens::mediaReadStuck },

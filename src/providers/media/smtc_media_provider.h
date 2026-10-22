@@ -35,6 +35,7 @@ public:
     void start(Host& host) override;
     void stop() override;
     void onAction(const Action& action) override;
+    void onWake() override { presenter_->onWake(); } // a vanished session's grace is over (decision 074)
 
 private:
     using Manager = wmc::GlobalSystemMediaTransportControlsSessionManager;

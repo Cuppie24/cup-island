@@ -2,6 +2,8 @@
 
 #include "core/tokens.h"
 
+#include <utility>
+
 namespace cup {
 namespace {
 
@@ -26,19 +28,31 @@ void MediaPresenter::start()
 
 void MediaPresenter::stop()
 {
-    show(std::nullopt);
+    end();
     host_.removePanel(kActivityId);
+}
+
+void MediaPresenter::end()
+{
+    if (last_) host_.endActivity(kActivityId);
+    last_.reset();
+    pausedSince_.reset();
+    if (std::exchange(goneSince_, std::nullopt)) host_.wakeAt(std::nullopt);
 }
 
 void MediaPresenter::show(const std::optional<MediaSnapshot>& snapshot)
 {
+    Ms now = host_.now();
     if (!snapshot) {
-        if (last_) host_.endActivity(kActivityId);
-        last_.reset();
-        pausedSince_.reset();
+        // Not ended at once: a session that's back within the grace was a
+        // track change (decision 074). The clock starts at the first gap.
+        if (last_ && !goneSince_) {
+            goneSince_ = now;
+            host_.wakeAt(now + tokens().mediaSessionGoneGrace);
+        }
         return;
     }
-    Ms now = host_.now();
+    if (std::exchange(goneSince_, std::nullopt)) host_.wakeAt(std::nullopt);
     MediaSnapshot next = *snapshot;
     if (last_ && last_->sessionKey == next.sessionKey && sameTrack(last_->media, next.media) &&
         sameTimeline(last_->media.timeline, next.media.timeline, now))
@@ -66,6 +80,11 @@ void MediaPresenter::show(const std::optional<MediaSnapshot>& snapshot)
         host_.postAlert({ .activityId = kActivityId, .content = content, .coalesceKey = "track", .refreshOnly = true });
 
     last_ = next;
+}
+
+void MediaPresenter::onWake()
+{
+    if (goneSince_ && host_.now() - *goneSince_ >= tokens().mediaSessionGoneGrace) end();
 }
 
 } // namespace cup
