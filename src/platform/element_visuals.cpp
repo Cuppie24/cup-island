@@ -344,7 +344,7 @@ void ElementVisuals::paint(View& view)
         } else if (auto* dial = std::get_if<Dial>(&item)) {
             paintDial(dc, dw, *dial, size);
         } else if (std::holds_alternative<Divider>(item)) {
-            dc->FillRectangle(D2D1::RectF(0, 0, size.x, size.y), brushOf(dc, t.trackColor).get());
+            paintDivider(dc, size);
         } else if (auto* swatch = std::get_if<Swatch>(&item)) {
             paintSwatch(dc, *swatch, size);
         }

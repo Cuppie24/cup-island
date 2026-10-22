@@ -207,6 +207,11 @@ winrt::com_ptr<IDWriteTextLayout> wrappedLayout(IDWriteFactory* dw, const Text& 
 
 } // namespace
 
+void paintDivider(ID2D1DeviceContext* dc, Vec2 size)
+{
+    dc->FillRectangle(D2D1::RectF(0, 0, size.x, size.y), brushOf(dc, tokens().trackColor).get());
+}
+
 void paintDial(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Dial& dial, Vec2 size)
 {
     Text time{ .value = dial.shown, .style = TextStyle::Display, .centred = true };

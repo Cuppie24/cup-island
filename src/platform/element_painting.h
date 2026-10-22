@@ -19,6 +19,8 @@ void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float f
 // A text button's label, centred.
 void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& label, Vec2 size, const Color& color,
                 TextStyle style = TextStyle::Body);
+// A Divider: its line, in the track colour (decision 064).
+void paintDivider(ID2D1DeviceContext* dc, Vec2 size);
 // A Dial's middle (decision 065): its time big, its label under it, the two centred as a block. Its ring is shapes.
 void paintDial(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Dial& dial, Vec2 size);
 // Button::primary: a filled circle in the button colour, its glyph in the island's (decision 064).
