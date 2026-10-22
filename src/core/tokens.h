@@ -104,7 +104,6 @@ struct Tokens {
     float primaryGlyphSize = 22;
     float playGlyphNudge = 0.08f;  // a primary ▶ moved right by this share of its width: a triangle's optical centre (decision 071)
     Vec2 toastPadding{ 14, 6 };    // a toast: room around its text and button inside its pill (decision 071)
-    float toastRise = 10;          // ...how far it rises as it fades in
     float dividerThickness = 1;    // a Divider's line
     float dialInset = 10;          // a Dial: room between its time (and label) and its ring (decision 065)
     float groupGap = 20;           // Row::apart: space above a card's group (decision 066)
@@ -207,7 +206,7 @@ struct Tokens {
     // Arbitration (PS §6).
     Ms alertDuration{ 3000 };
     Ms toastDuration{ 5000 }; // a toast at a card's bottom goes after this (decision 071)
-    Ms toastFadeDuration{ 200 }; // ...and fades in, rising toastRise, and out over this
+    Ms toastSlideDuration{ 260 }; // ...and slides up from below the card's edge, fading in, and back down, over this
 
     Ms expandedIdleTimeout{ 8000 };
     Ms heldAlertMaxAge{ 30000 };

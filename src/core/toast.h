@@ -15,7 +15,8 @@ const Toast* toastOn(const IslandState& state, const std::string& activityId);
 
 // Where it floats: a pill as wide as its text and button (at most the card's
 // width less its padding), centred, its bottom `bottom` (the content's
-// bottom edge); its text quiet and its action a button in it.
+// bottom edge); its text quiet and its action a button in it. It slides up
+// into place from just below the card's bottom edge (ToastScene::slide).
 ToastScene placeToast(const Toast& toast, const Source& source, Vec2 cardSize, float bottom, Ms now, const MeasureText& measure);
 
 } // namespace cup

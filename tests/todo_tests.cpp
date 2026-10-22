@@ -395,6 +395,7 @@ void runTodoTests()
     expect(note && undo && std::get<Button>(undo->item).actionId == todo_action::kUndoDelete && t.frame.contains({ note->frame.x + 1, note->frame.y + 1 }) &&
            t.frame.y + t.frame.height <= toasted.size.y - tokens().expandedPadding + 0.01f &&
            std::abs(t.frame.x + t.frame.width / 2 - toasted.size.x / 2) < 0.51f, "\"To-do deleted · Undo\" in a pill at the card's bottom, centred");
+    expect(std::abs(t.slide - (toasted.size.y - t.frame.y)) < 0.01f, "it slides up from just below the card's bottom edge, like a toast");
     IslandState noToast = state;
     noToast.toast.reset();
     Scene without = layout(noToast, now); // the same card without its toast: nothing else differs

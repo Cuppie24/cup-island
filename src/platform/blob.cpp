@@ -110,6 +110,7 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     body_.Children().InsertAtTop(content_);
     badges_.build(c, body_, content_); // dots over the content (decision 038)
     toast_.build(c, device, body_, content_); // a toast floats over the content too (decision 071)
+    bind(c, toast_.frame(), L"Size", L"pill.Size", body_, shape_); // clipped to the card, like the content
     elements_.init(c, device, content_);
 
     buildShadow(c, parent); // under the body

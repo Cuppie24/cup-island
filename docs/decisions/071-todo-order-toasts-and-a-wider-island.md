@@ -23,8 +23,9 @@ and the island was narrow for its content.
   time. It floats above the content (`Scene::toast`: its own pill and
   elements), which doesn't move for it: a row would have pushed the card's
   rows around. The pill is the theme's raised colour
-  (`islandHighlightColor`); it rises `toastRise` as it fades in and sinks a
-  little as it fades out, over `toastFadeDuration`. Clicks on it never
+  (`islandHighlightColor`). Like a toast from a toaster, it slides up from
+  behind the card's bottom edge (clipped there) as it fades in, and back
+  down past it as it fades out, over `toastSlideDuration`. Clicks on it never
   reach what's under it: its button takes them, the rest of it nothing.
   Pomodoro deletes a to-do at once and shows "To-do deleted · Undo"; Undo
   restores it in its place.

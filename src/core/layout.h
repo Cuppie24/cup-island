@@ -95,6 +95,7 @@ struct Tile {
 struct ToastScene {
     Rect frame;    // pill coordinates
     float radius = 0;
+    float slide = 0; // how far it slides up into place: from just below the card's bottom edge
     std::vector<Placed> elements; // keys "toast/..."
     bool operator==(const ToastScene&) const = default;
 };

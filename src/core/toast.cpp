@@ -27,7 +27,8 @@ ToastScene placeToast(const Toast& toast, const Source& source, Vec2 cardSize, f
     Vec2 pad = t.toastPadding;
     float w = std::min(width + 2 * pad.x, std::max(0.0f, cardSize.x - 2 * t.expandedPadding));
     float h = height + 2 * pad.y;
-    ToastScene scene{ .frame = { (cardSize.x - w) / 2, bottom - h, w, h }, .radius = h / 2 };
+    // Like a toast from a toaster: it comes up from below the card's bottom edge, hidden behind it at first.
+    ToastScene scene{ .frame = { (cardSize.x - w) / 2, bottom - h, w, h }, .radius = h / 2, .slide = cardSize.y - (bottom - h) };
     Slot slot{ note };
     Rect inner{ scene.frame.x + pad.x, scene.frame.y + pad.y, std::max(0.0f, w - 2 * pad.x), height };
     placeSlot({ "toast", &slot, inner }, source, std::max(0.0f, scene.radius - pad.y), now, scene.elements, measure);
