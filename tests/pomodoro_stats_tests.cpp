@@ -278,9 +278,11 @@ void layoutTests()
     const Placed* big = at(card, "expandedCenter/0/0");
     const Placed* fire = at(card, "expandedCenter/0/3"); // items, then trailing (the chart, the gear), then leading
     const Placed* days = at(card, "expandedCenter/0/4");
-    expect(fire && days && std::get<Icon>(fire->item).glyph == Glyph::Fire && std::get<Text>(days->item).value == "12 days" &&
+    const Placed* word = at(card, "expandedCenter/0/5");
+    expect(fire && days && word && std::get<Icon>(fire->item).glyph == Glyph::Fire && std::get<Text>(days->item).value == "12" &&
+           std::get<Text>(word->item).value == "days" && word->frame.x > days->frame.x &&
            fire->frame.x < days->frame.x && fire->frame.x < t.expandedPadding + 1, "the fire, then the count, in the top-left corner");
-    expect(big && days && days->frame.x + days->frame.width < big->frame.x && days->frame.width > 20, "the count at its width, clear of the time");
+    expect(big && word && word->frame.x + word->frame.width < big->frame.x && days->frame.width > 5, "the count at its width, clear of the time");
     expect(big && std::abs(big->frame.x + big->frame.width / 2 - card.size.x / 2) < 0.51f, "the time still centred on the card");
 
     Panel stats = pomodoroPanel();

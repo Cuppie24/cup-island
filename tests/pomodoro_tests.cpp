@@ -147,8 +147,11 @@ void planTests()
     expect(gear->hitFrame.y + gear->hitFrame.height < gear->frame.y + gear->frame.height + t.itemSpacing &&
            !hitTest(card, { gear->frame.x + gear->frame.width / 2, gear->frame.y + gear->frame.height + 30 }),
            "its click zone is the gear's own, not all down the dial's side");
-    expect(days && std::get<Text>(days->item).value == "0 days" && days->frame.x < t.expandedPadding + 1 && days->frame.y == gear->frame.y,
-           "the days in a row in the top-left corner, plain text");
+    const Placed* daysWord = find(card, "expandedCenter/0/4");
+    expect(days && daysWord && std::get<Text>(days->item).value == "0" && std::get<Text>(days->item).bright &&
+           std::get<Text>(daysWord->item).value == "days" && !std::get<Text>(daysWord->item).bright &&
+           days->frame.x < t.expandedPadding + 1 && days->frame.y == gear->frame.y && daysWord->frame.x > days->frame.x,
+           "the days in a row in the top-left corner: the number bright, the word quiet");
     expect(island.press("expandedCenter/0/1") && textAt(island.scene(), "expandedCenter/0/0") == "Statistics", "the chart opens the statistics");
     Scene stats = island.scene();
     const Placed* title = find(stats, "expandedCenter/0/0");

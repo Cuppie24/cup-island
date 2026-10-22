@@ -84,7 +84,10 @@ Row dialRow(const Timeline& timeline, const std::string& label, const PomodoroPl
                          Button{ .glyph = Glyph::Settings, .actionId = act::kOpenSettings, .secondary = true } },
            .edgesAtTop = true };
     if (daysInARow >= 3) r.leading.push_back(Icon{ Glyph::Fire });
-    if (daysInARow >= 0) r.leading.push_back(Text{ .value = days(daysInARow), .style = TextStyle::Caption });
+    if (daysInARow >= 0) { // the number bright among the quiet word, like today's line (decision 068)
+        r.leading.push_back(Text{ .value = std::to_string(daysInARow), .style = TextStyle::Caption, .bright = true });
+        r.leading.push_back(Text{ .value = daysInARow == 1 ? "day" : "days", .style = TextStyle::Caption });
+    }
     return r;
 }
 
