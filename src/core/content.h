@@ -90,7 +90,11 @@ struct Image {
     std::string actionId; // clickable when set: sent back to the provider (media art opens its app)
     bool operator==(const Image&) const = default;
 };
-struct Icon { Glyph glyph = Glyph::Music; bool operator==(const Icon&) const = default; };
+struct Icon {
+    Glyph glyph = Glyph::Music;
+    bool quiet = false; // in a Home widget: as strong as a secondary button at rest (buttonOffColor, decision 073)
+    bool operator==(const Icon&) const = default;
+};
 struct Button {
     Glyph glyph = Glyph::Play;
     std::string actionId; // sent back to the provider when clicked

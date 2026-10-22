@@ -8,7 +8,8 @@ Panel themePanel(bool dark)
     const char* mode = dark ? "Dark" : "Light";
     Content content{
         .label = std::string(mode) + " mode",
-        .tile = { row({ Icon{ dark ? Glyph::Moon : Glyph::Sun } }), row({ Text{ mode, TextStyle::Title } }) },
+        // One line: the icon beside its word, like the media and timer widgets (decision 073).
+        .tile = { row({ Icon{ dark ? Glyph::Moon : Glyph::Sun }, Text{ mode, TextStyle::Title } }) },
     };
     return { .id = ThemePresenter::kPanelId, .content = content, .tapAction = ThemePresenter::kToggle };
 }

@@ -18,11 +18,12 @@ void runSystemTests()
     const Panel& dark = th.published.back();
     expect(dark.id == ThemePresenter::kPanelId && dark.tapAction == ThemePresenter::kToggle && !hasCard(dark.content),
            "a tap-action tile, no card");
-    expect(glyphAt(dark, 0) == Glyph::Moon && textAt(dark, 1, 0) == "Dark", "dark: the moon");
+    expect(glyphAt(dark, 0) == Glyph::Moon && textAt(dark, 0, 1) == "Dark" && dark.content.tile.size() == 1,
+           "dark: the moon, beside its word on one line (decision 073)");
     theme.show(true);
     expect(th.published.size() == 1, "same mode: no republish");
     theme.show(false);
-    expect(th.published.size() == 2 && glyphAt(th.published.back(), 0) == Glyph::Sun && textAt(th.published.back(), 1, 0) == "Light",
+    expect(th.published.size() == 2 && glyphAt(th.published.back(), 0) == Glyph::Sun && textAt(th.published.back(), 0, 1) == "Light",
            "light: the sun");
 }
 

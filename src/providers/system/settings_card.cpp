@@ -289,7 +289,7 @@ Panel settingsPanel(const SettingsView& view)
                           : view.page == SettingsPage::MusicColours ? musicColoursPage(view)
                           : view.page == SettingsPage::Shortcuts ? shortcutsPage(view)
                                                                  : listPage(view),
-        .tile = { row({ Icon{ Glyph::Settings } }), row({ Text{ "Settings" } }) },
+        .tile = { row({ Icon{ Glyph::Settings }, Text{ "Settings", TextStyle::Title } }) }, // one line, bold like the others (decision 073)
     };
     return { .id = kSettingsPanelId, .content = content };
 }

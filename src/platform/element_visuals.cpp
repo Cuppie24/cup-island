@@ -342,7 +342,7 @@ void ElementVisuals::paint(View& view)
             if (view.marqueeWidth > 0) paintMarquee(dc, dw, *text, view.marqueeWidth, view.lead, t.marqueeGap, size.y);
             else paintText(dc, dw, *text, size);
         } else if (auto* icon = std::get_if<Icon>(&item)) {
-            paintGlyph(dc, dw, icon->glyph, t.iconSize, pixelSize(size), t.iconColor); // the surface's whole pixels
+            paintGlyph(dc, dw, icon->glyph, t.iconSize, pixelSize(size), icon->quiet ? t.buttonOffColor : t.iconColor); // the surface's whole pixels
         } else if (auto* button = std::get_if<Button>(&item)) {
             bool toggledOff = button->on && !*button->on;
             bool idle = button->secondary && !view.lit; // grey until hovered (decision 064)
