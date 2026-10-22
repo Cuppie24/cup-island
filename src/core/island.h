@@ -257,6 +257,11 @@ std::optional<ShownCard> shownActivity(const IslandState& state);
 // so a page goes back to its list before anything closes (decision 033). "" = none.
 std::string backAction(const IslandState& state);
 
+// Whether a press on the island's empty space squashes it (the press
+// feedback of a click that collapses it). Not where that click does nothing:
+// Home, a card that stays open on it (Content::keepOpen), a pinned island (decision 071).
+bool pressSquashes(const IslandState& state);
+
 // Local time of day at `now`, once the platform has synced the clock.
 std::optional<Ms> timeOfDay(const IslandState& state, Ms now);
 

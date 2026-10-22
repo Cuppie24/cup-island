@@ -483,7 +483,7 @@ void onPressDown(Vec2 canvasPoint)
             g_pointer.listPress = *element;
             g_pointer.listPressY = point.y;
         }
-    } else {
+    } else if (pressSquashes(g_state)) { // not where an empty click does nothing (decision 071)
         g_renderer.pressDown(false);
     }
     updateHover();

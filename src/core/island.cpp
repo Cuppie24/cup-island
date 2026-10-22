@@ -330,6 +330,12 @@ void handle(IslandState& s, const ClockSynced& e, Ms now) { s.clock = WallClock{
 
 } // namespace
 
+bool pressSquashes(const IslandState& s)
+{
+    if (mode(s) != Mode::Expanded) return true;
+    return !s.homeOpen && !shownCardKeepsOpen(s) && !s.stayOpen;
+}
+
 // --- Public API -------------------------------------------------------------
 
 IslandState reduce(IslandState state, const Event& event, Ms now)

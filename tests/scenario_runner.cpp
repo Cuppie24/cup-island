@@ -28,7 +28,7 @@
 //                     draft=<text>|empty|none  (_ for a space)  dialog=<card>|none
 //                     caret=<byte offset>  selected=<text>|none  (_ for a space)
 //                     lifted=yes|no  spot=centre|left|right|free  stay=yes|no  tabs=top|bottom
-//                     scroll=<card>/<list>:<offset>[+reveal]  carried=<row>|none
+//                     scroll=<card>/<list>:<offset>[+reveal]  carried=<row>|none  squash=yes|no (a press on empty space, decision 071)
 // Levels: passive active timeSensitive critical.  '#' starts a comment.
 
 #include "core/island.h"
@@ -219,6 +219,9 @@ struct Runner {
             } else if (auto v = option(word, "pinned")) {
                 std::string id = state.pinnedId.empty() ? "none" : state.pinnedId;
                 if (id != *v) fail("pinned=" + *v + ", got " + id);
+            } else if (auto v = option(word, "squash")) {
+                std::string got = pressSquashes(state) ? "yes" : "no";
+                if (got != *v) fail("squash=" + *v + ", got " + got);
             } else if (auto v = option(word, "dragging")) {
                 std::string got = state.bubbleDrag ? "yes" : "no";
                 if (got != *v) fail("dragging=" + *v + ", got " + got);

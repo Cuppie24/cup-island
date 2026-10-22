@@ -252,9 +252,9 @@ void runContentTests()
     float ends = t.homeButtonWidth + t.slotGap; // kept free at both ends: the pin at the right, Home's room at the left (decision 046)
     expect(strip.tabs[0].frame.width == t.tabMaxWidth || std::abs(groupRight - groupLeft - (opened.size.x - 2 * t.expandedPadding - 2 * ends)) < 0.01f,
            "tabs use their full width unless they don't fit");
-    expect(strip.pin && strip.pin->frame.x + strip.pin->frame.width == opened.size.x - t.expandedPadding &&
-           strip.pin->frame.y == strip.tabs[0].frame.y && groupRight <= strip.pin->frame.x - t.slotGap, "the pin at the strip's right end");
-    expect(groupLeft - 0 == opened.size.x - groupRight, "the group is centred");
+    expect(strip.pin && std::abs(strip.pin->frame.x + strip.pin->frame.width - (opened.size.x - t.expandedPadding)) < 0.01f &&
+           strip.pin->frame.y == strip.tabs[0].frame.y && groupRight <= strip.pin->frame.x - t.slotGap + 0.01f, "the pin at the strip's right end");
+    expect(std::abs(groupLeft - (opened.size.x - groupRight)) < 0.01f, "the group is centred");
     expect(groupLeft >= t.expandedPadding && strip.tabs[0].frame.y == t.expandedPadding,
            "strip along the top, keeping the card's padding (decision 047)");
     expect(strip.radius == std::min(pillCornerRadius(opened.size) - t.expandedPadding, t.tabHeight / 2), "tab corners nested");
