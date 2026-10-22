@@ -1,6 +1,6 @@
 # 005: How the media provider handles Windows media sessions
 
-Status: Accepted; a track no longer waits for its cover (056); the late-update bugs are in 057
+Status: Accepted; a track no longer waits for its cover (056); the late-update bugs are in 057; a session's brief gaps and self-named apps are in 074
 
 **Context.** Windows exposes every app that plays media as an SMTC session
 (TR §6). Several can exist at once, they appear and vanish freely, they report
@@ -56,7 +56,8 @@ art and timelines unreliably, and their events arrive on background threads.
   window whose title shows the media (a browser window whose active tab is
   playing). Store apps with no window are activated through Windows; a
   desktop app with no window (Spotify in the tray) is started again, which
-  shows the running one. Browsers: SMTC doesn't say which tab is playing,
+  shows the running one. An id that isn't an exe name ("ru.yandex.desktop.music")
+  is looked up through its Start menu shortcut (074). Browsers: SMTC doesn't say which tab is playing,
   so if no window's title shows the media, the app's tab strips are read
   through UI Automation (`browser_tabs`, skipping web page content) and the
   tab whose name contains the title is selected, preferring one marked as

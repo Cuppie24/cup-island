@@ -29,7 +29,8 @@ struct FakeHost : Host {
     Ms now() const override { return clock; }
     void publishPanel(Panel p) override { panels.push_back(std::move(p)); }
     void removePanel(const std::string& id) override { removedPanels.push_back(id); }
-    void wakeAt(std::optional<Ms>) override {}
+    std::optional<Ms> wake;
+    void wakeAt(std::optional<Ms> at) override { wake = at; }
     void ask(Dialog) override {}
     void reveal(const std::string&, const std::string&, std::size_t) override {}
     std::string load(const std::string&) const override { return {}; }
@@ -101,17 +102,41 @@ void runMediaTests()
     presenter.show(track("Chrome", "Video", true));
     expect(!host.started.back().expiresAt, "resuming clears the expiry");
 
+    // No session (decision 074): what's shown waits out a grace, since some
+    // apps (Yandex Music) drop their session for a moment on a track change.
+    std::size_t shownBefore = host.started.size();
     presenter.show(std::nullopt);
-    expect(host.ended.size() == 1 && host.ended[0] == MediaPresenter::kActivityId, "no session ends the activity");
+    Ms graceEnds = host.clock + tokens().mediaSessionGoneGrace;
+    expect(host.ended.empty() && host.wake == graceEnds, "no session: nothing ends yet, a wake-up at the grace's end");
+    host.clock += Ms{ 500 };
     presenter.show(std::nullopt);
-    expect(host.ended.size() == 1, "ending twice sends nothing");
-
+    expect(host.wake == graceEnds, "more reads without a session don't extend the grace");
+    presenter.show(track("Chrome", "Video", true));
+    expect(host.ended.empty() && !host.wake && host.started.size() == shownBefore,
+           "back within the grace, unchanged: nothing ends, nothing is resent, the wake-up is cancelled");
+    presenter.show(std::nullopt);
     presenter.show(track("Chrome", "Video 2"));
-    expect(host.alerts.size() == 1, "a session reappearing doesn't alert");
+    expect(host.ended.empty() && host.alerts.size() == 2 && host.alerts.back().content.label == "Video 2 - Artist",
+           "back within the grace with the next track: it alerts, as any track change in the app");
+
+    presenter.show(std::nullopt);
+    host.clock += tokens().mediaSessionGoneGrace - Ms{ 1 };
+    presenter.onWake();
+    expect(host.ended.empty(), "an early wake-up ends nothing");
+    host.clock += Ms{ 1 };
+    presenter.onWake();
+    expect(host.ended.size() == 1 && host.ended[0] == MediaPresenter::kActivityId && !host.wake,
+           "no session for the whole grace ends the activity");
+    presenter.show(std::nullopt);
+    presenter.onWake();
+    expect(host.ended.size() == 1 && !host.wake, "ending twice sends nothing");
+
+    presenter.show(track("Chrome", "Video 3"));
+    expect(host.alerts.size() == 2, "a session reappearing after the grace doesn't alert");
 
     auto untitled = track("Chrome", "");
     presenter.show(untitled);
-    expect(host.alerts.size() == 1, "no alert for an empty title");
+    expect(host.alerts.size() == 2, "no alert for an empty title");
 
     // Shuffle/repeat buttons: only for apps that support them, lit when on.
     auto controlsOf = [](const NowPlaying& m) { return nowPlayingContent(m).expandedBottom.back(); };
@@ -151,9 +176,10 @@ void runMediaTests()
     expect(hasCard(idlePanel.content) && std::get<Text>(idlePanel.content.tile[0].items[0]).value == "Not playing" &&
            std::get<Icon>(idlePanel.content.tileLeading[0].items[0]).glyph == Glyph::Music, "nothing playing: says so, with a card");
     widget.show(track("Spotify.exe", "One"));
+    widget.show(std::nullopt);
     widget.stop();
     expect(widgetHost.ended.size() == 1 && widgetHost.removedPanels == std::vector<std::string>{ MediaPresenter::kActivityId },
-           "stop ends what plays and removes the widget");
+           "stop ends what plays at once, grace or not, and removes the widget");
 
     Content playing = nowPlayingContent({ .title = "Song", .artist = "Band", .art = std::make_shared<ImageData>(),
                                           .timeline = { .duration = Ms{ 1000 }, .playing = true } });

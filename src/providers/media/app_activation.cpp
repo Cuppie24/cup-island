@@ -20,6 +20,8 @@ namespace {
 
 // PKEY_AppUserModel_ID, spelled out so no extra GUID library is needed.
 constexpr PROPERTYKEY kAppUserModelId{ { 0x9F4C2855, 0x9F79, 0x4B39, { 0xA8, 0xD0, 0xE1, 0xD4, 0x2D, 0xE1, 0xD5, 0xF3 } }, 5 };
+// PKEY_Link_TargetParsingPath: where a shortcut points.
+constexpr PROPERTYKEY kLinkTarget{ { 0xB9B4B3FC, 0x2B51, 0x4A42, { 0xB5, 0xD8, 0x32, 0x41, 0x46, 0xAF, 0xCF, 0x25 } }, 2 };
 
 std::wstring lower(std::wstring s)
 {
@@ -140,31 +142,57 @@ std::wstring runningExe(const std::wstring& stem)
     return path;
 }
 
+// The exe that the Start menu entry carrying this app id starts, if there's
+// one. Apps that pick their own id (Electron's "ru.yandex.desktop.music")
+// set it on their shortcut, so their notifications work; windows don't carry it.
+std::wstring shortcutTarget(const std::wstring& appId)
+{
+    winrt::com_ptr<IShellItem2> item;
+    std::wstring path = L"shell:AppsFolder\\" + appId;
+    if (FAILED(SHCreateItemFromParsingName(path.c_str(), nullptr, IID_PPV_ARGS(item.put())))) return {};
+    wchar_t* target = nullptr;
+    if (FAILED(item->GetString(kLinkTarget, &target)) || !target) return {};
+    std::wstring result = target;
+    CoTaskMemFree(target);
+    return result;
+}
+
+bool raiseBest(const Search& search)
+{
+    HWND target = search.best;
+    // No window shows the media, so it isn't an active tab anywhere: look
+    // through the tabs. (Spotify & co. show the track in their title and skip this.)
+    if (!search.bestShowsTitle)
+        if (HWND tabWindow = selectMediaTab(search.windows, winrt::to_string(search.title))) target = tabWindow;
+    bringToFront(target);
+    return true;
+}
+
 bool openApp(const std::wstring& appId, const std::wstring& title)
 {
-    // Store app ids look like "Package_hash!App"; desktop apps' name their exe.
+    // Store app ids look like "Package_hash!App"; desktop apps' usually name
+    // their exe, else their shortcut does (shortcutTarget).
     bool packaged = appId.find(L'!') != std::wstring::npos;
-    Search search{ lower(appId), packaged ? L"" : exeStem(appId), title };
-    EnumWindows(visitWindow, reinterpret_cast<LPARAM>(&search));
-    if (search.best) {
-        HWND target = search.best;
-        // No window shows the media, so it isn't an active tab anywhere: look
-        // through the tabs. (Spotify & co. show the track in their title and skip this.)
-        if (!search.bestShowsTitle)
-            if (HWND tabWindow = selectMediaTab(search.windows, winrt::to_string(title))) target = tabWindow;
-        bringToFront(target);
-        return true;
+    std::vector<std::wstring> stems{ packaged ? L"" : exeStem(appId) };
+    if (!packaged)
+        if (std::wstring exe = shortcutTarget(appId); !exe.empty() && exeStem(exe) != stems[0]) stems.push_back(exeStem(exe));
+    for (const auto& stem : stems) {
+        Search search{ lower(appId), stem, title };
+        EnumWindows(visitWindow, reinterpret_cast<LPARAM>(&search));
+        if (search.best) return raiseBest(search);
     }
     if (packaged) return activatePackaged(appId);
 
     // No window: start the exe again. Single-instance apps (Spotify) just show
     // their existing window. Not done blindly by app id: a browser would open
     // a new window.
-    if (std::wstring exe = runningExe(search.stem); !exe.empty()) {
-        auto result = reinterpret_cast<INT_PTR>(ShellExecuteW(nullptr, L"open", exe.c_str(), nullptr, nullptr, SW_SHOWNORMAL));
-        return result > 32;
-    }
-    platform::logLine("media: no window found for %ls", appId.c_str());
+    for (const auto& stem : stems)
+        if (std::wstring exe = runningExe(stem); !exe.empty()) {
+            auto result = reinterpret_cast<INT_PTR>(ShellExecuteW(nullptr, L"open", exe.c_str(), nullptr, nullptr, SW_SHOWNORMAL));
+            return result > 32;
+        }
+    platform::logLine("media: no window found for %ls (exe names tried: %ls%ls%ls)", appId.c_str(), stems[0].c_str(),
+                      stems.size() > 1 ? L", " : L"", stems.size() > 1 ? stems[1].c_str() : L"");
     return false;
 }
 
