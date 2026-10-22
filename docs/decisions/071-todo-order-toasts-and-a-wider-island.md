@@ -17,12 +17,17 @@ and the island was narrow for its content.
   are kept in rank order, so one unticked returns where it was; a drag
   gives the moved one a rank between its neighbours. The file keeps its
   format and is written in rank order, so this survives a restart.
-- **Toasts** (`Host::toast`, `Toast`): a short note with one action at the
-  bottom of the provider's card, gone after `toastDuration`, when its
-  action is clicked, or with its card; one at a time. It's the card's last
-  row while it's up (a stacked card's), added before the card's height is
-  worked out. Pomodoro deletes a to-do at once and shows "To-do deleted ·
-  Undo"; Undo restores it in its place.
+- **Toasts** (`Host::toast`, `Toast`): a short note with one action
+  floating over the bottom of the provider's card, gone after
+  `toastDuration`, when its action is clicked, or with its card; one at a
+  time. It floats above the content (`Scene::toast`: its own pill and
+  elements), which doesn't move for it: a row would have pushed the card's
+  rows around. The pill is the theme's raised colour
+  (`islandHighlightColor`); it rises `toastRise` as it fades in and sinks a
+  little as it fades out, over `toastFadeDuration`. Clicks on it never
+  reach what's under it: its button takes them, the rest of it nothing.
+  Pomodoro deletes a to-do at once and shows "To-do deleted · Undo"; Undo
+  restores it in its place.
 - **Reset statistics:** a quiet button at the bottom of the statistics
   page; it asks (destructive), then clears every day but today.
 - **Carrying while scrolling:** a carried row moves with the list's scroll

@@ -156,13 +156,6 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     scene.size = modeSize(scene.mode);
     Source source = sourceFor(state, scene.mode);
     MeasureText measureText = measure ? measure : MeasureText{ estimateTextWidth };
-    // A toast on this card is its last row while it's up, before its height is worked out (decision 071).
-    Content toasted;
-    if (scene.mode == Mode::Expanded && source.content && stacked(*source.content))
-        if (const Toast* toast = toastOn(state, source.activityId)) {
-            toasted = withToast(*source.content, *toast);
-            source.content = &toasted;
-        }
     if (scene.mode == Mode::Expanded && source.content && stacked(*source.content)) {
         scene.size.y = centredCardHeight(source, scene.size, tabSpace, measureText);
     }
@@ -223,6 +216,12 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
         }
         for (Tile& tile : scene.tiles) tile.frame.y += tabSpace;
     }
+    // A toast floats over the card's bottom, above its content, which doesn't move for it (decision 071).
+    if (scene.mode == Mode::Expanded && source.content && !dialogOver(state, source.activityId))
+        if (const Toast* toast = toastOn(state, source.activityId)) {
+            float bottom = scene.size.y - tokens().expandedPadding - (tabSpace > 0 && !state.tabsOnTop ? tabSpace : 0);
+            scene.toast = placeToast(*toast, source, scene.size, bottom, now, measureText);
+        }
     scene.tabs = tabStripFor(state, scene.size, nestedRadius, measureText, scene.elements);
     scene.badges = badgeCentres(scene);
     return scene;

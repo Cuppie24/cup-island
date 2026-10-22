@@ -188,6 +188,9 @@ const Placed* findElement(const std::string& key)
 {
     for (const auto& p : g_scene.elements)
         if (p.key == key) return &p;
+    if (g_scene.toast) // a floating toast's (decision 071)
+        for (const auto& p : g_scene.toast->elements)
+            if (p.key == key) return &p;
     return nullptr;
 }
 
@@ -202,6 +205,7 @@ bool isCurrent(const Tab& tab)
 // "<slot>/<row>" of whatever content is under a pill-coordinate point, "" if none.
 const Placed* contentUnder(Vec2 point)
 {
+    if (g_scene.toast && g_scene.toast->frame.contains(point)) return nullptr; // the toast floats over it (decision 071)
     for (const Placed& p : g_scene.elements)
         if (p.hitFrame.contains(point) && p.key.rfind("tab/", 0) != 0) return &p;
     return nullptr;

@@ -90,6 +90,15 @@ struct Tile {
     bool clickable() const { return opens || !tapAction.empty(); } // lights up under the pointer
 };
 
+// A toast (decision 071): a pill floating over the card's bottom, above its
+// content, which doesn't move for it; its text and button in it.
+struct ToastScene {
+    Rect frame;    // pill coordinates
+    float radius = 0;
+    std::vector<Placed> elements; // keys "toast/..."
+    bool operator==(const ToastScene&) const = default;
+};
+
 struct Scene {
     Mode mode = Mode::Idle;
     Vec2 size;                     // pill target size, render-layer coordinates
@@ -104,6 +113,7 @@ struct Scene {
     std::vector<Tile> tiles;       // Home
     float tileRadius = 0;          // tile background corners, nested in the card's
     std::vector<Vec2> badges;      // notification dots' centres (decision 038, core/badges.h)
+    std::optional<ToastScene> toast; // a toast floating over the card's bottom (decision 071, core/toast.h)
     bool dropTarget = false;       // the dragged bubble is over the pill: letting go swaps them (pill lightens)
     Vec2 bubbleTuck;               // no bubble: it shrinks to this point, on the top edge inside the pill
     std::string label;             // accessible name of what's shown

@@ -381,12 +381,28 @@ void runTodoTests()
     registry.route(onBin->action);
     expect(saved.find("Old done") == std::string::npos && !state.dialog, "deleted at once, no question");
 
-    // ...with a toast to undo it (decision 071): at the card's bottom, its Undo puts it back in its place.
+    // ...with a toast to undo it (decision 071): floating over the card's bottom, the card's rows not moved; Undo puts it back.
     Scene toasted = layout(state, now);
-    const Placed* note = textNamed(toasted, "To-do deleted");
-    const Placed* undo = firstOf(toasted, [](const Placed& p) { auto* b = std::get_if<Button>(&p.item); return b && b->label == "Undo"; });
-    expect(state.toast && note && undo && std::get<Button>(undo->item).actionId == todo_action::kUndoDelete &&
-           note->frame.y > toasted.elements.front().frame.y && toasted.size.y > top.size.y - 1, "a toast: \"To-do deleted\", Undo");
+    expect(toasted.toast.has_value(), "a toast floats over the card");
+    const ToastScene& t = *toasted.toast;
+    auto inToast = [&](auto predicate) -> const Placed* {
+        for (const Placed& p : t.elements)
+            if (predicate(p)) return &p;
+        return nullptr;
+    };
+    const Placed* note = inToast([](const Placed& p) { auto* x = std::get_if<Text>(&p.item); return x && x->value == "To-do deleted"; });
+    const Placed* undo = inToast([](const Placed& p) { auto* b = std::get_if<Button>(&p.item); return b && b->label == "Undo"; });
+    expect(note && undo && std::get<Button>(undo->item).actionId == todo_action::kUndoDelete && t.frame.contains({ note->frame.x + 1, note->frame.y + 1 }) &&
+           t.frame.y + t.frame.height <= toasted.size.y - tokens().expandedPadding + 0.01f &&
+           std::abs(t.frame.x + t.frame.width / 2 - toasted.size.x / 2) < 0.51f, "\"To-do deleted · Undo\" in a pill at the card's bottom, centred");
+    IslandState noToast = state;
+    noToast.toast.reset();
+    Scene without = layout(noToast, now); // the same card without its toast: nothing else differs
+    expect(without.size.y == toasted.size.y && without.elements.size() == toasted.elements.size() &&
+           without.elements.back().frame == toasted.elements.back().frame, "the card's rows don't move for it");
+    auto onUndo = hitTest(toasted, { undo->frame.x + undo->frame.width / 2, undo->frame.y + undo->frame.height / 2 });
+    auto onPill = hitTest(toasted, { t.frame.x + 2, t.frame.y + t.frame.height / 2 });
+    expect(onUndo && onUndo->action.actionId == todo_action::kUndoDelete && !onPill, "its Undo takes a click; the rest of it, nothing under it");
     registry.route({ "pomodoro", PomodoroProvider::kPanelId, std::get<Button>(undo->item).actionId, 0 });
     send(ToastClosed{}); // the app: its action was clicked
     expect(saved.find("[x] Old done") != std::string::npos && !state.toast, "undone: back, and the toast goes");

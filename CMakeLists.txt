@@ -156,6 +156,7 @@ if(WIN32)
         src/app/main.cpp
         src/platform/autostart.cpp
         src/platform/badge_dots.cpp
+        src/platform/toast_layer.cpp
         src/platform/blob.cpp
         src/platform/blob_motion.cpp
         src/platform/blob_shape.cpp

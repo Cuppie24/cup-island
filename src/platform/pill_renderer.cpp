@@ -131,6 +131,7 @@ void PillRenderer::applyContent()
     Scene scene = *std::exchange(pendingContent_, std::nullopt);
     auto start = std::chrono::steady_clock::now();
     pill_.setContent(scene.elements, scene.now);
+    pill_.setToast(scene.toast, scene.now); // floating over it (decision 071)
     bubble_.setContent(scene.bubble ? scene.bubble->elements : std::vector<Placed>{}, scene.now);
 
     // Debug builds have a console: flag slow content builds when chasing lag.
