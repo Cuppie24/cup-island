@@ -99,6 +99,7 @@ struct Timer {
     std::vector<Activity> live;
     std::vector<Panel> panels;
     std::vector<Alert> alerts;
+    std::vector<Dialog> asked;
     ProviderRegistry registry;
 
     explicit Timer(bool debug = false)
@@ -117,6 +118,7 @@ struct Timer {
         if (auto* p = std::get_if<PanelPublished>(&e)) panels.push_back(p->panel);
         if (auto* a = std::get_if<ActivityStarted>(&e)) live.push_back(a->activity);
         if (auto* a = std::get_if<AlertPosted>(&e)) alerts.push_back(a->alert);
+        if (auto* d = std::get_if<DialogShown>(&e)) asked.push_back(d->dialog);
     }
     void act(const std::string& action) { registry.route({ "pomodoro", PomodoroProvider::kPanelId, action, 0 }); }
     void pass(Ms time) { now += time; wall += time; }
@@ -191,9 +193,9 @@ void providerTests()
     Timer timer;
     expect(timer.line() == "0 cycles · 0 min" && timer.corner().empty(), "a first run: today's values, no days in a row shown");
     auto first = timer.statsPage();
-    expect(first.size() == 8 && first[0] == "Statistics" && first[1] == "Today" && first[2] == "0 0m 0" &&
+    expect(first.size() == 9 && first[8] == "Reset statistics" && first[0] == "Statistics" && first[1] == "Today" && first[2] == "0 0m 0" &&
            first[3] == "cycles focus time days in a row" && first[4].empty() && first[5] == "🏆 Personal records" && first[6] == "0 0m 0 days" &&
-           first[7] == "most cycles best focus day best streak", "the statistics page: today, a line, the records; each a value over its caption");
+           first[7] == "most cycles best focus day best streak", "the statistics page: today, a line, the records (each a value over its caption), then Reset");
 
     timer.session();
     PomodoroDay day = timer.today();
@@ -321,6 +323,25 @@ void layoutTests()
            std::abs(line->frame.width - (third->frame.x + third->frame.width - first->frame.x)) < 0.01f, "a line across under today");
 }
 
+// Reset statistics (decision 071): asks first; confirmed, every day but today goes.
+void resetTests()
+{
+    Timer timer;
+    timer.session();
+    timer.pass(Ms{ kDay });
+    timer.session();
+    timer.session();
+    std::size_t days = timer.stats().days.size();
+    timer.act(pomodoro_action::kResetStats);
+    expect(timer.asked.size() == 1 && timer.asked.back().confirmAction == pomodoro_action::kResetStatsConfirmed && timer.asked.back().destructive &&
+           timer.stats().days.size() == days && days == 2, "Reset asks first, and clears nothing yet");
+    timer.act(pomodoro_action::kResetStatsConfirmed);
+    PomodoroStats left = timer.stats();
+    expect(left.days.size() == 1 && left.days[0].day == localDay(timer.wall, Ms{ 0 }) && left.days[0].finished == 2,
+           "confirmed: only today stays, its count whole");
+    expect(timer.statsPage()[6] == "2 3h 20m 1 day", "the records start over from today");
+}
+
 // Debug builds: the settings page's row steps through made-up histories, never saved.
 void fakeStatsTests()
 {
@@ -397,6 +418,7 @@ void runPomodoroStatsTests()
     pureTests();
     providerTests();
     fakeStatsTests();
+    resetTests();
     layoutTests();
     settingsPageTests();
 }

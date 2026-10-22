@@ -33,6 +33,8 @@ inline constexpr const char* kOpenSettings = "settings.open";
 inline constexpr const char* kBack = "settings.back";
 inline constexpr const char* kToggleDayOff = "dayoff."; // + 0 (Monday) .. 6 (Sunday)
 inline constexpr const char* kSettingsList = "timersettings"; // the settings page under its title (Row::list): scrolls
+inline constexpr const char* kResetStats = "stats.reset";                     // only asks (resetQuestion); its confirm sends:
+inline constexpr const char* kResetStatsConfirmed = "stats.reset.confirmed"; // every day but today cleared (decision 071)
 inline constexpr const char* kFakeStats = "debug.fakestats"; // Debug builds: the next made-up history (fakeStats)
 } // namespace pomodoro_action
 
@@ -62,6 +64,8 @@ Content withStatsPage(Content card, const PomodoroGlance& glance);
 Content withSettingsPage(Content card, const PomodoroPlan& plan, bool running, const DaysOff& off, std::optional<int> fake = std::nullopt);
 // The question the stop button asks before ending a running session.
 Dialog stopQuestion(const PomodoroSession& session);
+// ...and the statistics page's Reset statistics, before clearing every day but today.
+Dialog resetQuestion();
 // Focus and breaks have their own colours (decision 010), in tokens.json.
 Color accentOf(PomodoroPhase phase);
 

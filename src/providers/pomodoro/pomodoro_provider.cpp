@@ -101,6 +101,18 @@ void PomodoroProvider::onAction(const Action& action)
         showCards();
         return;
     }
+    // Reset statistics (decision 071): asks first; confirmed, every day but today goes.
+    if (action.actionId == act::kResetStats) {
+        host_->ask(resetQuestion());
+        return;
+    }
+    if (action.actionId == act::kResetStatsConfirmed) {
+        long long today = localDay(host_->wallClock(), host_->utcOffset());
+        std::erase_if(stats_.days, [&](const PomodoroDay& d) { return d.day != today; });
+        saveStats();
+        showCards();
+        return;
+    }
     if (action.actionId == act::kFakeStats && debug_) { // the next made-up history, then the real one again
         fake_ = (fake_ + 1) % 3;
         stats_ = fake_ ? fakeStats(localDay(host_->wallClock(), host_->utcOffset()), fake_) : loadStats(host_->load(kStatsKey));
