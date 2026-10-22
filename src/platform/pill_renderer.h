@@ -52,6 +52,7 @@ public:
         pill_.toastElements().setHovered(onToast ? key : std::string());
     }
     void setHoveredRow(const std::string& row) { pill_.elements().setHoveredRow(row); }
+    void setHoveredTab(const std::optional<std::string>& tab) { pill_.elements().setHoveredTab(tab); } // decision 072
     void pressElement(const std::string& key) { elementsFor(key).press(key); }
     void releaseElement(const std::string& key) { elementsFor(key).release(key); }
     void scrubElement(const std::string& key, float fraction) { pill_.elements().scrub(key, fraction); }

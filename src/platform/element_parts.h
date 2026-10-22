@@ -11,8 +11,9 @@
 
 namespace cup::platform {
 
-// Content appearing after a mode change: fades in once the pill starts morphing.
-void fadeIn(wuc::Compositor const& c, wuc::Visual const& visual);
+// Content appearing after a mode change: fades in once the pill starts morphing,
+// to `opacity` (a muted tab's content: tabMutedOpacity, decision 072).
+void fadeIn(wuc::Compositor const& c, wuc::Visual const& visual, float opacity = 1.0f);
 void fadeTo(wuc::Compositor const& c, wuc::Visual const& visual, float opacity, Ms duration);
 // A new picture (a cover read after its track showed, decision 056): `host`
 // shows `fresh` at once, under a copy of the old picture that fades out.

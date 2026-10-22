@@ -142,6 +142,8 @@ void runHomeTests()
     Scene media = layout(reduce(tabbed, ActivitySwitched{ "media" }, Ms{ 0 }), Ms{ 0 });
     expect(media.tabs->active && media.tabs->tabs[*media.tabs->active].id == "media" && media.tiles.empty(),
            "an activity's tab shows its card");
+    expect(!homeIcon->muted && find(card, "tab/home/lead")->muted && find(media, "tab/home/lead")->muted,
+           "Home's button in colour only on Home: grey on a card, a dormant one's too (decision 072)");
     Scene single = layout(reduce(reduce(s, ActivityStarted{ { .id = "solo" } }, Ms{ 0 }), PillClicked{}, Ms{ 0 }), Ms{ 0 });
     expect(single.tabs && single.tabs->tabs.size() == 2, "one activity plus panels: Home and its tab");
     Scene bare = layout(reduce(s, PillClicked{}, Ms{ 0 }), Ms{ 0 });

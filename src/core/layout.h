@@ -42,6 +42,9 @@ struct Placed {
     std::string providerId;
     std::string activityId;
     std::optional<Timeline> ticking; // time labels: the text changes as playback moves
+    // In a tab that isn't the one shown, or the pin while off (decision 072): drawn grey
+    // and dim, picture and ring included, until the pointer is on its tab.
+    bool muted = false;
     bool operator==(const Placed&) const = default;
 };
 

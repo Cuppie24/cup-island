@@ -33,6 +33,15 @@ bool isRing(const Item& item)
 // Live data's colour: the content's accent, else the live colour (decision 010).
 Color accentOf(const Placed& p) { return p.accent.value_or(tokens().liveColor); }
 
+// A muted tab's shapes (a ring, a waveform): their colour's grey, as bright to the eye (decision 072).
+Color greyOf(const Color& c)
+{
+    auto level = static_cast<std::uint8_t>(std::lround(0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b));
+    return { level, level, level, c.a };
+}
+Color toned(const Color& c, bool grey) { return grey ? greyOf(c) : c; }
+float opacityOf(bool grey) { return grey ? tokens().tabMutedOpacity : 1.0f; }
+
 // The shape under a hovered button, a text field's background, the dim over clickable art.
 Color hoverColorOf(const Placed& p)
 {
@@ -145,6 +154,8 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     const Tokens& t = tokens();
     View view;
     view.placed = placed;
+    view.grey = greyNow(placed);
+    Color accent = toned(accentOf(placed), view.grey);
     // Whole pixels: frames are fractional (islandScale x display scale), and a
     // surface stretched into a fractional box is resampled, which blurs text.
     Vec2 size = pixelSize(sizeOf(placed)), visualSize = size;
@@ -154,7 +165,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         view.visual = view.toggle.visual;
     } else if (std::holds_alternative<Dial>(placed.item)) {
         // A Dial (decision 065): the ring's shapes, with its time painted on a surface laid over them.
-        RingParts parts = createRing(compositor_, size, accentOf(placed));
+        RingParts parts = createRing(compositor_, size, accent);
         view.visual = parts.visual;
         view.arc = parts.arc;
         view.track = parts.track;
@@ -165,13 +176,13 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         middle.Size(toFloat2(size));
         parts.visual.Children().InsertAtTop(middle);
     } else if (isRing(placed.item)) {
-        RingParts parts = createRing(compositor_, size, accentOf(placed));
+        RingParts parts = createRing(compositor_, size, accent);
         view.visual = parts.visual;
         view.arc = parts.arc;
         view.track = parts.track;
         view.accent = parts.accent;
     } else if (std::holds_alternative<Progress>(placed.item)) {
-        ProgressParts parts = createProgress(compositor_, size, accentOf(placed));
+        ProgressParts parts = createProgress(compositor_, size, accent);
         view.lead = progressOverhang();
         visualSize.x += 2 * view.lead;
         view.visual = parts.visual;
@@ -181,7 +192,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         view.accent = parts.accent;
         view.knobBrush = parts.knobBrush;
     } else if (std::holds_alternative<Waveform>(placed.item)) {
-        WaveformParts parts = createWaveform(compositor_, size, accentOf(placed));
+        WaveformParts parts = createWaveform(compositor_, size, accent);
         view.visual = parts.visual;
         view.waveform = parts.visual;
         view.bars = parts.bars;
@@ -225,13 +236,16 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     lists_.parentFor(placed).Children().InsertAtTop(view.visual);
     if (placed.list) lists_.setGliding(view.visual, !placed.list->dragged); // after its first place: it appears there
 
+    if (view.grey && view.track) view.track.Color(toUiColor(greyOf(t.trackColor)));
+    if (view.grey && view.knobBrush) view.knobBrush.Color(toUiColor(greyOf(t.knobColor)));
     if (view.surface) paint(view);
     if (view.fill) armProgress(compositor_, view.fill, std::get<Progress>(placed.item).timeline, size.x, now);
     if (view.arc) armRing(compositor_, view.arc, ringTimeline(placed.item), now);
     if (!view.bars.empty()) animateBars(view);
     if (view.highlight && focusedField(placed.item)) view.highlight.Opacity(1.0f);
     if (revealsOnHover(placed.item) && rowOf(placed.key) != hoveredRow_) view.visual.Opacity(0.0f); // until its row is hovered
-    else if (fade) fadeIn(compositor_, view.visual);
+    else if (fade) fadeIn(compositor_, view.visual, opacityOf(view.grey));
+    else view.visual.Opacity(opacityOf(view.grey));
     return view;
 }
 
@@ -285,7 +299,8 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
         fadeInSurface(view.picture, view.surface, tokens().mediaArtFade);
     }
     if (moved) place(view);
-    if (recoloured) recolor(view); // redraws its pixels too (a new picture: already in its fresh surface)
+    if (greyNow(placed) != view.grey) setGrey(view, !view.grey); // its tab became the one shown, or stopped being it
+    else if (recoloured) recolor(view); // redraws its pixels too (a new picture: already in its fresh surface)
     if (!changed) return false;
     if (view.toggle.knob) slideSwitch(compositor_, view.toggle, pixelSize(sizeOf(placed)), std::get<Switch>(placed.item).on);
     if (view.highlight && focusedField(placed.item) != wasFocused) // focus came or went: background follows (or hover keeps it)
@@ -303,9 +318,9 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
 void ElementVisuals::recolor(View& view)
 {
     const Tokens& t = tokens();
-    if (view.track) fadeColor(view.track, t.trackColor);
-    if (view.accent) fadeColor(view.accent, accentOf(view.placed));
-    if (view.knobBrush) fadeColor(view.knobBrush, t.knobColor);
+    if (view.track) fadeColor(view.track, toned(t.trackColor, view.grey));
+    if (view.accent) fadeColor(view.accent, toned(accentOf(view.placed), view.grey));
+    if (view.knobBrush) fadeColor(view.knobBrush, toned(t.knobColor, view.grey));
     if (view.hover) fadeColor(view.hover, hoverColorOf(view.placed));
     if (view.toggle.knob) {
         bool on = std::get<Switch>(view.placed.item).on;
@@ -322,7 +337,7 @@ void ElementVisuals::paint(View& view)
     Vec2 size = sizeOf(view.placed);
     IDWriteFactory* dw = device_->dwrite();
     const Item& item = view.placed.item;
-    bool drawn = device_->draw(view.surface, [&](ID2D1DeviceContext* dc) {
+    auto content = [&](ID2D1DeviceContext* dc) {
         if (auto* text = std::get_if<Text>(&item)) {
             if (view.marqueeWidth > 0) paintMarquee(dc, dw, *text, view.marqueeWidth, view.lead, t.marqueeGap, size.y);
             else paintText(dc, dw, *text, size);
@@ -356,6 +371,10 @@ void ElementVisuals::paint(View& view)
         } else if (auto* swatch = std::get_if<Swatch>(&item)) {
             paintSwatch(dc, *swatch, size);
         }
+    };
+    bool drawn = device_->draw(view.surface, [&](ID2D1DeviceContext* dc) {
+        if (view.grey) paintGrey(dc, content); // a muted tab's (decision 072)
+        else content(dc);
     });
     if (drawn && view.glyphSurface)
         drawn = device_->draw(view.glyphSurface, [&](ID2D1DeviceContext* dc) {
@@ -394,6 +413,40 @@ void ElementVisuals::setHoveredRow(const std::string& row)
     hoveredRow_ = row;
     for (auto& [key, view] : views_)
         if (revealsOnHover(view.placed.item)) fadeTo(compositor_, view.visual, rowOf(key) == row ? 1.0f : 0.0f, tokens().hoverFadeDuration);
+}
+
+bool ElementVisuals::greyNow(const Placed& placed) const
+{
+    return placed.muted && hoveredTab_ != placed.activityId;
+}
+
+void ElementVisuals::setHoveredTab(const std::optional<std::string>& tab)
+{
+    if (tab == hoveredTab_) return;
+    hoveredTab_ = tab;
+    for (auto& [key, view] : views_)
+        if (greyNow(view.placed) != view.grey) setGrey(view, !view.grey);
+}
+
+// Grey and dim, or back to colour (decision 072), over the hover fade: its
+// opacity and shapes fade; a picture crossfades to its new pixels, text is redrawn.
+void ElementVisuals::setGrey(View& view, bool grey)
+{
+    const Tokens& t = tokens();
+    view.grey = grey;
+    fadeTo(compositor_, view.visual, opacityOf(grey), t.hoverFadeDuration);
+    if (view.track) fadeColor(view.track, toned(t.trackColor, grey), t.hoverFadeDuration);
+    if (view.accent) fadeColor(view.accent, toned(accentOf(view.placed), grey), t.hoverFadeDuration);
+    if (view.knobBrush) fadeColor(view.knobBrush, toned(t.knobColor, grey), t.hoverFadeDuration);
+    if (!view.surface) return;
+    if (view.picture && view.marqueeWidth == 0) {
+        auto size = view.surface.Size();
+        view.surface = device_->createSurface({ size.Width, size.Height });
+        paint(view);
+        fadeInSurface(view.picture, view.surface, t.hoverFadeDuration);
+    } else {
+        paint(view);
+    }
 }
 
 void ElementVisuals::setHovered(const std::string& key)

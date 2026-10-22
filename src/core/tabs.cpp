@@ -70,15 +70,16 @@ bool homeBadged(const IslandState& s)
 // Lead square and title, centred in the tab as one group (the title as wide
 // as it really is, so the group's width is known). A title too long for the
 // tab gets what's left and ends in "…". Keys carry the activity id, so a
-// tab's content stays the same visual when tabs come and go.
-void placeTab(const TabFace& face, Rect tab, float radius, const MeasureText& measure, std::vector<Placed>& out)
+// tab's content stays the same visual when tabs come and go. `muted`: not the
+// tab shown (or the pin while off), so all of it is drawn grey (decision 072).
+void placeTab(const TabFace& face, Rect tab, float radius, bool muted, const MeasureText& measure, std::vector<Placed>& out)
 {
     const Tokens& t = tokens();
     float inset = t.compactInset, side = tab.height - 2 * inset, gap = inset;
     std::string prefix = face.id.empty() ? "tab/home/" : face.id == kPinTab ? "tab/pin/" : "tab/" + face.id + "/";
     auto place = [&](const std::string& part, Item item, Rect frame, float cornerRadius = 0) {
         out.push_back({ .key = prefix + part, .item = std::move(item), .frame = frame, .hitFrame = frame,
-                        .cornerRadius = cornerRadius, .providerId = face.providerId, .activityId = face.id });
+                        .cornerRadius = cornerRadius, .providerId = face.providerId, .activityId = face.id, .muted = muted });
     };
 
     const Item* lead = face.lead;
@@ -133,7 +134,7 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     auto add = [&](const TabFace& face, Rect frame, Rect hitFrame) {
         if (face.id == shown) strip.active = strip.tabs.size();
         strip.tabs.push_back({ frame, hitFrame, face.id, face.badge });
-        placeTab(face, frame, strip.radius, measure, elements);
+        placeTab(face, frame, strip.radius, face.id != shown, measure, elements);
     };
 
     // Home: an icon-only button on its own at the left edge. Its click area
@@ -150,7 +151,8 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     Rect pin{ cardSize.x - p - t.homeButtonWidth, y, t.homeButtonWidth, t.tabHeight };
     strip.pin = Tab{ pin, { cardSize.x - reach, top, reach, bottom - top }, kPinTab };
     strip.pinned = s.stayOpen;
-    placeTab({ .id = kPinTab, .lead = s.stayOpen ? &kPinnedIcon : &kPinIcon, .iconOnly = true }, pin, strip.radius, measure, elements);
+    placeTab({ .id = kPinTab, .lead = s.stayOpen ? &kPinnedIcon : &kPinIcon, .iconOnly = true }, pin, strip.radius, !s.stayOpen,
+             measure, elements);
     float reserved = t.homeButtonWidth + t.slotGap;
 
     // Every tab at its full width, the group centred; narrower only when they don't fit.

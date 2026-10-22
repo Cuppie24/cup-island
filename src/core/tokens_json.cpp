@@ -118,6 +118,7 @@ const Field kFields[] = {
     { "tabGap", &Tokens::tabGap },
     { "tabMaxWidth", &Tokens::tabMaxWidth },
     { "homeButtonWidth", &Tokens::homeButtonWidth },
+    { "tabMutedOpacity", &Tokens::tabMutedOpacity },
     { "homeColumns", &Tokens::homeColumns, true },
     { "tileHeight", &Tokens::tileHeight },
     { "tileGap", &Tokens::tileGap },

@@ -5,6 +5,7 @@
 #include "core/tokens.h"
 #include "platform/text_format.h"
 
+#include <d2d1effects.h>
 #include <dwrite_3.h>
 
 #include <algorithm>
@@ -406,6 +407,38 @@ void paintImage(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float 
     winrt::check_hresult(dc->CreateBitmapBrush(bitmap.get(), &brushProps, nullptr, brush.put()));
     brush->SetTransform(D2D1::Matrix3x2F::Scale(scale, scale) * D2D1::Matrix3x2F::Translation(dx, dy));
     dc->FillRoundedRectangle(shape, brush.get());
+}
+
+void paintGrey(ID2D1DeviceContext* dc, const std::function<void(ID2D1DeviceContext*)>& paint)
+{
+    // Recorded by a second context of the same device into a command list,
+    // then drawn here through a Saturation effect (Direct2D 1.1: every Windows 10).
+    // The surface's own context keeps its target and its atlas offset.
+    winrt::com_ptr<ID2D1Device> device;
+    dc->GetDevice(device.put());
+    winrt::com_ptr<ID2D1DeviceContext> recorder;
+    winrt::com_ptr<ID2D1CommandList> list;
+    winrt::com_ptr<ID2D1Effect> grey;
+    if (!device || FAILED(device->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, recorder.put())) ||
+        FAILED(recorder->CreateCommandList(list.put())) || FAILED(dc->CreateEffect(CLSID_D2D1Saturation, grey.put()))) {
+        paint(dc);
+        return;
+    }
+    float dpiX = 96, dpiY = 96;
+    dc->GetDpi(&dpiX, &dpiY);
+    recorder->SetDpi(dpiX, dpiY);
+    recorder->SetTextAntialiasMode(dc->GetTextAntialiasMode()); // as the surface draws text (GraphicsDevice::draw)
+    winrt::com_ptr<IDWriteRenderingParams> params;
+    dc->GetTextRenderingParams(params.put());
+    if (params) recorder->SetTextRenderingParams(params.get());
+    recorder->SetTarget(list.get());
+    recorder->BeginDraw();
+    paint(recorder.get());
+    winrt::check_hresult(recorder->EndDraw());
+    winrt::check_hresult(list->Close());
+    grey->SetInput(0, list.get());
+    winrt::check_hresult(grey->SetValue(D2D1_SATURATION_PROP_SATURATION, 0.0f));
+    dc->DrawImage(grey.get());
 }
 
 } // namespace cup::platform

@@ -173,6 +173,7 @@ struct Tokens {
     float tabGap = 4;
     float tabMaxWidth = 140;      // each tab's width; the group is centred, and shrinks only when they don't fit
     float homeButtonWidth = 44;   // Home's icon-only button, apart at the left (decision 009)
+    float tabMutedOpacity = 0.5f; // a tab not shown, Home and the pin included: its content grey and this strong until hovered (decision 072)
 
     // Home: a grid of panel tiles in the Expanded card (decision 009).
     std::size_t homeColumns = 4;  // columns' worth per Home row; a widget takes one, or two (Panel::wide); rows stretch to full width
