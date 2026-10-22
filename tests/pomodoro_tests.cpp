@@ -124,6 +124,11 @@ void planTests()
     expect(island.press("expandedCenter/0/1"), "the gear opens the settings page");
     Scene page = island.scene();
     expect(textAt(page, "expandedCenter/0/0") == "Timer settings" && page.size.y <= t.canvas.y, "the page fits the canvas");
+    const Placed* mon = find(page, "expandedCenter/2/0");
+    const Placed* sun = find(page, "expandedCenter/2/6");
+    expect(mon && sun && mon->frame.width == t.buttonSize && mon->frame.height == t.buttonSize && sun->frame.y == mon->frame.y &&
+           sun->frame.x > mon->frame.x && std::abs((mon->frame.x + sun->frame.x + sun->frame.width) / 2 - page.size.x / 2) < 0.51f,
+           "the days: seven circles in one centred row");
     for (const Placed& p : page.elements)
         if (p.key.rfind("tab/", 0) != 0) expect(p.frame.y + p.frame.height <= page.size.y - t.expandedPadding + 0.01f, "fits the page: " + p.key);
     auto shown = shownCard(island.state); // Esc, as the app does: the card's backAction first (decision 033)

@@ -40,8 +40,11 @@ on, with time counted that they hadn't worked.
   day (`onCardShown`), not on a midnight timer.
 - **The timer's own settings**, not global Settings: a gear in the card's
   top-right corner (its top row's trailing button) opens a page like a
-  Settings page: a back arrow (Esc too), "Days off", a switch per weekday,
-  Monday first. Closing the card leaves the page.
+  Settings page: a back arrow (Esc too), "Days off", then one row of seven
+  circles, "Mo" to "Su": a click takes a day off or back, a lit circle is
+  off (a Switch's colours). One row, not seven: the week reads at a glance
+  and the page stays short. They're `Button::round`, a labelled circle
+  any provider can use. Closing the card leaves the page.
 - **Debug builds** (the demo keys' switch, `NDEBUG`) add a "Fake
   statistics" row to that page: each click shows a made-up history (3 in a
   row with best 5; then new records), then the real one again. A made-up

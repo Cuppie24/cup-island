@@ -295,10 +295,11 @@ void ElementVisuals::paint(View& view)
             Color color = !button->enabled ? t.buttonDisabledColor : toggledOff ? t.buttonOffColor
                         : button->destructive         ? t.dangerColor
                                                       : t.buttonColor;
-            if (!button->label.empty()) paintLabel(dc, dw, button->label, size, color);
+            if (button->round) paintRoundButton(dc, dw, *button, size);
+            else if (!button->label.empty()) paintLabel(dc, dw, button->label, size, color);
             // Centred in the surface's whole pixels, like the hover shape around it, not the fractional frame.
             else paintGlyph(dc, dw, button->glyph, glyphSizeOf(*button), pixelSize(size), color);
-            if (button->on && *button->on) paintToggleDot(dc, pixelSize(size), t.buttonGlyphSize);
+            if (button->on && *button->on && !button->round) paintToggleDot(dc, pixelSize(size), t.buttonGlyphSize);
         } else if (auto* image = std::get_if<Image>(&item)) {
             paintImage(dc, image->data.get(), size, view.placed.cornerRadius);
         } else if (auto* input = std::get_if<TextInput>(&item)) {

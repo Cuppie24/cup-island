@@ -224,6 +224,15 @@ void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& l
     drawString(dc, formatOf(dw, text).get(), widen(label), size, color);
 }
 
+void paintRoundButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size)
+{
+    const Tokens& t = tokens();
+    bool on = button.on.value_or(false);
+    float r = std::min(size.x, size.y) / 2;
+    dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(size.x / 2, size.y / 2), r, r), brushOf(dc, on ? t.liveColor : t.trackColor).get());
+    paintLabel(dc, dw, button.label, size, on ? t.islandColor : t.buttonColor);
+}
+
 std::size_t caretAt(IDWriteFactory* dw, const Text& text, Vec2 size, Vec2 at)
 {
     // As drawn (paintText), but unbounded across: a click on a trimmed text's "…" lands at its end.

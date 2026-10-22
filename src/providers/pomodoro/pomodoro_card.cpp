@@ -83,7 +83,7 @@ void appendGlance(Slot& card, const PomodoroGlance& g)
     card.push_back(Row{ .items = { Text{ "Focused today" }, Text{ .value = spent(g.focusToday), .alignEnd = true } }, .inset = true });
 }
 
-const char* const kDayNames[] = { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
+const char* const kDayNames[] = { "Mo", "Tu", "We", "Th", "Fr", "Sa", "Su" };
 
 } // namespace
 
@@ -181,16 +181,16 @@ Content pomodoroContent(const PomodoroSession& s, const TodoList& todos)
 }
 
 // The timer's settings (decision 061), like a page of Settings (decision
-// 030): a title with a back arrow, then a switch per weekday for days off.
+// 030): a title with a back arrow, then a circle per weekday for days off.
 Content withSettingsPage(Content card, const DaysOff& off, std::optional<int> fake)
 {
     Slot page{ Row{ .items = { Text{ .value = "Timer settings", .style = TextStyle::Title, .centred = true } },
                     .leading = { Button{ Glyph::ChevronLeft, act::kBack } } },
                Row{ .items = { Text{ .value = "Days off", .style = TextStyle::Heading } }, .inset = true } };
+    Row days{ .align = Align::Center }; // one row of circles, Monday first; a lit one is off
     for (std::size_t i = 0; i < off.size(); ++i)
-        page.push_back(Row{ .items = { Text{ kDayNames[i] }, Switch{ .on = off[i], .actionId = act::kToggleDayOff + std::to_string(i) } },
-                            .clickAnywhere = true,
-                            .listItem = true }); // all seven in view: no scrolling list
+        days.items.push_back(Button{ .actionId = act::kToggleDayOff + std::to_string(i), .on = off[i], .label = kDayNames[i], .round = true });
+    page.push_back(std::move(days));
     page.push_back(caption("A day off doesn't break your days in a row."));
     if (fake) { // Debug builds: try the statistics with a made-up history, never saved
         const char* const shown[] = { "Real", "3 in a row, best 5", "New records" };

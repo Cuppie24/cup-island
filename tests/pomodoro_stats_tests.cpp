@@ -269,15 +269,18 @@ void settingsPageTests()
     timer.act(pomodoro_action::kOpenSettings);
     Content page = timer.panels.back().content;
     auto texts = timer.card(page);
-    expect(texts.size() == 10 && texts[0] == "Timer settings" && texts[1] == "Days off" && texts[2] == "Monday" && texts[8] == "Sunday",
-           "the page: a title, then a switch per day, Monday first");
+    const Row& days = page.expandedCenter[2];
+    auto day = [&](const Row& r, std::size_t i) { return std::get<Button>(r.items[i]); };
+    expect(texts.size() == 4 && texts[0] == "Timer settings" && texts[1] == "Days off" && days.items.size() == 7 &&
+           day(days, 0).label == "Mo" && day(days, 6).label == "Su" && day(days, 0).round && day(days, 0).on == false,
+           "the page: a title, then one row of seven round days, Monday first, none off");
     expect(page.backAction == pomodoro_action::kBack && std::get<Button>(page.expandedCenter[0].leading[0]).actionId == pomodoro_action::kBack,
            "a back arrow; Esc goes back too");
     expect(!page.tile.empty(), "the widget stays as it was");
 
     timer.act(std::string(pomodoro_action::kToggleDayOff) + "5");
     page = timer.panels.back().content;
-    expect(std::get<Switch>(page.expandedCenter[7].items[1]).on && !std::get<Switch>(page.expandedCenter[6].items[1]).on, "Saturday off");
+    expect(day(page.expandedCenter[2], 5).on == true && day(page.expandedCenter[2], 4).on == false, "Saturday off: lit");
     expect(loadDaysOff(timer.store[PomodoroProvider::kDaysOffKey])[5], "kept in the store");
     timer.act(std::string(pomodoro_action::kToggleDayOff) + "9");
     expect(timer.panels.back().content == page, "no such day: nothing changes");

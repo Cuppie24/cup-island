@@ -76,6 +76,7 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
         return (measure ? measure(text) : estimateTextWidth(text)) + 2 * t.tagPadding;
     }
     if (auto* button = std::get_if<Button>(&item)) {
+        if (button->round) return t.buttonSize;
         if (button->label.empty()) return button->compact ? t.smallButtonSize : t.buttonSize;
         Text text{ button->label, TextStyle::Body };
         return (measure ? measure(text) : estimateTextWidth(text)) + 2 * t.buttonLabelPadding;

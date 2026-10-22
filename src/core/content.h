@@ -94,6 +94,9 @@ struct Button {
     bool destructive = false;   // its label in dangerColor: a dialog's "Clear"
     bool editsText = false;     // starts editing the Text whose editAction is this button's actionId (decision 029)
     bool badge = false;         // a dot on it: something new behind it, an update to install (decision 038)
+    // A circle buttonSize wide with a short label ("Mo") instead of a glyph,
+    // filled when `on` like a Switch: one of a set picked together (Pomodoro's days off, decision 061).
+    bool round = false;
     bool operator==(const Button&) const = default;
 };
 
