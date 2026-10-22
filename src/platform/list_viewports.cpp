@@ -74,7 +74,7 @@ wuc::ContainerVisual ListViewports::parentFor(const Placed& placed)
     return list.scroller;
 }
 
-Vec2 ListViewports::positionOf(const Placed& placed) const
+Vec2 ListViewports::positionOf(const Placed& placed)
 {
     if (!placed.list) return { placed.frame.x, placed.frame.y };
     const InList& in = *placed.list;

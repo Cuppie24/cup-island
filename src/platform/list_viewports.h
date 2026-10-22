@@ -24,8 +24,9 @@ public:
     // match the element (only when that changed, decision 008).
     wuc::ContainerVisual parentFor(const Placed& placed);
 
-    // The element's top-left in its parent's coordinates.
-    Vec2 positionOf(const Placed& placed) const;
+    // The element's top-left in its parent's coordinates: in a list, its
+    // unscrolled place in the scroller, which scrolling doesn't change.
+    static Vec2 positionOf(const Placed& placed);
 
     // A list element's own ease to a new place (none while dragged).
     void setGliding(wuc::Visual const& visual, bool glide);

@@ -50,7 +50,12 @@ and the island was narrow for its content.
   the bottom and right: buttons, their hovers and glyphs sat up to a pixel
   low in their rows and in the toast. Edges now snap to the nearest pixel
   on both sides (`snapToPixels`), for elements, the marks behind them (a
-  hovered row) and the toast's pill alike.
+  hovered row) and the toast's pill alike. An element in a scrolling list
+  snaps where its visual is, in the list's scroller, not at its scrolled
+  frame: that moved by fractions as the list scrolled, its snapped height
+  flipped by a pixel, and the size change rebuilt (faded in) its rows, so
+  checkboxes and buttons flickered. Only a change of its real size rebuilds
+  an element.
 
 **Consequences.** Scenarios in `home.scenario` (presses) and
 `dialog.scenario` (toasts); `todo_tests.cpp` (order, the Done row, the

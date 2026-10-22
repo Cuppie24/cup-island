@@ -18,9 +18,13 @@ wfn::float3 pixelOffset(float x, float y) { return { std::round(x), std::round(y
 // Its size in whole pixels, from both of its edges rounded, as its offset is
 // (pixelOffset): rounding the size up instead grew it at the bottom and right,
 // so a button's hover and glyph sat up to a pixel low in their row (decision 071).
+// Snapped where the visual really is, in its parent: in a list, the scroller.
+// The scrolled frame moves by fractions as a list scrolls, so its snapped
+// height flipped by a pixel and rebuilt (faded in) its rows: they flickered.
 Vec2 sizeOf(const Placed& p)
 {
-    Rect snapped = snapToPixels(p.frame);
+    Vec2 at = ListViewports::positionOf(p);
+    Rect snapped = snapToPixels({ at.x, at.y, p.frame.width, p.frame.height });
     return { snapped.width, snapped.height };
 }
 
@@ -251,7 +255,9 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
 
 bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
 {
-    bool resized = sizeOf(view.placed) != sizeOf(placed) || view.placed.cornerRadius != placed.cornerRadius;
+    // Its real size, not its snapped one: a move by a fraction is no reason to rebuild it.
+    bool resized = view.placed.frame.width != placed.frame.width || view.placed.frame.height != placed.frame.height ||
+                   view.placed.cornerRadius != placed.cornerRadius;
     // A bar and a ring are both Progress, but different visuals. A new accent
     // (a cover's colour) isn't a new visual: its brushes fade to it.
     bool retyped = view.placed.item.index() != placed.item.index() || isRing(view.placed.item) != isRing(placed.item) ||
