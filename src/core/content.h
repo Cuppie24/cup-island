@@ -233,6 +233,10 @@ struct Row {
     // Its content inset like a list item's, without being one (no padding,
     // nothing lit): a heading over list items lines up with their text.
     bool inset = false;
+    // Its texts as wide as they are, not stretched, so the row is centred as
+    // one line (with Align::Center): a few short statistics (decision 061).
+    // Too wide for the slot: laid out as usual.
+    bool hug = false;
     bool operator==(const Row&) const = default;
 };
 

@@ -115,6 +115,13 @@ void planTests()
     expect(value->frame.x + value->frame.width <= minus->frame.x && minus->frame.x + minus->frame.width <= plus->frame.x,
            "the length, then − then +, side by side");
     expect(card.size.y <= t.canvas.y, "the card fits the canvas");
+    // The statistics (decision 061): one line under ▶, its items side by side at their own widths, centred.
+    const Placed* firstStat = find(card, "expandedCenter/4/0");
+    const Placed* lastStat = find(card, "expandedCenter/4/4");
+    expect(firstStat && lastStat && textAt(card, "expandedCenter/4/0") == "0 today" && textAt(card, "expandedCenter/4/4") == "0 min" &&
+           firstStat->frame.y == lastStat->frame.y &&
+           std::abs((firstStat->frame.x + lastStat->frame.x + lastStat->frame.width) / 2 - card.size.x / 2) < 1.0f,
+           "the statistics: one centred line");
     // The gear (decision 061): the top row's trailing button, in the card's top-right corner.
     const Placed* gear = find(card, "expandedCenter/0/1");
     const Placed* big = find(card, "expandedCenter/0/0");

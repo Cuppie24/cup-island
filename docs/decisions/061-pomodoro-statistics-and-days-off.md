@@ -13,13 +13,16 @@ on, with time counted that they hadn't worked.
   skipped) with at most `pomodoroFocusSkipsAllowed` (1) focus phases
   skipped. More skipped: neither finished nor canceled. Stop (confirmed):
   canceled.
-- **Shown** whenever no session runs, on the dormant card under ▶, a row
-  each, lined up with the plan rows: "N finished today", "N days in a
-  row", "Focused today". The first two end with their best ("best 5"), in
-  the same style as the value, not a dimmer caption. When now beats every
-  earlier day (or run), a **"Record"** tag takes the best's place. From 3
-  days in a row a 🔥 goes before it: Segoe UI Emoji's, in colour, since the
-  icon fonts have no fire. "Finished today" is a plain count: nothing breaks it.
+- **Shown** whenever no session runs, under ▶, as **one centred line**:
+  "2 today best 4 · 🔥 3 days best 5 · 3 h 20 min". Three rows with the
+  bests pushed to the far edge looked scattered, and the fire pulled its
+  row's text out of line with the others. Each best is in the same style as
+  its value, not a dimmer caption. When now beats every earlier day (or
+  run), a **"Record"** tag takes the best's place. From 3 days in a row a
+  🔥 goes just before the number: Segoe UI Emoji's, in colour, since the
+  icon fonts have no fire. "Today" is a plain count: nothing breaks it.
+  The line is a `Row::hug` row: texts as wide as they are, the whole
+  centred; too wide for the card, it's laid out like any row.
 - **Days in a row:** days with a finished session, up to today. Today
   without one yet doesn't break it. **Days off**, picked by the user,
   don't break it either; one worked still counts.

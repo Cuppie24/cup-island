@@ -197,11 +197,27 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
             };
             float leadingWidth = edgeWidth(row.leading), trailingWidth = edgeWidth(row.trailing);
             float available = area.width - leadingWidth - trailingWidth;
+            // Row::hug: texts as wide as they are, like fixed items, if the whole row fits.
+            auto naturalOf = [&](const Item& item) -> std::optional<float> {
+                if (auto w = widthOf(item)) return w;
+                if (auto* text = std::get_if<Text>(&item); text && !text->wrap) return (measure ? measure(*text) : estimateTextWidth(*text)) + 1;
+                return std::nullopt;
+            };
+            bool hug = row.hug && [&] {
+                float w = gap * static_cast<float>(row.items.empty() ? 0 : row.items.size() - 1);
+                for (const Item& item : row.items) {
+                    auto natural = naturalOf(item);
+                    if (!natural) return false;
+                    w += *natural;
+                }
+                return w <= available;
+            }();
+            auto itemWidth = [&](const Item& item) { return hug ? naturalOf(item) : widthOf(item); };
 
             float fixed = 0;
             int stretchCount = 0;
             for (const Item& item : row.items) {
-                if (auto w = widthOf(item)) fixed += *w;
+                if (auto w = itemWidth(item)) fixed += *w;
                 else ++stretchCount;
             }
             float spacing = gap * static_cast<float>(row.items.empty() ? 0 : row.items.size() - 1);
@@ -237,7 +253,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
             }
             for (size_t i = 0; i < row.items.size(); ++i) {
                 // A text takes the next of the texts' widths; a fixed item (a tag, a button) takes none of them.
-                std::optional<float> fixedW = widthOf(row.items[i]);
+                std::optional<float> fixedW = itemWidth(row.items[i]);
                 float w = fixedW ? *fixedW : textWidths.empty() ? stretchWidth : textWidths[nextText++];
                 place(row.items[i], i, x, w);
                 x += w + gap;

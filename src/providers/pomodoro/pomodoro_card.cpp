@@ -60,27 +60,29 @@ Row topRow(Item big)
 
 Row caption(const std::string& text) { return row({ Text{ .value = text, .style = TextStyle::Caption, .centred = true } }, Align::Center); }
 
-// A statistic on the dormant card (decision 061): what it is now, then at
-// the end its best, as plain as the value (no caption), or "Record" when
-// now beats it. Lined up with the plan rows (inset).
-Row statRow(const std::string& now, int value, int best, std::vector<Item> before = {})
+// One statistic (decision 061): what it is now, then its best, as plain as
+// the value (no caption), or a "Record" tag when now beats it.
+void appendStat(std::vector<Item>& items, const std::string& now, int value, int best)
 {
-    Row r{ .items = { Text{ now } }, .leading = std::move(before), .inset = true };
-    if (value > best && value > 0) r.items.push_back(Tag{ "Record" });
-    else if (best > 0) r.items.push_back(Text{ .value = "best " + std::to_string(best), .alignEnd = true });
-    return r;
+    items.push_back(Text{ now });
+    if (value > best && value > 0) items.push_back(Tag{ "Record" });
+    else if (best > 0) items.push_back(Text{ "best " + std::to_string(best) });
 }
 
-// How it's going: sessions finished today, days in a row (a fire from three
-// on), focus today. Shown whenever no session runs.
+// How it's going, in one centred line (Row::hug): sessions finished today,
+// days in a row (a fire from three on, just before its number), focus
+// today, a dot between them. Shown whenever no session runs.
 void appendGlance(Slot& card, const PomodoroGlance& g)
 {
-    card.push_back(statRow(std::to_string(g.finishedToday) + " finished today", g.finishedToday, g.bestDay));
-    std::vector<Item> fire;
-    if (g.daysInARow >= 3) fire.push_back(Icon{ Glyph::Fire });
-    card.push_back(statRow(std::to_string(g.daysInARow) + (g.daysInARow == 1 ? " day" : " days") + " in a row", g.daysInARow, g.bestRun,
-                           std::move(fire)));
-    card.push_back(Row{ .items = { Text{ "Focused today" }, Text{ .value = spent(g.focusToday), .alignEnd = true } }, .inset = true });
+    Text dot{ .value = "·", .style = TextStyle::Caption };
+    std::vector<Item> items;
+    appendStat(items, std::to_string(g.finishedToday) + " today", g.finishedToday, g.bestDay);
+    items.push_back(dot);
+    if (g.daysInARow >= 3) items.push_back(Icon{ Glyph::Fire });
+    appendStat(items, std::to_string(g.daysInARow) + (g.daysInARow == 1 ? " day" : " days"), g.daysInARow, g.bestRun);
+    items.push_back(dot);
+    items.push_back(Text{ spent(g.focusToday) });
+    card.push_back(Row{ .items = std::move(items), .align = Align::Center, .hug = true });
 }
 
 const char* const kDayNames[] = { "Mo", "Tu", "We", "Th", "Fr", "Sa", "Su" };
