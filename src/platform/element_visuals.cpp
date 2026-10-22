@@ -296,6 +296,7 @@ void ElementVisuals::paint(View& view)
                         : button->destructive         ? t.dangerColor
                                                       : t.buttonColor;
             if (button->round) paintRoundButton(dc, dw, *button, size);
+            else if (button->quiet) paintLabel(dc, dw, button->label, size, t.captionTextColor, TextStyle::Caption); // a way into more (decision 063)
             else if (!button->label.empty()) paintLabel(dc, dw, button->label, size, color);
             // Centred in the surface's whole pixels, like the hover shape around it, not the fractional frame.
             else paintGlyph(dc, dw, button->glyph, glyphSizeOf(*button), pixelSize(size), color);

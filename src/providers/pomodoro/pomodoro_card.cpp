@@ -45,39 +45,45 @@ int phasesDone(const PomodoroSession& s)
     return 0;
 }
 
-// A length on the dormant card (decision 044): its name, the minutes, and
-// a full-size − and + at the end (easy to hit), dimmed at either limit.
+// A length on the dormant card (decisions 044, 063): its name, quiet, then
+// − the minutes + at the end. − and + show while the pointer is on the row
+// (or the keyboard is), but always take their room, and the minutes keep a
+// column as wide as the longest length: both rows line up, buttons or not.
 Row planRow(const char* name, Ms length, bool focus, const PomodoroPlan& plan)
 {
-    Button less{ .glyph = Glyph::Minus, .actionId = focus ? act::kFocusLess : act::kBreakLess, .enabled = canAdjust(plan, focus, -1) };
-    Button more{ .glyph = Glyph::Plus, .actionId = focus ? act::kFocusMore : act::kBreakMore, .enabled = canAdjust(plan, focus, 1) };
-    return Row{ .items = { Text{ name }, Text{ .value = minutes(length), .alignEnd = true } }, .trailing = { less, more }, .inset = true };
+    const Tokens& t = tokens();
+    std::string widest = minutes(std::max(t.pomodoroFocusMax, t.pomodoroBreakMax));
+    Button less{ .glyph = Glyph::Minus, .actionId = focus ? act::kFocusLess : act::kBreakLess, .enabled = canAdjust(plan, focus, -1),
+                 .revealOnHover = true };
+    Button more{ .glyph = Glyph::Plus, .actionId = focus ? act::kFocusMore : act::kBreakMore, .enabled = canAdjust(plan, focus, 1),
+                 .revealOnHover = true };
+    return Row{ .items = { Text{ .value = name, .style = TextStyle::Caption } },
+                .trailing = { less, Text{ .value = minutes(length), .centred = true, .sizedAs = widest }, more },
+                .inset = true };
 }
 
 std::string days(int n) { return std::to_string(n) + (n == 1 ? " day" : " days"); }
 
-// The card's top row: its big time, the days in a row in the top-left
-// corner, always while dormant (a fire from three on), and the statistics and settings buttons
-// in the top-right one (decision 061).
+// The card's top row: its big time, the gear in the top-right corner, and
+// while dormant the days in a row in the top-left one (a fire from three
+// on), quiet, a way into the statistics page (decisions 061, 063).
 Row topRow(Item big, int daysInARow = -1) // -1: no corner (the running card)
 {
-    Row r{ .items = { std::move(big) }, .align = Align::Center,
-           .trailing = { Button{ Glyph::Chart, act::kOpenStats }, Button{ Glyph::Settings, act::kOpenSettings } } };
+    // Hugging: the big time as wide as it is, so it centres on the card, not in the room the corners leave.
+    Row r{ .items = { std::move(big) }, .align = Align::Center, .trailing = { Button{ Glyph::Settings, act::kOpenSettings } }, .hug = true };
     if (daysInARow >= 3) r.leading.push_back(Icon{ Glyph::Fire });
-    if (daysInARow >= 0) r.leading.push_back(Text{ days(daysInARow) }); // "3 days": the fire and the place say the rest
+    if (daysInARow >= 0) r.leading.push_back(Button{ .actionId = act::kOpenStats, .label = days(daysInARow), .quiet = true });
     return r;
 }
 
 Row caption(const std::string& text) { return row({ Text{ .value = text, .style = TextStyle::Caption, .centred = true } }, Align::Center); }
 
-// Today, in one centred line (Row::hug) under ▶: cycles (sessions)
-// finished and focus time. Their bests are on the statistics page.
+// Today under ▶, a group of its own (decision 063): cycles (sessions)
+// finished and focus time, quiet, one click into the statistics page.
 Row todayRow(const PomodoroGlance& g)
 {
-    std::string cycles = std::to_string(g.finishedToday) + (g.finishedToday == 1 ? " cycle" : " cycles") + " today";
-    return Row{ .items = { Text{ cycles }, Text{ .value = "·", .style = TextStyle::Caption }, Text{ "Focus time: " + spent(g.focusToday) } },
-                .align = Align::Center,
-                .hug = true };
+    std::string text = std::to_string(g.finishedToday) + (g.finishedToday == 1 ? " cycle" : " cycles") + " · " + spent(g.focusToday);
+    return Row{ .items = { Button{ .actionId = act::kOpenStats, .label = text, .quiet = true } }, .align = Align::Center, .section = true };
 }
 
 // A row of the statistics page: its name, a "Record" tag beside it when
@@ -145,7 +151,7 @@ Panel pomodoroPanel(const TodoList& todos, const PomodoroPlan& plan, const Pomod
         .expandedCenter = { topRow(Text{ .value = formatDuration(plan.focus), .style = TextStyle::Display, .centred = true }, glance.daysInARow),
                             planRow("Focus", plan.focus, true, plan),
                             planRow("Break", plan.rest, false, plan),
-                            row({ Button{ Glyph::Play, act::kStart } }, Align::Center) },
+                            Row{ .items = { Button{ Glyph::Play, act::kStart } }, .align = Align::Center, .section = true } }, // apart from the plan
         .tileLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
         .tile = { row({ Text{ formatDuration(plan.focus), TextStyle::Title } }), row({ Text{ rounds, TextStyle::Caption } }) },
     };

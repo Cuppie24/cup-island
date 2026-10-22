@@ -25,6 +25,19 @@ std::optional<Hit> hitTest(const Scene& scene, Vec2 point)
     return std::nullopt;
 }
 
+std::string rowAt(const Scene& scene, Vec2 point)
+{
+    auto rowOf = [](const Placed& p) { return p.key.substr(0, p.key.rfind('/')); };
+    auto isRow = [](const Placed& p) { return p.key.rfind("tab/", 0) != 0; };
+    for (const Placed& p : scene.elements)
+        if (isRow(p) && p.hitFrame.contains(point)) return rowOf(p);
+    // Between its items: the band their hit frames span top to bottom (they reach half the gap to the next row).
+    if (point.x < 0 || point.x >= scene.size.x) return {};
+    for (const Placed& p : scene.elements)
+        if (isRow(p) && point.y >= p.hitFrame.y && point.y < p.hitFrame.y + p.hitFrame.height) return rowOf(p);
+    return {};
+}
+
 float seekFraction(const Placed& progress, float x)
 {
     if (progress.frame.width <= 0) return 0;

@@ -192,7 +192,11 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
             // A text as wide as it is: in a hugging row, and at a row's edges (a count beside a big timer).
             auto naturalOf = [&](const Item& item) -> std::optional<float> {
                 if (auto w = widthOf(item)) return w;
-                if (auto* text = std::get_if<Text>(&item); text && !text->wrap) return (measure ? measure(*text) : estimateTextWidth(*text)) + 1;
+                if (auto* text = std::get_if<Text>(&item); text && !text->wrap) {
+                    Text sized = *text; // Text::sizedAs: as wide as its sample, so a changing value keeps its column
+                    if (!text->sizedAs.empty()) sized.value = text->sizedAs;
+                    return (measure ? measure(sized) : estimateTextWidth(sized)) + 1;
+                }
                 return std::nullopt;
             };
 

@@ -1,6 +1,6 @@
 # 044: Setting focus and break lengths before starting
 
-Status: Accepted
+Status: Accepted; − and + placed and shown on hover by 063
 
 **Context.** Focus and break lengths were tokens.json values: changing them
 meant editing a file. And a click on the Pomodoro card's empty space closed

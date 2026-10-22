@@ -1,7 +1,7 @@
 #pragma once
 // Pomodoro's content, pure (tested on its own): the dormant panel, a running
-// session, the stop question, and the timer's own pages behind the buttons
-// in the card's top-right corner: statistics and settings (decision 061).
+// session, the stop question, and the timer's own pages: statistics (behind
+// its numbers) and settings (the gear), decisions 061 and 063.
 
 #include "core/island.h"
 #include "providers/pomodoro/pomodoro_session.h"
@@ -26,7 +26,8 @@ inline constexpr const char* kFocusLess = "plan.focus.less";
 inline constexpr const char* kFocusMore = "plan.focus.more";
 inline constexpr const char* kBreakLess = "plan.break.less";
 inline constexpr const char* kBreakMore = "plan.break.more";
-// The pages (decision 061): the chart opens statistics, the gear settings; the back arrow (or Esc) leaves them.
+// The pages (decision 061): the days in a row and today's line open statistics (decision 063), the gear
+// settings; the back arrow (or Esc) leaves them.
 inline constexpr const char* kOpenStats = "stats.open";
 inline constexpr const char* kOpenSettings = "settings.open";
 inline constexpr const char* kBack = "settings.back";

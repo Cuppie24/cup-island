@@ -96,7 +96,6 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Plus: return L"\uE710";   // Add
     case Glyph::Pin: return L"\uE718";
     case Glyph::Pinned: return L"\uE840"; // Pinned, the outline with its needle; paintGlyph fills it (PinnedFill under it)
-    case Glyph::Chart: return L"\uE9D2"; // AreaChart: statistics
     case Glyph::Fire: return L"\U0001F525"; // not in the icon fonts: Segoe UI Emoji's, in colour (paintGlyph)
     }
     return L"?";
@@ -219,9 +218,9 @@ void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec
     dc->DrawTextLayout(D2D1::Point2F(0, 0), layout.get(), brushOf(dc, lookOf(text.style).color).get(), D2D1_DRAW_TEXT_OPTIONS_CLIP);
 }
 
-void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& label, Vec2 size, const Color& color)
+void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& label, Vec2 size, const Color& color, TextStyle style)
 {
-    Text text{ .value = label, .style = TextStyle::Body, .centred = true };
+    Text text{ .value = label, .style = style, .centred = true };
     drawString(dc, formatOf(dw, text).get(), widen(label), size, color);
 }
 

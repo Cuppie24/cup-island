@@ -157,14 +157,16 @@ struct Timer {
             if (auto* text = std::get_if<Text>(&item)) out += text->value;
             if (auto* tag = std::get_if<Tag>(&item)) out += "[" + tag->text + "]";
             if (auto* icon = std::get_if<Icon>(&item)) out += icon->glyph == Glyph::Fire ? "fire" : "icon";
+            if (auto* button = std::get_if<Button>(&item)) out += button->label;
         }
         return out;
     }
-    // Today's line under ▶ (the card's Row::hug row).
+    // Today's line under ▶: the quiet button into the statistics.
     std::string line()
     {
         for (const Row& r : panels.back().content.expandedCenter)
-            if (r.hug) return words(r.items);
+            if (!r.items.empty())
+                if (auto* b = std::get_if<Button>(&r.items[0]); b && b->quiet) return b->label;
         return "";
     }
     // The top-left corner: days in a row.
@@ -185,7 +187,7 @@ void providerTests()
 {
     const Tokens& t = tokens();
     Timer timer;
-    expect(timer.line() == "0 cycles today · Focus time: 0 min" && timer.corner() == "0 days", "a first run: today's values, 0 days in a row");
+    expect(timer.line() == "0 cycles · 0 min" && timer.corner() == "0 days", "a first run: today's values, 0 days in a row");
     auto first = timer.statsPage();
     expect(first.size() == 9 && first[0] == "Statistics" && first[1] == "Now" && first[2] == "Finished today 0" && first[3] == "Days in a row 0 days" &&
            first[4] == "Focused today 0 min" && first[5] == "Best" && first[6] == "Finished in a day 0" && first[8] == "Focused in a day 0 min",
@@ -198,7 +200,7 @@ void providerTests()
     expect(day.focus == static_cast<long long>(t.pomodoroRounds) * t.pomodoroFocus, "and the focus time");
     expect(!timer.alerts.empty() && timer.alerts.back().content.label == "Session done" &&
            std::get<Text>(timer.alerts.back().content.alertCenter[1].items[0]).value == "1 finished today", "the last alert says how many today");
-    expect(timer.line() == "1 cycle today · Focus time: 1 h 40 min" && timer.corner() == "1 day", "the card: today's values, the run in the corner");
+    expect(timer.line() == "1 cycle · 1 h 40 min" && timer.corner() == "1 day", "the card: today's values, the run in the corner");
     expect(timer.pageSays("Finished today [Record] 1") && timer.pageSays("Days in a row [Record] 1 day") &&
            timer.pageSays("Focused today [Record] 1 h 40 min") && timer.pageSays("Finished in a day 1"), "the page: records, and the new bests");
 
@@ -230,7 +232,7 @@ void providerTests()
     // The next day: today starts over; the card follows once it's shown again.
     timer.pass(Ms{ kDay });
     timer.registry.cardShown({ "pomodoro", PomodoroProvider::kPanelId });
-    expect(timer.line() == "0 cycles today · Focus time: 0 min" && timer.corner() == "1 day", "a new day: none today yet, the run still on");
+    expect(timer.line() == "0 cycles · 0 min" && timer.corner() == "1 day", "a new day: none today yet, the run still on");
     expect(timer.pageSays("Finished today 0") && timer.pageSays("Finished in a day 2"), "yesterday's 2 is the best");
     std::size_t published = timer.panels.size();
     timer.registry.cardShown({ "pomodoro", PomodoroProvider::kPanelId });
@@ -270,9 +272,9 @@ void layoutTests()
         return nullptr;
     };
     const Placed* big = at(card, "expandedCenter/0/0");
-    const Placed* fire = at(card, "expandedCenter/0/3"); // items, then trailing (2), then leading
-    const Placed* days = at(card, "expandedCenter/0/4");
-    expect(fire && days && std::get<Icon>(fire->item).glyph == Glyph::Fire && std::get<Text>(days->item).value == "12 days" &&
+    const Placed* fire = at(card, "expandedCenter/0/2"); // items, then trailing (the gear), then leading
+    const Placed* days = at(card, "expandedCenter/0/3");
+    expect(fire && days && std::get<Icon>(fire->item).glyph == Glyph::Fire && std::get<Button>(days->item).label == "12 days" &&
            fire->frame.x < days->frame.x && fire->frame.x < t.expandedPadding + 1, "the fire, then the count, in the top-left corner");
     expect(big && days && days->frame.x + days->frame.width < big->frame.x && days->frame.width > 20, "the count at its width, clear of the time");
     expect(big && std::abs(big->frame.x + big->frame.width / 2 - card.size.x / 2) < 0.51f, "the time still centred on the card");
@@ -312,7 +314,7 @@ void fakeStatsTests()
     timer.session();
     expect(timer.store[PomodoroProvider::kStatsKey] == real, "made up: never saved");
     timer.act(pomodoro_action::kFakeStats);
-    expect(timer.line() == "1 cycle today · Focus time: 1 h 40 min", "the third click: the real statistics again");
+    expect(timer.line() == "1 cycle · 1 h 40 min", "the third click: the real statistics again");
 }
 
 void settingsPageTests()
@@ -320,9 +322,8 @@ void settingsPageTests()
     Timer timer;
     const Content& dormant = timer.panels.back().content;
     const Row& top = dormant.expandedCenter[0];
-    expect(top.trailing.size() == 2 && std::get<Button>(top.trailing[0]).actionId == pomodoro_action::kOpenStats &&
-           std::get<Button>(top.trailing[1]).glyph == Glyph::Settings && std::get<Button>(top.trailing[1]).actionId == pomodoro_action::kOpenSettings,
-           "statistics, then the gear, in the card's top-right corner");
+    expect(top.trailing.size() == 1 && std::get<Button>(top.trailing[0]).glyph == Glyph::Settings &&
+           std::get<Button>(top.trailing[0]).actionId == pomodoro_action::kOpenSettings, "the gear alone in the card's top-right corner");
 
     timer.act(pomodoro_action::kOpenSettings);
     Content page = timer.panels.back().content;

@@ -207,7 +207,7 @@ over the file's, so `tokens()` is always what's on screen.
 | Island shadow: a DropShadow under the pill and the bubble, masked by a live snapshot of each (decision 018) | done; needs a Windows run to judge |
 | Dialogs over a card, scrolling lists, buttons shown on hover (decision 020) | done; rules tested, Windows side needs a run |
 | Pomodoro session survives a restart, back paused where it was (decisions 027, 061) | done; tested |
-| Pomodoro statistics: finished today, best day, days in a row with days off, focus time; days off on the timer's own settings page (decision 061); its card doesn't close when left alone (decision 062) | done; rules tested, the gear and page need a Windows run |
+| Pomodoro statistics: finished today, best day, days in a row with days off, focus time; days off on the timer's own settings page (decision 061); its card doesn't close when left alone (decision 062); a calmer card: − / + on hover, numbers open the statistics (decision 063) | done; rules tested, the gear and page need a Windows run |
 | Providers' store: `Host::load/save/wallClock`, a file per key, legacy files moved in (decision 028) | done; tested |
 | Host lists: smooth scrolling, keep-in-view, drag to reorder, edit in place (decision 029) | done; rules tested, compositor side needs a Windows run |
 | Renderer: alert pulse, receptive drop zones, matched geometry | not yet |

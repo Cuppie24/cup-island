@@ -18,7 +18,7 @@ using Ms = std::chrono::milliseconds;
 // Built-in icons; the renderer maps them to font glyphs.
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
                    Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre,
-                   Minus, Plus, Pin, Pinned, Fire, Chart };
+                   Minus, Plus, Pin, Pinned, Fire };
 
 // Display: a big number, the card's centre (a timer). Heading: a group's name over its rows (Settings'
 // "Dark" and "Light"): small, but heavy and full-strength, so it reads as a divider (decision 037).
@@ -72,6 +72,10 @@ struct Text {
     // Wraps onto as many lines as it needs instead of ending in "…" (a
     // to-do, decision 045). The only stretching item in its row.
     bool wrap = false;
+    // Laid out as wide as this text would be instead of its own (at a row's
+    // edges, or in a hugging row): a value that changes keeps one column, and
+    // rows with it line up ("120 min" for "5 min" and "25 min", decision 063).
+    std::string sizedAs;
     // Host-filled: `value` with the spaces where its lines break turned into
     // '\n' (same length, so offsets hold). Empty: one line.
     std::string wrapped;
@@ -97,6 +101,9 @@ struct Button {
     // A circle buttonSize wide with a short label ("Mo") instead of a glyph,
     // filled when `on` like a Switch: one of a set picked together (Pomodoro's days off, decision 061).
     bool round = false;
+    // A label button that's a way into more, not a main control: its label in
+    // Caption style and colour, like the text it stands in for (Pomodoro's statistics line, decision 063).
+    bool quiet = false;
     bool operator==(const Button&) const = default;
 };
 

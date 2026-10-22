@@ -25,4 +25,10 @@ std::optional<Hit> hitTest(const Scene& scene, Vec2 point);
 // a scrub dragged past either end (or off the pill) pins to it.
 float seekFraction(const Placed& progress, float x);
 
+// The row under `point` ("<slot>/<row>", or "" for none): the element's under
+// it, else the row whose band (its elements' height, anywhere across) it's
+// in. Hover reveals a row's revealOnHover buttons anywhere along it, not
+// only over an item (decision 063). Tabs aren't rows.
+std::string rowAt(const Scene& scene, Vec2 point);
+
 } // namespace cup
