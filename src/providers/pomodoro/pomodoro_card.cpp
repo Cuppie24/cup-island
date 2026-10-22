@@ -54,6 +54,8 @@ Row planRow(const char* name, Ms length, bool focus, const PomodoroPlan& plan)
     return Row{ .items = { Text{ name }, Text{ .value = minutes(length), .alignEnd = true } }, .trailing = { less, more }, .inset = true };
 }
 
+std::string days(int n) { return std::to_string(n) + (n == 1 ? " day" : " days"); }
+
 // The card's top row: its big time, the days in a row in the top-left
 // corner, always while dormant (a fire from three on), and the statistics and settings buttons
 // in the top-right one (decision 061).
@@ -62,7 +64,7 @@ Row topRow(Item big, int daysInARow = -1) // -1: no corner (the running card)
     Row r{ .items = { std::move(big) }, .align = Align::Center,
            .trailing = { Button{ Glyph::Chart, act::kOpenStats }, Button{ Glyph::Settings, act::kOpenSettings } } };
     if (daysInARow >= 3) r.leading.push_back(Icon{ Glyph::Fire });
-    if (daysInARow >= 0) r.leading.push_back(Text{ std::to_string(daysInARow) + (daysInARow == 1 ? " day" : " days") + " in a row" });
+    if (daysInARow >= 0) r.leading.push_back(Text{ days(daysInARow) }); // "3 days": the fire and the place say the rest
     return r;
 }
 
@@ -97,8 +99,6 @@ Row heading(const char* text, bool section)
 {
     return Row{ .items = { Text{ .value = text, .style = TextStyle::Heading } }, .section = section, .inset = true };
 }
-
-std::string days(int n) { return std::to_string(n) + (n == 1 ? " day" : " days"); }
 
 const char* const kDayNames[] = { "Mo", "Tu", "We", "Th", "Fr", "Sa", "Su" };
 
@@ -237,6 +237,7 @@ Content withStatsPage(Content card, const PomodoroGlance& g)
                             statRow("Finished in a day", std::to_string(std::max(g.finishedToday, g.bestDay))),
                             statRow("Days in a row", days(std::max(g.daysInARow, g.bestRun))),
                             statRow("Focused in a day", spent(std::max(g.focusToday, g.bestFocus))) };
+    card.card = CardLayout::Narrow; // short names and values: kept together in the middle, not at the card's edges
     card.backAction = act::kBack; // Esc goes back to the timer, like the arrow (decision 033)
     return card;
 }

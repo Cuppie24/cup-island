@@ -191,7 +191,9 @@ enum class RowSpan { Slot, MatchAbove, MatchBelow };
 //            control panel or a timer, nothing to put in an art square.
 //  List:     like Centred, with wider sides (listCardInset): a page of
 //            settings, rows edge to edge (decision 030).
-enum class CardLayout { Standard, Centred, List };
+//  Narrow:   like Centred, its rows only narrowCardWidth wide, in the middle:
+//            a few short name-and-value rows (Pomodoro's statistics, decision 061).
+enum class CardLayout { Standard, Centred, List, Narrow };
 
 // A horizontal row of items. Text and Progress stretch; everything else has a fixed size.
 struct Row {

@@ -1,6 +1,7 @@
 // Pomodoro's statistics and its settings page (decision 061): days, days in
 // a row with days off, what's kept, and the provider counting a real session.
 
+#include "core/layout.h"
 #include "core/tokens.h"
 #include "expect.h"
 #include "providers/pomodoro/pomodoro_provider.h"
@@ -184,7 +185,7 @@ void providerTests()
 {
     const Tokens& t = tokens();
     Timer timer;
-    expect(timer.line() == "0 cycles today · Focus time: 0 min" && timer.corner() == "0 days in a row", "a first run: today's values, 0 days in a row");
+    expect(timer.line() == "0 cycles today · Focus time: 0 min" && timer.corner() == "0 days", "a first run: today's values, 0 days in a row");
     auto first = timer.statsPage();
     expect(first.size() == 9 && first[0] == "Statistics" && first[1] == "Now" && first[2] == "Finished today 0" && first[3] == "Days in a row 0 days" &&
            first[4] == "Focused today 0 min" && first[5] == "Best" && first[6] == "Finished in a day 0" && first[8] == "Focused in a day 0 min",
@@ -197,7 +198,7 @@ void providerTests()
     expect(day.focus == static_cast<long long>(t.pomodoroRounds) * t.pomodoroFocus, "and the focus time");
     expect(!timer.alerts.empty() && timer.alerts.back().content.label == "Session done" &&
            std::get<Text>(timer.alerts.back().content.alertCenter[1].items[0]).value == "1 finished today", "the last alert says how many today");
-    expect(timer.line() == "1 cycle today · Focus time: 1 h 40 min" && timer.corner() == "1 day in a row", "the card: today's values, the run in the corner");
+    expect(timer.line() == "1 cycle today · Focus time: 1 h 40 min" && timer.corner() == "1 day", "the card: today's values, the run in the corner");
     expect(timer.pageSays("Finished today [Record] 1") && timer.pageSays("Days in a row [Record] 1 day") &&
            timer.pageSays("Focused today [Record] 1 h 40 min") && timer.pageSays("Finished in a day 1"), "the page: records, and the new bests");
 
@@ -229,25 +230,61 @@ void providerTests()
     // The next day: today starts over; the card follows once it's shown again.
     timer.pass(Ms{ kDay });
     timer.registry.cardShown({ "pomodoro", PomodoroProvider::kPanelId });
-    expect(timer.line() == "0 cycles today · Focus time: 0 min" && timer.corner() == "1 day in a row", "a new day: none today yet, the run still on");
+    expect(timer.line() == "0 cycles today · Focus time: 0 min" && timer.corner() == "1 day", "a new day: none today yet, the run still on");
     expect(timer.pageSays("Finished today 0") && timer.pageSays("Finished in a day 2"), "yesterday's 2 is the best");
     std::size_t published = timer.panels.size();
     timer.registry.cardShown({ "pomodoro", PomodoroProvider::kPanelId });
     expect(timer.panels.size() == published, "shown again the same day: nothing to change");
     timer.session();
-    expect(timer.corner() == "2 days in a row" && timer.pageSays("Days in a row [Record] 2 days") && timer.pageSays("Finished today 1"),
+    expect(timer.corner() == "2 days" && timer.pageSays("Days in a row [Record] 2 days") && timer.pageSays("Finished today 1"),
            "two days in a row: a record; 1 today isn't");
 
     // A run broken: the old one is the best to beat; from three days on, a fire.
     timer.pass(Ms{ 2 * kDay });
     timer.registry.cardShown({ "pomodoro", PomodoroProvider::kPanelId });
-    expect(timer.corner() == "0 days in a row" && timer.pageSays("Days in a row 0 days") && timer.pageSays("Days in a row 2 days"),
+    expect(timer.corner() == "0 days" && timer.pageSays("Days in a row 0 days") && timer.pageSays("Days in a row 2 days"),
            "a day missed: 0 in the corner, best 2");
     for (int day = 0; day < 3; ++day) {
         timer.session();
         if (day < 2) timer.pass(Ms{ kDay });
     }
-    expect(timer.corner() == "fire 3 days in a row" && timer.pageSays("Days in a row [Record] 3 days"), "three days: a fire, and a record");
+    expect(timer.corner() == "fire 3 days" && timer.pageSays("Days in a row [Record] 3 days"), "three days: a fire, and a record");
+}
+
+// The card as laid out: the corner's count beside the big time, which stays
+// centred on the card; the statistics page narrower than the card.
+void layoutTests()
+{
+    const Tokens& t = tokens();
+    auto shown = [](const Panel& panel) {
+        IslandState state;
+        state = reduce(state, PanelPublished{ panel }, Ms{ 0 });
+        state = reduce(state, PillClicked{}, Ms{ 0 });
+        state = reduce(state, TileClicked{ PomodoroProvider::kPanelId }, Ms{ 0 });
+        return layout(state, Ms{ 0 });
+    };
+    Scene card = shown(pomodoroPanel({}, defaultPlan(), { .daysInARow = 12 }));
+    auto at = [](const Scene& scene, const std::string& key) -> const Placed* {
+        for (const Placed& p : scene.elements)
+            if (p.key == key) return &p;
+        return nullptr;
+    };
+    const Placed* big = at(card, "expandedCenter/0/0");
+    const Placed* fire = at(card, "expandedCenter/0/3"); // items, then trailing (2), then leading
+    const Placed* days = at(card, "expandedCenter/0/4");
+    expect(fire && days && std::get<Icon>(fire->item).glyph == Glyph::Fire && std::get<Text>(days->item).value == "12 days" &&
+           fire->frame.x < days->frame.x && fire->frame.x < t.expandedPadding + 1, "the fire, then the count, in the top-left corner");
+    expect(big && days && days->frame.x + days->frame.width < big->frame.x && days->frame.width > 20, "the count at its width, clear of the time");
+    expect(big && std::abs(big->frame.x + big->frame.width / 2 - card.size.x / 2) < 0.51f, "the time still centred on the card");
+
+    Panel stats = pomodoroPanel();
+    stats.content = withStatsPage(stats.content, { .finishedToday = 2, .bestDay = 4 });
+    Scene page = shown(stats);
+    const Placed* name = at(page, "expandedCenter/2/0");
+    const Placed* value = at(page, "expandedCenter/2/1");
+    expect(name && value && value->frame.x + value->frame.width - name->frame.x <= t.narrowCardWidth + 0.01f &&
+           std::abs((name->frame.x + value->frame.x + value->frame.width) / 2 - page.size.x / 2) < 1.0f,
+           "the statistics: rows narrowCardWidth wide, in the middle");
 }
 
 // Debug builds: the settings page's row steps through made-up histories, never saved.
@@ -267,10 +304,10 @@ void fakeStatsTests()
     expect(timer.card(timer.panels.back().content).back() == "Fake statistics", "Debug: a Fake statistics row");
     timer.act(pomodoro_action::kFakeStats);
     timer.act(pomodoro_action::kBack);
-    expect(timer.corner() == "fire 3 days in a row" && timer.pageSays("Finished today 2") && timer.pageSays("Finished in a day 4") &&
+    expect(timer.corner() == "fire 3 days" && timer.pageSays("Finished today 2") && timer.pageSays("Finished in a day 4") &&
            timer.pageSays("Days in a row 5 days"), "fake 1: bests to beat, a fire");
     timer.act(pomodoro_action::kFakeStats);
-    expect(timer.corner() == "fire 6 days in a row" && timer.pageSays("Finished today [Record] 5") && timer.pageSays("Days in a row [Record] 6 days"),
+    expect(timer.corner() == "fire 6 days" && timer.pageSays("Finished today [Record] 5") && timer.pageSays("Days in a row [Record] 6 days"),
            "fake 2: records");
     timer.session();
     expect(timer.store[PomodoroProvider::kStatsKey] == real, "made up: never saved");
@@ -325,6 +362,7 @@ void runPomodoroStatsTests()
     pureTests();
     providerTests();
     fakeStatsTests();
+    layoutTests();
     settingsPageTests();
 }
 

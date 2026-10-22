@@ -14,7 +14,8 @@ on, with time counted that they hadn't worked.
   skipped. More skipped: neither finished nor canceled. Stop (confirmed):
   canceled.
 - **Shown on the card** whenever no session runs, current values only:
-  days in a row in the **top-left corner**, always ("0 days in a row"),
+  days in a row in the **top-left corner**, always, as just "3 days" (the
+  place and the fire say the rest; the big time stays centred on the card),
   with a 🔥 before it from 3 on (Segoe UI Emoji's, in colour: the icon
   fonts have no fire); and under ▶ one centred line, "2 cycles today ·
   Focus time: 1 h 05 min" (`Row::hug`: texts at their own widths, centred
@@ -24,7 +25,9 @@ on, with time counted that they hadn't worked.
   corner): "Now" (finished today, days in a row, focused today) and "Best"
   (most finished in a day, most days in a row, most focus in a day). A
   value that beats its best gets a **"Record"** tag beside its name, and
-  the best shown is then the new one. "Today" is a plain count: nothing
+  the best shown is then the new one. Its rows are `CardLayout::Narrow`
+  (`narrowCardWidth`): short names and values kept together in the middle,
+  not stretched to the card's edges. "Today" is a plain count: nothing
   breaks it.
 - **Days in a row:** days with a finished session, up to today. Today
   without one yet doesn't break it. **Days off**, picked by the user,

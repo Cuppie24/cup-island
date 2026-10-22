@@ -35,6 +35,7 @@ const Field kFields[] = {
     { "compactInset", &Tokens::compactInset, true },
     { "alertPadding", &Tokens::alertPadding },
     { "expandedPadding", &Tokens::expandedPadding },
+    { "narrowCardWidth", &Tokens::narrowCardWidth },
     { "listCardInset", &Tokens::listCardInset },
     { "listCardWidth", &Tokens::listCardWidth },
     { "listCardVerticalInset", &Tokens::listCardVerticalInset },
