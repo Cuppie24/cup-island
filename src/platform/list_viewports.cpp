@@ -62,7 +62,14 @@ wuc::ContainerVisual ListViewports::parentFor(const Placed& placed)
     }
     if (list.offset != in.offset) {
         list.offset = in.offset;
-        list.scroller.Offset(pixels(0, -in.offset)); // eases (scrollEase_)
+        if (in.carrying) { // a row carried: at once, or it would lag behind the row it carries (decision 071)
+            list.scroller.ImplicitAnimations(wuc::ImplicitAnimationCollection{ nullptr });
+            list.scroller.StopAnimation(L"Offset");
+            list.scroller.Offset(pixels(0, -in.offset));
+            list.scroller.ImplicitAnimations(scrollEase_);
+        } else {
+            list.scroller.Offset(pixels(0, -in.offset)); // eases (scrollEase_)
+        }
     }
     return list.scroller;
 }

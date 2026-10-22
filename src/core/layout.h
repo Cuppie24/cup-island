@@ -22,6 +22,9 @@ struct InList {
     std::string moveAction;  // its row's (Row::moveAction): it can be dragged to a new place
     bool dragged = false;    // its row is being dragged: it follows the pointer at once, the rest ease aside
     std::size_t dropAt = 0;  // dragged: the index it would land at if let go now
+    // One of its rows is being carried: the list scrolls at once, not eased, so
+    // the carried row (in the list's scroller) stays under the pointer (decision 071).
+    bool carrying = false;
     bool operator==(const InList&) const = default;
 };
 

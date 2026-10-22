@@ -517,7 +517,7 @@ void onPointerMoved(Vec2 canvasPoint, bool inside)
         const Placed& row = *g_pointer.listPress;
         if (!g_state.listDrag && std::abs(point.y - g_pointer.listPressY) >= tokens().dragStartDistance) {
             if (!g_pointer.pressedKey.empty()) g_renderer.releaseElement(std::exchange(g_pointer.pressedKey, std::string{})); // not a click now
-            dispatch(ListDragStarted{ row.activityId, row.list->id, row.list->row, g_pointer.listPressY }, "pick up row");
+            dispatch(ListDragStarted{ row.activityId, row.list->id, row.list->row, g_pointer.listPressY, row.list->offset }, "pick up row");
         }
         if (g_state.listDrag) {
             dispatch(ListDragMoved{ point.y }, "carry row");

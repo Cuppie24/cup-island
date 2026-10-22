@@ -458,6 +458,19 @@ void runTodoTests()
     wheel(-40);
     expect(!state.scrolls[key].reveal, "the wheel takes over from there");
 
+    // Carried while the wheel scrolls (decision 071): the list moves under it, it stays under the pointer.
+    wheel(-1000);
+    Scene atTop = layout(state, now);
+    const Placed* firstBox = boxesOf(atTop)[0];
+    float hold = firstBox->frame.y;
+    send(ListDragStarted{ PomodoroProvider::kPanelId, todo_action::kList, firstBox->list->row, hold, firstBox->list->offset });
+    wheel(step);
+    Scene scrolledUnder = layout(state, now);
+    const Placed* held = firstOf(scrolledUnder, [&](const Placed& p) { return p.key == firstBox->key; });
+    expect(state.scrolls[key].offset > 0 && held && std::abs(held->frame.y - hold) < 0.01f, "scrolled under it: it stays under the pointer");
+    expect(held && held->list->dropAt == 1, "and its place moves on with the rows scrolling past");
+    send(ListDragEnded{});
+
     // A solved one can't be carried up among the open ones (sortGroup).
     Scene beforeTick = layout(state, now);
     const Placed* zBox = boxesOf(beforeTick).back(); // "z", the last open one

@@ -89,6 +89,9 @@ struct ListDrag {
     std::string activityId, list;
     std::size_t row = 0;   // its index in the list
     float grabY = 0, y = 0; // the pointer's y (pill coordinates) when it was picked up, and now
+    // The list's scroll when it was picked up: the wheel scrolls the list under
+    // a carried row, which stays under the pointer (decision 071).
+    float grabOffset = 0;
     bool operator==(const ListDrag&) const = default;
 };
 
@@ -159,7 +162,7 @@ struct DialogClosed {};                  // answered or dismissed: the app sends
 // included), `max` how far it can go (both from the scene).
 struct ListScrolled { std::string activityId, list; float from = 0, delta = 0, max = 0; };
 struct ListRevealed { std::string activityId, list; std::size_t row = 0; }; // Host::reveal
-struct ListDragStarted { std::string activityId, list; std::size_t row = 0; float y = 0; };
+struct ListDragStarted { std::string activityId, list; std::size_t row = 0; float y = 0; float offset = 0; }; // offset: the list's, as shown
 struct ListDragMoved { float y = 0; };
 struct ListDragEnded {};                 // dropped (the app sends the move first) or cancelled
 struct StayOpenToggled {};               // Expanded's pin, at the tab row's right end (decision 046)
