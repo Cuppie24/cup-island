@@ -1,7 +1,7 @@
 #pragma once
 // Pomodoro's statistics (decision 061): what was done each day, kept as one
-// line per day in the host's store. Shown: sessions finished today, the best
-// day, days in a row and focus time today; the rest is kept for later.
+// line per day in the host's store. Shown: sessions finished today and days
+// in a row, each with its best, and focus time today; the rest is kept for later.
 // Pure: days are passed in (localDay), so midnight and days off test on Linux.
 
 #include "core/content.h"
@@ -28,7 +28,6 @@ struct PomodoroDay {
 
 struct PomodoroStats {
     std::vector<PomodoroDay> days; // oldest first; only days with something in them
-    int bestStreak = 0;            // the most days in a row so far
     bool operator==(const PomodoroStats&) const = default;
 };
 
@@ -49,11 +48,24 @@ bool sessionCounts(int focusSkipped);
 
 // Days in a row with a finished session up to `today`. Today without one
 // yet doesn't break it, nor does a day off; a day off with one counts.
-int daysInARow(const PomodoroStats& stats, const DaysOff& off, long long today);
-int bestDay(const PomodoroStats& stats); // the most sessions finished in one day
+// Worked out from the days kept, with today's days off.
+struct Streaks {
+    int current = 0;
+    int bestBefore = 0; // the longest run that ended before the current one
+    bool operator==(const Streaks&) const = default;
+};
+Streaks streaksOf(const PomodoroStats& stats, const DaysOff& off, long long today);
+int daysInARow(const PomodoroStats& stats, const DaysOff& off, long long today); // streaksOf(...).current
+// The most sessions finished in one day, leaving out `except` (today, for a record).
+int bestDay(const PomodoroStats& stats, long long except = -1'000'000);
 PomodoroDay totals(const PomodoroStats& stats); // every day added up (day = 0)
 
-// "stats1 <best streak>", then "<yyyy-mm-dd> <focus ms> <started> <finished>
+// A made-up history for trying the card in Debug builds (decision 061):
+// 1: a run of 3 up to today (best 5 before it), 2 finished today (best 4);
+// 2: new records, a run of 6 and 5 finished today. Anything else: none.
+PomodoroStats fakeStats(long long today, int which);
+
+// "stats1", then "<yyyy-mm-dd> <focus ms> <started> <finished>
 // <canceled> <focus done> <focus skipped> <breaks skipped> <to-dos done>" a
 // day. Unreadable lines are skipped; nothing readable: no stats.
 std::string saveStats(const PomodoroStats& stats);

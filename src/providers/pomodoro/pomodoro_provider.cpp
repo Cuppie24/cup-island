@@ -100,6 +100,12 @@ void PomodoroProvider::onAction(const Action& action)
         showCards();
         return;
     }
+    if (action.actionId == act::kFakeStats && debug_) { // the next made-up history, then the real one again
+        fake_ = (fake_ + 1) % 3;
+        stats_ = fake_ ? fakeStats(localDay(host_->wallClock(), host_->utcOffset()), fake_) : loadStats(host_->load(kStatsKey));
+        showCards();
+        return;
+    }
     if (startsWith(action.actionId, act::kToggleDayOff)) {
         std::size_t day = static_cast<std::size_t>(std::atoi(action.actionId.c_str() + std::char_traits<char>::length(act::kToggleDayOff)));
         if (day >= daysOff_.size()) return;
@@ -175,11 +181,7 @@ void PomodoroProvider::advance(bool skipped)
     if (!next) {
         // Finished: all the phases, with few enough focus phases skipped.
         bool counts = sessionCounts(session_->focusSkipped);
-        if (counts) {
-            ++day.finished;
-            long long now = localDay(host_->wallClock(), host_->utcOffset());
-            stats_.bestStreak = std::max(stats_.bestStreak, daysInARow(stats_, daysOff_, now));
-        }
+        if (counts) ++day.finished;
         std::string detail = counts ? std::to_string(day.finished) + " finished today" : std::to_string(t.pomodoroRounds) + " rounds of focus";
         saveStats();
         finish();
@@ -211,9 +213,11 @@ void PomodoroProvider::showDormant()
 {
     shownGlance_ = glanceOf(stats_, daysOff_, localDay(host_->wallClock(), host_->utcOffset()));
     Panel panel = pomodoroPanel(todos_, plan_, shownGlance_);
-    if (settingsOpen_ && !session_) panel.content = withSettingsPage(std::move(panel.content), daysOff_);
+    if (settingsOpen_ && !session_) panel.content = withSettingsPage(std::move(panel.content), daysOff_, fakeRow());
     host_->publishPanel(std::move(panel));
 }
+
+std::optional<int> PomodoroProvider::fakeRow() const { return debug_ ? std::optional<int>(fake_) : std::nullopt; }
 
 void PomodoroProvider::showCards()
 {
@@ -233,14 +237,17 @@ void PomodoroProvider::countTodo(const std::string& actionId)
 
 PomodoroDay& PomodoroProvider::today() { return dayOf(stats_, localDay(host_->wallClock(), host_->utcOffset())); }
 
-void PomodoroProvider::saveStats() { host_->save(kStatsKey, cup::saveStats(stats_)); }
+void PomodoroProvider::saveStats()
+{
+    if (fake_ == 0) host_->save(kStatsKey, cup::saveStats(stats_)); // a made-up history never replaces the real one
+}
 
 void PomodoroProvider::publish()
 {
     const Timeline& tl = session_->timeline;
     host_->save(kSessionKey, saveSession(*session_, host_->now()));
     Content content = pomodoroContent(*session_, todos_);
-    if (settingsOpen_) content = withSettingsPage(std::move(content), daysOff_);
+    if (settingsOpen_) content = withSettingsPage(std::move(content), daysOff_, fakeRow());
     host_->startActivity({ .id = kPanelId, .relevance = 0.4f, .content = std::move(content) });
     host_->wakeAt(tl.playing ? std::optional<Ms>(tl.anchoredAt + (tl.duration - tl.position)) : std::nullopt);
 }

@@ -34,10 +34,10 @@ void pureTests()
     dayOf(stats, 10).todosDone = 2;
     expect(stats.days.size() == 2 && stats.days[0].day == 5 && stats.days[1].todosDone == 2, "days kept in order, one each");
     expect(countsOf(stats, 7) == PomodoroDay{ .day = 7 } && countsOf(stats, 5).finished == 3, "a day with nothing: zeros");
-    expect(bestDay(stats) == 3 && totals(stats).finished == 4 && totals(stats).todosDone == 2, "the best day, and totals");
+    expect(bestDay(stats) == 3 && bestDay(stats, 5) == 1 && totals(stats).finished == 4 && totals(stats).todosDone == 2,
+           "the best day (leaving one out), and totals");
 
     // Saved and loaded: every count, the dates readable.
-    stats.bestStreak = 4;
     stats.days = { { .day = kMonday, .focus = Ms{ 6'000'000 }, .started = 3, .finished = 2, .canceled = 1, .focusDone = 7,
                      .focusSkipped = 1, .breaksSkipped = 2, .todosDone = 5 },
                    { .day = kMonday + 1, .finished = 1 } };
@@ -45,8 +45,8 @@ void pureTests()
     expect(saved.find("2025-10-20 6000000 3 2 1 7 1 2 5\n") != std::string::npos, "a day per line, its date readable");
     expect(loadStats(saved) == stats, "saved and loaded");
     expect(loadStats("") == PomodoroStats{} && loadStats("junk") == PomodoroStats{}, "unreadable: no stats");
-    PomodoroStats partly = loadStats("stats1 2\n2025-13-01 1 1 1 1 1 1 1 1\nnonsense\n2025-10-21 60000 1 1 0 4 0 0 0\n");
-    expect(partly.bestStreak == 2 && partly.days.size() == 1 && partly.days[0].day == kMonday + 1, "unreadable lines skipped");
+    PomodoroStats partly = loadStats("stats1\n2025-13-01 1 1 1 1 1 1 1 1\nnonsense\n2025-10-21 60000 1 1 0 4 0 0 0\n");
+    expect(partly.days.size() == 1 && partly.days[0].day == kMonday + 1, "unreadable lines skipped");
 
     // A finished session: every phase, at most one focus phase skipped (tokens.json).
     expect(sessionCounts(0) && sessionCounts(1) && !sessionCounts(2), "one focus phase may be skipped, not two");
@@ -70,6 +70,20 @@ void pureTests()
     expect(daysInARow(finishedOn({ fri }), weekend, nextMon) == 1, "Monday not yet: still Friday's");
     expect(daysInARow(finishedOn({ fri - 1 }), weekend, nextMon) == 0, "Friday missed: broken");
 
+    // The best run before the current one: what a record has to beat.
+    expect(streaksOf(finishedOn({ 1, 2, 3, 4, 5, 8, 9 }), none, 9) == Streaks{ 2, 5 }, "a run of 2 now, 5 before");
+    expect(streaksOf(finishedOn({ 1, 2, 5, 6, 7 }), none, 8) == Streaks{ 3, 2 }, "today not yet: the run goes on");
+    expect(streaksOf(finishedOn({ 1, 2, 3 }), none, 9) == Streaks{ 0, 3 }, "broken: none now, the old run the best");
+    expect(streaksOf({}, none, 9) == Streaks{}, "nothing: none");
+
+    // Debug builds' made-up histories.
+    expect(streaksOf(fakeStats(kMonday + 30, 1), none, kMonday + 30) == Streaks{ 3, 5 } &&
+           countsOf(fakeStats(kMonday + 30, 1), kMonday + 30).finished == 2 && bestDay(fakeStats(kMonday + 30, 1), kMonday + 30) == 4,
+           "fake 1: 3 in a row (best 5), 2 today (best 4)");
+    expect(streaksOf(fakeStats(kMonday + 30, 2), none, kMonday + 30) == Streaks{ 6, 5 } &&
+           countsOf(fakeStats(kMonday + 30, 2), kMonday + 30).finished == 5, "fake 2: both records");
+    expect(fakeStats(kMonday, 0).days.empty(), "fake 0: none");
+
     DaysOff off{};
     off[2] = off[6] = true;
     expect(saveDaysOff(off) == "daysoff1 0010001\n" && loadDaysOff(saveDaysOff(off)) == off, "days off saved and loaded");
@@ -86,14 +100,14 @@ struct Timer {
     std::vector<Alert> alerts;
     ProviderRegistry registry;
 
-    Timer()
+    explicit Timer(bool debug = false)
         : registry([this](const Event& e, const char*) { record(e); }, [this] { return now; },
                    { .load = [this](const std::string&, const std::string& key) { return store[key]; },
                      .save = [this](const std::string&, const std::string& key, const std::string& text) { store[key] = text; },
                      .wallClock = [this] { return wall; },
                      .utcOffset = [] { return Ms{ 0 }; } })
     {
-        registry.add(std::make_unique<PomodoroProvider>());
+        registry.add(std::make_unique<PomodoroProvider>(debug));
         registry.start("pomodoro");
     }
 
@@ -125,7 +139,7 @@ struct Timer {
     }
     PomodoroStats stats() { return loadStats(store[PomodoroProvider::kStatsKey]); }
     PomodoroDay today() { return countsOf(stats(), localDay(wall, Ms{ 0 })); }
-    // The dormant card's rows' first texts, top to bottom.
+    // The card's rows' first texts, top to bottom.
     std::vector<std::string> card(const Content& c)
     {
         std::vector<std::string> texts;
@@ -133,14 +147,34 @@ struct Timer {
             texts.push_back(!r.items.empty() && std::holds_alternative<Text>(r.items[0]) ? std::get<Text>(r.items[0]).value : "");
         return texts;
     }
-    bool says(const std::string& text) { auto t = card(panels.back().content); return std::find(t.begin(), t.end(), text) != t.end(); }
+    // A row as words: "fire " if it starts with one, its text, then " | " and its best or "[Record]".
+    static std::string describe(const Row& r)
+    {
+        std::string text;
+        for (const Item& item : r.leading)
+            if (auto* icon = std::get_if<Icon>(&item); icon && icon->glyph == Glyph::Fire) text += "fire ";
+        if (r.items.empty() || !std::holds_alternative<Text>(r.items[0])) return text;
+        text += std::get<Text>(r.items[0]).value;
+        if (r.items.size() > 1) {
+            if (auto* tag = std::get_if<Tag>(&r.items[1])) text += " | [" + tag->text + "]";
+            if (auto* value = std::get_if<Text>(&r.items[1])) text += " | " + value->value;
+        }
+        return text;
+    }
+    bool says(const std::string& text)
+    {
+        for (const Row& r : panels.back().content.expandedCenter)
+            if (describe(r) == text) return true;
+        return false;
+    }
 };
 
 void providerTests()
 {
     const Tokens& t = tokens();
     Timer timer;
-    expect(timer.says("0 finished today") && !timer.says("1 day in a row"), "a first run: none today, no days in a row yet");
+    expect(timer.says("0 finished today") && timer.says("0 days in a row") && timer.says("Focused today | 0 min"),
+           "a first run: every statistic, all none, no bests yet");
 
     timer.session();
     PomodoroDay day = timer.today();
@@ -149,7 +183,8 @@ void providerTests()
     expect(day.focus == static_cast<long long>(t.pomodoroRounds) * t.pomodoroFocus, "and the focus time");
     expect(!timer.alerts.empty() && timer.alerts.back().content.label == "Session done" &&
            std::get<Text>(timer.alerts.back().content.alertCenter[1].items[0]).value == "1 finished today", "the last alert says how many today");
-    expect(timer.says("1 finished today · best 1") && timer.says("1 day in a row · 1 h 40 min focused today"), "the dormant card says how it's going");
+    expect(timer.says("1 finished today | [Record]") && timer.says("1 day in a row | [Record]") && timer.says("Focused today | 1 h 40 min"),
+           "the dormant card: records, the bests hidden");
 
     // One focus phase skipped still counts; two don't; a break skipped doesn't matter.
     timer.session({ 2, 3 });
@@ -179,12 +214,48 @@ void providerTests()
     // The next day: today starts over; the card follows once it's shown again.
     timer.pass(Ms{ kDay });
     timer.registry.cardShown({ "pomodoro", PomodoroProvider::kPanelId });
-    expect(timer.says("0 finished today · best 2") && timer.says("1 day in a row"), "a new day: none today yet, the run still on");
+    expect(timer.says("0 finished today | best 2") && timer.says("1 day in a row | [Record]"), "a new day: none today yet, the run still on");
     std::size_t published = timer.panels.size();
     timer.registry.cardShown({ "pomodoro", PomodoroProvider::kPanelId });
     expect(timer.panels.size() == published, "shown again the same day: nothing to change");
     timer.session();
-    expect(timer.says("1 finished today · best 2") && timer.stats().bestStreak == 2, "two days in a row: the best run kept");
+    expect(timer.says("1 finished today | best 2") && timer.says("2 days in a row | [Record]"), "two days in a row: a record");
+
+    // A run broken: the old one is the best to beat; from three days on, a fire.
+    timer.pass(Ms{ 2 * kDay });
+    timer.registry.cardShown({ "pomodoro", PomodoroProvider::kPanelId });
+    expect(timer.says("0 days in a row | best 2"), "a day missed: none now, best 2");
+    for (int day = 0; day < 3; ++day) {
+        timer.session();
+        if (day < 2) timer.pass(Ms{ kDay });
+    }
+    expect(timer.says("fire 3 days in a row | [Record]"), "three days: a fire, and a record");
+}
+
+// Debug builds: the settings page's row steps through made-up histories, never saved.
+void fakeStatsTests()
+{
+    Timer plain;
+    plain.act(pomodoro_action::kOpenSettings);
+    expect(plain.card(plain.panels.back().content).back() != "Fake statistics", "Release: no debug row");
+    std::size_t published = plain.panels.size();
+    plain.act(pomodoro_action::kFakeStats);
+    expect(plain.panels.size() == published, "and its action does nothing");
+
+    Timer timer(/* debug */ true);
+    timer.session();
+    std::string real = timer.store[PomodoroProvider::kStatsKey];
+    timer.act(pomodoro_action::kOpenSettings);
+    expect(timer.card(timer.panels.back().content).back() == "Fake statistics", "Debug: a Fake statistics row");
+    timer.act(pomodoro_action::kFakeStats);
+    timer.act(pomodoro_action::kBack);
+    expect(timer.says("fire 3 days in a row | best 5") && timer.says("2 finished today | best 4"), "fake 1: bests to beat, a fire");
+    timer.act(pomodoro_action::kFakeStats);
+    expect(timer.says("fire 6 days in a row | [Record]") && timer.says("5 finished today | [Record]"), "fake 2: records, bests hidden");
+    timer.session();
+    expect(timer.store[PomodoroProvider::kStatsKey] == real, "made up: never saved");
+    timer.act(pomodoro_action::kFakeStats);
+    expect(timer.says("1 finished today | [Record]"), "the third click: the real statistics again");
 }
 
 void settingsPageTests()
@@ -229,6 +300,7 @@ void runPomodoroStatsTests()
 {
     pureTests();
     providerTests();
+    fakeStatsTests();
     settingsPageTests();
 }
 

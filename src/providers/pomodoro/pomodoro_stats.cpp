@@ -63,26 +63,32 @@ PomodoroDay countsOf(const PomodoroStats& stats, long long day)
 
 bool sessionCounts(int focusSkipped) { return focusSkipped >= 0 && static_cast<std::size_t>(focusSkipped) <= tokens().pomodoroFocusSkipsAllowed; }
 
-int daysInARow(const PomodoroStats& stats, const DaysOff& off, long long today)
+Streaks streaksOf(const PomodoroStats& stats, const DaysOff& off, long long today)
 {
-    // Walk back from today over the days kept (newest last); a gap between them is days with nothing.
-    int run = 0;
-    auto it = stats.days.rbegin();
-    while (it != stats.days.rend() && it->day > today) ++it;
-    long long earliest = stats.days.empty() ? today : stats.days.front().day;
-    for (long long day = today; day >= earliest; --day) {
-        bool worked = it != stats.days.rend() && it->day == day && it->finished > 0;
-        if (it != stats.days.rend() && it->day == day) ++it;
-        if (worked) ++run;
-        else if (day != today && !off[weekday(day)]) break;
+    // Oldest to today; a gap between kept days is days with nothing in them.
+    Streaks streaks;
+    if (stats.days.empty()) return streaks;
+    auto it = stats.days.begin();
+    for (long long day = stats.days.front().day; day <= today; ++day) {
+        bool kept = it != stats.days.end() && it->day == day;
+        bool worked = kept && it->finished > 0;
+        if (kept) ++it;
+        if (worked) ++streaks.current;
+        else if (day != today && !off[weekday(day)]) {
+            streaks.bestBefore = std::max(streaks.bestBefore, streaks.current);
+            streaks.current = 0;
+        }
     }
-    return run;
+    return streaks;
 }
 
-int bestDay(const PomodoroStats& stats)
+int daysInARow(const PomodoroStats& stats, const DaysOff& off, long long today) { return streaksOf(stats, off, today).current; }
+
+int bestDay(const PomodoroStats& stats, long long except)
 {
     int best = 0;
-    for (const PomodoroDay& d : stats.days) best = std::max(best, d.finished);
+    for (const PomodoroDay& d : stats.days)
+        if (d.day != except) best = std::max(best, d.finished);
     return best;
 }
 
@@ -102,10 +108,26 @@ PomodoroDay totals(const PomodoroStats& stats)
     return all;
 }
 
+PomodoroStats fakeStats(long long today, int which)
+{
+    PomodoroStats stats;
+    if (which != 1 && which != 2) return stats;
+    auto finished = [&](long long day, int count) {
+        PomodoroDay& d = dayOf(stats, day);
+        d.started = d.finished = count;
+        d.focusDone = count * static_cast<int>(tokens().pomodoroRounds);
+        d.focus = d.focusDone * tokens().pomodoroFocus;
+    };
+    for (long long day = today - 14; day <= today - 10; ++day) finished(day, day == today - 12 ? 4 : 1); // the old run: 5 days
+    int run = which == 1 ? 3 : 6;
+    for (long long day = today - run + 1; day <= today; ++day) finished(day, day == today ? (which == 1 ? 2 : 5) : 1);
+    return stats;
+}
+
 std::string saveStats(const PomodoroStats& stats)
 {
     std::ostringstream out;
-    out << "stats1 " << stats.bestStreak << '\n';
+    out << "stats1\n";
     for (const PomodoroDay& d : stats.days)
         out << dateOf(d.day) << ' ' << d.focus.count() << ' ' << d.started << ' ' << d.finished << ' ' << d.canceled << ' ' << d.focusDone
             << ' ' << d.focusSkipped << ' ' << d.breaksSkipped << ' ' << d.todosDone << '\n';
@@ -117,7 +139,7 @@ PomodoroStats loadStats(const std::string& saved)
     std::istringstream in(saved);
     std::string line, tag;
     PomodoroStats stats;
-    if (!std::getline(in, line) || !(std::istringstream(line) >> tag >> stats.bestStreak) || tag != "stats1") return {};
+    if (!std::getline(in, line) || !(std::istringstream(line) >> tag) || tag != "stats1") return {};
     while (std::getline(in, line)) {
         std::istringstream fields(line);
         std::string date;
@@ -129,7 +151,6 @@ PomodoroStats loadStats(const std::string& saved)
         d.focus = Ms{ focus };
         dayOf(stats, d.day) = d; // in order, whatever the file's
     }
-    stats.bestStreak = std::max(stats.bestStreak, 0);
     return stats;
 }
 

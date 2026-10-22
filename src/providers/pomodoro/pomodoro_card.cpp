@@ -60,17 +60,27 @@ Row topRow(Item big)
 
 Row caption(const std::string& text) { return row({ Text{ .value = text, .style = TextStyle::Caption, .centred = true } }, Align::Center); }
 
-// How it's going (decision 061): sessions finished today and the best day;
-// then days in a row and focus today, once there's any.
+// A statistic on the dormant card (decision 061): what it is now, then at
+// the end its best, as plain as the value (no caption), or "Record" when
+// now beats it. Lined up with the plan rows (inset).
+Row statRow(const std::string& now, int value, int best, std::vector<Item> before = {})
+{
+    Row r{ .items = { Text{ now } }, .leading = std::move(before), .inset = true };
+    if (value > best && value > 0) r.items.push_back(Tag{ "Record" });
+    else if (best > 0) r.items.push_back(Text{ .value = "best " + std::to_string(best), .alignEnd = true });
+    return r;
+}
+
+// How it's going: sessions finished today, days in a row (a fire from three
+// on), focus today. Shown whenever no session runs.
 void appendGlance(Slot& card, const PomodoroGlance& g)
 {
-    std::string today = std::to_string(g.finishedToday) + " finished today";
-    if (g.bestDay > 0) today += " · best " + std::to_string(g.bestDay);
-    card.push_back(caption(today));
-    std::string more;
-    if (g.daysInARow > 0) more = std::to_string(g.daysInARow) + (g.daysInARow == 1 ? " day" : " days") + " in a row";
-    if (g.focusToday >= Ms{ 60000 }) more += (more.empty() ? "" : " · ") + spent(g.focusToday) + " focused today";
-    if (!more.empty()) card.push_back(caption(more));
+    card.push_back(statRow(std::to_string(g.finishedToday) + " finished today", g.finishedToday, g.bestDay));
+    std::vector<Item> fire;
+    if (g.daysInARow >= 3) fire.push_back(Icon{ Glyph::Fire });
+    card.push_back(statRow(std::to_string(g.daysInARow) + (g.daysInARow == 1 ? " day" : " days") + " in a row", g.daysInARow, g.bestRun,
+                           std::move(fire)));
+    card.push_back(Row{ .items = { Text{ "Focused today" }, Text{ .value = spent(g.focusToday), .alignEnd = true } }, .inset = true });
 }
 
 const char* const kDayNames[] = { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday" };
@@ -82,7 +92,9 @@ Color accentOf(Phase phase) { return phase == Phase::Focus ? tokens().pomodoroFo
 PomodoroGlance glanceOf(const PomodoroStats& stats, const DaysOff& off, long long today)
 {
     PomodoroDay day = countsOf(stats, today);
-    return { .finishedToday = day.finished, .bestDay = bestDay(stats), .daysInARow = daysInARow(stats, off, today), .focusToday = day.focus };
+    Streaks runs = streaksOf(stats, off, today);
+    return { .finishedToday = day.finished, .bestDay = bestDay(stats, today), .daysInARow = runs.current, .bestRun = runs.bestBefore,
+             .focusToday = day.focus };
 }
 
 Dialog stopQuestion(const PomodoroSession& s)
@@ -170,7 +182,7 @@ Content pomodoroContent(const PomodoroSession& s, const TodoList& todos)
 
 // The timer's settings (decision 061), like a page of Settings (decision
 // 030): a title with a back arrow, then a switch per weekday for days off.
-Content withSettingsPage(Content card, const DaysOff& off)
+Content withSettingsPage(Content card, const DaysOff& off, std::optional<int> fake)
 {
     Slot page{ Row{ .items = { Text{ .value = "Timer settings", .style = TextStyle::Title, .centred = true } },
                     .leading = { Button{ Glyph::ChevronLeft, act::kBack } } },
@@ -180,6 +192,14 @@ Content withSettingsPage(Content card, const DaysOff& off)
                             .clickAnywhere = true,
                             .listItem = true }); // all seven in view: no scrolling list
     page.push_back(caption("A day off doesn't break your days in a row."));
+    if (fake) { // Debug builds: try the statistics with a made-up history, never saved
+        const char* const shown[] = { "Real", "3 in a row, best 5", "New records" };
+        page.push_back(Row{ .items = { Text{ .value = "Debug", .style = TextStyle::Heading } }, .section = true, .inset = true });
+        page.push_back(Row{ .items = { Text{ "Fake statistics" }, Text{ .value = shown[*fake % 3], .style = TextStyle::Caption, .alignEnd = true },
+                                       Button{ .glyph = Glyph::ChevronRight, .actionId = act::kFakeStats, .compact = true } },
+                            .clickAnywhere = true,
+                            .listItem = true });
+    }
     card.expandedCenter = std::move(page);
     card.backAction = act::kBack; // Esc goes back to the timer, like the arrow (decision 033)
     return card;

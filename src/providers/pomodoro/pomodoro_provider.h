@@ -23,6 +23,8 @@ namespace cup {
 
 class PomodoroProvider : public Provider {
 public:
+    // `debug`: Debug builds, a "Fake statistics" row on the settings page (decision 061).
+    explicit PomodoroProvider(bool debug = false) : debug_(debug) {}
     const char* id() const override { return "pomodoro"; }
     void start(Host& host) override; // publishes the dormant panel, and resumes a saved session
     void stop() override;            // keeps a running session to resume paused, removes the panel
@@ -53,6 +55,7 @@ private:
     void countTodo(const std::string& actionId); // a to-do ticked or unticked: today's count
     PomodoroDay& today();                       // today's statistics, to change (then saveStats)
     void saveStats();
+    std::optional<int> fakeRow() const;        // what the settings page's debug row shows; nothing outside Debug builds
 
     Host* host_ = nullptr;
     std::optional<Session> session_;
@@ -62,6 +65,8 @@ private:
     DaysOff daysOff_{};
     bool settingsOpen_ = false; // the card shows its settings page
     PomodoroGlance shownGlance_; // what the dormant card says now
+    bool debug_ = false;
+    int fake_ = 0; // a made-up history shown (fakeStats), never saved; 0: the real one
 };
 
 } // namespace cup

@@ -13,12 +13,20 @@ on, with time counted that they hadn't worked.
   skipped) with at most `pomodoroFocusSkipsAllowed` (1) focus phases
   skipped. More skipped: neither finished nor canceled. Stop (confirmed):
   canceled.
-- **Shown** on the dormant card, under ▶: "N finished today · best M" (the
-  most in one day), then "D days in a row · 1 h 40 min focused today" once
-  there's any. "Finished today" is a plain count: nothing breaks it.
+- **Shown** whenever no session runs, on the dormant card under ▶, a row
+  each, lined up with the plan rows: "N finished today", "N days in a
+  row", "Focused today". The first two end with their best ("best 5"), in
+  the same style as the value, not a dimmer caption. When now beats every
+  earlier day (or run), a **"Record"** tag takes the best's place. From 3
+  days in a row a 🔥 goes before it: Segoe UI Emoji's, in colour, since the
+  icon fonts have no fire. "Finished today" is a plain count: nothing breaks it.
 - **Days in a row:** days with a finished session, up to today. Today
   without one yet doesn't break it. **Days off**, picked by the user,
-  don't break it either; one worked still counts. The best run is kept.
+  don't break it either; one worked still counts.
+- **Bests are worked out from the days kept**, not stored: the best day
+  leaving today out, the longest run that ended before the current one.
+  So a record is "now is more than ever before", and changing days off
+  re-reads the history with the new days.
 - **Kept, not shown yet:** per day, sessions started, finished, canceled;
   focus phases done and skipped; breaks skipped; focus time actually spent
   (pauses left out, a skipped or stopped phase's part included); to-dos
@@ -34,6 +42,10 @@ on, with time counted that they hadn't worked.
   top-right corner (its top row's trailing button) opens a page like a
   Settings page: a back arrow (Esc too), "Days off", a switch per weekday,
   Monday first. Closing the card leaves the page.
+- **Debug builds** (the demo keys' switch, `NDEBUG`) add a "Fake
+  statistics" row to that page: each click shows a made-up history (3 in a
+  row with best 5; then new records), then the real one again. A made-up
+  history is never saved.
 - **After a restart a session is back paused**, where it was when the app
   quit (`stop()` saves it). Nothing passes while the app is closed, so
   nothing is counted for time not worked. This replaces 027's catch-up.

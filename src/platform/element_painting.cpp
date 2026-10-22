@@ -96,6 +96,7 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Plus: return L"\uE710";   // Add
     case Glyph::Pin: return L"\uE718";
     case Glyph::Pinned: return L"\uE840"; // Pinned, the outline with its needle; paintGlyph fills it (PinnedFill under it)
+    case Glyph::Fire: return L"\U0001F525"; // not in the icon fonts: Segoe UI Emoji's, in colour (paintGlyph)
     }
     return L"?";
 }
@@ -256,7 +257,9 @@ void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, 
 
 void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float fontSize, Vec2 size, const Color& color)
 {
-    auto f = format(dw, iconFamily(dw), fontSize, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_TEXT_ALIGNMENT_CENTER); // icons: as designed
+    // Fire (days in a row, decision 061) is an emoji: Segoe UI Emoji, on every Windows 10 and 11, drawn in its own colours.
+    bool emoji = glyph == Glyph::Fire;
+    auto f = format(dw, emoji ? L"Segoe UI Emoji" : iconFamily(dw), fontSize, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_TEXT_ALIGNMENT_CENTER); // icons: as designed
     auto layoutOf = [&](const wchar_t* text) {
         winrt::com_ptr<IDWriteTextLayout> layout;
         winrt::check_hresult(dw->CreateTextLayout(text, static_cast<UINT32>(wcslen(text)), f.get(), size.x, size.y, layout.put()));
@@ -276,7 +279,7 @@ void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float f
     // PinnedFill (U+E841) is only a fill layer, with no needle: it goes under the Pinned outline (decision 046),
     // in the same place, so the two line up.
     if (glyph == Glyph::Pinned) dc->DrawTextLayout(at, layoutOf(L"\uE841").get(), brush.get());
-    dc->DrawTextLayout(at, glyphLayout.get(), brush.get());
+    dc->DrawTextLayout(at, glyphLayout.get(), brush.get(), emoji ? D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT : D2D1_DRAW_TEXT_OPTIONS_NONE);
 }
 
 void paintToggleDot(ID2D1DeviceContext* dc, Vec2 size, float glyphSize)
