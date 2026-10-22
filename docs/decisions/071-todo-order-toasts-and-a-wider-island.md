@@ -45,6 +45,13 @@ and the island was narrow for its content.
   optical centre). `primaryHoverOpacity` and `playGlyphNudge` are shares,
   not lengths: display scaling leaves them alone.
 
+- **Pixel snapping:** an element's visual took its offset rounded but its
+  size rounded up, so at fractional frames (display scaling) it grew at
+  the bottom and right: buttons, their hovers and glyphs sat up to a pixel
+  low in their rows and in the toast. Edges now snap to the nearest pixel
+  on both sides (`snapToPixels`), for elements, the marks behind them (a
+  hovered row) and the toast's pill alike.
+
 **Consequences.** Scenarios in `home.scenario` (presses) and
 `dialog.scenario` (toasts); `todo_tests.cpp` (order, the Done row, the
 toast's Undo, carrying while scrolling); `pomodoro_stats_tests.cpp`

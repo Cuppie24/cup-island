@@ -33,7 +33,7 @@ void ToastLayer::show(const std::optional<ToastScene>& toast, Ms now)
 {
     elements_.apply(toast ? toast->elements : std::vector<Placed>{}, now);
     if (toast) {
-        const Rect& f = toast->frame;
+        Rect f = snapToPixels(toast->frame); // on the pixels its button and text are on
         background_.Offset({ f.x, f.y, 0 });
         background_.Size({ f.width, f.height });
         shape_.Size({ f.width, f.height });

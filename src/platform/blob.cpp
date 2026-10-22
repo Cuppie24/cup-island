@@ -296,6 +296,7 @@ void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, cons
         fadeTo(compositor_, mark.visual, 0.0f, tokens().hoverFadeDuration);
         return;
     }
+    at = snapToPixels(*at); // on the pixels the content it marks is on (decision 071)
     mark.visual.Size({ at->width, at->height });
     mark.shape.Size({ at->width, at->height });
     mark.shape.CornerRadius({ cornerRadius, cornerRadius });
