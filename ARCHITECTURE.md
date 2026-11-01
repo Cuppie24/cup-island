@@ -49,6 +49,9 @@ src/providers/  data sources + provider_registry. demo/ (fake player), media/ (n
                 pomodoro/ (the first panel), system/ (Home's theme and Settings widgets:
                 app themes, display, Start with Windows, Copy logs), update/ (updates from GitHub
                 Releases: versions and offers, pure; github.cpp fetches and installs, decision 036)
+src/indexer/    the file index's logic (decision 075), pure: USN records from raw bytes, the index by MFT record,
+                journal changes and resume-or-rescan, queries and ranking, the snapshot file. For the coming
+                Windows service; the island doesn't link it
 src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload; keyboard_input.cpp: keyboard focus,
                 Enter/Space, system-wide shortcuts and recording new keys (decisions 031, 032)
 assets/         tokens.json: the live-tunable sizes, timings and curves; the app icon (cup_island.rc/.ico)
@@ -59,7 +62,8 @@ docs/           specs (TR, PS) and decisions/ (why things are the way they are)
 ```
 
 Dependency direction is one-way: `app → platform → core`, `providers → core`.
-Pure provider logic builds on any OS (`cup_providers` library). WinRT-backed
+Pure provider logic builds on any OS (`cup_providers` library), as does
+the file index's (`cup_indexer`, depends on nothing). WinRT-backed
 parts (`providers/media/smtc_*`) are Windows-only files next to it, compiled
 into the app.
 Nothing includes "upward". `core/` never includes `platform/`.
@@ -217,6 +221,7 @@ over the file's, so `tokens()` is always what's on screen.
 | Provider API (PS §7 Tier 1), registry, demo music player | done, tested |
 | Switching activities (decision 007): bubble click, drag-to-swap, Expanded tabs, sticky pick | done; rules tested, tab visuals need Windows |
 | Real media provider (SMTC, TR §6): art, controls, seek, multi-app switch, paused linger | done; rules tested, WinRT part needs Windows |
+| File index logic (decision 075): USN records, the index, journal changes, queries, snapshots | done, tested; the service, installer and search panel not yet |
 | Plugin pipe (PS §8 Tier 2) | not yet |
 | Activity expiry (`expiresAt`) | done, tested |
 | Rate limits, stale activities (PS §4, §6.3) | not yet |

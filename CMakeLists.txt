@@ -77,6 +77,17 @@ add_library(cup_providers STATIC
 )
 target_link_libraries(cup_providers PUBLIC cup_core)
 
+# --- indexer: the file index's logic (decision 075); pure, builds on any OS --
+# The Windows service that reads volumes will link it; the island never does.
+add_library(cup_indexer STATIC
+    src/indexer/file_index.cpp
+    src/indexer/journal.cpp
+    src/indexer/query.cpp
+    src/indexer/snapshot.cpp
+    src/indexer/usn_record.cpp
+)
+target_include_directories(cup_indexer PUBLIC src)
+
 option(CUP_BUILD_TESTS "Build core tests" ON)
 if(CUP_BUILD_TESTS)
     enable_testing()
@@ -86,6 +97,8 @@ if(CUP_BUILD_TESTS)
         tests/cover_tests.cpp
         tests/fullscreen_tests.cpp
         tests/home_tests.cpp
+        tests/indexer_query_tests.cpp
+        tests/indexer_tests.cpp
         tests/item_tests.cpp
         tests/keyboard_tests.cpp
         tests/list_card_tests.cpp
@@ -106,7 +119,7 @@ if(CUP_BUILD_TESTS)
         tests/todo_tests.cpp
         tests/tokens_tests.cpp
     )
-    target_link_libraries(cup_tests PRIVATE cup_providers)
+    target_link_libraries(cup_tests PRIVATE cup_providers cup_indexer)
     target_compile_definitions(cup_tests PRIVATE
         CUP_SCENARIO_DIR="${CMAKE_SOURCE_DIR}/tests/scenarios"
         CUP_TOKENS_FILE="${CMAKE_SOURCE_DIR}/assets/tokens.json")

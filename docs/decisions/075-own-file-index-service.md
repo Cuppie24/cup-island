@@ -33,8 +33,9 @@ open. The island runs as the user, installed per user without a UAC prompt
 - **The index** is direct-addressed by MFT record number (the low 48 bits of
   an NTFS file reference; the high 16 are the sequence number, kept to catch
   reused records). An entry is 16 bytes (parent, name offset, name length,
-  sequence, flags) and names are UTF-8 in one buffer: about **40 MB per
-  million files**, in the service. TR §8's 60 MB is the island's and doesn't
+  sequence, flags) and names are UTF-8 in one buffer: **37 MB per million
+  files** measured (1.2 M records, names ~18 bytes), once `shrink()` has
+  given back what growing left; 67 MB before. That's in the service. TR §8's 60 MB is the island's and doesn't
   change. Paths are built by walking parents, only for results shown.
   ReFS (128-bit references, Dev Drive) needs a hashed mode: later.
 - **Snapshot:** `%ProgramData%\CupIsland\index\<volume serial>.bin`, readable
@@ -44,9 +45,10 @@ open. The island runs as the user, installed per user without a UAC prompt
   Written to a side file then renamed over the old one (as decision 028).
 - **Queries, v1:** words (all must match), `"quoted phrases"`, `ext:`,
   `path:`, `file:`, `folder:`; case-insensitive for ASCII. Ranked: whole
-  name, then name prefix, word start, anywhere; folders and shorter paths
-  first on a tie. A linear scan of a million names takes tens of
-  milliseconds; an n-gram index only if measuring says so. No sizes or dates
+  name, then name prefix, word start, anywhere; folders and shorter names
+  first on a tie. A linear scan of a million names measured 30–45 ms; an
+  n-gram index only if real drives say it's too slow. A snapshot of a
+  million files is 31 MB and saves and loads in about a quarter second. No sizes or dates
   in v1: `ENUM_USN_DATA` has neither, they need raw `$MFT` parsing (later).
 - **The service is a privilege boundary.**
   - The pipe accepts local interactive users only
