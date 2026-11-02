@@ -27,3 +27,14 @@ the old title stayed for up to a second.
 **Consequences.** A track's alert can appear without its picture, which
 fades in a moment later. Colours from music still follow the cover, so
 they change when it arrives. Tested in `tests/media_tests.cpp` and `tests/scenarios/alerts.scenario`.
+
+**Addendum: a cover that came after the title.** Spotify often reports a
+track with no thumbnail and adds it a moment later. Its change event
+could be swallowed: the read already in flight took the "properties
+changed" flag after its await, though its properties predated the
+picture, so the next read saw the thumbnail but no change and never
+decoded it; the whole song showed no cover (log: "new track (no cover
+yet)" with no "cover shown" after it). Now the flag is taken before the
+read, a track whose first read had no thumbnail decodes the first one any
+read sees (once), and a new track without one is re-read after
+`mediaArtRecheckMs`.

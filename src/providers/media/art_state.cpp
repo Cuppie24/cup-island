@@ -19,10 +19,17 @@ std::optional<std::uint64_t> ArtState::onRead(const std::string& track, bool has
         track_ = track;
         art_.reset();
         pending_.reset();
+        tried_ = hasThumbnail;
         if (!hasThumbnail) return std::nullopt;
         return pending_ = nextId_++;
     }
-    if (!propertiesChanged) return std::nullopt;
+    if (!propertiesChanged) {
+        // The thumbnail came after the title, and its change event wasn't seen
+        // (or was taken by an earlier read): decode it once anyway.
+        if (!hasThumbnail || tried_) return std::nullopt;
+        tried_ = true;
+        return pending_ = nextId_++;
+    }
     if (!hasThumbnail) { // the app dropped its picture
         art_.reset();
         pending_.reset();
@@ -30,6 +37,7 @@ std::optional<std::uint64_t> ArtState::onRead(const std::string& track, bool has
     }
     // Same track, re-sent properties: the picture may have changed (Chrome).
     // Keep showing the current one meanwhile.
+    tried_ = true;
     return pending_ = nextId_++;
 }
 

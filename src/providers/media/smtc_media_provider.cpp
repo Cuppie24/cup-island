@@ -220,6 +220,9 @@ winrt::fire_and_forget SmtcMediaProvider::load(std::shared_ptr<bool> alive)
     wmc::GlobalSystemMediaTransportControlsSessionMediaProperties properties{ nullptr };
     NowPlaying media;
     Ms began = loadStarted_;
+    // Taken before the read: a properties event arriving during it (Spotify's
+    // thumbnail, just after its title) stays set for the read that follows.
+    bool propertiesChanged = std::exchange(propertiesDirty_, false);
     std::optional<winrt::hresult> failed;
     try {
         properties = co_await session.TryGetMediaPropertiesAsync();
@@ -233,6 +236,7 @@ winrt::fire_and_forget SmtcMediaProvider::load(std::shared_ptr<bool> alive)
         if (session != session_) co_return; // another session is shown now: its read follows
         media = readNowPlaying(properties, session.GetPlaybackInfo(), session.GetTimelineProperties(), host_->now());
     } catch (winrt::hresult_error const& e) {
+        propertiesDirty_ = propertiesDirty_ || propertiesChanged; // not read: the next read still owes it
         // The app closed its session, or is mid-switch (Chrome changing tabs)
         // and may send nothing more: try again shortly, a few times.
         if (*alive && session == session_ && readFailures_++ < tokens().mediaReadRetries) {
@@ -258,13 +262,14 @@ winrt::fire_and_forget SmtcMediaProvider::load(std::shared_ptr<bool> alive)
     // The cover (ArtState): decoded on a new track and on every properties
     // update (Chrome sends a tab's picture after its title). A new track
     // shows at once, without one; the cover fades in when it's read (056).
-    bool propertiesChanged = std::exchange(propertiesDirty_, false);
     auto thumbnail = properties.Thumbnail();
     std::string track = winrt::to_string(app) + "|" + media.title + "|" + media.artist + "|" + winrt::to_string(properties.AlbumTitle());
     bool newTrack = track != loggedTrack_;
     if (newTrack) {
         loggedTrack_ = track;
         platform::logLine("media: new track%s", thumbnail ? "" : " (no cover yet)");
+        // No picture yet: look again shortly, in case no event says it came.
+        if (!thumbnail) refreshLater(tokens().mediaArtRecheck, true, alive);
     }
     if (auto id = art_.onRead(track, thumbnail != nullptr, propertiesChanged)) {
         decodeArt(thumbnail, [this, alive, post = post_, id = *id](std::shared_ptr<const ImageData> image) {
