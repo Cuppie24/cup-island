@@ -19,6 +19,7 @@ std::optional<std::uint64_t> ArtState::onRead(const std::string& track, bool has
         track_ = track;
         art_.reset();
         pending_.reset();
+        rechecks_ = 0;
         tried_ = hasThumbnail;
         if (!hasThumbnail) return std::nullopt;
         return pending_ = nextId_++;
@@ -50,6 +51,12 @@ bool ArtState::onDecoded(std::uint64_t id, std::shared_ptr<const ImageData> imag
     bool changed = !samePixels(image.get(), art_.get());
     if (changed) art_ = std::move(image);
     return changed;
+}
+
+std::optional<std::size_t> ArtState::wantsRecheck(std::size_t limit)
+{
+    if (art_ || pending_ || rechecks_ >= limit) return std::nullopt;
+    return ++rechecks_;
 }
 
 } // namespace cup

@@ -51,6 +51,9 @@ private:
     void onPropertiesChanged(); // the app re-sent title/art: the picture may be new
     // Re-read after `delay`; `rereadArt` treats it as a properties update (decode the cover again).
     winrt::fire_and_forget refreshLater(Ms delay, bool rereadArt, std::shared_ptr<bool> alive);
+    // A cover still missing: re-read the session in a while (ArtState::wantsRecheck).
+    void recheckArtIfMissing();
+    winrt::fire_and_forget recheckArt(Ms delay, std::shared_ptr<bool> alive);
     winrt::fire_and_forget load(std::shared_ptr<bool> alive); // one at a time: see loading_
     void loaded(); // a read ended: start the one asked for meanwhile, if any
     void cycleSource();
@@ -92,6 +95,7 @@ private:
     std::string loggedTrack_; // the last track logged: a recolour's wait starts with its line
     ArtState art_;                // the cover: when to decode, when to hold a new track back
     bool propertiesDirty_ = false; // properties re-sent since the last completed read
+    bool artRecheckQueued_ = false; // one re-read for a missing cover at a time
     std::size_t readFailures_ = 0; // in a row; retried up to mediaReadRetries
 
     Manager::CurrentSessionChanged_revoker currentChanged_;

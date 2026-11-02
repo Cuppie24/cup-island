@@ -1,5 +1,7 @@
 #include "providers/media/smtc_reading.h"
 
+#include "platform/log.h"
+
 #include <winrt/Windows.ApplicationModel.h>
 #include <winrt/Windows.Graphics.Imaging.h>
 
@@ -132,8 +134,9 @@ winrt::fire_and_forget decodeArt(winrt::Windows::Storage::Streams::IRandomAccess
         image->height = static_cast<int>(transform.ScaledHeight());
         image->bgra.assign(bytes.begin(), bytes.end());
         if (image->bgra.size() == static_cast<size_t>(image->width) * static_cast<size_t>(image->height) * 4) result = image;
-    } catch (winrt::hresult_error const&) {
-        // Unreadable or unsupported art: show the track without it.
+    } catch (winrt::hresult_error const& e) {
+        // Unreadable or unsupported art: show the track without it (the provider may read again).
+        platform::logLine("media: cover couldn't be read (0x%08x)", static_cast<unsigned>(e.code()));
     }
     done(result);
 }

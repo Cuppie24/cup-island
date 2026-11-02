@@ -56,7 +56,7 @@ void SmtcMediaProvider::stop()
     mainApp_.clear();
     art_ = {};
     loggedTrack_.clear();
-    propertiesDirty_ = false;
+    propertiesDirty_ = artRecheckQueued_ = false;
     readFailures_ = 0;
     loading_ = reloadWanted_ = false;
     shownPlaying_.reset();
@@ -198,6 +198,29 @@ winrt::fire_and_forget SmtcMediaProvider::refreshLater(Ms delay, bool rereadArt,
     });
 }
 
+void SmtcMediaProvider::recheckArtIfMissing()
+{
+    if (artRecheckQueued_) return;
+    auto attempt = art_.wantsRecheck(tokens().mediaArtRechecks);
+    if (!attempt) return;
+    artRecheckQueued_ = true;
+    recheckArt(tokens().mediaArtRecheck * static_cast<int>(*attempt), alive_);
+}
+
+winrt::fire_and_forget SmtcMediaProvider::recheckArt(Ms delay, std::shared_ptr<bool> alive)
+{
+    auto post = post_; // `this` is only touched back on the UI thread, after the alive check
+    co_await winrt::resume_after(std::max(delay, Ms{ 0 }));
+    post([this, alive] {
+        if (!*alive) return;
+        artRecheckQueued_ = false;
+        if (art_.art()) return; // it came meanwhile
+        platform::logLine("media: still no cover, reading again");
+        propertiesDirty_ = true; // decode whatever picture the read finds
+        guarded(&SmtcMediaProvider::refresh);
+    });
+}
+
 winrt::fire_and_forget SmtcMediaProvider::load(std::shared_ptr<bool> alive)
 {
     Session session = session_;
@@ -268,8 +291,6 @@ winrt::fire_and_forget SmtcMediaProvider::load(std::shared_ptr<bool> alive)
     if (newTrack) {
         loggedTrack_ = track;
         platform::logLine("media: new track%s", thumbnail ? "" : " (no cover yet)");
-        // No picture yet: look again shortly, in case no event says it came.
-        if (!thumbnail) refreshLater(tokens().mediaArtRecheck, true, alive);
     }
     if (auto id = art_.onRead(track, thumbnail != nullptr, propertiesChanged)) {
         decodeArt(thumbnail, [this, alive, post = post_, id = *id](std::shared_ptr<const ImageData> image) {
@@ -278,15 +299,19 @@ winrt::fire_and_forget SmtcMediaProvider::load(std::shared_ptr<bool> alive)
                 if (!*alive) return;
                 // The island's colour can only follow a new track once its cover is
                 // read: the gap between this line and "new track" is a late recolour's wait.
+                bool failed = !image;
                 if (art_.onDecoded(id, std::move(image))) {
                     platform::logLine("media: cover shown");
                     guarded(&SmtcMediaProvider::refresh);
+                } else if (failed) {
+                    recheckArtIfMissing(); // Spotify's picture can be unreadable for a moment
                 }
             });
         });
         if (newTrack) refreshLater(tokens().mediaArtRecheck, true, alive); // the right picture may come in a later update
     }
 
+    recheckArtIfMissing(); // no picture yet: look again, in case no event says it came
     media.art = art_.art();
     presenter_->show(MediaSnapshot{ winrt::to_string(app), media });
 }

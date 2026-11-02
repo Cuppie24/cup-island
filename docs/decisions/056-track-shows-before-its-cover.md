@@ -38,3 +38,14 @@ yet)" with no "cover shown" after it). Now the flag is taken before the
 read, a track whose first read had no thumbnail decodes the first one any
 read sees (once), and a new track without one is re-read after
 `mediaArtRecheckMs`.
+
+**Addendum 2: keep looking for a while.** One re-read wasn't always
+enough (0.7.3 log: "no cover yet", then nothing for the whole track,
+even through a pause and play). Either Spotify added the picture later
+than 800 ms with no event, or the picture it handed out couldn't be read
+yet; a failed decode wasn't logged, so the log couldn't tell. Now a
+track still without a cover is re-read up to `mediaArtRechecks` (5)
+times, each wait one `mediaArtRecheckMs` longer (about 12 s in all),
+after a read without one and after a failed decode, one at a time
+(`ArtState::wantsRecheck`). Logged: "media: still no cover, reading
+again" and "media: cover couldn't be read (0x...)".
