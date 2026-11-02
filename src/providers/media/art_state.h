@@ -31,6 +31,12 @@ public:
     // changed, so the session should be read again.
     bool onDecoded(std::uint64_t id, std::shared_ptr<const ImageData> image);
 
+    // After a read, or a decode that failed: read the session again in a
+    // while, for a cover still missing? Returns the attempt (1, 2, ...), or
+    // nothing: the cover is in or being decoded, or `limit` re-reads were
+    // spent on this track (an app may never send one).
+    std::optional<std::size_t> wantsRecheck(std::size_t limit);
+
     const std::shared_ptr<const ImageData>& art() const { return art_; }
 
 private:
@@ -39,6 +45,7 @@ private:
     std::uint64_t nextId_ = 1;
     std::optional<std::uint64_t> pending_; // only the latest decode counts
     bool tried_ = false; // a decode was started for this track
+    std::size_t rechecks_ = 0; // re-reads spent on this track's missing cover
 };
 
 } // namespace cup

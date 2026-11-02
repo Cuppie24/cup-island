@@ -277,6 +277,15 @@ void runMediaTests()
     auto bad = covers.onRead("Spotify|Song F", true, true);
     expect(!covers.onDecoded(*bad, nullptr) && !covers.onRead("Spotify|Song F", true, false),
            "a failed decode isn't retried on every timeline read");
+
+    // A cover still missing: re-read a few times, then give up.
+    expect(covers.wantsRecheck(2) == 1u && covers.wantsRecheck(2) == 2u && !covers.wantsRecheck(2),
+           "no cover: re-read up to the limit, then stop (an app may never send one)");
+    expect(!covers.onRead("Spotify|Song G", false, true) && covers.wantsRecheck(2) == 1u,
+           "a new track gets its own re-reads");
+    auto decoding = covers.onRead("Spotify|Song G", true, true);
+    expect(decoding && !covers.wantsRecheck(2), "a decode in flight: no re-read (its failure asks again)");
+    expect(covers.onDecoded(*decoding, pixel(50)) && !covers.wantsRecheck(2), "the cover is in: no re-read");
 }
 
 } // namespace cup::test

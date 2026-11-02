@@ -226,6 +226,11 @@ struct Tokens {
     // After a track change, the cover is read again this much later: apps
     // (Chrome) can send the title first and the right picture after.
     Ms mediaArtRecheck{ 800 };
+    // A track still without a cover is read again this many times, each wait
+    // one mediaArtRecheck longer (0.8, 1.6, 2.4 s...): Spotify can add the
+    // picture seconds after the title, with no event, or hand out one that
+    // can't be read yet (decision 056).
+    std::size_t mediaArtRechecks = 5;
     // Reads of a session go one at a time (decision 005); one still running
     // after this is taken as stuck, and doesn't hold the next one back.
     Ms mediaReadStuck{ 2000 };
