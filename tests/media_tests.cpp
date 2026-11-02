@@ -267,6 +267,16 @@ void runMediaTests()
     auto broken = covers.onRead("Chrome|Song C", true, true);
     expect(!covers.onDecoded(*broken, nullptr) && !covers.art(), "a failed first decode: the track stays without a cover");
     expect(!covers.onRead("Chrome|Song D", false, true) && !covers.art(), "no thumbnail: nothing to decode");
+
+    // Spotify: the title first, the thumbnail a moment later, its change event not seen by the read.
+    expect(!covers.onRead("Spotify|Song E", false, true), "the title arrives without a thumbnail");
+    auto late = covers.onRead("Spotify|Song E", true, false);
+    expect(late.has_value(), "a thumbnail that came after the title is decoded without a change event");
+    expect(covers.onDecoded(*late, pixel(40)) && covers.art(), "and its cover comes in");
+    expect(!covers.onRead("Spotify|Song E", true, false), "once tried, plain reads don't decode again");
+    auto bad = covers.onRead("Spotify|Song F", true, true);
+    expect(!covers.onDecoded(*bad, nullptr) && !covers.onRead("Spotify|Song F", true, false),
+           "a failed decode isn't retried on every timeline read");
 }
 
 } // namespace cup::test

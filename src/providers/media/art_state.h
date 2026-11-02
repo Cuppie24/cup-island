@@ -22,7 +22,9 @@ public:
     // A read of the session. `track`: app|title|artist|album. `propertiesChanged`:
     // the app re-sent its media properties since the last read (the picture may
     // be new even if the track isn't). Returns the id of a decode to start.
-    // A new track drops the old cover at once: it's wrong for it.
+    // A new track drops the old cover at once: it's wrong for it. A track
+    // whose first read had no thumbnail decodes the first one any read sees:
+    // Spotify adds it a moment later, and its change event can be lost.
     std::optional<std::uint64_t> onRead(const std::string& track, bool hasThumbnail, bool propertiesChanged);
 
     // A decode finished (`image` null = it failed). True if the cover
@@ -36,6 +38,7 @@ private:
     std::shared_ptr<const ImageData> art_;
     std::uint64_t nextId_ = 1;
     std::optional<std::uint64_t> pending_; // only the latest decode counts
+    bool tried_ = false; // a decode was started for this track
 };
 
 } // namespace cup
