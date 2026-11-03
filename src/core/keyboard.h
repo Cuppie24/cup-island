@@ -38,6 +38,15 @@ std::optional<Focusable> findFocusable(const Scene& scene, const std::string& id
 // (or empty): the first, so the first press shows where focus is.
 std::optional<Focusable> moveFocus(const Scene& scene, const std::string& current, Arrow arrow);
 
+// On a card that is its field (Content::fieldFirst, decision 079), where Up
+// and Down take the highlight while the field keeps the keys: text fields
+// are passed over, so Down from the field (nothing highlighted: `current`
+// empty) is the first row after it, and Up from the first row is nothing,
+// back to typing. At the last row, Down stays on it: the tab row isn't one
+// of the card's rows.
+std::optional<Focusable> moveAmongRows(const Scene& scene, const std::string& current, Arrow arrow);
+bool fieldStop(const Scene& scene, const Focusable& focusable); // it's a text field
+
 // Up or down from the last stop that way in a scrolling list that can still
 // scroll that way: the list's scroll (a scrollStep), with focus staying put,
 // so rows with nothing to click (Settings' list of keys) come into view.

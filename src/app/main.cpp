@@ -330,7 +330,10 @@ void dispatch(const Event& event, const char* reason)
     }
 
     // A live field's edit goes to its provider at once (search, decision 079).
-    if (auto change = liveChange(wasDraft, g_state.draft, g_scene); change && g_providers) g_providers->route(*change);
+    if (auto change = liveChange(wasDraft, g_state.draft, g_scene); change && g_providers) {
+        app::dropKeyFocus(); // new words, new rows: nothing stays highlighted
+        g_providers->route(*change);
+    }
 
     // Hidden (a fullscreen app, decision 032): the shortcuts let go of their keys, so that app gets them.
     // Last: Settings republishes, which dispatches again.
@@ -683,6 +686,7 @@ void onChar(wchar_t c)
     static wchar_t highSurrogate = 0; // the first half of a character outside the BMP (emoji)
     if (!g_state.draft) return;
     if (c == L'\r') {
+        if (escapeCloses(g_state) && app::activateFocused()) return; // a highlighted row: Enter opens it (decision 079)
         sendDraft(g_state.draft->text);
         dispatch(InputSubmitted{}, "enter");
     } else if (c == L'\b' || c == 0x7F) { // 0x7F: Ctrl+Backspace
@@ -735,6 +739,7 @@ void onKey(WPARAM key)
         case VK_END: dispatch(CaretMoved{ CaretMove::End, shift }, "caret"); break;
         case VK_UP:
         case VK_DOWN: { // a line up or down in wrapped text (decision 045); from the first or last line, its start or end
+            if (escapeCloses(g_state) && app::fieldCardKey(key)) break; // a card that is its field: through its rows (decision 079)
             const Placed* field = nullptr;
             for (const Placed& p : g_scene.elements)
                 if (auto* input = std::get_if<TextInput>(&p.item); input && input->focused) field = &p;

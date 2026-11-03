@@ -216,4 +216,26 @@ std::optional<std::string> nextTab(const Scene& scene) { return tabFrom(scene, 1
 // One back is all the way round but one.
 std::optional<std::string> previousTab(const Scene& scene) { return scene.tabs ? tabFrom(scene, scene.tabs->tabs.size() - 1) : std::nullopt; }
 
+bool fieldStop(const Scene& scene, const Focusable& f)
+{
+    if (f.id.rfind("el:", 0) != 0) return false;
+    for (const Placed& p : scene.elements)
+        if ("el:" + p.key == f.id) return std::holds_alternative<TextInput>(p.item);
+    return false;
+}
+
+std::optional<Focusable> moveAmongRows(const Scene& scene, const std::string& current, Arrow arrow)
+{
+    std::optional<Focusable> to = moveFocus(scene, current, arrow);
+    for (int guard = 0; to && fieldStop(scene, *to) && guard < 8; ++guard) {
+        if (arrow == Arrow::Up) return std::nullopt; // up past the first row: typing, nothing highlighted
+        to = moveFocus(scene, to->id, arrow);        // down: past the field to the first row
+    }
+    // The last row: Down stays on it, rather than leaving the card for the tab row.
+    bool leaves = !to || to->id.rfind("tab:", 0) == 0;
+    if (leaves && arrow == Arrow::Down) return current.empty() ? std::nullopt : findFocusable(scene, current);
+    if (leaves) return std::nullopt;
+    return to;
+}
+
 } // namespace cup

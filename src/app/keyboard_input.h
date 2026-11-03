@@ -56,6 +56,17 @@ bool recordKey(WPARAM key);
 // Enter/Space. True if `key` was one.
 bool navigationKey(WPARAM key);
 
+// A card that is its field (Content::fieldFirst: search, decision 079): the
+// field keeps the keys for typing while Up and Down move through the card's
+// rows, as in a launcher. Down from the field goes to the first row; Up from
+// the first row back to typing. True if `key` was one of them.
+bool fieldCardKey(WPARAM key);
+// Enter on such a card: clicks the highlighted row, if one is. False: none
+// is, and Enter goes to the field (the top result, for search).
+bool activateFocused();
+// The field's text changed: what was highlighted may not be there any more.
+void dropKeyFocus();
+
 // WM_HOTKEY: runs its command, or while recording, counts as those keys.
 void hotkeyPressed(WPARAM id);
 

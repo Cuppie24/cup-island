@@ -93,7 +93,16 @@ provider can use.
 folders' contents (two ids for "All Control Panel Items" are tried, decision
 077), launching Store apps and Control Panel items, and the card's look.
 
-**Open.** Arrow keys from the field into the results (today: Enter for the
-top one, or click; Tab moves focus as on any card). Ctrl+Shift+Enter to run
-as administrator (decision 077) needs the host to tell a provider about
-modifiers, which it never does (decision 035): a row button instead, maybe.
+**Keys on the card** (added after the first runs): the field keeps the
+keys for typing while **Up and Down** move a highlight through the results,
+as in a launcher (`moveAmongRows`, core/keyboard, tested on the real card):
+Down from the field is the first row, Up from the first row is back to
+typing, Down at the last row stays (the tab row isn't one of the card's rows),
+and a list scrolls to keep the highlight in view. **Enter** opens the
+highlighted row, or the top result when none is. Typing clears the
+highlight (the rows under it change). Left, Right, Home and End stay the
+caret's. Any card that is its field gets the same keys.
+
+**Open.** Ctrl+Shift+Enter to run as administrator (decision 077) needs the
+host to tell a provider about modifiers, which it never does (decision 035):
+a row button instead, maybe.
