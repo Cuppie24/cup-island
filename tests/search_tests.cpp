@@ -4,6 +4,7 @@
 // the live field that sends every edit.
 
 #include "core/card_overlays.h"
+#include "core/keyboard.h"
 #include "core/layout.h"
 
 #include <cstdio>
@@ -172,7 +173,7 @@ void providerTests()
 // results, rows over the tab row, and names cut to "W..." by long paths.
 void layoutTests()
 {
-    auto cardWith = [](std::size_t files) {
+    auto cardWith = [](std::size_t files, bool tabsOnTop = true) {
         SearchHost host;
         SearchProvider search({ .loadApps = [](std::function<void(std::vector<Launchable>)> d) { d({}); } });
         search.start(host);
@@ -185,6 +186,7 @@ void layoutTests()
         Panel p = host.published.back();
         p.providerId = "search";
         IslandState s;
+        s = reduce(s, TabRowPlaced{ tabsOnTop }, Ms{ 0 });
         s = reduce(s, PanelPublished{ p }, Ms{ 0 });
         s = reduce(s, PanelPublished{ Panel{ .id = "other", .content = { .label = "other", .expandedCenter = { row({ Text{ "x" } }) } } } }, Ms{ 0 });
         s = reduce(s, TileClicked{ "search" }, Ms{ 0 });
@@ -222,6 +224,26 @@ void layoutTests()
     expect(name && folder && name->frame.width >= 8.0f * 14 && folder->frame.width < 8.0f * 55,
            "a file's name keeps its width beside a long folder path");
     expect(field && name && std::abs(field->frame.x - name->frame.x) < 64, "rows start at the card's side, not after a media art column");
+
+    // Keys (decision 079): the field keeps them for typing; Up and Down move
+    // the highlight through the rows, as in a launcher.
+    auto first = moveAmongRows(big, "", Arrow::Down);
+    expect(first && first->id.rfind("el:expandedCenter/1/", 0) == 0 && !fieldStop(big, *first), "Down from the field: the first row");
+    auto second = first ? moveAmongRows(big, first->id, Arrow::Down) : std::nullopt;
+    expect(second && second->id.rfind("el:expandedCenter/2/", 0) == 0, "Down again: the next row");
+    expect(second && moveAmongRows(big, second->id, Arrow::Up)->id == first->id, "Up: back a row");
+    expect(first && !moveAmongRows(big, first->id, Arrow::Up), "Up from the first row: back to typing, nothing highlighted");
+    expect(!moveAmongRows(big, "", Arrow::Up), "Up with nothing highlighted: still typing");
+    std::string at = first ? first->id : "";
+    for (int i = 0; i < 30 && !at.empty(); ++i) at = moveAmongRows(big, at, Arrow::Down)->id;
+    expect(!at.empty() && moveAmongRows(big, at, Arrow::Down)->id == at, "Down at the last row stays there");
+    expect(field && fieldStop(big, Focusable{ .id = "el:" + field->key }), "the field is a field stop");
+    auto [low, tabsBelow] = cardWith(2, false);
+    (void)low;
+    std::string last = moveAmongRows(tabsBelow, "", Arrow::Down)->id;
+    last = moveAmongRows(tabsBelow, last, Arrow::Down)->id;
+    for (int i = 0; i < 10; ++i) last = moveAmongRows(tabsBelow, last, Arrow::Down)->id;
+    expect(last.rfind("el:", 0) == 0, "tabs at the bottom: Down at the last row doesn't leave for the tab row");
 }
 
 void liveFieldTests()

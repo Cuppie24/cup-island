@@ -200,6 +200,38 @@ bool navigationKey(WPARAM key)
     return true;
 }
 
+bool fieldCardKey(WPARAM key)
+{
+    if (key != VK_UP && key != VK_DOWN) return false;
+    Arrow arrow = key == VK_UP ? Arrow::Up : Arrow::Down;
+    // The last rows out of view: scrolled in before Down stops (decision 033).
+    if (!g_focus.empty()) {
+        if (auto scroll = scrollInstead(scene(), g_focus, arrow)) {
+            dispatch(*scroll, "keys: scroll the list");
+            dispatch(PointerMoved{}, "keys");
+            return true;
+        }
+    }
+    std::optional<Focusable> to = moveAmongRows(scene(), g_focus, arrow);
+    if (to) land(to);
+    else { // up past the first row: back to typing, nothing highlighted
+        g_focus.clear();
+        dispatch(PointerMoved{}, "keys");
+    }
+    return true;
+}
+
+bool activateFocused()
+{
+    if (g_focus.empty()) return false;
+    auto focused = findFocusable(scene(), g_focus);
+    if (!focused || fieldStop(scene(), *focused)) return false;
+    activate();
+    return true;
+}
+
+void dropKeyFocus() { g_focus.clear(); }
+
 void hotkeyPressed(WPARAM id)
 {
     auto command = platform::hotkeyCommand(id);
