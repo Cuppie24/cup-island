@@ -126,7 +126,7 @@ void ElementVisuals::apply(const std::vector<Placed>& elements, Ms now)
         it = views_.erase(it);
     }
 
-    // What's new arrives top row first (decision 075).
+    // What's new arrives top row first (decision 076).
     std::vector<float> tops;
     for (const Placed& placed : elements)
         if (!views_.contains(placed.key)) tops.push_back(placed.frame.y);

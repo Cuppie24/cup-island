@@ -26,7 +26,7 @@ public:
     // coloursOnly: content is recoloured in place, else rebuilt (new sizes).
     void refreshAnimations(bool coloursOnly);
 
-    // Morphs there along `motion` (decision 075); no-op if unchanged. Following: lands there later.
+    // Morphs there along `motion` (decision 076); no-op if unchanged. Following: lands there later.
     void place(Vec2 size, Vec2 offset, const Motion& motion);
     // Stay centred on the cursor (dragged); nullopt springs back to place(),
     // carrying `fling` (pixels per ms: how fast it was let go) into the landing.

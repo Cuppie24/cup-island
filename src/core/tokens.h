@@ -186,7 +186,7 @@ struct Tokens {
     // list's rows (ease-out, TR §5). The pill's own morph is a spring, below.
     Ms morphDuration{ 300 };
     Bezier morphEase{ { 0.16f, 1.0f }, { 0.30f, 1.0f } };
-    // The pill's morph (decision 075, core/motion.h): a spring, settled by the
+    // The pill's morph (decision 076, core/motion.h): a spring, settled by the
     // end of its time. Bounce 0 never goes past; 0.25 goes about 3% past and
     // back. Growing overshoots a little, shrinking doesn't. A morph that moves
     // morphFarDistance or more takes the longest time, a tiny one the shortest.
@@ -209,7 +209,7 @@ struct Tokens {
     // Let go mid-drag, the island or bubble carries the pointer's speed into its landing.
     float flingMaxSpeed = 2;  // pixels per ms
     Ms flingStale{ 80 };      // the pointer still this long before letting go: no fling
-    // Windows' "Animation effects" off (decision 075): morphs are this short, with
+    // Windows' "Animation effects" off (decision 076): morphs are this short, with
     // no overshoot, stagger, fling or pulse. Set by the app, not by tokens.json.
     bool reducedMotion = false;
     Ms reducedMotionDuration{ 120 };

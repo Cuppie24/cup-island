@@ -391,7 +391,7 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
         std::string_view n(name);
         return n.starts_with("cover") || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" ||
                n == "primaryHoverOpacity" || n == "playGlyphNudge" || // a share of an opacity, of a width (decisions 066, 071)
-               n.ends_with("Bounce") || n == "contentArriveScale" || n == "alertPulseScale" || // shares (decision 075)
+               n.ends_with("Bounce") || n == "contentArriveScale" || n == "alertPulseScale" || // shares (decision 076)
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
     };
     Tokens out = t;

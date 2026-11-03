@@ -7,7 +7,7 @@
 namespace cup {
 namespace {
 
-// A damped spring on a time scale of one duration (decision 075). Its
+// A damped spring on a time scale of one duration (decision 076). Its
 // damping ratio is 1 - bounce; its natural frequency is chosen so the
 // envelope e^(-ζωt) has died down to about 0.02% by t = 1 (ζω = kSettle):
 // the snap to the end there is under a pixel even for the largest morph.

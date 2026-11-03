@@ -19,7 +19,7 @@ Tokens g_file;          // tokens.json as last read without problems, before the
 std::string g_theme;    // the app theme (decision 022)
 std::optional<CoverTint> g_tint; // the playing cover's colours, over the theme (decisions 051, 054)
 FadeSpeed g_fadeSpeed = FadeSpeed::Medium; // Settings' pick (decision 053)
-bool g_reducedMotion = false;               // Windows' animation setting (decision 075)
+bool g_reducedMotion = false;               // Windows' animation setting (decision 076)
 
 void log(const std::string& message)
 {

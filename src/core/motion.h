@@ -1,5 +1,5 @@
 #pragma once
-// How things move (decision 075): the pill's morph is a spring that settles
+// How things move (decision 076): the pill's morph is a spring that settles
 // within a set time, picked per morph from what changes. Renderer and
 // interaction layer both run these same curves, so the clickable window stays
 // on the visible pill (decision 001). Pure: time is a fraction, or passed in.

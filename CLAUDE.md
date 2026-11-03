@@ -16,6 +16,11 @@ A Dynamic Island for Windows: a standalone C++/WinRT app (Win32 + Composition).
 - Full app (Windows only): `.\build.ps1 -Run` (Release) or `-Debug -Run`; presets `windows` / `windows-debug` (Ninja + MSVC). `platform/` and `app/` can't be built on Linux.
   Before changing how visuals animate, read `docs/decisions/008-composition-animation-handoffs.md`: Composition behaves in ways the code alone won't tell you.
 
+## Branches
+- Name a branch after its feature, in kebab-case with no prefix: `spring-motion`, `file-index`.
+  Never a generated name (`claude/ecstatic-galileo-55frn0`): if a session was given one, create the feature-named branch and push there instead.
+- One feature per branch; the PR title says the same thing as the branch name.
+
 ## Rules
 - Logic goes in `src/core/` (pure: no Windows headers, no I/O, no clock reads). Platform code only translates.
 - Provider logic that doesn't need WinRT (content building, decisions) lives in `src/providers/` and is tested on Linux.

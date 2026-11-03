@@ -9,7 +9,7 @@ set, and `AnimationController.Progress` stayed at 0 for the whole run
 (verified by polling during a morph).
 
 **Decision.** The app replays the same morph itself: same endpoints, duration
-and curve (now the spring in `core/motion.h`, decision 075). It's clocked
+and curve (now the spring in `core/motion.h`, decision 076). It's clocked
 from the compositor's own frame ticks (`DCompositionWaitForCompositorClock` on
 a helper thread that posts one message per frame), and it snaps to the exact
 target at the end. A new morph starts from wherever the window is now, which
@@ -23,6 +23,6 @@ which also returns once per desktop composition. The log says which clock
 is in use ("frame clock: …").
 
 **Consequences.** Renderer and follower must use identical timing, which is
-why both run the same `Motion` through `core/motion.h`'s spring (decision 075; it was one bezier curve before). The helper thread
+why both run the same `Motion` through `core/motion.h`'s spring (decision 076; it was one bezier curve before). The helper thread
 sleeps when no morph runs, so idle cost stays zero. If Microsoft adds a way
 to read live animated values, this can go.

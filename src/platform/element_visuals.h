@@ -62,7 +62,7 @@ private:
     };
 
     // fade: fades in (not when a text turns into its field). arrive: new, not
-    // rebuilt: also grows in, this long after the top row (decision 075).
+    // rebuilt: also grows in, this long after the top row (decision 076).
     View create(const Placed& placed, Ms now, bool fade = true, std::optional<Ms> arrive = std::nullopt);
     bool update(View& view, const Placed& placed, Ms now); // true = rebuilt
     void paint(View& view);
