@@ -319,7 +319,7 @@ void Blob::pressRelease()
 void Blob::pulse()
 {
     const Tokens& t = tokens();
-    body_.StartAnimation(L"Scale", pulseScale(compositor_, t.alertPulseScale, { t.alertPulseDuration, t.morphGrowBounce }));
+    body_.StartAnimation(L"Scale", pulseScale(compositor_, t.alertPulseScale, { t.alertPulseDuration, t.morphGrowBounce, t.morphSpringSettle }));
 }
 
 void Blob::playScale(float scale, Ms duration, Bezier curve)

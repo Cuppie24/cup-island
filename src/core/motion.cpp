@@ -8,12 +8,11 @@ namespace cup {
 namespace {
 
 // A damped spring on a time scale of one duration (decision 076). Its
-// damping ratio is 1 - bounce; its natural frequency is chosen so the
-// envelope e^(-ζωt) has died down to about 0.02% by t = 1 (ζω = kSettle):
-// the snap to the end there is under a pixel even for the largest morph.
-// A critically damped one (bounce 0) also has a (1 + ωt) factor, still
-// under 0.2% there.
-constexpr float kSettle = 8.5f;
+// damping ratio ζ is 1 - bounce; its natural frequency ω is settle / ζ, so
+// the envelope e^(-ζωt) is e^(-settle) by t = 1. A high settle does nearly
+// all its moving early (8.5: half the way in an eighth of the time), which
+// made big morphs feel rushed; a lower one spreads it out. What's left at
+// t = 1 is scaled away (springProgress), so the end never jumps.
 constexpr float kMaxBounce = 0.9f; // past this it rings for the whole duration
 constexpr float kCritical = 1e-3f; // bounce below this is treated as none: the formulas below divide by it
 
@@ -21,9 +20,9 @@ float dampingOf(float bounce) { return 1.0f - std::clamp(bounce, 0.0f, kMaxBounc
 
 // The spring released from 1 at rest (x0 = 1, v0 = 0), or from 0 at unit
 // speed (x0 = 0, v0 = 1): its displacement from the end at time t.
-float displacement(float bounce, float t, bool fromRest)
+float displacement(const Motion& m, float t, bool fromRest)
 {
-    float zeta = dampingOf(bounce), omega = kSettle / zeta;
+    float zeta = dampingOf(m.bounce), omega = std::max(m.settle, 1.0f) / zeta;
     float decay = std::exp(-zeta * omega * t);
     if (1.0f - zeta < kCritical) return fromRest ? (1.0f + omega * t) * decay : t * decay;
     float omegaD = omega * std::sqrt(1.0f - zeta * zeta); // how fast it rings
@@ -44,17 +43,19 @@ float area(Rect r) { return r.width * r.height; }
 
 } // namespace
 
-float springProgress(float bounce, float t)
+float springProgress(const Motion& m, float t)
 {
     if (t <= 0) return 0;
     if (t >= 1) return 1;
-    return 1.0f - displacement(bounce, t, true);
+    // Stretched so it ends exactly at 1: a low settle leaves a little to go
+    // (about 1.7% critically damped at settle 6), which would show as a snap.
+    return (1.0f - displacement(m, t, true)) / (1.0f - displacement(m, 1.0f, true));
 }
 
-float springCarry(float bounce, float t)
+float springCarry(const Motion& m, float t)
 {
     if (t <= 0 || t >= 1) return 0;
-    return displacement(bounce, t, false);
+    return displacement(m, t, false) - t * displacement(m, 1.0f, false); // ...and this ends at 0
 }
 
 float overshootOf(float bounce)
@@ -64,21 +65,30 @@ float overshootOf(float bounce)
     return std::exp(-std::numbers::pi_v<float> * zeta / std::sqrt(1.0f - zeta * zeta));
 }
 
+float morphDistance(Rect from, Rect to)
+{
+    float resize = std::hypot(to.width - from.width, to.height - from.height);
+    float move = std::hypot((to.x + to.width / 2) - (from.x + from.width / 2), to.y - from.y);
+    return resize + move;
+}
+
 Motion morphMotion(Rect from, Rect to, const Tokens& t)
 {
-    if (t.reducedMotion) return { t.reducedMotionDuration, 0 };
+    if (t.reducedMotion) return { t.reducedMotionDuration, 0, t.morphSpringSettle };
     // Equal areas (a move along the edge, a landing) settle like growing: a
     // little past and back reads as arriving. Shrinking never goes past.
     bool shrinks = area(to) < area(from);
     Ms shortest = shrinks ? t.morphShrinkShortest : t.morphGrowShortest;
-    Ms longest = std::max(shrinks ? t.morphShrinkLongest : t.morphGrowLongest, shortest);
-    float distance = std::max({ std::abs(to.width - from.width), std::abs(to.height - from.height),
-                                std::abs(to.x - from.x), std::abs(to.y - from.y) });
-    // Square root: a short move is quick, and the time grows ever slower with
-    // distance, so a big morph isn't sluggish either.
-    float far = t.morphFarDistance > 0 ? std::sqrt(std::clamp(distance / t.morphFarDistance, 0.0f, 1.0f)) : 1.0f;
-    Motion motion{ shortest + Ms{ std::lround(static_cast<float>((longest - shortest).count()) * far) },
-                   std::clamp(shrinks ? t.morphShrinkBounce : t.morphGrowBounce, 0.0f, kMaxBounce) };
+    Ms reference = shrinks ? t.morphShrinkReference : t.morphGrowReference;
+    Ms ceiling = std::max(shrinks ? t.morphShrinkMax : t.morphGrowMax, shortest);
+    // Square root through two points: no time at all for no distance beyond
+    // the shortest, and `reference` at morphReferenceDistance. Each pixel adds
+    // a little less than the one before, so a big morph gets more time without
+    // dragging; the ceiling is only a guard (a huge display), not where morphs end up.
+    float share = t.morphReferenceDistance > 0 ? std::sqrt(morphDistance(from, to) / t.morphReferenceDistance) : 1.0f;
+    float ms = static_cast<float>(shortest.count()) + static_cast<float>((reference - shortest).count()) * share;
+    Motion motion{ std::clamp(Ms{ std::lround(ms) }, shortest, ceiling),
+                   std::clamp(shrinks ? t.morphShrinkBounce : t.morphGrowBounce, 0.0f, kMaxBounce), t.morphSpringSettle };
     // Going past the end downward must stay on the canvas: the render layer
     // clips anything below it (decision 016).
     float grownDown = (to.y + to.height) - (from.y + from.height), room = t.canvas.y - (to.y + to.height);
@@ -107,7 +117,7 @@ Ms revealDelay(const Motion& morph, Rect from, Rect to, const Tokens& t)
     constexpr int kSteps = 200;
     for (int i = 0; i <= kSteps; ++i) {
         float at = static_cast<float>(i) / kSteps;
-        if (springProgress(morph.bounce, at) >= t.contentRevealAt)
+        if (springProgress(morph, at) >= t.contentRevealAt)
             return Ms{ std::lround(at * static_cast<float>(morph.duration.count())) };
     }
     return morph.duration;

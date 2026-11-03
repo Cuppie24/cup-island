@@ -13,22 +13,25 @@ namespace {
 
 bool near(float a, float b, float within = 0.005f) { return std::abs(a - b) <= within; }
 
+// A spring with the default settle, for the curve's own shape.
+Motion spring(float bounce) { return { Ms{ 300 }, bounce, Tokens{}.morphSpringSettle }; }
+
 // The highest point a spring reaches on its way, sampled like a keyframe run (finer).
 float peakOf(float bounce)
 {
     float peak = 0;
-    for (int i = 0; i <= 1000; ++i) peak = std::max(peak, springProgress(bounce, i / 1000.0f));
+    for (int i = 0; i <= 1000; ++i) peak = std::max(peak, springProgress(spring(bounce), i / 1000.0f));
     return peak;
 }
 
 void springTests()
 {
     for (float bounce : { 0.0f, 0.1f, 0.22f, 0.5f }) {
-        expect(springProgress(bounce, 0) == 0 && springProgress(bounce, 1) == 1, "a spring starts at 0 and ends at 1");
+        expect(springProgress(spring(bounce), 0) == 0 && springProgress(spring(bounce), 1) == 1, "a spring starts at 0 and ends at 1");
         // Settled by the end: the snap there is under a pixel even across a whole card.
-        expect(near(springProgress(bounce, 0.999f), 1, 0.002f), "a spring has settled by the end of its time");
-        expect(springCarry(bounce, 0) == 0 && near(springCarry(bounce, 0.999f), 0, 0.001f), "a fling's push starts and ends at nothing");
-        expect(springCarry(bounce, 0.1f) > 0, "a fling pushes the way it was thrown");
+        expect(near(springProgress(spring(bounce), 0.999f), 1, 0.002f), "a spring has settled by the end of its time: no jump");
+        expect(springCarry(spring(bounce), 0) == 0 && near(springCarry(spring(bounce), 0.999f), 0, 0.001f), "a fling's push starts and ends at nothing");
+        expect(springCarry(spring(bounce), 0.1f) > 0, "a fling pushes the way it was thrown");
     }
     expect(peakOf(0) <= 1.0f, "bounce 0 never goes past the end");
     float peak = peakOf(0.25f);
@@ -36,8 +39,12 @@ void springTests()
     expect(near(peak - 1, overshootOf(0.25f), 0.003f), "overshootOf says how far it goes past");
     expect(overshootOf(0) == 0, "no bounce, no overshoot");
     // Rises fast like the ease-out it replaced: most of the way in the first third.
-    expect(springProgress(0.25f, 0.33f) > 0.85f, "a spring covers most of the way early");
-    expect(springProgress(0, 0.5f) > springProgress(0, 0.25f), "with no bounce it only moves forward");
+    expect(springProgress(spring(0.25f), 0.4f) > 0.85f, "a spring covers most of the way early");
+    expect(springProgress(spring(0.25f), 0.15f) < 0.5f, "...but not all of it at once: big morphs felt rushed at settle 8.5");
+    Motion snappy = spring(0.25f);
+    snappy.settle = 8.5f;
+    expect(springProgress(snappy, 0.15f) > springProgress(spring(0.25f), 0.15f), "a higher settle is more front-loaded");
+    expect(springProgress(spring(0), 0.5f) > springProgress(spring(0), 0.25f), "with no bounce it only moves forward");
 }
 
 void morphTests()
@@ -47,10 +54,22 @@ void morphTests()
     Motion grow = morphMotion(idle, card, t), shrink = morphMotion(card, idle, t);
     expect(grow.bounce == t.morphGrowBounce, "growing overshoots");
     expect(shrink.bounce == 0, "shrinking doesn't");
-    expect(grow.duration == t.morphGrowLongest, "a long way takes the longest time");
-    expect(shrink.duration == t.morphShrinkLongest, "...shrinking too");
     Motion nudge = morphMotion(idle, { 186, 0, 168, 28 }, t);
-    expect(nudge.duration > t.morphGrowShortest && nudge.duration < t.morphGrowLongest, "a short way takes less");
+    expect(nudge.duration > t.morphGrowShortest && nudge.duration < grow.duration, "a short way takes less");
+    expect(shrink.duration < grow.duration, "shrinking is quicker than growing");
+    // Square root through the reference: no edge where every big morph ends up the same.
+    Rect wide{ 190 - 250, 0, 160 + 500, 28 }; // 500 wider, about the same centre: the reference distance
+    expect(near(morphDistance(idle, wide), 500, 0.5f), "growing about its centre: only the size counts");
+    expect(near(static_cast<float>(morphMotion(idle, wide, t).duration.count()), static_cast<float>(t.morphGrowReference.count()), 1),
+           "the reference distance takes the reference time");
+    Rect taller{ 0, 0, 540, 600 };
+    expect(morphMotion(idle, taller, t).duration > grow.duration, "a taller card takes longer than a shorter one");
+    expect(morphDistance(idle, { 190, 0, 160 + 300, 28 + 400 }) > morphDistance(idle, { 190, 0, 160, 28 + 400 }),
+           "growing both ways counts more than one");
+    expect(morphDistance(idle, { 300, 0, 160, 28 }) == 110, "sliding along the edge counts its move");
+    Tokens huge;
+    huge.morphReferenceDistance = 10;
+    expect(morphMotion(idle, card, huge).duration == huge.morphGrowMax, "the ceiling is only a guard");
     expect(morphMotion(idle, idle, t).duration == t.morphGrowShortest, "no way at all, the shortest");
     expect(morphMotion(idle, { 300, 0, 160, 28 }, t).bounce == t.morphGrowBounce, "a move along the edge settles like growing");
 
@@ -99,8 +118,8 @@ void revealTests()
     Ms reveal = revealDelay(grow, idle, card, t);
     float at = static_cast<float>(reveal.count()) / static_cast<float>(grow.duration.count());
     expect(reveal > Ms{ 0 } && reveal < grow.duration / 2, "growing: content comes in early in the morph");
-    expect(springProgress(grow.bounce, at) >= t.contentRevealAt, "...once the pill is contentRevealAt of the way");
-    expect(springProgress(grow.bounce, at - 0.02f) < t.contentRevealAt, "...and no later");
+    expect(springProgress(grow, at) >= t.contentRevealAt, "...once the pill is contentRevealAt of the way");
+    expect(springProgress(grow, at - 0.02f) < t.contentRevealAt, "...and no later");
     Motion small = morphMotion(idle, { 180, 0, 180, 32 }, t);
     expect(revealDelay(small, idle, { 180, 0, 180, 32 }, t) < reveal, "a small change comes in sooner");
     expect(revealDelay(morphMotion(card, idle, t), card, idle, t) == Ms{ 0 }, "shrinking: at once");

@@ -15,8 +15,11 @@ off the pill (decision 001).
 **Decision.**
 - **The spring is ours, in core** (`core/motion.h`): a damped spring
   scaled to settle by the end of its duration (damping 1 − bounce;
-  frequency chosen so what's left at the end is under a pixel), with a
-  closed form for the position and for the push of a throw. The renderer
+  frequency `morphSpringSettle` / damping, then stretched so it ends
+  exactly at 1), with a closed form for the position and for the push of a
+  throw. The settle was 8.5 at first: half the way in an eighth of the
+  time, so a big morph's visible motion was ~100 ms and felt rushed. At 6
+  it spreads out (half the way in ~18% of the time). The renderer
   lays it down as `kSpringKeyframes` linear keyframes
   (`platform/spring_motion.h`); the interaction layer evaluates the same
   function each frame. Same curve on both sides, as decision 001 needs.
@@ -27,8 +30,13 @@ off the pill (decision 001).
   collection before setting a value, and only when it differs.
 - **One motion per scene change** (`sceneMotion`), from the old
   `interactiveBounds` to the new: growing overshoots (`morphGrowBounce`,
-  ~3%), shrinking doesn't; the time grows with the square root of the
-  distance (`morph*Shortest`/`Longest`, `morphFarDistance`). It never
+  ~3%), shrinking doesn't. The time is the square root of the distance
+  through two points, `morph*Shortest` for none and `morph*Reference` at
+  `morphReferenceDistance`, with no edge: an earlier version capped it at
+  a distance most big morphs passed, so they all took the same time. Only
+  `morph*Max` (a guard for huge displays) caps it. The distance
+  (`morphDistance`) is the size change's diagonal, so growing both ways
+  counts more than one, plus how far the top centre moves. It never
   overshoots below the canvas's bottom (it would be clipped) or past a
   size of 0 (a tucking bubble would go negative).
 - **Fling:** while the island or the bubble is carried, the app tracks the

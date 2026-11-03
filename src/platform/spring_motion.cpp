@@ -18,7 +18,7 @@ float stepAt(int i) { return static_cast<float>(i) / kSpringKeyframes; }
 KeyFrameAnimation along(KeyFrameAnimation const& animation, const wchar_t* target, const Motion& motion, LinearEasingFunction const& linear)
 {
     for (int i = 1; i < kSpringKeyframes; ++i) {
-        float p = springProgress(motion.bounce, stepAt(i));
+        float p = springProgress(motion, stepAt(i));
         animation.InsertExpressionKeyFrame(stepAt(i), L"this.StartingValue + (this.FinalValue - this.StartingValue) * " + std::to_wstring(p), linear);
     }
     animation.InsertExpressionKeyFrame(1.0f, L"this.FinalValue", linear);
@@ -50,7 +50,7 @@ Vector3KeyFrameAnimation springOffset(Compositor const& c, Vec2 from, Vec2 to, c
     anim.InsertKeyFrame(0.0f, toFloat3(from));
     auto linear = c.CreateLinearEasingFunction();
     for (int i = 1; i <= kSpringKeyframes; ++i) {
-        float t = stepAt(i), home = springProgress(motion.bounce, t), push = springCarry(motion.bounce, t) * reach;
+        float t = stepAt(i), home = springProgress(motion, t), push = springCarry(motion, t) * reach;
         anim.InsertKeyFrame(t, toFloat3({ from.x + (to.x - from.x) * home + fling.x * push, from.y + (to.y - from.y) * home + fling.y * push }), linear);
     }
     anim.Duration(atLeast1(motion.duration));
@@ -67,7 +67,7 @@ Vector3KeyFrameAnimation pulseScale(Compositor const& c, float peak, const Motio
     anim.InsertKeyFrame(kSwell, { peak, peak, 1.0f }, c.CreateCubicBezierEasingFunction(toFloat2(rise.c1), toFloat2(rise.c2)));
     auto linear = c.CreateLinearEasingFunction();
     for (int i = 1; i <= kSpringKeyframes; ++i) {
-        float back = springProgress(motion.bounce, stepAt(i)), scale = peak + (1.0f - peak) * back;
+        float back = springProgress(motion, stepAt(i)), scale = peak + (1.0f - peak) * back;
         anim.InsertKeyFrame(kSwell + (1.0f - kSwell) * stepAt(i), { scale, scale, 1.0f }, linear);
     }
     anim.Duration(atLeast1(motion.duration));

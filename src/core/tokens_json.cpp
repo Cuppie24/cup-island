@@ -127,12 +127,15 @@ const Field kFields[] = {
     { "morphDurationMs", &Tokens::morphDuration, true },
     { "morphEase", &Tokens::morphEase },
     { "morphGrowShortestMs", &Tokens::morphGrowShortest },
-    { "morphGrowLongestMs", &Tokens::morphGrowLongest },
+    { "morphGrowReferenceMs", &Tokens::morphGrowReference },
+    { "morphGrowMaxMs", &Tokens::morphGrowMax },
     { "morphGrowBounce", &Tokens::morphGrowBounce },
     { "morphShrinkShortestMs", &Tokens::morphShrinkShortest },
-    { "morphShrinkLongestMs", &Tokens::morphShrinkLongest },
+    { "morphShrinkReferenceMs", &Tokens::morphShrinkReference },
+    { "morphShrinkMaxMs", &Tokens::morphShrinkMax },
     { "morphShrinkBounce", &Tokens::morphShrinkBounce },
-    { "morphFarDistance", &Tokens::morphFarDistance },
+    { "morphReferenceDistance", &Tokens::morphReferenceDistance },
+    { "morphSpringSettle", &Tokens::morphSpringSettle },
     { "settleEase", &Tokens::settleEase },
     { "contentArriveScale", &Tokens::contentArriveScale },
     { "contentArriveDurationMs", &Tokens::contentArriveDuration },
@@ -392,7 +395,7 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
         std::string_view n(name);
         return n.starts_with("cover") || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" ||
                n == "primaryHoverOpacity" || n == "playGlyphNudge" || // a share of an opacity, of a width (decisions 066, 071)
-               n.ends_with("Bounce") || n == "contentArriveScale" || n == "contentRevealAt" || n == "alertPulseScale" || // shares (decision 076)
+               n.ends_with("Bounce") || n == "contentArriveScale" || n == "contentRevealAt" || n == "morphSpringSettle" || n == "alertPulseScale" || // shares (decision 076)
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
     };
     Tokens out = t;

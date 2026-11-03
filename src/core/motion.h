@@ -16,6 +16,9 @@ namespace cup {
 struct Motion {
     Ms duration{ 300 };
     float bounce = 0;
+    // How early in its time the spring does its moving (morphSpringSettle):
+    // higher is snappier and more front-loaded.
+    float settle = 6;
     bool operator==(const Motion&) const = default;
 };
 
@@ -23,24 +26,29 @@ struct Motion {
 // enough that the steps don't show at the morph's speeds.
 inline constexpr int kSpringKeyframes = 24;
 
-// Progress along a spring from 0 at t = 0 to 1 at t = 1 (a fraction of the
-// duration). With bounce > 0 it goes past 1 once, then settles; it's settled
-// (within a fraction of a pixel) by t = 1, where the caller snaps to the end.
-float springProgress(float bounce, float t);
+// Progress along `motion`'s spring from 0 at t = 0 to exactly 1 at t = 1 (a
+// fraction of the duration). With bounce > 0 it goes past 1 once, then settles.
+float springProgress(const Motion& motion, float t);
 
 // The same spring started at rest but moving at unit speed (one whole
 // duration's worth of distance per duration): 0 at both ends. Added on top of
 // springProgress, scaled by a starting velocity, it carries a throw (fling).
-float springCarry(float bounce, float t);
+float springCarry(const Motion& motion, float t);
 
 // How far past its end a spring with this bounce goes, as a share of the
 // distance (0.25 -> about 3%).
 float overshootOf(float bounce);
 
 // The motion for a morph of the pill's bounds from `from` to `to`: growing
-// overshoots a little, shrinking doesn't; farther takes longer. Overshoot is
-// trimmed so the pill never grows past the bottom of the canvas.
+// overshoots a little, shrinking doesn't. Its time grows with the square root
+// of how far it goes (morphDistance), with no edge but a safety ceiling.
+// Overshoot is trimmed so the pill never grows past the bottom of the canvas.
 Motion morphMotion(Rect from, Rect to, const Tokens& t);
+
+// How far a morph goes, in pixels: the size change's diagonal (growing both
+// ways counts more than one) plus how far its top centre moves (a pill growing
+// about its centre doesn't move; one sliding along the edge does).
+float morphDistance(Rect from, Rect to);
 
 // `motion` for a shape heading to `size`: no overshoot when it tucks away to
 // nothing, where going past would mean a negative size.

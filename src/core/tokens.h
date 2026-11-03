@@ -188,15 +188,19 @@ struct Tokens {
     Bezier morphEase{ { 0.16f, 1.0f }, { 0.30f, 1.0f } };
     // The pill's morph (decision 076, core/motion.h): a spring, settled by the
     // end of its time. Bounce 0 never goes past; 0.25 goes about 3% past and
-    // back. Growing overshoots a little, shrinking doesn't. A morph that moves
-    // morphFarDistance or more takes the longest time, a tiny one the shortest.
+    // back. Growing overshoots a little, shrinking doesn't. Its time grows with
+    // the square root of how far it goes: the shortest for none, the reference
+    // at morphReferenceDistance, never more than the max (only a guard).
     Ms morphGrowShortest{ 260 };
-    Ms morphGrowLongest{ 360 };
+    Ms morphGrowReference{ 450 };
+    Ms morphGrowMax{ 600 };
     float morphGrowBounce = 0.25f;
     Ms morphShrinkShortest{ 200 };
-    Ms morphShrinkLongest{ 300 };
+    Ms morphShrinkReference{ 360 };
+    Ms morphShrinkMax{ 480 };
     float morphShrinkBounce = 0.0f;
-    float morphFarDistance = 360;
+    float morphReferenceDistance = 500;
+    float morphSpringSettle = 6; // how front-loaded the spring is: 8.5 felt rushed on big morphs
     // Small things settling with a hint of overshoot: the tab marker gliding,
     // a toast coming up, a switch's knob, content arriving.
     Bezier settleEase{ { 0.3f, 1.3f }, { 0.5f, 1.0f } };

@@ -79,7 +79,7 @@ void onCompositorTick()
         return;
     }
     // The renderer's keyframes are samples of this same curve (platform/spring_motion.h).
-    float e = springProgress(m.bounce, t), push = springCarry(m.bounce, t) * static_cast<float>(m.duration.count());
+    float e = springProgress(m, t), push = springCarry(m, t) * static_cast<float>(m.duration.count());
     Vec2 offset = lerp(g_morph.fromOffset, g_morph.toOffset, e);
     snap(lerp(g_morph.fromSize, g_morph.toSize, e), { offset.x + g_morph.fling.x * push, offset.y + g_morph.fling.y * push });
 }
