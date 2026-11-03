@@ -2,12 +2,17 @@
 //   started by the Service Control Manager: runs as the CupIslandIndex service
 //   CupIslandIndex.exe --console: the same in a terminal, until Ctrl+C
 //     (an administrator's terminal: reading drives needs it)
+//   CupIslandIndex.exe --install | --stop | --uninstall: for its installer (decision 076)
 // Wiring only: each drive gets a VolumeWatcher, clients get the PipeServer.
 
 #include "service/pipe_server.h"
+#include "service/self_update.h"
+#include "service/service_control.h"
 #include "service/service_limits.h"
 #include "service/service_log.h"
 #include "service/volume_watcher.h"
+
+#include "cup_version.h"
 
 #include <cstdio>
 #include <memory>
@@ -37,7 +42,9 @@ bool runIndex(bool console)
 {
     std::filesystem::path folder = dataFolder();
     startServiceLog(folder, console);
-    serviceLog("starting");
+    serviceLog("starting %s", CUP_VERSION_STRING);
+    SelfUpdate update(folder, CUP_VERSION_STRING);
+    update.removeLeftovers(); // an update that finished replaced us; one that didn't, left its installer
     std::vector<std::unique_ptr<VolumeWatcher>> volumes;
     for (VolumeInfo& volume : fixedNtfsVolumes()) {
         serviceLog("%s: indexing", volume.root.c_str());
@@ -48,7 +55,7 @@ bool runIndex(bool console)
     if (!console) report(SERVICE_RUNNING);
     bool ok;
     {
-        PipeServer server(volumes, g_stop);
+        PipeServer server(volumes, update, g_stop);
         ok = server.run();
         SetEvent(g_stop); // the pipe failing stops the drives too
     }
@@ -93,7 +100,11 @@ int wmain(int argc, wchar_t** argv)
     using namespace cup::service;
     g_stop = CreateEventW(nullptr, TRUE, FALSE, nullptr);
     if (!g_stop) return 1;
-    if (argc > 1 && std::wstring_view(argv[1]) == L"--console") {
+    std::wstring_view command = argc > 1 ? std::wstring_view(argv[1]) : std::wstring_view();
+    if (command == L"--install") return installService();
+    if (command == L"--stop") return stopService();
+    if (command == L"--uninstall") return uninstallService();
+    if (command == L"--console") {
         SetConsoleOutputCP(CP_UTF8);
         SetConsoleCtrlHandler(consoleControl, TRUE);
         std::puts("Cup Island file index: Ctrl+C stops it.");

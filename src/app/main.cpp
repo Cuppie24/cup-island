@@ -52,6 +52,8 @@
 #include "providers/file_store.h"
 #include "providers/media/smtc_media_provider.h"
 #include "providers/pomodoro/pomodoro_provider.h"
+#include "providers/search/search_service.h"
+#include "providers/search/search_setup.h"
 #include "providers/system/settings_provider.h"
 #include "providers/system/theme_provider.h"
 #include "providers/update/github.h"
@@ -1029,6 +1031,14 @@ int main()
         if (g_settings) g_settings->updateStatusChanged(offer);
     });
     g_providers->add(std::move(update));
+    // File search (decision 076): set up once if missing, kept current. Shows nothing.
+    g_providers->add(std::make_unique<SearchSetupProvider>(SearchSetupHooks{
+        .appVersion = CUP_VERSION_STRING,
+        .installerBundled = searchInstallerBundled(),
+        .probe = probeSearchService,
+        .runInstaller = runSearchInstaller,
+        .askUpdate = askSearchServiceUpdate,
+    }));
     // Home's widgets follow the order panels first appear: media and Pomodoro
     // first (decision 019), then the system tiles.
     g_providers->start("media");
@@ -1036,6 +1046,7 @@ int main()
     g_providers->start("system.theme");
     g_providers->start("system.settings");
     g_providers->start("system.update");
+    g_providers->start("system.search-setup");
     dispatch(readWallClock(), "clock");
 
     // TR §9.2: hide over borderless/exclusive fullscreen apps on this monitor.

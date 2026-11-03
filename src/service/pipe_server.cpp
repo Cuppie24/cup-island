@@ -70,8 +70,8 @@ private:
 
 } // namespace
 
-PipeServer::PipeServer(const std::vector<std::unique_ptr<VolumeWatcher>>& volumes, HANDLE stopEvent)
-    : volumes_(volumes), stop_(stopEvent)
+PipeServer::PipeServer(const std::vector<std::unique_ptr<VolumeWatcher>>& volumes, SelfUpdate& update, HANDLE stopEvent)
+    : volumes_(volumes), update_(update), stop_(stopEvent)
 {
 }
 
@@ -150,7 +150,14 @@ bool PipeServer::run()
 
 void PipeServer::serve(Handle pipe)
 {
-    indexer::FolderAccess access(canListFolder);
+    // Only this runs as the client, and only for as long as one folder's
+    // check takes: everything else (searching, an update's download) stays
+    // the service's own.
+    HANDLE raw = pipe.get();
+    indexer::FolderAccess access([raw](const std::string& folder) {
+        Impersonation as(raw);
+        return as.active() && canListFolder(folder);
+    });
     indexer::FrameReader reader(indexer::kMaxRequestBytes);
     std::vector<std::uint8_t> buffer(4096);
     for (;;) {
@@ -163,12 +170,7 @@ void PipeServer::serve(Handle pipe)
         }
         bool written = true;
         while (auto body = reader.next()) {
-            std::string reply;
-            {
-                Impersonation as(pipe.get());
-                reply = as.active() ? answer(*body, volumes_, access)
-                                    : indexer::encodeError(std::nullopt, indexer::kInternalError, "can't act as the client");
-            }
+            std::string reply = answer(*body, volumes_, access, update_);
             if (!writeAll(pipe.get(), stop_, indexer::frame(reply))) {
                 written = false;
                 break;

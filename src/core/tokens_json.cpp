@@ -213,6 +213,7 @@ const Field kFields[] = {
     { "updateFirstCheckDelayMs", &Tokens::updateFirstCheckDelay, true },
     { "updateCheckIntervalMs", &Tokens::updateCheckInterval },
     { "updateRetryMs", &Tokens::updateRetry },
+    { "searchSetupDelayMs", &Tokens::searchSetupDelay, true },
 };
 
 const Field* findField(std::string_view name)

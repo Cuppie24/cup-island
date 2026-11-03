@@ -4,6 +4,8 @@
 #include "indexer/query.h"
 #include "service/service_limits.h"
 
+#include "cup_version.h"
+
 #include <algorithm>
 #include <limits>
 
@@ -40,15 +42,17 @@ std::string answerQuery(const QueryRequest& request, const std::vector<std::uniq
 
 } // namespace
 
-std::string answer(std::string_view body, const std::vector<std::unique_ptr<VolumeWatcher>>& volumes, FolderAccess& access)
+std::string answer(std::string_view body, const std::vector<std::unique_ptr<VolumeWatcher>>& volumes, FolderAccess& access,
+                   SelfUpdate& update)
 {
     Request request = parseRequest(body);
     if (const auto* bad = std::get_if<BadRequest>(&request)) return encodeError(bad->id, bad->code, bad->message);
     if (const auto* status = std::get_if<StatusRequest>(&request)) {
         std::vector<VolumeStatus> list;
         for (const auto& volume : volumes) list.push_back(volume->status());
-        return encodeStatus(status->id, list);
+        return encodeStatus(status->id, CUP_VERSION_STRING, list);
     }
+    if (const auto* asked = std::get_if<UpdateRequest>(&request)) return encodeUpdate(asked->id, update.request());
     return answerQuery(std::get<QueryRequest>(request), volumes, access);
 }
 

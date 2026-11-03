@@ -1,6 +1,7 @@
 #pragma once
 // The index service's named pipe (decision 075): \\.\pipe\CupIslandIndex,
-// one thread per client, each request answered as that client.
+// one thread per client. Requests run as the service; only checking whether
+// the client may list a folder runs as the client.
 // Who may connect:
 //  - local only (PIPE_REJECT_REMOTE_CLIENTS, and NETWORK denied);
 //  - interactive users may read and write data, but not create instances
@@ -12,6 +13,7 @@
 // Clients open it with GENERIC_READ | FILE_WRITE_DATA, and should check the
 // server is the service (GetNamedPipeServerProcessId), as cupindex does.
 
+#include "service/self_update.h"
 #include "service/volume_watcher.h"
 
 #include <atomic>
@@ -24,7 +26,7 @@ namespace cup::service {
 
 class PipeServer {
 public:
-    PipeServer(const std::vector<std::unique_ptr<VolumeWatcher>>& volumes, HANDLE stopEvent);
+    PipeServer(const std::vector<std::unique_ptr<VolumeWatcher>>& volumes, SelfUpdate& update, HANDLE stopEvent);
     ~PipeServer(); // joins every client thread; the stop event must be set first
 
     // Accepts clients until the stop event is set. False if the pipe could
@@ -41,6 +43,7 @@ private:
     void reap(); // joins clients that have finished
 
     const std::vector<std::unique_ptr<VolumeWatcher>>& volumes_;
+    SelfUpdate& update_;
     HANDLE stop_;
     std::list<std::unique_ptr<Client>> clients_;
 };

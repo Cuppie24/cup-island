@@ -31,6 +31,8 @@ bool movesTo(const Version& running, const Version& offered);
 
 // The installer every release carries (the Release workflow uploads it).
 std::string installerName(const Version& v); // "CupIsland-Setup-0.4.0.exe"
+// The file search service's installer, in the same release (decision 076).
+std::string indexInstallerName(const Version& v); // "CupIsland-Index-Setup-0.4.0.exe"
 
 struct ReleaseAsset {
     std::string name;
@@ -72,5 +74,8 @@ enum class CheckOutcome { UpToDate, Available, Failed, DevBuild };
 // checksum there's nothing to check the download against, so nothing is
 // offered; a page that isn't on GitHub is dropped (no "What's new").
 std::optional<UpdateOffer> offerFor(const Version& running, const GitHubRelease& latest);
+// The same rules for the file search service updating itself (decision 076):
+// the release's indexInstallerName instead. Never mandatory: it's silent anyway.
+std::optional<UpdateOffer> indexOfferFor(const Version& running, const GitHubRelease& latest);
 
 } // namespace cup

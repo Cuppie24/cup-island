@@ -71,11 +71,13 @@ add_library(cup_providers STATIC
     src/providers/system/settings_provider.cpp
     src/providers/system/system_panels.cpp
     src/providers/file_store.cpp
+    src/providers/search/search_setup.cpp
     src/providers/update/release.cpp
+    src/providers/update/release_json.cpp
     src/providers/update/update_provider.cpp
     src/providers/provider_registry.cpp
 )
-target_link_libraries(cup_providers PUBLIC cup_core)
+target_link_libraries(cup_providers PUBLIC cup_core cup_indexer) # the island talks to the file index (decisions 075, 076)
 
 # --- indexer: the file index's logic (decision 075); pure, builds on any OS --
 # The Windows service that reads volumes will link it; the island never does.
@@ -115,6 +117,7 @@ if(CUP_BUILD_TESTS)
         tests/unit_tests.cpp
         tests/update_tests.cpp
         tests/scenario_runner.cpp
+        tests/search_setup_tests.cpp
         tests/settings_tests.cpp
         tests/settings_new_tests.cpp
         tests/shortcut_settings_tests.cpp
@@ -206,6 +209,8 @@ if(WIN32)
         src/providers/media/browser_tabs.cpp
         src/providers/media/smtc_media_provider.cpp
         src/providers/media/smtc_reading.cpp
+        src/providers/search/search_service.cpp
+        src/service/index_client.cpp
         src/providers/system/theme_provider.cpp
         src/providers/update/github.cpp
     )
@@ -232,13 +237,17 @@ if(WIN32)
         src/service/answers.cpp
         src/service/main.cpp
         src/service/pipe_server.cpp
+        src/service/self_update.cpp
+        src/service/service_control.cpp
         src/service/service_log.cpp
         src/service/volume_io.cpp
         src/service/volume_watcher.cpp
     )
-    target_link_libraries(CupIslandIndex PRIVATE cup_indexer Advapi32 Shell32 Ole32 Uuid)
+    target_include_directories(CupIslandIndex PRIVATE "${CMAKE_BINARY_DIR}/generated") # cup_version.h: the same version as the app (decision 076)
+    # cup_providers for the release rules it shares with the app's updater (providers/update/release*).
+    target_link_libraries(CupIslandIndex PRIVATE cup_indexer cup_providers Advapi32 Shell32 Ole32 Uuid Winhttp Bcrypt)
     target_link_options(CupIslandIndex PRIVATE $<$<NOT:$<CONFIG:Debug>>:/DEBUG> $<$<NOT:$<CONFIG:Debug>>:/OPT:REF> $<$<NOT:$<CONFIG:Debug>>:/OPT:ICF>)
-    add_executable(cupindex src/service/cupindex.cpp)
+    add_executable(cupindex src/service/cupindex.cpp src/service/index_client.cpp)
     target_link_libraries(cupindex PRIVATE cup_indexer Advapi32)
 
     # C++/WinRT headers ship in the Windows SDK; most setups already have

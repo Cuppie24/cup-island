@@ -80,7 +80,9 @@ jobs:
           name: CupIsland-${{ inputs.version }}
           path: |
             dist/CupIsland-Setup-${{ inputs.version }}.exe
+            dist/CupIsland-Index-Setup-${{ inputs.version }}.exe
             build/windows/CupIsland.pdb
+            build/windows/CupIslandIndex.pdb
           if-no-files-found: error
 
       - name: Tag and publish
@@ -94,5 +96,7 @@ jobs:
           if ($env:MANDATORY -eq 'true') {
               $notes = @('--notes', "**Required update:** installed copies install it by themselves at their next start.`n`n<!-- cup-island: mandatory -->")
           }
-          gh release create "v$env:VERSION" "dist/CupIsland-Setup-$env:VERSION.exe" "build/windows/CupIsland.pdb" `
+          # The service's installer rides along: it updates itself from it (decision 076).
+          gh release create "v$env:VERSION" "dist/CupIsland-Setup-$env:VERSION.exe" "dist/CupIsland-Index-Setup-$env:VERSION.exe" `
+            "build/windows/CupIsland.pdb" "build/windows/CupIslandIndex.pdb" `
             --target "$env:GITHUB_SHA" --title "Cup Island $env:VERSION" --generate-notes --latest @notes

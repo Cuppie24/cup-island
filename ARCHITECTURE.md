@@ -46,15 +46,16 @@ src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interacti
                 per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules and the media widget, SMTC provider for real Windows media),
-                pomodoro/ (the first panel), system/ (Home's theme and Settings widgets:
+                pomodoro/ (the first panel), search/ (file search's setup and updates, decision 076), system/ (Home's theme and Settings widgets:
                 app themes, display, Start with Windows, Copy logs), update/ (updates from GitHub
                 Releases: versions and offers, pure; github.cpp fetches and installs, decision 036)
 src/indexer/    the file index's logic (decision 075), pure: USN records from raw bytes, the index by MFT record,
                 journal changes and resume-or-rescan, queries and ranking, the snapshot file, the pipe's
                 JSON-RPC protocol, folder access caching. The island doesn't link it (yet)
 src/service/    CupIslandIndex.exe, the file index service (Windows, decision 075): one VolumeWatcher thread per
-                drive (scan or snapshot, then the journal), PipeServer answering as each client; cupindex.exe,
-                its terminal client
+                drive (scan or snapshot, then the journal), PipeServer (folder checks as each client), SelfUpdate
+                (its own installer from GitHub, decision 076), --install/--stop/--uninstall for its installer;
+                index_client, the pipe's client, shared by cupindex.exe (its terminal tool) and the app
 src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload; keyboard_input.cpp: keyboard focus,
                 Enter/Space, system-wide shortcuts and recording new keys (decisions 031, 032)
 assets/         tokens.json: the live-tunable sizes, timings and curves; the app icon (cup_island.rc/.ico)
@@ -225,7 +226,8 @@ over the file's, so `tokens()` is always what's on screen.
 | Switching activities (decision 007): bubble click, drag-to-swap, Expanded tabs, sticky pick | done; rules tested, tab visuals need Windows |
 | Real media provider (SMTC, TR §6): art, controls, seek, multi-app switch, paused linger | done; rules tested, WinRT part needs Windows |
 | File index logic (decision 075): USN records, the index, journal changes, queries, snapshots, pipe protocol | done, tested |
-| File index service + cupindex (decision 075, milestone 3) | written; pipe round trip run under Wine, a real drive needs Windows; installer and search panel not yet |
+| File index service + cupindex (decision 075, milestone 3) | runs on a real PC: both drives indexed, searches answered as the user |
+| File search installed with the app, self-updating (decision 076, milestone 4): its own admin installer, carried by the app's; set up at the end of setup or at the app's first start; updates from GitHub through the service | rules tested; --install/--uninstall and the update request run under Wine; installers and a real update need a Windows run; the search panel not yet |
 | Plugin pipe (PS §8 Tier 2) | not yet |
 | Activity expiry (`expiresAt`) | done, tested |
 | Rate limits, stale activities (PS §4, §6.3) | not yet |

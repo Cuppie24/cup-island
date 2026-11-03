@@ -4,6 +4,11 @@
 ;
 ; No Visual C++ Redistributable step: the exe links the C++ runtime statically
 ; (CMakeLists.txt), so there is nothing extra to install.
+;
+; It carries the file search service's installer (cup-island-index.iss,
+; decision 076), built first, and runs it at the end of an interactive
+; setup. A silent install (the in-app updater) doesn't: the updated app sets
+; search up itself at its next start if it's missing.
 
 #define AppName "Cup Island"
 #define AppExe "CupIsland.exe"
@@ -45,6 +50,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; Flags: unchecked
 Source: "..\build\windows\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
 ; Read from beside the exe (src/app/live_tokens.h); still live-tunable after install.
 Source: "..\assets\tokens.json"; DestDir: "{app}"; Flags: ignoreversion
+; File search's own installer, under a fixed name the app looks for (providers/search/search_service.cpp).
+Source: "..\dist\CupIsland-Index-Setup-{#AppVersion}.exe"; DestDir: "{app}"; DestName: "CupIsland-Index-Setup.exe"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"
@@ -61,3 +68,29 @@ Filename: "{app}\{#AppExe}"; Flags: nowait skipifnotsilent
 Filename: "{sys}\taskkill.exe"; Parameters: "/im {#AppExe} /f"; Flags: runhidden; RunOnceId: "StopCupIsland"
 ; Undo "Start with Windows" (Settings, src/platform/autostart.cpp), on by default since decision 030.
 Filename: "{sys}\reg.exe"; Parameters: "delete ""HKCU\Software\Microsoft\Windows\CurrentVersion\Run"" /v ""Cup Island"" /f"; Flags: runhidden; RunOnceId: "RemoveStartup"
+
+[Code]
+// A fresh, interactive setup: set up file search now, while the user is
+// here (Windows asks for permission). Refused or failed, the app carries on
+// without it and asks once more after its next update. Not in a silent
+// install: the updater's, with nobody to ask, and the app does it instead.
+// Nor when it's installed already: re-running setup by hand needs no second
+// prompt, and the app asks the service to update itself (decision 076).
+// Asked here, the app doesn't ask again for this version: setup writes the
+// key SearchSetupProvider keeps (kAskedKey) in the providers' store, laid out
+// as decision 028 says: <LocalAppData>\CupIsland\store\<provider>\<key>.txt.
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ErrorCode: Integer;
+  Store: String;
+begin
+  if (CurStep = ssPostInstall) and not WizardSilent() and
+     not RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\CupIslandIndex') then
+  begin
+    ShellExec('runas', ExpandConstant('{app}\CupIsland-Index-Setup.exe'), '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-',
+              '', SW_SHOW, ewWaitUntilTerminated, ErrorCode);
+    Store := ExpandConstant('{localappdata}\CupIsland\store\system.search-setup');
+    ForceDirectories(Store);
+    SaveStringToFile(Store + '\asked-for.txt', '{#AppVersion}', False);
+  end;
+end;

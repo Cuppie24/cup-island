@@ -33,6 +33,25 @@ const char* stateName(VolumeState s)
     return "failed";
 }
 
+const char* updateName(UpdateAnswer a)
+{
+    switch (a) {
+    case UpdateAnswer::Started: return "started";
+    case UpdateAnswer::Current: return "current";
+    case UpdateAnswer::Busy: return "busy";
+    case UpdateAnswer::DevBuild: return "dev";
+    case UpdateAnswer::Failed: return "failed";
+    }
+    return "failed";
+}
+
+std::optional<UpdateAnswer> updateFrom(std::string_view name)
+{
+    for (UpdateAnswer a : { UpdateAnswer::Started, UpdateAnswer::Current, UpdateAnswer::Busy, UpdateAnswer::DevBuild, UpdateAnswer::Failed })
+        if (name == updateName(a)) return a;
+    return std::nullopt;
+}
+
 std::optional<VolumeState> stateFrom(std::string_view name)
 {
     if (name == "scanning") return VolumeState::Scanning;
@@ -95,6 +114,7 @@ Request parseRequest(std::string_view body)
     if (params && params->type != Json::Type::Object) return BadRequest{ id, kInvalidParams, "params must be an object" };
 
     if (method->text == "status") return StatusRequest{ *id };
+    if (method->text == "update") return UpdateRequest{ *id };
     if (method->text != "query") return BadRequest{ id, kMethodNotFound, "unknown method" };
     const Json* text = params ? params->get("text") : nullptr;
     if (!text || !text->isString()) return BadRequest{ id, kInvalidParams, "query needs text" };
@@ -120,6 +140,11 @@ std::string encodeStatusRequest(std::int64_t id)
     return opening(id) + ",\"method\":\"status\"}";
 }
 
+std::string encodeUpdateRequest(std::int64_t id)
+{
+    return opening(id) + ",\"method\":\"update\"}";
+}
+
 std::string encodeResults(std::int64_t id, const std::vector<ResultRow>& rows)
 {
     std::string out = opening(id) + ",\"result\":{\"hits\":[";
@@ -139,9 +164,11 @@ std::string encodeResults(std::int64_t id, const std::vector<ResultRow>& rows)
     return out + closing;
 }
 
-std::string encodeStatus(std::int64_t id, const std::vector<VolumeStatus>& volumes)
+std::string encodeStatus(std::int64_t id, std::string_view version, const std::vector<VolumeStatus>& volumes)
 {
-    std::string out = opening(id) + ",\"result\":{\"protocol\":" + std::to_string(kProtocolVersion) + ",\"volumes\":[";
+    std::string out = opening(id) + ",\"result\":{\"protocol\":" + std::to_string(kProtocolVersion) + ",\"version\":";
+    appendJsonString(out, version);
+    out += ",\"volumes\":[";
     for (std::size_t i = 0; i < volumes.size(); ++i) {
         out += i ? ",{\"root\":" : "{\"root\":";
         appendJsonString(out, volumes[i].root);
@@ -150,6 +177,11 @@ std::string encodeStatus(std::int64_t id, const std::vector<VolumeStatus>& volum
         out += "\",\"files\":" + std::to_string(volumes[i].files) + "}";
     }
     return out + "]}}";
+}
+
+std::string encodeUpdate(std::int64_t id, UpdateAnswer answer)
+{
+    return opening(id) + ",\"result\":{\"update\":\"" + updateName(answer) + "\"}}";
 }
 
 std::string encodeError(std::optional<std::int64_t> id, int code, std::string_view message)
@@ -185,9 +217,16 @@ std::optional<Response> parseResponse(std::string_view body)
         r.rows = std::move(rows);
         return r;
     }
+    if (const Json* update = result->get("update")) {
+        auto answer = update->isString() ? updateFrom(update->text) : std::nullopt;
+        if (!answer) return std::nullopt;
+        r.update = answer;
+        return r;
+    }
     const Json* volumes = result->get("volumes");
     if (!volumes || volumes->type != Json::Type::Array) return std::nullopt;
     r.protocol = static_cast<int>(wholeNumber(result->get("protocol")).value_or(0));
+    if (const Json* version = result->get("version"); version && version->isString()) r.version = version->text;
     std::vector<VolumeStatus> list;
     for (const Json& v : volumes->items) {
         const Json* root = v.get("root");

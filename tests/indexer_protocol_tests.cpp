@@ -78,6 +78,8 @@ void requestTests()
     expect(std::holds_alternative<QueryRequest>(plain) && std::get<QueryRequest>(plain).limit == kDefaultResults, "a default limit");
     Request status = parseRequest(encodeStatusRequest(3));
     expect(std::holds_alternative<StatusRequest>(status) && std::get<StatusRequest>(status).id == 3, "a status request");
+    Request update = parseRequest(encodeUpdateRequest(6));
+    expect(std::holds_alternative<UpdateRequest>(update) && std::get<UpdateRequest>(update).id == 6, "an update request names nothing");
 
     auto bad = [](std::string_view body, int code, bool hasId) {
         Request r = parseRequest(body);
@@ -102,8 +104,14 @@ void answerTests()
     auto r = parseResponse(encodeResults(9, rows));
     expect(r && r->id == 9 && r->rows && *r->rows == rows && !r->volumes && !r->error, "results round-trip");
     std::vector<VolumeStatus> volumes{ { "C:\\", VolumeState::Ready, 123456 }, { "D:\\", VolumeState::Scanning, 0 } };
-    auto s = parseResponse(encodeStatus(4, volumes));
-    expect(s && s->volumes && *s->volumes == volumes && s->protocol == kProtocolVersion, "status round-trips");
+    auto s = parseResponse(encodeStatus(4, "0.8.0", volumes));
+    expect(s && s->volumes && *s->volumes == volumes && s->protocol == kProtocolVersion && s->version == "0.8.0",
+           "status round-trips, with the service's version");
+    for (UpdateAnswer a : { UpdateAnswer::Started, UpdateAnswer::Current, UpdateAnswer::Busy, UpdateAnswer::DevBuild, UpdateAnswer::Failed }) {
+        auto u = parseResponse(encodeUpdate(5, a));
+        expect(u && u->id == 5 && u->update == a && !u->rows && !u->volumes, "an update answer round-trips");
+    }
+    expect(!parseResponse(R"({"jsonrpc":"2.0","id":1,"result":{"update":"maybe"}})"), "an unknown update answer is refused");
     auto e = parseResponse(encodeError(std::nullopt, kParseError, "not JSON"));
     expect(e && e->error == "not JSON", "an error, even without an id");
     expect(!parseResponse("{}") && !parseResponse("{\"id\":1,\"result\":{\"hits\":[{\"name\":1}]}}"), "malformed answers are refused");

@@ -1,7 +1,7 @@
 # 075: Our own file index, in a small Windows service
 
-Status: Proposed (changes decision 011's "no admin prompt" for one opt-in
-part, and TR §10's packaging note; update both if accepted)
+Status: Proposed. Partly superseded by 076: search is installed with the app
+and updates itself, with no "Turn on file search" and no separate update row.
 
 **Context.** We want instant file search on the island, like Everything:
 every file name on the PC, found while you type. Windows Search

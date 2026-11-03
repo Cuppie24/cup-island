@@ -14,6 +14,15 @@ namespace cup::service {
 constexpr wchar_t kServiceName[] = L"CupIslandIndex";
 constexpr wchar_t kPipeName[] = L"\\\\.\\pipe\\CupIslandIndex";
 
+// What Windows shows for the service, and its description (services.msc).
+constexpr wchar_t kServiceDisplayName[] = L"Cup Island File Search";
+constexpr wchar_t kServiceDescription[] =
+    L"Keeps a list of file names on this PC's drives so Cup Island can find files as you type. "
+    L"Shows each user only the files they can open.";
+
+// --stop and --uninstall wait this long for the service to stop.
+constexpr std::uint32_t kStopWaitMs = 30 * 1000;
+
 // FSCTL_ENUM_USN_DATA output per call: ~13 000 records of a 1.2 M-file
 // drive at a time, so a scan is ~100 calls.
 constexpr std::size_t kEnumBufferBytes = 1024 * 1024;
@@ -32,6 +41,14 @@ constexpr std::uint32_t kSaveDelayMs = 10 * 60 * 1000;
 // again this much later, up to kMaxVolumeRetries times.
 constexpr std::uint32_t kVolumeRetryMs = 30 * 1000;
 constexpr int kMaxVolumeRetries = 5;
+
+// Self-update (decision 076): at most one this often, whatever clients
+// ask; and size caps for what GitHub sends back.
+constexpr std::uint32_t kUpdateSpacingMs = 10 * 60 * 1000;
+constexpr std::size_t kMaxReleaseJsonBytes = 1024 * 1024;
+constexpr std::size_t kMaxInstallerBytes = 64 * 1024 * 1024;
+constexpr wchar_t kGitHubHost[] = L"api.github.com";
+constexpr wchar_t kLatestReleasePath[] = L"/repos/Cuppie24/cup-island/releases/latest";
 
 // Clients at once. The island holds one; cupindex one per run.
 constexpr int kMaxClients = 16;

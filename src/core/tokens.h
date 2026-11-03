@@ -321,6 +321,9 @@ struct Tokens {
     Ms updateFirstCheckDelay{ 15000 };
     Ms updateCheckInterval{ 86400000 };
     Ms updateRetry{ 3600000 };
+    // File search (decision 076): this long after start, the app looks for
+    // the service, sets it up if missing, and asks it to update if older.
+    Ms searchSetupDelay{ 20000 };
 
     // The app themes the Settings card offers, in its order; the first is the
     // default (decision 022). tokens() already has the picked one applied.

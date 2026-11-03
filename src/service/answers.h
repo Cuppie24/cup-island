@@ -3,6 +3,7 @@
 // every drive with the results the asking user may not see left out.
 
 #include "indexer/folder_access.h"
+#include "service/self_update.h"
 #include "service/volume_watcher.h"
 
 #include <memory>
@@ -12,13 +13,15 @@
 
 namespace cup::service {
 
-// Call while impersonating the client: `access` checks folders as them.
+// Runs as the service; `access` checks folders as the client (pipe_server
+// makes it so), the only part done with the client's rights.
 std::string answer(std::string_view body, const std::vector<std::unique_ptr<VolumeWatcher>>& volumes,
-                   indexer::FolderAccess& access);
+                   indexer::FolderAccess& access, SelfUpdate& update);
 
 // May the current thread's user list this folder? Opens it for listing; the
 // open succeeds only if their rights allow it. Any failure means no, which
-// is also what an identification-only or anonymous client gets.
+// is also what an identification-only or anonymous client gets. Call while
+// impersonating the client.
 bool canListFolder(const std::string& folderPath);
 
 } // namespace cup::service
