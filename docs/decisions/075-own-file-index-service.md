@@ -48,8 +48,16 @@ open. The island runs as the user, installed per user without a UAC prompt
   Written to a side file then renamed over the old one (as decision 028).
 - **Queries, v1:** words (all must match), `"quoted phrases"`, `ext:`,
   `path:`, `file:`, `folder:`; case-insensitive for ASCII. Ranked: whole
-  name, then name prefix, word start, anywhere; folders and shorter names
-  first on a tie. A linear scan of a million names measured 30–45 ms; an
+  name (or a file's name before its extension: "notepad" is notepad.exe's
+  whole name), then name prefix, word start, anywhere; folders and shorter
+  names (in letters, not UTF-8 bytes) first on a tie. Anything inside a
+  noise folder (WinSxS, node_modules, __pycache__, .git, .vs, $Recycle.Bin)
+  comes after everything else, unless a `path:` filter names one; noise is
+  only worked out for the hits near the top, since it means walking up
+  folders. These three came from the first run on a real PC: notepad.exe
+  ranked below "NotepadXamlUI", WinSxS's copies crowded the list, and
+  Cyrillic names lost ties as if twice as long.
+  A linear scan of a million names measured 30–45 ms; an
   n-gram index only if real drives say it's too slow. A snapshot of a
   million files is 31 MB and saves and loads in about a quarter second. No sizes or dates
   in v1: `ENUM_USN_DATA` has neither, they need raw `$MFT` parsing (later).

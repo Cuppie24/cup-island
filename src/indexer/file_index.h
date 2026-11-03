@@ -28,6 +28,10 @@ constexpr std::uint8_t kUsed = 1;
 constexpr std::uint8_t kFolder = 2;
 constexpr std::uint8_t kHidden = 4;
 constexpr std::uint8_t kSystem = 8;
+// A folder whose contents are rarely what anyone looks for (noiseFolderName):
+// worked out from the name on every put(), never saved, so the list can
+// change without a new snapshot format.
+constexpr std::uint8_t kNoise = 16;
 
 struct Entry {
     std::uint32_t parent = 0;     // the parent's record number
@@ -41,6 +45,12 @@ struct Entry {
 std::optional<std::uint32_t> recordOf(FileRef ref);
 // The reference for a record and its sequence number (NTFS layout).
 FileRef refOf(std::uint32_t record, std::uint16_t sequence);
+// Folders whose contents rank below everything else (query.h): Windows'
+// component store (WinSxS), package and build caches (node_modules,
+// __pycache__, .git, .vs), the recycle bin. Shown, never hidden. Matched
+// whole, ignoring ASCII case. A fixed list: the index's logic, not a
+// setting (decision 075).
+bool noiseFolderName(std::string_view name);
 // Entry flags for FILE_ATTRIBUTE_* bits (directory, hidden, system).
 std::uint8_t flagsFromAttributes(std::uint32_t attributes);
 
@@ -64,6 +74,9 @@ public:
     // parent missing from the index ends the walk early: the path then
     // starts at the first folder that is known.
     std::string path(std::uint32_t record, std::string_view root) const;
+
+    // Is any folder above this one (not the record itself) a noise folder?
+    bool inNoise(std::uint32_t record) const;
 
     std::size_t count() const { return count_; }
     std::size_t slots() const { return entries_.size(); } // records 0..slots-1

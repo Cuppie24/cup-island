@@ -18,6 +18,21 @@ constexpr std::uint32_t kAttributeDirectory = 0x10;
 
 } // namespace
 
+bool noiseFolderName(std::string_view name)
+{
+    static constexpr std::string_view kNames[] = { "winsxs", "node_modules", "__pycache__", ".git", ".vs", "$recycle.bin" };
+    for (std::string_view noise : kNames) {
+        if (name.size() != noise.size()) continue;
+        bool same = true;
+        for (std::size_t i = 0; i < name.size() && same; ++i) {
+            char c = name[i] >= 'A' && name[i] <= 'Z' ? static_cast<char>(name[i] - 'A' + 'a') : name[i];
+            same = c == noise[i];
+        }
+        if (same) return true;
+    }
+    return false;
+}
+
 std::optional<std::uint32_t> recordOf(FileRef ref)
 {
     std::uint64_t record = ref.low & kRecordMask;
@@ -52,7 +67,8 @@ bool FileIndex::put(FileRef file, FileRef parent, std::string_view name, std::ui
     bool sameName = wasUsed && this->name(*record) == name;
     e.parent = *parentRecord;
     e.sequence = sequence;
-    e.flags = static_cast<std::uint8_t>((flags & ~kUsed) | kUsed);
+    bool noise = (flags & kFolder) && noiseFolderName(name);
+    e.flags = static_cast<std::uint8_t>((flags & (kFolder | kHidden | kSystem)) | kUsed | (noise ? kNoise : 0));
     if (!wasUsed) ++count_;
     if (sameName) return true;
     if (wasUsed) wasted_ += e.nameLength;
@@ -112,6 +128,19 @@ std::string FileIndex::path(std::uint32_t record, std::string_view root) const
         out += name(*it);
     }
     return out;
+}
+
+bool FileIndex::inNoise(std::uint32_t record) const
+{
+    if (!used(record)) return false;
+    std::uint32_t at = record;
+    for (int depth = 0; depth < kMaxDepth; ++depth) {
+        std::uint32_t parent = entries_[at].parent;
+        if (parent == at || parent == kRootRecord || !used(parent)) return false;
+        if (entries_[parent].flags & kNoise) return true;
+        at = parent;
+    }
+    return false;
 }
 
 std::size_t FileIndex::memoryBytes() const

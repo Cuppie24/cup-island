@@ -37,18 +37,23 @@ struct Hit {
     std::uint32_t record = 0;
     int score = 0;
     bool folder = false;          // for ordering, and merging across drives
-    std::uint16_t nameLength = 0; // likewise
+    std::uint16_t nameLength = 0; // in characters, likewise
+    bool noise = false;           // inside a noise folder (file_index.h), likewise
 };
 
-// The order search() returns: higher score, then folders, then the shorter
-// name, then the lower record.
+// The order search() returns: outside noise folders first, then the higher
+// score, then folders, then the shorter name, then the lower record.
 bool betterHit(const Hit& a, const Hit& b);
 
 // The best `limit` matches, best first. Score: each word adds 4 for the
-// whole name, 3 for the start of the name, 2 for the start of a word in it
-// ("report" in "q3-report.pdf"), 1 anywhere. Ties: folders first, then the
-// shorter name, then the record (so the order never wobbles). An empty
-// query finds nothing.
+// whole name or, for a file, the name before its extension ("notepad" for
+// notepad.exe), 3 for the start of the name, 2 for the start of a word in it
+// ("report" in "q3-report.pdf"), 1 anywhere. Anything inside a noise folder
+// (WinSxS, node_modules...) comes after everything else, unless a path:
+// filter names one: then it's what was asked for. Ties: folders first, then
+// the shorter name in characters (a Cyrillic letter is two bytes, but one
+// letter), then the record (so the order never wobbles). An empty query
+// finds nothing.
 std::vector<Hit> search(const FileIndex& index, const Query& query, std::size_t limit);
 
 // One hit picked from several lists (one per drive): which list, which hit.
@@ -60,7 +65,8 @@ struct Pick {
 // betterHit order; between equals, the earlier list (drive) first.
 std::vector<Pick> mergeHits(const std::vector<std::vector<Hit>>& lists, std::size_t limit);
 
-// The match class of one word in one name (0: not in it); what search() sums.
-int matchScore(std::string_view name, std::string_view lowerWord);
+// The match class of one word in one name (0: not in it); what search()
+// sums. A folder's name has no extension: "v1.2" is all name.
+int matchScore(std::string_view name, std::string_view lowerWord, bool folder = false);
 
 } // namespace cup::indexer

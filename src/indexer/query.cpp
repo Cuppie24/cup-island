@@ -1,6 +1,7 @@
 #include "indexer/query.h"
 
 #include <algorithm>
+#include <optional>
 
 namespace cup::indexer {
 namespace {
@@ -80,6 +81,62 @@ bool equalsFolded(std::string_view text, std::string_view lowerWord)
     return text.size() == lowerWord.size() && findFolded(text, lowerWord, 0) == 0;
 }
 
+// Whether each folder is in or is a noise folder, worked out once per
+// folder per search: hits share folders, so walking every hit's whole
+// chain again was most of a search's time.
+class NoiseMemo {
+public:
+    explicit NoiseMemo(const FileIndex& index) : index_(index), known_(index.slots(), kUnknown) {}
+
+    bool inNoise(std::uint32_t record) // any folder above `record`?
+    {
+        std::uint32_t parent = index_.entry(record).parent;
+        return parent != record && below(parent);
+    }
+
+private:
+    static constexpr std::uint8_t kUnknown = 0, kNo = 1, kYes = 2;
+
+    // `folder` is noise or inside noise. Walks up to the first known answer,
+    // then writes it to every folder passed on the way.
+    bool below(std::uint32_t folder)
+    {
+        passed_.clear();
+        std::uint8_t answer = kNo;
+        std::uint32_t at = folder;
+        for (std::size_t depth = 0; depth < 1024; ++depth) {
+            if (at == kRootRecord || !index_.used(at)) break;
+            if (known_[at] != kUnknown) {
+                answer = known_[at];
+                break;
+            }
+            passed_.push_back(at);
+            if (index_.entry(at).flags & kNoise) {
+                answer = kYes;
+                break;
+            }
+            std::uint32_t parent = index_.entry(at).parent;
+            if (parent == at) break;
+            at = parent;
+        }
+        for (std::uint32_t f : passed_) known_[f] = answer;
+        return answer == kYes;
+    }
+
+    const FileIndex& index_;
+    std::vector<std::uint8_t> known_;
+    std::vector<std::uint32_t> passed_; // reused: one walk at a time
+};
+
+// UTF-8 characters: every byte but continuation bytes (10xxxxxx) starts one.
+std::uint16_t characters(std::string_view name)
+{
+    std::uint16_t count = 0;
+    for (char c : name)
+        if ((static_cast<unsigned char>(c) & 0xC0) != 0x80) ++count;
+    return count;
+}
+
 } // namespace
 
 Query parseQuery(std::string_view text)
@@ -113,13 +170,18 @@ Query parseQuery(std::string_view text)
     return q;
 }
 
-int matchScore(std::string_view name, std::string_view lowerWord)
+int matchScore(std::string_view name, std::string_view lowerWord, bool folder)
 {
     if (lowerWord.empty()) return 0;
-    if (equalsFolded(name, lowerWord)) return 4;
     std::size_t at = findFolded(name, lowerWord, 0);
     if (at == std::string_view::npos) return 0;
-    if (at == 0) return 3;
+    if (at == 0) {
+        // A whole-name match starts at 0 too: only names that get here pay
+        // for the extension.
+        if (name.size() == lowerWord.size()) return 4;
+        std::string_view ext = folder ? std::string_view{} : extensionOf(name);
+        return !ext.empty() && name.size() - ext.size() - 1 == lowerWord.size() ? 4 : 3;
+    }
     for (; at != std::string_view::npos; at = findFolded(name, lowerWord, at + 1))
         if (!alnum(name[at - 1])) return 2;
     return 1;
@@ -129,6 +191,8 @@ std::vector<Hit> search(const FileIndex& index, const Query& query, std::size_t 
 {
     std::vector<Hit> hits;
     if (query.empty() || limit == 0) return hits;
+    bool demoteNoise = std::none_of(query.pathWords.begin(), query.pathWords.end(),
+                                    [](const std::string& w) { return noiseFolderName(w); });
     for (std::uint32_t record = 0; record < index.slots(); ++record) {
         if (!index.used(record)) continue;
         bool folder = index.entry(record).flags & kFolder;
@@ -143,7 +207,7 @@ std::vector<Hit> search(const FileIndex& index, const Query& query, std::size_t 
         int score = 0;
         bool all = true;
         for (const std::string& word : query.words) {
-            int s = matchScore(name, word);
+            int s = matchScore(name, word, folder);
             if (s == 0) {
                 all = false;
                 break;
@@ -160,16 +224,36 @@ std::vector<Hit> search(const FileIndex& index, const Query& query, std::size_t 
             });
             if (!inPath) continue;
         }
-        hits.push_back({ record, score, folder, index.entry(record).nameLength });
+        hits.push_back({ record, score, folder, characters(name), false });
     }
-    std::size_t keep = std::min(limit, hits.size());
-    std::partial_sort(hits.begin(), hits.begin() + static_cast<std::ptrdiff_t>(keep), hits.end(), betterHit);
-    hits.resize(keep);
-    return hits;
+    if (!demoteNoise) {
+        std::size_t keep = std::min(limit, hits.size());
+        std::partial_sort(hits.begin(), hits.begin() + static_cast<std::ptrdiff_t>(keep), hits.end(), betterHit);
+        hits.resize(keep);
+        return hits;
+    }
+    // Noise is the first thing betterHit compares, but finding it walks up
+    // folders, which is slow for every hit of a common word. So: order on
+    // the rest, then look for noise only in that order until `limit` hits
+    // outside it are found. Only a head of the list is sorted at first; the
+    // rest only if noise used the head up.
+    std::size_t head = std::min(hits.size(), limit * 4 + 16);
+    std::partial_sort(hits.begin(), hits.begin() + static_cast<std::ptrdiff_t>(head), hits.end(), betterHit);
+    NoiseMemo noise(index);
+    std::vector<Hit> clean, noisy;
+    for (std::size_t i = 0; i < hits.size() && clean.size() < limit; ++i) {
+        if (i == head) std::sort(hits.begin() + static_cast<std::ptrdiff_t>(head), hits.end(), betterHit);
+        Hit& h = hits[i];
+        h.noise = noise.inNoise(h.record);
+        (h.noise ? noisy : clean).push_back(h);
+    }
+    for (std::size_t i = 0; clean.size() < limit && i < noisy.size(); ++i) clean.push_back(noisy[i]);
+    return clean;
 }
 
 bool betterHit(const Hit& a, const Hit& b)
 {
+    if (a.noise != b.noise) return b.noise;
     if (a.score != b.score) return a.score > b.score;
     if (a.folder != b.folder) return a.folder;
     if (a.nameLength != b.nameLength) return a.nameLength < b.nameLength;

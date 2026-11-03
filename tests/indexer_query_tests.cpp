@@ -75,6 +75,11 @@ void matchTests()
     expect(matchScore("myreport report", "report") == 2, "the best place counts, not the first");
     expect(matchScore("notes.txt", "report") == 0 && matchScore("rep", "report") == 0, "not in it");
     expect(matchScore("CAFÉ", "café") == 0 && matchScore("café", "café") == 4, "non-ASCII matches only as typed (v1)");
+    expect(matchScore("notepad.exe", "notepad") == 4 && matchScore("Notepad.EXE", "notepad") == 4,
+           "a file's name before its extension is a whole-name match");
+    expect(matchScore("notepad.exe.mui", "notepad") == 3, "only the last extension comes off");
+    expect(matchScore("v1.2", "v1", true) == 3 && matchScore("v1.2", "v1") == 4, "a folder's dot isn't an extension");
+    expect(matchScore(".gitignore", "") == 0 && matchScore(".gitignore", "gitignore") == 2, "a leading dot isn't an extension");
 }
 
 void searchTests()
@@ -93,6 +98,65 @@ void searchTests()
     expect(find("q3 report") == std::vector<std::uint32_t>{ 41 }, "every word must match");
     expect(find("nothing-like-this").empty() && find("").empty(), "no match, or nothing typed");
     expect(search(index, parseQuery("report"), 0).empty(), "a zero limit");
+}
+
+void rankingTests()
+{
+    // C:\src\report.js (52), C:\app\node_modules\lib\report.js (55), and
+    // C:\app\node_modules itself (53), next to C:\Windows\WinSxS\x\notepad.exe.
+    FileIndex index;
+    FileRef root = refOf(kRootRecord, 5);
+    index.put(refOf(50, 1), root, "src-and-more", kFolder);
+    index.put(refOf(51, 1), root, "app", kFolder);
+    index.put(refOf(52, 1), refOf(50, 1), "report.js", 0);
+    index.put(refOf(53, 1), refOf(51, 1), "node_modules", kFolder);
+    index.put(refOf(54, 1), refOf(53, 1), "lib", kFolder);
+    index.put(refOf(55, 1), refOf(54, 1), "report.js", 0);
+    index.put(refOf(56, 1), refOf(55, 1), "x", 0); // a file's "child": corrupt, but harmless
+    index.put(refOf(60, 1), root, "Windows", kFolder);
+    index.put(refOf(61, 1), refOf(60, 1), "WinSxS", kFolder);
+    index.put(refOf(62, 1), refOf(61, 1), "amd64_notepad", kFolder);
+    index.put(refOf(63, 1), refOf(62, 1), "notepad.exe", 0);
+    index.put(refOf(64, 1), refOf(60, 1), "notepad.exe", 0);
+    index.put(refOf(65, 1), root, "Notepad-notes.txt", 0);
+
+    expect(noiseFolderName("node_modules") && noiseFolderName("WinSxS") && noiseFolderName(".GIT") &&
+           !noiseFolderName("node_modules2") && !noiseFolderName("src"), "noise folders are matched whole, any case");
+    expect((index.entry(53).flags & kNoise) && !(index.entry(55).flags & kNoise), "only folders get the noise flag");
+    expect(index.inNoise(55) && index.inNoise(54) && !index.inNoise(53) && !index.inNoise(52), "inside one, not the folder itself");
+
+    auto find = [&](const char* text) { return records(search(index, parseQuery(text), 50)); };
+    expect(find("report") == std::vector<std::uint32_t>{ 52, 55 }, "the same match inside node_modules comes last");
+    expect(find("notepad") == std::vector<std::uint32_t>{ 64, 65, 63, 62 },
+           "notepad.exe first (a whole-name match), WinSxS's copies after everything");
+    expect(find("report path:node_modules") == std::vector<std::uint32_t>{ 55 }, "asked for by path: it's not demoted");
+    expect(find("node_modules") == std::vector<std::uint32_t>{ 53 }, "the noise folder itself is found as usual");
+
+    // More noise hits than the sorted head holds (limit 1: a head of 20):
+    // the clean hit, though scored lower, still comes first.
+    FileIndex crowded;
+    crowded.put(refOf(10, 1), root, "node_modules", kFolder);
+    for (std::uint32_t r = 11; r < 51; ++r) crowded.put(refOf(r, 1), refOf(10, 1), "report", 0);
+    crowded.put(refOf(60, 1), root, "my-report.txt", 0);
+    expect(records(search(crowded, parseQuery("report"), 1)) == std::vector<std::uint32_t>{ 60 },
+           "a clean hit past a head full of noise");
+    auto all = search(crowded, parseQuery("report"), 100);
+    expect(all.size() == 41 && all[0].record == 60 && all[1].record == 11 && all[1].noise && all[40].record == 50,
+           "then the noise, in order");
+
+    // Ties go to the shorter name in characters, not bytes.
+    FileIndex names;
+    names.put(refOf(10, 1), root, "Змея.pdf", 0);      // 8 characters, 12 bytes
+    names.put(refOf(11, 1), root, "abcdefghi.pdf", 0); // 13 characters
+    names.put(refOf(12, 1), root, "abcdefghij.pdf", 0);
+    expect(records(search(names, parseQuery("ext:pdf"), 10)) == std::vector<std::uint32_t>{ 10, 11, 12 }, "lengths count letters");
+
+    // A renamed folder gains or loses the flag; a snapshot recomputes it.
+    index.put(refOf(53, 1), refOf(51, 1), "packages", kFolder);
+    expect(!index.inNoise(55), "renamed away from node_modules: not noise");
+    index.put(refOf(53, 1), refOf(51, 1), "node_modules", kFolder);
+    auto loaded = loadSnapshot(saveSnapshot(index, {}));
+    expect(loaded && loaded->index.inNoise(55), "and back, through a snapshot");
 }
 
 void snapshotTests()
@@ -159,6 +223,7 @@ void runIndexerQueryTests()
     parseTests();
     matchTests();
     searchTests();
+    rankingTests();
     snapshotTests();
 }
 
