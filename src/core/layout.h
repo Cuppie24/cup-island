@@ -121,6 +121,7 @@ struct Scene {
     bool dropTarget = false;       // the dragged bubble is over the pill: letting go swaps them (pill lightens)
     Vec2 bubbleTuck;               // no bubble: it shrinks to this point, on the top edge inside the pill
     std::string label;             // accessible name of what's shown
+    Ms alertPosted{};              // Alert: when the shown one went up; a new one in a pill that keeps its size pulses (core/motion.h)
     Ms now{};                      // when the scene was laid out (progress bars animate from here)
     std::optional<Ms> clockTick;   // Idle shows the time: re-layout at this moment (the next minute)
 };

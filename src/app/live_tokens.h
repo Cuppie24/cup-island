@@ -43,4 +43,8 @@ bool setTint(std::optional<CoverTint> cover);
 // reload like the theme. Returns true if tokens changed.
 bool setFadeSpeed(FadeSpeed speed);
 
+// Windows' "Animation effects" (decision 076): off, motion is reduced
+// (tokens().reducedMotion), kept over every reload. Returns true if tokens changed.
+bool setReducedMotion(bool reduced);
+
 } // namespace cup::app

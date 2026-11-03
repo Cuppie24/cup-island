@@ -20,7 +20,7 @@ void PillRenderer::build(wuc::Compositor const& c, wuc::ContainerVisual const& r
     pill_.build(c, device_, root, initial.size, initial.offset);
     bubble_.build(c, device_, root, {}, initial.bubbleTuck); // above the pill: it's dragged over it
     bridge_.build(c, root, pill_, bubble_);
-    apply(initial);
+    apply(initial, {});
 }
 
 void PillRenderer::refreshAnimations()
@@ -62,7 +62,7 @@ std::optional<std::size_t> PillRenderer::caretOnLine(const Placed& field, int di
     return platform::caretOnLine(device_.dwrite(), *input, { field.frame.width, field.frame.height }, direction);
 }
 
-void PillRenderer::apply(const Scene& scene)
+void PillRenderer::apply(const Scene& scene, const SceneMotion& motion)
 {
     // Geometry first, content later (decision 012). Building content means new
     // surfaces and Direct2D drawing for every element that appears, and while
@@ -71,8 +71,10 @@ void PillRenderer::apply(const Scene& scene)
     // Lifted (decision 026): it follows the pointer sideways at once, no
     // morph; let go, it glides to where it lands, snapping. Placed first, so
     // the glide knows where that is.
-    pill_.place(scene.size, scene.offset);
-    pill_.lift(scene.lifted ? std::optional<float>(scene.offset.x + scene.size.x / 2) : std::nullopt);
+    pill_.place(scene.size, scene.offset, motion.morph);
+    pill_.lift(scene.lifted ? std::optional<float>(scene.offset.x + scene.size.x / 2) : std::nullopt, motion.fling);
+    if (motion.pulse) pill_.pulse();
+    if (motion.reveal > Ms{ 0 }) revealAt_ = std::chrono::steady_clock::now() + motion.reveal;
     // A side flush with the screen's edge has no ear: it would hang off the
     // monitor. In Split the right edge is the bubble's.
     pill_.setEars(!scene.flushLeft, !(scene.flushRight && !scene.bubble));
@@ -96,13 +98,13 @@ void PillRenderer::apply(const Scene& scene)
     const BubbleScene* bubble = scene.bubble ? &*scene.bubble : nullptr;
     bridge_.setEnabled(!(bubble && bubble->dragCentre));
     if (bubble) {
-        bubble_.place({ bubble->frame.width, bubble->frame.height }, { bubble->frame.x, bubble->frame.y });
+        bubble_.place({ bubble->frame.width, bubble->frame.height }, { bubble->frame.x, bubble->frame.y }, motion.morph);
         bubble_.setEars(true, !scene.flushRight);
-        bubble_.follow(bubble->dragCentre);
+        bubble_.follow(bubble->dragCentre, motion.fling);
     } else {
         // No bubble: shrink into the pill (it buds back out of the same spot).
         bubble_.follow(std::nullopt);
-        bubble_.place({}, scene.bubbleTuck);
+        bubble_.place({}, scene.bubbleTuck, motion.morph);
     }
 
     // Low priority runs after the compositor's own commit work. Only the
@@ -126,9 +128,10 @@ void PillRenderer::applyContent()
     if (!pendingContent_) return;
     Scene scene = *std::exchange(pendingContent_, std::nullopt);
     auto start = std::chrono::steady_clock::now();
-    pill_.setContent(scene.elements, scene.now);
+    Ms reveal = std::max(Ms{ 0 }, std::chrono::duration_cast<Ms>(revealAt_ - start)); // what's left of it after the queue
+    pill_.setContent(scene.elements, scene.now, reveal);
     pill_.setToast(scene.toast, scene.now); // floating over it (decision 071)
-    bubble_.setContent(scene.bubble ? scene.bubble->elements : std::vector<Placed>{}, scene.now);
+    bubble_.setContent(scene.bubble ? scene.bubble->elements : std::vector<Placed>{}, scene.now, reveal);
 
     // Debug builds have a console: flag slow content builds when chasing lag.
     auto took = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);

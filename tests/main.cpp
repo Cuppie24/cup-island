@@ -31,6 +31,7 @@ void runSettingsNewTests();
 void runShortcutSettingsTests();
 void runUpdateTests();
 void runCoverTests();
+void runMotionTests();
 void runIndexerTests();
 void runIndexerQueryTests();
 void runIndexerProtocolTests();
@@ -67,6 +68,7 @@ int main(int argc, char** argv)
     runShortcutSettingsTests();
     runUpdateTests();
     runCoverTests();
+    runMotionTests();
     runIndexerTests();
     runIndexerQueryTests();
     runIndexerProtocolTests();

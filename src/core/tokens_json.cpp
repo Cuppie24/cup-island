@@ -126,8 +126,28 @@ const Field kFields[] = {
     { "focusRingWidth", &Tokens::focusRingWidth },
     { "morphDurationMs", &Tokens::morphDuration, true },
     { "morphEase", &Tokens::morphEase },
+    { "morphGrowShortestMs", &Tokens::morphGrowShortest },
+    { "morphGrowReferenceMs", &Tokens::morphGrowReference },
+    { "morphGrowMaxMs", &Tokens::morphGrowMax },
+    { "morphGrowBounce", &Tokens::morphGrowBounce },
+    { "morphShrinkShortestMs", &Tokens::morphShrinkShortest },
+    { "morphShrinkReferenceMs", &Tokens::morphShrinkReference },
+    { "morphShrinkMaxMs", &Tokens::morphShrinkMax },
+    { "morphShrinkBounce", &Tokens::morphShrinkBounce },
+    { "morphReferenceDistance", &Tokens::morphReferenceDistance },
+    { "morphSpringSettle", &Tokens::morphSpringSettle },
+    { "settleEase", &Tokens::settleEase },
+    { "contentArriveScale", &Tokens::contentArriveScale },
+    { "contentArriveDurationMs", &Tokens::contentArriveDuration },
+    { "contentStaggerMs", &Tokens::contentStagger },
+    { "contentStaggerRows", &Tokens::contentStaggerRows },
+    { "alertPulseScale", &Tokens::alertPulseScale },
+    { "alertPulseDurationMs", &Tokens::alertPulseDuration },
+    { "flingMaxSpeed", &Tokens::flingMaxSpeed },
+    { "flingStaleMs", &Tokens::flingStale },
+    { "reducedMotionDurationMs", &Tokens::reducedMotionDuration },
     { "contentFadeDurationMs", &Tokens::contentFadeDuration },
-    { "contentFadeDelayMs", &Tokens::contentFadeDelay },
+    { "contentRevealAt", &Tokens::contentRevealAt },
     { "recolorFastMs", &Tokens::recolorFast },
     { "recolorMediumMs", &Tokens::recolorMedium },
     { "recolorSlowMs", &Tokens::recolorSlow },
@@ -383,6 +403,7 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
         std::string_view n(name);
         return n.starts_with("cover") || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" || n == "searchVisibleRows" ||
                n == "primaryHoverOpacity" || n == "playGlyphNudge" || // a share of an opacity, of a width (decisions 066, 071)
+               n.ends_with("Bounce") || n == "contentArriveScale" || n == "contentRevealAt" || n == "morphSpringSettle" || n == "alertPulseScale" || // shares (decision 076)
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
     };
     Tokens out = t;
@@ -405,6 +426,7 @@ bool onlyColorsDiffer(const Tokens& a, const Tokens& b)
 {
     Tokens mixed = b;
     mixed.fadeSpeed = a.fadeSpeed; // how fast colours fade isn't anything to rebuild either
+    mixed.reducedMotion = a.reducedMotion; // read when a motion starts, like the fade speed
     for (const Field& f : kFields)
         if (auto* member = std::get_if<Color Tokens::*>(&f.member)) mixed.*(*member) = a.*(*member);
     return mixed == a;

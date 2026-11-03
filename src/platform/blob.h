@@ -5,6 +5,7 @@
 // animations do the motion (TR §5).
 
 #include "core/layout.h"
+#include "core/motion.h"
 #include "core/tokens.h"
 #include "platform/badge_dots.h"
 #include "platform/toast_layer.h"
@@ -25,14 +26,18 @@ public:
     // coloursOnly: content is recoloured in place, else rebuilt (new sizes).
     void refreshAnimations(bool coloursOnly);
 
-    void place(Vec2 size, Vec2 offset);      // morphs there; no-op if unchanged. Following: lands there later
-    void follow(std::optional<Vec2> centre); // stay centred on the cursor (dragged); nullopt eases back to place()
+    // Morphs there along `motion` (decision 076); no-op if unchanged. Following: lands there later.
+    void place(Vec2 size, Vec2 offset, const Motion& motion);
+    // Stay centred on the cursor (dragged); nullopt springs back to place(),
+    // carrying `fling` (pixels per ms: how fast it was let go) into the landing.
+    void follow(std::optional<Vec2> centre, Vec2 fling = {});
     // Lifted (decision 026): its centre at this x, its top liftDrop below the
     // edge, round and without ears; nullopt lands it at place(), like follow().
-    void lift(std::optional<float> centreX);
+    void lift(std::optional<float> centreX, Vec2 fling = {});
     void setEars(bool left, bool right);     // false: that side is flush with the screen edge, no ear (decision 026)
     void setHighlighted(bool on);            // drop target: the background lightens (decision 007)
-    void setContent(const std::vector<Placed>& elements, Ms now) { elements_.apply(elements, now); }
+    // `reveal`: new content waits this long (the morph's, decision 076).
+    void setContent(const std::vector<Placed>& elements, Ms now, Ms reveal) { elements_.apply(elements, now, reveal); }
     ElementVisuals& elements() { return elements_; } // hover, press, scrub feedback on content
     // Expanded's tabs (pill coordinates; nullopt = none): the active tab's
     // background slides to a newly picked tab; hover is fainter and just fades.
@@ -54,6 +59,8 @@ public:
     // Tactile click feedback: squash on press, spring back on release.
     void pressDown();
     void pressRelease();
+    // A new alert in a pill that keeps its size: swells and springs back (core alertPulses).
+    void pulse();
 
     wuc::ShapeVisual const& body() const { return body_; } // for the liquid bridge's expressions
 
@@ -61,7 +68,7 @@ private:
     void playScale(float scale, Ms duration, Bezier curve);
     void setAttached(bool on); // to the screen edge: flared top corners; off it (dragged): round
     void startFollowing(std::wstring const& expression); // Offset follows drag_ (the cursor)
-    void land();                                         // ...until let go: glides to offset_
+    void land(Vec2 fling);                               // ...until let go: springs to offset_
 
     wuc::Compositor compositor_{ nullptr };
     wuc::ShapeVisual body_{ nullptr };             // Size/Offset morph implicitly
@@ -84,7 +91,9 @@ private:
     wuc::CompositionColorGradientStop leftStop_{ nullptr }, rightStop_{ nullptr };
     wuc::CompositionColorBrush leftFill_{ nullptr }, rightFill_{ nullptr };
     void fadeFill(Ms duration); // to the current colours (highlighted: the highlight's, both ends)
-    wuc::ImplicitAnimationCollection implicit_{ nullptr }; // the Size/Offset morph
+    wuc::ImplicitAnimationCollection implicit_{ nullptr }; // the Size/Offset morph, along built_
+    Motion motion_; // the latest morph's: a landing uses it too
+    Motion built_;  // the one implicit_ runs: rebuilt only when another is needed
     wuc::ContainerVisual content_{ nullptr };
     struct Mark { // a rounded highlight under content, made on first use
         wuc::ShapeVisual visual{ nullptr };

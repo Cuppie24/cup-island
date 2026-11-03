@@ -11,9 +11,11 @@
 
 namespace cup::platform {
 
-// Content appearing after a mode change: fades in once the pill starts morphing,
-// to `opacity` (a muted tab's content: tabMutedOpacity, decision 072).
-void fadeIn(wuc::Compositor const& c, wuc::Visual const& visual, float opacity = 1.0f);
+// Content appearing: fades in to `opacity` (a muted tab's content:
+// tabMutedOpacity, decision 072) after `delay` (the morph's reveal, plus its
+// row's stagger: decision 076). `arrive`: new content, not a rebuild in place:
+// it also grows from contentArriveScale and settles.
+void fadeIn(wuc::Compositor const& c, wuc::Visual const& visual, float opacity, Ms delay, bool arrive);
 void fadeTo(wuc::Compositor const& c, wuc::Visual const& visual, float opacity, Ms duration);
 // A new picture (a cover read after its track showed, decision 056): `host`
 // shows `fresh` at once, under a copy of the old picture that fades out.

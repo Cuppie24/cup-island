@@ -4,12 +4,14 @@
 // morph (TR §5), so this never redraws per frame.
 
 #include "core/layout.h"
+#include "core/motion.h"
 #include "core/tokens.h"
 #include "platform/blob.h"
 #include "platform/graphics_device.h"
 #include "platform/liquid_bridge.h"
 #include "platform/win.h"
 
+#include <chrono>
 #include <map>
 #include <optional>
 #include <string>
@@ -20,9 +22,9 @@ namespace cup::platform {
 class PillRenderer {
 public:
     void build(wuc::Compositor const& compositor, wuc::ContainerVisual const& root, const Scene& initial);
-    // Starts the morph now; content follows in a queued call, so building it
-    // doesn't hold back the frame the morph starts on (decision 012).
-    void apply(const Scene& scene);
+    // Starts the morph now, along `motion` (decision 076); content follows in a
+    // queued call, so building it doesn't hold back the frame the morph starts on (decision 012).
+    void apply(const Scene& scene, const SceneMotion& motion);
 
     // Rebuilds the implicit animations from the current tokens() (after a
     // reload, a theme, a cover's colours). Colours fade; if only colours
@@ -76,6 +78,10 @@ private:
     Tokens applied_; // what the visuals were last built or recoloured for: tells a recolour from a resize
     winrt::Windows::System::DispatcherQueue queue_{ nullptr };
     std::optional<Scene> pendingContent_; // set: an applyContent() call is queued
+    // When the latest morph that grew the pill is far enough along for new
+    // content (decision 076). Kept as a time, not a delay: the content is
+    // built later (queued), and that wait counts toward it.
+    std::chrono::steady_clock::time_point revealAt_{};
 };
 
 } // namespace cup::platform

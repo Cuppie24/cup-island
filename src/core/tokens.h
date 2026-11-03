@@ -182,13 +182,49 @@ struct Tokens {
     float tilePadding = 8;        // inside a tile, on every side
     float focusRingWidth = 2;     // the keyboard's focus ring (decision 033), drawn inside what has focus
 
-    // Morph between modes: ease-out, 250-350 ms budget (TR §5).
+    // Smaller transitions: the ears and corners folding, a lift sinking, a
+    // list's rows (ease-out, TR §5). The pill's own morph is a spring, below.
     Ms morphDuration{ 300 };
     Bezier morphEase{ { 0.16f, 1.0f }, { 0.30f, 1.0f } };
+    // The pill's morph (decision 076, core/motion.h): a spring, settled by the
+    // end of its time. Bounce 0 never goes past; 0.25 goes about 3% past and
+    // back. Growing overshoots a little, shrinking doesn't. Its time grows with
+    // the square root of how far it goes: the shortest for none, the reference
+    // at morphReferenceDistance, never more than the max (only a guard).
+    Ms morphGrowShortest{ 220 };
+    Ms morphGrowReference{ 400 };
+    Ms morphGrowMax{ 600 };
+    float morphGrowBounce = 0.25f;
+    Ms morphShrinkShortest{ 180 };
+    Ms morphShrinkReference{ 320 };
+    Ms morphShrinkMax{ 480 };
+    float morphShrinkBounce = 0.0f;
+    float morphReferenceDistance = 500;
+    float morphSpringSettle = 7; // how front-loaded the spring is: 8.5 felt rushed on big morphs, 6 slow on all
+    // Small things settling with a hint of overshoot: the tab marker gliding,
+    // a toast coming up, a switch's knob, content arriving.
+    Bezier settleEase{ { 0.3f, 1.3f }, { 0.5f, 1.0f } };
+    float contentArriveScale = 0.96f; // new content grows from this while fading in
+    Ms contentArriveDuration{ 200 };  // ...over this, settling with the pill, not after it
+    Ms contentStagger{ 14 };          // ...each row this long after the one above
+    std::size_t contentStaggerRows = 4; // rows past this arrive with the last
+    // A new alert in a pill that keeps its size: it swells this much and springs back.
+    float alertPulseScale = 1.05f;
+    Ms alertPulseDuration{ 420 };
+    // Let go mid-drag, the island or bubble carries the pointer's speed into its landing.
+    float flingMaxSpeed = 2;  // pixels per ms
+    Ms flingStale{ 80 };      // the pointer still this long before letting go: no fling
+    // Windows' "Animation effects" off (decision 076): morphs are this short, with
+    // no overshoot, stagger, fling or pulse. Set by the app, not by tokens.json.
+    bool reducedMotion = false;
+    Ms reducedMotionDuration{ 120 };
 
     // Content crossfades slightly after the pill starts morphing.
-    Ms contentFadeDuration{ 200 };
-    Ms contentFadeDelay{ 100 };
+    Ms contentFadeDuration{ 150 };
+    // New content starts arriving once the growing pill is this share of the
+    // way to its new size (decision 076): with the spring that's early, and it
+    // follows the morph's own timing. A shrinking pill shows it at once.
+    float contentRevealAt = 0.6f;
     // Colours easing to new ones (a cover's tint, a theme pick; decision 051):
     // the island's fill, the shadow, marks and content shapes. Text switches
     // at once. One duration per speed the user can pick in Settings (decision 053).
