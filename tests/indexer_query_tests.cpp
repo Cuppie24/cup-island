@@ -132,7 +132,8 @@ void rankingTests()
     index.put(refOf(65, 1), root, "Notepad-notes.txt", 0);
 
     expect(noiseFolderName("node_modules") && noiseFolderName("WinSxS") && noiseFolderName(".GIT") &&
-           !noiseFolderName("node_modules2") && !noiseFolderName("src"), "noise folders are matched whole, any case");
+           !noiseFolderName("node_modules2") && !noiseFolderName("src") && noiseFolderName("WindowsApps"),
+           "noise folders are matched whole, any case; Store apps' insides too");
     expect((index.entry(53).flags & kNoise) && !(index.entry(55).flags & kNoise), "only folders get the noise flag");
     expect(index.inNoise(55) && index.inNoise(54) && !index.inNoise(53) && !index.inNoise(52), "inside one, not the folder itself");
 

@@ -49,6 +49,14 @@ std::string backAction(const IslandState& s)
     return "";
 }
 
+bool escapeCloses(const IslandState& s)
+{
+    if (!isExpanded(s) || s.homeOpen) return false;
+    if (const Activity* a = findActivity(s, s.expandedId)) return !a->content.fieldFirst.empty();
+    const Panel* p = findPanel(s, s.expandedId);
+    return p && !p->content.fieldFirst.empty();
+}
+
 std::optional<Ms> timeOfDay(const IslandState& s, Ms now)
 {
     if (!s.clock) return std::nullopt;

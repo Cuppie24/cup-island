@@ -18,6 +18,12 @@ void showDialog(IslandState& state, const DialogShown& e, Ms now); // only over 
 // A field's unsent text is kept (IslandState::keptText, decision 050).
 void dropStaleOverlays(IslandState& state);
 
+// A shown card that is its field (Content::fieldFirst, decision 079): its
+// field gets the keys, with its kept text (decision 050), unless something
+// else has them (another field, a dialog). Not a touch: the idle timeout
+// still counts from the last real one.
+void focusFieldFirst(IslandState& state);
+
 // The draft goes (Esc, the card closing, another field focused): a field's
 // unsent text is set aside for when it's focused again (decision 050).
 // Text being edited in place isn't: the app has sent it or it was dropped.

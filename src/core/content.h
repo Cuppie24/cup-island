@@ -80,6 +80,10 @@ struct Text {
     // edges, or in a hugging row): a value that changes keeps one column, and
     // rows with it line up ("120 min" for "5 min" and "25 min", decision 063).
     std::string sizedAs;
+    // Short of room in its row, this text gives up its width before the row's
+    // other texts do: a file's folder beside its name, so the name stays
+    // readable and the path takes the "…" (search, decision 079).
+    bool yields = false;
     // Host-filled: `value` with the spaces where its lines break turned into
     // '\n' (same length, so offsets hold). Empty: one line.
     std::string wrapped;
@@ -340,6 +344,11 @@ struct Content {
     // ...and doesn't close when left alone either (expandedIdleTimeout): a
     // timer kept in view while working (Pomodoro, decision 062).
     bool noIdleTimeout = false;
+    // A card that is its field (search, decision 079): the TextInput with this
+    // actionId has the keys whenever the card is shown, with no click first,
+    // and Esc closes the card instead of first stopping the typing. Empty: a
+    // field is clicked into, as usual (decision 016).
+    std::string fieldFirst;
     // A card on one of its own pages (Settings' Theme page): the action Esc
     // sends, as a click on its back arrow would. Empty: Esc goes back to
     // Home or closes, as anywhere else (decision 033).

@@ -99,6 +99,7 @@ void settle(IslandState& s, Ms now)
     }
     if (s.toast && now >= s.toast->until) s.toast.reset(); // a toast goes by itself (decision 071)
     dropStaleOverlays(s); // a draft, dialog or toast goes with its card
+    focusFieldFirst(s);   // ...and a card that is its field has it at once (decision 079)
 
     settleAlerts(s, now); // after Expanded may have closed: alerts it held back can show
 

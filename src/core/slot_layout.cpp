@@ -264,14 +264,27 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 if (stretchCount >= 2 && std::all_of(row.items.begin(), row.items.end(), [&](const Item& item) {
                         return widthOf(item) || std::holds_alternative<Text>(item);
                     })) {
-                    float natural = 0;
+                    float natural = 0, yielding = 0; // yielding: the natural widths of Text::yields texts
+                    std::vector<bool> yields;
                     for (const Item& item : row.items)
                         if (auto* text = std::get_if<Text>(&item); text && !widthOf(item)) {
                             textWidths.push_back((measure ? measure(*text) : estimateTextWidth(*text)) + 1); // +1: rounding never trips the "…"
                             natural += textWidths.back();
+                            yields.push_back(text->yields);
+                            if (text->yields) yielding += textWidths.back();
                         }
-                    if (natural <= spare) textWidths.back() += spare - natural;
-                    else for (float& w : textWidths) w *= spare / natural;
+                    float firm = natural - yielding;
+                    if (natural <= spare) {
+                        textWidths.back() += spare - natural;
+                    } else if (yielding > 0 && firm < spare) {
+                        // Yielding texts give up their width first; the others keep theirs.
+                        for (std::size_t i = 0; i < textWidths.size(); ++i)
+                            if (yields[i]) textWidths[i] *= (spare - firm) / yielding;
+                    } else {
+                        // Even the others don't fit: they share what there is, yielding ones get none.
+                        for (std::size_t i = 0; i < textWidths.size(); ++i)
+                            textWidths[i] = yielding > 0 && yields[i] ? 0 : textWidths[i] * spare / (yielding > 0 ? firm : natural);
+                    }
                 }
                 std::size_t nextText = 0;
 

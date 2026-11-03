@@ -276,6 +276,9 @@ std::optional<ShownCard> shownActivity(const IslandState& state);
 // What Esc sends to the shown card's provider first: its Content::backAction,
 // so a page goes back to its list before anything closes (decision 033). "" = none.
 std::string backAction(const IslandState& state);
+// The shown card is its field (Content::fieldFirst): Esc closes it at once,
+// rather than stopping the typing first (decision 079).
+bool escapeCloses(const IslandState& state);
 
 // Whether a press on the island's empty space squashes it (the press
 // feedback of a click that collapses it). Not where that click does nothing:

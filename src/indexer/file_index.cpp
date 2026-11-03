@@ -20,7 +20,7 @@ constexpr std::uint32_t kAttributeDirectory = 0x10;
 
 bool noiseFolderName(std::string_view name)
 {
-    static constexpr std::string_view kNames[] = { "winsxs", "node_modules", "__pycache__", ".git", ".vs", "$recycle.bin" };
+    static constexpr std::string_view kNames[] = { "winsxs", "node_modules", "__pycache__", ".git", ".vs", "$recycle.bin", "windowsapps" };
     for (std::string_view noise : kNames) {
         if (name.size() != noise.size()) continue;
         bool same = true;

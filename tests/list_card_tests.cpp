@@ -67,6 +67,22 @@ void runListCardTests()
     expect(longName->frame.width > 2 * longValue->frame.width && longValue->frame.width > 0,
            "too long for the row: each gives up its share, in proportion");
 
+    // A text that yields (a file's folder, decision 079): short of room, it
+    // gives up its width first and the name keeps its own.
+    Content files{ .card = CardLayout::List,
+                   .expandedCenter = { Row{ .items = { Text{ "wallpaper.jpg" }, Text{ .value = std::string(80, 'p'), .alignEnd = true, .yields = true } },
+                                            .listItem = true },
+                                       Row{ .items = { Text{ std::string(80, 'n') }, Text{ .value = "C:\\x", .yields = true } }, .listItem = true } } };
+    Scene filed = layout(expandedWith(files), Ms{ 0 }, perChar);
+    const Placed* fileName = find(filed, "expandedCenter/0/0");
+    const Placed* folder = find(filed, "expandedCenter/0/1");
+    expect(fileName && fileName->frame.width >= 8 * 13 && folder && folder->frame.width > 0 && folder->frame.width < 8 * 80,
+           "the name keeps its width; the folder takes what's left, and the \"…\"");
+    const Placed* hugeName = find(filed, "expandedCenter/1/0");
+    const Placed* shortFolder = find(filed, "expandedCenter/1/1");
+    expect(hugeName && shortFolder && shortFolder->frame.width == 0 && hugeName->frame.width > 0,
+           "a name too long even alone: the yielding folder gives up all of its room");
+
     // Groups (decision 037): a heading starting one has sectionGap above it,
     // and lines up with the list items' text without being one.
     Content grouped{ .card = CardLayout::List,

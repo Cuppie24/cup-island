@@ -719,11 +719,15 @@ void onKey(WPARAM key)
         return;
     }
     // A focused field gets the keys (onChar): no demo keys while typing. Esc
-    // stops typing; a second Esc closes the card.
+    // stops typing; a second Esc closes the card. A card that is its field
+    // (search) closes at the first (decision 079).
     if (g_state.draft) {
         bool shift = GetKeyState(VK_SHIFT) < 0;
         switch (key) {
-        case VK_ESCAPE: dispatch(InputCancelled{}, "esc"); break;
+        case VK_ESCAPE:
+            if (escapeCloses(g_state)) dispatch(EscapePressed{}, "esc");
+            else dispatch(InputCancelled{}, "esc");
+            break;
         // Moving the caret (decision 043): Shift selects, Ctrl goes a word at a time.
         case VK_LEFT: dispatch(CaretMoved{ ctrl ? CaretMove::WordLeft : CaretMove::Left, shift }, "caret"); break;
         case VK_RIGHT: dispatch(CaretMoved{ ctrl ? CaretMove::WordRight : CaretMove::Right, shift }, "caret"); break;
