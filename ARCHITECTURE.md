@@ -127,8 +127,9 @@ Lists (`Row::list`, decision 029) are scrolled, reordered and edited by the
 host; the provider publishes every row and gets the result as actions.
 Text fields are edited by the host like any text box, caret and selection in
 core (`core/text_edit`, decision 043). A live field (`TextInput::changeAction`,
-decision 079) reports every edit, not just Enter. A provider may close its
-own card when it's done (`Host::closeCard`).
+decision 079) reports every edit, not just Enter; a card that is its field
+(`Content::fieldFirst`) has it focused whenever it's shown, and closes with
+one Esc. A provider may close its own card when it's done (`Host::closeCard`).
 `providers/pomodoro/` is the reference panel.
 
 Providers decide *what* goes where (items, rows, order, alignment, which

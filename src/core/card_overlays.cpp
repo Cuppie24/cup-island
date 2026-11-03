@@ -64,6 +64,25 @@ void dropStaleOverlays(IslandState& s)
     if (s.listDrag && (!shown(s, s.listDrag->activityId) || s.dialog)) s.listDrag.reset();
 }
 
+void focusFieldFirst(IslandState& s)
+{
+    if (s.draft || s.dialog || s.homeOpen || !isExpanded(s)) return;
+    auto card = shownCard(s);
+    if (!card) return;
+    const Content* content = nullptr;
+    if (const Activity* a = findActivity(s, card->activityId)) content = &a->content;
+    else if (const Panel* p = findPanel(s, card->activityId)) content = &p->content;
+    if (!content || content->fieldFirst.empty()) return;
+    std::string text;
+    auto kept = s.keptText.find(keptKey(card->activityId, content->fieldFirst));
+    if (kept != s.keptText.end()) {
+        text = std::move(kept->second);
+        s.keptText.erase(kept);
+    }
+    s.draft = Draft{ card->providerId, card->activityId, content->fieldFirst, text };
+    placeCaret(*s.draft, text.size(), false);
+}
+
 std::optional<Action> liveChange(const std::optional<Draft>& before, const std::optional<Draft>& after, const Scene& scene)
 {
     if (!before || !after || after->editing) return std::nullopt;

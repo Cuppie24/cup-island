@@ -9,7 +9,8 @@
 //            click  outside  esc  pointer  drag-enter  drag-rejected
 //            drag-leave  drop  hide  show  wait <ms>
 //            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel
-//            panel <id> [static|keep|awake]  unpanel <id>  home  tile <id>  (static: a widget with no card;
+//            panel <id> [static|keep|awake|field]  unpanel <id>  home  tile <id>  (static: a widget with no card;
+//                                                                     field: a card that is its field "go", decision 079;
 //                                                                     keep: its card stays open on a click, decision 030;
 //                                                                     awake: keep, and no idle timeout, decision 062)
 //            focus <card> <action> [at=<n>|max=<chars>]  type <text...>  erase [word]  submit  cancel-input   (a TextInput, decision 016)
@@ -158,6 +159,10 @@ struct Runner {
             if (arg(2) != "static") p.content.expandedCenter = { row({ Text{ arg(1) } }) };
             p.content.keepOpen = arg(2) == "keep" || arg(2) == "awake";
             p.content.noIdleTimeout = arg(2) == "awake";
+            if (arg(2) == "field") {
+                p.content.expandedCenter = { row({ TextInput{ .actionId = "go" } }) };
+                p.content.fieldFirst = "go";
+            }
             apply(PanelPublished{ p });
         }
         else if (cmd == "unpanel") apply(PanelRemoved{ arg(1) });

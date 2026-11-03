@@ -32,15 +32,21 @@ std::string folderOf(const std::string& path)
 
 // A result: its icon, its name, what it is, and the chevron that says the
 // whole row is a button (as Settings' rows, decision 030).
-Row resultRow(Glyph glyph, const std::string& name, const std::string& caption, std::size_t index, bool first)
+// The folder gives way first when the row is short of room (Text::yields):
+// the name stays readable and the path takes the "…".
+Row resultRow(Glyph glyph, const std::string& name, const std::string& caption, std::size_t index)
 {
-    Row r{ .items = { Icon{ glyph }, Text{ name }, Text{ .value = caption, .style = TextStyle::Caption, .alignEnd = true },
-                      Button{ .glyph = Glyph::ChevronRight, .actionId = A::kOpen + std::to_string(index), .compact = true } },
-           .clickAnywhere = true,
-           .list = "results",
-           .listItem = true };
-    if (first) r.visibleRows = tokens().searchVisibleRows;
-    return r;
+    return Row{ .items = { Icon{ glyph }, Text{ name },
+                           Text{ .value = caption, .style = TextStyle::Caption, .alignEnd = true, .yields = true },
+                           Button{ .glyph = Glyph::ChevronRight, .actionId = A::kOpen + std::to_string(index), .compact = true } },
+                .clickAnywhere = true,
+                .list = "results",
+                .listItem = true };
+}
+
+Row fieldRow()
+{
+    return row({ TextInput{ .actionId = A::kGo, .placeholder = "Search apps, settings and files", .changeAction = A::kTyped } });
 }
 
 } // namespace
@@ -83,6 +89,7 @@ void SearchProvider::onAction(const Action& action)
     if (action.actionId == A::kTyped) {
         query_ = action.text;
         searchNow();
+        host_->reveal(kPanelId, "results", 0); // new words: the list starts at the top again, not where it was scrolled
     } else if (action.actionId == A::kGo) {
         if (action.text != query_) { // Enter before the last edit's answer: search what was typed
             query_ = action.text;
@@ -173,21 +180,36 @@ void SearchProvider::publish()
     c.label = "Search";
     c.tileLeading = { row({ Icon{ Glyph::Search } }, Align::Center) };
     c.tile = { row({ Text{ "Search", TextStyle::Title } }) };
-    c.expandedCenter.push_back(row({ TextInput{ .actionId = A::kGo,
-                                                .placeholder = "Search apps, settings and files",
-                                                .changeAction = A::kTyped } }));
+    // A page of rows edge to edge, like Settings (decision 030), whose field
+    // has the keys at once and closes with one Esc (Content::fieldFirst). A
+    // near miss between rows doesn't close it.
+    c.card = CardLayout::List;
+    c.fieldFirst = A::kGo;
+    c.keepOpen = true;
+    // One height whatever the results: sized by the field and a full window of
+    // rows, so the card doesn't jump as you type. The results start at the top
+    // and fill what's under the field (a fill list, Row::visibleRows < 0).
+    c.sizedLike.push_back(fieldRow());
+    auto rows = static_cast<std::size_t>(tokens().searchVisibleRows + 0.999f);
+    for (std::size_t i = 0; i < rows; ++i) c.sizedLike.push_back(resultRow(Glyph::Search, "x", "x", i));
+    if (rows > 0) c.sizedLike[1].visibleRows = tokens().searchVisibleRows; // the window, from the list's first row
+    c.pageAtTop = true;
+
+    c.expandedCenter.push_back(fieldRow());
     std::vector<Result> all = results();
+    bool typed = !indexer::parseQuery(query_).empty();
+    // Said under the field, above the list: the list must be the card's last rows to fill it.
+    std::string note = !filesNote_.empty()     ? filesNote_
+                       : typed && all.empty()  ? "Nothing found"
+                       : !typed && all.empty() ? "Type to find apps, settings and files"
+                                               : "";
+    if (!note.empty()) c.expandedCenter.push_back(row({ Text{ .value = note, .style = TextStyle::Caption, .centred = true } }));
     for (std::size_t i = 0; i < all.size(); ++i) {
         const Result& r = all[i];
         Glyph glyph = r.file ? (r.folder ? Glyph::Folder : Glyph::File) : glyphOf(r.kind);
-        c.expandedCenter.push_back(resultRow(glyph, r.name, r.caption, i, i == 0));
+        c.expandedCenter.push_back(resultRow(glyph, r.name, r.caption, i));
+        if (i == 0) c.expandedCenter.back().visibleRows = -1; // fills the card's height under the field
     }
-    bool typed = !indexer::parseQuery(query_).empty();
-    std::string note = !filesNote_.empty()          ? filesNote_
-                       : typed && all.empty()       ? "Nothing found"
-                       : !typed && all.empty()      ? "Type to find apps, settings and files"
-                                                    : "";
-    if (!note.empty()) c.expandedCenter.push_back(row({ Text{ .value = note, .style = TextStyle::Caption } }));
     host_->publishPanel({ .id = kPanelId, .content = std::move(c) });
 }
 

@@ -97,8 +97,7 @@ void run(Command command)
         dispatch(TileClicked{ id }, "shortcut");
         if (state().expandedId != id) return;
         platform::bringToFront(g_hooks.window); // a double tap isn't a real hotkey: no leave to come forward (tap_hook.h)
-        SetFocus(g_hooks.window);
-        dispatch(InputFocused{ id, id, search_action::kGo, "" }, "shortcut");
+        SetFocus(g_hooks.window); // the card's field has the keys already (Content::fieldFirst)
         dispatch(AllSelected{}, "shortcut"); // last time's words, selected: typing replaces them
         return;
     }

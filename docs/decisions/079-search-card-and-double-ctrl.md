@@ -62,6 +62,27 @@ provider to close its own card once it has started what was picked.
   words selected (decision 050 keeps a field's text), so typing replaces
   them. Pressed again while it's open, the card closes.
 
+**Polish after the first run on a real PC.** The card was laid out like a
+media card (art column on the left, a fixed 171 px height), so its rows
+started right of centre, the results pushed the field off the top and spilled
+over the tab row, and long folder paths squeezed names to "W...". Now:
+- `CardLayout::List`, like Settings, and one height whatever the results
+  (`Content::sizedLike`: the field and a full window of `searchVisibleRows`
+  rows), so the card doesn't jump while typing; the results start at the top
+  (`pageAtTop`) and fill what's under the field (a fill list, decision 070).
+  A note ("Nothing found") sits under the field, above the list.
+- **`Content::fieldFirst`** (core, scenarios in `input.scenario`): a card that
+  is its field. Its field has the keys whenever the card is shown, from the
+  shortcut or the Home widget alike, with its kept words; one Esc closes it
+  (`escapeCloses`) instead of stopping the typing first.
+- **`Text::yields`** (core layout): short of room, that text gives up its
+  width first. A file's folder yields to its name.
+- Each new query scrolls the list back to its top (`Host::reveal`).
+- `WindowsApps` (Store apps' insides) is a noise folder (decision 075):
+  hundreds of package files no longer crowd out what was meant.
+- A layout test lays out the real card with many results and checks each of
+  these.
+
 **Consequences.** A keyboard hook in the island: it sees every key press,
 so it must stay tiny and do nothing but feed DoubleTap, and it's a reason
 some security tools may look at the app; nothing it sees is stored or sent.

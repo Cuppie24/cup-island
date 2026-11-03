@@ -46,8 +46,8 @@ std::optional<std::uint32_t> recordOf(FileRef ref);
 // The reference for a record and its sequence number (NTFS layout).
 FileRef refOf(std::uint32_t record, std::uint16_t sequence);
 // Folders whose contents rank below everything else (query.h): Windows'
-// component store (WinSxS), package and build caches (node_modules,
-// __pycache__, .git, .vs), the recycle bin. Shown, never hidden. Matched
+// component store (WinSxS) and Store apps' insides (WindowsApps), package and
+// build caches (node_modules, __pycache__, .git, .vs), the recycle bin. Shown, never hidden. Matched
 // whole, ignoring ASCII case. A fixed list: the index's logic, not a
 // setting (decision 075).
 bool noiseFolderName(std::string_view name);

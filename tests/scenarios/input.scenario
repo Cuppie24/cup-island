@@ -101,3 +101,13 @@ edit timer todo.edit.1 name
 type x
 cancel-input
 edit timer todo.edit.1 name         -> draft=name           # an edit starts from the task's text, not leftovers
+
+scenario: a card that is its field has the keys at once (search, decision 079)
+panel search field
+tile search                         -> Expanded expanded=search draft=empty
+type vsc                            -> draft=vsc
+cancel-input                        -> draft=vsc            # a dropped draft comes straight back, with its text
+outside                             -> Idle draft=none
+tile search                         -> Expanded draft=vsc   # its words kept for the next time (decision 050)
+wait 60000                          -> Expanded             # typed text holds it open (decision 016)
+type _                              -> draft=vsc_

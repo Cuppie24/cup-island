@@ -54,7 +54,8 @@ open. The island runs as the user, installed per user without a UAC prompt
   name (or a file's name before its extension: "notepad" is notepad.exe's
   whole name), then name prefix, word start, anywhere; folders and shorter
   names (in letters, not UTF-8 bytes) first on a tie. Anything inside a
-  noise folder (WinSxS, node_modules, __pycache__, .git, .vs, $Recycle.Bin)
+  noise folder (WinSxS, WindowsApps, node_modules, __pycache__, .git, .vs,
+  $Recycle.Bin)
   comes after everything else, unless a `path:` filter names one; noise is
   only worked out for the hits near the top, since it means walking up
   folders. These three came from the first run on a real PC: notepad.exe
