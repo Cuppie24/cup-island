@@ -111,6 +111,25 @@ open. The island runs as the user, installed per user without a UAC prompt
 6. Hardening: drives coming and going, journal resets, sleep and resume.
 7. Later: sizes and dates from `$MFT`, ReFS, removable and FAT drives.
 
+**Planned (after milestone 5): recently opened first.** Wanted by the owner,
+not built yet. Files you opened recently rank higher in search.
+- **The signal:** files opened from the island's search (milestone 5),
+  which the island knows exactly. Maybe later also Windows' Recent Items
+  (`%APPDATA%\Microsoft\Windows\Recent`, a shortcut per file opened
+  anywhere), if Explorer's record proves good enough.
+- **Kept per user, in the island's store** (`Host::save`, decision 028):
+  the last few hundred paths with when each was opened. Never in the
+  service: what someone opens is theirs, and the SYSTEM process has no
+  business keeping it.
+- **Ranked on the island's side, no protocol change.** The island matches
+  the query against its own short recent list and puts those hits first
+  among results of the same match class (whole name, prefix, word start,
+  anywhere), never above a better match: `report` typed exactly still
+  beats a recent `q3-report.pdf`. More recent ranks higher; older than
+  about a month counts for nothing. A recent file the service's answer cut
+  off still shows, because the island's own list found it. Files gone from
+  disk are dropped from the list.
+
 **Trying it** (milestone 3, before the installer): build on Windows, then
 in an administrator's terminal run `build\windows\CupIslandIndex.exe
 --console` (Ctrl+C stops it, saving the index). In any terminal:
