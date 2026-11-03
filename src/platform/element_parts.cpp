@@ -38,10 +38,9 @@ constexpr float kPeaks[] = { 0.6f, 1.0f, 0.78f };
 
 } // namespace
 
-void fadeIn(Compositor const& c, Visual const& visual, float opacity, std::optional<Ms> arrive)
+void fadeIn(Compositor const& c, Visual const& visual, float opacity, Ms delay, bool arrive)
 {
     const Tokens& t = tokens();
-    Ms delay = t.contentFadeDelay + arrive.value_or(Ms{ 0 }); // let the pill start morphing first
     auto anim = c.CreateScalarKeyFrameAnimation();
     anim.InsertKeyFrame(0.0f, 0.0f);
     anim.InsertKeyFrame(1.0f, opacity, easeOf(c, t.morphEase));
@@ -51,13 +50,12 @@ void fadeIn(Compositor const& c, Visual const& visual, float opacity, std::optio
     visual.StartAnimation(L"Opacity", anim);
     if (!arrive || t.reducedMotion || t.contentArriveScale >= 1.0f) return;
     // About its own middle (its CenterPoint), with a hint of overshoot: it
-    // arrives instead of just showing up. As long as a morph, so it settles
-    // with the pill.
+    // arrives instead of just showing up, and settles with the pill.
     float from = t.contentArriveScale;
     auto grow = c.CreateVector3KeyFrameAnimation();
     grow.InsertKeyFrame(0.0f, { from, from, 1.0f });
     grow.InsertKeyFrame(1.0f, { 1.0f, 1.0f, 1.0f }, easeOf(c, t.settleEase));
-    grow.Duration(atLeast1(t.morphDuration));
+    grow.Duration(atLeast1(t.contentArriveDuration));
     grow.DelayTime(delay);
     grow.DelayBehavior(AnimationDelayBehavior::SetInitialValueBeforeDelay);
     visual.StartAnimation(L"Scale", grow);

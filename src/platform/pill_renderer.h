@@ -11,6 +11,7 @@
 #include "platform/liquid_bridge.h"
 #include "platform/win.h"
 
+#include <chrono>
 #include <map>
 #include <optional>
 #include <string>
@@ -77,6 +78,10 @@ private:
     Tokens applied_; // what the visuals were last built or recoloured for: tells a recolour from a resize
     winrt::Windows::System::DispatcherQueue queue_{ nullptr };
     std::optional<Scene> pendingContent_; // set: an applyContent() call is queued
+    // When the latest morph that grew the pill is far enough along for new
+    // content (decision 076). Kept as a time, not a delay: the content is
+    // built later (queued), and that wait counts toward it.
+    std::chrono::steady_clock::time_point revealAt_{};
 };
 
 } // namespace cup::platform

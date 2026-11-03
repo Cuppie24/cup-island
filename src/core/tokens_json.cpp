@@ -135,6 +135,7 @@ const Field kFields[] = {
     { "morphFarDistance", &Tokens::morphFarDistance },
     { "settleEase", &Tokens::settleEase },
     { "contentArriveScale", &Tokens::contentArriveScale },
+    { "contentArriveDurationMs", &Tokens::contentArriveDuration },
     { "contentStaggerMs", &Tokens::contentStagger },
     { "contentStaggerRows", &Tokens::contentStaggerRows },
     { "alertPulseScale", &Tokens::alertPulseScale },
@@ -143,7 +144,7 @@ const Field kFields[] = {
     { "flingStaleMs", &Tokens::flingStale },
     { "reducedMotionDurationMs", &Tokens::reducedMotionDuration },
     { "contentFadeDurationMs", &Tokens::contentFadeDuration },
-    { "contentFadeDelayMs", &Tokens::contentFadeDelay },
+    { "contentRevealAt", &Tokens::contentRevealAt },
     { "recolorFastMs", &Tokens::recolorFast },
     { "recolorMediumMs", &Tokens::recolorMedium },
     { "recolorSlowMs", &Tokens::recolorSlow },
@@ -391,7 +392,7 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
         std::string_view n(name);
         return n.starts_with("cover") || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" ||
                n == "primaryHoverOpacity" || n == "playGlyphNudge" || // a share of an opacity, of a width (decisions 066, 071)
-               n.ends_with("Bounce") || n == "contentArriveScale" || n == "alertPulseScale" || // shares (decision 076)
+               n.ends_with("Bounce") || n == "contentArriveScale" || n == "contentRevealAt" || n == "alertPulseScale" || // shares (decision 076)
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
     };
     Tokens out = t;

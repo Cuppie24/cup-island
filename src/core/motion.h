@@ -50,6 +50,11 @@ Motion towardSize(Motion motion, Vec2 size);
 // swells and springs back (alertPulseScale), so the change isn't missed.
 bool alertPulses(const Scene& was, const Scene& next, const Tokens& t);
 
+// How long after a morph from `from` to `to` starts new content should
+// start arriving: when the growing pill is contentRevealAt of the way there
+// along `morph`. At once when it shrinks, doesn't change, or motion is reduced.
+Ms revealDelay(const Motion& morph, Rect from, Rect to, const Tokens& t);
+
 // New content arriving, top row first: each row's delay after the first, by
 // each element's top (in the order given). Rows past contentStaggerRows wait
 // as long as the last one.
@@ -64,6 +69,7 @@ struct SceneMotion {
     Motion morph; // the pill's bounds (interactiveBounds) from the old scene's to the new
     Vec2 fling;   // what was just let go carries this (pixels per ms) into its landing
     bool pulse = false;
+    Ms reveal{};  // new content starts arriving this long after the morph starts (revealDelay)
 };
 // `pointer`: the drag's speed if one ends here (flingVelocity). Only what was
 // let go carries it: a lifted island sideways (it lands on the edge), the

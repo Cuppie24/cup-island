@@ -36,7 +36,8 @@ public:
     void lift(std::optional<float> centreX, Vec2 fling = {});
     void setEars(bool left, bool right);     // false: that side is flush with the screen edge, no ear (decision 026)
     void setHighlighted(bool on);            // drop target: the background lightens (decision 007)
-    void setContent(const std::vector<Placed>& elements, Ms now) { elements_.apply(elements, now); }
+    // `reveal`: new content waits this long (the morph's, decision 076).
+    void setContent(const std::vector<Placed>& elements, Ms now, Ms reveal) { elements_.apply(elements, now, reveal); }
     ElementVisuals& elements() { return elements_; } // hover, press, scrub feedback on content
     // Expanded's tabs (pill coordinates; nullopt = none): the active tab's
     // background slides to a newly picked tab; hover is fainter and just fades.

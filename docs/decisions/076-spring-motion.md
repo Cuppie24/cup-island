@@ -41,6 +41,15 @@ off the pill (decision 001).
 - **Content arrives** growing from `contentArriveScale` while it fades in,
   each row `contentStaggerMs` after the one above (`staggerDelays`). Only
   new content; a rebuild in place just fades.
+- **Content starts with the morph, not a fixed delay** (`revealDelay`): a
+  fixed 100 ms was tuned for the old 300 ms ease-out; the spring gets the
+  pill most of the way much sooner, so content looked late. It now starts
+  when the growing pill is `contentRevealAt` (60%) of the way there, along
+  that morph's own curve, and at once when the pill shrinks or keeps its
+  size. The renderer keeps it as a moment (`revealAt_`), so the time spent
+  before the queued content build (decision 012) counts toward it instead
+  of adding to it. Fade, grow-in and stagger are short enough that content
+  settles with the pill, not after it.
 - **Alert pulse:** a new alert in a pill that keeps its size swells
   (`alertPulseScale`) and springs back, since no morph shows it arrived.
 - **Reduced motion:** with Windows' "Animation effects" off

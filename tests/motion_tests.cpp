@@ -91,6 +91,29 @@ void pulseTests()
     expect(!alertPulses(compact, alert, reduced), "reduced motion: no pulse");
 }
 
+void revealTests()
+{
+    Tokens t;
+    Rect idle{ 190, 0, 160, 28 }, card{ 0, 0, 540, 420 };
+    Motion grow = morphMotion(idle, card, t);
+    Ms reveal = revealDelay(grow, idle, card, t);
+    float at = static_cast<float>(reveal.count()) / static_cast<float>(grow.duration.count());
+    expect(reveal > Ms{ 0 } && reveal < grow.duration / 2, "growing: content comes in early in the morph");
+    expect(springProgress(grow.bounce, at) >= t.contentRevealAt, "...once the pill is contentRevealAt of the way");
+    expect(springProgress(grow.bounce, at - 0.02f) < t.contentRevealAt, "...and no later");
+    Motion small = morphMotion(idle, { 180, 0, 180, 32 }, t);
+    expect(revealDelay(small, idle, { 180, 0, 180, 32 }, t) < reveal, "a small change comes in sooner");
+    expect(revealDelay(morphMotion(card, idle, t), card, idle, t) == Ms{ 0 }, "shrinking: at once");
+    expect(revealDelay(grow, card, card, t) == Ms{ 0 }, "no morph: at once");
+    Tokens reduced;
+    reduced.reducedMotion = true;
+    expect(revealDelay(grow, idle, card, reduced) == Ms{ 0 }, "reduced motion: at once");
+    Scene was, next;
+    next.size = { 400, 200 };
+    SceneMotion m = sceneMotion(was, next, {}, t);
+    expect(m.reveal == revealDelay(m.morph, interactiveBounds(was), interactiveBounds(next), t), "a scene change carries its reveal");
+}
+
 void staggerTests()
 {
     Tokens t;
@@ -150,6 +173,7 @@ void runMotionTests()
     springTests();
     morphTests();
     pulseTests();
+    revealTests();
     staggerTests();
     sceneMotionTests();
     flingTests();

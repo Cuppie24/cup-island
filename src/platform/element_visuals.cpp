@@ -114,8 +114,9 @@ void ElementVisuals::init(wuc::Compositor const& compositor, GraphicsDevice& dev
     lists_.init(compositor, parent);
 }
 
-void ElementVisuals::apply(const std::vector<Placed>& elements, Ms now)
+void ElementVisuals::apply(const std::vector<Placed>& elements, Ms now, Ms reveal)
 {
+    reveal_ = reveal;
     deviceLost_ = false;
 
     for (auto it = views_.begin(); it != views_.end();) {
@@ -256,7 +257,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     if (!view.bars.empty()) animateBars(view);
     if (view.highlight && focusedField(placed.item)) view.highlight.Opacity(1.0f);
     if (revealsOnHover(placed.item) && rowOf(placed.key) != hoveredRow_) view.visual.Opacity(0.0f); // until its row is hovered
-    else if (fade) fadeIn(compositor_, view.visual, opacityOf(view.grey), arrive);
+    else if (fade) fadeIn(compositor_, view.visual, opacityOf(view.grey), reveal_ + arrive.value_or(Ms{ 0 }), arrive.has_value());
     else view.visual.Opacity(opacityOf(view.grey));
     return view;
 }

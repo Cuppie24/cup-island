@@ -200,9 +200,10 @@ struct Tokens {
     // Small things settling with a hint of overshoot: the tab marker gliding,
     // a toast coming up, a switch's knob, content arriving.
     Bezier settleEase{ { 0.3f, 1.3f }, { 0.5f, 1.0f } };
-    float contentArriveScale = 0.94f; // new content grows from this while fading in
-    Ms contentStagger{ 24 };          // ...each row this long after the one above
-    std::size_t contentStaggerRows = 5; // rows past this arrive with the last
+    float contentArriveScale = 0.96f; // new content grows from this while fading in
+    Ms contentArriveDuration{ 200 };  // ...over this, settling with the pill, not after it
+    Ms contentStagger{ 14 };          // ...each row this long after the one above
+    std::size_t contentStaggerRows = 4; // rows past this arrive with the last
     // A new alert in a pill that keeps its size: it swells this much and springs back.
     float alertPulseScale = 1.05f;
     Ms alertPulseDuration{ 420 };
@@ -215,8 +216,11 @@ struct Tokens {
     Ms reducedMotionDuration{ 120 };
 
     // Content crossfades slightly after the pill starts morphing.
-    Ms contentFadeDuration{ 200 };
-    Ms contentFadeDelay{ 100 };
+    Ms contentFadeDuration{ 150 };
+    // New content starts arriving once the growing pill is this share of the
+    // way to its new size (decision 076): with the spring that's early, and it
+    // follows the morph's own timing. A shrinking pill shows it at once.
+    float contentRevealAt = 0.6f;
     // Colours easing to new ones (a cover's tint, a theme pick; decision 051):
     // the island's fill, the shadow, marks and content shapes. Text switches
     // at once. One duration per speed the user can pick in Settings (decision 053).

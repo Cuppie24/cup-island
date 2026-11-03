@@ -99,6 +99,20 @@ bool alertPulses(const Scene& was, const Scene& next, const Tokens& t)
     return was.mode != Mode::Alert || next.alertPosted != was.alertPosted;
 }
 
+Ms revealDelay(const Motion& morph, Rect from, Rect to, const Tokens& t)
+{
+    if (t.reducedMotion || from == to || area(to) < area(from)) return Ms{ 0 };
+    // The first moment the spring gets that far (it can pass it again on the
+    // way back from an overshoot); fine steps, since a frame is ~1/20 of a morph.
+    constexpr int kSteps = 200;
+    for (int i = 0; i <= kSteps; ++i) {
+        float at = static_cast<float>(i) / kSteps;
+        if (springProgress(morph.bounce, at) >= t.contentRevealAt)
+            return Ms{ std::lround(at * static_cast<float>(morph.duration.count())) };
+    }
+    return morph.duration;
+}
+
 std::vector<Ms> staggerDelays(const std::vector<float>& tops, const Tokens& t)
 {
     std::vector<Ms> delays(tops.size(), Ms{ 0 });
@@ -120,7 +134,9 @@ std::vector<Ms> staggerDelays(const std::vector<float>& tops, const Tokens& t)
 
 SceneMotion sceneMotion(const Scene& was, const Scene& next, Vec2 pointer, const Tokens& t)
 {
-    SceneMotion motion{ morphMotion(interactiveBounds(was), interactiveBounds(next), t), {}, alertPulses(was, next, t) };
+    Rect from = interactiveBounds(was), to = interactiveBounds(next);
+    SceneMotion motion{ morphMotion(from, to, t), {}, alertPulses(was, next, t) };
+    motion.reveal = revealDelay(motion.morph, from, to, t);
     auto carried = [](const Scene& s) { return s.bubble && s.bubble->dragCentre; };
     if (was.lifted && !next.lifted) motion.fling = { pointer.x, 0 };
     else if (carried(was) && !carried(next)) motion.fling = pointer;

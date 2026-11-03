@@ -74,6 +74,7 @@ void PillRenderer::apply(const Scene& scene, const SceneMotion& motion)
     pill_.place(scene.size, scene.offset, motion.morph);
     pill_.lift(scene.lifted ? std::optional<float>(scene.offset.x + scene.size.x / 2) : std::nullopt, motion.fling);
     if (motion.pulse) pill_.pulse();
+    if (motion.reveal > Ms{ 0 }) revealAt_ = std::chrono::steady_clock::now() + motion.reveal;
     // A side flush with the screen's edge has no ear: it would hang off the
     // monitor. In Split the right edge is the bubble's.
     pill_.setEars(!scene.flushLeft, !(scene.flushRight && !scene.bubble));
@@ -127,9 +128,10 @@ void PillRenderer::applyContent()
     if (!pendingContent_) return;
     Scene scene = *std::exchange(pendingContent_, std::nullopt);
     auto start = std::chrono::steady_clock::now();
-    pill_.setContent(scene.elements, scene.now);
+    Ms reveal = std::max(Ms{ 0 }, std::chrono::duration_cast<Ms>(revealAt_ - start)); // what's left of it after the queue
+    pill_.setContent(scene.elements, scene.now, reveal);
     pill_.setToast(scene.toast, scene.now); // floating over it (decision 071)
-    bubble_.setContent(scene.bubble ? scene.bubble->elements : std::vector<Placed>{}, scene.now);
+    bubble_.setContent(scene.bubble ? scene.bubble->elements : std::vector<Placed>{}, scene.now, reveal);
 
     // Debug builds have a console: flag slow content builds when chasing lag.
     auto took = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);

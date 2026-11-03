@@ -20,7 +20,9 @@ namespace cup::platform {
 class ElementVisuals {
 public:
     void init(wuc::Compositor const& compositor, GraphicsDevice& device, wuc::ContainerVisual const& parent);
-    void apply(const std::vector<Placed>& elements, Ms now);
+    // `reveal`: new content starts arriving this much later, when the morph
+    // that brought it is far enough along (decision 076).
+    void apply(const std::vector<Placed>& elements, Ms now, Ms reveal = Ms{ 0 });
     // Tokens changed. Colours only (a theme, a cover): shapes fade to the new
     // colours and text is redrawn in place. Anything else (tokens.json, display
     // scale): every visual is dropped, so the next apply() rebuilds it.
@@ -63,7 +65,7 @@ private:
 
     // fade: fades in (not when a text turns into its field). arrive: new, not
     // rebuilt: also grows in, this long after the top row (decision 076).
-    View create(const Placed& placed, Ms now, bool fade = true, std::optional<Ms> arrive = std::nullopt);
+    View create(const Placed& placed, Ms now, bool fade = true, std::optional<Ms> arrive = std::nullopt); // arrive: its row's stagger
     bool update(View& view, const Placed& placed, Ms now); // true = rebuilt
     void paint(View& view);
     void recolor(View& view); // fades its shapes to the current colours and redraws its pixels
@@ -81,6 +83,7 @@ private:
     ListViewports lists_; // scrolling lists' clipped, eased containers (decision 029)
     std::string hovered_;
     std::string hoveredRow_;
+    Ms reveal_{}; // the latest apply()'s: what's built during it waits this long
     std::optional<std::string> hoveredTab_;
     bool deviceLost_ = false;
 };
