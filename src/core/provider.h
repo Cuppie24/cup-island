@@ -4,10 +4,26 @@
 
 #include "core/island.h"
 
+#include <functional>
 #include <optional>
 #include <string>
 
 namespace cup {
+
+// What a call to Cup Island's service brought back (Host::callService,
+// decision 078). `body` is the service's whole JSON-RPC answer (it may still
+// be an error answer); empty unless problem is None.
+struct ServiceReply {
+    enum class Problem {
+        None,
+        NotInstalled, // file search was never set up, or was removed
+        NotRunning,   // installed, but not answering (Windows restarts it)
+        NotAllowed,   // this provider wasn't granted that module
+        NoAnswer,     // it went away mid-call, or answered nonsense
+    };
+    Problem problem = Problem::None;
+    std::string body;
+};
 
 // A click on a button or a seekable progress bar, routed to its provider.
 struct Action {
@@ -63,6 +79,21 @@ public:
     // Local time minus UTC, now: where the user's day starts (Pomodoro's
     // "today", decision 061). Default: UTC, for hosts that don't know (tests).
     virtual Ms utcOffset() const { return Ms{ 0 }; }
+
+    // Closes this provider's card if it's the one shown and isn't pinned
+    // (search, after starting what was picked: decision 079). Default: nothing.
+    virtual void closeCard(const std::string& /*activityId*/) {}
+
+    // Calls Cup Island's service (decision 078): `method` is
+    // "<module>.<name>" ("index.query"), `params` a JSON object's text.
+    // Allowed only for modules this provider was granted. `done` comes later,
+    // on the UI thread; after the provider stopped, never. Providers never
+    // start or reach processes themselves. Default: nothing installed (tests).
+    virtual void callService(const std::string& /*method*/, const std::string& /*params*/,
+                             std::function<void(ServiceReply)> done)
+    {
+        done({ ServiceReply::Problem::NotInstalled, {} });
+    }
 };
 
 // Keys never reach a provider (decision 035): the host owns focus and

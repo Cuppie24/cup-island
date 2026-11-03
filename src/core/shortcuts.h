@@ -12,21 +12,28 @@
 
 namespace cup {
 
-enum class Command { OpenHome, OpenActivity };
+enum class Command { OpenHome, OpenActivity, OpenSearch };
 
 // A key with its modifiers. `key` uses Windows' virtual-key numbers for the
 // keys a shortcut may use: 'A'..'Z', '0'..'9', kSpace, kF1..kF1 + 11. Core
 // only compares and names them; the app passes them straight through.
+// Or `twice`: a modifier on its own, pressed twice quickly ("Double Ctrl",
+// search's default, decision 079); then `key` is kCtrl, kShift or kAlt and
+// the other fields are unset.
 struct Chord {
     int key = 0;
     bool ctrl = false, alt = false, shift = false, win = false;
+    bool twice = false;
     bool operator==(const Chord&) const = default;
 };
 constexpr int kSpace = 0x20;
 constexpr int kF1 = 0x70;
+constexpr int kShift = 0x10; // VK_SHIFT, VK_CONTROL, VK_MENU: either side's
+constexpr int kCtrl = 0x11;
+constexpr int kAlt = 0x12;
 
 bool shortcutKey(int key);                         // a key a shortcut may end in (not a modifier, not Enter or the arrows)
-std::string chordText(const Chord& chord);         // "Ctrl+Alt+Space", "Ctrl+Q"
+std::string chordText(const Chord& chord);         // "Ctrl+Alt+Space", "Ctrl+Q", "Double Ctrl"
 std::optional<Chord> parseChord(std::string_view text); // chordText's inverse; nothing if it isn't one
 
 // A command: its name in the saved file, what Settings calls it, and its default keys.
@@ -58,7 +65,9 @@ Bindings loadBindings(std::string_view text);          // defaults for whatever 
 
 // Why `chord` can't be bound to `command`, for Settings to say; empty: it can.
 // System-wide, a chord needs Ctrl, Alt or Win (a bare key would stop that
-// key typing anywhere), and two commands can't share one.
+// key typing anywhere), and two commands can't share one. A double tap of
+// Ctrl, Shift or Alt is fine: it's watched, not taken, so the key still
+// works everywhere.
 std::string bindingProblem(const Bindings& bindings, Command command, const Chord& chord);
 
 const CommandInfo& infoOf(Command command);

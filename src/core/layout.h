@@ -143,6 +143,8 @@ float pillCornerRadius(Vec2 size);
 
 // The text an edit button (Button::editsText, `actionId`) edits, if it's on the scene (decision 029).
 const Text* editedText(const Scene& scene, const std::string& activityId, const std::string& actionId);
+// The TextInput with this actionId on that card, if it's on screen.
+const TextInput* inputNamed(const Scene& scene, const std::string& activityId, const std::string& actionId);
 
 // The list element under `point` (pill coordinates), if any: what the wheel scrolls.
 const Placed* listAt(const Scene& scene, Vec2 point);

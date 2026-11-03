@@ -57,21 +57,40 @@ std::string versionText(const Version& v)
 
 std::string installerName(const Version& v) { return "CupIsland-Setup-" + versionText(v) + ".exe"; }
 
+std::string indexInstallerName(const Version& v) { return "CupIsland-Index-Setup-" + versionText(v) + ".exe"; }
+
 bool movesTo(const Version& running, const Version& offered) { return offered != running; }
 
 bool isMandatory(std::string_view notes) { return notes.find(kMandatoryMarker) != std::string_view::npos; }
 
-std::optional<UpdateOffer> offerFor(const Version& running, const GitHubRelease& latest)
+namespace {
+
+// An offer for the named installer in `latest`, by the rules offerFor states.
+std::optional<UpdateOffer> offerOf(const Version& running, const GitHubRelease& latest, std::string (*nameFor)(const Version&))
 {
     auto version = parseVersion(latest.tag);
     if (!version || !movesTo(running, *version)) return std::nullopt;
-    std::string name = installerName(*version);
+    std::string name = nameFor(*version);
     auto asset = std::find_if(latest.assets.begin(), latest.assets.end(), [&](const ReleaseAsset& a) { return a.name == name; });
     if (asset == latest.assets.end() || !onGitHub(asset->url)) return std::nullopt;
     auto sha = sha256Of(asset->digest);
     if (!sha) return std::nullopt;
     return UpdateOffer{ .version = *version, .url = asset->url, .sha256 = *sha, .fileName = name,
                         .page = onGitHub(latest.page) ? latest.page : std::string(), .mandatory = latest.mandatory };
+}
+
+} // namespace
+
+std::optional<UpdateOffer> offerFor(const Version& running, const GitHubRelease& latest)
+{
+    return offerOf(running, latest, installerName);
+}
+
+std::optional<UpdateOffer> indexOfferFor(const Version& running, const GitHubRelease& latest)
+{
+    auto offer = offerOf(running, latest, indexInstallerName);
+    if (offer) offer->mandatory = false;
+    return offer;
 }
 
 } // namespace cup

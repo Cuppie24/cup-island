@@ -31,6 +31,14 @@ public:
     ~ProviderRegistry(); // stops everything still running
 
     void add(std::unique_ptr<Provider> provider);
+
+    // Cup Island's service (decision 078): who carries calls (ServiceHost),
+    // and which modules each provider may call. A call to a module the
+    // provider wasn't granted is refused here, before it goes anywhere.
+    using ServiceCaller = std::function<void(const std::string& method, const std::string& params,
+                                             std::function<void(ServiceReply)> done)>;
+    void setServiceCaller(ServiceCaller caller) { serviceCaller_ = std::move(caller); }
+    void grant(const std::string& providerId, const std::string& module);
     void start(const std::string& providerId);
     void stop(const std::string& providerId);
     bool isRunning(const std::string& providerId) const;
@@ -66,6 +74,8 @@ private:
     Clock clock_;
     Store store_;
     std::map<std::string, std::string> memory_; // "<provider>/<key>", without a store
+    ServiceCaller serviceCaller_;
+    std::map<std::string, std::vector<std::string>> grants_; // provider -> modules
     std::vector<Entry> entries_;
 };
 

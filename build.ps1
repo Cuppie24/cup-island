@@ -3,8 +3,10 @@
 # compiler, CMake and Ninja (all shipped with Visual Studio) on PATH.
 #
 # Usage: .\build.ps1 [-Run] [-Test] [-Debug] [-Installer] [-Version X.Y.Z]
-#   -Installer  also builds dist\CupIsland-Setup-<version>.exe (Release only;
-#               needs Inno Setup 6.3+, see installer\cup-island.iss)
+#   -Installer  also builds dist\CupIsland-Index-Setup-<version>.exe (file
+#               search, decision 076) and dist\CupIsland-Setup-<version>.exe,
+#               which carries it (Release only; needs Inno Setup 6.3+, see
+#               installer\cup-island-index.iss and installer\cup-island.iss)
 #   -Version    the release's version; only the Release workflow passes it
 #               (decision 036). Without it the version is git's: a dev build.
 
@@ -90,8 +92,11 @@ if ($Installer) {
             Where-Object { Test-Path $_ } | Select-Object -First 1
     }
     if (-not $iscc) { throw "Inno Setup not found. Install it (winget install JRSoftware.InnoSetup, or https://jrsoftware.org/isdl.php), then open a new terminal and re-run." }
+    # File search's installer first: the app's carries it.
+    & $iscc /Qp "/DAppVersion=$Version" "installer\cup-island-index.iss"
+    if ($LASTEXITCODE -ne 0) { throw "File search installer build failed (exit $LASTEXITCODE)" }
     & $iscc /Qp "/DAppVersion=$Version" "installer\cup-island.iss"
     if ($LASTEXITCODE -ne 0) { throw "Installer build failed (exit $LASTEXITCODE)" }
-    Write-Host "Installer: $(Get-ChildItem dist\CupIsland-Setup-*.exe | Sort-Object LastWriteTime | Select-Object -Last 1)"
+    Write-Host "Installers: dist\CupIsland-Setup-$Version.exe, dist\CupIsland-Index-Setup-$Version.exe"
 }
 if ($Run) { & $exePath }

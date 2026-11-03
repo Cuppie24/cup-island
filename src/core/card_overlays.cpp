@@ -64,4 +64,15 @@ void dropStaleOverlays(IslandState& s)
     if (s.listDrag && (!shown(s, s.listDrag->activityId) || s.dialog)) s.listDrag.reset();
 }
 
+std::optional<Action> liveChange(const std::optional<Draft>& before, const std::optional<Draft>& after, const Scene& scene)
+{
+    if (!before || !after || after->editing) return std::nullopt;
+    bool sameField = before->providerId == after->providerId && before->activityId == after->activityId &&
+                     before->actionId == after->actionId;
+    if (!sameField || before->text == after->text) return std::nullopt;
+    const TextInput* input = inputNamed(scene, after->activityId, after->actionId);
+    if (!input || input->changeAction.empty()) return std::nullopt;
+    return Action{ after->providerId, after->activityId, input->changeAction, 0, after->text };
+}
+
 } // namespace cup

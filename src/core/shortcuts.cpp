@@ -44,6 +44,12 @@ std::optional<int> keyNamed(std::string_view name)
     return std::nullopt;
 }
 
+// "Ctrl", "Shift", "Alt" for a double tap's key; "" for any other.
+std::string modifierName(int key)
+{
+    return key == kCtrl ? "Ctrl" : key == kShift ? "Shift" : key == kAlt ? "Alt" : "";
+}
+
 } // namespace
 
 bool shortcutKey(int key)
@@ -53,6 +59,7 @@ bool shortcutKey(int key)
 
 std::string chordText(const Chord& c)
 {
+    if (c.twice) return "Double " + modifierName(c.key);
     std::string text;
     if (c.ctrl) text += "Ctrl+";
     if (c.alt) text += "Alt+";
@@ -63,6 +70,13 @@ std::string chordText(const Chord& c)
 
 std::optional<Chord> parseChord(std::string_view text)
 {
+    std::string whole = trimmed(text);
+    if (whole.size() > 7 && same(std::string_view(whole).substr(0, 7), "Double ")) {
+        std::string name = trimmed(std::string_view(whole).substr(7));
+        for (int key : { kCtrl, kShift, kAlt })
+            if (same(name, modifierName(key))) return Chord{ .key = key, .twice = true };
+        return std::nullopt;
+    }
     Chord c;
     std::string_view rest = text;
     for (;;) {
@@ -88,6 +102,7 @@ const std::vector<CommandInfo>& commands()
     static const std::vector<CommandInfo> all{
         { Command::OpenHome, "home", "Open Home", Chord{ .key = 'Q', .ctrl = true } }, // takes Ctrl+Q (Quit in some apps) from other apps: the user's pick (decision 032)
         { Command::OpenActivity, "activity", "Open the activity", Chord{ .key = 'Q', .ctrl = true, .alt = true } }, // decision 050
+        { Command::OpenSearch, "search", "Search apps and files", Chord{ .key = kCtrl, .twice = true } }, // decision 079
     };
     return all;
 }
@@ -156,8 +171,13 @@ Bindings loadBindings(std::string_view text)
 
 std::string bindingProblem(const Bindings& bindings, Command command, const Chord& chord)
 {
-    if (!shortcutKey(chord.key)) return chordText(chord) + " can't be a shortcut";
-    if (!chord.ctrl && !chord.alt && !chord.win) return "A shortcut needs Ctrl, Alt or Win";
+    if (chord.twice) {
+        if (modifierName(chord.key).empty() || chord.ctrl || chord.alt || chord.shift || chord.win)
+            return "Only Ctrl, Shift or Alt can be pressed twice";
+    } else {
+        if (!shortcutKey(chord.key)) return chordText(chord) + " can't be a shortcut";
+        if (!chord.ctrl && !chord.alt && !chord.win) return "A shortcut needs Ctrl, Alt or Win";
+    }
     for (const Binding& b : bindings)
         if (b.command != command && b.chord == chord) return chordText(chord) + " is already " + infoOf(b.command).does;
     return {};

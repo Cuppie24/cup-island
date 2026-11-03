@@ -257,6 +257,14 @@ const Text* editedText(const Scene& scene, const std::string& activityId, const 
     return nullptr;
 }
 
+const TextInput* inputNamed(const Scene& scene, const std::string& activityId, const std::string& actionId)
+{
+    for (const Placed& p : scene.elements)
+        if (auto* input = std::get_if<TextInput>(&p.item); input && p.activityId == activityId && input->actionId == actionId)
+            return input;
+    return nullptr;
+}
+
 const Placed* listAt(const Scene& scene, Vec2 point)
 {
     for (const Placed& p : scene.elements)

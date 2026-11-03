@@ -234,6 +234,14 @@ const Field kFields[] = {
     { "updateFirstCheckDelayMs", &Tokens::updateFirstCheckDelay, true },
     { "updateCheckIntervalMs", &Tokens::updateCheckInterval },
     { "updateRetryMs", &Tokens::updateRetry },
+    { "searchSetupDelayMs", &Tokens::searchSetupDelay, true },
+    { "doubleTapMs", &Tokens::doubleTap, true },
+    { "doubleTapHoldMs", &Tokens::doubleTapHold, true },
+    { "searchAppRows", &Tokens::searchAppRows, true },
+    { "searchSettingRows", &Tokens::searchSettingRows },
+    { "searchFileRows", &Tokens::searchFileRows },
+    { "searchVisibleRows", &Tokens::searchVisibleRows },
+    { "launcherRefreshMs", &Tokens::launcherRefresh },
 };
 
 const Field* findField(std::string_view name)
@@ -393,7 +401,7 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
     // lightnesses and chromas (decision 051), nor the shares below.
     auto unitless = [](const char* name) {
         std::string_view n(name);
-        return n.starts_with("cover") || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" ||
+        return n.starts_with("cover") || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" || n == "searchVisibleRows" ||
                n == "primaryHoverOpacity" || n == "playGlyphNudge" || // a share of an opacity, of a width (decisions 066, 071)
                n.ends_with("Bounce") || n == "contentArriveScale" || n == "contentRevealAt" || n == "morphSpringSettle" || n == "alertPulseScale" || // shares (decision 076)
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
