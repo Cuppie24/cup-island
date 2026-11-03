@@ -36,7 +36,13 @@ Query parseQuery(std::string_view text);
 struct Hit {
     std::uint32_t record = 0;
     int score = 0;
+    bool folder = false;          // for ordering, and merging across drives
+    std::uint16_t nameLength = 0; // likewise
 };
+
+// The order search() returns: higher score, then folders, then the shorter
+// name, then the lower record.
+bool betterHit(const Hit& a, const Hit& b);
 
 // The best `limit` matches, best first. Score: each word adds 4 for the
 // whole name, 3 for the start of the name, 2 for the start of a word in it
@@ -44,6 +50,15 @@ struct Hit {
 // shorter name, then the record (so the order never wobbles). An empty
 // query finds nothing.
 std::vector<Hit> search(const FileIndex& index, const Query& query, std::size_t limit);
+
+// One hit picked from several lists (one per drive): which list, which hit.
+struct Pick {
+    std::size_t list = 0;
+    std::size_t index = 0;
+};
+// The best `limit` hits across lists that each come from search(), in
+// betterHit order; between equals, the earlier list (drive) first.
+std::vector<Pick> mergeHits(const std::vector<std::vector<Hit>>& lists, std::size_t limit);
 
 // The match class of one word in one name (0: not in it); what search() sums.
 int matchScore(std::string_view name, std::string_view lowerWord);

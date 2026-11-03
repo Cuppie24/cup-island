@@ -81,7 +81,10 @@ target_link_libraries(cup_providers PUBLIC cup_core)
 # The Windows service that reads volumes will link it; the island never does.
 add_library(cup_indexer STATIC
     src/indexer/file_index.cpp
+    src/indexer/folder_access.cpp
     src/indexer/journal.cpp
+    src/indexer/json.cpp
+    src/indexer/protocol.cpp
     src/indexer/query.cpp
     src/indexer/snapshot.cpp
     src/indexer/usn_record.cpp
@@ -97,6 +100,7 @@ if(CUP_BUILD_TESTS)
         tests/cover_tests.cpp
         tests/fullscreen_tests.cpp
         tests/home_tests.cpp
+        tests/indexer_protocol_tests.cpp
         tests/indexer_query_tests.cpp
         tests/indexer_tests.cpp
         tests/item_tests.cpp

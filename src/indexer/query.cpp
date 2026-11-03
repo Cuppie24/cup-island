@@ -160,20 +160,38 @@ std::vector<Hit> search(const FileIndex& index, const Query& query, std::size_t 
             });
             if (!inPath) continue;
         }
-        hits.push_back({ record, score });
+        hits.push_back({ record, score, folder, index.entry(record).nameLength });
     }
-    auto better = [&](const Hit& a, const Hit& b) {
-        if (a.score != b.score) return a.score > b.score;
-        bool fa = index.entry(a.record).flags & kFolder, fb = index.entry(b.record).flags & kFolder;
-        if (fa != fb) return fa;
-        std::size_t la = index.entry(a.record).nameLength, lb = index.entry(b.record).nameLength;
-        if (la != lb) return la < lb;
-        return a.record < b.record;
-    };
     std::size_t keep = std::min(limit, hits.size());
-    std::partial_sort(hits.begin(), hits.begin() + static_cast<std::ptrdiff_t>(keep), hits.end(), better);
+    std::partial_sort(hits.begin(), hits.begin() + static_cast<std::ptrdiff_t>(keep), hits.end(), betterHit);
     hits.resize(keep);
     return hits;
+}
+
+bool betterHit(const Hit& a, const Hit& b)
+{
+    if (a.score != b.score) return a.score > b.score;
+    if (a.folder != b.folder) return a.folder;
+    if (a.nameLength != b.nameLength) return a.nameLength < b.nameLength;
+    return a.record < b.record;
+}
+
+std::vector<Pick> mergeHits(const std::vector<std::vector<Hit>>& lists, std::size_t limit)
+{
+    std::vector<Pick> all;
+    for (std::size_t l = 0; l < lists.size(); ++l)
+        for (std::size_t i = 0; i < lists[l].size(); ++i) all.push_back({ l, i });
+    auto better = [&](const Pick& a, const Pick& b) {
+        const Hit& ha = lists[a.list][a.index];
+        const Hit& hb = lists[b.list][b.index];
+        if (betterHit(ha, hb)) return true;
+        if (betterHit(hb, ha)) return false;
+        return a.list < b.list;
+    };
+    // Each list is already sorted, so this is a merge; a sort keeps it short.
+    std::stable_sort(all.begin(), all.end(), better);
+    if (all.size() > limit) all.resize(limit);
+    return all;
 }
 
 } // namespace cup::indexer
