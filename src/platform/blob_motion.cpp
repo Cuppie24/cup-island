@@ -51,7 +51,7 @@ void Blob::land(Vec2 fling)
 {
     if (!following_) return;
     // Let go: spring from where it was dropped to where it belongs, carrying
-    // on a little the way it was thrown (decision 076). An explicit
+    // on a little the way it was thrown (decision 080). An explicit
     // animation with both ends, because stopping the cursor expression and
     // setting Offset left it stuck at the drop point on a real build (decision 008).
     following_ = false;

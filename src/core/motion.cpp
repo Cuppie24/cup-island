@@ -7,7 +7,7 @@
 namespace cup {
 namespace {
 
-// A damped spring on a time scale of one duration (decision 076). Its
+// A damped spring on a time scale of one duration (decision 080). Its
 // damping ratio ζ is 1 - bounce; its natural frequency ω is settle / ζ, so
 // the envelope e^(-ζωt) is e^(-settle) by t = 1. A high settle does nearly
 // all its moving early (8.5: half the way in an eighth of the time), which

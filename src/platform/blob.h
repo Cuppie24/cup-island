@@ -26,7 +26,7 @@ public:
     // coloursOnly: content is recoloured in place, else rebuilt (new sizes).
     void refreshAnimations(bool coloursOnly);
 
-    // Morphs there along `motion` (decision 076); no-op if unchanged. Following: lands there later.
+    // Morphs there along `motion` (decision 080); no-op if unchanged. Following: lands there later.
     void place(Vec2 size, Vec2 offset, const Motion& motion);
     // Stay centred on the cursor (dragged); nullopt springs back to place(),
     // carrying `fling` (pixels per ms: how fast it was let go) into the landing.
@@ -36,7 +36,7 @@ public:
     void lift(std::optional<float> centreX, Vec2 fling = {});
     void setEars(bool left, bool right);     // false: that side is flush with the screen edge, no ear (decision 026)
     void setHighlighted(bool on);            // drop target: the background lightens (decision 007)
-    // `reveal`: new content waits this long (the morph's, decision 076).
+    // `reveal`: new content waits this long (the morph's, decision 080).
     void setContent(const std::vector<Placed>& elements, Ms now, Ms reveal) { elements_.apply(elements, now, reveal); }
     ElementVisuals& elements() { return elements_; } // hover, press, scrub feedback on content
     // Expanded's tabs (pill coordinates; nullopt = none): the active tab's

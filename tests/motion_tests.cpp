@@ -1,4 +1,4 @@
-// The pill's spring and the timing around it (decision 076, core/motion.h).
+// The pill's spring and the timing around it (decision 080, core/motion.h).
 // The renderer and the interaction layer both run these curves (decision 001),
 // so their ends and overshoot are what keeps the click area on the pill.
 

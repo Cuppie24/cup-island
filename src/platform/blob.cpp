@@ -191,7 +191,7 @@ void Blob::place(Vec2 size, Vec2 offset, const Motion& motion)
     motion_ = towardSize(motion, size);
     bool resize = size != size_, move = offset != offset_ && !following_;
     if ((resize || move) && motion_ != built_) {
-        // Each morph has its own timing (decision 076): the implicit
+        // Each morph has its own timing (decision 080): the implicit
         // animations are swapped before the change starts one. One already
         // running carries on; the new one starts from where it got to.
         implicit_ = springMorph(compositor_, motion_);
@@ -297,7 +297,7 @@ void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, cons
         // "switched". Both ends explicit (decision 008).
         auto anim = compositor_.CreateVector3KeyFrameAnimation();
         anim.InsertKeyFrame(0.0f, { from->x, from->y, 0 });
-        anim.InsertKeyFrame(1.0f, { at->x, at->y, 0 }, easingFor(compositor_, settleCurve(tokens()))); // just past, and back (decision 076)
+        anim.InsertKeyFrame(1.0f, { at->x, at->y, 0 }, easingFor(compositor_, settleCurve(tokens()))); // just past, and back (decision 080)
         anim.Duration(tokens().morphDuration);
         mark.visual.StartAnimation(L"Offset", anim);
     }

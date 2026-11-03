@@ -21,7 +21,7 @@ class ElementVisuals {
 public:
     void init(wuc::Compositor const& compositor, GraphicsDevice& device, wuc::ContainerVisual const& parent);
     // `reveal`: new content starts arriving this much later, when the morph
-    // that brought it is far enough along (decision 076).
+    // that brought it is far enough along (decision 080).
     void apply(const std::vector<Placed>& elements, Ms now, Ms reveal = Ms{ 0 });
     // Tokens changed. Colours only (a theme, a cover): shapes fade to the new
     // colours and text is redrawn in place. Anything else (tokens.json, display
@@ -64,7 +64,7 @@ private:
     };
 
     // fade: fades in (not when a text turns into its field). arrive: new, not
-    // rebuilt: also grows in, this long after the top row (decision 076).
+    // rebuilt: also grows in, this long after the top row (decision 080).
     View create(const Placed& placed, Ms now, bool fade = true, std::optional<Ms> arrive = std::nullopt); // arrive: its row's stagger
     bool update(View& view, const Placed& placed, Ms now); // true = rebuilt
     void paint(View& view);

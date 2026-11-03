@@ -133,7 +133,7 @@ struct Pointer {
     Vec2 lastClickPoint;
     int clicks = 0;
 } g_pointer;
-PointerTrack g_drag; // the pointer's speed while the island or bubble is carried: a fling when let go (decision 076)
+PointerTrack g_drag; // the pointer's speed while the island or bubble is carried: a fling when let go (decision 080)
 
 // Pointer callbacks get render-layer points; content works in pill coordinates.
 Vec2 toPill(Vec2 point) { return { point.x - g_scene.offset.x, point.y - g_scene.offset.y }; }
@@ -298,7 +298,7 @@ void dispatch(const Event& event, const char* reason)
     if (next.mode != g_scene.mode) {
         logLine("%s -> %s (%s) %s", toString(g_scene.mode), toString(next.mode), reason, next.label.c_str());
     }
-    // One motion for the renderer and the window that follows it (decisions 001, 076).
+    // One motion for the renderer and the window that follows it (decisions 001, 080).
     SceneMotion motion = sceneMotion(g_scene, next, flingVelocity(g_drag, t, tokens()), tokens());
     g_renderer.apply(next, motion);
     Rect bounds = interactiveBounds(next), was = interactiveBounds(g_scene);
@@ -823,7 +823,7 @@ Spot savedSpot(const std::string& displayId)
     return it == g_spots.end() ? Spot{} : it->second;
 }
 
-// Windows' "Animation effects" (Settings > Accessibility > Visual effects): off, motion is reduced (decision 076).
+// Windows' "Animation effects" (Settings > Accessibility > Visual effects): off, motion is reduced (decision 080).
 bool animationsOff()
 {
     BOOL on = TRUE;

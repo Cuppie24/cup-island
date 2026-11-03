@@ -38,7 +38,7 @@ struct InteractionCallbacks {
     std::function<void(TimerId)> onTimer;
     std::function<void()> onShowRequested; // the app was launched again (single_instance.h)
     std::function<void()> onDisplaysChanged; // a monitor was plugged, unplugged, resized or rearranged
-    std::function<void()> onAnimationSettingChanged; // Windows' "Animation effects" was turned on or off (decision 076)
+    std::function<void()> onAnimationSettingChanged; // Windows' "Animation effects" was turned on or off (decision 080)
 };
 
 // Creates the window over the pill's initial bounds and starts the
@@ -51,7 +51,7 @@ void setRenderOrigin(int renderLeft, int renderTop);
 
 // Follow the morph the renderer just started toward these bounds (the pill,
 // plus the bubble in Split), frame by frame (decision 001), along the same
-// spring, carrying the same fling (decision 076).
+// spring, carrying the same fling (decision 080).
 void followMorph(Vec2 toSize, Vec2 toOffset, const SceneMotion& motion);
 
 // Be over these bounds now, with no morph: where a lifted island was let go,

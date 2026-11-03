@@ -1,5 +1,5 @@
 #pragma once
-// The pill's spring (decision 076) as Composition animations. Composition's
+// The pill's spring (decision 080) as Composition animations. Composition's
 // own springs can't be replayed exactly by the interaction layer (decision
 // 001), so the curve from core/motion.h is laid down as kSpringKeyframes
 // linear steps: the same curve, sampled.

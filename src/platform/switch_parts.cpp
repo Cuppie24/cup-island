@@ -52,7 +52,7 @@ void slideSwitch(Compositor const& c, const SwitchParts& parts, Vec2 frame, bool
 {
     const Tokens& t = tokens();
     auto slide = c.CreateVector2KeyFrameAnimation();
-    // Just past the end and back: the knob lands, from wherever it is (decision 076).
+    // Just past the end and back: the knob lands, from wherever it is (decision 080).
     Bezier settle = settleCurve(t);
     slide.InsertKeyFrame(1.0f, knobCentre(frame, on), c.CreateCubicBezierEasingFunction(toFloat2(settle.c1), toFloat2(settle.c2)));
     slide.Duration(std::max(t.morphDuration, Ms{ 1 }));
