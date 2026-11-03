@@ -1,0 +1,78 @@
+# 079: The search card, live fields and Double Ctrl
+
+Status: Proposed (builds on 077's launcher and 078's service rules)
+
+**Context.** Search needs a way in, from anywhere, and a card that answers
+as you type: apps first, then Settings and Control Panel, then files. The
+owner picked Double Ctrl as its default shortcut, as in Listary. Three
+things the island didn't have: a text field that reports every keystroke
+(fields reported only Enter, decision 016), a shortcut that isn't a key
+combination (RegisterHotKey knows only those, decision 032), and a way for a
+provider to close its own card once it has started what was picked.
+
+**Decision.**
+- **Search is a provider** (`providers/search/`), not part of the host: a
+  Search widget on Home and its card, built from the content model like
+  any other. Its Windows side (reading the shell's folders, launching) is
+  behind hooks, so the rest is tested on Linux. It's granted the service's
+  `index` module (decision 078) and gets files only through the host.
+- **The card:** a field, then results in one scrolling list, at most
+  `searchAppRows` apps, then `searchSettingRows` Settings and Control Panel
+  items, then `searchFileRows` files (tokens.json), so a hundred files never
+  push the app you meant off the card. Each row: an icon, the name, what it
+  is (App, Settings, Control Panel, or a file's folder) and the chevron
+  Settings' rows have (decision 030): the whole row is the button. Enter
+  starts the top result. Nothing typed, the card lists what was launched
+  most, lately. File search not set up or starting is said under the list.
+  Answers for an older query are dropped, so fast typing never shows stale
+  files. Icons are glyphs for now; apps' own icons need a look on Windows
+  first (the content model can carry them, `Image`).
+- **Live fields:** `TextInput::changeAction`. Set, every edit (typing,
+  erasing, paste, cut) sends that action with the field's whole text; Enter
+  still sends `actionId`. The rule is pure (`liveChange`, in
+  `core/card_overlays`) and the app applies it after every event.
+- **`Host::closeCard(activityId)`:** a provider closes its card if it's the
+  one shown and isn't pinned (decision 046); opened from Home, it closes all
+  the way. Search calls it once something started, so the island is out of
+  the way of the app it opened. A state rule: `home.scenario`.
+- **Double-tap shortcuts.** A chord can be `twice`: Ctrl, Shift or Alt on its
+  own, pressed twice quickly ("Double Ctrl"). It is one more command in
+  decision 032's table, "Search apps and files", rebindable to an ordinary
+  chord in Settings like the others (recording a double tap there isn't
+  supported yet: once changed, Double Ctrl comes back only by deleting the
+  `search=` line from the saved shortcuts, which then falls back to the default).
+  - **When it fires** (`core/double_tap`, pure, tested): each tap down and
+    up within `doubleTapHoldMs`, the second press within `doubleTapMs` of the
+    first's release, nothing else pressed in between, firing as the second
+    tap lets go. So Ctrl+C, Ctrl+V and "Ctrl, Ctrl+C" never open search, and
+    the island doesn't open while Ctrl is still held (the first letter typed
+    would be a Ctrl shortcut).
+  - **How it's watched** (`platform/tap_hook`): a low-level keyboard hook
+    on a thread of its own (Windows drops a slow hook, and the UI thread may
+    be drawing), which only watches: every key still reaches the app in
+    front. It posts the command as an ordinary WM_HOTKEY, so nothing after
+    it can tell the two kinds apart. Off whenever the other shortcuts are
+    off (a fullscreen app, decision 032). WH_KEYBOARD_LL is Windows 2000+
+    (decision 015).
+  - **Coming to the front:** a real hotkey gives the app that receives it
+    leave to take the foreground; a hook doesn't. If SetForegroundWindow is
+    refused, a harmless Alt tap first lets it through (`bringToFront`), as
+    launchers such as PowerToys do.
+- **Opening** (the command): search's card, its field focused, last time's
+  words selected (decision 050 keeps a field's text), so typing replaces
+  them. Pressed again while it's open, the card closes.
+
+**Consequences.** A keyboard hook in the island: it sees every key press,
+so it must stay tiny and do nothing but feed DoubleTap, and it's a reason
+some security tools may look at the app; nothing it sees is stored or sent.
+Two new core pieces (a live field, a provider closing its card) that any
+provider can use.
+
+**Not checked yet (Windows):** the hook and Alt-tap foreground, the shell
+folders' contents (two ids for "All Control Panel Items" are tried, decision
+077), launching Store apps and Control Panel items, and the card's look.
+
+**Open.** Arrow keys from the field into the results (today: Enter for the
+top one, or click; Tab moves focus as on any card). Ctrl+Shift+Enter to run
+as administrator (decision 077) needs the host to tell a provider about
+modifiers, which it never does (decision 035): a row button instead, maybe.

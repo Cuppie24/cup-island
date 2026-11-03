@@ -5,6 +5,8 @@
 // island.cpp to keep it readable.
 
 #include "core/island.h"
+#include "core/layout.h"
+#include "core/provider.h"
 
 namespace cup {
 
@@ -22,5 +24,11 @@ void dropStaleOverlays(IslandState& state);
 void dropDraft(IslandState& state);
 
 std::string keptKey(const std::string& activityId, const std::string& actionId); // "<activityId>/<actionId>"
+
+// A live field's edit (TextInput::changeAction, decision 079): the action
+// to send after an event, if the same field's text changed. `scene` is the
+// new one; a field not on it, or not live, sends nothing. Focusing a field,
+// or leaving one, isn't an edit.
+std::optional<Action> liveChange(const std::optional<Draft>& before, const std::optional<Draft>& after, const Scene& scene);
 
 } // namespace cup

@@ -159,3 +159,16 @@ esc                                 -> Compact
 alert copied
 click                               -> Expanded expanded=media
 esc                                 -> Compact
+
+scenario: a provider closes its own card when it's done (search, decision 079)
+panel search
+tile search                         -> Expanded expanded=search
+close-card other                    -> Expanded expanded=search   # someone else's: nothing
+close-card search                   -> Idle
+panel focus
+home
+tile search                         -> Expanded expanded=search
+close-card search                   -> Idle                       # opened from Home: closes all the way
+tile search
+pin                                 -> Expanded stay=yes
+close-card search                   -> Expanded expanded=search   # pinned: it stays (decision 046)

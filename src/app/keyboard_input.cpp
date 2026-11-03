@@ -1,5 +1,8 @@
 #include "app/keyboard_input.h"
 
+#include "platform/tap_hook.h"
+#include "providers/search/search_provider.h"
+
 #include "core/keyboard.h"
 #include "core/shortcuts.h"
 #include "platform/hotkeys.h"
@@ -85,6 +88,20 @@ void run(Command command)
         dispatch(ActivityOpened{}, "shortcut");
         if (!state().expandedId.empty()) SetForegroundWindow(g_hooks.window);
         return;
+    case Command::OpenSearch: { // search's card, typing in its field at once; again, it closes (decision 079)
+        const std::string id = SearchProvider::kPanelId;
+        if (state().expandedId == id && !state().homeOpen) {
+            dispatch(CardCloseRequested{ id }, "shortcut");
+            return;
+        }
+        dispatch(TileClicked{ id }, "shortcut");
+        if (state().expandedId != id) return;
+        platform::bringToFront(g_hooks.window); // a double tap isn't a real hotkey: no leave to come forward (tap_hook.h)
+        SetFocus(g_hooks.window);
+        dispatch(InputFocused{ id, id, search_action::kGo, "" }, "shortcut");
+        dispatch(AllSelected{}, "shortcut"); // last time's words, selected: typing replaces them
+        return;
+    }
     }
 }
 

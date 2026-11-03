@@ -126,7 +126,9 @@ void runKeyboardTests()
         expect(clicks(keys, edit) == std::string(P::kEditShortcut) + "0" && edit->list, "keys page: down from the back arrow, Open Home's row, in the list");
         auto first = edit;
         edit = moveFocus(keys, edit->id, Arrow::Down);
-        expect(clicks(keys, edit) == std::string(P::kEditShortcut) + "1", "keys page: down again, Open the activity's row, the list's last stop");
+        expect(clicks(keys, edit) == std::string(P::kEditShortcut) + "1", "keys page: down again, Open the activity's row");
+        edit = moveFocus(keys, edit->id, Arrow::Down);
+        expect(clicks(keys, edit) == std::string(P::kEditShortcut) + "2", "keys page: down again, search's row, the list's last stop");
         int scrolls = 0;
         while (auto scroll = scrollInstead(keys, edit->id, Arrow::Down)) {
             expect(scroll->delta > 0 && scroll->list == P::kShortcutList, "keys page: down at the list's last stop scrolls it");

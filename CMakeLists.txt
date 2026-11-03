@@ -28,6 +28,7 @@ add_library(cup_core STATIC
     src/core/content.cpp
     src/core/cover_palette.cpp
     src/core/dialog.cpp
+    src/core/double_tap.cpp
     src/core/toast.cpp
     src/core/easing.cpp
     src/core/fullscreen.cpp
@@ -71,11 +72,29 @@ add_library(cup_providers STATIC
     src/providers/system/settings_provider.cpp
     src/providers/system/system_panels.cpp
     src/providers/file_store.cpp
+    src/providers/search/launchables.cpp
+    src/providers/search/search_provider.cpp
+    src/providers/service_host.cpp
     src/providers/update/release.cpp
+    src/providers/update/release_json.cpp
     src/providers/update/update_provider.cpp
     src/providers/provider_registry.cpp
 )
-target_link_libraries(cup_providers PUBLIC cup_core)
+target_link_libraries(cup_providers PUBLIC cup_core cup_indexer) # the island talks to the file index (decisions 075, 076)
+
+# --- indexer: the file index's logic (decision 075); pure, builds on any OS --
+# The Windows service that reads volumes will link it; the island never does.
+add_library(cup_indexer STATIC
+    src/indexer/file_index.cpp
+    src/indexer/folder_access.cpp
+    src/indexer/journal.cpp
+    src/indexer/json.cpp
+    src/indexer/protocol.cpp
+    src/indexer/query.cpp
+    src/indexer/snapshot.cpp
+    src/indexer/usn_record.cpp
+)
+target_include_directories(cup_indexer PUBLIC src)
 
 option(CUP_BUILD_TESTS "Build core tests" ON)
 if(CUP_BUILD_TESTS)
@@ -84,8 +103,12 @@ if(CUP_BUILD_TESTS)
         tests/badge_tests.cpp
         tests/content_tests.cpp
         tests/cover_tests.cpp
+        tests/double_tap_tests.cpp
         tests/fullscreen_tests.cpp
         tests/home_tests.cpp
+        tests/indexer_protocol_tests.cpp
+        tests/indexer_query_tests.cpp
+        tests/indexer_tests.cpp
         tests/item_tests.cpp
         tests/keyboard_tests.cpp
         tests/list_card_tests.cpp
@@ -98,6 +121,8 @@ if(CUP_BUILD_TESTS)
         tests/unit_tests.cpp
         tests/update_tests.cpp
         tests/scenario_runner.cpp
+        tests/search_tests.cpp
+        tests/service_host_tests.cpp
         tests/settings_tests.cpp
         tests/settings_new_tests.cpp
         tests/shortcut_settings_tests.cpp
@@ -106,7 +131,7 @@ if(CUP_BUILD_TESTS)
         tests/todo_tests.cpp
         tests/tokens_tests.cpp
     )
-    target_link_libraries(cup_tests PRIVATE cup_providers)
+    target_link_libraries(cup_tests PRIVATE cup_providers cup_indexer)
     target_compile_definitions(cup_tests PRIVATE
         CUP_SCENARIO_DIR="${CMAKE_SOURCE_DIR}/tests/scenarios"
         CUP_TOKENS_FILE="${CMAKE_SOURCE_DIR}/assets/tokens.json")
@@ -181,6 +206,7 @@ if(WIN32)
         src/platform/single_instance.cpp
         src/platform/text_input.cpp
         src/platform/stay_on_top.cpp
+        src/platform/tap_hook.cpp
         src/platform/tray_icon.cpp
         src/platform/watchdog.cpp
         src/platform/window_name.cpp
@@ -189,6 +215,9 @@ if(WIN32)
         src/providers/media/browser_tabs.cpp
         src/providers/media/smtc_media_provider.cpp
         src/providers/media/smtc_reading.cpp
+        src/providers/search/windows_apps.cpp
+        src/providers/service_link.cpp
+        src/service/index_client.cpp
         src/providers/system/theme_provider.cpp
         src/providers/update/github.cpp
     )
@@ -207,6 +236,26 @@ if(WIN32)
         $<$<NOT:$<CONFIG:Debug>>:/OPT:ICF>)
     # Dev builds read and live-reload the source tree's tokens.json directly.
     target_compile_definitions(CupIsland PRIVATE CUP_TOKENS_SOURCE_PATH=L"${CMAKE_SOURCE_DIR}/assets/tokens.json")
+
+    # The file index service and its terminal client (decision 075). Console
+    # subsystem: the Service Control Manager starts it without a window, and
+    # --console runs it in a terminal. Neither links the island's code.
+    add_executable(CupIslandIndex
+        src/service/answers.cpp
+        src/service/main.cpp
+        src/service/pipe_server.cpp
+        src/service/self_update.cpp
+        src/service/service_control.cpp
+        src/service/service_log.cpp
+        src/service/volume_io.cpp
+        src/service/volume_watcher.cpp
+    )
+    target_include_directories(CupIslandIndex PRIVATE "${CMAKE_BINARY_DIR}/generated") # cup_version.h: the same version as the app (decision 076)
+    # cup_providers for the release rules it shares with the app's updater (providers/update/release*).
+    target_link_libraries(CupIslandIndex PRIVATE cup_indexer cup_providers Advapi32 Shell32 Ole32 Uuid Winhttp Bcrypt)
+    target_link_options(CupIslandIndex PRIVATE $<$<NOT:$<CONFIG:Debug>>:/DEBUG> $<$<NOT:$<CONFIG:Debug>>:/OPT:REF> $<$<NOT:$<CONFIG:Debug>>:/OPT:ICF>)
+    add_executable(cupindex src/service/cupindex.cpp src/service/index_client.cpp)
+    target_link_libraries(cupindex PRIVATE cup_indexer Advapi32)
 
     # C++/WinRT headers ship in the Windows SDK; most setups already have
     # them on the include path, this covers the ones that don't.

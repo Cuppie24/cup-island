@@ -276,6 +276,14 @@ void handle(IslandState& s, const HomeOpened&, Ms now)
     if (!s.panels.empty()) openHome(s, now);
 }
 
+// A provider closing its card (search, after starting an app: decision 079).
+// Only that card, while it's shown and not pinned (decision 046); from Home,
+// it closes all the way, like a launch from the Start menu.
+void handle(IslandState& s, const CardCloseRequested& e, Ms)
+{
+    if (s.expandedId == e.id && !s.homeOpen && !s.stayOpen) collapse(s);
+}
+
 // The activity shortcut (decision 050): the card of the pill's activity, the
 // one a click on the pill opens, from anywhere (Home, another card, an alert).
 // Pressed again on that card, it closes, like Open Home's.

@@ -93,6 +93,9 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::ChevronRight: return L"\uE76C";
     case Glyph::ChevronDown: return L"\uE70D"; // the Done row, open (decision 071)
     case Glyph::Download: return L"\uE896";
+    case Glyph::Search: return L"\uE721"; // search (decision 079); in MDL2 Assets and Fluent Icons alike
+    case Glyph::File: return L"\uE8A5";
+    case Glyph::Folder: return L"\uE8B7";
     case Glyph::Centre: return L"\uE8E3"; // AlignCenter: back to the middle
     case Glyph::Minus: return L"\uE738";  // Remove
     case Glyph::Plus: return L"\uE710";   // Add
