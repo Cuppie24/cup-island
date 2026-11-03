@@ -53,6 +53,11 @@ public:
         registry_.dispatch_(ToastShown{ std::move(toast) }, providerId_.c_str());
     }
 
+    void closeCard(const std::string& activityId) override
+    {
+        registry_.dispatch_(CardCloseRequested{ activityId }, providerId_.c_str());
+    }
+
     void reveal(const std::string& activityId, const std::string& list, std::size_t row) override
     {
         registry_.dispatch_(ListRevealed{ activityId, list, row }, providerId_.c_str());

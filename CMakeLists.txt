@@ -28,6 +28,7 @@ add_library(cup_core STATIC
     src/core/content.cpp
     src/core/cover_palette.cpp
     src/core/dialog.cpp
+    src/core/double_tap.cpp
     src/core/toast.cpp
     src/core/easing.cpp
     src/core/fullscreen.cpp
@@ -71,6 +72,8 @@ add_library(cup_providers STATIC
     src/providers/system/settings_provider.cpp
     src/providers/system/system_panels.cpp
     src/providers/file_store.cpp
+    src/providers/search/launchables.cpp
+    src/providers/search/search_provider.cpp
     src/providers/service_host.cpp
     src/providers/update/release.cpp
     src/providers/update/release_json.cpp
@@ -100,6 +103,7 @@ if(CUP_BUILD_TESTS)
         tests/badge_tests.cpp
         tests/content_tests.cpp
         tests/cover_tests.cpp
+        tests/double_tap_tests.cpp
         tests/fullscreen_tests.cpp
         tests/home_tests.cpp
         tests/indexer_protocol_tests.cpp
@@ -117,6 +121,7 @@ if(CUP_BUILD_TESTS)
         tests/unit_tests.cpp
         tests/update_tests.cpp
         tests/scenario_runner.cpp
+        tests/search_tests.cpp
         tests/service_host_tests.cpp
         tests/settings_tests.cpp
         tests/settings_new_tests.cpp
@@ -201,6 +206,7 @@ if(WIN32)
         src/platform/single_instance.cpp
         src/platform/text_input.cpp
         src/platform/stay_on_top.cpp
+        src/platform/tap_hook.cpp
         src/platform/tray_icon.cpp
         src/platform/watchdog.cpp
         src/platform/window_name.cpp
@@ -209,6 +215,7 @@ if(WIN32)
         src/providers/media/browser_tabs.cpp
         src/providers/media/smtc_media_provider.cpp
         src/providers/media/smtc_reading.cpp
+        src/providers/search/windows_apps.cpp
         src/providers/service_link.cpp
         src/service/index_client.cpp
         src/providers/system/theme_provider.cpp

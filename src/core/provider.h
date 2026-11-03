@@ -80,6 +80,10 @@ public:
     // "today", decision 061). Default: UTC, for hosts that don't know (tests).
     virtual Ms utcOffset() const { return Ms{ 0 }; }
 
+    // Closes this provider's card if it's the one shown and isn't pinned
+    // (search, after starting what was picked: decision 079). Default: nothing.
+    virtual void closeCard(const std::string& /*activityId*/) {}
+
     // Calls Cup Island's service (decision 078): `method` is
     // "<module>.<name>" ("index.query"), `params` a JSON object's text.
     // Allowed only for modules this provider was granted. `done` comes later,

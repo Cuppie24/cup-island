@@ -197,6 +197,11 @@ Query parseQuery(std::string_view text)
     return q;
 }
 
+std::string foldCase(std::string_view text)
+{
+    return lowered(text);
+}
+
 int matchScore(std::string_view name, std::string_view lowerWord, bool folder)
 {
     if (lowerWord.empty()) return 0;

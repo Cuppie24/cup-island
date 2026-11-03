@@ -22,6 +22,7 @@
 
 #include "app/keyboard_input.h"
 #include "app/live_tokens.h"
+#include "core/card_overlays.h"
 #include "core/dialog.h"
 #include "core/hit_test.h"
 #include "core/island.h"
@@ -52,6 +53,8 @@
 #include "providers/file_store.h"
 #include "providers/media/smtc_media_provider.h"
 #include "providers/pomodoro/pomodoro_provider.h"
+#include "providers/search/search_provider.h"
+#include "providers/search/windows_apps.h"
 #include "providers/service_host.h"
 #include "providers/service_link.h"
 #include "providers/system/settings_provider.h"
@@ -286,6 +289,7 @@ void dispatch(const Event& event, const char* reason)
     Spot spot = g_state.spot;
     bool wasHidden = g_state.hidden;
     std::optional<ShownCard> wasCard = shownCard(g_state);
+    std::optional<Draft> wasDraft = g_state.draft;
     g_state = reduce(g_state, event, t);
     Scene next = layout(g_state, t, [](const Text& text) { return g_renderer.measure(text); });
 
@@ -320,6 +324,9 @@ void dispatch(const Event& event, const char* reason)
         Vec2 oldCanvas = tokens().canvas;
         if (app::setTint(g_tint.shown)) tokensChanged(oldCanvas, "cover");
     }
+
+    // A live field's edit goes to its provider at once (search, decision 079).
+    if (auto change = liveChange(wasDraft, g_state.draft, g_scene); change && g_providers) g_providers->route(*change);
 
     // Hidden (a fullscreen app, decision 032): the shortcuts let go of their keys, so that app gets them.
     // Last: Settings republishes, which dispatches again.
@@ -1044,10 +1051,20 @@ int main()
     g_providers->setServiceCaller([services](const std::string& method, const std::string& params,
                                              std::function<void(ServiceReply)> done) { services->call(method, params, std::move(done)); });
     g_providers->add(std::move(serviceHost));
+    // Search (decisions 077, 079): apps, Settings and files; files through the host's service.
+    g_providers->add(std::make_unique<SearchProvider>(SearchHooks{
+        .loadApps = loadWindowsApps,
+        .launch = launchItem,
+        .openFile = openPath,
+        .windowsBuild = windowsBuild(),
+        .russian = russianUi(),
+    }));
+    g_providers->grant(SearchProvider::kId, "index");
     // Home's widgets follow the order panels first appear: media and Pomodoro
     // first (decision 019), then the system tiles.
     g_providers->start("media");
     g_providers->start("pomodoro");
+    g_providers->start(SearchProvider::kId);
     g_providers->start("system.theme");
     g_providers->start("system.settings");
     g_providers->start("system.update");

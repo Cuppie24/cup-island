@@ -11,7 +11,9 @@
 namespace cup::platform {
 
 // Registers `chord` for `command`, replacing what it had. False if Windows
-// refused (another app has those keys); then the command has none.
+// refused (another app has those keys); then the command has none. A double
+// tap ("Double Ctrl") is watched by a keyboard hook instead (tap_hook.h),
+// which posts the same WM_HOTKEY.
 bool registerHotkey(HWND hwnd, Command command, const Chord& chord);
 
 void unregisterHotkeys(HWND hwnd); // every command's: before the window goes

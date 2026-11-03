@@ -151,6 +151,7 @@ struct PanelPublished { Panel panel; }; // existing id = replace, keeping its pl
 struct PanelRemoved { std::string id; };
 struct HomeOpened {};                   // Home tab (decision 009)
 struct ActivityOpened {};               // its shortcut (decision 050): the pill's activity's card; again on it, closes
+struct CardCloseRequested { std::string id; }; // its provider is done with it (Host::closeCard, decision 079): closes if shown
 struct TileClicked { std::string id; }; // a Home tile, not on a button: open its card
 struct InputFocused {    // a TextInput was clicked, or an edit button (then `text` is what's edited)
     std::string providerId, activityId, actionId;
@@ -194,7 +195,7 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            BubbleClicked, ActivityPromoted, ActivitySwitched,
                            BubbleDragged, BubbleReleased, BubbleDragCancelled,
                            IslandPressed, IslandDragged, IslandReleased, ScreenResized, SpotRestored,
-                           PanelPublished, PanelRemoved, HomeOpened, ActivityOpened, TileClicked, ClockSynced,
+                           PanelPublished, PanelRemoved, HomeOpened, ActivityOpened, CardCloseRequested, TileClicked, ClockSynced,
                            InputFocused, TextTyped, TextErased, CaretMoved, CaretPlaced, WordSelected, AllSelected,
                            InputSubmitted, InputCancelled,
                            DialogShown, DialogClosed, ToastShown, ToastClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,

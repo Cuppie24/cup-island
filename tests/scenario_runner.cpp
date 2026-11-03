@@ -16,6 +16,7 @@
 //            delete [word]  caret <left|right|word-left|word-right|start|end> [select]
 //            place <n> [select]  select-word <n>  select-all                     (caret and selection, decision 043)
 //            open-activity                                                           (the activity shortcut, decision 050)
+//            close-card <id>                                                         (its provider closes it, decision 079)
 //            pin                                                                     (Expanded's pin, decision 046)
 //            tabrow top|bottom                                                       (Settings' Tab row, decision 048)
 //            ask <card>  close-dialog                                               (a provider's dialog, decision 020)
@@ -136,6 +137,7 @@ struct Runner {
             apply(AlertPosted{ a });
         } else if (cmd == "click") apply(PillClicked{});
         else if (cmd == "outside") apply(ClickedOutside{});
+        else if (cmd == "close-card" && w.size() > 1) apply(CardCloseRequested{ w[1] });
         else if (cmd == "esc") apply(EscapePressed{});
         else if (cmd == "pointer") apply(PointerMoved{});
         else if (cmd == "drag-enter") apply(DragEntered{ true });

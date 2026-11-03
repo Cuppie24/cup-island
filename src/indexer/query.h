@@ -66,6 +66,11 @@ struct Pick {
 // betterHit order; between equals, the earlier list (drive) first.
 std::vector<Pick> mergeHits(const std::vector<std::vector<Hit>>& lists, std::size_t limit);
 
+// `text` with English and Russian capitals folded to small letters, as
+// matching sees it: what a word must be in before matchScore (the launcher
+// folds its initials with it, decision 077).
+std::string foldCase(std::string_view text);
+
 // The match class of one word in one name (0: not in it); what search()
 // sums. A folder's name has no extension: "v1.2" is all name.
 int matchScore(std::string_view name, std::string_view lowerWord, bool folder = false);
