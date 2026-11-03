@@ -20,7 +20,7 @@ namespace {
 
 int usage()
 {
-    std::puts("usage: cupindex status\n       cupindex query <words, ext:pdf, path:docs, file:, folder:> [--limit N]\n       cupindex update");
+    std::puts("usage: cupindex status\n       cupindex query <words, personal/documents, ext:pdf, path:docs, file:, folder:> [--limit N]\n       cupindex update");
     return 1;
 }
 

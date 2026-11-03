@@ -21,17 +21,30 @@ constexpr std::size_t kMaxTerms = 16;
 
 enum class Kind { Any, Files, Folders };
 
+// A word with a '/' or '\' in it ("personal/documents"): its last part
+// must match the name like any word, and the whole must be in the item's own
+// path, '\'-separated ("…\personal\documents"). A drive letter is dropped
+// (each drive is searched on its own: "d:/x" is "\x"); a leading separator
+// keeps the match to a folder's start ("/documents" isn't "mydocuments").
+struct PathWord {
+    std::string whole; // lower case, '\' as the separator, no drive letter
+    std::string tail;  // the part after the last separator
+    bool operator==(const PathWord&) const = default;
+};
+
 struct Query {
     std::vector<std::string> words;      // each must be in the name; lower case
+    std::vector<PathWord> paths;         // personal/documents: see PathWord
     std::vector<std::string> extensions; // ext:pdf;docx: one must match, lower case, no dot
     std::vector<std::string> pathWords;  // path:music: each must be in the folder's path
-    Kind kind = Kind::Any;               // file: / folder:
-    bool empty() const { return words.empty() && extensions.empty() && pathWords.empty(); }
+    Kind kind = Kind::Any;               // file: / folder: (and a path word ending in '/')
+    bool empty() const { return words.empty() && paths.empty() && extensions.empty() && pathWords.empty(); }
 };
 
 // Words are split on spaces; "quoted text" is one word. `ext:a;b` (or a,b),
-// `path:x`, `file:` and `folder:` filter; `folder:x` is also the word x.
-// Any other `a:b` is just a word.
+// `path:x`, `file:` and `folder:` filter; `folder:x` is also the word x. A
+// word with a separator is a path word; one ending in it ("documents/")
+// finds only folders. Any other `a:b` is just a word.
 Query parseQuery(std::string_view text);
 
 struct Hit {
@@ -40,21 +53,23 @@ struct Hit {
     bool folder = false;          // for ordering, and merging across drives
     std::uint16_t nameLength = 0; // in characters, likewise
     bool noise = false;           // inside a noise folder (file_index.h), likewise
+    std::uint16_t depth = 0;      // folders above it (C:\x.txt: 1), likewise
 };
 
 // The order search() returns: outside noise folders first, then the higher
-// score, then folders, then the shorter name, then the lower record.
+// score, then the shorter path (D:\Documents before D:\a\b\Documents), then
+// folders, then the shorter name, then the lower record.
 bool betterHit(const Hit& a, const Hit& b);
 
 // The best `limit` matches, best first. Score: each word adds 4 for the
 // whole name or, for a file, the name before its extension ("notepad" for
 // notepad.exe), 3 for the start of the name, 2 for the start of a word in it
-// ("report" in "q3-report.pdf"), 1 anywhere. Anything inside a noise folder
-// (WinSxS, node_modules...) comes after everything else, unless a path:
-// filter names one: then it's what was asked for. Ties: folders first, then
-// the shorter name in characters (a Cyrillic letter is two bytes, but one
-// letter), then the record (so the order never wobbles). An empty query
-// finds nothing.
+// ("report" in "q3-report.pdf"), 1 anywhere; a path word scores by its last
+// part. Anything inside a noise folder (WinSxS, node_modules...) comes after
+// everything else, unless a path: filter names one: then it's what was asked
+// for. Ties: the shorter path, then folders, then the shorter name in
+// characters (a Cyrillic letter is two bytes, but one letter), then the
+// record (so the order never wobbles). An empty query finds nothing.
 std::vector<Hit> search(const FileIndex& index, const Query& query, std::size_t limit);
 
 // One hit picked from several lists (one per drive): which list, which hit.

@@ -57,7 +57,13 @@ void parseTests()
     expect(q.pathWords == std::vector<std::string>{ "docs" } && q.kind == Kind::Files, "path:, and the last of file:/folder:");
     Query f = parseQuery("folder:music");
     expect(f.kind == Kind::Folders && f.words == std::vector<std::string>{ "music" }, "folder:x is a folder named like x");
-    expect(parseQuery("http://x").words == std::vector<std::string>{ "http://x" }, "other colons are plain text");
+    expect(parseQuery("note:1").words == std::vector<std::string>{ "note:1" }, "other colons are plain text");
+    Query paths = parseQuery("Personal/Documents d:\\Work\\ \\x / report");
+    expect(paths.paths.size() == 3 && paths.paths[0] == PathWord{ "personal\\documents", "documents" } &&
+           paths.paths[1] == PathWord{ "\\work", "work" } && paths.paths[2] == PathWord{ "\\x", "x" } &&
+           paths.words == std::vector<std::string>{ "report" }, "path words: '/' as '\\', lower case, the drive dropped");
+    expect(paths.kind == Kind::Folders && parseQuery("a/b").kind == Kind::Any, "a trailing separator: folders only");
+    expect(!parseQuery("///").empty() == false && parseQuery("a/b").words.empty(), "only separators is nothing; a path word isn't a name word");
     expect(parseQuery("path:\"my music\"").pathWords == std::vector<std::string>{ "my music" }, "a quoted filter value");
     expect(parseQuery("ОТЧЕТ Книги").words == std::vector<std::string>{ "отчет", "книги" }, "Russian words are lowered too");
     expect(parseQuery("   ").empty() && parseQuery("file:").empty() && parseQuery("ext:").empty(), "nothing to look for");
@@ -109,6 +115,34 @@ void searchTests()
     expect(find("q3 report") == std::vector<std::uint32_t>{ 41 }, "every word must match");
     expect(find("nothing-like-this").empty() && find("").empty(), "no match, or nothing typed");
     expect(search(index, parseQuery("report"), 0).empty(), "a zero limit");
+}
+
+// Path words and shorter paths first (decision 075): D:\\Personal\\Documents
+// among several Documents folders.
+void pathTests()
+{
+    FileIndex index;
+    FileRef root = refOf(kRootRecord, 5);
+    index.put(refOf(20, 1), root, "Documents", kFolder);         // D:\Documents
+    index.put(refOf(21, 1), root, "Personal", kFolder);          // D:\Personal
+    index.put(refOf(22, 1), refOf(21, 1), "Documents", kFolder); // D:\Personal\Documents
+    index.put(refOf(23, 1), root, "Work", kFolder);
+    index.put(refOf(24, 1), refOf(23, 1), "old", kFolder);
+    index.put(refOf(25, 1), refOf(24, 1), "Documents", kFolder); // D:\Work\old\Documents
+    index.put(refOf(26, 1), refOf(22, 1), "documents.txt", 0);   // D:\Personal\Documents\documents.txt
+    index.put(refOf(27, 1), root, "MyPersonal", kFolder);
+    index.put(refOf(28, 1), refOf(27, 1), "Documents", kFolder); // D:\MyPersonal\Documents
+    auto find = [&](const char* text) { return records(search(index, parseQuery(text), 50)); };
+
+    expect(find("documents") == std::vector<std::uint32_t>{ 20, 22, 28, 25, 26 },
+           "equal matches: the shorter path first (a folder before a file at the same depth)");
+    expect(find("personal/documents") == std::vector<std::uint32_t>{ 22, 28, 26 },
+           "a path word: its last part names the item, the whole is in its path");
+    expect(find("/personal/documents") == std::vector<std::uint32_t>{ 22, 26 }, "a leading separator starts at a folder: not MyPersonal");
+    expect(find("D:\\Personal\\Documents\\") == std::vector<std::uint32_t>{ 22 }, "backslashes, a drive and a trailing separator: that folder");
+    expect(find("work/documents") == std::vector<std::uint32_t>{}, "the parts must be next to each other in the path");
+    expect(find("work/old/doc") == std::vector<std::uint32_t>{ 25 }, "the last part can be the start of the name");
+    expect(find("personal/documents ext:txt") == std::vector<std::uint32_t>{ 26 }, "with filters too");
 }
 
 void rankingTests()
@@ -235,6 +269,7 @@ void runIndexerQueryTests()
     parseTests();
     matchTests();
     searchTests();
+    pathTests();
     rankingTests();
     snapshotTests();
 }

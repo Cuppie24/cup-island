@@ -1,5 +1,7 @@
 #include "indexer/query.h"
 
+#include "indexer/folder_memo.h"
+
 #include <algorithm>
 #include <optional>
 
@@ -96,6 +98,26 @@ void addTerm(std::vector<std::string>& to, std::string term, std::size_t& terms)
     ++terms;
 }
 
+// "D:/Personal/Documents/" -> whole "\\personal\\documents", tail "documents",
+// folders only. See PathWord.
+void addPath(Query& q, std::string word, std::size_t& terms)
+{
+    if (terms >= kMaxTerms) return;
+    std::replace(word.begin(), word.end(), '/', '\\');
+    if (word.size() >= 2 && word[1] == ':' && word[0] >= 'a' && word[0] <= 'z') word.erase(0, 2); // the drive
+    bool folderOnly = false;
+    while (!word.empty() && word.back() == '\\') {
+        word.pop_back();
+        folderOnly = true;
+    }
+    std::size_t last = word.find_last_of('\\');
+    std::string tail = last == std::string::npos ? word : word.substr(last + 1);
+    if (tail.empty()) return; // only separators
+    if (folderOnly) q.kind = Kind::Folders;
+    q.paths.push_back({ word, tail });
+    ++terms;
+}
+
 std::string_view extensionOf(std::string_view name)
 {
     std::size_t dot = name.rfind('.');
@@ -107,53 +129,6 @@ bool equalsFolded(std::string_view text, std::string_view lowerWord)
 {
     return text.size() == lowerWord.size() && findFolded(text, lowerWord, 0) == 0;
 }
-
-// Whether each folder is in or is a noise folder, worked out once per
-// folder per search: hits share folders, so walking every hit's whole
-// chain again was most of a search's time.
-class NoiseMemo {
-public:
-    explicit NoiseMemo(const FileIndex& index) : index_(index), known_(index.slots(), kUnknown) {}
-
-    bool inNoise(std::uint32_t record) // any folder above `record`?
-    {
-        std::uint32_t parent = index_.entry(record).parent;
-        return parent != record && below(parent);
-    }
-
-private:
-    static constexpr std::uint8_t kUnknown = 0, kNo = 1, kYes = 2;
-
-    // `folder` is noise or inside noise. Walks up to the first known answer,
-    // then writes it to every folder passed on the way.
-    bool below(std::uint32_t folder)
-    {
-        passed_.clear();
-        std::uint8_t answer = kNo;
-        std::uint32_t at = folder;
-        for (std::size_t depth = 0; depth < 1024; ++depth) {
-            if (at == kRootRecord || !index_.used(at)) break;
-            if (known_[at] != kUnknown) {
-                answer = known_[at];
-                break;
-            }
-            passed_.push_back(at);
-            if (index_.entry(at).flags & kNoise) {
-                answer = kYes;
-                break;
-            }
-            std::uint32_t parent = index_.entry(at).parent;
-            if (parent == at) break;
-            at = parent;
-        }
-        for (std::uint32_t f : passed_) known_[f] = answer;
-        return answer == kYes;
-    }
-
-    const FileIndex& index_;
-    std::vector<std::uint8_t> known_;
-    std::vector<std::uint32_t> passed_; // reused: one walk at a time
-};
 
 // UTF-8 characters: every byte but continuation bytes (10xxxxxx) starts one.
 std::uint16_t characters(std::string_view name)
@@ -190,6 +165,8 @@ Query parseQuery(std::string_view text)
         } else if (t.starts_with("folder:")) {
             q.kind = Kind::Folders;
             addTerm(q.words, t.substr(7), terms);
+        } else if (t.find_first_of("/\\") != std::string::npos) {
+            addPath(q, t, terms);
         } else {
             addTerm(q.words, t, terms);
         }
@@ -219,6 +196,45 @@ int matchScore(std::string_view name, std::string_view lowerWord, bool folder)
     return 1;
 }
 
+namespace {
+
+// Orders hits by betterHit and keeps the best `limit`. Depth and noise come
+// from walking up folders (folder_memo.h), too slow to do for every hit of a
+// common word, and they only order hits of equal score (noise aside). So:
+// hits are grouped by score, best first, and only groups that can still
+// reach the top are placed. A one-letter query stops after the names that
+// start with it. Noise ranks below everything clean, so groups are taken
+// until `limit` clean hits are in; noisy ones wait, in order, for any room left.
+std::vector<Hit> rank(const FileIndex& index, std::vector<Hit> hits, bool demoteNoise, std::size_t limit)
+{
+    int best = 0;
+    for (const Hit& h : hits) best = std::max(best, h.score);
+    std::vector<std::vector<Hit>> byScore(static_cast<std::size_t>(best) + 1);
+    for (Hit& h : hits) byScore[static_cast<std::size_t>(h.score)].push_back(h);
+    FolderMemo places(index);
+    std::vector<Hit> clean, noisy;
+    for (int score = best; score >= 0 && clean.size() < limit; --score) {
+        std::vector<Hit>& group = byScore[static_cast<std::size_t>(score)];
+        for (Hit& h : group) {
+            FolderMemo::Place place = places.of(h.record);
+            h.depth = place.depth;
+            h.noise = demoteNoise && place.noise;
+        }
+        // Clean hits sort first; enough of the group for what's still
+        // wanted, and as many noisy ones as could be needed after.
+        std::size_t keep = std::min(group.size(), 2 * limit);
+        std::partial_sort(group.begin(), group.begin() + static_cast<std::ptrdiff_t>(keep), group.end(), betterHit);
+        for (std::size_t i = 0; i < keep; ++i) {
+            if (!group[i].noise && clean.size() < limit) clean.push_back(group[i]);
+            else if (group[i].noise && noisy.size() < limit) noisy.push_back(group[i]);
+        }
+    }
+    for (std::size_t i = 0; clean.size() < limit && i < noisy.size(); ++i) clean.push_back(noisy[i]);
+    return clean;
+}
+
+} // namespace
+
 std::vector<Hit> search(const FileIndex& index, const Query& query, std::size_t limit)
 {
     std::vector<Hit> hits;
@@ -246,8 +262,22 @@ std::vector<Hit> search(const FileIndex& index, const Query& query, std::size_t 
             }
             score += s;
         }
+        for (const PathWord& p : query.paths) {
+            int sc = all ? matchScore(name, p.tail, folder) : 0;
+            if (sc == 0) {
+                all = false;
+                break;
+            }
+            score += sc;
+        }
         if (!all) continue;
         // Paths are built last, and only for names that already match.
+        if (!query.paths.empty()) {
+            std::string own = "\\" + index.path(record, ""); // a leading separator: a path word's "\x" matches a top folder too
+            bool inPath = std::all_of(query.paths.begin(), query.paths.end(),
+                                      [&](const PathWord& p) { return findFolded(own, p.whole, 0) != std::string_view::npos; });
+            if (!inPath) continue;
+        }
         if (!query.pathWords.empty()) {
             std::uint32_t parent = index.entry(record).parent;
             std::string folderPath = index.used(parent) && parent != record ? index.path(parent, "") : std::string{};
@@ -256,37 +286,16 @@ std::vector<Hit> search(const FileIndex& index, const Query& query, std::size_t 
             });
             if (!inPath) continue;
         }
-        hits.push_back({ record, score, folder, characters(name), false });
+        hits.push_back({ record, score, folder, characters(name), false, 0 });
     }
-    if (!demoteNoise) {
-        std::size_t keep = std::min(limit, hits.size());
-        std::partial_sort(hits.begin(), hits.begin() + static_cast<std::ptrdiff_t>(keep), hits.end(), betterHit);
-        hits.resize(keep);
-        return hits;
-    }
-    // Noise is the first thing betterHit compares, but finding it walks up
-    // folders, which is slow for every hit of a common word. So: order on
-    // the rest, then look for noise only in that order until `limit` hits
-    // outside it are found. Only a head of the list is sorted at first; the
-    // rest only if noise used the head up.
-    std::size_t head = std::min(hits.size(), limit * 4 + 16);
-    std::partial_sort(hits.begin(), hits.begin() + static_cast<std::ptrdiff_t>(head), hits.end(), betterHit);
-    NoiseMemo noise(index);
-    std::vector<Hit> clean, noisy;
-    for (std::size_t i = 0; i < hits.size() && clean.size() < limit; ++i) {
-        if (i == head) std::sort(hits.begin() + static_cast<std::ptrdiff_t>(head), hits.end(), betterHit);
-        Hit& h = hits[i];
-        h.noise = noise.inNoise(h.record);
-        (h.noise ? noisy : clean).push_back(h);
-    }
-    for (std::size_t i = 0; clean.size() < limit && i < noisy.size(); ++i) clean.push_back(noisy[i]);
-    return clean;
+    return rank(index, std::move(hits), demoteNoise, limit);
 }
 
 bool betterHit(const Hit& a, const Hit& b)
 {
     if (a.noise != b.noise) return b.noise;
     if (a.score != b.score) return a.score > b.score;
+    if (a.depth != b.depth) return a.depth < b.depth;
     if (a.folder != b.folder) return a.folder;
     if (a.nameLength != b.nameLength) return a.nameLength < b.nameLength;
     return a.record < b.record;
