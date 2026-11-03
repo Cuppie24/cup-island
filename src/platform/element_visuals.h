@@ -61,7 +61,9 @@ private:
         bool grey = false;  // drawn muted now: an inactive tab's, its tab not hovered (decision 072)
     };
 
-    View create(const Placed& placed, Ms now, bool fade = true); // fade: fades in (not when a text turns into its field)
+    // fade: fades in (not when a text turns into its field). arrive: new, not
+    // rebuilt: also grows in, this long after the top row (decision 075).
+    View create(const Placed& placed, Ms now, bool fade = true, std::optional<Ms> arrive = std::nullopt);
     bool update(View& view, const Placed& placed, Ms now); // true = rebuilt
     void paint(View& view);
     void recolor(View& view); // fades its shapes to the current colours and redraws its pixels

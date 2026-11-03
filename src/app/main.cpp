@@ -27,6 +27,7 @@
 #include "core/island.h"
 #include "core/island_tint.h"
 #include "core/layout.h"
+#include "core/motion.h"
 #include "core/placement.h"
 #include "core/tabs.h"
 #include "core/text_edit.h"
@@ -127,6 +128,7 @@ struct Pointer {
     Vec2 lastClickPoint;
     int clicks = 0;
 } g_pointer;
+PointerTrack g_drag; // the pointer's speed while the island or bubble is carried: a fling when let go (decision 075)
 
 // Pointer callbacks get render-layer points; content works in pill coordinates.
 Vec2 toPill(Vec2 point) { return { point.x - g_scene.offset.x, point.y - g_scene.offset.y }; }
@@ -290,13 +292,15 @@ void dispatch(const Event& event, const char* reason)
     if (next.mode != g_scene.mode) {
         logLine("%s -> %s (%s) %s", toString(g_scene.mode), toString(next.mode), reason, next.label.c_str());
     }
-    g_renderer.apply(next);
+    // One motion for the renderer and the window that follows it (decisions 001, 075).
+    SceneMotion motion = sceneMotion(g_scene, next, flingVelocity(g_drag, t, tokens()), tokens());
+    g_renderer.apply(next, motion);
     Rect bounds = interactiveBounds(next), was = interactiveBounds(g_scene);
     // Lifted, the window stays where the press went down: it has capture, so
     // every move arrives anyway. Let go, it's over the drop point at once and
     // follows the glide to where the island lands (decision 026).
     if (g_scene.lifted && !next.lifted) jumpTo({ was.width, was.height }, { was.x, was.y });
-    if (!next.lifted && (bounds != was || g_scene.lifted)) followMorph({ bounds.width, bounds.height }, { bounds.x, bounds.y });
+    if (!next.lifted && (bounds != was || g_scene.lifted)) followMorph({ bounds.width, bounds.height }, { bounds.x, bounds.y }, motion);
     bool lifted = next.lifted && !g_scene.lifted;
     g_scene = next;
     if (lifted) onLifted();
@@ -440,6 +444,7 @@ void dropListRow(bool commit)
 // a button gets its own press feedback, anything else squashes the pill.
 void onPressDown(Vec2 canvasPoint)
 {
+    g_drag = trackPointer({}, canvasPoint, now(), tokens());
     if (!onBubble(canvasPoint)) {
         // Held still, the island lifts (decision 026). Core ignores it where
         // it can't (Expanded), and then the press is only what it always was.
@@ -498,6 +503,7 @@ void onPressDown(Vec2 canvasPoint)
 void onPointerMoved(Vec2 canvasPoint, bool inside)
 {
     app::pointerMoved(canvasPoint); // a real move takes the lead back from the keyboard
+    if (g_pointer.islandPress || g_pointer.bubblePress) g_drag = trackPointer(g_drag, canvasPoint, now(), tokens());
     if (g_pointer.islandPress) {
         Vec2 start = *g_pointer.islandPress;
         dispatch(IslandDragged{ { canvasPoint.x - start.x, canvasPoint.y - start.y } }, "lift drag");
@@ -808,6 +814,13 @@ Spot savedSpot(const std::string& displayId)
     return it == g_spots.end() ? Spot{} : it->second;
 }
 
+// Windows' "Animation effects" (Settings > Accessibility > Visual effects): off, motion is reduced (decision 075).
+bool animationsOff()
+{
+    BOOL on = TRUE;
+    return SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, &on, 0) && !on;
+}
+
 void tokensChanged(Vec2 oldCanvas, const char* reason)
 {
     if (tokens().canvas != oldCanvas) positionLayers();
@@ -898,6 +911,7 @@ int main()
     Display display = displayFor(g_displayId);
     app::setDisplayScale(display.scale);
     g_tokensFile = app::findTokensFile();
+    app::setReducedMotion(animationsOff()); // before the first load commits, so it's in from the start
     app::loadTokens(g_tokensFile, /* startup */ true);
 
     HINSTANCE instance = GetModuleHandleW(nullptr);
@@ -937,6 +951,10 @@ int main()
     callbacks.onDisplaysChanged = [] {
         // Re-lists the monitors and puts the island back where it was picked.
         if (g_settings) g_settings->refreshDisplays();
+    };
+    callbacks.onAnimationSettingChanged = [] {
+        Vec2 oldCanvas = tokens().canvas;
+        if (app::setReducedMotion(animationsOff())) tokensChanged(oldCanvas, "animation setting");
     };
     callbacks.onShowRequested = [] {
         logLine("launched again: opening Home");

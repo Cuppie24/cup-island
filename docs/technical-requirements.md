@@ -57,7 +57,7 @@ Data providers run as async listeners (event-driven, not polling loops) and push
 
 - All shape, size, and position transitions (collapsed pill ↔ expanded pill ↔ per-content layouts) MUST run as Composition **implicit animations** on `Offset`, `Size`, `Scale`, and `Clip` properties — never manual per-frame redraws on the UI thread.
 - Target frame rate: match the display's native refresh rate (60/120/144 Hz) via DirectComposition's vsync-synced scheduling; no fixed-timestep `SetTimer`/`DispatcherTimer` loops driving visual state.
-- Morph animation (collapsed → expanded) budget: 250–350 ms, cubic-bezier ease-out, matching the perceived speed of iOS's Dynamic Island.
+- Morph animation (collapsed → expanded) budget: 250–350 ms, matching the perceived speed of iOS's Dynamic Island. It runs on a spring that settles within its time: a slight overshoot growing, none shrinking, longer for a longer way, and none of it with Windows' animation effects off (decision 075).
 - Blur/vibrancy background: implemented via Composition's built-in backdrop brush (`Windows.UI.Composition.SystemBackdrops` or `CompositionBackdropBrush`), not a custom Gaussian blur pass, to keep GPU cost low.
 - Idle state (nothing to show) renders zero or near-zero GPU/CPU load — no continuous redraw loop while static.
 - All animation triggers are **event-driven** (a data provider pushes a state change) rather than polled on a timer, to avoid unnecessary composition work.

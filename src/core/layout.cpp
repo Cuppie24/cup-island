@@ -152,6 +152,7 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     Scene scene;
     scene.now = now;
     scene.mode = mode(state);
+    if (scene.mode == Mode::Alert && state.alert) scene.alertPosted = state.alert->postedAt;
     float tabSpace = tabStripSpace(state);
     scene.size = modeSize(scene.mode);
     Source source = sourceFor(state, scene.mode);

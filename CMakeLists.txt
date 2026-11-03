@@ -42,6 +42,7 @@ add_library(cup_core STATIC
     src/core/layout.cpp
     src/core/lift.cpp
     src/core/lists.cpp
+    src/core/motion.cpp
     src/core/placement.cpp
     src/core/shortcuts.cpp
     src/core/slot_layout.cpp
@@ -91,6 +92,7 @@ if(CUP_BUILD_TESTS)
         tests/list_card_tests.cpp
         tests/main.cpp
         tests/media_tests.cpp
+        tests/motion_tests.cpp
         tests/placement_tests.cpp
         tests/pomodoro_stats_tests.cpp
         tests/pomodoro_tests.cpp
@@ -179,6 +181,7 @@ if(WIN32)
         src/platform/pill_renderer.cpp
         src/platform/render_layer.cpp
         src/platform/single_instance.cpp
+        src/platform/spring_motion.cpp
         src/platform/text_input.cpp
         src/platform/stay_on_top.cpp
         src/platform/tray_icon.cpp

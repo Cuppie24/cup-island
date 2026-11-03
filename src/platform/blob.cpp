@@ -2,6 +2,7 @@
 
 #include "platform/blob_shape.h"
 #include "platform/element_parts.h"
+#include "platform/spring_motion.h"
 
 #include <winrt/Windows.Foundation.Metadata.h>
 
@@ -18,26 +19,6 @@ using namespace winrt::Windows::UI::Composition;
 // Properties bound to the body's live (animating) size follow every morph
 // without app code running per frame (blob_shape.h).
 constexpr auto bind = bindToBlob;
-
-ImplicitAnimationCollection morphAnimations(Compositor const& c)
-{
-    auto easing = easingFor(c, tokens().morphEase);
-
-    auto size = c.CreateVector2KeyFrameAnimation();
-    size.InsertExpressionKeyFrame(1.0f, L"this.FinalValue", easing);
-    size.Duration(tokens().morphDuration);
-    size.Target(L"Size");
-
-    auto offset = c.CreateVector3KeyFrameAnimation();
-    offset.InsertExpressionKeyFrame(1.0f, L"this.FinalValue", easing);
-    offset.Duration(tokens().morphDuration);
-    offset.Target(L"Offset");
-
-    auto collection = c.CreateImplicitAnimationCollection();
-    collection.Insert(L"Size", size);
-    collection.Insert(L"Offset", offset);
-    return collection;
-}
 
 // Background: only the bottom corners are rounded (a notch hanging from the
 // screen edge). The geometry has one radius for all corners, so it's made a
@@ -173,7 +154,8 @@ void Blob::applyShadow()
 void Blob::refreshAnimations(bool coloursOnly)
 {
     const Tokens& t = tokens();
-    implicit_ = morphAnimations(compositor_);
+    implicit_ = springMorph(compositor_, motion_); // tokens.json may have changed the spring
+    built_ = motion_;
     body_.ImplicitAnimations(implicit_);
     if (shadow_) {
         shadow_.BlurRadius(t.shadowBlur);
@@ -197,7 +179,7 @@ void Blob::refreshAnimations(bool coloursOnly)
     elements_.refresh(coloursOnly);
 }
 
-void Blob::place(Vec2 size, Vec2 offset)
+void Blob::place(Vec2 size, Vec2 offset, const Motion& motion)
 {
     // At rest on whole pixels, so content inside isn't drawn between pixels
     // (blurry text). Rounded before the comparison below, so an unchanged
@@ -206,8 +188,18 @@ void Blob::place(Vec2 size, Vec2 offset)
     // Only touch geometry on a real change: re-setting a property restarts
     // its implicit animation, which would stall a morph in flight. While
     // following, Offset belongs to the cursor expression; it lands later.
-    if (size != size_) body_.Size(toFloat2(size));
-    if (offset != offset_ && !following_) body_.Offset(toFloat3(offset));
+    motion_ = towardSize(motion, size);
+    bool resize = size != size_, move = offset != offset_ && !following_;
+    if ((resize || move) && motion_ != built_) {
+        // Each morph has its own timing (decision 075): the implicit
+        // animations are swapped before the change starts one. One already
+        // running carries on; the new one starts from where it got to.
+        implicit_ = springMorph(compositor_, motion_);
+        built_ = motion_;
+        body_.ImplicitAnimations(implicit_);
+    }
+    if (resize) body_.Size(toFloat2(size));
+    if (move) body_.Offset(toFloat3(offset));
     size_ = size;
     offset_ = offset;
 }
@@ -305,7 +297,7 @@ void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, cons
         // "switched". Both ends explicit (decision 008).
         auto anim = compositor_.CreateVector3KeyFrameAnimation();
         anim.InsertKeyFrame(0.0f, { from->x, from->y, 0 });
-        anim.InsertKeyFrame(1.0f, { at->x, at->y, 0 }, easingFor(compositor_, tokens().morphEase));
+        anim.InsertKeyFrame(1.0f, { at->x, at->y, 0 }, easingFor(compositor_, settleCurve(tokens()))); // just past, and back (decision 075)
         anim.Duration(tokens().morphDuration);
         mark.visual.StartAnimation(L"Offset", anim);
     }
@@ -322,6 +314,12 @@ void Blob::pressRelease()
 {
     const Tokens& t = tokens();
     playScale(1.0f, t.pressReleaseDuration, t.pressReleaseEase);
+}
+
+void Blob::pulse()
+{
+    const Tokens& t = tokens();
+    body_.StartAnimation(L"Scale", pulseScale(compositor_, t.alertPulseScale, { t.alertPulseDuration, t.morphGrowBounce }));
 }
 
 void Blob::playScale(float scale, Ms duration, Bezier curve)

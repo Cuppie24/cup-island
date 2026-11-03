@@ -1,5 +1,6 @@
 #include "platform/toast_layer.h"
 
+#include "core/motion.h"
 #include "core/tokens.h"
 #include "platform/blob_shape.h"
 #include "platform/element_parts.h"
@@ -44,19 +45,21 @@ void ToastLayer::show(const std::optional<ToastScene>& toast, Ms now)
     shown_ = toast.has_value();
 }
 
-// In: up from below the card's bottom edge into place, fading in. Out: back down past it, fading out.
+// In: up from below the card's bottom edge into place, fading in, settling
+// just past it (decision 075). Out: back down past it, fading out.
 void ToastLayer::animate(bool in, float slide)
 {
     const Tokens& t = tokens();
     Ms duration = std::max(t.toastSlideDuration, Ms{ 1 });
     auto ease = easingFor(compositor_, t.morphEase);
+    auto settle = in ? easingFor(compositor_, settleCurve(t)) : ease;
     auto opacity = compositor_.CreateScalarKeyFrameAnimation();
     if (in) opacity.InsertKeyFrame(0.0f, 0.0f);
     opacity.InsertKeyFrame(1.0f, in ? 1.0f : 0.0f, ease);
     opacity.Duration(duration);
     auto offset = compositor_.CreateVector3KeyFrameAnimation();
     if (in) offset.InsertKeyFrame(0.0f, { 0.0f, slide, 0.0f });
-    offset.InsertKeyFrame(1.0f, { 0.0f, in ? 0.0f : slide, 0.0f }, ease);
+    offset.InsertKeyFrame(1.0f, { 0.0f, in ? 0.0f : slide, 0.0f }, settle);
     offset.Duration(duration);
     layer_.StartAnimation(L"Opacity", opacity);
     layer_.StartAnimation(L"Offset", offset);

@@ -19,6 +19,7 @@ Tokens g_file;          // tokens.json as last read without problems, before the
 std::string g_theme;    // the app theme (decision 022)
 std::optional<CoverTint> g_tint; // the playing cover's colours, over the theme (decisions 051, 054)
 FadeSpeed g_fadeSpeed = FadeSpeed::Medium; // Settings' pick (decision 053)
+bool g_reducedMotion = false;               // Windows' animation setting (decision 075)
 
 void log(const std::string& message)
 {
@@ -58,6 +59,7 @@ bool commit(const std::string& message)
     if (g_tint) themed = withColors(themed, coverColors(*g_tint, themed));
     Tokens next = scaleTokens(themed, g_scale);
     next.fadeSpeed = g_fadeSpeed;
+    next.reducedMotion = g_reducedMotion;
     if (next == tokens()) return false;
     warnIfClipped(next);
     setTokens(next);
@@ -129,6 +131,12 @@ bool setFadeSpeed(FadeSpeed speed)
     g_fadeSpeed = speed;
     const char* name = speed == FadeSpeed::Fast ? "fast" : speed == FadeSpeed::Slow ? "slow" : "medium";
     return commit(std::string("colour fade: ") + name);
+}
+
+bool setReducedMotion(bool reduced)
+{
+    g_reducedMotion = reduced;
+    return commit(reduced ? "motion: reduced (Windows' animation effects are off)" : "motion: full");
 }
 
 } // namespace cup::app

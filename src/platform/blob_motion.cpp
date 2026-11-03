@@ -5,23 +5,24 @@
 #include "platform/blob.h"
 
 #include "platform/blob_shape.h"
+#include "platform/spring_motion.h"
 
 #include <algorithm>
 
 namespace cup::platform {
 
-void Blob::follow(std::optional<Vec2> centre)
+void Blob::follow(std::optional<Vec2> centre, Vec2 fling)
 {
-    if (!centre) return land();
+    if (!centre) return land(fling);
     centre_ = *centre;
     lifted_ = false;
     drag_.InsertVector2(L"Centre", toFloat2(*centre));
     if (!following_) startFollowing(L"Vector3(drag.Centre.X - pill.Size.X / 2, drag.Centre.Y - pill.Size.Y / 2, 0)");
 }
 
-void Blob::lift(std::optional<float> centreX)
+void Blob::lift(std::optional<float> centreX, Vec2 fling)
 {
-    if (!centreX) return land();
+    if (!centreX) return land(fling);
     centre_ = { *centreX, 0 };
     lifted_ = true;
     drag_.InsertVector2(L"Centre", { *centreX, 0 });
@@ -46,10 +47,11 @@ void Blob::startFollowing(std::wstring const& expression)
     setAttached(false); // off the screen edge: round, no ears (decision 025)
 }
 
-void Blob::land()
+void Blob::land(Vec2 fling)
 {
     if (!following_) return;
-    // Let go: glide from where it was dropped to where it belongs. An explicit
+    // Let go: spring from where it was dropped to where it belongs, carrying
+    // on a little the way it was thrown (decision 075). An explicit
     // animation with both ends, because stopping the cursor expression and
     // setting Offset left it stuck at the drop point on a real build (decision 008).
     following_ = false;
@@ -57,11 +59,7 @@ void Blob::land()
     body_.ImplicitAnimations(nullptr); // so setting the resting value below doesn't start a morph of its own
     body_.Offset(toFloat3(offset_));
     body_.ImplicitAnimations(implicit_);
-    auto home = compositor_.CreateVector3KeyFrameAnimation();
-    home.InsertKeyFrame(0.0f, toFloat3(from));
-    home.InsertKeyFrame(1.0f, toFloat3(offset_), easingFor(compositor_, tokens().morphEase));
-    home.Duration(tokens().morphDuration);
-    body_.StartAnimation(L"Offset", home); // replaces the cursor expression
+    body_.StartAnimation(L"Offset", springOffset(compositor_, from, offset_, motion_, fling)); // replaces the cursor expression
     setAttached(true);
 }
 

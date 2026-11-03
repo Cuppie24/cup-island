@@ -31,6 +31,7 @@ void runSettingsNewTests();
 void runShortcutSettingsTests();
 void runUpdateTests();
 void runCoverTests();
+void runMotionTests();
 int runScenarioFile(const std::filesystem::path& file); // returns scenarios run
 }
 
@@ -61,6 +62,7 @@ int main(int argc, char** argv)
     runShortcutSettingsTests();
     runUpdateTests();
     runCoverTests();
+    runMotionTests();
 
     fs::path dir = argc > 1 ? fs::path(argv[1]) : fs::path(CUP_SCENARIO_DIR);
     std::vector<fs::path> files;

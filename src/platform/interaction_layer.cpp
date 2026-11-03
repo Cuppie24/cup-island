@@ -2,7 +2,6 @@
 #include "platform/log.h"
 #include "platform/single_instance.h"
 
-#include "core/easing.h"
 #include "core/tokens.h"
 
 #include <dwmapi.h>
@@ -40,6 +39,8 @@ void showCursor() { SetCursor(LoadCursorW(nullptr, g_textCursor ? IDC_IBEAM : ID
 struct MorphFollower {
     Vec2 size, offset; // bounds the window is snapped to now (render-layer coordinates)
     Vec2 fromSize, toSize, fromOffset, toOffset;
+    Motion motion;
+    Vec2 fling; // pixels per ms at the start: the offset's throw
     std::chrono::steady_clock::time_point start{};
     bool clockPending = false;         // start the clock on the next compositor tick
     std::atomic<bool> active{ false }; // the only field the tick thread reads
@@ -70,14 +71,17 @@ void onCompositorTick()
         g_morph.start = now;
         g_morph.clockPending = false;
     }
-    float t = std::chrono::duration<float>(now - g_morph.start) / tokens().morphDuration;
+    const Motion& m = g_morph.motion;
+    float t = std::chrono::duration<float>(now - g_morph.start) / std::max(m.duration, Ms{ 1 });
     if (t >= 1.0f) {
         g_morph.active = false;
         snap(g_morph.toSize, g_morph.toOffset);
         return;
     }
-    float e = cubicBezierEase(tokens().morphEase, t);
-    snap(lerp(g_morph.fromSize, g_morph.toSize, e), lerp(g_morph.fromOffset, g_morph.toOffset, e));
+    // The renderer's keyframes are samples of this same curve (platform/spring_motion.h).
+    float e = springProgress(m.bounce, t), push = springCarry(m.bounce, t) * static_cast<float>(m.duration.count());
+    Vec2 offset = lerp(g_morph.fromOffset, g_morph.toOffset, e);
+    snap(lerp(g_morph.fromSize, g_morph.toSize, e), { offset.x + g_morph.fling.x * push, offset.y + g_morph.fling.y * push });
 }
 
 // Blocks until the next composed frame. Windows 11 has a compositor clock
@@ -257,6 +261,10 @@ try {
         call(g_callbacks.onDisplaysChanged);
         return 0;
 
+    case WM_SETTINGCHANGE: // also to every top-level window; wParam names what changed
+        if (wParam == SPI_SETCLIENTAREAANIMATION) call(g_callbacks.onAnimationSettingChanged);
+        break;
+
     case WM_POWERBROADCAST: // only logged: a user's log then shows what happened around a sleep (decision 060)
         if (wParam == PBT_APMSUSPEND) logLine("going to sleep");
         else if (wParam == PBT_APMRESUMEAUTOMATIC) logLine("woke from sleep");
@@ -320,7 +328,7 @@ void setRenderOrigin(int renderLeft, int renderTop)
     snap(g_morph.size, g_morph.offset);
 }
 
-void followMorph(Vec2 toSize, Vec2 toOffset)
+void followMorph(Vec2 toSize, Vec2 toOffset, const SceneMotion& motion)
 {
     // Start from wherever the window is now: if a morph is mid-flight, that's
     // also (within a frame) where the compositor picks the new one up from.
@@ -328,6 +336,8 @@ void followMorph(Vec2 toSize, Vec2 toOffset)
     g_morph.fromOffset = g_morph.offset;
     g_morph.toSize = toSize;
     g_morph.toOffset = toOffset;
+    g_morph.motion = towardSize(motion.morph, toSize);
+    g_morph.fling = motion.fling;
     g_morph.clockPending = true;
     g_morph.active = true;
     SetEvent(g_morphStartedEvent);

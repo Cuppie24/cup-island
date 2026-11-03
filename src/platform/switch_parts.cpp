@@ -1,5 +1,6 @@
 #include "platform/switch_parts.h"
 
+#include "core/motion.h"
 #include "core/tokens.h"
 #include "platform/element_parts.h"
 
@@ -51,7 +52,9 @@ void slideSwitch(Compositor const& c, const SwitchParts& parts, Vec2 frame, bool
 {
     const Tokens& t = tokens();
     auto slide = c.CreateVector2KeyFrameAnimation();
-    slide.InsertKeyFrame(1.0f, knobCentre(frame, on), c.CreateCubicBezierEasingFunction(toFloat2(t.morphEase.c1), toFloat2(t.morphEase.c2)));
+    // Just past the end and back: the knob lands, from wherever it is (decision 075).
+    Bezier settle = settleCurve(t);
+    slide.InsertKeyFrame(1.0f, knobCentre(frame, on), c.CreateCubicBezierEasingFunction(toFloat2(settle.c1), toFloat2(settle.c2)));
     slide.Duration(std::max(t.morphDuration, Ms{ 1 }));
     parts.knob.StartAnimation(L"Center", slide); // from wherever it is: a quick double click turns back smoothly
     fadeColor(parts.track, switchTrackColor(on), t.morphDuration);

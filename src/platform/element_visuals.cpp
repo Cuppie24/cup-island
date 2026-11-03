@@ -1,5 +1,6 @@
 #include "platform/element_visuals.h"
 
+#include "core/motion.h"
 #include "core/tokens.h"
 #include "platform/element_painting.h"
 #include "platform/field_painting.h"
@@ -125,10 +126,17 @@ void ElementVisuals::apply(const std::vector<Placed>& elements, Ms now)
         it = views_.erase(it);
     }
 
+    // What's new arrives top row first (decision 075).
+    std::vector<float> tops;
+    for (const Placed& placed : elements)
+        if (!views_.contains(placed.key)) tops.push_back(placed.frame.y);
+    std::vector<Ms> delays = staggerDelays(tops, tokens());
+    std::size_t arriving = 0;
+
     for (const Placed& placed : elements) {
         auto it = views_.find(placed.key);
         bool fresh = it == views_.end();
-        if (fresh) views_.emplace(placed.key, create(placed, now));
+        if (fresh) views_.emplace(placed.key, create(placed, now, true, arriving < delays.size() ? std::optional<Ms>(delays[arriving++]) : std::nullopt));
         else fresh = update(it->second, placed, now);
         if (fresh && placed.key == hovered_) showHover(hovered_, true); // rebuilt under the pointer
     }
@@ -153,7 +161,7 @@ void ElementVisuals::refresh(bool coloursOnly)
     lists_.clear();
 }
 
-ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool fade)
+ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool fade, std::optional<Ms> arrive)
 {
     const Tokens& t = tokens();
     View view;
@@ -248,7 +256,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     if (!view.bars.empty()) animateBars(view);
     if (view.highlight && focusedField(placed.item)) view.highlight.Opacity(1.0f);
     if (revealsOnHover(placed.item) && rowOf(placed.key) != hoveredRow_) view.visual.Opacity(0.0f); // until its row is hovered
-    else if (fade) fadeIn(compositor_, view.visual, opacityOf(view.grey));
+    else if (fade) fadeIn(compositor_, view.visual, opacityOf(view.grey), arrive);
     else view.visual.Opacity(opacityOf(view.grey));
     return view;
 }

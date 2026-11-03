@@ -182,9 +182,37 @@ struct Tokens {
     float tilePadding = 8;        // inside a tile, on every side
     float focusRingWidth = 2;     // the keyboard's focus ring (decision 033), drawn inside what has focus
 
-    // Morph between modes: ease-out, 250-350 ms budget (TR §5).
+    // Smaller transitions: the ears and corners folding, a lift sinking, a
+    // list's rows (ease-out, TR §5). The pill's own morph is a spring, below.
     Ms morphDuration{ 300 };
     Bezier morphEase{ { 0.16f, 1.0f }, { 0.30f, 1.0f } };
+    // The pill's morph (decision 075, core/motion.h): a spring, settled by the
+    // end of its time. Bounce 0 never goes past; 0.25 goes about 3% past and
+    // back. Growing overshoots a little, shrinking doesn't. A morph that moves
+    // morphFarDistance or more takes the longest time, a tiny one the shortest.
+    Ms morphGrowShortest{ 260 };
+    Ms morphGrowLongest{ 360 };
+    float morphGrowBounce = 0.25f;
+    Ms morphShrinkShortest{ 200 };
+    Ms morphShrinkLongest{ 300 };
+    float morphShrinkBounce = 0.0f;
+    float morphFarDistance = 360;
+    // Small things settling with a hint of overshoot: the tab marker gliding,
+    // a toast coming up, a switch's knob, content arriving.
+    Bezier settleEase{ { 0.3f, 1.3f }, { 0.5f, 1.0f } };
+    float contentArriveScale = 0.94f; // new content grows from this while fading in
+    Ms contentStagger{ 24 };          // ...each row this long after the one above
+    std::size_t contentStaggerRows = 5; // rows past this arrive with the last
+    // A new alert in a pill that keeps its size: it swells this much and springs back.
+    float alertPulseScale = 1.05f;
+    Ms alertPulseDuration{ 420 };
+    // Let go mid-drag, the island or bubble carries the pointer's speed into its landing.
+    float flingMaxSpeed = 2;  // pixels per ms
+    Ms flingStale{ 80 };      // the pointer still this long before letting go: no fling
+    // Windows' "Animation effects" off (decision 075): morphs are this short, with
+    // no overshoot, stagger, fling or pulse. Set by the app, not by tokens.json.
+    bool reducedMotion = false;
+    Ms reducedMotionDuration{ 120 };
 
     // Content crossfades slightly after the pill starts morphing.
     Ms contentFadeDuration{ 200 };
