@@ -47,7 +47,10 @@ open. The island runs as the user, installed per user without a UAC prompt
   journal id, or a USN the journal no longer holds, means a full rescan.
   Written to a side file then renamed over the old one (as decision 028).
 - **Queries, v1:** words (all must match), `"quoted phrases"`, `ext:`,
-  `path:`, `file:`, `folder:`; case-insensitive for ASCII. Ranked: whole
+  `path:`, `file:`, `folder:`; case-insensitive for English and Russian
+  (А–Я, not Ё): both fold within the same UTF-8 length, so matching stays
+  byte by byte. Full Unicode folding (tables, NFC) was weighed and left out
+  for speed and size. Ranked: whole
   name (or a file's name before its extension: "notepad" is notepad.exe's
   whole name), then name prefix, word start, anywhere; folders and shorter
   names (in letters, not UTF-8 bytes) first on a tie. Anything inside a

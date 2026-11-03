@@ -1,7 +1,8 @@
 #pragma once
 // What the user typed, and the names that match it, best first
-// (decision 075). Case-insensitive for ASCII only: other letters must match
-// as typed, until Unicode case folding is worth its tables.
+// (decision 075). Case-insensitive for English and Russian (А-Я; not Ё, and
+// no other alphabets): both fold within the same byte length, so matching
+// stays byte by byte and fast. Other letters match only as typed.
 
 #include "indexer/file_index.h"
 

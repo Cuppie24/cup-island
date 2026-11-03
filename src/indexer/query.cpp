@@ -11,10 +11,31 @@ char lower(char c)
     return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c;
 }
 
+// The byte at `k` with English and Russian letters folded to lower case.
+// Russian's А-Я (U+0410-042F) are D0 90..D0 AF in UTF-8; а-п are D0 B0..BF and
+// р-я D1 80..8F. Each capital folds to a small letter of the same length, so
+// matching stays byte by byte: only the lead byte of Р-Я changes (D0 -> D1)
+// and the second byte moves by 0x20. Ё/ё and other Cyrillic letters (і, ї, ў...)
+// match only as typed (decision 075). 0xD0 is never a continuation byte, so
+// looking one byte back is safe.
+char foldedAt(std::string_view text, std::size_t k)
+{
+    auto b = static_cast<unsigned char>(text[k]);
+    if (b < 0x80) return lower(text[k]);
+    if (b == 0xD0) {
+        bool capitalRtoYa = k + 1 < text.size() && static_cast<unsigned char>(text[k + 1]) >= 0xA0 &&
+                            static_cast<unsigned char>(text[k + 1]) <= 0xAF;
+        return capitalRtoYa ? static_cast<char>(0xD1) : text[k];
+    }
+    if (b >= 0x90 && b <= 0xAF && k > 0 && static_cast<unsigned char>(text[k - 1]) == 0xD0)
+        return static_cast<char>(b <= 0x9F ? b + 0x20 : b - 0x20);
+    return text[k];
+}
+
 std::string lowered(std::string_view text)
 {
     std::string out(text);
-    for (char& c : out) c = lower(c);
+    for (std::size_t k = 0; k < text.size(); ++k) out[k] = foldedAt(text, k);
     return out;
 }
 
@@ -26,13 +47,19 @@ bool alnum(char c)
     return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || static_cast<unsigned char>(c) >= 0x80;
 }
 
-// Where `lowerWord` first appears in `text` from `from`, ignoring ASCII case.
+// Where `lowerWord` first appears in `text` from `from`, ignoring English and Russian case.
 std::size_t findFolded(std::string_view text, std::string_view lowerWord, std::size_t from)
 {
-    if (lowerWord.size() > text.size()) return std::string_view::npos;
+    if (lowerWord.empty() || lowerWord.size() > text.size()) return std::string_view::npos;
+    // The raw bytes that can fold to the word's first byte: at most two, so
+    // most positions are skipped with a plain comparison instead of folding.
+    char first = lowerWord[0], other = first;
+    if (first >= 'a' && first <= 'z') other = static_cast<char>(first - 'a' + 'A');
+    else if (static_cast<unsigned char>(first) == 0xD1) other = static_cast<char>(0xD0); // р-я from Р-Я
     for (std::size_t i = from; i + lowerWord.size() <= text.size(); ++i) {
+        if (text[i] != first && text[i] != other) continue;
         std::size_t j = 0;
-        while (j < lowerWord.size() && lower(text[i + j]) == lowerWord[j]) ++j;
+        while (j < lowerWord.size() && foldedAt(text, i + j) == lowerWord[j]) ++j;
         if (j == lowerWord.size()) return i;
     }
     return std::string_view::npos;

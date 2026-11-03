@@ -59,6 +59,7 @@ void parseTests()
     expect(f.kind == Kind::Folders && f.words == std::vector<std::string>{ "music" }, "folder:x is a folder named like x");
     expect(parseQuery("http://x").words == std::vector<std::string>{ "http://x" }, "other colons are plain text");
     expect(parseQuery("path:\"my music\"").pathWords == std::vector<std::string>{ "my music" }, "a quoted filter value");
+    expect(parseQuery("ОТЧЕТ Книги").words == std::vector<std::string>{ "отчет", "книги" }, "Russian words are lowered too");
     expect(parseQuery("   ").empty() && parseQuery("file:").empty() && parseQuery("ext:").empty(), "nothing to look for");
     expect(parseQuery(std::string(10000, 'a')).words[0].size() == kMaxQueryLength, "long text is cut");
     std::string many;
@@ -74,7 +75,17 @@ void matchTests()
     expect(matchScore("myreport.pdf", "report") == 1, "anywhere");
     expect(matchScore("myreport report", "report") == 2, "the best place counts, not the first");
     expect(matchScore("notes.txt", "report") == 0 && matchScore("rep", "report") == 0, "not in it");
-    expect(matchScore("CAFÉ", "café") == 0 && matchScore("café", "café") == 4, "non-ASCII matches only as typed (v1)");
+    expect(matchScore("CAFÉ", "café") == 0 && matchScore("café", "café") == 4, "other letters match only as typed");
+    // Russian: А-П (D0 90..9F) and Р-Я (D0 A0..AF, whose lead byte changes).
+    expect(matchScore("ЗМЕЯ.pdf", "змея") == 4 && matchScore("Змея.pdf", "змея") == 4, "Russian capitals fold");
+    expect(matchScore("ПРОГРАММИРОВАНИЕ", "программирование") == 4 && matchScore("СъЕшЬ", "съешь") == 4,
+           "every capital from А to Я, either lead byte");
+    expect(matchScore("Книги и Статьи", "статьи") == 2 && matchScore("Мои Документы", "документ") == 2, "word starts in Russian");
+    expect(matchScore("ёлка", "ёлка") == 4 && matchScore("Ёлка", "ёлка") == 0 && matchScore("ёлка", "елка") == 0 &&
+           matchScore("ЁЛКА", "ёлка") == 0, "Ё matches only as typed, and isn't Е");
+    expect(matchScore("Їжак", "їжак") == 0, "nor do other Cyrillic letters");
+    expect(matchScore("Report-ОТЧЕТ.docx", "отчет") == 2 && matchScore("ОТЧЕТ", "ОТЧЕТ") == 0,
+           "mixed scripts; a word must come lowered (parseQuery does it)");
     expect(matchScore("notepad.exe", "notepad") == 4 && matchScore("Notepad.EXE", "notepad") == 4,
            "a file's name before its extension is a whole-name match");
     expect(matchScore("notepad.exe.mui", "notepad") == 3, "only the last extension comes off");
