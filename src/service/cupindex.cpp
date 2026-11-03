@@ -64,6 +64,10 @@ int wmain(int argc, wchar_t** argv)
     case service::AskProblem::NoAnswer: std::puts("The service's answer couldn't be read."); return 2;
     case service::AskProblem::None: break;
     }
+    if (!asked.response) {
+        std::puts("The service's answer couldn't be read.");
+        return 2;
+    }
     if (!service::serviceState().pid) std::printf("(Not the installed service: process %lu, as with --console.)\n", asked.serverPid);
     const indexer::Response& response = *asked.response;
     if (response.error) {

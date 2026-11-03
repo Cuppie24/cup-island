@@ -1,7 +1,8 @@
 # 076: File search is installed with the app, and updates itself
 
 Status: Proposed (supersedes decision 075's opt-in "Turn on file search"
-and its separately offered service updates; the rest of 075 stands)
+and its separately offered service updates; the rest of 075 stands).
+Decision 078 moves its SearchSetupProvider into the host as ServiceHost.
 
 **Context.** Decision 075 made file search opt-in: a Settings row ran the
 service's admin installer, and a new service version was offered on a row

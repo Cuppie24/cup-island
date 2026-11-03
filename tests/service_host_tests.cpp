@@ -1,18 +1,20 @@
-// File search's setup and updates (decision 076): when the app runs the
-// bundled installer, when it asks the service to update, and when neither;
-// plus the service's own update offer and GitHub's release JSON.
+// Cup Island's service, from the host's side (decisions 076, 078): when it
+// runs the bundled installer, when it asks the service to update, and when
+// neither; providers' calls, checked against their grants; plus the
+// service's own update offer and GitHub's release JSON.
 
 #include "core/tokens.h"
 #include "expect.h"
 #include "panel_host.h"
-#include "providers/search/search_setup.h"
+#include "providers/provider_registry.h"
+#include "providers/service_host.h"
 #include "providers/update/release_json.h"
 
 namespace cup::test {
 namespace {
 
 using Probed = std::function<void(ServiceProbe)>;
-using Answered = std::function<void(std::optional<indexer::UpdateAnswer>)>;
+using Replied = std::function<void(ServiceReply)>;
 
 // A provider whose hooks record calls; the test answers them.
 struct Setup {
@@ -21,14 +23,20 @@ struct Setup {
     int installs = 0;
     bool installStarts = true;
     int updates = 0;
-    SearchSetupProvider provider;
+    std::vector<std::string> sent; // requests, as they'd go over the pipe
+    std::vector<Replied> replies;
+    ServiceHost provider;
 
     explicit Setup(std::string version, bool bundled = true)
-        : provider(SearchSetupHooks{ .appVersion = std::move(version),
+        : provider(ServiceHostHooks{ .appVersion = std::move(version),
                                      .installerBundled = bundled,
                                      .probe = [this](Probed p) { probes.push_back(std::move(p)); },
                                      .runInstaller = [this](std::function<void(bool)> d) { ++installs; d(installStarts); },
-                                     .askUpdate = [this](Answered a) { ++updates; a(indexer::UpdateAnswer::Started); } })
+                                     .send = [this](std::string request, Replied r) {
+                                         if (request.find("\"service.update\"") != std::string::npos) ++updates;
+                                         sent.push_back(std::move(request));
+                                         replies.push_back(std::move(r));
+                                     } })
     {
     }
 
@@ -46,7 +54,7 @@ struct Setup {
 void providerTests()
 {
     using State = ServiceProbe::State;
-    using Step = SearchSetupProvider::Step;
+    using Step = ServiceHost::Step;
     {
         Setup s("0.8.0");
         s.provider.start(s.host);
@@ -57,19 +65,19 @@ void providerTests()
         s.run({ State::Missing, "" });
         expect(s.installs == 1 && s.provider.step() == Step::Installing, "missing: the bundled installer runs");
         expect(s.host.alerts.size() == 1 && s.host.alerts[0].content.label == "Setting up file search", "saying Windows will ask, first");
-        expect(s.host.store[SearchSetupProvider::kAskedKey] == "0.8.0", "and remembering it asked for this version");
+        expect(s.host.store[ServiceHost::kAskedKey] == "0.8.0", "and remembering it asked for this version");
         expect(!s.host.wake, "once per start");
     }
     {
         Setup s("0.8.0");
-        s.host.store[SearchSetupProvider::kAskedKey] = "0.8.0"; // refused last time
+        s.host.store[ServiceHost::kAskedKey] = "0.8.0"; // refused last time
         s.run({ State::Missing, "" });
         expect(s.installs == 0 && s.host.alerts.empty() && s.provider.step() == Step::NotInstalled,
                "refused for this version: not asked again");
     }
     {
         Setup s("0.8.1");
-        s.host.store[SearchSetupProvider::kAskedKey] = "0.8.0";
+        s.host.store[ServiceHost::kAskedKey] = "0.8.0";
         s.run({ State::Missing, "" });
         expect(s.installs == 1, "after the next update, asked once more");
     }
@@ -77,7 +85,7 @@ void providerTests()
         Setup s("0.8.0");
         s.installStarts = false;
         s.run({ State::Missing, "" });
-        expect(s.provider.step() == Step::NotInstalled && s.host.store[SearchSetupProvider::kAskedKey] == "0.8.0",
+        expect(s.provider.step() == Step::NotInstalled && s.host.store[ServiceHost::kAskedKey] == "0.8.0",
                "an installer that won't start counts as asked");
     }
     {
@@ -111,18 +119,105 @@ void providerTests()
         PanelHost host;
         Probed late;
         int installs = 0;
-        auto provider = std::make_unique<SearchSetupProvider>(SearchSetupHooks{
+        auto provider = std::make_unique<ServiceHost>(ServiceHostHooks{
             .appVersion = "0.8.0",
             .installerBundled = true,
             .probe = [&](Probed p) { late = std::move(p); },
             .runInstaller = [&](std::function<void(bool)> d) { ++installs; d(true); },
-            .askUpdate = [](Answered) {} });
+            .send = [](std::string, Replied) {} });
         provider->start(host);
         host.clock = *host.wake;
         provider->onWake();
         provider.reset();
         late({ State::Missing, "" });
         expect(installs == 0, "a probe answering after the provider is gone does nothing");
+    }
+}
+
+// A provider that calls the service through its Host, as search will.
+struct Caller : Provider {
+    std::string name;
+    Host* host = nullptr;
+    std::vector<ServiceReply> got;
+    explicit Caller(std::string id) : name(std::move(id)) {}
+    const char* id() const override { return name.c_str(); }
+    void start(Host& h) override { host = &h; }
+    void stop() override {}
+    void onAction(const Action&) override {}
+    void ask(const char* method) { host->callService(method, "{}", [this](ServiceReply r) { got.push_back(std::move(r)); }); }
+};
+
+void callTests()
+{
+    using Problem = ServiceReply::Problem;
+    {
+        Setup s("0.8.0");
+        bool answered = false;
+        s.provider.call("index.query", R"({"text":"a","limit":5})", [&](ServiceReply r) { answered = r.body == "{}"; });
+        expect(s.sent.size() == 1 && s.sent[0].find("\"method\":\"index.query\"") != std::string::npos &&
+               s.sent[0].find(R"("params":{"text":"a","limit":5})") != std::string::npos, "a call goes over the pipe as JSON-RPC");
+        s.replies[0]({ Problem::None, "{}" });
+        expect(answered, "and its answer comes back");
+        s.provider.call("index.status", "", [](ServiceReply) {});
+        expect(s.sent.size() == 2 && s.sent[1].find("\"id\":2") != std::string::npos, "each call its own id");
+    }
+    {
+        Setup s("0.8.0");
+        s.run({ ServiceProbe::State::Missing, "" });
+        s.installStarts = false;
+        Setup refused("0.8.0");
+        refused.installStarts = false;
+        refused.run({ ServiceProbe::State::Missing, "" });
+        Problem problem = Problem::None;
+        refused.provider.call("index.query", "{}", [&](ServiceReply r) { problem = r.problem; });
+        expect(problem == Problem::NotInstalled && refused.sent.empty(), "not installed: answered at once, nothing sent");
+        std::size_t before = s.sent.size();
+        s.provider.call("index.query", "{}", [](ServiceReply) {});
+        expect(s.sent.size() == before + 1, "an installer on its way: calls try again");
+    }
+    {
+        // Through the registry: only granted modules get through.
+        ProviderRegistry registry{ [](const Event&, const char*) {}, [] { return Ms{ 0 }; } };
+        std::vector<std::string> carried;
+        registry.setServiceCaller([&](const std::string& method, const std::string&, std::function<void(ServiceReply)> done) {
+            carried.push_back(method);
+            done({ Problem::None, "ok" });
+        });
+        auto search = std::make_unique<Caller>("search");
+        auto other = std::make_unique<Caller>("other");
+        Caller* s = search.get();
+        Caller* o = other.get();
+        registry.add(std::move(search));
+        registry.add(std::move(other));
+        registry.grant("search", "index");
+        registry.start("search");
+        registry.start("other");
+        s->ask("index.query");
+        o->ask("index.query");
+        s->ask("service.update");
+        s->ask("indexquery");
+        expect(carried == std::vector<std::string>{ "index.query" }, "only a granted module's call is carried");
+        expect(s->got.size() == 3 && s->got[0].body == "ok" && s->got[1].problem == Problem::NotAllowed &&
+               s->got[2].problem == Problem::NotAllowed, "service.update is nobody's; a method needs its module");
+        expect(o->got.size() == 1 && o->got[0].problem == Problem::NotAllowed, "a provider without the grant is refused");
+
+        // An answer that arrives after the provider stopped goes nowhere.
+        std::function<void(ServiceReply)> late;
+        registry.setServiceCaller([&](const std::string&, const std::string&, std::function<void(ServiceReply)> done) { late = done; });
+        s->ask("index.query");
+        registry.stop("search");
+        late({ Problem::None, "late" });
+        expect(s->got.size() == 3, "a stopped provider gets no answer");
+    }
+    {
+        ProviderRegistry registry{ [](const Event&, const char*) {}, [] { return Ms{ 0 }; } };
+        auto search = std::make_unique<Caller>("search");
+        Caller* s = search.get();
+        registry.add(std::move(search));
+        registry.grant("search", "index");
+        registry.start("search");
+        s->ask("index.query");
+        expect(s->got.size() == 1 && s->got[0].problem == Problem::NotInstalled, "no service host at all: not installed");
     }
 }
 
@@ -150,9 +245,10 @@ void releaseTests()
 
 } // namespace
 
-void runSearchSetupTests()
+void runServiceHostTests()
 {
     providerTests();
+    callTests();
     releaseTests();
 }
 

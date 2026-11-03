@@ -74,7 +74,7 @@ void requestTests()
     expect(q && q->id == 7 && q->text == "report \"x\"" && q->limit == 20, "a query round-trips");
     Request big = parseRequest(encodeQuery(1, "a", 100000));
     expect(std::holds_alternative<QueryRequest>(big) && std::get<QueryRequest>(big).limit == kMaxResults, "the limit is capped");
-    Request plain = parseRequest(R"({"jsonrpc":"2.0","id":2,"method":"query","params":{"text":"a"}})");
+    Request plain = parseRequest(R"({"jsonrpc":"2.0","id":2,"method":"index.query","params":{"text":"a"}})");
     expect(std::holds_alternative<QueryRequest>(plain) && std::get<QueryRequest>(plain).limit == kDefaultResults, "a default limit");
     Request status = parseRequest(encodeStatusRequest(3));
     expect(std::holds_alternative<StatusRequest>(status) && std::get<StatusRequest>(status).id == 3, "a status request");
@@ -88,13 +88,18 @@ void requestTests()
     };
     expect(bad("nope", kParseError, false), "not JSON");
     expect(bad("[1]", kInvalidRequest, false), "not an object");
-    expect(bad(R"({"jsonrpc":"2.0","method":"status"})", kInvalidRequest, false), "no id");
-    expect(bad(R"({"jsonrpc":"2.0","id":1.5,"method":"status"})", kInvalidRequest, false), "a fractional id");
-    expect(bad(R"({"jsonrpc":"1.0","id":1,"method":"status"})", kInvalidRequest, true), "the wrong version");
+    expect(bad(R"({"jsonrpc":"2.0","method":"index.status"})", kInvalidRequest, false), "no id");
+    expect(bad(R"({"jsonrpc":"2.0","id":1.5,"method":"index.status"})", kInvalidRequest, false), "a fractional id");
+    expect(bad(R"({"jsonrpc":"1.0","id":1,"method":"index.status"})", kInvalidRequest, true), "the wrong version");
     expect(bad(R"({"jsonrpc":"2.0","id":1,"method":"delete"})", kMethodNotFound, true), "an unknown method");
-    expect(bad(R"({"jsonrpc":"2.0","id":1,"method":"query"})", kInvalidParams, true), "a query without text");
-    expect(bad(R"({"jsonrpc":"2.0","id":1,"method":"query","params":{"text":"a","limit":0}})", kInvalidParams, true), "a zero limit");
-    expect(bad(R"({"jsonrpc":"2.0","id":1,"method":"query","params":[1]})", kInvalidParams, true), "params not an object");
+    expect(bad(R"({"jsonrpc":"2.0","id":1,"method":"query","params":{"text":"a"}})", kMethodNotFound, true),
+           "methods carry their module (decision 078)");
+    Request call = parseRequest(encodeCall(8, "index.query", queryParams("x \"y\"", 5)));
+    expect(std::holds_alternative<QueryRequest>(call) && std::get<QueryRequest>(call).text == "x \"y\"" &&
+           std::get<QueryRequest>(call).limit == 5, "encodeCall with queryParams is a query");
+    expect(bad(R"({"jsonrpc":"2.0","id":1,"method":"index.query"})", kInvalidParams, true), "a query without text");
+    expect(bad(R"({"jsonrpc":"2.0","id":1,"method":"index.query","params":{"text":"a","limit":0}})", kInvalidParams, true), "a zero limit");
+    expect(bad(R"({"jsonrpc":"2.0","id":1,"method":"index.query","params":[1]})", kInvalidParams, true), "params not an object");
     expect(bad(std::string(kMaxRequestBytes + 1, ' '), kInvalidRequest, false), "a request too long");
 }
 

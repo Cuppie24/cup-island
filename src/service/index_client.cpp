@@ -17,7 +17,7 @@ Handle openPipe()
     return Handle();
 }
 
-std::optional<indexer::Response> exchange(HANDLE pipe, const std::string& request)
+std::optional<std::string> exchange(HANDLE pipe, const std::string& request)
 {
     std::string framed = indexer::frame(request);
     DWORD written = 0;
@@ -26,7 +26,7 @@ std::optional<indexer::Response> exchange(HANDLE pipe, const std::string& reques
     indexer::FrameReader reader(indexer::kMaxResponseBytes);
     std::uint8_t buffer[4096];
     for (;;) {
-        if (auto body = reader.next()) return indexer::parseResponse(*body);
+        if (auto body = reader.next()) return body;
         DWORD read = 0;
         if (!ReadFile(pipe, buffer, sizeof buffer, &read, nullptr) || read == 0 || reader.broken()) return std::nullopt;
         reader.feed(std::span<const std::uint8_t>(buffer, read));
@@ -69,8 +69,15 @@ Asked askIndex(const std::string& request, bool requireService)
         out.problem = AskProblem::NotTheService;
         return out;
     }
-    out.response = exchange(pipe.get(), request);
-    if (!out.response) out.problem = AskProblem::NoAnswer;
+    auto body = exchange(pipe.get(), request);
+    if (!body) {
+        out.problem = AskProblem::NoAnswer;
+        return out;
+    }
+    // Parsed for the shapes this build knows; a module's other answers are
+    // the caller's to read from `raw`.
+    out.response = indexer::parseResponse(*body);
+    out.raw = std::move(*body);
     return out;
 }
 

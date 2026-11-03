@@ -113,9 +113,9 @@ Request parseRequest(std::string_view body)
     const Json* params = json->get("params");
     if (params && params->type != Json::Type::Object) return BadRequest{ id, kInvalidParams, "params must be an object" };
 
-    if (method->text == "status") return StatusRequest{ *id };
-    if (method->text == "update") return UpdateRequest{ *id };
-    if (method->text != "query") return BadRequest{ id, kMethodNotFound, "unknown method" };
+    if (method->text == "index.status") return StatusRequest{ *id };
+    if (method->text == "service.update") return UpdateRequest{ *id };
+    if (method->text != "index.query") return BadRequest{ id, kMethodNotFound, "unknown method" };
     const Json* text = params ? params->get("text") : nullptr;
     if (!text || !text->isString()) return BadRequest{ id, kInvalidParams, "query needs text" };
     QueryRequest q{ *id, text->text, kDefaultResults };
@@ -127,22 +127,37 @@ Request parseRequest(std::string_view body)
     return q;
 }
 
+std::string encodeCall(std::int64_t id, std::string_view method, std::string_view params)
+{
+    std::string out = opening(id) + ",\"method\":";
+    appendJsonString(out, method);
+    if (!params.empty()) {
+        out += ",\"params\":";
+        out += params;
+    }
+    return out + "}";
+}
+
+std::string queryParams(std::string_view text, std::size_t limit)
+{
+    std::string out = "{\"text\":";
+    appendJsonString(out, text);
+    return out + ",\"limit\":" + std::to_string(limit) + "}";
+}
+
 std::string encodeQuery(std::int64_t id, std::string_view text, std::size_t limit)
 {
-    std::string out = opening(id) + ",\"method\":\"query\",\"params\":{\"text\":";
-    appendJsonString(out, text);
-    out += ",\"limit\":" + std::to_string(limit) + "}}";
-    return out;
+    return encodeCall(id, "index.query", queryParams(text, limit));
 }
 
 std::string encodeStatusRequest(std::int64_t id)
 {
-    return opening(id) + ",\"method\":\"status\"}";
+    return encodeCall(id, "index.status", "");
 }
 
 std::string encodeUpdateRequest(std::int64_t id)
 {
-    return opening(id) + ",\"method\":\"update\"}";
+    return encodeCall(id, "service.update", "");
 }
 
 std::string encodeResults(std::int64_t id, const std::vector<ResultRow>& rows)

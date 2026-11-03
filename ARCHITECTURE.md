@@ -46,7 +46,7 @@ src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interacti
                 per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules and the media widget, SMTC provider for real Windows media),
-                pomodoro/ (the first panel), search/ (file search's setup and updates, decision 076), system/ (Home's theme and Settings widgets:
+                pomodoro/ (the first panel), service_host (Cup Island's service: setup, updates and providers' calls, decisions 076, 078), system/ (Home's theme and Settings widgets:
                 app themes, display, Start with Windows, Copy logs), update/ (updates from GitHub
                 Releases: versions and offers, pure; github.cpp fetches and installs, decision 036)
 src/indexer/    the file index's logic (decision 075), pure: USN records from raw bytes, the index by MFT record,
@@ -118,6 +118,10 @@ can't tell, a provider gives a hint (`Content::backAction`), not a key
 handler (decision 035).
 What a provider keeps between runs goes through `Host::load/save` (decision
 028): text under its own keys, in its own format; never its own files.
+A provider never starts or reaches a process itself (decision 078): Cup
+Island's service is called through `Host::callService("<module>.<method>")`,
+only for modules the registry granted it (`ProviderRegistry::grant`), and
+carried by ServiceHost.
 Lists (`Row::list`, decision 029) are scrolled, reordered and edited by the
 host; the provider publishes every row and gets the result as actions.
 Text fields are edited by the host like any text box, caret and selection in

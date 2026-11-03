@@ -1,5 +1,6 @@
-#include "providers/search/search_service.h"
+#include "providers/service_link.h"
 
+#include "indexer/protocol.h"
 #include "platform/log.h"
 #include "platform/win.h"
 #include "service/index_client.h"
@@ -18,27 +19,37 @@ std::filesystem::path bundledInstaller()
     return std::filesystem::path(exe).parent_path() / L"CupIsland-Index-Setup.exe";
 }
 
+ServiceReply replyOf(const service::Asked& asked, const std::string& body)
+{
+    switch (asked.problem) {
+    case service::AskProblem::None: return { ServiceReply::Problem::None, body };
+    case service::AskProblem::NotRunning: return { ServiceReply::Problem::NotRunning, {} };
+    // A pipe someone else serves is no service of ours: treated as none running.
+    case service::AskProblem::NotTheService: return { ServiceReply::Problem::NotRunning, {} };
+    case service::AskProblem::NoAnswer: return { ServiceReply::Problem::NoAnswer, {} };
+    }
+    return { ServiceReply::Problem::NoAnswer, {} };
+}
+
 winrt::fire_and_forget probe(std::function<void(ServiceProbe)> done)
 {
     winrt::apartment_context ui;
     co_await winrt::resume_background();
     ServiceProbe found;
-    service::ServiceState state = service::serviceState();
-    if (!state.installed) {
+    if (!service::serviceState().installed) {
         found.state = ServiceProbe::State::Missing;
     } else {
-        // requireService: only the installed service's answer counts.
-        service::Asked asked = service::askIndex(indexer::encodeStatusRequest(1), true);
-        if (asked.problem == service::AskProblem::None && asked.response->volumes) {
+        service::Asked asked = service::askIndex(indexer::encodeStatusRequest(0), true);
+        if (asked.problem == service::AskProblem::None && asked.response && asked.response->volumes) {
             found.state = ServiceProbe::State::Running;
             found.version = asked.response->version;
         } else {
             found.state = ServiceProbe::State::Stopped;
         }
     }
-    platform::logLine("file search: %s%s", found.state == ServiceProbe::State::Missing ? "not installed"
-                                           : found.state == ServiceProbe::State::Stopped ? "installed, not answering"
-                                                                                         : "running ",
+    platform::logLine("service: %s%s", found.state == ServiceProbe::State::Missing ? "not installed"
+                                       : found.state == ServiceProbe::State::Stopped ? "installed, not answering"
+                                                                                     : "running ",
                       found.version.c_str());
     try {
         co_await ui;
@@ -48,21 +59,20 @@ winrt::fire_and_forget probe(std::function<void(ServiceProbe)> done)
     done(found);
 }
 
-winrt::fire_and_forget update(std::function<void(std::optional<indexer::UpdateAnswer>)> done)
+winrt::fire_and_forget send(std::string request, std::function<void(ServiceReply)> done)
 {
     winrt::apartment_context ui;
     co_await winrt::resume_background();
-    service::Asked asked = service::askIndex(indexer::encodeUpdateRequest(1), true);
-    std::optional<indexer::UpdateAnswer> answer;
-    if (asked.problem == service::AskProblem::None && asked.response->update) answer = asked.response->update;
-    const char* said[] = { "started", "already current", "busy", "a dev build", "failed" };
-    platform::logLine("file search: asked it to update: %s", answer ? said[static_cast<int>(*answer)] : "no answer");
+    service::Asked asked = service::askIndex(request, true);
+    std::string body;
+    if (asked.problem == service::AskProblem::None) body = asked.raw;
+    ServiceReply reply = replyOf(asked, body);
     try {
         co_await ui;
     } catch (...) {
         co_return;
     }
-    done(answer);
+    done(std::move(reply));
 }
 
 winrt::fire_and_forget run(std::function<void(bool)> done)
@@ -80,8 +90,8 @@ winrt::fire_and_forget run(std::function<void(bool)> done)
     info.nShow = SW_SHOWNORMAL;
     bool started = ShellExecuteExW(&info) != FALSE;
     DWORD error = started ? 0 : GetLastError();
-    if (started) platform::logLine("file search: setting it up (%ls)", installer.c_str());
-    else platform::logLine("file search: setup didn't start (%lu%s)", error, error == ERROR_CANCELLED ? ": permission refused" : "");
+    if (started) platform::logLine("service: setting up file search (%ls)", installer.c_str());
+    else platform::logLine("service: setup didn't start (%lu%s)", error, error == ERROR_CANCELLED ? ": permission refused" : "");
     try {
         co_await ui;
     } catch (...) {
@@ -92,23 +102,23 @@ winrt::fire_and_forget run(std::function<void(bool)> done)
 
 } // namespace
 
-void probeSearchService(std::function<void(ServiceProbe)> done)
+void probeService(std::function<void(ServiceProbe)> done)
 {
     probe(std::move(done));
 }
 
-void askSearchServiceUpdate(std::function<void(std::optional<indexer::UpdateAnswer>)> done)
+void sendToService(std::string request, std::function<void(ServiceReply)> done)
 {
-    update(std::move(done));
+    send(std::move(request), std::move(done));
 }
 
-bool searchInstallerBundled()
+bool serviceInstallerBundled()
 {
     std::error_code ec;
     return std::filesystem::is_regular_file(bundledInstaller(), ec);
 }
 
-void runSearchInstaller(std::function<void(bool started)> done)
+void runServiceInstaller(std::function<void(bool started)> done)
 {
     run(std::move(done));
 }

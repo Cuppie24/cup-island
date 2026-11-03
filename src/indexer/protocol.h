@@ -1,12 +1,12 @@
 #pragma once
 // What goes over the index service's pipe (decision 075): JSON-RPC 2.0, the
 // shape PS §8 plans for plugins, each message prefixed with its length
-// (4 bytes, little-endian). Three methods:
-//   query  {"text": "report ext:pdf", "limit": 50} -> {"hits": [{name, path, folder, hidden}]}
-//   status {}  -> {"protocol": 1, "version": "0.8.0", "volumes": [{root, state, files}]}
-//   update {}  -> {"update": "started" | "current" | "busy" | "dev" | "failed"}
-// `update` names no version and no file: the service installs GitHub's
-// latest release of itself, or nothing (decision 076).
+// (4 bytes, little-endian). Methods are named by module (decision 078):
+//   index.query    {"text": "report ext:pdf", "limit": 50} -> {"hits": [{name, path, folder, hidden}]}
+//   index.status   {}  -> {"protocol": 1, "version": "0.8.0", "volumes": [{root, state, files}]}
+//   service.update {}  -> {"update": "started" | "current" | "busy" | "dev" | "failed"}
+// `service.update` names no version and no file: the service installs
+// GitHub's latest release of itself, or nothing (decision 076).
 // No cancel: a search takes tens of milliseconds, and a client drops an
 // answer whose id it no longer wants. Both sides are here, so the service,
 // the cupindex tool and the island share one tested encoding.
@@ -78,6 +78,10 @@ struct BadRequest {
 using Request = std::variant<QueryRequest, StatusRequest, UpdateRequest, BadRequest>;
 
 Request parseRequest(std::string_view body);
+// Any method with its params (a JSON object's text, "" for none): what
+// ServiceHost sends for a provider's Host::callService.
+std::string encodeCall(std::int64_t id, std::string_view method, std::string_view params);
+std::string queryParams(std::string_view text, std::size_t limit); // index.query's
 std::string encodeQuery(std::int64_t id, std::string_view text, std::size_t limit);
 std::string encodeStatusRequest(std::int64_t id);
 std::string encodeUpdateRequest(std::int64_t id);

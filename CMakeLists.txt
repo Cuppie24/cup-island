@@ -71,7 +71,7 @@ add_library(cup_providers STATIC
     src/providers/system/settings_provider.cpp
     src/providers/system/system_panels.cpp
     src/providers/file_store.cpp
-    src/providers/search/search_setup.cpp
+    src/providers/service_host.cpp
     src/providers/update/release.cpp
     src/providers/update/release_json.cpp
     src/providers/update/update_provider.cpp
@@ -117,7 +117,7 @@ if(CUP_BUILD_TESTS)
         tests/unit_tests.cpp
         tests/update_tests.cpp
         tests/scenario_runner.cpp
-        tests/search_setup_tests.cpp
+        tests/service_host_tests.cpp
         tests/settings_tests.cpp
         tests/settings_new_tests.cpp
         tests/shortcut_settings_tests.cpp
@@ -209,7 +209,7 @@ if(WIN32)
         src/providers/media/browser_tabs.cpp
         src/providers/media/smtc_media_provider.cpp
         src/providers/media/smtc_reading.cpp
-        src/providers/search/search_service.cpp
+        src/providers/service_link.cpp
         src/service/index_client.cpp
         src/providers/system/theme_provider.cpp
         src/providers/update/github.cpp

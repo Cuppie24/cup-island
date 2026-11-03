@@ -25,7 +25,8 @@ enum class AskProblem { None, NotRunning, NotTheService, NoAnswer };
 struct Asked {
     AskProblem problem = AskProblem::None;
     unsigned long serverPid = 0; // who served the pipe
-    std::optional<indexer::Response> response;
+    std::string raw;             // the answer's JSON-RPC body, as it came
+    std::optional<indexer::Response> response; // ...parsed, when it's a shape indexer/protocol knows
 };
 
 // Sends one request, reads its answer. requireService: refuse a pipe not

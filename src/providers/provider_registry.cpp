@@ -1,5 +1,7 @@
 #include "providers/provider_registry.h"
 
+#include <algorithm>
+
 #include "providers/file_store.h"
 
 namespace cup {
@@ -78,6 +80,26 @@ public:
 
     Ms wallClock() const override { return registry_.store_.wallClock ? registry_.store_.wallClock() : registry_.clock_(); }
 
+    void callService(const std::string& method, const std::string& params, std::function<void(ServiceReply)> done) override
+    {
+        std::string module = method.substr(0, method.find('.'));
+        auto granted = registry_.grants_.find(providerId_);
+        bool allowed = method.find('.') != std::string::npos && granted != registry_.grants_.end() &&
+                       std::find(granted->second.begin(), granted->second.end(), module) != granted->second.end();
+        if (!allowed) {
+            done({ ServiceReply::Problem::NotAllowed, {} });
+            return;
+        }
+        if (!registry_.serviceCaller_) {
+            done({ ServiceReply::Problem::NotInstalled, {} });
+            return;
+        }
+        // An answer for a provider that has since stopped goes nowhere.
+        registry_.serviceCaller_(method, params, [this, done = std::move(done)](ServiceReply reply) {
+            if (registry_.isRunning(providerId_)) done(std::move(reply));
+        });
+    }
+
 private:
     ProviderRegistry& registry_;
     std::string providerId_;
@@ -92,6 +114,11 @@ ProviderRegistry::~ProviderRegistry()
 {
     for (auto& entry : entries_)
         if (entry.running) entry.provider->stop();
+}
+
+void ProviderRegistry::grant(const std::string& providerId, const std::string& module)
+{
+    grants_[providerId].push_back(module);
 }
 
 void ProviderRegistry::add(std::unique_ptr<Provider> provider)

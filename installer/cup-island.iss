@@ -77,7 +77,7 @@ Filename: "{sys}\reg.exe"; Parameters: "delete ""HKCU\Software\Microsoft\Windows
 // Nor when it's installed already: re-running setup by hand needs no second
 // prompt, and the app asks the service to update itself (decision 076).
 // Asked here, the app doesn't ask again for this version: setup writes the
-// key SearchSetupProvider keeps (kAskedKey) in the providers' store, laid out
+// key ServiceHost keeps (kAskedKey, decision 078) in the providers' store, laid out
 // as decision 028 says: <LocalAppData>\CupIsland\store\<provider>\<key>.txt.
 procedure CurStepChanged(CurStep: TSetupStep);
 var
@@ -89,7 +89,7 @@ begin
   begin
     ShellExec('runas', ExpandConstant('{app}\CupIsland-Index-Setup.exe'), '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-',
               '', SW_SHOW, ewWaitUntilTerminated, ErrorCode);
-    Store := ExpandConstant('{localappdata}\CupIsland\store\system.search-setup');
+    Store := ExpandConstant('{localappdata}\CupIsland\store\system.service');
     ForceDirectories(Store);
     SaveStringToFile(Store + '\asked-for.txt', '{#AppVersion}', False);
   end;
