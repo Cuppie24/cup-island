@@ -40,10 +40,10 @@ void springTests()
     expect(overshootOf(0) == 0, "no bounce, no overshoot");
     // Rises fast like the ease-out it replaced: most of the way in the first third.
     expect(springProgress(spring(0.25f), 0.4f) > 0.85f, "a spring covers most of the way early");
-    expect(springProgress(spring(0.25f), 0.15f) < 0.5f, "...but not all of it at once: big morphs felt rushed at settle 8.5");
+    expect(springProgress(spring(0.25f), 0.12f) < 0.5f, "...but not all of it at once: big morphs felt rushed at settle 8.5");
     Motion snappy = spring(0.25f);
     snappy.settle = 8.5f;
-    expect(springProgress(snappy, 0.15f) > springProgress(spring(0.25f), 0.15f), "a higher settle is more front-loaded");
+    expect(springProgress(snappy, 0.12f) > springProgress(spring(0.25f), 0.12f), "a higher settle is more front-loaded");
     expect(springProgress(spring(0), 0.5f) > springProgress(spring(0), 0.25f), "with no bounce it only moves forward");
 }
 

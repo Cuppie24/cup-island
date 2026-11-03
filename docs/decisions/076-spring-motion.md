@@ -18,8 +18,9 @@ off the pill (decision 001).
   frequency `morphSpringSettle` / damping, then stretched so it ends
   exactly at 1), with a closed form for the position and for the push of a
   throw. The settle was 8.5 at first: half the way in an eighth of the
-  time, so a big morph's visible motion was ~100 ms and felt rushed. At 6
-  it spreads out (half the way in ~18% of the time). The renderer
+  time, so a big morph's visible motion was ~100 ms and felt rushed. 6
+  (with longer times) then felt slow at every size; 7 is between: half the
+  way in ~15% of the time. The renderer
   lays it down as `kSpringKeyframes` linear keyframes
   (`platform/spring_motion.h`); the interaction layer evaluates the same
   function each frame. Same curve on both sides, as decision 001 needs.

@@ -191,16 +191,16 @@ struct Tokens {
     // back. Growing overshoots a little, shrinking doesn't. Its time grows with
     // the square root of how far it goes: the shortest for none, the reference
     // at morphReferenceDistance, never more than the max (only a guard).
-    Ms morphGrowShortest{ 260 };
-    Ms morphGrowReference{ 450 };
+    Ms morphGrowShortest{ 220 };
+    Ms morphGrowReference{ 400 };
     Ms morphGrowMax{ 600 };
     float morphGrowBounce = 0.25f;
-    Ms morphShrinkShortest{ 200 };
-    Ms morphShrinkReference{ 360 };
+    Ms morphShrinkShortest{ 180 };
+    Ms morphShrinkReference{ 320 };
     Ms morphShrinkMax{ 480 };
     float morphShrinkBounce = 0.0f;
     float morphReferenceDistance = 500;
-    float morphSpringSettle = 6; // how front-loaded the spring is: 8.5 felt rushed on big morphs
+    float morphSpringSettle = 7; // how front-loaded the spring is: 8.5 felt rushed on big morphs, 6 slow on all
     // Small things settling with a hint of overshoot: the tab marker gliding,
     // a toast coming up, a switch's knob, content arriving.
     Bezier settleEase{ { 0.3f, 1.3f }, { 0.5f, 1.0f } };
