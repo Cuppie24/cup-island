@@ -87,6 +87,7 @@ target_link_libraries(cup_providers PUBLIC cup_core cup_indexer) # the island ta
 # The Windows service that reads volumes will link it; the island never does.
 add_library(cup_indexer STATIC
     src/indexer/file_index.cpp
+    src/indexer/folder_memo.cpp
     src/indexer/folder_access.cpp
     src/indexer/journal.cpp
     src/indexer/json.cpp

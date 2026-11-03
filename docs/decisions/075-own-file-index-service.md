@@ -50,17 +50,28 @@ open. The island runs as the user, installed per user without a UAC prompt
   `path:`, `file:`, `folder:`; case-insensitive for English and Russian
   (А–Я, not Ё): both fold within the same UTF-8 length, so matching stays
   byte by byte. Full Unicode folding (tables, NFC) was weighed and left out
-  for speed and size. Ranked: whole
-  name (or a file's name before its extension: "notepad" is notepad.exe's
-  whole name), then name prefix, word start, anywhere; folders and shorter
-  names (in letters, not UTF-8 bytes) first on a tie. Anything inside a
-  noise folder (WinSxS, WindowsApps, node_modules, __pycache__, .git, .vs,
-  $Recycle.Bin)
-  comes after everything else, unless a `path:` filter names one; noise is
-  only worked out for the hits near the top, since it means walking up
-  folders. These three came from the first run on a real PC: notepad.exe
-  ranked below "NotepadXamlUI", WinSxS's copies crowded the list, and
-  Cyrillic names lost ties as if twice as long.
+  for speed and size.
+  - **Path words:** a word with `/` or `\` (`personal/documents`) names
+    the item by its last part and must appear whole in the item's own path,
+    so one Documents folder among many can be picked. A drive letter is
+    dropped (each drive is searched on its own), a leading separator starts
+    at a folder (`/documents` isn't `mydocuments`), a trailing one means
+    folders only (`documents/`).
+  - **Ranked:** whole name (or a file's name before its extension:
+    "notepad" is notepad.exe's whole name), then name prefix, word start,
+    anywhere; on a tie the **shorter path** (fewer folders above it:
+    `D:\Documents` before `D:\a\b\Documents`), then folders, then shorter
+    names (in letters, not UTF-8 bytes). Anything inside a noise folder
+    (WinSxS, WindowsApps, node_modules, __pycache__, .git, .vs, $Recycle.Bin)
+    comes after everything else, unless a `path:` filter names one.
+  - Depth and noise mean walking up folders: each folder's answer is worked
+    out once per search (`indexer/folder_memo`), and only for score groups
+    that can still reach the top, best first. On a million files a word
+    with 100 000 hits costs ~60 ms instead of ~47; narrower ones barely more.
+  - From the first runs on a real PC: notepad.exe ranked below
+    "NotepadXamlUI", WinSxS's copies crowded the list, Cyrillic names lost
+    ties as if twice as long, and a Documents folder couldn't be told from
+    the others.
   A linear scan of a million names measured 30–45 ms; an
   n-gram index only if real drives say it's too slow. A snapshot of a
   million files is 31 MB and saves and loads in about a quarter second. No sizes or dates
