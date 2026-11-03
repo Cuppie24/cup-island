@@ -50,8 +50,11 @@ src/providers/  data sources + provider_registry. demo/ (fake player), media/ (n
                 app themes, display, Start with Windows, Copy logs), update/ (updates from GitHub
                 Releases: versions and offers, pure; github.cpp fetches and installs, decision 036)
 src/indexer/    the file index's logic (decision 075), pure: USN records from raw bytes, the index by MFT record,
-                journal changes and resume-or-rescan, queries and ranking, the snapshot file. For the coming
-                Windows service; the island doesn't link it
+                journal changes and resume-or-rescan, queries and ranking, the snapshot file, the pipe's
+                JSON-RPC protocol, folder access caching. The island doesn't link it (yet)
+src/service/    CupIslandIndex.exe, the file index service (Windows, decision 075): one VolumeWatcher thread per
+                drive (scan or snapshot, then the journal), PipeServer answering as each client; cupindex.exe,
+                its terminal client
 src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload; keyboard_input.cpp: keyboard focus,
                 Enter/Space, system-wide shortcuts and recording new keys (decisions 031, 032)
 assets/         tokens.json: the live-tunable sizes, timings and curves; the app icon (cup_island.rc/.ico)
@@ -221,7 +224,8 @@ over the file's, so `tokens()` is always what's on screen.
 | Provider API (PS §7 Tier 1), registry, demo music player | done, tested |
 | Switching activities (decision 007): bubble click, drag-to-swap, Expanded tabs, sticky pick | done; rules tested, tab visuals need Windows |
 | Real media provider (SMTC, TR §6): art, controls, seek, multi-app switch, paused linger | done; rules tested, WinRT part needs Windows |
-| File index logic (decision 075): USN records, the index, journal changes, queries, snapshots | done, tested; the service, installer and search panel not yet |
+| File index logic (decision 075): USN records, the index, journal changes, queries, snapshots, pipe protocol | done, tested |
+| File index service + cupindex (decision 075, milestone 3) | written; pipe round trip run under Wine, a real drive needs Windows; installer and search panel not yet |
 | Plugin pipe (PS §8 Tier 2) | not yet |
 | Activity expiry (`expiresAt`) | done, tested |
 | Rate limits, stale activities (PS §4, §6.3) | not yet |

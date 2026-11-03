@@ -38,8 +38,11 @@ open. The island runs as the user, installed per user without a UAC prompt
   given back what growing left; 67 MB before. That's in the service. TR §8's 60 MB is the island's and doesn't
   change. Paths are built by walking parents, only for results shown.
   ReFS (128-bit references, Dev Drive) needs a hashed mode: later.
-- **Snapshot:** `%ProgramData%\CupIsland\index\<volume serial>.bin`, readable
-  by SYSTEM and Administrators only, with the journal id and the next USN.
+- **Snapshot:** `volume-<serial>.bin` in the service's folder, SYSTEM's own
+  LocalAppData (`C:\Windows\System32\config\systemprofile\AppData\Local\
+  CupIsland\index-service`, with its log). Not ProgramData: any user may
+  create folders there, so one could make ours first and own it. The file
+  holds the journal id and the next USN.
   On start: load it and replay the journal from that USN; a different
   journal id, or a USN the journal no longer holds, means a full rescan.
   Written to a side file then renamed over the old one (as decision 028).
@@ -57,9 +60,24 @@ open. The island runs as the user, installed per user without a UAC prompt
     impersonates the client (`ImpersonateNamedPipeClient`) and checks list
     access on each result's folder, cached per folder. Everything shows all
     users' files; we don't.
-  - Read-only protocol (query, status, cancel) with caps on message size,
-    query length and result count; the parsers are fuzzed on Linux.
-  - Its own log and minidumps (decision 013), SCM recovery actions to restart.
+  - Interactive users get `FILE_GENERIC_READ | FILE_WRITE_DATA` on the pipe,
+    not `GENERIC_WRITE`: that includes `FILE_CREATE_PIPE_INSTANCE`, which
+    would let any user serve the pipe beside us. The first instance is made
+    with `FILE_FLAG_FIRST_PIPE_INSTANCE`, so a name taken before the service
+    starts stops it rather than sharing. A client still checks the server is
+    the service (`GetNamedPipeServerProcessId` against the SCM's process id),
+    as `cupindex` does and the island must.
+  - Read-only protocol (query, status) with caps on message size, query
+    length and result count; the parsers are fuzzed on Linux. No cancel: a
+    search takes tens of milliseconds, and a client ignores an answer whose
+    id it no longer wants.
+  - If the thread can't stop impersonating (`RevertToSelf` fails), the
+    process ends at once rather than carry on with a client's rights.
+  - Its own log; minidumps (decision 013) and SCM recovery actions come with
+    the installer and hardening (milestones 4, 6).
+- **Its sizes and timings** live in `src/service/service_limits.h`, not
+  tokens.json: that file is the island's, user-writable and live-reloaded,
+  and a SYSTEM process must not take settings from a file any user can edit.
 - **Install and update.** The island's installer stays per user. The service
   has its own elevated installer, `CupIsland-Index-Setup-<v>.exe`
   (Inno Setup, `PrivilegesRequired=admin`), run from the island's "Turn on
@@ -81,6 +99,18 @@ open. The island runs as the user, installed per user without a UAC prompt
    search panel, an "Open search" shortcut (decision 032), the setup card.
 6. Hardening: drives coming and going, journal resets, sleep and resume.
 7. Later: sizes and dates from `$MFT`, ReFS, removable and FAT drives.
+
+**Trying it** (milestone 3, before the installer): build on Windows, then
+in an administrator's terminal run `build\windows\CupIslandIndex.exe
+--console` (Ctrl+C stops it, saving the index). In any terminal:
+`build\windows\cupindex.exe status`, then `cupindex.exe query report
+ext:pdf`. As a real service (admin; the exe must sit where users can't
+write, such as `C:\Program Files\CupIsland\`):
+`sc create CupIslandIndex binPath= "C:\Program Files\CupIsland\CupIslandIndex.exe" start= auto`,
+then `sc start CupIslandIndex`; `sc stop` and `sc delete` undo it.
+Checked so far: MSVC and MinGW builds; under Wine the pipe round trip
+(status, query, errors), the volume retries and the log. Not yet: a real
+NTFS drive's scan and journal, the access checks, running as a service.
 
 **Consequences.** A second binary, a second installer and the app's first
 UAC prompt, all opt-in. The island gains no rights. A packaged (MSIX) build

@@ -225,6 +225,22 @@ if(WIN32)
     # Dev builds read and live-reload the source tree's tokens.json directly.
     target_compile_definitions(CupIsland PRIVATE CUP_TOKENS_SOURCE_PATH=L"${CMAKE_SOURCE_DIR}/assets/tokens.json")
 
+    # The file index service and its terminal client (decision 075). Console
+    # subsystem: the Service Control Manager starts it without a window, and
+    # --console runs it in a terminal. Neither links the island's code.
+    add_executable(CupIslandIndex
+        src/service/answers.cpp
+        src/service/main.cpp
+        src/service/pipe_server.cpp
+        src/service/service_log.cpp
+        src/service/volume_io.cpp
+        src/service/volume_watcher.cpp
+    )
+    target_link_libraries(CupIslandIndex PRIVATE cup_indexer Advapi32 Shell32 Ole32 Uuid)
+    target_link_options(CupIslandIndex PRIVATE $<$<NOT:$<CONFIG:Debug>>:/DEBUG> $<$<NOT:$<CONFIG:Debug>>:/OPT:REF> $<$<NOT:$<CONFIG:Debug>>:/OPT:ICF>)
+    add_executable(cupindex src/service/cupindex.cpp)
+    target_link_libraries(cupindex PRIVATE cup_indexer Advapi32)
+
     # C++/WinRT headers ship in the Windows SDK; most setups already have
     # them on the include path, this covers the ones that don't.
     if(CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION)
