@@ -9,6 +9,9 @@
 //     older or other release, it sends service.update, silently.
 //   - call() carries a provider's request over the pipe; "not installed"
 //     is answered at once once that's known.
+//   - still old after serviceUpdateTries requests: a widget says so, with a
+//     Download button for the latest release (its installer updates the
+//     service too), and an alert once per app version.
 // Nothing for a dev build, or without a bundled installer (calls still go
 // through, to a service run by hand). Shows nothing: no widget, no setting.
 // The pipe, Windows and the installer are the app's (ServiceHostHooks), so
@@ -52,7 +55,12 @@ struct ServiceHostHooks {
     std::function<void(std::string request, std::function<void(ServiceReply)> done)> send;
     // A line for the app's log: what it found and did, so a stuck update can be reported.
     std::function<void(const std::string&)> log;
+    std::function<void(const std::string& url)> openPage; // in the browser: the download, when it's stuck
 };
+
+namespace service_action {
+inline constexpr const char* kDownload = "service.download"; // its card's button: the release page
+} // namespace service_action
 
 class ServiceHost : public Provider {
 public:
@@ -61,11 +69,13 @@ public:
 
     static constexpr const char* kId = "system.service";
     static constexpr const char* kAskedKey = "asked-for"; // the app version that last set it up
+    static constexpr const char* kStuckKey = "stuck-at";  // the app version it last couldn't follow
+    static constexpr const char* kPanelId = "system.service.stuck";
 
     const char* id() const override { return kId; }
     void start(Host& host) override;
     void stop() override;
-    void onAction(const Action&) override {}
+    void onAction(const Action& action) override; // Download
     void onWake() override;
 
     // A provider's Host::callService, already checked against its grants.
@@ -78,6 +88,7 @@ public:
 private:
     void found(const ServiceProbe& probe);
     void log(const std::string& line);
+    void showStuck(const std::string& serviceVersion); // a widget and card with the download (and an alert, once per version)
 
     ServiceHostHooks hooks_;
     Host* host_ = nullptr;

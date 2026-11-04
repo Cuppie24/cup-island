@@ -25,6 +25,7 @@ struct Setup {
     int updates = 0;
     std::vector<std::string> sent; // requests, as they'd go over the pipe
     std::vector<Replied> replies;
+    std::vector<std::string> opened; // pages opened in the browser
     ServiceHost provider;
 
     explicit Setup(std::string version, bool bundled = true)
@@ -37,7 +38,8 @@ struct Setup {
                                          if (request.find("\"service.update\"") != std::string::npos) ++updates;
                                          sent.push_back(std::move(request));
                                          replies.push_back(std::move(r));
-                                     } })
+                                     },
+                                     .openPage = [this](const std::string& url) { opened.push_back(url); } })
     {
     }
 
@@ -106,12 +108,21 @@ void providerTests()
         expect(s.updates == 3 && s.host.wake, "still old: asked again, up to serviceUpdateTries");
         again("0.7.9");
         expect(s.updates == 3 && s.provider.step() == Step::UpdateFailed && !s.host.wake, "then it gives up until the next start");
+        const Panel* stuck = nullptr;
+        for (const Panel& p : s.host.published)
+            if (p.id == ServiceHost::kPanelId) stuck = &p;
+        expect(stuck && stuck->content.label == "File search needs an update", "and says so, on a widget");
+        expect(!s.host.alerts.empty() && s.host.alerts.back().activityId == ServiceHost::kPanelId &&
+                   s.host.store[ServiceHost::kStuckKey] == "0.8.0", "with an alert that opens it, once per app version");
+        s.provider.onAction({ ServiceHost::kId, ServiceHost::kPanelId, service_action::kDownload, 0, "" });
+        expect(s.opened == std::vector<std::string>{ kLatestReleasePage }, "its button opens the latest release, to download by hand");
         Setup fixed("0.8.0");
         fixed.run({ State::Running, "0.7.9" });
         fixed.host.clock = *fixed.host.wake;
         fixed.provider.onWake();
         fixed.probes.back()({ State::Running, "0.8.0" });
         expect(fixed.updates == 1 && fixed.provider.step() == Step::UpToDate && !fixed.host.wake, "updated: nothing more to do");
+        expect(!fixed.host.removed.empty() && fixed.host.removed.back() == ServiceHost::kPanelId, "and no widget saying it's stuck");
         Setup newer("0.8.0");
         newer.run({ State::Running, "0.9.0" });
         expect(newer.updates == 1, "so is a newer one: the latest release is what every copy runs (decision 040)");

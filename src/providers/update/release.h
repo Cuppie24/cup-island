@@ -57,6 +57,10 @@ struct GitHubRelease {
 // A release whose notes contain this is mandatory (decision 041): a copy
 // that finds it installs it by itself at its next start, no click. The
 // Release workflow writes it (an HTML comment: not shown on the page).
+// The latest release's page: where to download the installer by hand when
+// an update can't install itself.
+inline constexpr const char* kLatestReleasePage = "https://github.com/Cuppie24/cup-island/releases/latest";
+
 inline constexpr const char* kMandatoryMarker = "<!-- cup-island: mandatory -->";
 bool isMandatory(std::string_view notes);
 

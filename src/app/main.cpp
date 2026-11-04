@@ -1077,6 +1077,7 @@ int main()
         .runInstaller = runServiceInstaller,
         .send = sendToService,
         .log = [](const std::string& line) { logLine("%s", line.c_str()); },
+        .openPage = openInBrowser,
     });
     ServiceHost* services = serviceHost.get();
     g_providers->setServiceCaller([services](const std::string& method, const std::string& params,

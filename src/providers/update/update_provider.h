@@ -33,6 +33,7 @@ struct UpdateHooks {
 namespace update_action {
 inline constexpr const char* kInstall = "update.install"; // also "Try again"
 inline constexpr const char* kWhatsNew = "update.page";
+inline constexpr const char* kDownload = "update.download"; // failed: its installer, in the browser, to run by hand
 } // namespace update_action
 
 enum class UpdateStage { Offered, Installing, Failed };

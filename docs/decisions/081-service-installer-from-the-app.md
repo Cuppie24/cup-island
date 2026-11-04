@@ -37,6 +37,15 @@ also the step most exposed to GitHub having a bad day.
   installer. The release after it drops it (one line in release.yml); from
   then on the page shows the app's installer alone.
 
+- **When it's stuck, the user is told, with the download.** After
+  serviceUpdateTries requests the service is still old (an old service with
+  nothing to download, a bad copy, an installer that failed): a "File
+  search needs an update" widget, an alert once per app version, and a
+  "Download the installer" button opening the latest release page (the
+  app's installer brings and sets up the service too). It goes as soon as
+  the versions match. Likewise the app's own update, when it fails: its
+  card adds "Download", the installer's link, beside "Try again".
+
 **Consequences.** The service ends up on the version the app brought, with
 no download; it can't update without a new app release, which is how
 updates already worked (the app asks after it updates). A release made
