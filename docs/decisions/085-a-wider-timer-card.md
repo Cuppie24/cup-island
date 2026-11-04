@@ -18,8 +18,12 @@ resized; back on the island, it needs the room there.
   every other card stay `expandedSize` wide.
 - It grows to both sides from the island's centre, as every card does.
 
-**Consequences.** Switching tabs between the timer and another card now
-changes the island's width, which decision 047 avoided; the morph carries
-it (decision 080). If that reads as a jump, the next step is the timer's
-own tab row keeping the wide width. `layout.cpp` picks the width next to
-the search card's; tests in todo_tests and pomodoro_tests.
+- **Each card keeps its own width, tabs or not.** Switching tabs between
+  the timer and another card changes the island's width, carried by the
+  morph (decision 080) like any other change of card. Holding the wide
+  width while the timer is one of the tabs was considered and dropped: it
+  would make the other cards wide for no reason of their own.
+
+**Consequences.** Decision 047's "one card width" is now a default, not a
+rule: a card that needs more room asks for it. `layout.cpp` picks the
+width next to the search card's; tests in todo_tests and pomodoro_tests.
