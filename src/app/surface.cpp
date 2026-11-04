@@ -1,12 +1,17 @@
 #include "app/surface.h"
 
+#include "core/float_layout.h"
+
 namespace cup::app {
 
 Vec2 toLocal(const Surface& s, Vec2 point) { return { point.x - s.scene.offset.x, point.y - s.scene.offset.y }; }
 
 bool onShape(const Surface& s, Vec2 point)
 {
-    return Rect{ s.scene.offset.x, s.scene.offset.y, s.scene.size.x, s.scene.size.y }.contains(point);
+    if (Rect{ s.scene.offset.x, s.scene.offset.y, s.scene.size.x, s.scene.size.y }.contains(point)) return true;
+    // A floating card's ✕ sits half outside its corner (decision 081): that half counts too.
+    const Placed* close = s.island() ? nullptr : findElement(s, kCloseFloatKey);
+    return close && close->hitFrame.contains(toLocal(s, point));
 }
 
 bool onBubble(const Surface& s, Vec2 point) { return s.scene.bubble && s.scene.bubble->frame.contains(point); }

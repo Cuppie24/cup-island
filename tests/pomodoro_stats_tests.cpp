@@ -3,6 +3,7 @@
 
 #include "core/layout.h"
 #include "core/tokens.h"
+#include "card_scene.h"
 #include "expect.h"
 #include "providers/pomodoro/pomodoro_provider.h"
 #include "providers/provider_registry.h"
@@ -269,7 +270,7 @@ void layoutTests()
         state = reduce(state, PanelPublished{ panel }, Ms{ 0 });
         state = reduce(state, PillClicked{}, Ms{ 0 });
         state = reduce(state, TileClicked{ PomodoroProvider::kPanelId }, Ms{ 0 });
-        return layout(state, Ms{ 0 });
+        return cardScene(state, Ms{ 0 });
     };
     Scene card = shown(pomodoroPanel({}, defaultPlan(), { .daysInARow = 12 }));
     auto at = [](const Scene& scene, const std::string& key) -> const Placed* {

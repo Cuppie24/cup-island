@@ -47,7 +47,7 @@ struct Surface {
 // Pointer callbacks get render-layer points (the island's) or window points
 // (a floating card's); content works in the shape's own coordinates.
 Vec2 toLocal(const Surface& s, Vec2 point);
-bool onShape(const Surface& s, Vec2 point);  // on the pill, or the floating card
+bool onShape(const Surface& s, Vec2 point);  // on the pill, or the floating card (its ✕ too)
 bool onBubble(const Surface& s, Vec2 point); // on the Split bubble (the island's only)
 
 // The element with this key, in the scene or its floating toast (decision 071).

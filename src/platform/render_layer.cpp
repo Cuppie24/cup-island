@@ -7,6 +7,8 @@ namespace {
 
 constexpr wchar_t kClassName[] = L"CupIslandRenderWindow";
 
+} // namespace
+
 wuc::Desktop::DesktopWindowTarget createWindowTarget(wuc::Compositor const& compositor, HWND window)
 {
     namespace abi = ABI::Windows::UI::Composition::Desktop;
@@ -19,8 +21,6 @@ wuc::Desktop::DesktopWindowTarget createWindowTarget(wuc::Compositor const& comp
         reinterpret_cast<abi::IDesktopWindowTarget**>(winrt::put_abi(target))));
     return target;
 }
-
-} // namespace
 
 winrt::Windows::System::DispatcherQueueController createDispatcherQueueForCurrentThread()
 {

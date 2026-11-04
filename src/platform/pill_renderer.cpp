@@ -3,7 +3,9 @@
 
 #include "core/tokens.h"
 #include "core/tokens_json.h"
+#include "platform/blob_shape.h"
 #include "platform/element_painting.h"
+#include "platform/element_parts.h"
 #include "platform/field_painting.h"
 
 #include <algorithm>
@@ -23,11 +25,56 @@ void PillRenderer::build(wuc::Compositor const& c, wuc::ContainerVisual const& r
     apply(initial, {});
 }
 
+void PillRenderer::buildFloating(wuc::Compositor const& c, wuc::ContainerVisual const& root, const Scene& initial)
+{
+    queue_ = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
+    floating_ = true;
+    compositor_ = c;
+    root_ = root;
+    device_.create(c);
+    applied_ = tokens();
+    pill_.build(c, device_, root, initial.size, initial.offset);
+    pill_.detach();
+    apply(initial, {});
+}
+
+void PillRenderer::appear()
+{
+    // The whole window's tree, shadow included, from the card's middle.
+    const Tokens& t = tokens();
+    root_.CenterPoint({ root_.Size().x / 2, root_.Size().y / 2, 0 });
+    root_.Scale({ t.floatAppearScale, t.floatAppearScale, 1 });
+    root_.Opacity(0.0f);
+    auto grow = compositor_.CreateVector3KeyFrameAnimation();
+    grow.InsertKeyFrame(1.0f, { 1, 1, 1 }, easingFor(compositor_, settleCurve(t)));
+    grow.Duration(t.morphDuration);
+    root_.StartAnimation(L"Scale", grow);
+    fadeTo(compositor_, root_, 1.0f, t.morphDuration);
+}
+
+void PillRenderer::vanish(std::function<void()> done)
+{
+    const Tokens& t = tokens();
+    root_.CenterPoint({ root_.Size().x / 2, root_.Size().y / 2, 0 });
+    auto batch = compositor_.CreateScopedBatch(wuc::CompositionBatchTypes::Animation);
+    auto shrink = compositor_.CreateVector3KeyFrameAnimation();
+    shrink.InsertKeyFrame(1.0f, { t.floatAppearScale, t.floatAppearScale, 1 }, easingFor(compositor_, t.morphEase));
+    shrink.Duration(t.morphDuration);
+    root_.StartAnimation(L"Scale", shrink);
+    fadeTo(compositor_, root_, 0.0f, t.morphDuration);
+    batch.End();
+    batch.Completed([done = std::move(done)](auto&&, auto&&) { done(); }); // on this (the UI) thread
+}
+
 void PillRenderer::refreshAnimations()
 {
     bool coloursOnly = onlyColorsDiffer(applied_, tokens());
     applied_ = tokens();
     pill_.refreshAnimations(coloursOnly);
+    if (floating_) {
+        measured_.clear();
+        return; // no bubble, no bridge
+    }
     bubble_.refreshAnimations(coloursOnly);
     bridge_.refreshAnimations();
     measured_.clear();
@@ -72,6 +119,10 @@ void PillRenderer::apply(const Scene& scene, const SceneMotion& motion)
     // morph; let go, it glides to where it lands, snapping. Placed first, so
     // the glide knows where that is.
     pill_.place(scene.size, scene.offset, motion.morph);
+    if (floating_) {
+        applyFloating(scene);
+        return;
+    }
     pill_.lift(scene.lifted ? std::optional<float>(scene.offset.x + scene.size.x / 2) : std::nullopt, motion.fling);
     if (motion.pulse) pill_.pulse();
     if (motion.reveal > Ms{ 0 }) revealAt_ = std::chrono::steady_clock::now() + motion.reveal;
@@ -123,12 +174,39 @@ void PillRenderer::apply(const Scene& scene, const SceneMotion& motion)
         run(); // queue shutting down: do it now
 }
 
+void PillRenderer::applyFloating(const Scene& scene)
+{
+    // As the island's card, less what only the island has: tabs, tiles, the
+    // bubble, ears (decision 081). Content in a queued call, as there (decision 012).
+    bool listRows = std::any_of(scene.elements.begin(), scene.elements.end(), [](const Placed& p) { return p.listRow.has_value(); });
+    if (!listRows) pill_.setHovered(std::nullopt, 0);
+    pill_.setBadges(scene.badges);
+    bool queued = pendingContent_.has_value();
+    pendingContent_ = scene;
+    auto run = [this] {
+        try {
+            applyContent();
+        } catch (winrt::hresult_error const& e) {
+            logLine("WinRT error building a floating card's content: 0x%08x %ls", static_cast<unsigned int>(e.code()), e.message().c_str());
+        }
+    };
+    if (!queued && !queue_.TryEnqueue(winrt::Windows::System::DispatcherQueuePriority::Low, run)) run();
+}
+
 void PillRenderer::applyContent()
 {
     if (!pendingContent_) return;
     Scene scene = *std::exchange(pendingContent_, std::nullopt);
     auto start = std::chrono::steady_clock::now();
     Ms reveal = std::max(Ms{ 0 }, std::chrono::duration_cast<Ms>(revealAt_ - start)); // what's left of it after the queue
+    if (floating_) { // the ✕ apart from the card's content (decision 081)
+        std::vector<Placed> content, chrome;
+        for (const Placed& p : scene.elements) (isChrome(p.key) ? chrome : content).push_back(p);
+        pill_.setContent(content, scene.now, reveal);
+        pill_.setChrome(chrome, scene.now);
+        pill_.setToast(scene.toast, scene.now);
+        return;
+    }
     pill_.setContent(scene.elements, scene.now, reveal);
     pill_.setToast(scene.toast, scene.now); // floating over it (decision 071)
     bubble_.setContent(scene.bubble ? scene.bubble->elements : std::vector<Placed>{}, scene.now, reveal);

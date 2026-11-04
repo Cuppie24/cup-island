@@ -184,6 +184,7 @@ if(WIN32)
 
     add_executable(CupIsland
         assets/cup_island.rc
+        src/app/floating_cards.cpp
         src/app/keyboard_input.cpp
         src/app/live_tokens.cpp
         src/app/main.cpp
@@ -204,6 +205,7 @@ if(WIN32)
         src/platform/switch_parts.cpp
         src/platform/list_viewports.cpp
         src/platform/file_watcher.cpp
+        src/platform/float_window.cpp
         src/platform/fullscreen_watcher.cpp
         src/platform/graphics_device.cpp
         src/platform/hotkeys.cpp

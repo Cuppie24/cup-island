@@ -1,10 +1,12 @@
 // Pomodoro end to end (decision 009): registry + provider + reduce() +
 // layout() + hitTest(), with wake-ups driven like the app's timer.
 
+#include "core/dialog.h"
 #include "core/hit_test.h"
 #include "core/item_metrics.h"
 #include "core/layout.h"
 #include "core/tokens.h"
+#include "card_scene.h"
 #include "expect.h"
 #include "providers/pomodoro/pomodoro_provider.h"
 #include "providers/provider_registry.h"
@@ -24,7 +26,7 @@ struct Island {
     {
     }
 
-    Scene scene() const { return layout(state, now); }
+    Scene scene() const { return cardScene(state, now); }
     void send(const Event& e) { state = reduce(state, e, now); }
 
     // Click the button with this key, like the app does.
@@ -50,6 +52,14 @@ struct Island {
     }
 
     const Activity* focus() const { return findActivity(state, PomodoroProvider::kPanelId); }
+
+    // Its card floats (decision 081): the pill opens it, or sends it back.
+    void openCard()
+    {
+        if (!floatFor(state, PomodoroProvider::kPanelId)) send(PillClicked{});
+    }
+    void closeCard() { send(FloatClosed{ PomodoroProvider::kPanelId }); }
+    const Dialog* dialog() const { return dialogOver(state, PomodoroProvider::kPanelId); } // over its card
 };
 
 const std::string kTile = std::string("tile/") + PomodoroProvider::kPanelId;
@@ -150,13 +160,13 @@ void planTests()
     const Placed* title = find(stats, "expandedCenter/0/0");
     expect(title && std::abs(title->frame.x + title->frame.width / 2 - stats.size.x / 2) < 0.51f, "its title centred on the card, back arrow or not");
     for (const Placed& p : stats.elements)
-        if (p.key.rfind("tab/", 0) != 0) expect(p.frame.y + p.frame.height <= stats.size.y - t.expandedPadding + 0.01f, "fits the statistics: " + p.key);
+        if (p.key.rfind("tab/", 0) != 0 && p.key.rfind("float/", 0) != 0) expect(p.frame.y + p.frame.height <= stats.size.y - t.expandedPadding + 0.01f, "fits the statistics: " + p.key);
     // Decision 070: the page keeps the timer card's size, its content centred in it, its back arrow at the card's
     // edge, its tables narrower than the card, each group apart.
     expect(stats.size.y == card.size.y, "the statistics keep the timer card's height");
     float top = stats.size.y, bottom = 0;
     for (const Placed& p : stats.elements)
-        if (p.key.rfind("tab/", 0) != 0) top = std::min(top, p.frame.y), bottom = std::max(bottom, p.frame.y + p.frame.height);
+        if (p.key.rfind("tab/", 0) != 0 && p.key.rfind("float/", 0) != 0) top = std::min(top, p.frame.y), bottom = std::max(bottom, p.frame.y + p.frame.height);
     float above = top - (card.tabs ? card.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap : 0), below = stats.size.y - bottom;
     expect(card.tabs || std::abs(above - below) < 1.0f, "its content centred vertically");
     const Placed* arrow = find(stats, "expandedCenter/0/1");
@@ -204,19 +214,19 @@ void planTests()
            sun->frame.x > mon->frame.x && std::abs((mon->frame.x + sun->frame.x + sun->frame.width) / 2 - page.size.x / 2) < 0.51f,
            "the days: seven circles in one centred row");
     for (const Placed& p : page.elements)
-        if (p.key.rfind("tab/", 0) != 0) expect(p.frame.y + p.frame.height <= page.size.y - t.expandedPadding + 0.01f, "fits the page: " + p.key);
+        if (p.key.rfind("tab/", 0) != 0 && p.key.rfind("float/", 0) != 0) expect(p.frame.y + p.frame.height <= page.size.y - t.expandedPadding + 0.01f, "fits the page: " + p.key);
 
     island.press("expandedCenter/1/3");
     island.press("expandedCenter/1/3");
     island.press("expandedCenter/2/1");
     Scene after = island.scene();
     expect(textAt(after, "expandedCenter/1/2") == "35 min" && textAt(after, "expandedCenter/2/2") == "4 min", "each click a step");
-    auto shown = shownCard(island.state); // Esc, as the app does: the card's backAction first (decision 033)
+    auto shown = focusedCard(island.state); // Esc, as the app does: the card's backAction first (decision 033)
     expect(shown && backAction(island.state) == pomodoro_action::kBack, "Esc on the page: back");
     island.registry.route({ shown->providerId, shown->activityId, backAction(island.state), 0 });
     Scene back = island.scene();
     const Placed* dialAfter = find(back, "expandedCenter/1/0");
-    expect(island.state.expandedId == PomodoroProvider::kPanelId && dialAfter && std::get<Dial>(dialAfter->item).shown == "35:00",
+    expect(cardOnScreen(island.state, PomodoroProvider::kPanelId) && dialAfter && std::get<Dial>(dialAfter->item).shown == "35:00",
            "back to the timer; the big time follows focus");
     expect(loadPlan(saved).focus == Ms{ 35 * 60000 } && loadPlan(saved).rest == Ms{ 4 * 60000 }, "kept in the store");
     expect(island.press(kStart) && island.registry.nextWake() == Ms{ 35 * 60000 }, "started: focus lasts the planned time");
@@ -259,20 +269,22 @@ void runPomodoroTests()
     expect(plannedTime && std::get<Text>(plannedTime->item).value == "25:00", "and the focus time");
     expect(noButtonsOn(dormantHome) && dormantHome.tiles.size() == 1 && dormantHome.tiles[0].opens, "no buttons: it opens the card");
 
-    // Start from the card. A click on its empty space doesn't close it (Content::keepOpen).
+    // Start from the card, which floats beside other work (decision 081): its
+    // empty space drags it, and left alone it stays (decision 062).
     island.send(TileClicked{ PomodoroProvider::kPanelId });
-    island.send(PillClicked{});
-    expect(island.state.expandedId == PomodoroProvider::kPanelId, "dormant card: a click between its controls keeps it open");
-    expect(reduce(island.state, Tick{}, island.now + t.expandedIdleTimeout * 10).expandedId == PomodoroProvider::kPanelId,
+    expect(floatFor(island.state, PomodoroProvider::kPanelId) && !isExpanded(island.state), "the dormant card floats; the island goes back to its pill");
+    expect(floatFor(reduce(island.state, Tick{}, island.now + t.expandedIdleTimeout * 10), PomodoroProvider::kPanelId),
            "and left alone, it stays (decision 062)");
     expect(island.press(kStart), "the dormant card's start button");
     expect(island.focus() && island.focus()->content.label == "Focus", "start: a focus phase is live");
     expect(island.registry.nextWake() == Ms{ t.pomodoroFocus }, "wakes when focus ends");
-    expect(island.state.expandedId == PomodoroProvider::kPanelId, "the live card shows");
-    island.send(PillClicked{});
-    expect(island.state.expandedId == PomodoroProvider::kPanelId, "running card: a click between its controls keeps it open");
-    expect(reduce(island.state, Tick{}, island.now + t.expandedIdleTimeout * 2).expandedId == PomodoroProvider::kPanelId,
+    expect(floatFor(island.state, PomodoroProvider::kPanelId), "the live card floats in the same place");
+    expect(floatFor(reduce(island.state, Tick{}, island.now + t.expandedIdleTimeout * 2), PomodoroProvider::kPanelId),
            "the running card stays too when left alone");
+    island.send(PillClicked{});
+    expect(!floatFor(island.state, PomodoroProvider::kPanelId), "a click on the pill sends it back (decision 081)");
+    island.send(PillClicked{});
+    expect(floatFor(island.state, PomodoroProvider::kPanelId), "...and another floats it again");
 
     // The running widget: the ring filling, the time left, the phase and round.
     island.send(HomeOpened{});
@@ -288,7 +300,8 @@ void runPomodoroTests()
     expect(noButtonsOn(home), "still no buttons");
 
     // Compact: the countdown in the middle, the ring on the right, no phase name; red for focus.
-    island.send(EscapePressed{});
+    island.send(EscapePressed{}); // Home closes; the floating card stays
+    island.closeCard();
     Scene compact = island.scene();
     const Placed* centre = nullptr;
     const Placed* ring = nullptr;
@@ -304,9 +317,9 @@ void runPomodoroTests()
 
     // Expanded: how many phases have passed.
     auto stepsShown = [&] {
-        island.send(PillClicked{});
+        island.openCard();
         Scene card = island.scene();
-        island.send(EscapePressed{});
+        island.closeCard();
         for (const Placed& p : card.elements)
             if (auto* steps = std::get_if<Steps>(&p.item)) return *steps;
         return Steps{ -1, -1 };
@@ -314,9 +327,9 @@ void runPomodoroTests()
     expect(stepsShown() == Steps{ static_cast<int>(2 * t.pomodoroRounds), 0 }, "card: a dot per phase, none done yet");
 
     // The card: centred, the dial (the time left in a ring filling with the phase), the dots, then the controls.
-    island.send(PillClicked{});
+    island.openCard();
     Scene card = island.scene();
-    island.send(EscapePressed{});
+    island.closeCard();
     auto at = [&](const std::string& key) -> const Placed* {
         for (const Placed& p : card.elements)
             if (p.key == key) return &p;
@@ -342,7 +355,7 @@ void runPomodoroTests()
     float contentTop = card.tabs ? card.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap : t.expandedPadding;
     for (const Placed& p : card.elements) {
         expect(!std::holds_alternative<Progress>(p.item), "no bar or loose ring in the card, the dial has it: " + p.key);
-        if (p.key.rfind("tab/", 0) != 0)
+        if (p.key.rfind("tab/", 0) != 0 && p.key.rfind("float/", 0) != 0)
             expect(p.frame.y >= contentTop - 0.01f && p.frame.y + p.frame.height <= card.size.y - t.expandedPadding + 0.01f, "fits the card: " + p.key);
     }
     expect(card.size.y <= t.canvas.y, "and the card fits the canvas");
@@ -393,16 +406,16 @@ void runPomodoroTests()
     island.press(kStart);
     expect(island.focus() != nullptr, "started again");
     expect(island.press(kStop), "the running card's stop button");
-    expect(island.focus() && island.state.card.dialog && island.state.card.dialog->title == "Stop the session?" &&
-           island.state.card.dialog->message == "You're in round 1 of " + std::to_string(t.pomodoroRounds) + ". The timer starts over next time." &&
-           island.state.card.dialog->destructive, "stop asks first; still running");
+    expect(island.focus() && island.dialog() && island.dialog()->title == "Stop the session?" &&
+           island.dialog()->message == "You're in round 1 of " + std::to_string(t.pomodoroRounds) + ". The timer starts over next time." &&
+           island.dialog()->destructive, "stop asks first; still running");
     island.send(DialogClosed{}); // Cancel
-    expect(island.focus() && !island.state.card.dialog, "cancelled: still running");
+    expect(island.focus() && !island.dialog(), "cancelled: still running");
     island.press(kStop);
-    Dialog asked = *island.state.card.dialog;
+    Dialog asked = *island.dialog();
     island.registry.route({ asked.providerId, asked.activityId, asked.confirmAction, 0 }); // the app: Stop clicked
     island.send(DialogClosed{});
-    expect(!island.focus() && !island.registry.nextWake() && island.state.expandedId == PomodoroProvider::kPanelId,
+    expect(!island.focus() && !island.registry.nextWake() && cardOnScreen(island.state, PomodoroProvider::kPanelId),
            "confirmed: dormant, its card still open");
     PomodoroProvider::Session longBreak{ .phase = PomodoroProvider::Phase::LongBreak, .round = t.pomodoroRounds };
     expect(stopQuestion(longBreak).message == "You're on the long break. The timer starts over next time.", "on the long break, says so");
@@ -414,11 +427,11 @@ void runPomodoroTests()
     auto shown = shownActivity(island.state);
     expect(shown && shown->activityId == PomodoroProvider::kPanelId, "ctrl+w: the running card's activity");
     island.registry.closeRequested(*shown);
-    expect(island.focus() && island.state.card.dialog && island.state.card.dialog->title == "Stop the session?", "ctrl+w: asks first; still running");
-    asked = *island.state.card.dialog;
+    expect(island.focus() && island.dialog() && island.dialog()->title == "Stop the session?", "ctrl+w: asks first; still running");
+    asked = *island.dialog();
     island.registry.route({ asked.providerId, asked.activityId, asked.confirmAction, 0 });
     island.send(DialogClosed{});
-    expect(!island.focus() && island.state.expandedId == PomodoroProvider::kPanelId, "ctrl+w: confirmed, stopped; its card still open");
+    expect(!island.focus() && cardOnScreen(island.state, PomodoroProvider::kPanelId), "ctrl+w: confirmed, stopped; its card still open");
     island.send(HomeOpened{});
     expect(!shownActivity(island.state), "ctrl+w: Home has no activity to close");
     island.send(TileClicked{ PomodoroProvider::kPanelId });

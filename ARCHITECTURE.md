@@ -44,7 +44,7 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 tokens.h (+ tokens_json.h, json_reader.h), easing.h, motion.h (the morph's spring, fling, stagger, decision 080),
                 floating.h (a card floating apart from the island, decision 081) + float_layout.h (its scene) + float_placement.h (where it opens)
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
-                pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
+                pill + Split bubble, and the liquid_bridge between them; a floating card's one detached shape, decision 081), float_window (a floating card's window pair), element_visuals (one visual
                 per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts) + tap_hook (double-tap shortcuts, decision 079), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules and the media widget, SMTC provider for real Windows media),
@@ -58,7 +58,7 @@ src/service/    CupIslandIndex.exe, the file index service (Windows, decision 07
                 drive (scan or snapshot, then the journal), PipeServer (folder checks as each client), SelfUpdate
                 (its own installer from GitHub, decision 076), --install/--stop/--uninstall for its installer;
                 index_client, the pipe's client, shared by cupindex.exe (its terminal tool) and the app
-src/app/        main.cpp: wiring only; surface.h: the island (and soon each floating card) as a surface, its scene, renderer and pointer (decision 081); live_tokens.cpp: tokens.json load/reload; keyboard_input.cpp: keyboard focus,
+src/app/        main.cpp: wiring only; surface.h: the island and each floating card as a surface, its scene, renderer and pointer, floating_cards.cpp: their windows (decision 081); live_tokens.cpp: tokens.json load/reload; keyboard_input.cpp: keyboard focus,
                 Enter/Space, system-wide shortcuts and recording new keys (decisions 031, 032)
 assets/         tokens.json: the live-tunable sizes, timings and curves; the app icon (cup_island.rc/.ico)
 installer/      Inno Setup script for the Windows installer (decision 011); its version comes from build.ps1
@@ -243,7 +243,7 @@ over the file's, so `tokens()` is always what's on screen.
 | File search installed with the app, self-updating (decision 076, milestone 4): its own admin installer, carried by the app's; set up at the end of setup or at the app's first start; updates from GitHub through the service | rules tested; --install/--uninstall and the update request run under Wine; installers and a real update need a Windows run; the search panel not yet |
 | Search card (decisions 077, 079): apps, Settings pages, Control Panel, files; live field; Double Ctrl; launch history | rules tested; the hook, the shell folders, launching and the look need a Windows run |
 | Providers reach the service only through the host, by granted module (decision 078) | done; tested |
-| Floating cards (decision 081): a card floats apart from the island in its look (`Content::floating`), the island keeps its pill; several at once, focus routes keys, a dialog and toast per card, sized to its content, placement remembered per card | core done; rules tested; its windows and the spring from the pill not yet (Windows) |
+| Floating cards (decision 081): a card floats apart from the island in its look (`Content::floating`), the island keeps its pill; several at once, focus routes keys, a dialog and toast per card, sized to its content, placement remembered per card | rules tested; Pomodoro floats: its windows, drag, ✕, keys need a Windows run; the spring from the pill, per-monitor scale and resizing not yet |
 | Plugin pipe (PS §8 Tier 2) | not yet |
 | Activity expiry (`expiresAt`) | done, tested |
 | Rate limits, stale activities (PS §4, §6.3) | not yet |

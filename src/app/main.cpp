@@ -20,11 +20,13 @@
 // Quit any time from the tray icon's right-click menu (Exit). Everything is logged to
 // %LOCALAPPDATA%\CupIsland\logs (platform/log.h); Debug builds also show it in a console.
 
+#include "app/floating_cards.h"
 #include "app/keyboard_input.h"
 #include "app/live_tokens.h"
 #include "app/surface.h"
 #include "core/card_overlays.h"
 #include "core/dialog.h"
+#include "core/float_layout.h"
 #include "core/floating.h"
 #include "core/hit_test.h"
 #include "core/island.h"
@@ -120,8 +122,12 @@ UpdateProvider* g_update = nullptr;     // owned by g_providers; Settings' "Chec
 app::Surface g_island;
 
 // The surface with the keys: what the keyboard moves around and types into.
-// The island, until floating cards are surfaces too (decision 081).
-app::Surface& keysSurface() { return g_island; }
+// The focused floating card's (decision 081), else the island's.
+app::Surface& keysSurface()
+{
+    if (app::Surface* card = app::floatSurface(g_state.focusedFloatId)) return *card;
+    return g_island;
+}
 PointerTrack g_drag; // the pointer's speed while the island or bubble is carried: a fling when let go (decision 080)
 
 Ms now()
@@ -202,7 +208,12 @@ void updateHover(app::Surface& s)
     // A text field shows the I-beam (decision 043): the add field, and a to-do only while it's
     // being edited (then it's a field); a field being drag-selected keeps it, even off it.
     const Placed* under = key.empty() ? nullptr : findElement(s, key);
-    setTextCursor(!s.pointer.selecting.empty() || (under && std::holds_alternative<TextInput>(under->item)));
+    bool text = !s.pointer.selecting.empty() || (under && std::holds_alternative<TextInput>(under->item));
+    if (s.island()) setTextCursor(text);
+    else {
+        app::setFloatTextCursor(s, text);
+        s.renderer->setPointerInside(s.pointer.at.has_value()); // its ✕ shows (decision 081)
+    }
     s.renderer->setHoveredRow(at ? rowAt(s.scene, *at) : std::string()); // reveals a to-do's delete button, the plan's − and + (decision 063)
 
     // Tabs light up as a whole, except the active one, which is already marked (decision 007).
@@ -273,7 +284,9 @@ void dispatch(const Event& event, const char* reason)
     g_island.scene = next;
     if (lifted) onLifted();
     if (g_state.spot != spot) saveSpot();
+    app::syncFloats(g_state, t); // the floating cards: opened, redrawn, sent back (decision 081)
     updateHover(g_island);
+    app::forEachFloat([](app::Surface& card) { updateHover(card); });
 
     // The island in the playing cover's colours, or the theme's (decision 051).
     IslandTint tint = nextTint(g_tint, g_coverColours ? wantedTint(g_state) : WantedTint{}, t);
@@ -282,6 +295,7 @@ void dispatch(const Event& event, const char* reason)
 
     // One timer for everything time-based: core deadlines, ticking labels and provider wake-ups.
     auto deadline = earliest(earliest(nextDeadline(g_state), sceneDeadline(g_island.scene)), tintDeadline(g_tint));
+    app::forEachFloat([&deadline](app::Surface& card) { deadline = earliest(deadline, sceneDeadline(card.scene)); });
     if (g_providers) deadline = earliest(deadline, g_providers->nextWake());
     setTimer(TimerId::Deadline, deadline ? std::optional<Ms>(std::max(*deadline - t, Ms{ 0 })) : std::nullopt);
 
@@ -344,6 +358,10 @@ void act(const Action& action)
 {
     if (action.actionId == kDialogConfirm || action.actionId == kDialogCancel) { // host-owned names: never a provider's
         answerDialog(action.actionId == kDialogConfirm);
+        return;
+    }
+    if (action.actionId == kCloseFloat) { // a floating card's ✕ (decision 081)
+        dispatch(FloatClosed{ action.activityId }, "card's close");
         return;
     }
     g_providers->route(action);
@@ -470,7 +488,10 @@ void onPressDown(app::Surface& s, Vec2 canvasPoint)
             s.pointer.listPress = *element;
             s.pointer.listPressY = point.y;
         }
-    } else if (s.island() && pressSquashes(g_state)) { // not where an empty click does nothing (decision 071)
+    } else if (!s.island()) {
+        app::startMoving(s); // a floating card's empty space drags it (decision 081)
+        return;
+    } else if (pressSquashes(g_state)) { // not where an empty click does nothing (decision 071)
         s.renderer->pressDown(false);
     }
     updateHover(s);
@@ -726,7 +747,7 @@ void onKey(WPARAM key)
         // One step back, never out of the app: quitting is the tray's Exit. A
         // card's own page goes back to its list, a card opened from Home back
         // to Home, anything else closes (decision 033).
-        if (mode(g_state) != Mode::Expanded) return;
+        if (mode(g_state) != Mode::Expanded && !focusedFloat(g_state)) return; // a floating card has the keys (decision 081)
         std::string back = backAction(g_state);
         if (auto card = focusedCard(g_state); card && !back.empty()) act({ card->providerId, card->activityId, back });
         else dispatch(EscapePressed{}, "esc");
@@ -738,7 +759,7 @@ void onKey(WPARAM key)
     // no activity to close.
     if (ctrl && key == 'W') {
         auto card = shownActivity(g_state);
-        if (mode(g_state) == Mode::Expanded && card) {
+        if ((mode(g_state) == Mode::Expanded || focusedFloat(g_state)) && card) {
             g_providers->closeRequested(*card);
             dispatch(PointerMoved{}, "close request"); // busy here: keep the card open for an answer
         }
@@ -953,6 +974,31 @@ int main()
         return 1;
     }
     g_island.input = g_inputHwnd;
+    // Floating cards (decision 081): their windows on the island's Compositor,
+    // their input through the same handlers, with their own surfaces.
+    app::setFloatHooks({
+        .instance = instance,
+        .compositor = render.compositor,
+        .dispatch = dispatch,
+        .measure = [](const Text& text) { return g_renderer.measure(text); },
+        .pill = [] {
+            const Scene& pill = g_island.scene;
+            return Rect{ g_render.left + pill.offset.x, g_render.top + pill.offset.y, pill.size.x, pill.size.y };
+        },
+        .islandScreen = [] { return displayFor(g_displayId).id; },
+        .scale = [] { return displayFor(g_displayId).scale * tokens().islandScale; },
+        .placesFile = dataFile(L"floats.txt"),
+        .pressDown = onPressDown,
+        .pressRelease = onPressRelease,
+        .pointerMoved = onPointerMoved,
+        .pointerLeft = [](app::Surface& card) {
+            card.pointer.at.reset();
+            updateHover(card);
+        },
+        .wheel = onWheel,
+        .keyDown = onKey,
+        .character = onChar,
+    });
     createTrayIcon(instance, [] {
         logLine("exit from the tray");
         DestroyWindow(g_inputHwnd); // ends the message loop
@@ -1102,6 +1148,7 @@ int main()
     }).detach();
 
     removeTrayIcon();
+    app::closeAllFloats(); // their windows, before the render layer and the Compositor go
     // Stops Double Ctrl's keyboard-hook thread (tap_hook): left running, its
     // std::thread was still joinable when statics were destroyed, and every
     // exit ended in std::terminate (a crash dump on each update).

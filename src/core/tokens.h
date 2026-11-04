@@ -95,6 +95,7 @@ struct Tokens {
     float floatIslandGap = 16;      // FloatStart::NearIsland: this far under the pill
     float floatCascade = 28;        // opening where another one already is: this far right and down from it
     float floatCloseSize = 24;      // the ✕ on its top-right corner, shown while the pointer is on the card
+    float floatAppearScale = 0.92f; // it pops in from this scale (and shrinks back to it going), over morphDuration
     float expandedArtSize = 68; // expanded leading square: as tall as title + artist + caption beside it
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;

@@ -1,6 +1,6 @@
 # 081: A card can float apart from the island
 
-Status: Accepted (core done; the Windows side is next)
+Status: Accepted (first version: Pomodoro floats; the spring from the pill, per-monitor scale and resizing are next)
 
 **Context.** A card grows out of the island and covers the top of the
 screen while it's open; a click elsewhere or leaving it alone closes it,
@@ -73,35 +73,39 @@ wherever the user drags it, while the island keeps showing its pill.
   whole if it fits, else its top-left corner. Never exactly on another
   open one: a `floatCascade` step right and down. Not reopened after a restart.
 
-**The Windows side (next, needs a Windows run).**
-- First, the app gets **surfaces** (`app/surface.h`): a scene, its renderer,
-  its windows, and the pointer, hover and keyboard-focus state that went
-  with the one island. The island is one; each floating card another; every
-  input handler takes the surface it came from.
-- Each floating card is a pair of windows, like the island (decision 001):
-  a layered, click-through render window a shadow's width bigger than the
-  card, on the island's Compositor, drawn by the same element visuals; and
-  an interaction window over the card, its region the card's rounded shape
-  plus the ✕, so clicks beside it reach what's under it. Topmost, tool
-  windows (no taskbar, no Alt-Tab), not `WS_EX_NOACTIVATE`: clicking it
-  gives it the keys. Each is scaled for its own monitor and follows
-  `WM_DPICHANGED` (decision 017 scales only the island for its display).
-- **Open and close grow out of and shrink into the pill on the island's
-  spring** (decision 080), corners included. The pill and the card are in
-  different windows, so the spring runs in a short-lived layer covering
-  both; at the end the card's own window, drawn the same, shows under it
-  and the layer goes a frame later. Decision 008's handoffs apply: check the
-  timing on Windows. One render layer the size of the monitor would avoid
-  the handoff, but Windows treats a topmost window covering a monitor as a
-  fullscreen app (notifications held back), and floating cards can be on
-  any monitor.
-- Not yet: tearing a card off the island by dragging it, a dot on the pill
-  while its card floats, holding back an activity's alerts while its
+**The Windows side** (first version; needs a Windows run to judge).
+- The app has **surfaces** (`app/surface.h`): a scene, its renderer, its
+  interaction window, and the pointer on it. The island is one; each
+  floating card another (`app/floating_cards.h`, kept in step with
+  `IslandState::floats` after every dispatch); every input handler takes
+  the surface it came from, and keys go to the one with the keys.
+- Each floating card is a pair of windows, like the island (decision 001;
+  `platform/float_window.h`): a layered, click-through render window a
+  shadow's width bigger than the card, on the island's Compositor; and an
+  input window over the card, its region the card's rounded shape plus the
+  ✕, so clicks beside it reach what's under it. Both move together
+  (`DeferWindowPos`) while dragged. Topmost tool windows (no taskbar, no
+  Alt-Tab), not `WS_EX_NOACTIVATE`: clicking it gives it the keys. The
+  island is put back on top after one is raised.
+- Drawn by the island's own renderer in a floating mode
+  (`PillRenderer::buildFloating`): one shape, detached (`Blob::detach`), its
+  ✕ in an unclipped layer (`Blob::setChrome`), so it looks and reacts
+  exactly like the island's card.
+- **Pomodoro's card floats** (both its dormant and running cards), the
+  first to.
+- **For now:** it pops in where it opens (from `floatAppearScale`, with a
+  hint of overshoot) and shrinks away going, instead of growing out of the
+  pill; the spring from the pill runs in a layer covering both and hands
+  off to the card's own window, with decision 008's handoff timing to
+  check on Windows. It's laid out at the island's display scale on every
+  monitor, and resizing by its edges isn't in; both are next.
+- Not yet either: tearing a card off the island by dragging it, a dot on the
+  pill while its card floats, holding back an activity's alerts while its
   floating card has the keys.
 
 **Consequences.** `island.h` and `island.cpp` are past ~300 lines; the
 rules live in `core/floating.h`, the scene in `core/float_layout.h`,
 placement in `core/float_placement.h`. Rules are in
 `tests/scenarios/floating.scenario`, the rest in `tests/float_tests.cpp`.
-No provider floats a card yet, so nothing changes on screen until the
-Windows side lands.
+Tests that look at a card's content use `tests/card_scene.h`, which lays
+it out wherever it's shown.

@@ -56,6 +56,16 @@ public:
     void setToast(const std::optional<ToastScene>& toast, Ms now) { toast_.show(toast, now); }
     ElementVisuals& toastElements() { return toast_.elements(); } // hover and press on its button
 
+    // A floating card (decision 081): off the screen edge for good, every
+    // corner round and no ears, from the start (no fold animation).
+    void detach();
+    // A floating card's own controls (its ✕): over the shape and not clipped
+    // to it, so the ✕ can sit half outside its corner. Shown while the
+    // pointer is on the card (showChrome).
+    void setChrome(const std::vector<Placed>& elements, Ms now);
+    void showChrome(bool on);
+    ElementVisuals& chrome() { return chrome_; }
+
     // Tactile click feedback: squash on press, spring back on release.
     void pressDown();
     void pressRelease();
@@ -71,6 +81,7 @@ private:
     void land(Vec2 fling);                               // ...until let go: springs to offset_
 
     wuc::Compositor compositor_{ nullptr };
+    GraphicsDevice* device_ = nullptr; // for the chrome's visuals (detach())
     wuc::ShapeVisual body_{ nullptr };             // Size/Offset morph implicitly
     // Its shadow (decision 018): a sprite under the body that draws nothing
     // itself and casts a DropShadow masked by a live snapshot of the body's outline, so
@@ -116,6 +127,9 @@ private:
     BadgeDots badges_;
     ToastLayer toast_;
     ElementVisuals elements_;
+    ElementVisuals chrome_;                        // a floating card's ✕ (made by detach())
+    wuc::ContainerVisual chromeLayer_{ nullptr };
+    bool chromeShown_ = false;
     Vec2 size_, offset_;
     Vec2 centre_;            // last cursor position while following
     bool following_ = false; // Offset is driven by the cursor expression, not set directly

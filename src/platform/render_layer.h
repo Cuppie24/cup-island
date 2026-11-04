@@ -25,6 +25,10 @@ winrt::Windows::System::DispatcherQueueController createDispatcherQueueForCurren
 // displays.h), plus the compositor and root visual. hwnd == nullptr on failure.
 RenderLayer createRenderLayer(HINSTANCE instance, Vec2 canvas, Rect monitor);
 
+// A Composition target for `window` on `compositor`: the render layer's, and
+// each floating card's (decision 081), all on the island's one Compositor.
+wuc::Desktop::DesktopWindowTarget createWindowTarget(wuc::Compositor const& compositor, HWND window);
+
 // A new canvas size or another monitor: resized to span its top again.
 void resizeRenderLayer(RenderLayer& layer, Vec2 canvas, Rect monitor);
 

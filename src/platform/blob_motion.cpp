@@ -5,6 +5,7 @@
 #include "platform/blob.h"
 
 #include "platform/blob_shape.h"
+#include "platform/element_parts.h"
 #include "platform/spring_motion.h"
 
 #include <algorithm>
@@ -80,6 +81,33 @@ void Blob::setAttached(bool on)
     };
     play(L"Flare", on ? 1.0f : 0.0f, on ? whole - first : Ms{ 0 }, first);
     play(L"Attached", on ? 1.0f : 0.0f, on ? Ms{ 0 } : first, whole - first);
+}
+
+void Blob::detach()
+{
+    // Set, not animated: a floating card is never on the edge (decision 081).
+    shape_.InsertScalar(L"Attached", 0.0f);
+    shape_.InsertScalar(L"Flare", 0.0f);
+    shape_.InsertScalar(L"LeftEar", 0.0f);
+    shape_.InsertScalar(L"RightEar", 0.0f);
+    leftEar_ = rightEar_ = false;
+    if (chromeLayer_) return;
+    chromeLayer_ = compositor_.CreateContainerVisual();
+    chromeLayer_.Opacity(0.0f);
+    body_.Children().InsertAtTop(chromeLayer_); // over the content, the toast and the dots; no clip
+    chrome_.init(compositor_, *device_, chromeLayer_);
+}
+
+void Blob::setChrome(const std::vector<Placed>& elements, Ms now)
+{
+    if (chromeLayer_) chrome_.apply(elements, now);
+}
+
+void Blob::showChrome(bool on)
+{
+    if (!chromeLayer_ || on == chromeShown_) return;
+    chromeShown_ = on;
+    fadeTo(compositor_, chromeLayer_, on ? 1.0f : 0.0f, tokens().hoverFadeDuration);
 }
 
 void Blob::setEars(bool left, bool right)

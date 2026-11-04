@@ -35,10 +35,17 @@ Scene floatScene(const IslandState& s, const FloatingCard& f, Ms now, const Meas
     if (!content) return scene;
     scene.label = content->label;
 
-    // What the island's card would show; a question takes its place, as there (decision 020).
+    // What the island's card would show; a question takes its place below, as there (decision 020).
     const Draft* draft = s.draft && s.draft->activityId == f.activityId ? &*s.draft : nullptr;
     const ListDrag* drag = s.listDrag && s.listDrag->activityId == f.activityId ? &*s.listDrag : nullptr;
     Source source{ content, f.providerId, f.activityId, draft, &s.scrolls, drag, &s.keptText };
+    // Fits its content, like the island's cards (decision 016), unless resized:
+    // the card's own, so a question over it changes nothing (decision 020).
+    float width = content->floating ? floatWidth(content->floating->width) : t.floatMediumWidth;
+    if (f.size) scene.size = *f.size;
+    else if (stacked(*content)) scene.size = { width, centredCardHeight(source, { width, 0 }, t.floatMaxHeight, measureText) };
+    else scene.size = { width, std::min(t.expandedSize.y, t.floatMaxHeight) };
+
     Content asked;
     const Dialog* dialog = dialogOver(s, f.activityId);
     if (dialog) {
@@ -46,12 +53,6 @@ Scene floatScene(const IslandState& s, const FloatingCard& f, Ms now, const Meas
         source.content = &asked;
         scene.label = dialog->title;
     }
-
-    // Fits its content, like the island's cards (decision 016), unless resized.
-    float width = content->floating ? floatWidth(content->floating->width) : t.floatMediumWidth;
-    if (f.size) scene.size = *f.size;
-    else if (stacked(*source.content)) scene.size = { width, centredCardHeight(source, { width, 0 }, t.floatMaxHeight, measureText) };
-    else scene.size = { width, std::min(t.expandedSize.y, t.floatMaxHeight) };
 
     float nestedRadius = std::max(0.0f, pillCornerRadius(scene.size) - t.expandedPadding); // as on the island's card
     for (const SlotFrame& slot : cardSlots(*source.content, scene.size)) placeSlot(slot, source, nestedRadius, now, scene.elements, measureText);

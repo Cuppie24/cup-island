@@ -54,6 +54,7 @@ const Field kFields[] = {
     { "floatIslandGap", &Tokens::floatIslandGap },
     { "floatCascade", &Tokens::floatCascade },
     { "floatCloseSize", &Tokens::floatCloseSize },
+    { "floatAppearScale", &Tokens::floatAppearScale },
     { "listCardMinHeight", &Tokens::listCardMinHeight },
     { "expandedArtSize", &Tokens::expandedArtSize },
     { "slotGap", &Tokens::slotGap },
@@ -420,7 +421,7 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
         std::string_view n(name);
         return n.starts_with("cover") || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" || n == "searchVisibleRows" ||
                n == "primaryHoverOpacity" || n == "playGlyphNudge" || // a share of an opacity, of a width (decisions 066, 071)
-               n.ends_with("Bounce") || n == "contentArriveScale" || n == "contentRevealAt" || n == "morphSpringSettle" || n == "alertPulseScale" || // shares (decision 080)
+               n.ends_with("Bounce") || n == "contentArriveScale" || n == "floatAppearScale" || n == "contentRevealAt" || n == "morphSpringSettle" || n == "alertPulseScale" || // shares (decision 080)
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
     };
     Tokens out = t;

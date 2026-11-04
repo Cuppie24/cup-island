@@ -84,6 +84,9 @@ std::vector<Display> listDisplays()
         const RECT& r = info.rcMonitor;
         d.bounds = { static_cast<float>(r.left), static_cast<float>(r.top), static_cast<float>(r.right - r.left),
                      static_cast<float>(r.bottom - r.top) };
+        const RECT& w = info.rcWork;
+        d.workArea = { static_cast<float>(w.left), static_cast<float>(w.top), static_cast<float>(w.right - w.left),
+                       static_cast<float>(w.bottom - w.top) };
         UINT dpiX = 96, dpiY = 96;
         if (SUCCEEDED(GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, &dpiX, &dpiY))) d.scale = static_cast<float>(dpiX) / 96.0f;
         displays.push_back(std::move(d));
@@ -101,7 +104,8 @@ Display displayFor(const std::string& id)
     if (!displays.empty()) return displays.front();
     // No display reported at all: assume a 100% primary at the origin.
     return { .id = "", .name = "Display", .primary = true,
-             .bounds = { 0, 0, static_cast<float>(GetSystemMetrics(SM_CXSCREEN)), static_cast<float>(GetSystemMetrics(SM_CYSCREEN)) } };
+             .bounds = { 0, 0, static_cast<float>(GetSystemMetrics(SM_CXSCREEN)), static_cast<float>(GetSystemMetrics(SM_CYSCREEN)) },
+             .workArea = { 0, 0, static_cast<float>(GetSystemMetrics(SM_CXSCREEN)), static_cast<float>(GetSystemMetrics(SM_CYSCREEN)) } };
 }
 
 } // namespace cup::platform
