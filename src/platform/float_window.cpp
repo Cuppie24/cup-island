@@ -67,16 +67,15 @@ void call(const F& callback, Args... args)
 
 } // namespace
 
-bool FloatWindow::create(HINSTANCE instance, wuc::Compositor const& compositor, Rect card, float radius, float closeSize, FloatCallbacks callbacks)
+bool FloatWindow::create(HINSTANCE instance, wuc::Compositor const& compositor, Rect card, float radius, FloatCallbacks callbacks)
 {
     registerClasses(instance);
     callbacks_ = std::move(callbacks);
     card_ = card;
     radius_ = radius;
-    closeSize_ = closeSize;
-    // Room for the shadow on every side (decision 018) and for the ✕ half outside the corner.
+    // Room for the shadow on every side (decision 018).
     const Tokens& t = tokens();
-    margin_ = std::ceil(2 * t.shadowBlur + std::max(std::abs(t.shadowOffset.x), std::abs(t.shadowOffset.y)) + closeSize / 2);
+    margin_ = std::ceil(2 * t.shadowBlur + std::max(std::abs(t.shadowOffset.x), std::abs(t.shadowOffset.y)));
 
     // Like the island's render layer: DirectComposition owns every pixel,
     // and LAYERED | TRANSPARENT passes clicks through to other apps' windows.
@@ -116,15 +115,13 @@ void FloatWindow::setCard(Rect card, float radius)
     bool reshaped = card.width != card_.width || card.height != card_.height || radius != radius_ || !shown_;
     card_ = card;
     radius_ = radius;
-    float pad = closeSize_ / 2;
     // Both in one go, so the card and its clicks never part (decision 001).
     HDWP batch = BeginDeferWindowPos(2);
     if (batch)
         batch = DeferWindowPos(batch, render_, nullptr, px(card.x - margin_), px(card.y - margin_), px(card.width + 2 * margin_),
                                px(card.height + 2 * margin_), SWP_NOZORDER | SWP_NOACTIVATE);
     if (batch)
-        batch = DeferWindowPos(batch, input_, nullptr, px(card.x - pad), px(card.y - pad), px(card.width + 2 * pad), px(card.height + 2 * pad),
-                               SWP_NOZORDER | SWP_NOACTIVATE);
+        batch = DeferWindowPos(batch, input_, nullptr, px(card.x), px(card.y), px(card.width), px(card.height), SWP_NOZORDER | SWP_NOACTIVATE);
     if (batch) EndDeferWindowPos(batch);
     if (root_) root_.Size({ card.width + 2 * margin_, card.height + 2 * margin_ });
     if (reshaped) applyRegion();
@@ -132,14 +129,10 @@ void FloatWindow::setCard(Rect card, float radius)
 
 void FloatWindow::applyRegion()
 {
-    // The card's rounded shape and the ✕'s circle on its top-right corner;
-    // around them, clicks go to whatever is under (input client coordinates).
-    int pad = px(closeSize_ / 2), w = px(card_.width), h = px(card_.height), r = px(2 * radius_), c = px(closeSize_);
-    HRGN shape = CreateRoundRectRgn(pad, pad, pad + w + 1, pad + h + 1, r, r);
-    HRGN close = CreateEllipticRgn(pad + w - c / 2, pad - c / 2, pad + w + c / 2 + 1, pad + c / 2 + 1);
-    CombineRgn(shape, shape, close, RGN_OR);
-    DeleteObject(close);
-    SetWindowRgn(input_, shape, TRUE); // the window owns the region now
+    // The card's rounded shape: beside its corners, clicks go to whatever is
+    // under (input client coordinates).
+    int w = px(card_.width), h = px(card_.height), r = px(2 * radius_);
+    SetWindowRgn(input_, CreateRoundRectRgn(0, 0, w + 1, h + 1, r, r), TRUE); // the window owns the region now
 }
 
 void FloatWindow::startMove()
@@ -148,6 +141,47 @@ void FloatWindow::startMove()
     moving_ = true;
     GetCursorPos(&moveFrom_);
     moveCard_ = card_;
+}
+
+void FloatWindow::setResizable(bool resizable, Vec2 least, Vec2 most)
+{
+    resizable_ = resizable;
+    least_ = least;
+    most_ = most;
+}
+
+int FloatWindow::edgesAt(POINT client) const
+{
+    if (!resizable_) return 0;
+    int band = px(tokens().floatResizeBorder), w = px(card_.width), h = px(card_.height);
+    int edges = 0;
+    if (client.x < band) edges |= kLeft;
+    if (client.x >= w - band) edges |= kRight;
+    if (client.y < band) edges |= kTop;
+    if (client.y >= h - band) edges |= kBottom;
+    return edges;
+}
+
+void FloatWindow::resizeTo(POINT cursor)
+{
+    // The edges held follow the pointer; the others stay put. Within its
+    // limits: past them, the edge stops and the opposite one doesn't move.
+    float dx = static_cast<float>(cursor.x - moveFrom_.x), dy = static_cast<float>(cursor.y - moveFrom_.y);
+    Rect from = moveCard_, to = from;
+    if (resizeEdges_ & kRight) to.width = std::clamp(from.width + dx, least_.x, most_.x);
+    if (resizeEdges_ & kBottom) to.height = std::clamp(from.height + dy, least_.y, most_.y);
+    if (resizeEdges_ & kLeft) {
+        to.width = std::clamp(from.width - dx, least_.x, most_.x);
+        to.x = from.x + from.width - to.width;
+    }
+    if (resizeEdges_ & kTop) {
+        to.height = std::clamp(from.height - dy, least_.y, most_.y);
+        to.y = from.y + from.height - to.height;
+    }
+    to = { std::round(to.x), std::round(to.y), std::round(to.width), std::round(to.height) };
+    if (to == card_) return;
+    setCard(to, radius_);
+    call(callbacks_.onResized, Vec2{ to.width, to.height });
 }
 
 void FloatWindow::raise(bool focus)
@@ -184,7 +218,7 @@ void FloatWindow::setTextCursor(bool text)
 
 Vec2 FloatWindow::pointFrom(LPARAM lParam) const
 {
-    float shift = margin_ - closeSize_ / 2; // the input window's top-left, in the render window
+    float shift = margin_; // the input window's top-left (the card's), in the render window
     return { static_cast<float>(GET_X_LPARAM(lParam)) + shift, static_cast<float>(GET_Y_LPARAM(lParam)) + shift };
 }
 
@@ -200,10 +234,22 @@ LRESULT FloatWindow::handle(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
     case WM_LBUTTONDOWN:
         pressed_ = true;
         SetCapture(hwnd);
+        if (int edges = edgesAt({ GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) })) { // on an edge: resizing, not a click
+            resizeEdges_ = edges;
+            GetCursorPos(&moveFrom_);
+            moveCard_ = card_;
+            return 0;
+        }
         call(callbacks_.onPressDown, pointFrom(lParam)); // may startMove()
         return 0;
 
     case WM_MOUSEMOVE:
+        if (resizeEdges_) {
+            POINT now{};
+            GetCursorPos(&now);
+            resizeTo(now);
+            return 0;
+        }
         if (moving_) {
             POINT now{};
             GetCursorPos(&now);
@@ -221,21 +267,32 @@ LRESULT FloatWindow::handle(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
         if (!pressed_) return 0;
         pressed_ = false; // before ReleaseCapture, so its WM_CAPTURECHANGED isn't a cancel
         ReleaseCapture();
-        if (std::exchange(moving_, false)) call(callbacks_.onMoved);
+        if (std::exchange(resizeEdges_, 0) || std::exchange(moving_, false)) call(callbacks_.onMoved);
         else call(callbacks_.onPressRelease, pointFrom(lParam), inside() ? Release::Inside : Release::Outside);
         return 0;
 
     case WM_CAPTURECHANGED:
         if (!pressed_) return 0;
         pressed_ = false;
-        if (std::exchange(moving_, false)) call(callbacks_.onMoved);
+        if (std::exchange(resizeEdges_, 0) || std::exchange(moving_, false)) call(callbacks_.onMoved);
         else call(callbacks_.onPressRelease, Vec2{}, Release::Cancelled);
         return 0;
 
-    case WM_SETCURSOR:
+    case WM_SETCURSOR: {
         if (LOWORD(lParam) != HTCLIENT) break;
-        SetCursor(LoadCursorW(nullptr, textCursor_ ? IDC_IBEAM : IDC_ARROW));
+        // On a resizable card's edge: the resize arrows, as on any window's.
+        POINT at{};
+        GetCursorPos(&at);
+        ScreenToClient(hwnd, &at);
+        int edges = resizeEdges_ ? resizeEdges_ : edgesAt(at);
+        const wchar_t* cursor = textCursor_ ? IDC_IBEAM : IDC_ARROW;
+        if ((edges & (kLeft | kTop)) == (kLeft | kTop) || (edges & (kRight | kBottom)) == (kRight | kBottom)) cursor = IDC_SIZENWSE;
+        else if ((edges & (kRight | kTop)) == (kRight | kTop) || (edges & (kLeft | kBottom)) == (kLeft | kBottom)) cursor = IDC_SIZENESW;
+        else if (edges & (kLeft | kRight)) cursor = IDC_SIZEWE;
+        else if (edges & (kTop | kBottom)) cursor = IDC_SIZENS;
+        SetCursor(LoadCursorW(nullptr, cursor));
         return TRUE;
+    }
 
     case WM_MOUSEWHEEL: {
         float notches = -static_cast<float>(GET_WHEEL_DELTA_WPARAM(wParam)) / WHEEL_DELTA;

@@ -167,7 +167,8 @@ void planTests()
     float top = stats.size.y, bottom = 0;
     for (const Placed& p : stats.elements)
         if (p.key.rfind("tab/", 0) != 0 && p.key.rfind("float/", 0) != 0) top = std::min(top, p.frame.y), bottom = std::max(bottom, p.frame.y + p.frame.height);
-    float above = top - (card.tabs ? card.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap : 0), below = stats.size.y - bottom;
+    // Under the tab row on the island, under the title bar floating (decision 081).
+    float above = top - (card.tabs ? card.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap : card.titleBar.height), below = stats.size.y - bottom;
     expect(card.tabs || std::abs(above - below) < 1.0f, "its content centred vertically");
     const Placed* arrow = find(stats, "expandedCenter/0/1");
     const Placed* cell = find(stats, "expandedCenter/2/0");
@@ -185,7 +186,7 @@ void planTests()
     const Placed* pageTitleText = find(page, "expandedCenter/0/0");
     const Placed* focusName = find(page, "expandedCenter/1/0");
     expect(pageTitleText && focusName && focusName->frame.y - (pageTitleText->frame.y + pageTitleText->frame.height) >= t.groupGap &&
-           pageTitleText->frame.y < (page.tabs ? page.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap : 0) + t.expandedPadding + t.buttonSize,
+           pageTitleText->frame.y < (page.tabs ? page.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap : page.titleBar.height) + t.expandedPadding + t.buttonSize,
            "from the top, room under the title");
     expect(focusName->list && focusName->list->id == pomodoro_action::kSettingsList &&
            focusName->list->viewport.y + focusName->list->viewport.height <= page.size.y - t.expandedPadding + 0.01f,

@@ -173,6 +173,15 @@ Dialog resetQuestion()
              .confirmLabel = "Reset", .confirmAction = act::kResetStatsConfirmed, .destructive = true };
 }
 
+// Its card floats (decision 081), resized by the user between its own
+// limits: never so small the dial and its controls don't fit.
+namespace {
+FloatSpec timerWindow()
+{
+    return { .resizable = true, .minSize = tokens().pomodoroFloatMinSize, .maxSize = tokens().pomodoroFloatMaxSize };
+}
+} // namespace
+
 // Dormant (decisions 061, 063, 064, 065): the focus time in its empty ring,
 // "Focus" under it, then ▶, the card's one main action, today's line, and the
 // to-dos (decision 016). The plan is on the settings page; days in a row in the top-left
@@ -188,7 +197,7 @@ Panel pomodoroPanel(const TodoList& todos, const PomodoroPlan& plan, const Pomod
         .card = CardLayout::Centred,
         .keepOpen = true, // a click between the controls or to-dos doesn't close it (Content::keepOpen)
         .noIdleTimeout = true, // nor does being left alone: a timer kept in view (decision 062)
-        .floating = FloatSpec{}, // kept beside other work, where the user puts it (decision 081)
+        .floating = timerWindow(), // kept beside other work, where the user puts it (decision 081)
         .expandedCenter = { cornersRow(glance.daysInARow),
                             dialRow({ .duration = plan.focus }, "Focus", plan),
                             Row{ .items = { Button{ .glyph = Glyph::Play, .actionId = act::kStart, .primary = true } }, .align = Align::Center,
@@ -227,7 +236,7 @@ Content pomodoroContent(const PomodoroSession& s, const TodoList& todos, const P
         .card = CardLayout::Centred,
         .keepOpen = true, // a click between the controls or to-dos doesn't close it (Content::keepOpen)
         .noIdleTimeout = true, // nor does being left alone: a timer kept in view (decision 062)
-        .floating = FloatSpec{}, // kept beside other work, where the user puts it (decision 081)
+        .floating = timerWindow(), // kept beside other work, where the user puts it (decision 081)
         .compactLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
         .compactCenter = { row({ compactLeft }, Align::Center) },
         .compactTrailing = { row({ ring }, Align::Center) },

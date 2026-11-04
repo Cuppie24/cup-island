@@ -20,7 +20,7 @@ bool openFloat(IslandState& state, const std::string& cardId);
 void closeFloat(IslandState& state, const std::string& cardId); // back into the pill
 // What Windows says has the keys: that card's window; "" or a card that isn't floating: none.
 void focusFloat(IslandState& state, const std::string& cardId);
-void resizeFloat(IslandState& state, const std::string& cardId, Vec2 size); // never below floatMinSize
+void resizeFloat(IslandState& state, const std::string& cardId, Vec2 size); // within its limits (floatLimits)
 
 // After every event: a floating card whose card is gone closes, its toast
 // goes by itself, and focus on a closed one is dropped.
@@ -56,6 +56,14 @@ bool cardOnScreen(const IslandState& state, const std::string& cardId);
 // Floating cards are drawn: not while the island is Hidden (a fullscreen
 // app), since they float above other apps as it does. They come back with it.
 bool floatsShown(const IslandState& state);
+
+// How small and how big the card may be: its FloatSpec's limits, else
+// floatMinSize and floatMaxHeight (as wide as it likes).
+struct FloatLimits {
+    Vec2 least, most;
+};
+FloatLimits floatLimits(const Content* content);
+Vec2 clampSize(Vec2 size, const FloatLimits& limits);
 
 // A width class's logical width (tokens: floatNarrowWidth ...).
 float floatWidth(FloatWidth width);

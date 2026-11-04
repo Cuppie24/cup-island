@@ -34,7 +34,7 @@ void PillRenderer::buildFloating(wuc::Compositor const& c, wuc::ContainerVisual 
     device_.create(c);
     applied_ = tokens();
     pill_.build(c, device_, root, initial.size, initial.offset);
-    pill_.detach();
+    pill_.detach(tokens().floatCornerRadius);
     apply(initial, {});
 }
 
@@ -72,6 +72,7 @@ void PillRenderer::refreshAnimations()
     applied_ = tokens();
     pill_.refreshAnimations(coloursOnly);
     if (floating_) {
+        pill_.detach(tokens().floatCornerRadius); // a reload may have changed it
         measured_.clear();
         return; // no bubble, no bridge
     }
@@ -199,11 +200,8 @@ void PillRenderer::applyContent()
     Scene scene = *std::exchange(pendingContent_, std::nullopt);
     auto start = std::chrono::steady_clock::now();
     Ms reveal = std::max(Ms{ 0 }, std::chrono::duration_cast<Ms>(revealAt_ - start)); // what's left of it after the queue
-    if (floating_) { // the ✕ apart from the card's content (decision 081)
-        std::vector<Placed> content, chrome;
-        for (const Placed& p : scene.elements) (isChrome(p.key) ? chrome : content).push_back(p);
-        pill_.setContent(content, scene.now, reveal);
-        pill_.setChrome(chrome, scene.now);
+    if (floating_) { // one shape: no bubble (decision 081)
+        pill_.setContent(scene.elements, scene.now, reveal);
         pill_.setToast(scene.toast, scene.now);
         return;
     }
