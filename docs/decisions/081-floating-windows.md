@@ -1,6 +1,6 @@
 # 081: A card can float apart from the island
 
-Status: Accepted (first version: Pomodoro floats; the spring from the pill, per-monitor scale and resizing are next)
+Status: Accepted (Pomodoro floats, resizes and flows out of the island; per-monitor scale is next)
 
 **Context.** A card grows out of the island and covers the top of the
 screen while it's open; a click elsewhere or leaving it alone closes it,
@@ -100,12 +100,17 @@ wherever the user drags it, while the island keeps showing its pill.
   exactly like the island's card.
 - **Pomodoro's card floats** (both its dormant and running cards), the
   first to.
-- **For now:** it pops in where it opens (from `floatAppearScale`, with a
-  hint of overshoot) and shrinks away going, instead of growing out of the
-  pill; the spring from the pill runs in a layer covering both and hands
-  off to the card's own window, with decision 008's handoff timing to
-  check on Windows. It's laid out at the island's display scale on every
-  monitor; that's next.
+- **It flows out of the island** (`platform/float_flow.h`): a copy of the
+  pill, in the island's colours, peels off the top edge as the island lifts
+  (decision 026: the ears fold, then the corners round) and springs on the
+  island's spring (decision 080, growing overshoots) into the card's place,
+  its corners easing to a window's. It runs in one click-through layer over
+  the pill and the card, under the island, so it comes out from under the
+  pill; then the card's own windows show and its content fades in, and the
+  layer goes `floatHandOffMs` later, so nothing blinks (decision 008).
+  Going back is the same the other way. Reduced motion: no flow.
+- **For now** it's laid out at the island's display scale on every
+  monitor; per-monitor scale is next.
 - Not yet either: tearing a card off the island by dragging it, a dot on the
   pill while its card floats, holding back an activity's alerts while its
   floating card has the keys.

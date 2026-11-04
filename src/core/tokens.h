@@ -98,7 +98,6 @@ struct Tokens {
     float floatTitleBarHeight = 34; // a strip along its top holding the ✕, like a window's title bar; it drags the card too
     float floatCornerRadius = 8;    // a window's corners, as Windows 11 rounds them: not the island's
     float floatResizeBorder = 6;    // a resizable card's edges: this wide a band inside them resizes it
-    float floatAppearScale = 0.92f; // it pops in from this scale (and shrinks back to it going), over morphDuration
     float expandedArtSize = 68; // expanded leading square: as tall as title + artist + caption beside it
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;
@@ -266,6 +265,7 @@ struct Tokens {
     Ms alertDuration{ 3000 };
     Ms toastDuration{ 5000 }; // a toast at a card's bottom goes after this (decision 071)
     Ms toastSlideDuration{ 260 }; // ...and slides up from below the card's edge, fading in, and back down, over this
+    Ms floatHandOff{ 34 }; // a floating card's flow (decision 081): its layer stays this long after the card's window shows, so nothing blinks
 
     Ms expandedIdleTimeout{ 8000 };
     Ms heldAlertMaxAge{ 30000 };

@@ -976,6 +976,7 @@ int main()
     app::setFloatHooks({
         .instance = instance,
         .compositor = render.compositor,
+        .device = &g_renderer.device(),
         .dispatch = dispatch,
         .measure = [](const Text& text) { return g_renderer.measure(text); },
         .pill = [] {

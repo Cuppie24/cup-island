@@ -40,30 +40,9 @@ void PillRenderer::buildFloating(wuc::Compositor const& c, wuc::ContainerVisual 
 
 void PillRenderer::appear()
 {
-    // The whole window's tree, shadow included, from the card's middle.
-    const Tokens& t = tokens();
-    root_.CenterPoint({ root_.Size().x / 2, root_.Size().y / 2, 0 });
-    root_.Scale({ t.floatAppearScale, t.floatAppearScale, 1 });
+    // The flow brought its shape here (decision 081): only the card fades in.
     root_.Opacity(0.0f);
-    auto grow = compositor_.CreateVector3KeyFrameAnimation();
-    grow.InsertKeyFrame(1.0f, { 1, 1, 1 }, easingFor(compositor_, settleCurve(t)));
-    grow.Duration(t.morphDuration);
-    root_.StartAnimation(L"Scale", grow);
-    fadeTo(compositor_, root_, 1.0f, t.morphDuration);
-}
-
-void PillRenderer::vanish(std::function<void()> done)
-{
-    const Tokens& t = tokens();
-    root_.CenterPoint({ root_.Size().x / 2, root_.Size().y / 2, 0 });
-    auto batch = compositor_.CreateScopedBatch(wuc::CompositionBatchTypes::Animation);
-    auto shrink = compositor_.CreateVector3KeyFrameAnimation();
-    shrink.InsertKeyFrame(1.0f, { t.floatAppearScale, t.floatAppearScale, 1 }, easingFor(compositor_, t.morphEase));
-    shrink.Duration(t.morphDuration);
-    root_.StartAnimation(L"Scale", shrink);
-    fadeTo(compositor_, root_, 0.0f, t.morphDuration);
-    batch.End();
-    batch.Completed([done = std::move(done)](auto&&, auto&&) { done(); }); // on this (the UI) thread
+    fadeTo(compositor_, root_, 1.0f, tokens().contentFadeDuration);
 }
 
 void PillRenderer::refreshAnimations()

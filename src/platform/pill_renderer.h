@@ -23,13 +23,12 @@ namespace cup::platform {
 class PillRenderer {
 public:
     void build(wuc::Compositor const& compositor, wuc::ContainerVisual const& root, const Scene& initial);
+    GraphicsDevice& device() { return device_; } // shared, on the same Compositor: the flow layer's shape (decision 081)
     // A floating card (decision 081): one shape off the screen edge, with a
     // window's corners (floatCornerRadius), no bubble. `root` is its own window's.
     void buildFloating(wuc::Compositor const& compositor, wuc::ContainerVisual const& root, const Scene& initial);
-    // A floating card pops in: from floatAppearScale, settling with a hint of
-    // overshoot, fading in. vanish() is the way back; `done` runs once it's gone.
+    // A floating card shows where its flow out of the pill ended: it fades in.
     void appear();
-    void vanish(std::function<void()> done);
     // Starts the morph now, along `motion` (decision 080); content follows in a
     // queued call, so building it doesn't hold back the frame the morph starts on (decision 012).
     void apply(const Scene& scene, const SceneMotion& motion);
