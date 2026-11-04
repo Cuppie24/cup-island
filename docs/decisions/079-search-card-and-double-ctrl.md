@@ -88,6 +88,9 @@ so it must stay tiny and do nothing but feed DoubleTap, and it's a reason
 some security tools may look at the app; nothing it sees is stored or sent.
 Two new core pieces (a live field, a provider closing its card) that any
 provider can use.
+The hook's thread must be stopped before the app exits (`unregisterHotkeys`):
+from 0.8.1 to 0.8.6 it wasn't, and every exit, updates included, ended in
+`std::terminate` and a crash dump.
 
 **Not checked yet (Windows):** the hook and Alt-tap foreground, the shell
 folders' contents (two ids for "All Control Panel Items" are tried, decision

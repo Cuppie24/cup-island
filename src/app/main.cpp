@@ -1135,6 +1135,10 @@ int main()
     }).detach();
 
     removeTrayIcon();
+    // Stops Double Ctrl's keyboard-hook thread (tap_hook): left running, its
+    // std::thread was still joinable when statics were destroyed, and every
+    // exit ended in std::terminate (a crash dump on each update).
+    unregisterHotkeys(g_inputHwnd);
     g_providers.reset(); // stops providers while the window still exists
     g_uiQueue = nullptr; // a WinRT object: released before the apartment goes, not in a static destructor
     DestroyWindow(render.hwnd);
