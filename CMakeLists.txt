@@ -187,6 +187,7 @@ if(WIN32)
         src/app/keyboard_input.cpp
         src/app/live_tokens.cpp
         src/app/main.cpp
+        src/app/surface.cpp
         src/platform/autostart.cpp
         src/platform/badge_dots.cpp
         src/platform/toast_layer.cpp

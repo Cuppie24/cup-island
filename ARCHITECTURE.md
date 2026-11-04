@@ -58,7 +58,7 @@ src/service/    CupIslandIndex.exe, the file index service (Windows, decision 07
                 drive (scan or snapshot, then the journal), PipeServer (folder checks as each client), SelfUpdate
                 (its own installer from GitHub, decision 076), --install/--stop/--uninstall for its installer;
                 index_client, the pipe's client, shared by cupindex.exe (its terminal tool) and the app
-src/app/        main.cpp: wiring only; live_tokens.cpp: tokens.json load/reload; keyboard_input.cpp: keyboard focus,
+src/app/        main.cpp: wiring only; surface.h: the island (and soon each floating card) as a surface, its scene, renderer and pointer (decision 081); live_tokens.cpp: tokens.json load/reload; keyboard_input.cpp: keyboard focus,
                 Enter/Space, system-wide shortcuts and recording new keys (decisions 031, 032)
 assets/         tokens.json: the live-tunable sizes, timings and curves; the app icon (cup_island.rc/.ico)
 installer/      Inno Setup script for the Windows installer (decision 011); its version comes from build.ps1
