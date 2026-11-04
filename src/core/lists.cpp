@@ -1,13 +1,13 @@
 #include "core/lists.h"
 
+#include "core/dialog.h"
+#include "core/floating.h"
 #include "core/tokens.h"
 
 #include <algorithm>
 
 namespace cup {
 namespace {
-
-bool cardShown(const IslandState& s, const std::string& activityId) { return !s.homeOpen && s.expandedId == activityId; }
 
 // One list's rows [first, end): placed into `plan` from `top` on. Returns the window's height.
 float planList(const Slot& slot, const std::vector<float>& heights, const std::vector<float>& windowHeights, const ListState& state,
@@ -136,7 +136,7 @@ void revealListRow(IslandState& s, const ListRevealed& e) { s.scrolls[listKey(e.
 
 void startListDrag(IslandState& s, const ListDragStarted& e, Ms now)
 {
-    if (!cardShown(s, e.activityId) || s.dialog) return;
+    if (!cardOnScreen(s, e.activityId) || dialogOver(s, e.activityId)) return; // the island's card or a window's (decision 081)
     s.listDrag = ListDrag{ e.activityId, e.list, e.row, e.y, e.y, e.offset };
     s.lastPointerAt = now;
 }

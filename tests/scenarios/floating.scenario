@@ -1,0 +1,130 @@
+# Floating windows (decision 081): a card that opens as its own window while
+# the island keeps showing its pill. Several at once, from several providers.
+
+scenario: a click on the pill opens the window; the island keeps its pill
+start timer window
+click                               -> Compact windows=timer focused=timer front=timer expanded=none
+click                               -> Compact windows=timer focused=timer   # again: to the front, nothing more
+close-window timer                  -> Compact windows=none focused=none
+
+scenario: the pill brings a window that lost the keys back to the front
+start timer window
+click
+focus-window none                   -> windows=timer focused=none
+click                               -> Compact windows=timer focused=timer front=timer
+
+scenario: Esc closes the focused window, unless its provider said not to
+start timer window
+click
+esc                                 -> Compact windows=none
+start notes window=noesc
+click
+esc                                 -> windows=notes focused=notes
+close-window notes                  -> windows=none
+
+scenario: Esc with no window focused is the island's
+start timer window
+click
+focus-window none
+esc                                 -> Compact windows=timer
+
+scenario: windows from several providers are open at once
+start media by=music
+start timer window by=clock
+start notes window by=pad           -> top=notes
+click                               -> windows=notes front=notes Split
+promote timer
+click                               -> windows=notes,timer front=timer focused=timer Split
+focus-window notes                  -> focused=notes
+focus-window gone                   -> focused=none          # not one of ours
+
+scenario: a provider has at most windowsPerProvider; past that the island shows the card
+start a window by=p
+click
+start b window by=p
+click
+start c window by=p
+click                               -> windows=a,b,c
+start d window by=p
+click                               -> Expanded expanded=d windows=a,b,c
+outside
+start e window by=other
+click                               -> Split windows=a,b,c,e
+
+scenario: a tab of an activity that opens as a window opens the window
+start timer window
+start media
+click                               -> Expanded expanded=media
+switch timer                        -> Split windows=timer focused=timer expanded=none
+
+scenario: from Home, the window opens and the island goes back to its pill
+panel focus window
+click                               -> expanded=home
+tile focus                          -> Idle windows=focus expanded=none
+esc                                 -> Idle windows=none     # the window had the keys
+panel todo window
+click
+pin                                 -> stay=yes
+tile todo                           -> Expanded expanded=home windows=todo   # pinned: Home stays (decision 046)
+
+scenario: the window goes with its card, and stays for a dormant panel
+panel focus window
+start focus window
+click                               -> windows=focus
+end focus                           -> windows=focus         # the panel's dormant card
+unpanel focus                       -> windows=none focused=none
+
+scenario: the provider can close its window
+start search window
+click
+close-card search                   -> windows=none
+
+scenario: a window's question is its own, focused or not
+start timer window
+start media
+promote timer
+click
+focus-window none
+ask timer                           -> dialog=timer
+promote media
+click                               -> Expanded expanded=media dialog=timer
+ask media                           -> dialog=media,timer
+close-dialog                        -> dialog=timer          # the island had the keys
+focus-window timer
+close-dialog                        -> dialog=none Expanded  # taking the keys alone doesn't close the island's card
+
+scenario: typing is in the window that has the keys, and its text waits when it loses them
+start notes window
+click
+focus notes add
+type hello                          -> draft=hello
+focus-window none                   -> draft=none
+focus notes add                     -> draft=none            # not the focused card
+focus-window notes
+focus notes add                     -> draft=hello           # kept (decision 050)
+
+scenario: a window's toast goes by itself
+start todo window
+click
+toast todo                          -> toast=todo
+wait 4999                           -> toast=todo
+wait 1                              -> toast=none windows=todo
+
+scenario: a fullscreen app or a critical alert leaves windows open
+start timer window
+click
+hide                                -> Hidden windows=timer
+show
+alert battery critical              -> Alert windows=timer
+
+scenario: a resized window never goes below windowMinSize
+start notes window
+click                               -> size=notes:480x380
+resize-window notes 600 500         -> size=notes:600x500
+resize-window notes 100 100         -> size=notes:320x220
+
+scenario: the activity shortcut brings its window to the front
+start timer window
+click
+focus-window none
+open-activity                       -> Compact windows=timer focused=timer

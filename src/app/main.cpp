@@ -24,6 +24,7 @@
 #include "app/live_tokens.h"
 #include "core/card_overlays.h"
 #include "core/dialog.h"
+#include "core/floating.h"
 #include "core/hit_test.h"
 #include "core/island.h"
 #include "core/island_tint.h"
@@ -32,6 +33,7 @@
 #include "core/placement.h"
 #include "core/tabs.h"
 #include "core/text_edit.h"
+#include "core/toast.h"
 #include "core/tokens.h"
 #include "platform/file_watcher.h"
 #include "platform/hotkeys.h"
@@ -292,7 +294,7 @@ void dispatch(const Event& event, const char* reason)
     Ms t = now();
     Spot spot = g_state.spot;
     bool wasHidden = g_state.hidden;
-    std::optional<ShownCard> wasCard = shownCard(g_state);
+    std::vector<ShownCard> wasCards = shownCards(g_state); // the island's and every window's (decision 081)
     std::optional<Draft> wasDraft = g_state.draft;
     g_state = reduce(g_state, event, t);
     Scene next = layout(g_state, t, [](const Text& text) { return g_renderer.measure(text); });
@@ -342,10 +344,10 @@ void dispatch(const Event& event, const char* reason)
     if (g_state.hidden != wasHidden && g_settings) g_settings->setHotkeysActive(!g_state.hidden);
     // A card went: its provider may reset it (Settings opens at its list again).
     // ...and one came: what's on it is seen now (Settings' "New" tags, decision 048).
-    std::optional<ShownCard> nowCard = shownCard(g_state);
-    if (nowCard == wasCard || !g_providers) return;
-    if (wasCard) g_providers->cardClosed(*wasCard);
-    if (nowCard) g_providers->cardShown(*nowCard);
+    if (!g_providers) return;
+    CardChanges cards = cardChanges(wasCards, shownCards(g_state));
+    for (const ShownCard& card : cards.closed) g_providers->cardClosed(card);
+    for (const ShownCard& card : cards.shown) g_providers->cardShown(card);
 }
 
 void toggleProvider(const char* id)
@@ -372,8 +374,9 @@ void toggleTimer()
 // button sends the provider its action, then closes it.
 void answerDialog(bool confirmed)
 {
-    if (!g_state.dialog) return;
-    Dialog asked = *g_state.dialog;
+    const Dialog* over = focusedDialog(g_state); // the island's card's, or the focused window's (decision 081)
+    if (!over) return;
+    Dialog asked = *over;
     dispatch(DialogClosed{}, confirmed ? "dialog confirmed" : "dialog cancelled");
     if (confirmed) g_providers->route({ asked.providerId, asked.activityId, asked.confirmAction, 0 });
 }
@@ -386,7 +389,8 @@ void act(const Action& action)
         return;
     }
     g_providers->route(action);
-    if (g_state.toast && action.actionId == g_state.toast->actionId) dispatch(ToastClosed{}, "toast acted"); // done: it goes (decision 071)
+    const Toast* toast = toastOn(g_state, action.activityId);
+    if (toast && action.actionId == toast->actionId) dispatch(ToastClosed{}, "toast acted"); // done: it goes (decision 071)
     dispatch(PointerMoved{}, "action"); // the user is busy here: keep Expanded open
 }
 
@@ -719,7 +723,7 @@ void onKey(WPARAM key)
     // Tab and Enter move between its buttons and press one (decision 033);
     // the first press shows focus on Cancel, so a stray Enter answers nothing.
     // No Ctrl or Alt keys: switching tabs or closing would leave it hanging.
-    if (g_state.dialog) {
+    if (focusedDialog(g_state)) {
         if (key == VK_ESCAPE) answerDialog(false);
         else if (!ctrl && !alt) app::navigationKey(key);
         return;
@@ -764,7 +768,7 @@ void onKey(WPARAM key)
         // to Home, anything else closes (decision 033).
         if (mode(g_state) != Mode::Expanded) return;
         std::string back = backAction(g_state);
-        if (auto card = shownCard(g_state); card && !back.empty()) act({ card->providerId, card->activityId, back });
+        if (auto card = focusedCard(g_state); card && !back.empty()) act({ card->providerId, card->activityId, back });
         else dispatch(EscapePressed{}, "esc");
         return;
     }

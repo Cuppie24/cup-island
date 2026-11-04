@@ -31,6 +31,7 @@ add_library(cup_core STATIC
     src/core/double_tap.cpp
     src/core/toast.cpp
     src/core/easing.cpp
+    src/core/floating.cpp
     src/core/fullscreen.cpp
     src/core/hit_test.cpp
     src/core/home.cpp
@@ -53,6 +54,8 @@ add_library(cup_core STATIC
     src/core/text_wrap.cpp
     src/core/tokens.cpp
     src/core/tokens_json.cpp
+    src/core/window_layout.cpp
+    src/core/window_placement.cpp
 )
 target_include_directories(cup_core PUBLIC src)
 
@@ -134,6 +137,7 @@ if(CUP_BUILD_TESTS)
         tests/system_tests.cpp
         tests/todo_tests.cpp
         tests/tokens_tests.cpp
+        tests/window_tests.cpp
     )
     target_link_libraries(cup_tests PRIVATE cup_providers cup_indexer)
     target_compile_definitions(cup_tests PRIVATE

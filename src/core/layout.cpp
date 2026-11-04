@@ -213,14 +213,7 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     }
     // Laid out as if from the card's top, then moved down under the strip.
     if (tabSpace > 0 && state.tabsOnTop) { // at the bottom, the strip only adds room under the content
-        for (std::size_t i = contentFrom; i < scene.elements.size(); ++i) {
-            Placed& p = scene.elements[i];
-            p.frame.y += tabSpace;
-            p.hitFrame.y += tabSpace;
-            if (p.listRow) p.listRow->y += tabSpace;
-            if (p.wholeRow) p.wholeRow->y += tabSpace;
-            if (p.list) p.list->viewport.y += tabSpace;
-        }
+        moveDown(scene.elements, contentFrom, tabSpace);
         for (Tile& tile : scene.tiles) tile.frame.y += tabSpace;
     }
     // A toast floats over the card's bottom, above its content, which doesn't move for it (decision 071).
@@ -232,6 +225,20 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     scene.tabs = tabStripFor(state, scene.size, nestedRadius, measureText, scene.elements);
     scene.badges = badgeCentres(scene);
     return scene;
+}
+
+std::vector<SlotFrame> cardSlots(const Content& content, Vec2 size) { return slotFrames(Mode::Expanded, size, content); }
+
+void moveDown(std::vector<Placed>& elements, std::size_t from, float dy)
+{
+    for (std::size_t i = from; i < elements.size(); ++i) {
+        Placed& p = elements[i];
+        p.frame.y += dy;
+        p.hitFrame.y += dy;
+        if (p.listRow) p.listRow->y += dy;
+        if (p.wholeRow) p.wholeRow->y += dy;
+        if (p.list) p.list->viewport.y += dy;
+    }
 }
 
 float pillCornerRadius(Vec2 size)

@@ -125,6 +125,7 @@ struct Scene {
     Ms alertPosted{};              // Alert: when the shown one went up; a new one in a pill that keeps its size pulses (core/motion.h)
     Ms now{};                      // when the scene was laid out (progress bars animate from here)
     std::optional<Ms> clockTick;   // Idle shows the time: re-layout at this moment (the next minute)
+    Rect titleBar;                 // a window's (decision 081, core/window_layout.h): dragging here moves it
 };
 
 // A Text's width in pixels on one line, as it will be drawn. The platform

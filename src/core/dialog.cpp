@@ -17,7 +17,10 @@ Content dialogContent(const Dialog& d)
 
 const Dialog* dialogOver(const IslandState& s, const std::string& activityId)
 {
-    return s.dialog && s.dialog->activityId == activityId ? &*s.dialog : nullptr;
+    if (s.dialog && s.dialog->activityId == activityId) return &*s.dialog;
+    for (const FloatingWindow& w : s.windows) // a window's own (decision 081)
+        if (w.activityId == activityId && w.dialog) return &*w.dialog;
+    return nullptr;
 }
 
 } // namespace cup

@@ -10,7 +10,10 @@ namespace cup {
 
 const Toast* toastOn(const IslandState& s, const std::string& activityId)
 {
-    return s.toast && s.toast->activityId == activityId ? &*s.toast : nullptr;
+    if (s.toast && s.toast->activityId == activityId) return &*s.toast;
+    for (const FloatingWindow& w : s.windows) // a window's own (decision 081)
+        if (w.activityId == activityId && w.toast) return &*w.toast;
+    return nullptr;
 }
 
 ToastScene placeToast(const Toast& toast, const Source& source, Vec2 cardSize, float bottom, Ms now, const MeasureText& measure)

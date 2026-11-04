@@ -122,6 +122,18 @@ struct Toast {
     bool operator==(const Toast&) const = default;
 };
 
+// A card open as its own window while the island keeps its pill (decision
+// 081, core/floating.h). One per card; each has its own question and toast.
+struct FloatingWindow {
+    std::string activityId;       // its card: an activity's, or a dormant panel's
+    std::string providerId;
+    Vec2 size;                    // logical px: its size class's, until the user resizes it
+    std::optional<Dialog> dialog; // a question over it (decision 020)
+    std::optional<Toast> toast;   // a note at its bottom (decision 071)
+    std::uint64_t raised = 0;     // changes when it must come to the front: the platform raises it then
+    bool operator==(const FloatingWindow&) const = default;
+};
+
 // --- Events -------------------------------------------------------------
 struct ActivityStarted { Activity activity; };           // existing id = replace
 struct ActivityUpdated { std::string id; Content content; };
@@ -183,6 +195,10 @@ struct ListDragMoved { float y = 0; };
 struct ListDragEnded {};                 // dropped (the app sends the move first) or cancelled
 struct StayOpenToggled {};               // Expanded's pin, at the tab row's right end (decision 046)
 struct TabRowPlaced { bool top = true; }; // Settings' Tab row: along the card's top or bottom (decision 048)
+// Floating windows (decision 081). Keys and the dialog/toast events go to the focused one.
+struct WindowFocused { std::string id; };            // that card's window has the keys; "": none does (the island, another app)
+struct WindowClosed { std::string id; };             // its ✕, Alt+F4: it shrinks back into the pill
+struct WindowResized { std::string id; Vec2 size; }; // the user dragged its edges (logical px)
 // Local wall time at `now`, from the platform (the idle clock).
 struct ClockSynced {
     Ms timeOfDay;
@@ -199,7 +215,7 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            InputFocused, TextTyped, TextErased, CaretMoved, CaretPlaced, WordSelected, AllSelected,
                            InputSubmitted, InputCancelled,
                            DialogShown, DialogClosed, ToastShown, ToastClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,
-                           ListDragEnded, StayOpenToggled, TabRowPlaced>;
+                           ListDragEnded, StayOpenToggled, TabRowPlaced, WindowFocused, WindowClosed, WindowResized>;
 
 // --- State --------------------------------------------------------------
 struct WallClock {
@@ -241,6 +257,9 @@ struct IslandState {
     // and the card going away still do; closing unpins it.
     bool stayOpen = false;
     bool tabsOnTop = true; // the tab row along the card's top (decision 047), or its bottom: the user's pick (decision 048)
+    std::vector<FloatingWindow> windows; // cards open as windows, oldest first (decision 081)
+    std::string focusedWindow;           // whose window has the keys; empty: none (the island's card has them, if shown)
+    std::uint64_t nextRaise = 1;
     std::uint64_t nextStartOrder = 1;
 };
 
@@ -259,6 +278,8 @@ bool isExpanded(const IslandState& state);
 // Lookups by id: nullptr if there's none.
 const Activity* findActivity(const IslandState& state, const std::string& id);
 const Panel* findPanel(const IslandState& state, const std::string& id);
+// A card's content: its activity's, else its dormant panel's.
+const Content* cardContent(const IslandState& state, const std::string& id);
 
 // The card Expanded shows (an activity's, or a dormant panel's): whose it is.
 // Nothing on Home, or when nothing is expanded. A change from one is the
@@ -269,14 +290,18 @@ struct ShownCard {
 };
 std::optional<ShownCard> shownCard(const IslandState& state);
 
-// The shown card, if it's a live activity's (not Home, not a dormant
+// The card that has the keys: the focused window's (decision 081), else the
+// island's shown card. The three below ask about it.
+std::optional<ShownCard> focusedCard(const IslandState& state);
+
+// The focused card, if it's a live activity's (not Home, not a dormant
 // panel's): what Ctrl+W asks to close (decision 034).
 std::optional<ShownCard> shownActivity(const IslandState& state);
 
-// What Esc sends to the shown card's provider first: its Content::backAction,
+// What Esc sends to the focused card's provider first: its Content::backAction,
 // so a page goes back to its list before anything closes (decision 033). "" = none.
 std::string backAction(const IslandState& state);
-// The shown card is its field (Content::fieldFirst): Esc closes it at once,
+// The focused card is its field (Content::fieldFirst): Esc closes it at once,
 // rather than stopping the typing first (decision 079).
 bool escapeCloses(const IslandState& state);
 

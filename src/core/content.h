@@ -19,7 +19,7 @@ using Ms = std::chrono::milliseconds;
 // Built-in icons; the renderer maps them to font glyphs.
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
                    Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre,
-                   Minus, Plus, Pin, Pinned, Fire, Chart, ChevronDown, Search, File, Folder };
+                   Minus, Plus, Pin, Pinned, Fire, Chart, ChevronDown, Search, File, Folder, Close };
 
 // Display: a big number, the card's centre (a timer). Heading: a group's name over its rows (Settings'
 // "Dark" and "Light"): small, but heavy and full-strength, so it reads as a divider (decision 037).
@@ -260,6 +260,21 @@ enum class RowSpan { Slot, MatchAbove, MatchBelow };
 //            results (decision 079).
 enum class CardLayout { Standard, Centred, List, Search };
 
+// A card that opens as its own window instead of growing the island
+// (decision 081). The provider says what kind of window; the host owns every
+// size (tokens.json), the title bar and the motion.
+enum class WindowSize { Small, Medium, Large }; // windowSmallSize, windowMediumSize, windowLargeSize
+enum class WindowStart { NearIsland, Centre };  // where it first opens; after that, where the user left it
+struct WindowSpec {
+    WindowSize size = WindowSize::Medium;
+    bool resizable = false;       // its edges resize it, down to windowMinSize
+    WindowStart start = WindowStart::NearIsland;
+    // Esc closes it into the pill, once the card has no step back
+    // (Content::backAction). False: Esc only steps back; the ✕ closes it.
+    bool escCloses = true;
+    bool operator==(const WindowSpec&) const = default;
+};
+
 // A horizontal row of items. Text and Progress stretch; everything else has a fixed size.
 struct Row {
     std::vector<Item> items;
@@ -382,6 +397,9 @@ struct Content {
     // ...and the page starts at the top instead of centred: a page that
     // scrolls (a fill list, Row::visibleRows < 0) rather than one that fits.
     bool pageAtTop = false;
+    // Its card opens as a window, and the island keeps showing the pill
+    // (decision 081). The window's title is `label`. None: the island expands.
+    std::optional<WindowSpec> window;
     Slot compactLeading;
     Slot compactCenter;  // between the two compact squares, e.g. a swimming title
     Slot compactTrailing;
