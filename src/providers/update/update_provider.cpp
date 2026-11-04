@@ -72,6 +72,8 @@ Panel updatePanel(const UpdateOffer& offer, const std::string& running, UpdateSt
         install.enabled = false;
     }
     Row buttons = row({ install }, Align::Center);
+    // Failed: the same installer, to download and run by hand (it can't get stuck the same way).
+    if (stage == UpdateStage::Failed) buttons.items.push_back(Button{ .actionId = A::kDownload, .label = "Download" });
     if (!offer.page.empty()) buttons.items.push_back(Button{ .actionId = A::kWhatsNew, .label = "What's new" });
     buttons.loose = true;
     bool waiting = stage != UpdateStage::Installing; // offered, or failed: still the user's to do
@@ -199,6 +201,8 @@ void UpdateProvider::onAction(const Action& action)
         if (hooks_.openPage && !offer_->page.empty()) hooks_.openPage(offer_->page);
     } else if (action.actionId == update_action::kInstall) {
         install();
+    } else if (action.actionId == update_action::kDownload) {
+        if (hooks_.openPage) hooks_.openPage(offer_->url.empty() ? std::string(kLatestReleasePage) : offer_->url);
     }
 }
 

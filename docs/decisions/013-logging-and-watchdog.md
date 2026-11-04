@@ -48,4 +48,5 @@ runs, leaving no log line and no dump. They are covered two ways:
 **Consequences.** Freeze reports come with a `.dmp`: open it in Visual
 Studio with the build's `CupIsland.pdb` (Debug → Windows → Parallel Stacks
 shows the UI thread's stack). Dumps are only useful with the pdb of the
-exact build that wrote them, so a release should keep its pdb.
+exact build that wrote them, so a release should keep its pdb (with the
+Release run's artifacts since decision 081, not on the release page).

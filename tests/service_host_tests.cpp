@@ -25,18 +25,21 @@ struct Setup {
     int updates = 0;
     std::vector<std::string> sent; // requests, as they'd go over the pipe
     std::vector<Replied> replies;
+    std::vector<std::string> opened; // pages opened in the browser
     ServiceHost provider;
 
     explicit Setup(std::string version, bool bundled = true)
         : provider(ServiceHostHooks{ .appVersion = std::move(version),
                                      .installerBundled = bundled,
+                                     .installerPath = "C:\\Program\\CupIsland-Index-Setup.exe",
                                      .probe = [this](Probed p) { probes.push_back(std::move(p)); },
                                      .runInstaller = [this](std::function<void(bool)> d) { ++installs; d(installStarts); },
                                      .send = [this](std::string request, Replied r) {
                                          if (request.find("\"service.update\"") != std::string::npos) ++updates;
                                          sent.push_back(std::move(request));
                                          replies.push_back(std::move(r));
-                                     } })
+                                     },
+                                     .openPage = [this](const std::string& url) { opened.push_back(url); } })
     {
     }
 
@@ -92,6 +95,8 @@ void providerTests()
         Setup s("0.8.0");
         s.run({ State::Running, "0.7.9" });
         expect(s.updates == 1 && s.installs == 0 && s.provider.step() == Step::Updating, "an older service is asked to update");
+        expect(!s.sent.empty() && s.sent.back().find(R"("installer":"C:\\Program\\CupIsland-Index-Setup.exe")") != std::string::npos,
+               "with where the app's copy of the installer is (decision 081)");
         expect(s.host.wake == s.host.clock + tokens().serviceUpdateRetry, "and looked at again later: did it change?");
         auto again = [&](const char* version) {
             s.host.clock = *s.host.wake;
@@ -103,12 +108,21 @@ void providerTests()
         expect(s.updates == 3 && s.host.wake, "still old: asked again, up to serviceUpdateTries");
         again("0.7.9");
         expect(s.updates == 3 && s.provider.step() == Step::UpdateFailed && !s.host.wake, "then it gives up until the next start");
+        const Panel* stuck = nullptr;
+        for (const Panel& p : s.host.published)
+            if (p.id == ServiceHost::kPanelId) stuck = &p;
+        expect(stuck && stuck->content.label == "File search needs an update", "and says so, on a widget");
+        expect(!s.host.alerts.empty() && s.host.alerts.back().activityId == ServiceHost::kPanelId &&
+                   s.host.store[ServiceHost::kStuckKey] == "0.8.0", "with an alert that opens it, once per app version");
+        s.provider.onAction({ ServiceHost::kId, ServiceHost::kPanelId, service_action::kDownload, 0, "" });
+        expect(s.opened == std::vector<std::string>{ kLatestReleasePage }, "its button opens the latest release, to download by hand");
         Setup fixed("0.8.0");
         fixed.run({ State::Running, "0.7.9" });
         fixed.host.clock = *fixed.host.wake;
         fixed.provider.onWake();
         fixed.probes.back()({ State::Running, "0.8.0" });
         expect(fixed.updates == 1 && fixed.provider.step() == Step::UpToDate && !fixed.host.wake, "updated: nothing more to do");
+        expect(!fixed.host.removed.empty() && fixed.host.removed.back() == ServiceHost::kPanelId, "and no widget saying it's stuck");
         Setup newer("0.8.0");
         newer.run({ State::Running, "0.9.0" });
         expect(newer.updates == 1, "so is a newer one: the latest release is what every copy runs (decision 040)");
@@ -257,6 +271,33 @@ void releaseTests()
     auto app = release ? offerFor({ 0, 7, 9 }, *release) : std::nullopt;
     expect(app && app->fileName == "CupIsland-Setup-0.8.0.exe", "the app's offer is unchanged");
     expect(!indexOfferFor({ 0, 8, 0 }, *release), "already the latest: nothing");
+
+    // Decision 081: the hash in the notes, the installer in the app's.
+    std::string hash(64, 'd');
+    std::string bare = R"({"tag_name":"v0.9.0","html_url":"https://github.com/Cuppie24/cup-island/releases/tag/v0.9.0",
+        "body":"What's new <!-- cup-island: index-sha256 )" + std::string(64, 'D') + R"( -->","assets":[
+        {"name":"CupIsland-Setup-0.9.0.exe","browser_download_url":"https://github.com/Cuppie24/cup-island/releases/download/v0.9.0/CupIsland-Setup-0.9.0.exe","digest":"sha256:)" +
+                       std::string(64, 'a') + R"("}]})";
+    auto only = parseReleaseJson(bare);
+    expect(only && only->indexSha256 == hash && !only->mandatory, "the service installer's hash, from the notes");
+    auto fromNotes = only ? indexOfferFor({ 0, 8, 0 }, *only) : std::nullopt;
+    expect(fromNotes && fromNotes->sha256 == hash && fromNotes->url.empty() && fromNotes->fileName == "CupIsland-Index-Setup-0.9.0.exe",
+           "no attached file: an offer with the notes' hash and nothing to download");
+    GitHubRelease both = *release;
+    both.indexSha256 = hash;
+    auto preferred = indexOfferFor({ 0, 7, 9 }, both);
+    expect(preferred && preferred->sha256 == hash && !preferred->url.empty(), "both: the notes' hash, and the file to fall back on");
+    GitHubRelease neither = *only;
+    neither.indexSha256.clear();
+    expect(!indexOfferFor({ 0, 8, 0 }, neither), "no hash anywhere: nothing");
+    expect(!indexHashIn("<!-- cup-island: index-sha256 abc -->") && !indexHashIn("<!-- cup-island: index-sha256 " + hash) &&
+               !indexHashIn("nothing here"), "a short, unclosed or missing marker is none");
+
+    expect(plainLocalPath("C:\\Users\\me\\AppData\\Local\\Programs\\Cup Island\\CupIsland-Index-Setup.exe"), "a local path");
+    expect(!plainLocalPath("\\\\server\\share\\x.exe") && !plainLocalPath("\\\\?\\C:\\x.exe") && !plainLocalPath("\\\\.\\pipe\\x"),
+           "never a network, device or \\\\?\\ path");
+    expect(!plainLocalPath("C:\\x.exe:stream") && !plainLocalPath("C:x.exe") && !plainLocalPath("C:/x.exe") &&
+               !plainLocalPath("C:\\a\\\\b.exe") && !plainLocalPath("x.exe"), "nor a stream, a relative, mixed or empty-part one");
     expect(!parseReleaseJson("[]") && !parseReleaseJson("nope"), "not a release");
 }
 

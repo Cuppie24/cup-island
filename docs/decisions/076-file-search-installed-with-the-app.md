@@ -3,6 +3,8 @@
 Status: Proposed (supersedes decision 075's opt-in "Turn on file search"
 and its separately offered service updates; the rest of 075 stands).
 Decision 078 moves its SearchSetupProvider into the host as ServiceHost.
+Decision 081: the update now runs the installer the app brought, checked
+against a hash in the release notes, instead of downloading it.
 
 **Context.** Decision 075 made file search opt-in: a Settings row ran the
 service's admin installer, and a new service version was offered on a row

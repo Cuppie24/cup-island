@@ -127,6 +127,13 @@ void providerTests()
     expect(cardText(u.host.published.back(), 1) == "Couldn't download the update" && cardText(u.host.published.back(), 2) == "Try again",
            "a failure says why, and offers to try again");
     expect(u.host.published.back().content.badge && u.host.published.back().content.badgeHome, "a failure: the dots are back, it still needs doing");
+    const Row& failedButtons = u.host.published.back().content.expandedCenter[2];
+    auto* download = failedButtons.items.size() > 1 ? std::get_if<Button>(&failedButtons.items[1]) : nullptr;
+    expect(download && download->label == "Download", "and to download the installer, to run by hand");
+    std::size_t pages = u.opened.size();
+    u.act(A::kDownload);
+    expect(u.opened.size() == pages + 1 && u.opened.back().rfind("https://github.com/Cuppie24/cup-island/releases/download/", 0) == 0,
+           "Download opens the installer's own link in the browser");
     u.act(A::kInstall);
     expect(u.installs.size() == 2, "Try again installs again");
 

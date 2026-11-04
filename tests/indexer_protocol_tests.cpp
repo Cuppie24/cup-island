@@ -79,7 +79,14 @@ void requestTests()
     Request status = parseRequest(encodeStatusRequest(3));
     expect(std::holds_alternative<StatusRequest>(status) && std::get<StatusRequest>(status).id == 3, "a status request");
     Request update = parseRequest(encodeUpdateRequest(6));
-    expect(std::holds_alternative<UpdateRequest>(update) && std::get<UpdateRequest>(update).id == 6, "an update request names nothing");
+    expect(std::holds_alternative<UpdateRequest>(update) && std::get<UpdateRequest>(update).id == 6 &&
+               std::get<UpdateRequest>(update).installer.empty(), "an update request names no version");
+    Request brought = parseRequest(encodeUpdateRequest(7, "C:\\Users\\Сайд\\Cup Island\\CupIsland-Index-Setup.exe"));
+    expect(std::holds_alternative<UpdateRequest>(brought) &&
+               std::get<UpdateRequest>(brought).installer == "C:\\Users\\Сайд\\Cup Island\\CupIsland-Index-Setup.exe",
+           "it can say where the app's copy of the installer is (decision 081)");
+    Request odd = parseRequest(R"({"jsonrpc":"2.0","id":8,"method":"service.update","params":{"installer":5}})");
+    expect(std::holds_alternative<BadRequest>(odd), "an installer that isn't a path is refused");
 
     auto bad = [](std::string_view body, int code, bool hasId) {
         Request r = parseRequest(body);

@@ -60,7 +60,7 @@ std::string answer(std::string_view body, const std::vector<std::unique_ptr<Volu
         for (const auto& volume : volumes) list.push_back(volume->status());
         return encodeStatus(status->id, CUP_VERSION_STRING, list);
     }
-    if (const auto* asked = std::get_if<UpdateRequest>(&request)) return encodeUpdate(asked->id, update.request());
+    if (const auto* asked = std::get_if<UpdateRequest>(&request)) return encodeUpdate(asked->id, update.request(asked->installer));
     return answerQuery(std::get<QueryRequest>(request), volumes, access);
 }
 

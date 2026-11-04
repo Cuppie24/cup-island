@@ -18,7 +18,9 @@ std::optional<GitHubRelease> parseReleaseJson(std::string_view text)
     auto json = indexer::parseJson(text);
     if (!json || json->type != indexer::Json::Type::Object) return std::nullopt;
     GitHubRelease r{ .tag = field(*json, "tag_name"), .page = field(*json, "html_url") };
-    r.mandatory = isMandatory(field(*json, "body"));
+    std::string notes = field(*json, "body");
+    r.mandatory = isMandatory(notes);
+    r.indexSha256 = indexHashIn(notes).value_or("");
     if (const indexer::Json* assets = json->get("assets"); assets && assets->type == indexer::Json::Type::Array) {
         for (const indexer::Json& a : assets->items) {
             if (a.type != indexer::Json::Type::Object) continue;

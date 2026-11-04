@@ -1,8 +1,9 @@
 # Publishes a release (decision 036). Actions -> Release -> Run workflow, type
 # the version (X.Y.Z, no "v"). It builds and tests main on Windows, makes the
 # installer, then tags the commit vX.Y.Z and publishes the GitHub release with
-# the installer and the pdb (for crash dumps, decision 013), marked as the
-# latest release. Installed islands move to it at their next daily check,
+# the installer, marked as the latest release. The service's installer rides
+# inside the app's; the notes carry its SHA-256 (decision 081). The pdbs (for
+# crash dumps, decision 013) stay with the run's artifacts, not on the page. Installed islands move to it at their next daily check,
 # whatever its number (decision 040): the latest release is the one to run.
 #
 # Nothing is tagged or published unless every step before it passed. A dry run
@@ -74,7 +75,7 @@ jobs:
       - name: Build, test, make the installer
         run: ./build.ps1 -Test -Installer -Version $env:VERSION
 
-      - name: Keep the installer and pdb with the run
+      - name: Keep the installers and pdbs with the run
         uses: actions/upload-artifact@v4
         with:
           name: CupIsland-${{ inputs.version }}
@@ -84,6 +85,9 @@ jobs:
             build/windows/CupIsland.pdb
             build/windows/CupIslandIndex.pdb
           if-no-files-found: error
+          # The pdbs live only here now (decision 081): kept as long as GitHub
+          # allows, to read crash dumps from this release with.
+          retention-days: 90
 
       - name: Tag and publish
         if: ${{ !inputs.dry_run }}
@@ -92,11 +96,16 @@ jobs:
         run: |
           # Mandatory (decision 041): a line saying so, and the marker the updater
           # looks for (an HTML comment: not shown). gh puts it before the generated notes.
-          $notes = @()
+          # The service installer's SHA-256 (decision 081): the service runs the
+          # copy the app brought only if it's this one. Also an HTML comment.
+          $index = "dist/CupIsland-Index-Setup-$env:VERSION.exe"
+          $hash = (Get-FileHash $index -Algorithm SHA256).Hash.ToLowerInvariant()
+          $text = "<!-- cup-island: index-sha256 $hash -->"
           if ($env:MANDATORY -eq 'true') {
-              $notes = @('--notes', "**Required update:** installed copies install it by themselves at their next start.`n`n<!-- cup-island: mandatory -->")
+              $text = "**Required update:** installed copies install it by themselves at their next start.`n`n<!-- cup-island: mandatory -->`n$text"
           }
-          # The service's installer rides along: it updates itself from it (decision 076).
-          gh release create "v$env:VERSION" "dist/CupIsland-Setup-$env:VERSION.exe" "dist/CupIsland-Index-Setup-$env:VERSION.exe" `
-            "build/windows/CupIsland.pdb" "build/windows/CupIslandIndex.pdb" `
-            --target "$env:GITHUB_SHA" --title "Cup Island $env:VERSION" --generate-notes --latest @notes
+          # Services from before decision 081 can only download their installer,
+          # so it's still attached to this release. Once they've all updated
+          # (the release after the first one with this step), drop $index here.
+          gh release create "v$env:VERSION" "dist/CupIsland-Setup-$env:VERSION.exe" $index `
+            --target "$env:GITHUB_SHA" --title "Cup Island $env:VERSION" --generate-notes --latest --notes $text
