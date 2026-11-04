@@ -13,7 +13,7 @@ namespace cup::platform {
 
 // Content appearing: fades in to `opacity` (a muted tab's content:
 // tabMutedOpacity, decision 072) after `delay` (the morph's reveal, plus its
-// row's stagger: decision 076). `arrive`: new content, not a rebuild in place:
+// row's stagger: decision 080). `arrive`: new content, not a rebuild in place:
 // it also grows from contentArriveScale and settles.
 void fadeIn(wuc::Compositor const& c, wuc::Visual const& visual, float opacity, Ms delay, bool arrive);
 void fadeTo(wuc::Compositor const& c, wuc::Visual const& visual, float opacity, Ms duration);

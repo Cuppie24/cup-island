@@ -46,7 +46,7 @@ void ToastLayer::show(const std::optional<ToastScene>& toast, Ms now)
 }
 
 // In: up from below the card's bottom edge into place, fading in, settling
-// just past it (decision 076). Out: back down past it, fading out.
+// just past it (decision 080). Out: back down past it, fading out.
 void ToastLayer::animate(bool in, float slide)
 {
     const Tokens& t = tokens();
