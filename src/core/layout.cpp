@@ -30,7 +30,7 @@ Source sourceFor(const IslandState& s, Mode mode)
 }
 
 // Centred and List cards are one stack of rows across the card (decision 014).
-bool stacked(const Content& c) { return c.card == CardLayout::Centred || c.card == CardLayout::List; }
+bool stacked(const Content& c) { return c.card != CardLayout::Standard; }
 
 // That stack's frame: the card less its padding. A List card's is narrower
 // and centred (decision 030): a few short rows don't need the island's width.
@@ -38,8 +38,9 @@ Rect stackFrame(const Content& c, Vec2 size)
 {
     const Tokens& t = tokens();
     float p = t.expandedPadding;
-    if (c.card != CardLayout::List) return { p, p, std::max(0.0f, size.x - 2 * p), size.y - 2 * p };
-    float width = std::min(std::max(0.0f, size.x - 2 * (p + t.listCardInset)), t.listCardWidth);
+    if (c.card != CardLayout::List && c.card != CardLayout::Search) return { p, p, std::max(0.0f, size.x - 2 * p), size.y - 2 * p };
+    float width = std::max(0.0f, size.x - 2 * (p + t.listCardInset));
+    if (c.card == CardLayout::List) width = std::min(width, t.listCardWidth); // Search's rows use its whole width
     float top = p + t.listCardVerticalInset; // room above and below: a page of settings, not a packed activity card
     return { (size.x - width) / 2, top, width, std::max(0.0f, size.y - 2 * top) };
 }
@@ -55,7 +56,9 @@ float centredCardHeight(const Source& source, Vec2 size, float tabSpace, const M
     const Slot& sizing = c.sizedLike.empty() ? c.expandedCenter : c.sizedLike;
     float needed = slotHeight(sizing, { frame.x, frame.y, frame.width, size.y }, source, measure) + 2 * frame.y;
     // A List card (Settings) is never as squeezed as an activity's: listCardMinHeight at least.
-    float least = c.card == CardLayout::List ? std::max(t.expandedSize.y, t.listCardMinHeight) : t.expandedSize.y;
+    float least = c.card == CardLayout::List   ? std::max(t.expandedSize.y, t.listCardMinHeight)
+                  : c.card == CardLayout::Search ? 0.0f // as tall as its rows: the field alone, then its results
+                                                 : t.expandedSize.y;
     return std::clamp(needed, least, std::max(least, t.canvas.y - tabSpace));
 }
 
@@ -157,6 +160,8 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     scene.size = modeSize(scene.mode);
     Source source = sourceFor(state, scene.mode);
     MeasureText measureText = measure ? measure : MeasureText{ estimateTextWidth };
+    if (scene.mode == Mode::Expanded && source.content && source.content->card == CardLayout::Search)
+        scene.size.x = std::min(tokens().searchCardWidth, tokens().canvas.x); // search: wider (decision 079)
     if (scene.mode == Mode::Expanded && source.content && stacked(*source.content)) {
         scene.size.y = centredCardHeight(source, scene.size, tabSpace, measureText);
     }

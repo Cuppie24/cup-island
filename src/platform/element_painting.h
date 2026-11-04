@@ -48,5 +48,8 @@ void paintTag(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Tag& tag, Vec2 s
 void paintGrey(ID2D1DeviceContext* dc, const std::function<void(ID2D1DeviceContext*)>& paint);
 // Fills a rounded rect with the image scaled to cover it; a neutral tile if `data` is null.
 void paintImage(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float cornerRadius);
+// `data` as an icon, `side` square (no bigger than `size`), centred on whole
+// pixels: a search result's (Button::picture, decision 079).
+void paintPicture(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float side);
 
 } // namespace cup::platform

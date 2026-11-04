@@ -40,6 +40,10 @@ const Field kFields[] = {
     { "listCardWidth", &Tokens::listCardWidth },
     { "listCardVerticalInset", &Tokens::listCardVerticalInset },
     { "listCardVisibleRows", &Tokens::listCardVisibleRows },
+    { "searchCardWidth", &Tokens::searchCardWidth },
+    { "searchInputHeight", &Tokens::searchInputHeight },
+    { "searchInputFontSize", &Tokens::searchInputFontSize },
+    { "resultIconSize", &Tokens::resultIconSize },
     { "listCardMinHeight", &Tokens::listCardMinHeight },
     { "expandedArtSize", &Tokens::expandedArtSize },
     { "slotGap", &Tokens::slotGap },
@@ -240,6 +244,7 @@ const Field kFields[] = {
     { "searchAppRows", &Tokens::searchAppRows, true },
     { "searchSettingRows", &Tokens::searchSettingRows },
     { "searchFileRows", &Tokens::searchFileRows },
+    { "searchIconCache", &Tokens::searchIconCache },
     { "searchVisibleRows", &Tokens::searchVisibleRows },
     { "launcherRefreshMs", &Tokens::launcherRefresh },
 };

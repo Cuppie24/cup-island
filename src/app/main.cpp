@@ -254,6 +254,8 @@ void updateHover()
     if (tab) g_renderer.setAreaHovered(tab->frame, g_scene.tabs->radius);
     else if (tile) g_renderer.setAreaHovered(tile->frame, g_scene.tileRadius);
     else if (item && item->listRow) g_renderer.setAreaHovered(item->listRow, item->listRowRadius);
+    else if (auto lit = escapeCloses(g_state) && !app::keyFocus() ? defaultRow(g_scene) : std::nullopt)
+        g_renderer.setAreaHovered(lit->frame, lit->radius); // typing in search: the row Enter opens (decision 079)
     else g_renderer.setAreaHovered(std::nullopt, 0);
 
     // The keyboard's focus also gets a ring (decision 033): hover alone can't
@@ -1083,6 +1085,12 @@ int main()
         .loadApps = loadWindowsApps,
         .launch = launchItem,
         .openFile = openPath,
+        .reveal = revealPath,
+        // Twice the icon's size: sharp at 200% scaling, drawn smaller below it.
+        .loadIcon = [](const std::string& target, std::function<void(std::shared_ptr<const ImageData>)> done) {
+            loadIcon(target, static_cast<int>(std::lround(2 * tokens().resultIconSize)), std::move(done));
+        },
+        .home = userFolder(),
         .windowsBuild = windowsBuild(),
         .russian = russianUi(),
     }));

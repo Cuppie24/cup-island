@@ -108,6 +108,7 @@ tile search                         -> Expanded expanded=search draft=empty
 type vsc                            -> draft=vsc
 cancel-input                        -> draft=vsc            # a dropped draft comes straight back, with its text
 outside                             -> Idle draft=none
-tile search                         -> Expanded draft=vsc   # its words kept for the next time (decision 050)
+tile search                         -> Expanded draft=empty # opens empty: that look is over (decision 079)
+type vsc
 wait 60000                          -> Expanded             # typed text holds it open (decision 016)
 type _                              -> draft=vsc_

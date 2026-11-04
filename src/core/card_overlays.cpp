@@ -58,7 +58,17 @@ void showDialog(IslandState& s, const DialogShown& e, Ms now)
 
 void dropStaleOverlays(IslandState& s)
 {
-    if (s.draft && !shown(s, s.draft->activityId)) dropDraft(s);
+    if (s.draft && !shown(s, s.draft->activityId)) {
+        // A card that is its field opens empty next time (search, decision 079):
+        // what was typed was for that look. Other fields keep it (decision 050).
+        const Content* content = nullptr;
+        if (const Activity* a = findActivity(s, s.draft->activityId)) content = &a->content;
+        else if (const Panel* p = findPanel(s, s.draft->activityId)) content = &p->content;
+        bool fresh = content && !s.draft->editing && content->fieldFirst == s.draft->actionId;
+        std::string key = keptKey(s.draft->activityId, s.draft->actionId);
+        dropDraft(s);
+        if (fresh) s.keptText.erase(key);
+    }
     if (s.dialog && !shown(s, s.dialog->activityId)) s.dialog.reset();
     if (s.toast && !shown(s, s.toast->activityId)) s.toast.reset();
     if (s.listDrag && (!shown(s, s.listDrag->activityId) || s.dialog)) s.listDrag.reset();

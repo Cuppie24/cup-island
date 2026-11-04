@@ -1,8 +1,9 @@
 #pragma once
 // Search (decisions 077, 079): a Search widget on Home, and its card: a live
 // field and, as you type, apps first, then Settings pages and Control Panel
-// items, then files. Enter starts the top one; a row starts its own. The
-// card closes once something started (Host::closeCard).
+// items, then files. Enter starts the top one; a row starts its own; a
+// file's folder button opens Explorer on it. The card closes once something
+// started (Host::closeCard), and opens empty next time.
 //   - apps and Control Panel items come from Windows (SearchHooks::loadApps,
 //     off the UI thread), kept and searched in memory, read again when the
 //     card opens if older than launcherRefresh;
@@ -19,6 +20,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -30,6 +32,11 @@ struct SearchHooks {
     std::function<void(std::function<void(std::vector<Launchable>)> done)> loadApps;
     std::function<bool(const Launchable&)> launch;        // starts it; false if Windows couldn't
     std::function<bool(const std::string& path)> openFile; // opens it as Explorer would
+    std::function<bool(const std::string& path)> reveal;   // its folder in Explorer, it selected
+    // A result's icon as Windows draws it (a file's, an app's), resultIconSize
+    // square; `done` on the UI thread, with nothing if there's none.
+    std::function<void(const std::string& target, std::function<void(std::shared_ptr<const ImageData>)> done)> loadIcon;
+    std::string home; // the user's folder ("C:\\Users\\Said"): shown as ~ in paths
     int windowsBuild = 0;
     bool russian = false; // Settings pages named in Russian (both names match)
 };
@@ -38,6 +45,7 @@ namespace search_action {
 inline constexpr const char* kTyped = "search.typed"; // the field's live edit (TextInput::changeAction)
 inline constexpr const char* kGo = "search.go";       // Enter: the top result
 inline constexpr const char* kOpen = "search.open.";  // + a result's index
+inline constexpr const char* kReveal = "search.reveal."; // + a file result's index: its folder
 } // namespace search_action
 
 class SearchProvider : public Provider {
@@ -54,6 +62,7 @@ public:
     void stop() override;
     void onAction(const Action& action) override;
     void onCardShown(const std::string& activityId) override;
+    void onCardClosed(const std::string& activityId) override;
 
     // One result as the card lists it, in its order (for tests).
     struct Result {
@@ -70,6 +79,8 @@ private:
     void searchNow(); // ranks what's in memory and asks the service for files
     void publish();
     void open(std::size_t index);
+    void reveal(std::size_t index);
+    std::shared_ptr<const ImageData> iconFor(const std::string& target); // asks Windows the first time
 
     SearchHooks hooks_;
     Host* host_ = nullptr;
@@ -83,6 +94,7 @@ private:
     std::vector<indexer::ResultRow> files_;  // then files
     std::string filesNote_;                  // why there are no files ("isn't set up")
     std::uint64_t fileAsk_ = 0;              // the latest files request; older answers are dropped
+    std::map<std::string, std::shared_ptr<const ImageData>> icons_; // by target; asked for, null until it comes
     std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);
 };
 

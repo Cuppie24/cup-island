@@ -368,6 +368,7 @@ void ElementVisuals::paint(View& view)
             else if (button->round) paintRoundButton(dc, dw, *button, size);
             else if (button->quiet) paintLabel(dc, dw, button->label, size, t.captionTextColor, TextStyle::Caption); // a way into more (decision 063)
             else if (!button->label.empty()) paintLabel(dc, dw, button->label, size, color);
+            else if (button->picture) paintPicture(dc, button->picture.get(), size, t.resultIconSize); // a result's own icon (decision 079)
             // Centred in the surface's whole pixels, like the hover shape around it, not the fractional frame.
             else paintGlyph(dc, dw, button->glyph, glyphSizeOf(*button), pixelSize(size), color);
             if (button->on && *button->on && !button->round) paintToggleDot(dc, pixelSize(size), t.buttonGlyphSize);

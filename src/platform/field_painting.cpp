@@ -40,7 +40,7 @@ FieldLine lineOf(IDWriteFactory* dw, const TextInput& input, Vec2 size)
     const Tokens& t = tokens();
     FieldLine line;
     // Edited in place: the Text's own size and place, so nothing jumps when editing starts (decision 043).
-    float fontSize = input.inPlace ? t.bodyFontSize : t.inputFontSize;
+    float fontSize = input.inPlace ? t.bodyFontSize : input.large ? t.searchInputFontSize : t.inputFontSize; // large: search's (decision 079)
     line.inset = input.inPlace ? t.editInset : t.buttonLabelPadding;
     line.room = std::max(0.0f, size.x - 2 * line.inset);
     bool empty = input.value.empty(), wrapped = !input.wrapped.empty();

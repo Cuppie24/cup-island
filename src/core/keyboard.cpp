@@ -238,4 +238,6 @@ std::optional<Focusable> moveAmongRows(const Scene& scene, const std::string& cu
     return to;
 }
 
+std::optional<Focusable> defaultRow(const Scene& scene) { return moveAmongRows(scene, "", Arrow::Down); }
+
 } // namespace cup

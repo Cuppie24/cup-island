@@ -58,9 +58,8 @@ provider to close its own card once it has started what was picked.
     leave to take the foreground; a hook doesn't. If SetForegroundWindow is
     refused, a harmless Alt tap first lets it through (`bringToFront`), as
     launchers such as PowerToys do.
-- **Opening** (the command): search's card, its field focused, last time's
-  words selected (decision 050 keeps a field's text), so typing replaces
-  them. Pressed again while it's open, the card closes.
+- **Opening** (the command): search's card, its field focused and empty
+  (see "Second look" below). Pressed again while it's open, the card closes.
 
 **Polish after the first run on a real PC.** The card was laid out like a
 media card (art column on the left, a fixed 171 px height), so its rows
@@ -76,7 +75,8 @@ over the tab row, and long folder paths squeezed names to "W...". Now:
   shortcut or the Home widget alike, with its kept words; one Esc closes it
   (`escapeCloses`) instead of stopping the typing first.
 - **`Text::yields`** (core layout): short of room, that text gives up its
-  width first. A file's folder yields to its name.
+  width first. A file's folder yields to its name. (Search's rows no longer
+  need it: second look.)
 - Each new query scrolls the list back to its top (`Host::reveal`).
 - `WindowsApps` (Store apps' insides) is a noise folder (decision 075):
   hundreds of package files no longer crowd out what was meant.
@@ -102,6 +102,38 @@ and a list scrolls to keep the highlight in view. **Enter** opens the
 highlighted row, or the top result when none is. Typing clears the
 highlight (the rows under it change). Left, Right, Home and End stay the
 caret's. Any card that is its field gets the same keys.
+
+**Second look** (from the owner's screenshots: too small, a blank strip
+under a few results, paths cut where they mattered). This replaces the
+fixed height and `Text::yields` above, and the chevrons:
+- **Opens empty, grows with results.** Closing the card drops what was
+  typed (a fieldFirst card's text isn't kept, unlike decision 050's fields:
+  `dropStaleOverlays`), and the provider forgets its query
+  (`onCardClosed`). Nothing typed shows the field alone; results add rows
+  up to `searchVisibleRows`, then the list scrolls. The card is as tall as
+  its rows (`CardLayout::Search`). It jumps as you type; a blank strip
+  under two results looked broken, which was worse.
+- **Bigger.** `searchCardWidth` wide (canvasSize grew to fit), a
+  `searchInputHeight` field in `searchInputFontSize` (`TextInput::large`).
+- **Two lines per row:** the name, and under it where it is
+  (`Text::detail`, in caption style): App, Settings, or a file's folder with
+  the user's own folder as `~`. A path too long **loses its start**
+  ("…\projects\cwatis\Debug"), since its end tells two apart; DirectWrite
+  only trims ends, so the painter finds the longest end that fits.
+- **No chevrons.** The icon is the row's button (`Row::clickAnywhere`): the
+  whole row opens it. A file row's **folder button** (`search.reveal.N`)
+  shows under the pointer and opens Explorer with the file selected.
+- **The row Enter opens is lit** while you type: the first row
+  (`defaultRow`). Down goes to the second, Up back onto the first is typing
+  again, so every press visibly moves. The pointer over another row lights
+  that one, as before.
+- **Real icons:** the shell's own, as Explorer shows them
+  (`IShellItemImageFactory`, Windows Vista+, on one background thread),
+  drawn in the icon button (`Button::picture`, `resultIconSize`); the glyph
+  until it comes. Kept by path, up to `searchIconCache`.
+- **What matched is brighter and bolder** (`Text::bright`, from
+  `matchedParts`: each word where it starts a word in the name, else its
+  first match).
 
 **Open.** Ctrl+Shift+Enter to run as administrator (decision 077) needs the
 host to tell a provider about modifiers, which it never does (decision 035):

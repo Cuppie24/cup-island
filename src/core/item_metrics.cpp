@@ -54,7 +54,8 @@ float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& m
 {
     const Tokens& t = tokens();
     if (auto* dial = std::get_if<Dial>(&item)) return dialDiameter(*dial, measure);
-    if (auto* text = std::get_if<Text>(&item)) return lineHeight(text->style);
+    if (auto* text = std::get_if<Text>(&item)) // a detail line under it: a caption's height more (decision 079)
+        return lineHeight(text->style) + (text->detail.empty() ? 0.0f : lineHeight(TextStyle::Caption));
     if (std::holds_alternative<Image>(item)) return std::min(slot.width, slot.height);
     if (isRing(item)) return ringSide;
     if (std::holds_alternative<Steps>(item)) return t.stepDotSize;
@@ -62,7 +63,7 @@ float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& m
     if (std::holds_alternative<Switch>(item)) return t.switchSize.y;
     if (std::holds_alternative<Tag>(item)) return t.tagHeight;
     if (auto* button = std::get_if<Button>(&item)) return button->primary ? t.primaryButtonSize : button->compact ? t.smallButtonSize : t.buttonSize;
-    if (std::holds_alternative<TextInput>(item)) return t.inputHeight;
+    if (auto* input = std::get_if<TextInput>(&item)) return input->large ? t.searchInputHeight : t.inputHeight;
     if (std::holds_alternative<Divider>(item)) return t.dividerThickness;
     // Seekable bars get a taller row to be easy to click; a bar nobody clicks is just its line.
     if (auto* bar = std::get_if<Progress>(&item)) return bar->seekable ? t.progressHitHeight : t.progressHeight;

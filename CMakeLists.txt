@@ -74,6 +74,7 @@ add_library(cup_providers STATIC
     src/providers/system/system_panels.cpp
     src/providers/file_store.cpp
     src/providers/search/launchables.cpp
+    src/providers/search/result_rows.cpp
     src/providers/search/search_provider.cpp
     src/providers/service_host.cpp
     src/providers/update/release.cpp
