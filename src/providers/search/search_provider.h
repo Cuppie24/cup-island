@@ -11,7 +11,8 @@
 //   - files come from Cup Island's service, through the host
 //     (Host::callService("index.query"), decision 078); an answer for an
 //     older query is dropped.
-// What was started is remembered per user and ranks higher (LaunchHistory).
+// What was started is remembered per user and ranks higher (LaunchHistory),
+// files opened from it too (recent_files, decision 082).
 // Pure, tested on Linux: Windows is behind SearchHooks.
 
 #include "core/provider.h"
@@ -33,6 +34,7 @@ struct SearchHooks {
     std::function<bool(const Launchable&)> launch;        // starts it; false if Windows couldn't
     std::function<bool(const std::string& path)> openFile; // opens it as Explorer would
     std::function<bool(const std::string& path)> reveal;   // its folder in Explorer, it selected
+    std::function<bool(const std::string& path)> exists;   // a remembered file is still there (recent_files)
     // A result's icon as Windows draws it (a file's, an app's), resultIconSize
     // square; `done` on the UI thread, with nothing if there's none.
     std::function<void(const std::string& target, std::function<void(std::shared_ptr<const ImageData>)> done)> loadIcon;
@@ -56,6 +58,7 @@ public:
     static constexpr const char* kId = "search";
     static constexpr const char* kPanelId = "search";
     static constexpr const char* kHistoryKey = "launches";
+    static constexpr const char* kOpenedKey = "opened"; // files and folders opened from search
 
     const char* id() const override { return kId; }
     void start(Host& host) override;
@@ -77,6 +80,7 @@ public:
 private:
     void refreshApps();
     void searchNow(); // ranks what's in memory and asks the service for files
+    void setFiles(std::vector<indexer::ResultRow> rows); // the service's, with recent ones worked in
     void publish();
     void open(std::size_t index);
     void reveal(std::size_t index);
@@ -89,6 +93,7 @@ private:
     Ms appsAt_{ -1 };                  // when apps_ was read; -1: never
     bool loading_ = false;
     LaunchHistory history_;
+    LaunchHistory opened_; // files, by recentKey
     std::string query_;
     std::vector<const Launchable*> shown_;   // apps, then Settings and Control Panel
     std::vector<indexer::ResultRow> files_;  // then files

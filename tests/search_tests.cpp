@@ -11,6 +11,7 @@
 #include "core/tokens.h"
 #include "expect.h"
 #include "panel_host.h"
+#include "providers/search/recent_files.h"
 #include "providers/search/result_rows.h"
 #include "providers/search/search_provider.h"
 
@@ -297,6 +298,91 @@ void layoutTests()
     expect(last.rfind("el:", 0) == 0, "tabs at the bottom: Down at the last row doesn't leave for the tab row");
 }
 
+// Recently opened files (decision 082): ranked first within their match
+// class, never above a better match; shown even if the service left them
+// out; forgotten once gone.
+void recentTests()
+{
+    using Row = indexer::ResultRow;
+    constexpr Ms kDay{ 24 * 60 * 60 * 1000 };
+    Ms now = 100 * kDay;
+    auto file = [](std::string path) {
+        std::size_t slash = path.find_last_of('\\');
+        return Row{ .name = path.substr(slash + 1), .path = path };
+    };
+    auto names = [](const std::vector<Row>& rows) {
+        std::string out;
+        for (const Row& r : rows) out += (out.empty() ? "" : ",") + r.name;
+        return out;
+    };
+    auto everywhere = [](const std::string&) { return true; };
+    std::vector<std::string> gone;
+
+    std::vector<Row> service = { file("C:\\report.pdf"), file("C:\\a\\report-old.pdf"), file("C:\\a\\q3-report.pdf"), file("C:\\b\\q4-report.pdf") };
+    LaunchHistory opened;
+    opened.record("C:\\b\\q4-report.pdf", now - kDay);
+    auto rows = withRecent(service, opened, "report", now, 10, everywhere, gone);
+    expect(names(rows) == "report.pdf,report-old.pdf,q4-report.pdf,q3-report.pdf",
+           "a recent file moves up within its match class, not past a better match");
+    opened.record("C:\\a\\report-old.pdf", now - 20 * kDay);
+    opened.record("C:\\report.pdf", now - 2 * kDay);
+    rows = withRecent(service, opened, "report", now, 10, everywhere, gone);
+    expect(names(rows) == "report.pdf,report-old.pdf,q4-report.pdf,q3-report.pdf", "an exact match stays first");
+    LaunchHistory both;
+    both.record("C:\\a\\q3-report.pdf", now - 25 * kDay);
+    both.record("C:\\b\\q4-report.pdf", now - 3 * kDay);
+    expect(names(withRecent(service, both, "report", now, 10, everywhere, gone)) == "report.pdf,report-old.pdf,q4-report.pdf,q3-report.pdf",
+           "the more recent first");
+    LaunchHistory old;
+    old.record("C:\\b\\q4-report.pdf", now - 40 * kDay);
+    expect(names(withRecent(service, old, "report", now, 10, everywhere, gone)) == names(service), "older than a month: the service's order");
+
+    LaunchHistory missing;
+    missing.record("D:\\notes\\report-draft.txt", now - kDay);
+    missing.record("D:\\photos\\", now - kDay); // a folder: doesn't match
+    rows = withRecent(service, missing, "report", now, 10, everywhere, gone);
+    expect(rows.size() == 5 && rows[1].name == "report-draft.txt" && rows[1].path == "D:\\notes\\report-draft.txt",
+           "a recent file the service left out still shows, first among its equals");
+    expect(withRecent(service, missing, "report", now, 4, everywhere, gone).size() == 4, "within the limit");
+    rows = withRecent(service, missing, "report ext:pdf", now, 10, everywhere, gone);
+    expect(rows.size() == 4, "with a filter, only what the service sent");
+    gone.clear();
+    rows = withRecent(service, missing, "report", now, 10, [](const std::string&) { return false; }, gone);
+    expect(rows.size() == 4 && gone == std::vector<std::string>{ "D:\\notes\\report-draft.txt" }, "gone from disk: not shown, and to forget");
+    expect(withRecent({}, missing, "draft", now, 10, everywhere, gone).size() == 1, "even with no service at all");
+
+    Row folder{ .name = "Projects", .path = "D:\\Projects", .folder = true };
+    expect(recentKey(folder) == "D:\\Projects\\" && rowOfKey(recentKey(folder)) == folder, "a folder keeps being a folder");
+    expect(rowOfKey("C:\\x\\a.txt") == file("C:\\x\\a.txt"), "a file's name and path back");
+
+    // The provider: what's opened is remembered, and ranks higher next time.
+    SearchHost host;
+    std::vector<std::string> opens;
+    SearchProvider search({ .loadApps = [](std::function<void(std::vector<Launchable>)> d) { d({}); },
+                            .openFile = [&](const std::string& p) { opens.push_back(p); return true; },
+                            .exists = everywhere });
+    search.start(host);
+    auto answer = [&](const char* typed) {
+        search.onAction({ "search", "search", search_action::kTyped, 0, typed });
+        host.answers.back()({ ServiceReply::Problem::None,
+                              R"({"jsonrpc":"2.0","id":1,"result":{"hits":[{"name":"plan.txt","path":"C:\\plan.txt"},{"name":"plan-b.txt","path":"C:\\x\\plan-b.txt"},{"name":"plan-c.txt","path":"C:\\x\\plan-c.txt"}]}})" });
+    };
+    answer("plan");
+    std::size_t c = 0;
+    for (const auto& r : search.results()) {
+        if (r.name == "plan-c.txt") break;
+        ++c;
+    }
+    search.onAction({ "search", "search", search_action::kOpen + std::to_string(c), 0, "" });
+    expect(opens == std::vector<std::string>{ "C:\\x\\plan-c.txt" } && host.store[SearchProvider::kOpenedKey].find("plan-c.txt") != std::string::npos,
+           "an opened file is remembered");
+    answer("plan");
+    std::vector<std::string> order;
+    for (const auto& r : search.results())
+        if (r.file) order.push_back(r.name);
+    expect(order == std::vector<std::string>{ "plan.txt", "plan-c.txt", "plan-b.txt" }, "and next time it's first among its equals");
+}
+
 void liveFieldTests()
 {
     Scene scene;
@@ -331,6 +417,7 @@ void runSearchTests()
     providerTests();
     layoutTests();
     rowTextTests();
+    recentTests();
     liveFieldTests();
 }
 
