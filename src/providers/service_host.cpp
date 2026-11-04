@@ -102,7 +102,7 @@ void ServiceHost::found(const ServiceProbe& probe)
         step_ = Step::Updating;
         log("service: " + probe.version + ", the app is " + hooks_.appVersion + ": asking it to update (try " +
             std::to_string(updateAsks_) + " of " + std::to_string(tokens().serviceUpdateTries) + ")");
-        hooks_.send(indexer::encodeUpdateRequest(nextId_++), [](ServiceReply) {}); // the app logs the answer (service_link)
+        hooks_.send(indexer::encodeUpdateRequest(nextId_++, hooks_.installerPath), [](ServiceReply) {}); // the app logs the answer (service_link)
         host_->wakeAt(host_->now() + tokens().serviceUpdateRetry); // then look again: did it change?
         return;
     }

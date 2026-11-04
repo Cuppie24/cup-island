@@ -38,6 +38,9 @@ struct ServiceProbe {
 struct ServiceHostHooks {
     std::string appVersion;        // cup_version.h: only an X.Y.Z build sets anything up
     bool installerBundled = false; // CupIsland-Index-Setup.exe is beside the app
+    // ...its path (UTF-8), sent with service.update: the service updates from
+    // it when it's the release's (decision 081). Empty: it downloads its own.
+    std::string installerPath;
     // Asks Windows and the service; `done` on the UI thread.
     std::function<void(std::function<void(ServiceProbe)> done)> probe;
     // Starts the bundled installer; Windows asks the user first (so this

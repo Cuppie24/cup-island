@@ -1072,6 +1072,7 @@ int main()
     auto serviceHost = std::make_unique<ServiceHost>(ServiceHostHooks{
         .appVersion = CUP_VERSION_STRING,
         .installerBundled = serviceInstallerBundled(),
+        .installerPath = serviceInstallerPath(),
         .probe = probeService,
         .runInstaller = runServiceInstaller,
         .send = sendToService,

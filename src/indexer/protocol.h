@@ -4,9 +4,12 @@
 // (4 bytes, little-endian). Methods are named by module (decision 078):
 //   index.query    {"text": "report ext:pdf", "limit": 50} -> {"hits": [{name, path, folder, hidden}]}
 //   index.status   {}  -> {"protocol": 1, "version": "0.8.0", "volumes": [{root, state, files}]}
-//   service.update {}  -> {"update": "started" | "current" | "busy" | "dev" | "failed"}
-// `service.update` names no version and no file: the service installs
-// GitHub's latest release of itself, or nothing (decision 076).
+//   service.update {"installer": "C:\\...\\CupIsland-Index-Setup.exe"}
+//                  -> {"update": "started" | "current" | "busy" | "dev" | "failed"}
+// `service.update` names no version: the service installs GitHub's latest
+// release of itself, or nothing (decision 076). `installer`, optional, is
+// where the app's own copy of the service installer is: the service runs it
+// only if its SHA-256 is the one the release's notes give (decision 081).
 // No cancel: a search takes tens of milliseconds, and a client drops an
 // answer whose id it no longer wants. Both sides are here, so the service,
 // the cupindex tool and the island share one tested encoding.
@@ -69,6 +72,7 @@ struct StatusRequest {
 };
 struct UpdateRequest {
     std::int64_t id = 0;
+    std::string installer; // the app's copy of the service installer; may be empty
 };
 struct BadRequest {
     std::optional<std::int64_t> id; // none when even the id couldn't be read
@@ -84,7 +88,7 @@ std::string encodeCall(std::int64_t id, std::string_view method, std::string_vie
 std::string queryParams(std::string_view text, std::size_t limit); // index.query's
 std::string encodeQuery(std::int64_t id, std::string_view text, std::size_t limit);
 std::string encodeStatusRequest(std::int64_t id);
-std::string encodeUpdateRequest(std::int64_t id);
+std::string encodeUpdateRequest(std::int64_t id, std::string_view installer = {});
 
 // --- answers -------------------------------------------------------------
 struct ResultRow {

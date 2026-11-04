@@ -114,7 +114,11 @@ Request parseRequest(std::string_view body)
     if (params && params->type != Json::Type::Object) return BadRequest{ id, kInvalidParams, "params must be an object" };
 
     if (method->text == "index.status") return StatusRequest{ *id };
-    if (method->text == "service.update") return UpdateRequest{ *id };
+    if (method->text == "service.update") {
+        const Json* installer = params ? params->get("installer") : nullptr;
+        if (installer && !installer->isString()) return BadRequest{ id, kInvalidParams, "installer must be a path" };
+        return UpdateRequest{ *id, installer ? installer->text : std::string() };
+    }
     if (method->text != "index.query") return BadRequest{ id, kMethodNotFound, "unknown method" };
     const Json* text = params ? params->get("text") : nullptr;
     if (!text || !text->isString()) return BadRequest{ id, kInvalidParams, "query needs text" };
@@ -155,9 +159,12 @@ std::string encodeStatusRequest(std::int64_t id)
     return encodeCall(id, "index.status", "");
 }
 
-std::string encodeUpdateRequest(std::int64_t id)
+std::string encodeUpdateRequest(std::int64_t id, std::string_view installer)
 {
-    return encodeCall(id, "service.update", "");
+    if (installer.empty()) return encodeCall(id, "service.update", "");
+    std::string params = "{\"installer\":";
+    appendJsonString(params, installer);
+    return encodeCall(id, "service.update", params + "}");
 }
 
 std::string encodeResults(std::int64_t id, const std::vector<ResultRow>& rows)

@@ -18,6 +18,7 @@ void sendToService(std::string request, std::function<void(ServiceReply)> done);
 // CupIsland-Index-Setup.exe beside CupIsland.exe: the installer puts it
 // there; a dev build has none.
 bool serviceInstallerBundled();
+std::string serviceInstallerPath(); // its path, UTF-8 (the service updates from it, decision 081)
 // Starts it elevated ("runas": Windows asks the user), silent once allowed,
 // off the UI thread (the call waits for the user's answer). `done` on the UI
 // thread: false if it couldn't start or the prompt was refused.

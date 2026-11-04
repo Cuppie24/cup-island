@@ -63,6 +63,27 @@ bool movesTo(const Version& running, const Version& offered) { return offered !=
 
 bool isMandatory(std::string_view notes) { return notes.find(kMandatoryMarker) != std::string_view::npos; }
 
+bool plainLocalPath(std::string_view path)
+{
+    if (path.size() < 4 || path.size() > 32000) return false;
+    bool drive = std::isalpha(static_cast<unsigned char>(path[0])) && path[1] == ':' && path[2] == '\\';
+    if (!drive) return false;
+    for (std::size_t i = 2; i < path.size(); ++i)
+        if (path[i] == ':' || path[i] == '/' || static_cast<unsigned char>(path[i]) < 0x20) return false; // a stream, a mixed path
+    return path.find("\\\\") == std::string_view::npos; // no empty parts
+}
+
+std::optional<std::string> indexHashIn(std::string_view notes)
+{
+    std::string_view marker = kIndexHashMarker;
+    std::size_t at = notes.find(marker);
+    if (at == std::string_view::npos) return std::nullopt;
+    std::string_view rest = notes.substr(at + marker.size());
+    std::size_t end = rest.find(" -->");
+    if (end == std::string_view::npos) return std::nullopt;
+    return sha256Of("sha256:" + std::string(rest.substr(0, end)));
+}
+
 namespace {
 
 // An offer for the named installer in `latest`, by the rules offerFor states.
@@ -88,9 +109,17 @@ std::optional<UpdateOffer> offerFor(const Version& running, const GitHubRelease&
 
 std::optional<UpdateOffer> indexOfferFor(const Version& running, const GitHubRelease& latest)
 {
-    auto offer = offerOf(running, latest, indexInstallerName);
-    if (offer) offer->mandatory = false;
-    return offer;
+    auto version = parseVersion(latest.tag);
+    if (!version || !movesTo(running, *version)) return std::nullopt;
+    std::string name = indexInstallerName(*version);
+    auto asset = std::find_if(latest.assets.begin(), latest.assets.end(), [&](const ReleaseAsset& a) { return a.name == name; });
+    bool attached = asset != latest.assets.end() && onGitHub(asset->url);
+    // The notes' hash first: it's there whether or not the file is attached.
+    std::optional<std::string> sha = latest.indexSha256.empty() ? std::nullopt : std::optional(latest.indexSha256);
+    if (!sha && attached) sha = sha256Of(asset->digest);
+    if (!sha) return std::nullopt;
+    return UpdateOffer{ .version = *version, .url = attached ? asset->url : std::string(), .sha256 = *sha, .fileName = name,
+                        .page = onGitHub(latest.page) ? latest.page : std::string(), .mandatory = false };
 }
 
 } // namespace cup

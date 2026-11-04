@@ -121,6 +121,15 @@ bool serviceInstallerBundled()
     return std::filesystem::is_regular_file(bundledInstaller(), ec);
 }
 
+std::string serviceInstallerPath()
+{
+    std::wstring path = bundledInstaller().wstring();
+    int n = WideCharToMultiByte(CP_UTF8, 0, path.c_str(), static_cast<int>(path.size()), nullptr, 0, nullptr, nullptr);
+    std::string out(static_cast<std::size_t>(n > 0 ? n : 0), '\0');
+    if (n > 0) WideCharToMultiByte(CP_UTF8, 0, path.c_str(), static_cast<int>(path.size()), out.data(), n, nullptr, nullptr);
+    return out;
+}
+
 void runServiceInstaller(std::function<void(bool started)> done)
 {
     run(std::move(done));

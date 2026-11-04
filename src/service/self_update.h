@@ -1,10 +1,13 @@
 #pragma once
-// The service updating itself (decision 076). A client's `update` request
-// names nothing: the service asks GitHub for this repository's latest
-// release itself and installs that release's CupIsland-Index-Setup-<v>.exe,
-// checked against GitHub's SHA-256, or nothing. So no client can make it
-// install a file or version of its choosing.
-//   - downloaded into the service's own folder, which no user can write to;
+// The service updating itself (decisions 076, 081). A client's `update`
+// request names no version: the service asks GitHub for this repository's
+// latest release itself and installs that release's service installer,
+// checked against the SHA-256 the release gives, or nothing. So no client
+// can make it install a file or version of its choosing.
+//   - the bytes come from the app's own copy (the request's `installer`,
+//     a plain local path) or, failing that, the release's attached file;
+//     either way they're copied into the service's own folder, which no user
+//     can write to, and only the release's hash decides;
 //   - reopened locked (read-only, no one may write or delete it), hashed
 //     through that handle and started while it's held: the bytes checked
 //     are the bytes that run;
@@ -31,13 +34,14 @@ public:
     // Checks GitHub now (on the caller's thread: a client is waiting for the
     // answer); if there's a newer or other release, downloads and installs it
     // on a thread of its own and answers Started.
-    indexer::UpdateAnswer request();
+    // `installer`: the app's copy (UpdateRequest::installer), or empty.
+    indexer::UpdateAnswer request(const std::string& installer);
 
     // Installers left by an update that didn't finish: deleted at start.
     void removeLeftovers();
 
 private:
-    void install(std::string url, std::string sha256, std::string fileName);
+    void install(std::string url, std::string sha256, std::string fileName, std::string installer);
 
     std::filesystem::path folder_;
     std::string version_;

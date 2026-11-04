@@ -127,6 +127,52 @@ std::vector<wchar_t> environmentWithTemp(const std::filesystem::path& temp)
     return out;
 }
 
+// A copy of `source` (the app's, a plain local path) at `target`, at most
+// kMaxInstallerBytes, and only from a fixed drive: not a USB stick or a
+// mapped network drive another user could swap.
+bool copyLocal(const std::wstring& source, const std::filesystem::path& target)
+{
+    std::wstring root = source.substr(0, 3);
+    if (GetDriveTypeW(root.c_str()) != DRIVE_FIXED) return false;
+    Handle in(CreateFileW(source.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
+    if (!in.valid()) return false;
+    Handle out(CreateFileW(target.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
+    if (!out.valid()) return false;
+    std::vector<char> buffer(64 * 1024);
+    std::size_t total = 0;
+    for (DWORD read = 0;;) {
+        if (!ReadFile(in.get(), buffer.data(), static_cast<DWORD>(buffer.size()), &read, nullptr)) return false;
+        if (read == 0) return total > 0;
+        total += read;
+        DWORD written = 0;
+        if (total > kMaxInstallerBytes || !WriteFile(out.get(), buffer.data(), read, &written, nullptr) || written != read) return false;
+    }
+}
+
+// The release's attached installer, downloaded to `target`.
+bool download(const std::wstring& url, const std::filesystem::path& target, const std::string& version)
+{
+    Handle out(CreateFileW(target.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
+    if (!out.valid()) return false;
+    return httpGet(url, version, false, kMaxInstallerBytes, [&](const char* data, DWORD size) {
+        DWORD written = 0;
+        return WriteFile(out.get(), data, size, &written, nullptr) && written == size;
+    });
+}
+
+// `file` reopened read-only, sharing only reading, if its SHA-256 is
+// `sha256`: from then until the installer has started, nobody can change or
+// delete it, and the hash was read through this same handle. Otherwise none.
+Handle lockedIfMatches(const std::filesystem::path& file, const std::string& sha256)
+{
+    Handle locked(CreateFileW(file.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
+    if (!locked.valid()) return Handle();
+    std::string got = sha256Of(locked.get());
+    if (got == sha256) return locked;
+    serviceLog("update: checksum mismatch (got %s, expected %s)", got.c_str(), sha256.c_str());
+    return Handle();
+}
+
 } // namespace
 
 SelfUpdate::SelfUpdate(std::filesystem::path folder, std::string runningVersion)
@@ -145,7 +191,7 @@ void SelfUpdate::removeLeftovers()
     std::filesystem::remove_all(folder_ / L"updates", ec);
 }
 
-indexer::UpdateAnswer SelfUpdate::request()
+indexer::UpdateAnswer SelfUpdate::request(const std::string& installer)
 {
     // An installed dev build moves to the latest release when asked (the app
     // only asks the installed service): any release differs from it.
@@ -174,13 +220,21 @@ indexer::UpdateAnswer SelfUpdate::request()
         }
         return indexer::UpdateAnswer::Current;
     }
+    std::string local = plainLocalPath(installer) ? installer : std::string();
+    if (!installer.empty() && local.empty()) serviceLog("update: the app's installer path isn't a plain local one; ignored");
+    if (local.empty() && offer->url.empty()) {
+        std::lock_guard guard(lock_);
+        busy_ = false;
+        serviceLog("update: %s has no attached installer and the app sent none", versionText(offer->version).c_str());
+        return indexer::UpdateAnswer::Failed;
+    }
     serviceLog("update: %s -> %s", version_.c_str(), versionText(offer->version).c_str());
     if (worker_.joinable()) worker_.join(); // an earlier one, long finished
-    worker_ = std::thread([this, url = offer->url, sha = offer->sha256, name = offer->fileName] { install(url, sha, name); });
+    worker_ = std::thread([this, url = offer->url, sha = offer->sha256, name = offer->fileName, local] { install(url, sha, name, local); });
     return indexer::UpdateAnswer::Started;
 }
 
-void SelfUpdate::install(std::string url, std::string sha256, std::string fileName)
+void SelfUpdate::install(std::string url, std::string sha256, std::string fileName, std::string installer)
 {
     std::filesystem::path updates = folder_ / L"updates", file = updates / widen(fileName);
     auto finish = [this](const char* problem) {
@@ -190,27 +244,24 @@ void SelfUpdate::install(std::string url, std::string sha256, std::string fileNa
     };
     std::error_code ec;
     std::filesystem::create_directories(updates, ec);
-    {
-        Handle out(CreateFileW(file.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
-        if (!out.valid()) return finish("couldn't create the download");
-        bool ok = httpGet(widen(url), version_, false, kMaxInstallerBytes, [&](const char* data, DWORD size) {
-            DWORD written = 0;
-            return WriteFile(out.get(), data, size, &written, nullptr) && written == size;
-        });
-        if (!ok) return finish("the download failed");
+    // The app's copy first (decision 081), then the release's attached file:
+    // whichever arrives with the release's hash is the one that runs.
+    Handle locked;
+    bool fromApp = !installer.empty() && copyLocal(widen(installer), file);
+    if (fromApp) {
+        locked = lockedIfMatches(file, sha256);
+        fromApp = locked.valid();
+        if (!fromApp) serviceLog("update: the app's copy isn't the release's installer");
     }
-    // Reopened read-only, sharing only reading: from here until the installer
-    // has started, nobody can change or delete it. The hash is read through
-    // this same handle.
-    Handle locked(CreateFileW(file.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr));
-    if (!locked.valid()) return finish("couldn't reopen the download");
-    std::string got = sha256Of(locked.get());
-    if (got != sha256) {
-        serviceLog("update: checksum mismatch (got %s, expected %s)", got.c_str(), sha256.c_str());
-        locked.reset();
+    if (!locked.valid() && !url.empty()) {
+        if (!download(widen(url), file, version_)) return finish("the download failed");
+        locked = lockedIfMatches(file, sha256);
+    }
+    if (!locked.valid()) {
         std::filesystem::remove(file, ec);
-        return finish(nullptr);
+        return finish("no installer with the release's checksum");
     }
+    serviceLog("update: running the installer %s", fromApp ? "the app brought" : "attached to the release");
     std::wstring command = L"\"" + file.wstring() + L"\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /LOG=\"" +
                            (folder_ / L"index-update.log").wstring() + L"\"";
     std::vector<wchar_t> environment = environmentWithTemp(updates);
