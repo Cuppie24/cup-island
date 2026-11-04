@@ -50,7 +50,6 @@ Color rightColor(bool highlighted) { return highlighted ? tokens().islandHighlig
 void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::ContainerVisual const& parent, Vec2 size, Vec2 offset)
 {
     compositor_ = c;
-    device_ = &device;
     size_ = size;
     offset_ = offset;
 
@@ -162,7 +161,7 @@ void Blob::refreshAnimations(bool coloursOnly)
         shadow_.BlurRadius(t.shadowBlur);
         shadow_.Offset(toFloat3(t.shadowOffset));
     }
-    shape_.InsertScalar(L"MaxRadius", t.maxCornerRadius);
+    shape_.InsertScalar(L"MaxRadius", detachedRadius_.value_or(t.maxCornerRadius)); // a floating card's are a window's
     shape_.InsertScalar(L"FlareRadius", t.flareRadius);
 
     // Colours are tokens too, and every one fades, so a cover's colours or a
@@ -178,7 +177,6 @@ void Blob::refreshAnimations(bool coloursOnly)
     badges_.recolor();
     toast_.refresh(coloursOnly);
     elements_.refresh(coloursOnly);
-    if (chromeLayer_) chrome_.refresh(coloursOnly); // a floating card's ✕ (decision 081)
 }
 
 void Blob::place(Vec2 size, Vec2 offset, const Motion& motion)

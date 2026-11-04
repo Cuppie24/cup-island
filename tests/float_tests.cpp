@@ -53,19 +53,31 @@ void sceneTests()
     s = reduce(s, FloatResized{ "notes", { 500, 400 } }, now);
     expect(floatScene(s, s.floats[0], now).size == Vec2{ 500, 400 }, "resized: the user's size");
 
+    // Its own limits (FloatSpec::minSize, maxSize): resizing and fitting both stay in them.
+    Content limited = notes(200);
+    limited.floating = FloatSpec{ .resizable = true, .minSize = Vec2{ 400, 300 }, .maxSize = Vec2{ 600, 500 } };
+    IslandState bounded = floating(limited, now);
+    expect(floatScene(bounded, bounded.floats[0], now).size.y == 500, "a long card fits its rows up to its maxSize");
+    bounded = reduce(bounded, FloatResized{ "notes", { 100, 100 } }, now);
+    expect(bounded.floats[0].size == Vec2{ 400, 300 }, "never smaller than its minSize");
+    bounded = reduce(bounded, FloatResized{ "notes", { 2000, 2000 } }, now);
+    expect(bounded.floats[0].size == Vec2{ 600, 500 }, "never bigger than its maxSize");
+
     const Placed* close = placedKey(scene, kCloseFloatKey);
-    expect(close && close->frame.x < scene.size.x && close->frame.x + close->frame.width > scene.size.x && close->frame.y < 0,
-           "the ✕ sits on the top-right corner, half outside");
-    auto hit = hitTest(scene, { scene.size.x, 0 });
+    expect(scene.titleBar == Rect{ 0, 0, scene.size.x, t.floatTitleBarHeight }, "a title bar along its top");
+    expect(close && close->frame.x + close->frame.width < scene.size.x && close->frame.y > 0 &&
+               close->frame.y + close->frame.height < t.floatTitleBarHeight && std::abs(close->frame.y - (scene.size.x - close->frame.x - close->frame.width)) < 0.01f,
+           "the ✕ inside, in the title bar's right end, as far from the top as from the side");
+    auto hit = hitTest(scene, { close->frame.x + close->frame.width / 2, close->frame.y + close->frame.height / 2 });
     expect(hit && hit->action.actionId == kCloseFloat, "the ✕ is a button the app handles");
 
     bool routed = true, any = false;
     for (const Placed& p : scene.elements) {
         if (p.key == kCloseFloatKey) continue;
         any = true;
-        routed = routed && p.activityId == "notes" && p.providerId == "pad" && p.frame.y >= 0;
+        routed = routed && p.activityId == "notes" && p.providerId == "pad" && p.frame.y >= t.floatTitleBarHeight;
     }
-    expect(any && routed, "the card's content is in it, routed to its provider");
+    expect(any && routed, "the card's content is under the title bar, routed to its provider");
 
     // A question replaces its content; a toast floats at its bottom, not on the island.
     s = reduce(s, DialogShown{ { .providerId = "pad", .activityId = "notes", .title = "Clear?", .confirmAction = "clear" } }, now);

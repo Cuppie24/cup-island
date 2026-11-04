@@ -10,12 +10,14 @@
 namespace cup {
 namespace {
 
-// The ✕ sits on the card's top-right corner, half outside it, so it covers
-// none of the card's own controls (the corner button of a Standard card).
+// The ✕ at the right end of the title bar, as square in its corner as the
+// bar is tall: inside the card, like a window's, and over none of the
+// card's own controls (they're all under the bar).
 void placeClose(const FloatingCard& f, Vec2 size, std::vector<Placed>& out)
 {
-    float side = tokens().floatCloseSize;
-    Rect frame{ size.x - side / 2, -side / 2, side, side };
+    const Tokens& t = tokens();
+    float side = t.floatCloseSize, inset = (t.floatTitleBarHeight - side) / 2;
+    Rect frame{ size.x - inset - side, inset, side, side };
     out.push_back({ .key = kCloseFloatKey, .item = Button{ .glyph = Glyph::Close, .actionId = kCloseFloat, .compact = true, .secondary = true },
                     .frame = frame, .hitFrame = frame, .cornerRadius = side / 2, .providerId = f.providerId, .activityId = f.activityId });
 }
@@ -41,10 +43,15 @@ Scene floatScene(const IslandState& s, const FloatingCard& f, Ms now, const Meas
     Source source{ content, f.providerId, f.activityId, draft, &s.scrolls, drag, &s.keptText };
     // Fits its content, like the island's cards (decision 016), unless resized:
     // the card's own, so a question over it changes nothing (decision 020).
+    // Within its limits either way; the title bar is on top of the card's own height.
+    float bar = t.floatTitleBarHeight;
+    FloatLimits limits = floatLimits(content);
     float width = content->floating ? floatWidth(content->floating->width) : t.floatMediumWidth;
     if (f.size) scene.size = *f.size;
-    else if (stacked(*content)) scene.size = { width, centredCardHeight(source, { width, 0 }, t.floatMaxHeight, measureText) };
-    else scene.size = { width, std::min(t.expandedSize.y, t.floatMaxHeight) };
+    else if (stacked(*content)) scene.size = { width, centredCardHeight(source, { width, 0 }, limits.most.y - bar, measureText) + bar };
+    else scene.size = { width, t.expandedSize.y + bar };
+    scene.size = clampSize(scene.size, limits);
+    scene.titleBar = { 0, 0, scene.size.x, bar };
 
     Content asked;
     const Dialog* dialog = dialogOver(s, f.activityId);
@@ -54,8 +61,12 @@ Scene floatScene(const IslandState& s, const FloatingCard& f, Ms now, const Meas
         scene.label = dialog->title;
     }
 
-    float nestedRadius = std::max(0.0f, pillCornerRadius(scene.size) - t.expandedPadding); // as on the island's card
-    for (const SlotFrame& slot : cardSlots(*source.content, scene.size)) placeSlot(slot, source, nestedRadius, now, scene.elements, measureText);
+    // The card under the bar, laid out as the island's card is, with its radii.
+    Vec2 card{ scene.size.x, std::max(0.0f, scene.size.y - bar) };
+    float nestedRadius = std::max(0.0f, pillCornerRadius(card) - t.expandedPadding);
+    std::size_t from = scene.elements.size();
+    for (const SlotFrame& slot : cardSlots(*source.content, card)) placeSlot(slot, source, nestedRadius, now, scene.elements, measureText);
+    moveDown(scene.elements, from, bar);
     if (const Toast* toast = dialog ? nullptr : toastOn(s, f.activityId))
         scene.toast = placeToast(*toast, source, scene.size, scene.size.y - t.expandedPadding, now, measureText);
     placeClose(f, scene.size, scene.elements);

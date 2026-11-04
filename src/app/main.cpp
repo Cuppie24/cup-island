@@ -210,10 +210,7 @@ void updateHover(app::Surface& s)
     const Placed* under = key.empty() ? nullptr : findElement(s, key);
     bool text = !s.pointer.selecting.empty() || (under && std::holds_alternative<TextInput>(under->item));
     if (s.island()) setTextCursor(text);
-    else {
-        app::setFloatTextCursor(s, text);
-        s.renderer->setPointerInside(s.pointer.at.has_value()); // its ✕ shows (decision 081)
-    }
+    else app::setFloatTextCursor(s, text);
     s.renderer->setHoveredRow(at ? rowAt(s.scene, *at) : std::string()); // reveals a to-do's delete button, the plan's − and + (decision 063)
 
     // Tabs light up as a whole, except the active one, which is already marked (decision 007).

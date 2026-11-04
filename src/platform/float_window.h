@@ -1,12 +1,12 @@
 #pragma once
 // A floating card's windows (decision 081), a pair like the island's
 // (decision 001): a click-through render window a margin bigger than the
-// card (room for its shadow and its ✕), with its own Composition target on
-// the island's Compositor; and an input window over the card, its region
-// the card's rounded shape and the ✕, so clicks beside it reach what's
-// under it. Both topmost tool windows: no taskbar button, not in Alt-Tab.
-// Turns messages into callbacks and decides nothing, but for moving itself
-// while dragged (startMove).
+// card (room for its shadow), with its own Composition target on the
+// island's Compositor; and an input window over the card, its region the
+// card's rounded shape, so clicks beside its corners reach what's under it.
+// Both topmost tool windows: no taskbar button, not in Alt-Tab. Turns
+// messages into callbacks and decides nothing, but for moving and resizing
+// itself while dragged (startMove, its edges).
 
 #include "platform/interaction_layer.h"
 #include "platform/win.h"
@@ -28,7 +28,8 @@ struct FloatCallbacks {
     std::function<void(wchar_t character)> onChar;
     std::function<void(bool focused)> onFocusChanged; // it got the keys, or lost them (WM_SETFOCUS, WM_KILLFOCUS)
     std::function<void()> onCloseRequested;           // Alt+F4 while it has the keys
-    std::function<void()> onMoved;                    // a drag that moved it ended: card() is where it is now
+    std::function<void(Vec2 size)> onResized;         // its edges are being dragged: the card is this big now (screen px)
+    std::function<void()> onMoved;                    // a drag that moved or resized it ended: card() is where it is now
 };
 
 class FloatWindow {
@@ -38,9 +39,8 @@ public:
     FloatWindow& operator=(const FloatWindow&) = delete;
     ~FloatWindow() { destroy(); }
 
-    // Over `card` (screen px), its corners `radius`, the ✕ `closeSize` wide
-    // centred on its top-right corner. Hidden until show(). False on failure.
-    bool create(HINSTANCE instance, wuc::Compositor const& compositor, Rect card, float radius, float closeSize, FloatCallbacks callbacks);
+    // Over `card` (screen px), its corners `radius`. Hidden until show(). False on failure.
+    bool create(HINSTANCE instance, wuc::Compositor const& compositor, Rect card, float radius, FloatCallbacks callbacks);
     void destroy();
 
     wuc::ContainerVisual root() const { return root_; } // the render window's tree
@@ -53,6 +53,9 @@ public:
     // A press on its empty space: the card follows the pointer until let go,
     // then onMoved. Called from onPressDown, while the press holds capture.
     void startMove();
+    // Its edges resize it (a floatResizeBorder band inside them, with the
+    // resize cursors), between these sizes (screen px). Off: they don't.
+    void setResizable(bool resizable, Vec2 least, Vec2 most);
     // Shown in front of the other floating cards (and under the island,
     // which the app puts back on top), with the keys if `focus`.
     void raise(bool focus);
@@ -66,17 +69,24 @@ public:
 private:
     Vec2 pointFrom(LPARAM lParam) const; // input client coordinates -> render-window coordinates
     void applyRegion();
+    int edgesAt(POINT client) const; // which edges a point is on (kLeft...), 0 for none or not resizable
+    void resizeTo(POINT cursor);     // while an edge is held
+
+    static constexpr int kLeft = 1, kTop = 2, kRight = 4, kBottom = 8;
 
     HWND render_{}, input_{};
     wuc::Desktop::DesktopWindowTarget target_{ nullptr };
     wuc::ContainerVisual root_{ nullptr };
     FloatCallbacks callbacks_;
     Rect card_;
-    float radius_ = 0, closeSize_ = 0, margin_ = 0;
+    float radius_ = 0, margin_ = 0;
     bool pressed_ = false, trackingLeave_ = false, textCursor_ = false, shown_ = false;
     bool moving_ = false;
-    POINT moveFrom_{}; // the cursor where the move started, screen px
+    POINT moveFrom_{}; // the cursor where a move or resize started, screen px
     Rect moveCard_;    // ...and the card
+    bool resizable_ = false;
+    Vec2 least_, most_;  // its limits, screen px
+    int resizeEdges_ = 0; // the edges being dragged (kLeft...), 0: not resizing
 };
 
 } // namespace cup::platform

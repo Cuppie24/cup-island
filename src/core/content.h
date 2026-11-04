@@ -2,6 +2,8 @@
 // What providers put on the island: a subset of the PS §5 content model
 // (decision 004). Providers describe; the host lays out and draws. Pure data.
 
+#include "core/geometry.h"
+
 #include <chrono>
 #include <cstdint>
 #include <initializer_list>
@@ -267,7 +269,10 @@ enum class FloatWidth { Narrow, Medium, Wide }; // floatNarrowWidth, floatMedium
 enum class FloatStart { NearIsland, Centre };   // where it first opens; after that, where the user left it
 struct FloatSpec {
     FloatWidth width = FloatWidth::Medium; // as tall as its content needs, up to floatMaxHeight
-    bool resizable = false;                // its edges resize it, down to floatMinSize
+    bool resizable = false;                // its edges resize it, between minSize and maxSize
+    // Its limits, in the tokens' sizes (a provider passes its own tokens):
+    // none, floatMinSize and no more than the screen.
+    std::optional<Vec2> minSize, maxSize;
     FloatStart start = FloatStart::NearIsland;
     // Esc sends it back into the pill, once the card has no step back
     // (Content::backAction). False: Esc only steps back; the ✕ or the pill send it back.

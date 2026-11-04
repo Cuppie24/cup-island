@@ -94,7 +94,10 @@ struct Tokens {
     Vec2 floatMinSize{ 320, 160 };  // a resizable one stops here
     float floatIslandGap = 16;      // FloatStart::NearIsland: this far under the pill
     float floatCascade = 28;        // opening where another one already is: this far right and down from it
-    float floatCloseSize = 24;      // the ✕ on its top-right corner, shown while the pointer is on the card
+    float floatCloseSize = 28;      // the ✕ at the right end of its title bar
+    float floatTitleBarHeight = 34; // a strip along its top holding the ✕, like a window's title bar; it drags the card too
+    float floatCornerRadius = 8;    // a window's corners, as Windows 11 rounds them: not the island's
+    float floatResizeBorder = 6;    // a resizable card's edges: this wide a band inside them resizes it
     float floatAppearScale = 0.92f; // it pops in from this scale (and shrinks back to it going), over morphDuration
     float expandedArtSize = 68; // expanded leading square: as tall as title + artist + caption beside it
     float slotGap = 10;         // between leading and center/bottom slots
@@ -362,6 +365,8 @@ struct Tokens {
     Ms pomodoroBreakMax{ 3600000 };
     Ms pomodoroLongBreak{ 900000 };
     std::size_t pomodoroRounds = 4;
+    Vec2 pomodoroFloatMinSize{ 400, 330 }; // its floating card resizes between these (decision 081)
+    Vec2 pomodoroFloatMaxSize{ 760, 900 };
     // A session counts as finished (decision 061) with at most this many focus phases skipped.
     std::size_t pomodoroFocusSkipsAllowed = 1;
     std::size_t todoMaxLength = 150; // characters in a to-do: wraps onto a few lines at most (decision 045)

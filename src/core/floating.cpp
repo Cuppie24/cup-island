@@ -57,8 +57,23 @@ void focusFloat(IslandState& s, const std::string& cardId) { s.focusedFloatId = 
 
 void resizeFloat(IslandState& s, const std::string& cardId, Vec2 size)
 {
-    const Vec2 least = tokens().floatMinSize;
-    if (FloatingCard* f = floatFor(s, cardId)) f->size = Vec2{ std::max(size.x, least.x), std::max(size.y, least.y) };
+    if (FloatingCard* f = floatFor(s, cardId)) f->size = clampSize(size, floatLimits(cardContent(s, cardId)));
+}
+
+FloatLimits floatLimits(const Content* content)
+{
+    const Tokens& t = tokens();
+    const FloatSpec* spec = content && content->floating ? &*content->floating : nullptr;
+    FloatLimits limits{ t.floatMinSize, { 1e6f, t.floatMaxHeight } };
+    if (spec && spec->minSize) limits.least = *spec->minSize;
+    if (spec && spec->maxSize) limits.most = *spec->maxSize;
+    limits.most = { std::max(limits.most.x, limits.least.x), std::max(limits.most.y, limits.least.y) };
+    return limits;
+}
+
+Vec2 clampSize(Vec2 size, const FloatLimits& limits)
+{
+    return { std::clamp(size.x, limits.least.x, limits.most.x), std::clamp(size.y, limits.least.y, limits.most.y) };
 }
 
 void settleFloats(IslandState& s, Ms now)

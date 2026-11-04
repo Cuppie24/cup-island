@@ -25,13 +25,20 @@ wherever the user drags it, while the island keeps showing its pill.
   `Content::floating` (a `FloatSpec`): a width class (`floatNarrowWidth`,
   `floatMediumWidth`, `floatWideWidth`), `resizable`, where it first opens
   (`NearIsland`, under the pill, or `Centre`), and `escCloses`.
-- **Its look** (`floatScene`): the card laid out as Expanded lays it out,
-  every corner round and no flares (as when the island is lifted, decision
-  026), its own shadow. As tall as its content, like the island's cards
-  (decision 016), up to `floatMaxHeight`; a resized one keeps the user's
-  size, down to `floatMinSize`. No title bar: its empty space drags it. A ✕
-  sits on its top-right corner, half outside so it covers none of the
-  card's own controls, shown while the pointer is on the card.
+- **Its look** (`floatScene`): like a window, from the first run: a
+  title bar strip (`floatTitleBarHeight`) with the ✕ inside its right end,
+  over the card laid out as Expanded lays it out; a window's corners
+  (`floatCornerRadius`, as Windows 11 rounds them), not the island's; its
+  own shadow. The first version had no title bar and a ✕ half outside the
+  corner on hover, with the island's big radius: it read as a stray piece
+  of the island, not a window. Its title bar and empty space drag it.
+- **Its size:** as tall as its content plus the bar, like the island's
+  cards (decision 016). A resizable one (`FloatSpec::resizable`) resizes by
+  its edges and corners (a `floatResizeBorder` band, the resize cursors),
+  between `FloatSpec::minSize` and `maxSize` (else `floatMinSize` and
+  `floatMaxHeight`, `floatLimits`), follows the pointer at once, and opens
+  at the size it was left at. Pomodoro's resizes between
+  `pomodoroFloatMinSize` and `pomodoroFloatMaxSize`.
 - **Above other apps**, like the island (the island stays above the
   floating cards). No taskbar button, not in Alt-Tab, no minimize: it can't
   get lost behind other windows, so nothing needs to find it.
@@ -98,7 +105,7 @@ wherever the user drags it, while the island keeps showing its pill.
   pill; the spring from the pill runs in a layer covering both and hands
   off to the card's own window, with decision 008's handoff timing to
   check on Windows. It's laid out at the island's display scale on every
-  monitor, and resizing by its edges isn't in; both are next.
+  monitor; that's next.
 - Not yet either: tearing a card off the island by dragging it, a dot on the
   pill while its card floats, holding back an activity's alerts while its
   floating card has the keys.

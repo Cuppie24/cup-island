@@ -48,6 +48,8 @@ struct Wanted {
     FloatingCard card;
     Scene scene;
     FloatSpec spec;
+    FloatLimits limits;      // how small and big its edges may make it
+    bool savedSize = false;  // laid out at the size it was left at: core is told when it opens
 };
 std::vector<Wanted> g_wanted;
 bool g_wantShown = true;
@@ -110,31 +112,37 @@ platform::FloatCallbacks callbacksFor(const std::string& id)
     c.onChar = [](wchar_t ch) { g_hooks.character(ch); };
     c.onFocusChanged = [id](bool focused) { focusChanged(id, focused); };
     c.onCloseRequested = [id] { g_hooks.dispatch(FloatClosed{ id }, "alt+f4 on a card"); };
+    c.onResized = [id](Vec2 size) { g_hooks.dispatch(FloatResized{ id, size }, "card resized"); };
     c.onMoved = [id] {
         if (auto it = g_cards.find(id); it != g_cards.end()) rememberPlace(*it->second);
     };
     return c;
 }
 
-void openCard(const Wanted& want, bool shown)
+// Where cards were left, read from its file the first time.
+const Places& places()
 {
     if (!g_placesRead) {
         g_places = parsePlaces(readFile(g_hooks.placesFile));
         g_placesRead = true;
     }
+    return g_places;
+}
+
+void openCard(const Wanted& want, bool shown)
+{
     const FloatingCard& f = want.card;
     Scene scene = want.scene;
     float k = g_hooks.scale();
     std::vector<Rect> taken;
     for (const auto& [id, card] : g_cards) taken.push_back(card->window.card());
     Rect at = placeFloat(want.spec, { scene.size.x / k, scene.size.y / k }, screens(), g_hooks.islandScreen(), g_hooks.pill(),
-                         recall(g_places, f.activityId, f.providerId), taken);
-    at.width = scene.size.x; // its own size: it fits its content (resizing isn't in yet)
+                         recall(places(), f.activityId, f.providerId), taken);
+    at.width = scene.size.x; // its scene's: fitted to its content, or the size it was left at
     at.height = scene.size.y;
 
     auto made = std::make_unique<FloatCard>();
-    if (!made->window.create(g_hooks.instance, g_hooks.compositor, at, pillCornerRadius(scene.size), tokens().floatCloseSize,
-                             callbacksFor(f.activityId))) {
+    if (!made->window.create(g_hooks.instance, g_hooks.compositor, at, tokens().floatCornerRadius, callbacksFor(f.activityId))) {
         g_hooks.dispatch(FloatClosed{ f.activityId }, "card's windows failed"); // logged; back into the pill, not tried again and again
         return;
     }
@@ -142,6 +150,7 @@ void openCard(const Wanted& want, bool shown)
     // whatever runs meanwhile finds it.
     FloatCard& card = *made;
     g_cards[f.activityId] = std::move(made);
+    card.window.setResizable(want.spec.resizable, want.limits.least, want.limits.most);
     scene.offset = { card.window.margin(), card.window.margin() };
     card.renderer.buildFloating(g_hooks.compositor, card.window.root(), scene);
     card.surface = Surface{ .cardId = f.activityId, .scene = scene, .renderer = &card.renderer, .input = card.window.input() };
@@ -152,17 +161,23 @@ void openCard(const Wanted& want, bool shown)
     card.renderer.appear();
     card.window.raise(true);
     platform::raiseIsland(); // the island stays over its cards
+    if (want.savedSize) g_hooks.dispatch(FloatResized{ f.activityId, scene.size }, "card at its saved size");
 }
 
 void updateCard(FloatCard& card, const Wanted& want, bool shown)
 {
     Scene scene = want.scene;
     scene.offset = { card.window.margin(), card.window.margin() };
-    if (scene.size != card.surface.scene.size) { // it grows or shrinks from its top-left
-        Rect at = card.window.card();
-        card.window.setCard({ at.x, at.y, scene.size.x, scene.size.y }, pillCornerRadius(scene.size));
-    }
-    card.renderer.apply(scene, sceneMotion(card.surface.scene, scene, {}, tokens()));
+    Rect at = card.window.card();
+    // Its edges dragged: the window is that size already, and the card
+    // follows the pointer at once, not on a spring.
+    bool dragged = scene.size == Vec2{ at.width, at.height } && scene.size != card.surface.scene.size;
+    if (scene.size != Vec2{ at.width, at.height }) // its content grew or shrank: from its top-left
+        card.window.setCard({ at.x, at.y, scene.size.x, scene.size.y }, tokens().floatCornerRadius);
+    card.window.setResizable(want.spec.resizable, want.limits.least, want.limits.most); // a tokens reload may change them
+    SceneMotion motion = sceneMotion(card.surface.scene, scene, {}, tokens());
+    if (dragged) motion.morph.duration = Ms{ 1 };
+    card.renderer.apply(scene, motion);
     card.surface.scene = std::move(scene);
     card.window.show(shown);
     if (want.card.raised != card.raised) {
@@ -239,7 +254,17 @@ void syncFloats(const IslandState& state, Ms now)
     g_wanted.clear();
     for (const FloatingCard& f : state.floats) {
         const Content* content = cardContent(state, f.activityId);
-        g_wanted.push_back({ f, floatScene(state, f, now, g_hooks.measure), content && content->floating ? *content->floating : FloatSpec{} });
+        FloatSpec spec = content && content->floating ? *content->floating : FloatSpec{};
+        Wanted want{ f, {}, spec, floatLimits(content) };
+        // Opening a resizable card: at the size it was left at, if it was.
+        if (!g_cards.count(f.activityId) && spec.resizable && !f.size)
+            if (auto saved = recall(places(), f.activityId, f.providerId)) {
+                float k = g_hooks.scale();
+                want.card.size = clampSize({ saved->frame.width * k, saved->frame.height * k }, want.limits);
+                want.savedSize = true;
+            }
+        want.scene = floatScene(state, want.card, now, g_hooks.measure);
+        g_wanted.push_back(std::move(want));
     }
     g_wantShown = floatsShown(state);
     queueApply();
