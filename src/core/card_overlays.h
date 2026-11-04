@@ -13,8 +13,8 @@ namespace cup {
 void focusInput(IslandState& state, const InputFocused& e, Ms now); // only on the shown card, not under a dialog
 void submitText(IslandState& state, Ms now); // the field empties and keeps focus
 void showDialog(IslandState& state, const DialogShown& e, Ms now); // only over a card on screen; typing on it stops
-// A window's dialog and toast are its own (decision 081): shown over the
-// card's window if it has one, and answered in the focused window.
+// A floating card's dialog and toast are its own (decision 081): shown over
+// the card wherever it is, and answered on the card that has the keys.
 void showToast(IslandState& state, const ToastShown& e, Ms now);
 void closeDialog(IslandState& state);
 void closeToast(IslandState& state);

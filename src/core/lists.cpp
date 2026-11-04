@@ -136,7 +136,7 @@ void revealListRow(IslandState& s, const ListRevealed& e) { s.scrolls[listKey(e.
 
 void startListDrag(IslandState& s, const ListDragStarted& e, Ms now)
 {
-    if (!cardOnScreen(s, e.activityId) || dialogOver(s, e.activityId)) return; // the island's card or a window's (decision 081)
+    if (!cardOnScreen(s, e.activityId) || dialogOver(s, e.activityId)) return; // the island's card or a floating one (decision 081)
     s.listDrag = ListDrag{ e.activityId, e.list, e.row, e.y, e.y, e.offset };
     s.lastPointerAt = now;
 }

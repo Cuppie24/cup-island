@@ -1,87 +1,94 @@
 #include "core/floating.h"
 
-#include "core/dialog.h"
 #include "core/tokens.h"
 
 #include <algorithm>
 
 namespace cup {
 
-bool opensAsWindow(const IslandState& s, const std::string& cardId)
+bool opensFloating(const IslandState& s, const std::string& cardId)
 {
     const Content* c = cardContent(s, cardId);
-    return c && c->window;
+    return c && c->floating;
 }
 
-FloatingWindow* windowFor(IslandState& s, const std::string& cardId)
+FloatingCard* floatFor(IslandState& s, const std::string& cardId)
 {
-    for (FloatingWindow& w : s.windows)
-        if (w.activityId == cardId) return &w;
+    for (FloatingCard& f : s.floats)
+        if (f.activityId == cardId) return &f;
     return nullptr;
 }
 
-const FloatingWindow* windowFor(const IslandState& s, const std::string& cardId)
+const FloatingCard* floatFor(const IslandState& s, const std::string& cardId)
 {
-    for (const FloatingWindow& w : s.windows)
-        if (w.activityId == cardId) return &w;
+    for (const FloatingCard& f : s.floats)
+        if (f.activityId == cardId) return &f;
     return nullptr;
 }
 
-const FloatingWindow* focusedWindow(const IslandState& s)
+const FloatingCard* focusedFloat(const IslandState& s)
 {
-    return s.focusedWindow.empty() ? nullptr : windowFor(s, s.focusedWindow);
+    return s.focusedFloatId.empty() ? nullptr : floatFor(s, s.focusedFloatId);
 }
 
-bool openWindow(IslandState& s, const std::string& cardId)
+bool openFloat(IslandState& s, const std::string& cardId)
 {
-    const Content* content = cardContent(s, cardId);
-    if (!content || !content->window) return false;
-    FloatingWindow* w = windowFor(s, cardId);
-    if (!w) {
+    if (!opensFloating(s, cardId)) return false;
+    FloatingCard* f = floatFor(s, cardId);
+    if (!f) {
         const Activity* a = findActivity(s, cardId);
-        std::string provider = a ? a->providerId : findPanel(s, cardId)->providerId;
-        auto open = std::count_if(s.windows.begin(), s.windows.end(), [&](const FloatingWindow& o) { return o.providerId == provider; });
-        if (static_cast<std::size_t>(open) >= tokens().windowsPerProvider) return false;
-        s.windows.push_back({ cardId, provider, windowSize(content->window->size) });
-        w = &s.windows.back();
+        s.floats.push_back({ cardId, a ? a->providerId : findPanel(s, cardId)->providerId });
+        f = &s.floats.back();
     }
-    // Opened, or clicked again while open: to the front, with the keys. A
-    // second click does nothing more (no hiding it again).
-    w->raised = s.nextRaise++;
-    s.focusedWindow = cardId;
+    // In front of the others, with the keys: what Windows will say once the
+    // platform raises it (FloatFocused), set now so a key in between finds it.
+    f->raised = s.nextRaise++;
+    s.focusedFloatId = cardId;
     return true;
 }
 
-void closeWindow(IslandState& s, const std::string& cardId)
+void closeFloat(IslandState& s, const std::string& cardId)
 {
-    std::erase_if(s.windows, [&](const FloatingWindow& w) { return w.activityId == cardId; });
-    if (s.focusedWindow == cardId) s.focusedWindow.clear();
+    std::erase_if(s.floats, [&](const FloatingCard& f) { return f.activityId == cardId; });
+    if (s.focusedFloatId == cardId) s.focusedFloatId.clear();
 }
 
-void focusWindow(IslandState& s, const std::string& cardId) { s.focusedWindow = windowFor(s, cardId) ? cardId : ""; }
+void focusFloat(IslandState& s, const std::string& cardId) { s.focusedFloatId = floatFor(s, cardId) ? cardId : ""; }
 
-void resizeWindow(IslandState& s, const std::string& cardId, Vec2 size)
+void resizeFloat(IslandState& s, const std::string& cardId, Vec2 size)
 {
-    const Vec2 least = tokens().windowMinSize;
-    if (FloatingWindow* w = windowFor(s, cardId)) w->size = { std::max(size.x, least.x), std::max(size.y, least.y) };
+    const Vec2 least = tokens().floatMinSize;
+    if (FloatingCard* f = floatFor(s, cardId)) f->size = Vec2{ std::max(size.x, least.x), std::max(size.y, least.y) };
 }
 
-void settleWindows(IslandState& s, Ms now)
+void settleFloats(IslandState& s, Ms now)
 {
     // A card stays while its activity or its panel does: an activity ending
-    // leaves its panel's dormant card in the window, as on the island (decision 009).
-    std::erase_if(s.windows, [&](const FloatingWindow& w) { return !cardContent(s, w.activityId); });
-    for (FloatingWindow& w : s.windows) {
-        if (w.toast && now >= w.toast->until) w.toast.reset();
-    }
-    if (!s.focusedWindow.empty() && !windowFor(s, s.focusedWindow)) s.focusedWindow.clear();
+    // leaves its panel's dormant card floating, as on the island (decision 009).
+    std::erase_if(s.floats, [&](const FloatingCard& f) { return !cardContent(s, f.activityId); });
+    for (FloatingCard& f : s.floats)
+        if (f.overlays.toast && now >= f.overlays.toast->until) f.overlays.toast.reset();
+    if (s.hidden) s.focusedFloatId.clear(); // hidden with the island: nothing to type into
+    if (!s.focusedFloatId.empty() && !floatFor(s, s.focusedFloatId)) s.focusedFloatId.clear();
+}
+
+CardOverlays* overlaysOf(IslandState& s, const std::string& cardId)
+{
+    if (FloatingCard* f = floatFor(s, cardId)) return &f->overlays;
+    return !s.homeOpen && !cardId.empty() && s.expandedId == cardId ? &s.card : nullptr;
+}
+
+const CardOverlays* overlaysOf(const IslandState& s, const std::string& cardId)
+{
+    if (const FloatingCard* f = floatFor(s, cardId)) return &f->overlays;
+    return !s.homeOpen && !cardId.empty() && s.expandedId == cardId ? &s.card : nullptr;
 }
 
 std::vector<ShownCard> shownCards(const IslandState& s)
 {
     std::vector<ShownCard> cards;
     if (auto card = shownCard(s)) cards.push_back(*card);
-    for (const FloatingWindow& w : s.windows) cards.push_back({ w.providerId, w.activityId });
+    for (const FloatingCard& f : s.floats) cards.push_back({ f.providerId, f.activityId });
     return cards;
 }
 
@@ -99,23 +106,23 @@ CardChanges cardChanges(const std::vector<ShownCard>& before, const std::vector<
 const Dialog* focusedDialog(const IslandState& s)
 {
     auto card = focusedCard(s);
-    return card ? dialogOver(s, card->activityId) : nullptr;
+    const CardOverlays* o = card ? overlaysOf(s, card->activityId) : nullptr;
+    return o && o->dialog ? &*o->dialog : nullptr;
 }
 
-bool cardOnScreen(const IslandState& s, const std::string& cardId)
-{
-    return (!s.homeOpen && s.expandedId == cardId) || windowFor(s, cardId);
-}
+bool cardOnScreen(const IslandState& s, const std::string& cardId) { return overlaysOf(s, cardId) != nullptr; }
 
-Vec2 windowSize(WindowSize size)
+bool floatsShown(const IslandState& s) { return !s.hidden; }
+
+float floatWidth(FloatWidth width)
 {
     const Tokens& t = tokens();
-    switch (size) {
-    case WindowSize::Small: return t.windowSmallSize;
-    case WindowSize::Medium: return t.windowMediumSize;
-    case WindowSize::Large: return t.windowLargeSize;
+    switch (width) {
+    case FloatWidth::Narrow: return t.floatNarrowWidth;
+    case FloatWidth::Medium: return t.floatMediumWidth;
+    case FloatWidth::Wide: return t.floatWideWidth;
     }
-    return t.windowMediumSize;
+    return t.floatMediumWidth;
 }
 
 } // namespace cup

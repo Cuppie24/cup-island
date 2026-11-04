@@ -38,7 +38,7 @@ void runIndexerProtocolTests();
 void runServiceHostTests();
 void runDoubleTapTests();
 void runSearchTests();
-void runWindowTests();
+void runFloatTests();
 int runScenarioFile(const std::filesystem::path& file); // returns scenarios run
 }
 
@@ -76,7 +76,7 @@ int main(int argc, char** argv)
     runServiceHostTests();
     runDoubleTapTests();
     runSearchTests();
-    runWindowTests();
+    runFloatTests();
 
     fs::path dir = argc > 1 ? fs::path(argv[1]) : fs::path(CUP_SCENARIO_DIR);
     std::vector<fs::path> files;

@@ -260,19 +260,19 @@ enum class RowSpan { Slot, MatchAbove, MatchBelow };
 //            results (decision 079).
 enum class CardLayout { Standard, Centred, List, Search };
 
-// A card that opens as its own window instead of growing the island
-// (decision 081). The provider says what kind of window; the host owns every
-// size (tokens.json), the title bar and the motion.
-enum class WindowSize { Small, Medium, Large }; // windowSmallSize, windowMediumSize, windowLargeSize
-enum class WindowStart { NearIsland, Centre };  // where it first opens; after that, where the user left it
-struct WindowSpec {
-    WindowSize size = WindowSize::Medium;
-    bool resizable = false;       // its edges resize it, down to windowMinSize
-    WindowStart start = WindowStart::NearIsland;
-    // Esc closes it into the pill, once the card has no step back
-    // (Content::backAction). False: Esc only steps back; the ✕ closes it.
+// A card that floats apart from the island instead of growing it (decision
+// 081). The provider says what kind; the host owns every size (tokens.json),
+// the look (the island's) and the motion.
+enum class FloatWidth { Narrow, Medium, Wide }; // floatNarrowWidth, floatMediumWidth, floatWideWidth
+enum class FloatStart { NearIsland, Centre };   // where it first opens; after that, where the user left it
+struct FloatSpec {
+    FloatWidth width = FloatWidth::Medium; // as tall as its content needs, up to floatMaxHeight
+    bool resizable = false;                // its edges resize it, down to floatMinSize
+    FloatStart start = FloatStart::NearIsland;
+    // Esc sends it back into the pill, once the card has no step back
+    // (Content::backAction). False: Esc only steps back; the ✕ or the pill send it back.
     bool escCloses = true;
-    bool operator==(const WindowSpec&) const = default;
+    bool operator==(const FloatSpec&) const = default;
 };
 
 // A horizontal row of items. Text and Progress stretch; everything else has a fixed size.
@@ -397,9 +397,9 @@ struct Content {
     // ...and the page starts at the top instead of centred: a page that
     // scrolls (a fill list, Row::visibleRows < 0) rather than one that fits.
     bool pageAtTop = false;
-    // Its card opens as a window, and the island keeps showing the pill
-    // (decision 081). The window's title is `label`. None: the island expands.
-    std::optional<WindowSpec> window;
+    // Its card floats apart from the island, which keeps showing the pill
+    // (decision 081). None: the island expands.
+    std::optional<FloatSpec> floating;
     Slot compactLeading;
     Slot compactCenter;  // between the two compact squares, e.g. a swimming title
     Slot compactTrailing;

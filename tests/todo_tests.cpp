@@ -380,7 +380,7 @@ void runTodoTests()
     auto onBin = hitTest(top, { bin->frame.x + bin->frame.width / 2, bin->frame.y + bin->frame.height / 2 });
     expect(onBin && onBin->action.actionId.rfind(todo_action::kDelete, 0) == 0, "the delete button gets its clicks, not the row's tick");
     registry.route(onBin->action);
-    expect(saved.find("Old done") == std::string::npos && !state.dialog, "deleted at once, no question");
+    expect(saved.find("Old done") == std::string::npos && !state.card.dialog, "deleted at once, no question");
 
     // ...with a toast to undo it (decision 071): floating over the card's bottom, the card's rows not moved; Undo puts it back.
     Scene toasted = layout(state, now);
@@ -411,7 +411,7 @@ void runTodoTests()
         setTokens(saved);
     }
     IslandState noToast = state;
-    noToast.toast.reset();
+    noToast.card.toast.reset();
     Scene without = layout(noToast, now); // the same card without its toast: nothing else differs
     expect(without.size.y == toasted.size.y && without.elements.size() == toasted.elements.size() &&
            without.elements.back().frame == toasted.elements.back().frame, "the card's rows don't move for it");
@@ -420,7 +420,7 @@ void runTodoTests()
     expect(onUndo && onUndo->action.actionId == todo_action::kUndoDelete && !onPill, "its Undo takes a click; the rest of it, nothing under it");
     registry.route({ "pomodoro", PomodoroProvider::kPanelId, std::get<Button>(undo->item).actionId, 0 });
     send(ToastClosed{}); // the app: its action was clicked
-    expect(saved.find("[x] Old done") != std::string::npos && !state.toast, "undone: back, and the toast goes");
+    expect(saved.find("[x] Old done") != std::string::npos && !state.card.toast, "undone: back, and the toast goes");
     registry.route(onBin->action); // deleted again, for the rest of the test
     send(ToastClosed{});
     expect(saved.find("Old done") == std::string::npos, "deleted again");
@@ -534,8 +534,8 @@ void runTodoTests()
     registry.route({ "pomodoro", PomodoroProvider::kPanelId, std::string(todo_action::kToggle) + "2", 0 }); // "Old open" done
     Vec2 cardSize = layout(state, now).size;
     registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kClearDone, 0 });
-    expect(state.dialog && state.dialog->title == "Clear solved tasks?" && state.dialog->message == "1 task will be removed." &&
-           state.dialog->providerId == "pomodoro" && state.dialog->destructive, "Clear solved asks");
+    expect(state.card.dialog && state.card.dialog->title == "Clear solved tasks?" && state.card.dialog->message == "1 task will be removed." &&
+           state.card.dialog->providerId == "pomodoro" && state.card.dialog->destructive, "Clear solved asks");
     expect(saved.find("Old open") != std::string::npos, "nothing cleared yet");
     Scene asking = layout(state, now);
     const Placed* confirm = firstOf(asking, [](const Placed& p) { auto* b = std::get_if<Button>(&p.item); return b && b->actionId == kDialogConfirm; });
@@ -545,14 +545,14 @@ void runTodoTests()
     auto onConfirm = hitTest(asking, { confirm->frame.x + confirm->frame.width / 2, confirm->frame.y + confirm->frame.height / 2 });
     expect(onConfirm && onConfirm->action.actionId == kDialogConfirm, "the confirm button is the host's (the app answers it)");
     // Confirm: the app sends the dialog's action, then closes it.
-    Dialog asked = *state.dialog;
+    Dialog asked = *state.card.dialog;
     registry.route({ asked.providerId, asked.activityId, asked.confirmAction, 0 });
     send(DialogClosed{});
-    expect(saved.find("Old open") == std::string::npos && !state.dialog, "confirmed: solved ones cleared");
+    expect(saved.find("Old open") == std::string::npos && !state.card.dialog, "confirmed: solved ones cleared");
     registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kClearAll, 0 });
-    expect(state.dialog && state.dialog->confirmAction == todo_action::kClearAllConfirmed, "Clear all asks too");
+    expect(state.card.dialog && state.card.dialog->confirmAction == todo_action::kClearAllConfirmed, "Clear all asks too");
     send(EscapePressed{});
-    expect(!state.dialog && !saved.empty(), "Esc (closing the card) dismisses it: nothing cleared");
+    expect(!state.card.dialog && !saved.empty(), "Esc (closing the card) dismisses it: nothing cleared");
     send(PillClicked{});
     send(TileClicked{ PomodoroProvider::kPanelId });
     registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kClearAll, 0 });

@@ -85,16 +85,16 @@ struct Tokens {
     float resultIconSize = 32;           // a search result's icon (Button::picture)
     float resultFontSize = 17;           // TextStyle::Result: a search result's name
     float resultDetailFontSize = 14;     // TextStyle::ResultDetail: where it is, under it
-    // Floating windows (decision 081): a card open as its own window. Its
-    // provider picks a size class; a resizable one stops at windowMinSize.
-    Vec2 windowSmallSize{ 360, 260 };
-    Vec2 windowMediumSize{ 480, 380 };
-    Vec2 windowLargeSize{ 720, 540 };
-    Vec2 windowMinSize{ 320, 220 };
-    float windowTitleBarHeight = 40;    // our own title bar: the title, the ✕, and where it's dragged
-    float windowCornerRadius = 8;       // Windows 11 rounds a window this much; Windows 10 doesn't, and the platform passes 0 there
-    float windowIslandGap = 16;         // WindowStart::NearIsland: this far under the pill
-    std::size_t windowsPerProvider = 3; // at most this many windows open per provider; past it, the island shows the card
+    // Floating cards (decision 081): a card apart from the island, in its look.
+    // Its provider picks a width; it's as tall as its content, up to floatMaxHeight.
+    float floatNarrowWidth = 360;
+    float floatMediumWidth = 480;
+    float floatWideWidth = 640;
+    float floatMaxHeight = 640;
+    Vec2 floatMinSize{ 320, 160 };  // a resizable one stops here
+    float floatIslandGap = 16;      // FloatStart::NearIsland: this far under the pill
+    float floatCascade = 28;        // opening where another one already is: this far right and down from it
+    float floatCloseSize = 24;      // the ✕ on its top-right corner, shown while the pointer is on the card
     float expandedArtSize = 68; // expanded leading square: as tall as title + artist + caption beside it
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;

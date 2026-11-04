@@ -122,16 +122,23 @@ struct Toast {
     bool operator==(const Toast&) const = default;
 };
 
-// A card open as its own window while the island keeps its pill (decision
-// 081, core/floating.h). One per card; each has its own question and toast.
-struct FloatingWindow {
-    std::string activityId;       // its card: an activity's, or a dormant panel's
+// What sits over one shown card: its question and its note (decisions 020,
+// 071). The island's card has one; each floating card has its own.
+struct CardOverlays {
+    std::optional<Dialog> dialog;
+    std::optional<Toast> toast;
+    bool operator==(const CardOverlays&) const = default;
+};
+
+// A card floating apart from the island, which keeps showing its pill
+// (decision 081, core/floating.h): one per card, several at once.
+struct FloatingCard {
+    std::string activityId;     // its card: an activity's, or a dormant panel's
     std::string providerId;
-    Vec2 size;                    // logical px: its size class's, until the user resizes it
-    std::optional<Dialog> dialog; // a question over it (decision 020)
-    std::optional<Toast> toast;   // a note at its bottom (decision 071)
-    std::uint64_t raised = 0;     // changes when it must come to the front: the platform raises it then
-    bool operator==(const FloatingWindow&) const = default;
+    std::optional<Vec2> size;   // logical px, once the user resized it; else it fits its content
+    CardOverlays overlays;
+    std::uint64_t raised = 0;   // changes when it must come to the front of the others: the platform raises it then
+    bool operator==(const FloatingCard&) const = default;
 };
 
 // --- Events -------------------------------------------------------------
@@ -195,10 +202,10 @@ struct ListDragMoved { float y = 0; };
 struct ListDragEnded {};                 // dropped (the app sends the move first) or cancelled
 struct StayOpenToggled {};               // Expanded's pin, at the tab row's right end (decision 046)
 struct TabRowPlaced { bool top = true; }; // Settings' Tab row: along the card's top or bottom (decision 048)
-// Floating windows (decision 081). Keys and the dialog/toast events go to the focused one.
-struct WindowFocused { std::string id; };            // that card's window has the keys; "": none does (the island, another app)
-struct WindowClosed { std::string id; };             // its ✕, Alt+F4: it shrinks back into the pill
-struct WindowResized { std::string id; Vec2 size; }; // the user dragged its edges (logical px)
+// Floating cards (decision 081). Keys and the dialog/toast events go to the focused one.
+struct FloatFocused { std::string id; };            // Windows gave that card's window the keys; "": none has them (the island, another app)
+struct FloatClosed { std::string id; };             // its ✕, Alt+F4: it shrinks back into the pill
+struct FloatResized { std::string id; Vec2 size; }; // the user dragged a resizable one's edges (logical px)
 // Local wall time at `now`, from the platform (the idle clock).
 struct ClockSynced {
     Ms timeOfDay;
@@ -215,7 +222,7 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            InputFocused, TextTyped, TextErased, CaretMoved, CaretPlaced, WordSelected, AllSelected,
                            InputSubmitted, InputCancelled,
                            DialogShown, DialogClosed, ToastShown, ToastClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,
-                           ListDragEnded, StayOpenToggled, TabRowPlaced, WindowFocused, WindowClosed, WindowResized>;
+                           ListDragEnded, StayOpenToggled, TabRowPlaced, FloatFocused, FloatClosed, FloatResized>;
 
 // --- State --------------------------------------------------------------
 struct WallClock {
@@ -248,8 +255,7 @@ struct IslandState {
     // "<activityId>/<actionId>": it survives the card closing, a tab switch,
     // Esc. The field shows it, and focused again it carries on from it.
     std::map<std::string, std::string> keptText;
-    std::optional<Dialog> dialog;      // a question over the shown card (decision 020)
-    std::optional<Toast> toast;        // a note at a card's bottom (decision 071)
+    CardOverlays card;                 // over the island's shown card: a question (decision 020), a note at its bottom (decision 071)
     std::map<std::string, ListScroll> scrolls; // lists' scroll, by "<activityId>/<list>" (decision 029)
     std::optional<ListDrag> listDrag;  // a list row being dragged
     // Pinned open (decision 046): Expanded doesn't time out, and a click
@@ -257,8 +263,8 @@ struct IslandState {
     // and the card going away still do; closing unpins it.
     bool stayOpen = false;
     bool tabsOnTop = true; // the tab row along the card's top (decision 047), or its bottom: the user's pick (decision 048)
-    std::vector<FloatingWindow> windows; // cards open as windows, oldest first (decision 081)
-    std::string focusedWindow;           // whose window has the keys; empty: none (the island's card has them, if shown)
+    std::vector<FloatingCard> floats; // floating cards, oldest first (decision 081)
+    std::string focusedFloatId;       // whose has the keys; empty: none (the island's card has them, if shown)
     std::uint64_t nextRaise = 1;
     std::uint64_t nextStartOrder = 1;
 };
@@ -290,7 +296,7 @@ struct ShownCard {
 };
 std::optional<ShownCard> shownCard(const IslandState& state);
 
-// The card that has the keys: the focused window's (decision 081), else the
+// The card that has the keys: the focused floating card (decision 081), else the
 // island's shown card. The three below ask about it.
 std::optional<ShownCard> focusedCard(const IslandState& state);
 

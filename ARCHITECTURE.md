@@ -42,7 +42,7 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 badges.h (where notification dots go, decision 038),
                 cover_palette.h + island_tint.h (the island in the playing cover's colours, decision 051),
                 tokens.h (+ tokens_json.h, json_reader.h), easing.h, motion.h (the morph's spring, fling, stagger, decision 080),
-                floating.h (cards open as their own windows, decision 081) + window_layout.h (a window's scene) + window_placement.h (where it opens)
+                floating.h (a card floating apart from the island, decision 081) + float_layout.h (its scene) + float_placement.h (where it opens)
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
                 per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts) + tap_hook (double-tap shortcuts, decision 079), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
@@ -124,9 +124,9 @@ A provider never starts or reaches a process itself (decision 078): Cup
 Island's service is called through `Host::callService("<module>.<method>")`,
 only for modules the registry granted it (`ProviderRegistry::grant`), and
 carried by ServiceHost.
-A card can open as its own window instead (`Content::window`, decision
-081): the provider picks a size class, whether it resizes and where it
-opens; the host draws the title bar and moves it. Nothing else changes for
+A card can float apart from the island instead (`Content::floating`,
+decision 081): the provider picks a width, whether it resizes and where it
+opens; the host draws it in the island's look and the user drags it. Nothing else changes for
 the provider: `onCardShown`/`onCardClosed` simply come for several cards.
 Lists (`Row::list`, decision 029) are scrolled, reordered and edited by the
 host; the provider publishes every row and gets the result as actions.
@@ -212,7 +212,7 @@ over the file's, so `tokens()` is always what's on screen.
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing), `list_card_tests.cpp` (Settings' List card), `badge_tests.cpp` (notification dots),
   `home_tests.cpp` (tiles, Home tab, idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop), `pomodoro_stats_tests.cpp` (statistics, days off),
-  `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install), `window_tests.cpp` (a floating window's scene and placement).**
+  `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install), `float_tests.cpp` (a floating card's scene and placement).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
 
@@ -243,7 +243,7 @@ over the file's, so `tokens()` is always what's on screen.
 | File search installed with the app, self-updating (decision 076, milestone 4): its own admin installer, carried by the app's; set up at the end of setup or at the app's first start; updates from GitHub through the service | rules tested; --install/--uninstall and the update request run under Wine; installers and a real update need a Windows run; the search panel not yet |
 | Search card (decisions 077, 079): apps, Settings pages, Control Panel, files; live field; Double Ctrl; launch history | rules tested; the hook, the shell folders, launching and the look need a Windows run |
 | Providers reach the service only through the host, by granted module (decision 078) | done; tested |
-| Floating windows (decision 081): a card opens as its own window (`Content::window`), the island keeps its pill; several at once, focus routes keys, a dialog and toast per window, placement remembered per provider | core done; rules tested; the window, its title bar and the spring from the pill not yet (Windows) |
+| Floating cards (decision 081): a card floats apart from the island in its look (`Content::floating`), the island keeps its pill; several at once, focus routes keys, a dialog and toast per card, sized to its content, placement remembered per card | core done; rules tested; its windows and the spring from the pill not yet (Windows) |
 | Plugin pipe (PS §8 Tier 2) | not yet |
 | Activity expiry (`expiresAt`) | done, tested |
 | Rate limits, stale activities (PS §4, §6.3) | not yet |

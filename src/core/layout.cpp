@@ -29,8 +29,11 @@ Source sourceFor(const IslandState& s, Mode mode)
     return {};
 }
 
-// Centred and List cards are one stack of rows across the card (decision 014).
+} // namespace
+
 bool stacked(const Content& c) { return c.card != CardLayout::Standard; }
+
+namespace {
 
 // That stack's frame: the card less its padding. A List card's is narrower
 // and centred (decision 030): a few short rows don't need the island's width.
@@ -45,9 +48,11 @@ Rect stackFrame(const Content& c, Vec2 size)
     return { (size.x - width) / 2, top, width, std::max(0.0f, size.y - 2 * top) };
 }
 
+} // namespace
+
 // A stacked card grows to fit its rows (a to-do list), never below Expanded's
-// size and never past the canvas (decision 016).
-float centredCardHeight(const Source& source, Vec2 size, float tabSpace, const MeasureText& measure)
+// size and never past `most` (the canvas, on the island: decision 016).
+float centredCardHeight(const Source& source, Vec2 size, float most, const MeasureText& measure)
 {
     const Tokens& t = tokens();
     const Content& c = *source.content;
@@ -59,8 +64,10 @@ float centredCardHeight(const Source& source, Vec2 size, float tabSpace, const M
     float least = c.card == CardLayout::List   ? std::max(t.expandedSize.y, t.listCardMinHeight)
                   : c.card == CardLayout::Search ? 0.0f // as tall as its rows: the field alone, then its results
                                                  : t.expandedSize.y;
-    return std::clamp(needed, least, std::max(least, t.canvas.y - tabSpace));
+    return std::clamp(needed, least, std::max(least, most));
 }
+
+namespace {
 
 // The padding a mode keeps on every side of its content.
 float paddingFor(Mode mode)
@@ -163,7 +170,7 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     if (scene.mode == Mode::Expanded && source.content && source.content->card == CardLayout::Search)
         scene.size.x = std::min(tokens().searchCardWidth, tokens().canvas.x); // search: wider (decision 079)
     if (scene.mode == Mode::Expanded && source.content && stacked(*source.content)) {
-        scene.size.y = centredCardHeight(source, scene.size, tabSpace, measureText);
+        scene.size.y = centredCardHeight(source, scene.size, tokens().canvas.y - tabSpace, measureText);
     }
     if (scene.mode == Mode::Expanded && state.homeOpen) scene.size.y = homeCardHeight(state, tokens().canvas.y - tabSpace);
     scene.size.y += tabSpace;

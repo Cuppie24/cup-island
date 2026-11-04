@@ -43,9 +43,9 @@ const Content* cardContent(const IslandState& s, const std::string& id)
 
 std::optional<ShownCard> focusedCard(const IslandState& s)
 {
-    if (!s.focusedWindow.empty()) {
-        for (const FloatingWindow& w : s.windows)
-            if (w.activityId == s.focusedWindow) return ShownCard{ w.providerId, w.activityId };
+    if (!s.focusedFloatId.empty()) {
+        for (const FloatingCard& w : s.floats)
+            if (w.activityId == s.focusedFloatId) return ShownCard{ w.providerId, w.activityId };
         return std::nullopt; // gone: settle() clears it
     }
     return shownCard(s);

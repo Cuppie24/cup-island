@@ -393,13 +393,13 @@ void runPomodoroTests()
     island.press(kStart);
     expect(island.focus() != nullptr, "started again");
     expect(island.press(kStop), "the running card's stop button");
-    expect(island.focus() && island.state.dialog && island.state.dialog->title == "Stop the session?" &&
-           island.state.dialog->message == "You're in round 1 of " + std::to_string(t.pomodoroRounds) + ". The timer starts over next time." &&
-           island.state.dialog->destructive, "stop asks first; still running");
+    expect(island.focus() && island.state.card.dialog && island.state.card.dialog->title == "Stop the session?" &&
+           island.state.card.dialog->message == "You're in round 1 of " + std::to_string(t.pomodoroRounds) + ". The timer starts over next time." &&
+           island.state.card.dialog->destructive, "stop asks first; still running");
     island.send(DialogClosed{}); // Cancel
-    expect(island.focus() && !island.state.dialog, "cancelled: still running");
+    expect(island.focus() && !island.state.card.dialog, "cancelled: still running");
     island.press(kStop);
-    Dialog asked = *island.state.dialog;
+    Dialog asked = *island.state.card.dialog;
     island.registry.route({ asked.providerId, asked.activityId, asked.confirmAction, 0 }); // the app: Stop clicked
     island.send(DialogClosed{});
     expect(!island.focus() && !island.registry.nextWake() && island.state.expandedId == PomodoroProvider::kPanelId,
@@ -414,8 +414,8 @@ void runPomodoroTests()
     auto shown = shownActivity(island.state);
     expect(shown && shown->activityId == PomodoroProvider::kPanelId, "ctrl+w: the running card's activity");
     island.registry.closeRequested(*shown);
-    expect(island.focus() && island.state.dialog && island.state.dialog->title == "Stop the session?", "ctrl+w: asks first; still running");
-    asked = *island.state.dialog;
+    expect(island.focus() && island.state.card.dialog && island.state.card.dialog->title == "Stop the session?", "ctrl+w: asks first; still running");
+    asked = *island.state.card.dialog;
     island.registry.route({ asked.providerId, asked.activityId, asked.confirmAction, 0 });
     island.send(DialogClosed{});
     expect(!island.focus() && island.state.expandedId == PomodoroProvider::kPanelId, "ctrl+w: confirmed, stopped; its card still open");
