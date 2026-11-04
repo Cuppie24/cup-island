@@ -35,7 +35,7 @@ void ServiceHost::stop()
 
 void ServiceHost::onWake()
 {
-    host_->wakeAt(std::nullopt); // once per start
+    host_->wakeAt(std::nullopt); // once per start, unless an update asks to look again
     hooks_.probe([this, alive = alive_](ServiceProbe probe) {
         if (*alive) found(probe);
     });
@@ -50,6 +50,11 @@ void ServiceHost::call(const std::string& method, const std::string& params, std
     hooks_.send(indexer::encodeCall(nextId_++, method, params), [alive = alive_, done = std::move(done)](ServiceReply reply) {
         if (*alive) done(std::move(reply));
     });
+}
+
+void ServiceHost::log(const std::string& line)
+{
+    if (hooks_.log) hooks_.log(line);
 }
 
 void ServiceHost::found(const ServiceProbe& probe)
@@ -87,8 +92,18 @@ void ServiceHost::found(const ServiceProbe& probe)
             step_ = Step::UpToDate;
             return;
         }
+        if (updateAsks_ >= tokens().serviceUpdateTries) {
+            step_ = Step::UpdateFailed;
+            log("service: still " + probe.version + " after " + std::to_string(updateAsks_) +
+                " update requests; trying again at the next start (its own log says why)");
+            return;
+        }
+        ++updateAsks_;
         step_ = Step::Updating;
-        hooks_.send(indexer::encodeUpdateRequest(nextId_++), [](ServiceReply) {}); // the service logs what it did
+        log("service: " + probe.version + ", the app is " + hooks_.appVersion + ": asking it to update (try " +
+            std::to_string(updateAsks_) + " of " + std::to_string(tokens().serviceUpdateTries) + ")");
+        hooks_.send(indexer::encodeUpdateRequest(nextId_++), [](ServiceReply) {}); // the app logs the answer (service_link)
+        host_->wakeAt(host_->now() + tokens().serviceUpdateRetry); // then look again: did it change?
         return;
     }
     }

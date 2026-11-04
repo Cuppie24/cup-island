@@ -371,6 +371,11 @@ struct Tokens {
     // File search (decision 076): this long after start, the app looks for
     // the service, sets it up if missing, and asks it to update if older.
     Ms searchSetupDelay{ 20000 };
+    // An older service asked to update is looked at again this long after
+    // (just past the service's own 10 min between updates); still old, it's
+    // asked again, at most serviceUpdateTries times per start (decision 076).
+    Ms serviceUpdateRetry{ 660000 };
+    std::size_t serviceUpdateTries = 3;
     // A double-tap shortcut ("Double Ctrl", decision 079): the second press
     // within doubleTap of the first letting go; each press at most
     // doubleTapHold long (a held Ctrl is someone about to press Ctrl+C).

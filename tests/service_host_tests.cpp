@@ -92,6 +92,23 @@ void providerTests()
         Setup s("0.8.0");
         s.run({ State::Running, "0.7.9" });
         expect(s.updates == 1 && s.installs == 0 && s.provider.step() == Step::Updating, "an older service is asked to update");
+        expect(s.host.wake == s.host.clock + tokens().serviceUpdateRetry, "and looked at again later: did it change?");
+        auto again = [&](const char* version) {
+            s.host.clock = *s.host.wake;
+            s.provider.onWake();
+            s.probes.back()({ State::Running, version });
+        };
+        again("0.7.9");
+        again("0.7.9");
+        expect(s.updates == 3 && s.host.wake, "still old: asked again, up to serviceUpdateTries");
+        again("0.7.9");
+        expect(s.updates == 3 && s.provider.step() == Step::UpdateFailed && !s.host.wake, "then it gives up until the next start");
+        Setup fixed("0.8.0");
+        fixed.run({ State::Running, "0.7.9" });
+        fixed.host.clock = *fixed.host.wake;
+        fixed.provider.onWake();
+        fixed.probes.back()({ State::Running, "0.8.0" });
+        expect(fixed.updates == 1 && fixed.provider.step() == Step::UpToDate && !fixed.host.wake, "updated: nothing more to do");
         Setup newer("0.8.0");
         newer.run({ State::Running, "0.9.0" });
         expect(newer.updates == 1, "so is a newer one: the latest release is what every copy runs (decision 040)");
