@@ -103,6 +103,14 @@ wherever the user drags it, while the island keeps showing its pill.
   pill while its card floats, holding back an activity's alerts while its
   floating card has the keys.
 
+- **Windows are changed after a dispatch, never inside it**
+  (`app/floating_cards.cpp`, `applyWanted`): each dispatch copies what it
+  wants on screen, and a queued pass makes the windows match. Raising a card
+  gives it the keys, which tells the island at once (`WM_ACTIVATE`: a click
+  outside) and dispatches again; inside the first dispatch, that replaced
+  the state the loop was reading, which crashed the first build that
+  floated Pomodoro.
+
 **Consequences.** `island.h` and `island.cpp` are past ~300 lines; the
 rules live in `core/floating.h`, the scene in `core/float_layout.h`,
 placement in `core/float_placement.h`. Rules are in

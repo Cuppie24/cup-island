@@ -35,7 +35,10 @@ void raise()
     if (!IsWindow(top)) return;
     bool lostFlag = (GetWindowLongW(top, GWL_EXSTYLE) & WS_EX_TOPMOST) == 0;
     HWND cover = coveringWindow(top);
-    if (lostFlag || cover) {
+    DWORD coverProcess = 0;
+    if (cover) GetWindowThreadProcessId(cover, &coverProcess);
+    bool ours = coverProcess == GetCurrentProcessId(); // a floating card, raised a moment ago (decision 081): expected
+    if ((lostFlag || cover) && !ours) {
         std::wstring culprit = lostFlag ? L"(lost the topmost flag)" : describeWindow(cover);
         if (culprit != g_lastCulprit) logLine("island was covered by %ls; raising it", culprit.c_str());
         g_lastCulprit = culprit;

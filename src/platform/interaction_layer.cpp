@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <exception>
 #include <thread>
 
 namespace cup::platform {
@@ -281,6 +282,10 @@ catch (winrt::hresult_error const& e) {
     // silently; a visibly skipped frame is better.
     logLine("WinRT error handling message 0x%04x: 0x%08x %ls",
         message, static_cast<unsigned int>(e.code()), e.message().c_str());
+    return 0;
+}
+catch (std::exception const& e) {
+    logLine("Exception handling message 0x%04x: %s", message, e.what());
     return 0;
 }
 catch (...) {

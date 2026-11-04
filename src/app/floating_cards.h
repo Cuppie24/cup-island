@@ -40,10 +40,11 @@ struct FloatHooks {
 // Set before the first dispatch.
 void setFloatHooks(FloatHooks hooks);
 
-// After every dispatch: opens the cards that came (popping in, with the
-// keys), lays out and redraws the rest, brings one forward when core says,
-// hides them while the island is Hidden, and sends back the ones that went
-// (remembering where they were).
+// After every dispatch: lays the cards out from this state, then, once the
+// dispatch is over (queued: raising a card dispatches again), opens the
+// cards that came (popping in, with the keys), redraws the rest, brings one
+// forward when core says, hides them while the island is Hidden, and sends
+// back the ones that went (remembering where they were).
 void syncFloats(const IslandState& state, Ms now);
 
 Surface* floatSurface(const std::string& cardId); // nullptr: that card isn't floating

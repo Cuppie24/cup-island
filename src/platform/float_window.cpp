@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <exception>
 #include <utility>
 
 namespace cup::platform {
@@ -27,6 +28,10 @@ try {
 catch (winrt::hresult_error const& e) {
     // An exception escaping a window procedure usually ends the process silently.
     logLine("WinRT error in a floating card, message 0x%04x: 0x%08x %ls", message, static_cast<unsigned int>(e.code()), e.message().c_str());
+    return 0;
+}
+catch (std::exception const& e) {
+    logLine("Exception in a floating card, message 0x%04x: %s", message, e.what());
     return 0;
 }
 catch (...) {
@@ -75,6 +80,7 @@ bool FloatWindow::create(HINSTANCE instance, wuc::Compositor const& compositor, 
 
     // Like the island's render layer: DirectComposition owns every pixel,
     // and LAYERED | TRANSPARENT passes clicks through to other apps' windows.
+    SetLastError(0); // so a failure's code is its own
     render_ = CreateWindowExW(WS_EX_NOREDIRECTIONBITMAP | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
                               kRenderClass, L"Cup Island Card", WS_POPUP, 0, 0, 1, 1, nullptr, nullptr, instance, nullptr);
     // An ordinary window, hit-tested by its region: draws nothing. Not
@@ -82,7 +88,7 @@ bool FloatWindow::create(HINSTANCE instance, wuc::Compositor const& compositor, 
     input_ = CreateWindowExW(WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW, kInputClass, L"Cup Island Card", WS_POPUP, 0, 0, 1,
                              1, nullptr, nullptr, instance, this);
     if (!render_ || !input_) {
-        logLine("failed to create a floating card's windows (0x%08lx)", GetLastError());
+        logLine("failed to create a floating card's %s window (0x%08lx)", render_ ? "input" : "render", GetLastError());
         destroy();
         return false;
     }
