@@ -16,7 +16,7 @@ namespace cup::platform {
 // which posts the same WM_HOTKEY.
 bool registerHotkey(HWND hwnd, Command command, const Chord& chord);
 
-void unregisterHotkeys(HWND hwnd); // every command's: before the window goes
+void unregisterHotkeys(HWND hwnd); // every command's, and the tap hook's thread: before the window goes, and at exit
 
 // The command a WM_HOTKEY's id stands for.
 std::optional<Command> hotkeyCommand(WPARAM id);
