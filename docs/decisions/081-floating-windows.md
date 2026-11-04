@@ -1,6 +1,10 @@
 # 081: A card can float apart from the island
 
-Status: Accepted (Pomodoro floats, resizes and flows out of the island; per-monitor scale is next)
+Status: Accepted for the rules, the app's surfaces, placement and
+resizing. The first Windows drawing below (a window pair per card, a flow
+handed off between windows) is superseded by 083 (Proposed): it flickered
+opening and resizing. Until 083 lands no provider floats a card; Pomodoro
+is back on the island's card. Fluid layout for resized cards: 084.
 
 **Context.** A card grows out of the island and covers the top of the
 screen while it's open; a click elsewhere or leaving it alone closes it,
@@ -37,8 +41,8 @@ wherever the user drags it, while the island keeps showing its pill.
   its edges and corners (a `floatResizeBorder` band, the resize cursors),
   between `FloatSpec::minSize` and `maxSize` (else `floatMinSize` and
   `floatMaxHeight`, `floatLimits`), follows the pointer at once, and opens
-  at the size it was left at. Pomodoro's resizes between
-  `pomodoroFloatMinSize` and `pomodoroFloatMaxSize`.
+  at the size it was left at. Pomodoro's resized between [400, 330] and
+  [760, 900] while it floated (those tokens went when it stopped, decision 084).
 - **Above other apps**, like the island (the island stays above the
   floating cards). No taskbar button, not in Alt-Tab, no minimize: it can't
   get lost behind other windows, so nothing needs to find it.
@@ -80,7 +84,7 @@ wherever the user drags it, while the island keeps showing its pill.
   whole if it fits, else its top-left corner. Never exactly on another
   open one: a `floatCascade` step right and down. Not reopened after a restart.
 
-**The Windows side** (first version; needs a Windows run to judge).
+**The Windows side** (first version, superseded by 083: see there for what went wrong).
 - The app has **surfaces** (`app/surface.h`): a scene, its renderer, its
   interaction window, and the pointer on it. The island is one; each
   floating card another (`app/floating_cards.h`, kept in step with
@@ -98,8 +102,8 @@ wherever the user drags it, while the island keeps showing its pill.
   (`PillRenderer::buildFloating`): one shape, detached (`Blob::detach`), its
   ✕ in an unclipped layer (`Blob::setChrome`), so it looks and reacts
   exactly like the island's card.
-- **Pomodoro's card floats** (both its dormant and running cards), the
-  first to.
+- **Pomodoro's card floated** (both its dormant and running cards), the
+  first to; it's back on the island until decision 083.
 - **It flows out of the island** (`platform/float_flow.h`): a copy of the
   pill, in the island's colours, peels off the top edge as the island lifts
   (decision 026: the ears fold, then the corners round) and springs on the
