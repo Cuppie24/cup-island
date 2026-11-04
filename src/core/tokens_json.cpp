@@ -235,6 +235,8 @@ const Field kFields[] = {
     { "updateCheckIntervalMs", &Tokens::updateCheckInterval },
     { "updateRetryMs", &Tokens::updateRetry },
     { "searchSetupDelayMs", &Tokens::searchSetupDelay, true },
+    { "serviceUpdateRetryMs", &Tokens::serviceUpdateRetry },
+    { "serviceUpdateTries", &Tokens::serviceUpdateTries },
     { "doubleTapMs", &Tokens::doubleTap, true },
     { "doubleTapHoldMs", &Tokens::doubleTapHold, true },
     { "searchAppRows", &Tokens::searchAppRows, true },

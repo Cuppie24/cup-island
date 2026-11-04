@@ -47,6 +47,8 @@ struct ServiceHostHooks {
     // Sends one JSON-RPC request to the installed service (and only it:
     // index_client checks the pipe's server); `done` on the UI thread.
     std::function<void(std::string request, std::function<void(ServiceReply)> done)> send;
+    // A line for the app's log: what it found and did, so a stuck update can be reported.
+    std::function<void(const std::string&)> log;
 };
 
 class ServiceHost : public Provider {
@@ -67,16 +69,18 @@ public:
     void call(const std::string& method, const std::string& params, std::function<void(ServiceReply)> done);
 
     // For tests and the log: what the last look led to.
-    enum class Step { None, Waiting, Installing, NotInstalled, Updating, UpToDate };
+    enum class Step { None, Waiting, Installing, NotInstalled, Updating, UpToDate, UpdateFailed };
     Step step() const { return step_; }
 
 private:
     void found(const ServiceProbe& probe);
+    void log(const std::string& line);
 
     ServiceHostHooks hooks_;
     Host* host_ = nullptr;
     Step step_ = Step::None;
     bool missing_ = false; // the last look found no service
+    std::size_t updateAsks_ = 0; // service.update sent this start
     std::int64_t nextId_ = 1;
     std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);
 };
