@@ -78,8 +78,12 @@ void ServiceHost::found(const ServiceProbe& probe)
     case ServiceProbe::State::Running: {
         auto service = parseVersion(probe.version);
         auto app = parseVersion(hooks_.appVersion);
-        // A dev build of the service (run by hand) is left alone.
-        if (!service || !app || !movesTo(*service, *app)) {
+        // A release app asks whenever the versions differ, a dev-built service
+        // included: the pipe is the installed service's (index_client checks),
+        // so it was installed, and follows releases like any other. One run by
+        // hand (--console) never answers here. (It used to be left alone, so a
+        // service installed from a local build never moved to a release.)
+        if (!app || (service && !movesTo(*service, *app))) {
             step_ = Step::UpToDate;
             return;
         }

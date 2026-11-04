@@ -102,7 +102,7 @@ void providerTests()
         expect(s.updates == 0 && s.provider.step() == Step::UpToDate, "the same version: nothing");
         Setup dev("0.8.0");
         dev.run({ State::Running, "0.8.0-3-gabc1234" });
-        expect(dev.updates == 0, "a dev build of the service, run by hand, is left alone");
+        expect(dev.updates == 1, "an installed dev build of the service moves to the release too");
         Setup stopped("0.8.0");
         stopped.run({ State::Stopped, "" });
         expect(stopped.updates == 0 && stopped.installs == 0, "installed but stopped: Windows restarts it");

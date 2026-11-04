@@ -57,6 +57,17 @@ a per-user app as SYSTEM.
   service's current and previous protocol, so an update the service hasn't
   finished yet breaks nothing.
 
+**An installed dev build follows releases too** (fixed after 0.8.3). The
+first version left a service with a dev version alone, on both sides: the
+app never asked it to update and it refused to. So a service installed
+from a local build (`build.ps1 -Installer`) stayed on that build while the
+released app moved on. Now a release app asks whenever the versions
+differ, dev included, and the service accepts: the app only reaches the
+installed service (its process id is checked), so whatever answers was
+installed and should follow releases. A service run by hand (`--console`)
+never answers the app. The app logs what the service said
+(`service: asked it to update: …`); the service's own log says why one failed.
+
 **Consequences.** The only UAC prompt in Cup Island's life is the first
 setup of search. Uninstalling the app leaves file search installed (the
 app's uninstaller has no admin rights): it's removed in Apps & Features.

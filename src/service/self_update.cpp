@@ -147,8 +147,9 @@ void SelfUpdate::removeLeftovers()
 
 indexer::UpdateAnswer SelfUpdate::request()
 {
-    auto running = parseVersion(version_);
-    if (!running) return indexer::UpdateAnswer::DevBuild; // a dev build never updates (decision 036)
+    // An installed dev build moves to the latest release when asked (the app
+    // only asks the installed service): any release differs from it.
+    Version running = parseVersion(version_).value_or(Version{ 0, 0, 0 });
     {
         std::lock_guard guard(lock_);
         ULONGLONG now = GetTickCount64();
@@ -163,7 +164,7 @@ indexer::UpdateAnswer SelfUpdate::request()
                                return true;
                            });
     auto release = fetched ? parseReleaseJson(json) : std::nullopt;
-    auto offer = release ? indexOfferFor(*running, *release) : std::nullopt;
+    auto offer = release ? indexOfferFor(running, *release) : std::nullopt;
     if (!offer) {
         std::lock_guard guard(lock_);
         busy_ = false;
