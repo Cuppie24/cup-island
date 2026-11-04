@@ -151,9 +151,7 @@ void wrapTests()
     // A Centred card is wider than Expanded: it still grows to both sides from the island's centre.
     IslandState wide;
     wide = reduce(wide, ScreenResized{ 1920 }, Ms{ 0 });
-    Panel onIsland = pomodoroPanel(list);
-    onIsland.content.floating.reset(); // on the island's card, not floating (decision 081)
-    wide = reduce(wide, PanelPublished{ onIsland }, Ms{ 0 });
+    wide = reduce(wide, PanelPublished{ pomodoroPanel(list) }, Ms{ 0 });
     wide = reduce(wide, PillClicked{}, Ms{ 0 });
     Scene home = cardScene(wide, Ms{ 0 });
     wide = reduce(wide, TileClicked{ PomodoroProvider::kPanelId }, Ms{ 0 });
@@ -172,7 +170,7 @@ void keptTextTests()
     state = reduce(state, TileClicked{ PomodoroProvider::kPanelId }, Ms{ 0 });
     state = reduce(state, InputFocused{ "pomodoro", PomodoroProvider::kPanelId, todo_action::kAdd }, Ms{ 0 });
     state = reduce(state, TextTyped{ "Water plants" }, Ms{ 0 });
-    state = reduce(state, EscapePressed{}, Ms{ 0 }); // the floating card goes back into the pill (decision 081)
+    state = reduce(state, EscapePressed{}, Ms{ 0 }); // the card goes back to Home
     state = reduce(state, TileClicked{ PomodoroProvider::kPanelId }, Ms{ 0 });
     Scene card = cardScene(state, Ms{ 0 });
     const Placed* field = firstOf(card, [](const Placed& p) { return std::holds_alternative<TextInput>(p.item); });
@@ -360,7 +358,7 @@ void runTodoTests()
     std::string key = listKey(PomodoroProvider::kPanelId, todo_action::kList);
     auto wheel = [&](float delta) {
         Scene shown = cardScene(state, now);
-        // Over the list where it is now: a floating card fits its rows, so it moves as they go (decision 081).
+        // Over the list where it is now: the card fits its rows, so it can move as they go.
         const Placed* any = firstOf(shown, [](const Placed& p) { return p.list && p.list->id == todo_action::kList; });
         if (!any) return expect(false, "the list is on the card");
         any = listAt(shown, { any->list->viewport.x + 5, any->list->viewport.y + 5 });
@@ -580,14 +578,8 @@ void runTodoTests()
     registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kAdd, 0, "a\nb\nc\nd\ne\nf" });
     registry.route({ "pomodoro", PomodoroProvider::kPanelId, std::string(todo_action::kToggle) + "1", 0 });
     send(ActivityStarted{ { .id = "media", .content = { .label = "Song" } } });
-    // On the island's card, with a tab strip: it floats in the app (decision 081), but a card can be either.
-    IslandState onIsland = state;
-    for (Activity& a : onIsland.activities) a.content.floating.reset();
-    for (Panel& p : onIsland.panels) p.content.floating.reset();
-    onIsland.floats.clear();
-    onIsland.focusedFloatId.clear();
-    onIsland = reduce(onIsland, TileClicked{ PomodoroProvider::kPanelId }, now);
-    Scene tallest = layout(onIsland, now);
+    send(ActivitySwitched{ PomodoroProvider::kPanelId });
+    Scene tallest = cardScene(state, now);
     expect(tallest.tabs && tallest.size.y <= tokens().canvas.y, "the tallest card fits the canvas");
     float strip = tallest.tabs->tabs[0].frame.y + tokens().tabHeight;
     for (const Placed& p : tallest.elements)

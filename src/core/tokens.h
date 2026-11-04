@@ -365,8 +365,6 @@ struct Tokens {
     Ms pomodoroBreakMax{ 3600000 };
     Ms pomodoroLongBreak{ 900000 };
     std::size_t pomodoroRounds = 4;
-    Vec2 pomodoroFloatMinSize{ 400, 330 }; // its floating card resizes between these (decision 081)
-    Vec2 pomodoroFloatMaxSize{ 760, 900 };
     // A session counts as finished (decision 061) with at most this many focus phases skipped.
     std::size_t pomodoroFocusSkipsAllowed = 1;
     std::size_t todoMaxLength = 150; // characters in a to-do: wraps onto a few lines at most (decision 045)

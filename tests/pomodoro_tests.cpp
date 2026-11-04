@@ -53,12 +53,6 @@ struct Island {
 
     const Activity* focus() const { return findActivity(state, PomodoroProvider::kPanelId); }
 
-    // Its card floats (decision 081): the pill opens it, or sends it back.
-    void openCard()
-    {
-        if (!floatFor(state, PomodoroProvider::kPanelId)) send(PillClicked{});
-    }
-    void closeCard() { send(FloatClosed{ PomodoroProvider::kPanelId }); }
     const Dialog* dialog() const { return dialogOver(state, PomodoroProvider::kPanelId); } // over its card
 };
 
@@ -270,22 +264,20 @@ void runPomodoroTests()
     expect(plannedTime && std::get<Text>(plannedTime->item).value == "25:00", "and the focus time");
     expect(noButtonsOn(dormantHome) && dormantHome.tiles.size() == 1 && dormantHome.tiles[0].opens, "no buttons: it opens the card");
 
-    // Start from the card, which floats beside other work (decision 081): its
-    // empty space drags it, and left alone it stays (decision 062).
+    // Start from the card. A click on its empty space doesn't close it (Content::keepOpen).
     island.send(TileClicked{ PomodoroProvider::kPanelId });
-    expect(floatFor(island.state, PomodoroProvider::kPanelId) && !isExpanded(island.state), "the dormant card floats; the island goes back to its pill");
-    expect(floatFor(reduce(island.state, Tick{}, island.now + t.expandedIdleTimeout * 10), PomodoroProvider::kPanelId),
+    island.send(PillClicked{});
+    expect(island.state.expandedId == PomodoroProvider::kPanelId, "dormant card: a click between its controls keeps it open");
+    expect(reduce(island.state, Tick{}, island.now + t.expandedIdleTimeout * 10).expandedId == PomodoroProvider::kPanelId,
            "and left alone, it stays (decision 062)");
     expect(island.press(kStart), "the dormant card's start button");
     expect(island.focus() && island.focus()->content.label == "Focus", "start: a focus phase is live");
     expect(island.registry.nextWake() == Ms{ t.pomodoroFocus }, "wakes when focus ends");
-    expect(floatFor(island.state, PomodoroProvider::kPanelId), "the live card floats in the same place");
-    expect(floatFor(reduce(island.state, Tick{}, island.now + t.expandedIdleTimeout * 2), PomodoroProvider::kPanelId),
+    expect(island.state.expandedId == PomodoroProvider::kPanelId, "the live card shows");
+    island.send(PillClicked{});
+    expect(island.state.expandedId == PomodoroProvider::kPanelId, "running card: a click between its controls keeps it open");
+    expect(reduce(island.state, Tick{}, island.now + t.expandedIdleTimeout * 2).expandedId == PomodoroProvider::kPanelId,
            "the running card stays too when left alone");
-    island.send(PillClicked{});
-    expect(!floatFor(island.state, PomodoroProvider::kPanelId), "a click on the pill sends it back (decision 081)");
-    island.send(PillClicked{});
-    expect(floatFor(island.state, PomodoroProvider::kPanelId), "...and another floats it again");
 
     // The running widget: the ring filling, the time left, the phase and round.
     island.send(HomeOpened{});
@@ -301,8 +293,7 @@ void runPomodoroTests()
     expect(noButtonsOn(home), "still no buttons");
 
     // Compact: the countdown in the middle, the ring on the right, no phase name; red for focus.
-    island.send(EscapePressed{}); // Home closes; the floating card stays
-    island.closeCard();
+    island.send(EscapePressed{});
     Scene compact = island.scene();
     const Placed* centre = nullptr;
     const Placed* ring = nullptr;
@@ -318,9 +309,9 @@ void runPomodoroTests()
 
     // Expanded: how many phases have passed.
     auto stepsShown = [&] {
-        island.openCard();
+        island.send(PillClicked{});
         Scene card = island.scene();
-        island.closeCard();
+        island.send(EscapePressed{});
         for (const Placed& p : card.elements)
             if (auto* steps = std::get_if<Steps>(&p.item)) return *steps;
         return Steps{ -1, -1 };
@@ -328,9 +319,9 @@ void runPomodoroTests()
     expect(stepsShown() == Steps{ static_cast<int>(2 * t.pomodoroRounds), 0 }, "card: a dot per phase, none done yet");
 
     // The card: centred, the dial (the time left in a ring filling with the phase), the dots, then the controls.
-    island.openCard();
+    island.send(PillClicked{});
     Scene card = island.scene();
-    island.closeCard();
+    island.send(EscapePressed{});
     auto at = [&](const std::string& key) -> const Placed* {
         for (const Placed& p : card.elements)
             if (p.key == key) return &p;

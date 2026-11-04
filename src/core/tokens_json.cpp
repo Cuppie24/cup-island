@@ -243,8 +243,6 @@ const Field kFields[] = {
     { "pomodoroBreakMaxMs", &Tokens::pomodoroBreakMax },
     { "pomodoroLongBreakMs", &Tokens::pomodoroLongBreak },
     { "pomodoroRounds", &Tokens::pomodoroRounds },
-    { "pomodoroFloatMinSize", &Tokens::pomodoroFloatMinSize },
-    { "pomodoroFloatMaxSize", &Tokens::pomodoroFloatMaxSize },
     { "pomodoroFocusSkipsAllowed", &Tokens::pomodoroFocusSkipsAllowed },
     { "todoMaxLength", &Tokens::todoMaxLength },
     { "listVisibleRows", &Tokens::listVisibleRows },

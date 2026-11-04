@@ -243,7 +243,7 @@ over the file's, so `tokens()` is always what's on screen.
 | File search installed with the app, self-updating (decision 076, milestone 4): its own admin installer, carried by the app's; set up at the end of setup or at the app's first start; updates from GitHub through the service | rules tested; --install/--uninstall and the update request run under Wine; installers and a real update need a Windows run; the search panel not yet |
 | Search card (decisions 077, 079): apps, Settings pages, Control Panel, files; live field; Double Ctrl; launch history | rules tested; the hook, the shell folders, launching and the look need a Windows run |
 | Providers reach the service only through the host, by granted module (decision 078) | done; tested |
-| Floating cards (decision 081): a card floats apart from the island in its look (`Content::floating`), the island keeps its pill; several at once, focus routes keys, a dialog and toast per card, sized to its content, placement remembered per card | rules tested; Pomodoro floats, resizes and flows out of the pill; per-monitor scale not yet |
+| Floating cards (decision 081): a card floats apart from the island in its look (`Content::floating`), the island keeps its pill; several at once, focus routes keys, a dialog and toast per card, sized to its content, placement remembered per card | rules tested; the first Windows drawing flickered (decision 083), so nothing floats yet: Pomodoro is on the island. Drawing in a fixed canvas (083) and fluid layout (084) are proposed |
 | Plugin pipe (PS §8 Tier 2) | not yet |
 | Activity expiry (`expiresAt`) | done, tested |
 | Rate limits, stale activities (PS §4, §6.3) | not yet |
