@@ -21,30 +21,38 @@ constexpr std::size_t kMaxTerms = 16;
 
 enum class Kind { Any, Files, Folders };
 
-// A word with a '/' or '\' in it ("personal/documents"): its last part
-// must match the name like any word, and the whole must be in the item's own
-// path, '\'-separated ("…\personal\documents"). A drive letter is dropped
-// (each drive is searched on its own: "d:/x" is "\x"); a leading separator
-// keeps the match to a folder's start ("/documents" isn't "mydocuments").
+// A word with a '/' or '\\' in it ("documents/micros"): matched against
+// whole paths ('\\'-separated, case folded), not just names. An item matches
+// if its own path holds the word ending in its name (its name starts with
+// the last part: "D:\\Documents\\Micros"), ranked like a name match, or if
+// it's inside a folder that matches, ranked below (its contents, shorter
+// paths first). A trailing separator is dropped ("documents/" is the
+// Documents folder and what's in it). A drive letter keeps the search to
+// that drive, from its root ("d:/documents" is D:\\Documents, not any
+// Documents); a drive alone ("d:/") lists the drive's top level.
 struct PathWord {
-    std::string whole; // lower case, '\' as the separator, no drive letter
-    std::string tail;  // the part after the last separator
+    std::string whole;     // lower case, '\\' as the separator, no drive letter
+    std::string tail;      // the part after the last separator
+    bool anchored = false; // a drive was given: the path must start with `whole`
     bool operator==(const PathWord&) const = default;
 };
 
 struct Query {
     std::vector<std::string> words;      // each must be in the name; lower case
-    std::vector<PathWord> paths;         // personal/documents: see PathWord
+    std::vector<PathWord> paths;         // documents/micros: see PathWord
     std::vector<std::string> extensions; // ext:pdf;docx: one must match, lower case, no dot
     std::vector<std::string> pathWords;  // path:music: each must be in the folder's path
-    Kind kind = Kind::Any;               // file: / folder: (and a path word ending in '/')
-    bool empty() const { return words.empty() && paths.empty() && extensions.empty() && pathWords.empty(); }
+    Kind kind = Kind::Any;               // file: / folder:
+    char drive = 0;                      // 'a'..'z' from a path word's drive ("d:/x"): only that drive
+    bool empty() const { return words.empty() && paths.empty() && extensions.empty() && pathWords.empty() && !drive; }
+    // Nothing to match but a drive ("d:/"): its top level.
+    bool driveOnly() const { return drive && words.empty() && paths.empty() && extensions.empty() && pathWords.empty(); }
 };
 
 // Words are split on spaces; "quoted text" is one word. `ext:a;b` (or a,b),
 // `path:x`, `file:` and `folder:` filter; `folder:x` is also the word x. A
-// word with a separator is a path word; one ending in it ("documents/")
-// finds only folders. Any other `a:b` is just a word.
+// word with a separator is a path word (PathWord). Any other `a:b` is just a
+// word.
 Query parseQuery(std::string_view text);
 
 struct Hit {
@@ -80,6 +88,11 @@ struct Pick {
 // The best `limit` hits across lists that each come from search(), in
 // betterHit order; between equals, the earlier list (drive) first.
 std::vector<Pick> mergeHits(const std::vector<std::vector<Hit>>& lists, std::size_t limit);
+
+// Case-folded comparisons as matching makes them (English and Russian): does
+// `text` start with / contain `lowerWord`?
+bool startsFolded(std::string_view text, std::string_view lowerWord);
+bool containsFolded(std::string_view text, std::string_view lowerWord);
 
 // `text` with English and Russian capitals folded to small letters, as
 // matching sees it: what a word must be in before matchScore (the launcher

@@ -98,23 +98,23 @@ void addTerm(std::vector<std::string>& to, std::string term, std::size_t& terms)
     ++terms;
 }
 
-// "D:/Personal/Documents/" -> whole "\\personal\\documents", tail "documents",
-// folders only. See PathWord.
+// "D:/Personal/Documents/" -> drive 'd', whole "\\personal\\documents",
+// tail "documents", anchored. See PathWord.
 void addPath(Query& q, std::string word, std::size_t& terms)
 {
     if (terms >= kMaxTerms) return;
     std::replace(word.begin(), word.end(), '/', '\\');
-    if (word.size() >= 2 && word[1] == ':' && word[0] >= 'a' && word[0] <= 'z') word.erase(0, 2); // the drive
-    bool folderOnly = false;
-    while (!word.empty() && word.back() == '\\') {
-        word.pop_back();
-        folderOnly = true;
+    bool anchored = false;
+    if (word.size() >= 2 && word[1] == ':' && word[0] >= 'a' && word[0] <= 'z') {
+        if (!q.drive) q.drive = word[0];
+        word.erase(0, 2);
+        anchored = !word.empty() && word[0] == '\\'; // "d:\\x": from the drive's root
     }
+    while (!word.empty() && word.back() == '\\') word.pop_back(); // "documents/" is "documents"
     std::size_t last = word.find_last_of('\\');
     std::string tail = last == std::string::npos ? word : word.substr(last + 1);
-    if (tail.empty()) return; // only separators
-    if (folderOnly) q.kind = Kind::Folders;
-    q.paths.push_back({ word, tail });
+    if (tail.empty()) return; // only separators, or a drive alone (q.drive says it)
+    q.paths.push_back({ word, tail, anchored });
     ++terms;
 }
 
@@ -172,6 +172,16 @@ Query parseQuery(std::string_view text)
         }
     }
     return q;
+}
+
+bool startsFolded(std::string_view text, std::string_view lowerWord)
+{
+    return text.size() >= lowerWord.size() && equalsFolded(text.substr(0, lowerWord.size()), lowerWord);
+}
+
+bool containsFolded(std::string_view text, std::string_view lowerWord)
+{
+    return findFolded(text, lowerWord, 0) != std::string_view::npos;
 }
 
 std::string foldCase(std::string_view text)
@@ -241,8 +251,12 @@ std::vector<Hit> search(const FileIndex& index, const Query& query, std::size_t 
     if (query.empty() || limit == 0) return hits;
     bool demoteNoise = std::none_of(query.pathWords.begin(), query.pathWords.end(),
                                     [](const std::string& w) { return noiseFolderName(w); });
+    std::vector<PathMemo> memos;
+    for (const PathWord& p : query.paths) memos.emplace_back(index, p.whole, p.tail, p.anchored);
     for (std::uint32_t record = 0; record < index.slots(); ++record) {
         if (!index.used(record)) continue;
+        // A drive alone ("d:/"): what's at its top, as a folder opened there.
+        if (query.driveOnly() && index.entry(record).parent != kRootRecord) continue;
         bool folder = index.entry(record).flags & kFolder;
         if ((query.kind == Kind::Files && folder) || (query.kind == Kind::Folders && !folder)) continue;
         std::string_view name = index.name(record);
@@ -262,22 +276,15 @@ std::vector<Hit> search(const FileIndex& index, const Query& query, std::size_t 
             }
             score += s;
         }
-        for (const PathWord& p : query.paths) {
-            int sc = all ? matchScore(name, p.tail, folder) : 0;
-            if (sc == 0) {
-                all = false;
-                break;
-            }
-            score += sc;
+        // A path word: the item's own path ending in its name (scored as
+        // a name match), or a matching folder above it (scored 1: contents).
+        for (std::size_t i = 0; all && i < query.paths.size(); ++i) {
+            const PathWord& p = query.paths[i];
+            if (memos[i].own(record, name)) score += matchScore(name, p.tail, folder);
+            else if (memos[i].inside(record)) score += 1;
+            else all = false;
         }
         if (!all) continue;
-        // Paths are built last, and only for names that already match.
-        if (!query.paths.empty()) {
-            std::string own = "\\" + index.path(record, ""); // a leading separator: a path word's "\x" matches a top folder too
-            bool inPath = std::all_of(query.paths.begin(), query.paths.end(),
-                                      [&](const PathWord& p) { return findFolded(own, p.whole, 0) != std::string_view::npos; });
-            if (!inPath) continue;
-        }
         if (!query.pathWords.empty()) {
             std::uint32_t parent = index.entry(record).parent;
             std::string folderPath = index.used(parent) && parent != record ? index.path(parent, "") : std::string{};
