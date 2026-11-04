@@ -67,6 +67,9 @@ winrt::fire_and_forget send(std::string request, std::function<void(ServiceReply
     std::string body;
     if (asked.problem == service::AskProblem::None) body = asked.raw;
     ServiceReply reply = replyOf(asked, body);
+    // What an update request got, for a report: started, current, busy, failed (the service's log says why).
+    if (request.find("\"service.update\"") != std::string::npos)
+        platform::logLine("service: asked it to update: %s", body.empty() ? "no answer" : body.c_str());
     try {
         co_await ui;
     } catch (...) {
