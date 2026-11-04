@@ -98,23 +98,24 @@ void addTerm(std::vector<std::string>& to, std::string term, std::size_t& terms)
     ++terms;
 }
 
-// "D:/Personal/Documents/" -> drive 'd', whole "\\personal\\documents",
-// tail "documents", anchored. See PathWord.
+// "D:/Projects//cwatis/" -> drive 'd', parts { "projects", "cwatis" }. See PathWord.
 void addPath(Query& q, std::string word, std::size_t& terms)
 {
     if (terms >= kMaxTerms) return;
     std::replace(word.begin(), word.end(), '/', '\\');
-    bool anchored = false;
     if (word.size() >= 2 && word[1] == ':' && word[0] >= 'a' && word[0] <= 'z') {
         if (!q.drive) q.drive = word[0];
         word.erase(0, 2);
-        anchored = !word.empty() && word[0] == '\\'; // "d:\\x": from the drive's root
     }
-    while (!word.empty() && word.back() == '\\') word.pop_back(); // "documents/" is "documents"
-    std::size_t last = word.find_last_of('\\');
-    std::string tail = last == std::string::npos ? word : word.substr(last + 1);
-    if (tail.empty()) return; // only separators, or a drive alone (q.drive says it)
-    q.paths.push_back({ word, tail, anchored });
+    PathWord path;
+    std::size_t start = 0;
+    while (start <= word.size()) {
+        std::size_t end = std::min(word.find('\\', start), word.size());
+        if (end > start) path.parts.push_back(word.substr(start, end - start));
+        start = end + 1;
+    }
+    if (path.parts.empty()) return; // only separators, or a drive alone (q.drive says it)
+    q.paths.push_back(std::move(path));
     ++terms;
 }
 
@@ -252,7 +253,7 @@ std::vector<Hit> search(const FileIndex& index, const Query& query, std::size_t 
     bool demoteNoise = std::none_of(query.pathWords.begin(), query.pathWords.end(),
                                     [](const std::string& w) { return noiseFolderName(w); });
     std::vector<PathMemo> memos;
-    for (const PathWord& p : query.paths) memos.emplace_back(index, p.whole, p.tail, p.anchored);
+    for (const PathWord& p : query.paths) memos.emplace_back(index, p.parts);
     for (std::uint32_t record = 0; record < index.slots(); ++record) {
         if (!index.used(record)) continue;
         // A drive alone ("d:/"): what's at its top, as a folder opened there.
@@ -280,7 +281,7 @@ std::vector<Hit> search(const FileIndex& index, const Query& query, std::size_t 
         // a name match), or a matching folder above it (scored 1: contents).
         for (std::size_t i = 0; all && i < query.paths.size(); ++i) {
             const PathWord& p = query.paths[i];
-            if (memos[i].own(record, name)) score += matchScore(name, p.tail, folder);
+            if (memos[i].own(record, name)) score += matchScore(name, p.parts.back(), folder);
             else if (memos[i].inside(record)) score += 1;
             else all = false;
         }

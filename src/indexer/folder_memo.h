@@ -32,41 +32,30 @@ private:
     std::vector<std::uint32_t> passed_; // reused: one walk at a time
 };
 
-// Whether an item's own path ('\\' + its folders + its name) holds a path
-// word (query.h's PathWord): worked out once per folder per search, as a
-// folder holds it if its parent does. A path is only built for a folder whose
-// name starts with the word's last part: the only way a match can end in it.
+// A path word's parts against an item's folders (query.h's PathWord): how
+// many of the parts its folders, from the top down, have matched in order
+// (each part the start of one folder's name, gaps allowed). Worked out once
+// per folder per search, from its parent's count; no paths are built.
 class PathMemo {
 public:
-    PathMemo(const FileIndex& index, std::string whole, std::string tail, bool anchored)
-        : index_(index), whole_(std::move(whole)), tail_(std::move(tail)), anchored_(anchored), known_(index.slots(), 0),
-          ends_(index.slots(), 0)
+    PathMemo(const FileIndex& index, std::vector<std::string> parts)
+        : index_(index), parts_(std::move(parts)), known_(index.slots(), 0)
     {
-        // "\\documents" (a leading separator only) has nothing before its last part.
-        std::size_t last = whole_.find_last_of('\\');
-        if (last != std::string::npos && last > 0) {
-            std::size_t start = whole_.find_last_of('\\', last - 1);
-            std::size_t begin = start == std::string::npos ? 0 : start + 1;
-            before_ = whole_.substr(begin, last - begin);
-        }
     }
 
-    bool inside(std::uint32_t record);                    // a folder above it holds the word
-    bool own(std::uint32_t record, std::string_view name); // its own path holds it, ending in its name
+    // Its name starts with the last part, and its folders hold the others in
+    // order: "projects/cwatis" for D:\\Projects\\claude-micros-wiki\\cwatis.
+    bool own(std::uint32_t record, std::string_view name);
+    // Its folders hold every part: it's inside a match (its contents).
+    bool inside(std::uint32_t record);
 
 private:
-    bool folderHolds(std::uint32_t folder);
-    // '\\' + the folder's path + '\\' + the last part ends with the word: what
-    // `own` asks of any item in it whose name starts with the last part. One
-    // path built per folder asked, not one per item.
-    bool endsHere(std::uint32_t folder);
+    std::size_t above(std::uint32_t record); // parts matched by the folders above it
+    std::size_t folder(std::uint32_t folder); // ...and by the folder itself, too
 
     const FileIndex& index_;
-    std::string whole_, tail_;
-    std::string before_; // the part before the last ("report" in "x\\report\\photo"): a folder's name must end with it
-    bool anchored_;
-    std::vector<std::uint8_t> known_;   // per record: 0 unknown, 1 no, 2 yes
-    std::vector<std::uint8_t> ends_;    // per folder: endsHere, the same way
+    std::vector<std::string> parts_;
+    std::vector<std::uint8_t> known_;   // per record: 0 unknown, else parts matched + 1
     std::vector<std::uint32_t> passed_; // reused: one walk at a time
 };
 

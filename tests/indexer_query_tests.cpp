@@ -58,13 +58,14 @@ void parseTests()
     Query f = parseQuery("folder:music");
     expect(f.kind == Kind::Folders && f.words == std::vector<std::string>{ "music" }, "folder:x is a folder named like x");
     expect(parseQuery("note:1").words == std::vector<std::string>{ "note:1" }, "other colons are plain text");
-    Query paths = parseQuery("Personal/Documents d:\\Work\\ \\x / report");
-    expect(paths.paths.size() == 3 && paths.paths[0] == PathWord{ "personal\\documents", "documents", false } &&
-           paths.paths[1] == PathWord{ "\\work", "work", true } && paths.paths[2] == PathWord{ "\\x", "x", false } &&
+    Query paths = parseQuery("Personal/Documents d:\\\\Work\\\\ \\\\x / report a//b");
+    using Parts = std::vector<std::string>;
+    expect(paths.paths.size() == 4 && paths.paths[0].parts == Parts{ "personal", "documents" } && paths.paths[1].parts == Parts{ "work" } &&
+           paths.paths[2].parts == Parts{ "x" } && paths.paths[3].parts == Parts{ "a", "b" } &&
            paths.words == std::vector<std::string>{ "report" } && paths.drive == 'd',
-           "path words: '/' as '\\', lower case; a drive is kept apart, and anchors its word at the root");
-    expect(paths.kind == Kind::Any && parseQuery("documents/").paths == std::vector<PathWord>{ { "documents", "documents", false } },
-           "a trailing separator is dropped: documents/ is documents, as a path word");
+           "path words: folder names in order, lower case, empty parts dropped; a drive is kept apart");
+    expect(paths.kind == Kind::Any && parseQuery("documents/").paths == std::vector<PathWord>{ { Parts{ "documents" } } },
+           "documents/ is the one part documents");
     expect(parseQuery("///").empty() && parseQuery("a/b").words.empty(), "only separators is nothing; a path word isn't a name word");
     Query drive = parseQuery("D:/");
     expect(!drive.empty() && drive.driveOnly() && drive.drive == 'd' && drive.paths.empty(), "a drive alone: its top level");
@@ -123,33 +124,33 @@ void searchTests()
 
 // Path words and shorter paths first (decision 075): D:\\Personal\\Documents
 // among several Documents folders.
+// Path words (decision 075): folder names in order, gaps allowed; shorter
+// paths first among equal matches.
 void pathTests()
 {
     FileIndex index;
     FileRef root = refOf(kRootRecord, 5);
-    index.put(refOf(20, 1), root, "Documents", kFolder);         // D:\Documents
-    index.put(refOf(21, 1), root, "Personal", kFolder);          // D:\Personal
-    index.put(refOf(22, 1), refOf(21, 1), "Documents", kFolder); // D:\Personal\Documents
+    index.put(refOf(20, 1), root, "Documents", kFolder);         // D:\\Documents
+    index.put(refOf(21, 1), root, "Personal", kFolder);          // D:\\Personal
+    index.put(refOf(22, 1), refOf(21, 1), "Documents", kFolder); // D:\\Personal\\Documents
     index.put(refOf(23, 1), root, "Work", kFolder);
     index.put(refOf(24, 1), refOf(23, 1), "old", kFolder);
-    index.put(refOf(25, 1), refOf(24, 1), "Documents", kFolder); // D:\Work\old\Documents
-    index.put(refOf(26, 1), refOf(22, 1), "documents.txt", 0);   // D:\Personal\Documents\documents.txt
+    index.put(refOf(25, 1), refOf(24, 1), "Documents", kFolder); // D:\\Work\\old\\Documents
+    index.put(refOf(26, 1), refOf(22, 1), "documents.txt", 0);   // D:\\Personal\\Documents\\documents.txt
     index.put(refOf(27, 1), root, "MyPersonal", kFolder);
-    index.put(refOf(28, 1), refOf(27, 1), "Documents", kFolder); // D:\MyPersonal\Documents
+    index.put(refOf(28, 1), refOf(27, 1), "Documents", kFolder); // D:\\MyPersonal\\Documents
     auto find = [&](const char* text) { return records(search(index, parseQuery(text), 50)); };
 
     expect(find("documents") == std::vector<std::uint32_t>{ 20, 22, 28, 25, 26 },
            "equal matches: the shorter path first (a folder before a file at the same depth)");
-    expect(find("personal/documents") == std::vector<std::uint32_t>{ 22, 28, 26 },
-           "a path word: its last part names the item, the whole is in its path");
-    expect(find("/personal/documents") == std::vector<std::uint32_t>{ 22, 26 }, "a leading separator starts at a folder: not MyPersonal");
-    expect(find("D:\\Personal\\Documents\\") == std::vector<std::uint32_t>{ 22, 26 },
-           "backslashes, a drive and a trailing separator: that folder, from the root, and what's in it");
-    expect(find("work/documents") == std::vector<std::uint32_t>{}, "the parts must be next to each other in the path");
+    expect(find("personal/documents") == std::vector<std::uint32_t>{ 22, 26 },
+           "a path word: the last part starts the name, a folder above starts with the other (not MyPersonal)");
+    expect(find("work/documents") == std::vector<std::uint32_t>{ 25 }, "gaps between the parts are fine (Work\\old\\Documents)");
+    expect(find("old/work/documents").empty(), "the parts keep their order");
     expect(find("work/old/doc") == std::vector<std::uint32_t>{ 25 }, "the last part can be the start of the name");
     expect(find("personal/documents ext:txt") == std::vector<std::uint32_t>{ 26 }, "with filters too");
 
-    // The first run on a real PC (decision 075): D:\\Documents\\Micros.
+    // The first runs on a real PC: D:\\Documents\\Micros, D:\\Projects\\claude-micros-wiki\\cwatis.
     FileIndex d;
     d.put(refOf(20, 1), root, "Documents", kFolder);
     d.put(refOf(21, 1), refOf(20, 1), "Micros", kFolder);
@@ -157,12 +158,18 @@ void pathTests()
     d.put(refOf(23, 1), refOf(20, 1), "cv.pdf", 0);
     d.put(refOf(24, 1), root, "Games", kFolder);
     d.put(refOf(25, 1), refOf(24, 1), "Documents", kFolder); // D:\\Games\\Documents
+    d.put(refOf(30, 1), root, "Projects", kFolder);
+    d.put(refOf(31, 1), refOf(30, 1), "claude-micros-wiki", kFolder);
+    d.put(refOf(32, 1), refOf(31, 1), "cwatis", kFolder);
+    d.put(refOf(33, 1), refOf(32, 1), "readme.md", 0);
     auto on = [&](const char* text) { return records(search(d, parseQuery(text), 50)); };
     expect(on("documents/") == std::vector<std::uint32_t>{ 20, 25, 21, 23, 22 },
            "documents/: the Documents folders themselves first, then what's in them, shorter paths first");
     expect(on("documents/micros") == std::vector<std::uint32_t>{ 21, 22 }, "documents/micros: Micros, then its contents");
-    expect(on("d:/") == std::vector<std::uint32_t>{ 24, 20 }, "d:/: the drive's top level");
-    expect(on("d:/documents") == std::vector<std::uint32_t>{ 20, 21, 23, 22 }, "d:/documents: that one, from the root, not Games\\Documents");
+    expect(on("projects/cwatis") == std::vector<std::uint32_t>{ 32, 33 }, "projects/cwatis: cwatis two folders down, then its contents");
+    expect(on("d:/cwatis") == std::vector<std::uint32_t>{ 32, 33 }, "d:/cwatis: a drive only narrows it to the drive");
+    expect(on("d:/") == std::vector<std::uint32_t>{ 24, 30, 20 }, "d:/: the drive's top level");
+    expect(on("d:/documents").front() == 20u, "d:/documents: D:\\Documents first (the shortest path)");
     expect(on("documents/ ext:pdf") == std::vector<std::uint32_t>{ 23 }, "and filters still apply");
 }
 
