@@ -21,25 +21,23 @@ constexpr std::size_t kMaxTerms = 16;
 
 enum class Kind { Any, Files, Folders };
 
-// A word with a '/' or '\\' in it ("documents/micros"): matched against
-// whole paths ('\\'-separated, case folded), not just names. An item matches
-// if its own path holds the word ending in its name (its name starts with
-// the last part: "D:\\Documents\\Micros"), ranked like a name match, or if
-// it's inside a folder that matches, ranked below (its contents, shorter
-// paths first). A trailing separator is dropped ("documents/" is the
-// Documents folder and what's in it). A drive letter keeps the search to
-// that drive, from its root ("d:/documents" is D:\\Documents, not any
-// Documents); a drive alone ("d:/") lists the drive's top level.
+// A word with a '/' or '\\' in it ("projects/cwatis"): its parts are
+// folder names in order, gaps allowed, each matching the start of a name.
+// An item matches if its name starts with the last part and its folders
+// hold the others ("projects/cwatis" finds the folder cwatis in
+// D:\\Projects\\claude-micros-wiki), ranked like a name match; or if it's inside a folder that matches
+// (its contents), ranked after, shorter paths first. Empty parts are dropped,
+// so "documents/" is the Documents folders and what's in them. A drive letter
+// only keeps the search to that drive ("d:/cwatis": cwatis anywhere on D:);
+// a drive alone ("d:/") lists the drive's top level.
 struct PathWord {
-    std::string whole;     // lower case, '\\' as the separator, no drive letter
-    std::string tail;      // the part after the last separator
-    bool anchored = false; // a drive was given: the path must start with `whole`
+    std::vector<std::string> parts; // lower case, at least one
     bool operator==(const PathWord&) const = default;
 };
 
 struct Query {
     std::vector<std::string> words;      // each must be in the name; lower case
-    std::vector<PathWord> paths;         // documents/micros: see PathWord
+    std::vector<PathWord> paths;         // projects/cwatis: see PathWord
     std::vector<std::string> extensions; // ext:pdf;docx: one must match, lower case, no dot
     std::vector<std::string> pathWords;  // path:music: each must be in the folder's path
     Kind kind = Kind::Any;               // file: / folder:

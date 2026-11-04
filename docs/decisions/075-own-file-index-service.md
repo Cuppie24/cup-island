@@ -51,20 +51,24 @@ open. The island runs as the user, installed per user without a UAC prompt
   (А–Я, not Ё): both fold within the same UTF-8 length, so matching stays
   byte by byte. Full Unicode folding (tables, NFC) was weighed and left out
   for speed and size.
-  - **Path words:** a word with `/` or `\` is matched against whole
-    paths, as Everything does. An item matches if its own path holds the
-    word ending in its name (`documents/micros` is `…\Documents\Micros`),
-    ranked like a name match, or if it's inside a folder that does, ranked
-    after (its contents, shorter paths first). A trailing separator is
-    dropped: `documents/` is the Documents folders themselves, then what's in
-    them. A drive letter keeps the search to that drive and anchors the word
-    at its root (`d:/documents` is `D:\Documents`, not any Documents);
-    `d:/` alone lists the drive's top level. (Its first version needed the
-    last part to name the item and read a trailing `/` as "folders only", so
-    `documents/` found one folder and `d:/` nothing: changed after the first
-    run.) Checked per folder once per search (`PathMemo`): a folder holds
-    the word if its parent does, and a path is built only for folders whose
-    names could end the word.
+  - **Path words:** a word with `/` or `\` is a list of folder names in
+    order, gaps allowed, each part matching the start of a name. An item
+    matches if its name starts with the last part and its folders hold the
+    others in order (`projects/cwatis` finds
+    `D:\Projects\claude-micros-wiki\cwatis`), ranked like a name match;
+    or if it's inside a folder that matches (its contents), ranked after,
+    shorter paths first. Empty parts are dropped: `documents/` is the
+    Documents folders, then what's in them. A drive letter only keeps the
+    search to that drive (`d:/cwatis` is cwatis anywhere on D:; shorter
+    paths first puts `D:\Documents` at the top of `d:/documents`), and
+    `d:/` alone lists the drive's top level. Checked per folder once per
+    search (`PathMemo`: how many parts the folders above have matched, from
+    the parent's count): no paths are built.
+  - How it got here, from runs on a real PC: the first version needed the
+    parts next to each other and read a trailing `/` as "folders only"
+    (`documents/` found one folder, `d:/` nothing); the second matched
+    whole paths, anchored a drive at its root, and still needed the parts
+    adjacent (`d:/cwatis` and `projects/cwatis` found nothing).
   - **Ranked:** whole name (or a file's name before its extension:
     "notepad" is notepad.exe's whole name), then name prefix, word start,
     anywhere; on a tie the **shorter path** (fewer folders above it:
