@@ -35,7 +35,10 @@ also the step most exposed to GitHub having a bad day.
 - **One release of overlap.** Services from before this change only know how to
   download, so the first release with this still attaches the service's
   installer. The release after it drops it (one line in release.yml); from
-  then on the page shows the app's installer alone.
+  then on the page shows the app's installer alone. Done: 0.8.8 and 0.8.9
+  attached it; releases after 0.8.9 don't. A service older than 0.8.8 that
+  missed both now stays put, and the app says so with the download
+  (below).
 
 - **When it's stuck, the user is told, with the download.** After
   serviceUpdateTries requests the service is still old (an old service with
