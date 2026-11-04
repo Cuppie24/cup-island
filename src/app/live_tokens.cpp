@@ -35,6 +35,7 @@ void warnIfClipped(const Tokens& t)
         if (size.x > t.canvas.x || size.y > t.canvas.y)
             log(std::string("tokens.json: ") + name + " is larger than canvasSize and will be clipped");
     }
+    if (t.searchCardWidth > t.canvas.x) log("tokens.json: searchCardWidth is wider than canvasSize; the search card is cut to it");
 }
 
 } // namespace

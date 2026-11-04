@@ -47,6 +47,11 @@ std::optional<Focusable> moveFocus(const Scene& scene, const std::string& curren
 std::optional<Focusable> moveAmongRows(const Scene& scene, const std::string& current, Arrow arrow);
 bool fieldStop(const Scene& scene, const Focusable& focusable); // it's a text field
 
+// On such a card, the row Enter opens while you type, lit as if highlighted:
+// the first row after the field (decision 079). Down from typing goes to the
+// row after it, and Up back to it is typing again.
+std::optional<Focusable> defaultRow(const Scene& scene);
+
 // Up or down from the last stop that way in a scrolling list that can still
 // scroll that way: the list's scroll (a scrollStep), with focus staying put,
 // so rows with nothing to click (Settings' list of keys) come into view.

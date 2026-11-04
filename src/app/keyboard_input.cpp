@@ -98,7 +98,7 @@ void run(Command command)
         if (state().expandedId != id) return;
         platform::bringToFront(g_hooks.window); // a double tap isn't a real hotkey: no leave to come forward (tap_hook.h)
         SetFocus(g_hooks.window); // the card's field has the keys already (Content::fieldFirst)
-        dispatch(AllSelected{}, "shortcut"); // last time's words, selected: typing replaces them
+        dispatch(AllSelected{}, "shortcut"); // open already: its words selected, typing replaces them
         return;
     }
     }
@@ -212,9 +212,13 @@ bool fieldCardKey(WPARAM key)
             return true;
         }
     }
-    std::optional<Focusable> to = moveAmongRows(scene(), g_focus, arrow);
+    // Typing, the first row is lit already (defaultRow): Down goes past it, and
+    // Up onto it is typing again, so each press visibly moves (decision 079).
+    std::optional<Focusable> lit = defaultRow(scene());
+    std::optional<Focusable> to = moveAmongRows(scene(), g_focus.empty() && lit ? lit->id : g_focus, arrow);
+    if (to && lit && to->id == lit->id) to.reset();
     if (to) land(to);
-    else { // up past the first row: back to typing, nothing highlighted
+    else { // up past the first row: back to typing, the first row lit
         g_focus.clear();
         dispatch(PointerMoved{}, "keys");
     }

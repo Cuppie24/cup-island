@@ -2,6 +2,7 @@
 
 #include "core/tokens.h"
 #include "indexer/query.h"
+#include "providers/search/result_rows.h"
 
 #include <algorithm>
 #include <cstdlib>
@@ -23,30 +24,27 @@ const char* captionOf(Launchable::Kind kind)
 
 Glyph glyphOf(Launchable::Kind kind) { return kind == Launchable::Kind::App ? Glyph::OpenApp : Glyph::Settings; }
 
-// The folder a file is in, for its row's caption.
-std::string folderOf(const std::string& path)
+// A result (decision 079): its icon is the row's button, so the whole row
+// opens it; its name, the typed words in it brighter; under it, where it is
+// (a path loses its start when too long, so the end tells two apart). A
+// file's folder button shows under the pointer.
+Row resultRow(Glyph glyph, std::shared_ptr<const ImageData> picture, const SearchProvider::Result& r,
+              const std::string& query, const std::string& home, std::size_t index)
 {
-    std::size_t slash = path.find_last_of('\\');
-    return slash == std::string::npos ? path : path.substr(0, slash);
-}
-
-// A result: its icon, its name, what it is, and the chevron that says the
-// whole row is a button (as Settings' rows, decision 030).
-// The folder gives way first when the row is short of room (Text::yields):
-// the name stays readable and the path takes the "…".
-Row resultRow(Glyph glyph, const std::string& name, const std::string& caption, std::size_t index)
-{
-    return Row{ .items = { Icon{ glyph }, Text{ name },
-                           Text{ .value = caption, .style = TextStyle::Caption, .alignEnd = true, .yields = true },
-                           Button{ .glyph = Glyph::ChevronRight, .actionId = A::kOpen + std::to_string(index), .compact = true } },
-                .clickAnywhere = true,
-                .list = "results",
-                .listItem = true };
+    Row row{ .items = { Button{ .glyph = glyph, .actionId = A::kOpen + std::to_string(index), .compact = true, .picture = std::move(picture) },
+                        Text{ .value = r.name, .detail = r.file ? shortPath(r.caption, home) : r.caption, .bright = matchedParts(r.name, query) } },
+             .clickAnywhere = true,
+             .list = "results",
+             .listItem = true };
+    if (r.file)
+        row.trailing.push_back(Button{ .glyph = Glyph::Folder, .actionId = A::kReveal + std::to_string(index), .compact = true,
+                                       .revealOnHover = true, .secondary = true });
+    return row;
 }
 
 Row fieldRow()
 {
-    return row({ TextInput{ .actionId = A::kGo, .placeholder = "Search apps, settings and files", .changeAction = A::kTyped } });
+    return row({ TextInput{ .actionId = A::kGo, .placeholder = "Search apps, settings and files", .large = true, .changeAction = A::kTyped } });
 }
 
 } // namespace
@@ -84,6 +82,15 @@ void SearchProvider::onCardShown(const std::string& activityId)
     if (appsAt_ < Ms{ 0 } || host_->now() - appsAt_ >= tokens().launcherRefresh) refreshApps();
 }
 
+void SearchProvider::onCardClosed(const std::string& activityId)
+{
+    // It opens empty (decision 079): the field's text goes with the card
+    // (card_overlays), and so do the results.
+    if (activityId != kPanelId || query_.empty()) return;
+    query_.clear();
+    searchNow();
+}
+
 void SearchProvider::onAction(const Action& action)
 {
     if (action.actionId == A::kTyped) {
@@ -98,6 +105,8 @@ void SearchProvider::onAction(const Action& action)
         open(0);
     } else if (action.actionId.rfind(A::kOpen, 0) == 0) {
         open(static_cast<std::size_t>(std::strtoul(action.actionId.c_str() + std::string_view(A::kOpen).size(), nullptr, 10)));
+    } else if (action.actionId.rfind(A::kReveal, 0) == 0) {
+        reveal(static_cast<std::size_t>(std::strtoul(action.actionId.c_str() + std::string_view(A::kReveal).size(), nullptr, 10)));
     }
 }
 
@@ -123,7 +132,8 @@ void SearchProvider::searchNow()
 
     std::uint64_t ask = ++fileAsk_;
     bool typed = !indexer::parseQuery(query_).empty();
-    if (!typed) {
+    if (!typed) { // nothing typed: the field alone (decision 079)
+        shown_.clear();
         files_.clear();
         filesNote_.clear();
         publish();
@@ -174,41 +184,50 @@ void SearchProvider::open(std::size_t index)
     if (started) host_->closeCard(kPanelId); // out of the way of what it started
 }
 
+void SearchProvider::reveal(std::size_t index)
+{
+    std::vector<Result> all = results();
+    if (index >= all.size() || !all[index].file) return;
+    if (hooks_.reveal && hooks_.reveal(all[index].target)) host_->closeCard(kPanelId);
+}
+
+std::shared_ptr<const ImageData> SearchProvider::iconFor(const std::string& target)
+{
+    if (auto it = icons_.find(target); it != icons_.end()) return it->second;
+    if (!hooks_.loadIcon) return nullptr;
+    if (icons_.size() >= tokens().searchIconCache) icons_.clear(); // rarely: read again as they're shown
+    icons_[target] = nullptr; // asked: not again while it comes
+    hooks_.loadIcon(target, [this, target, alive = alive_](std::shared_ptr<const ImageData> icon) {
+        if (!*alive || !icon) return;
+        icons_[target] = std::move(icon);
+        publish();
+    });
+    return nullptr;
+}
+
 void SearchProvider::publish()
 {
     Content c;
     c.label = "Search";
     c.tileLeading = { row({ Icon{ Glyph::Search } }, Align::Center) };
     c.tile = { row({ Text{ "Search", TextStyle::Title } }) };
-    // A page of rows edge to edge, like Settings (decision 030), whose field
-    // has the keys at once and closes with one Esc (Content::fieldFirst). A
-    // near miss between rows doesn't close it.
-    c.card = CardLayout::List;
+    // Wide, with a big field (CardLayout::Search, decision 079), which has
+    // the keys at once and closes with one Esc (Content::fieldFirst). A near
+    // miss between rows doesn't close it. As tall as its rows: the field
+    // alone until something's typed, then up to searchVisibleRows results.
+    c.card = CardLayout::Search;
     c.fieldFirst = A::kGo;
     c.keepOpen = true;
-    // One height whatever the results: sized by the field and a full window of
-    // rows, so the card doesn't jump as you type. The results start at the top
-    // and fill what's under the field (a fill list, Row::visibleRows < 0).
-    c.sizedLike.push_back(fieldRow());
-    auto rows = static_cast<std::size_t>(tokens().searchVisibleRows + 0.999f);
-    for (std::size_t i = 0; i < rows; ++i) c.sizedLike.push_back(resultRow(Glyph::Search, "x", "x", i));
-    if (rows > 0) c.sizedLike[1].visibleRows = tokens().searchVisibleRows; // the window, from the list's first row
-    c.pageAtTop = true;
-
     c.expandedCenter.push_back(fieldRow());
     std::vector<Result> all = results();
     bool typed = !indexer::parseQuery(query_).empty();
-    // Said under the field, above the list: the list must be the card's last rows to fill it.
-    std::string note = !filesNote_.empty()     ? filesNote_
-                       : typed && all.empty()  ? "Nothing found"
-                       : !typed && all.empty() ? "Type to find apps, settings and files"
-                                               : "";
-    if (!note.empty()) c.expandedCenter.push_back(row({ Text{ .value = note, .style = TextStyle::Caption, .centred = true } }));
+    std::string note = !filesNote_.empty() ? filesNote_ : typed && all.empty() ? "Nothing found" : "";
+    if (typed && !note.empty()) c.expandedCenter.push_back(row({ Text{ .value = note, .style = TextStyle::Caption, .centred = true } }));
     for (std::size_t i = 0; i < all.size(); ++i) {
         const Result& r = all[i];
         Glyph glyph = r.file ? (r.folder ? Glyph::Folder : Glyph::File) : glyphOf(r.kind);
-        c.expandedCenter.push_back(resultRow(glyph, r.name, r.caption, i));
-        if (i == 0) c.expandedCenter.back().visibleRows = -1; // fills the card's height under the field
+        c.expandedCenter.push_back(resultRow(glyph, iconFor(r.target), r, query_, hooks_.home, i));
+        if (i == 0) c.expandedCenter.back().visibleRows = tokens().searchVisibleRows; // the list's window, from its first row
     }
     host_->publishPanel({ .id = kPanelId, .content = std::move(c) });
 }

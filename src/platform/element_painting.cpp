@@ -231,16 +231,42 @@ void paintDial(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Dial& dial, Vec
                    lookOf(label.style).color);
 }
 
-void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec2 size)
+namespace {
+
+// `text` cut from its start to fit `width` ("…\\projects\\cwatis"): the
+// longest end that fits after the "…". DirectWrite only trims ends.
+std::wstring elidedStart(IDWriteFactory* dw, IDWriteTextFormat* f, const std::wstring& text, float width)
+{
+    auto widthOf = [&](const std::wstring& s) {
+        winrt::com_ptr<IDWriteTextLayout> layout;
+        if (FAILED(dw->CreateTextLayout(s.c_str(), static_cast<UINT32>(s.size()), f, 100000.0f, 1000.0f, layout.put()))) return 0.0f;
+        DWRITE_TEXT_METRICS m{};
+        layout->GetMetrics(&m);
+        return m.widthIncludingTrailingWhitespace;
+    };
+    if (widthOf(text) <= width) return text;
+    std::size_t lo = 0, hi = text.size();
+    while (lo < hi) { // the fewest characters cut from the start
+        std::size_t mid = (lo + hi) / 2;
+        if (widthOf(L"\u2026" + text.substr(mid)) <= width) hi = mid;
+        else lo = mid + 1;
+    }
+    if (lo < text.size() && text[lo] >= 0xDC00 && text[lo] <= 0xDFFF) ++lo; // never half a character
+    return L"\u2026" + text.substr(lo);
+}
+
+// One line of `text` in `rect`, as Text asks: struck, wrapped, with bright
+// digits or bright ranges, or plain.
+void paintLine(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, D2D1_RECT_F rect)
 {
     Color color = lookOf(text.style).color;
-    if (!text.struck && text.wrapped.empty() && !text.brightDigits) {
-        drawString(dc, formatOf(dw, text).get(), widen(text.value), size, color);
+    if (!text.struck && text.wrapped.empty() && !text.brightDigits && text.bright.empty()) {
+        drawString(dc, formatOf(dw, text).get(), widen(text.value), rect, color);
         return;
     }
-    // Wrapped, struck through (a solved to-do) or with bright digits: a layout carries the lines,
-    // the strikethrough, and each digit run's brush (decision 068).
-    auto layout = wrappedLayout(dw, text, size.x, size.y);
+    // Wrapped, struck through (a solved to-do), with bright digits (decision 068)
+    // or a search's matched parts (decision 079): a layout carries each run's look.
+    auto layout = wrappedLayout(dw, text, rect.right - rect.left, rect.bottom - rect.top);
     if (text.struck) layout->SetStrikethrough(TRUE, DWRITE_TEXT_RANGE{ 0, static_cast<UINT32>(widen(text.value).size()) });
     auto bright = brushOf(dc, tokens().titleTextColor); // kept alive until drawn
     if (text.brightDigits) {
@@ -252,8 +278,37 @@ void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec
             layout->SetDrawingEffect(bright.get(), DWRITE_TEXT_RANGE{ start, i - start });
         }
     }
-    dc->DrawTextLayout(D2D1::Point2F(0, 0), layout.get(), brushOf(dc, color).get(),
+    float heavier = std::min(999.0f, lookOf(text.style).weight + 200.0f);
+    for (auto [at, length] : text.bright) {
+        if (at >= text.value.size()) continue;
+        auto from = static_cast<UINT32>(utf16Index(text.value, at));
+        auto to = static_cast<UINT32>(utf16Index(text.value, std::min(text.value.size(), at + length)));
+        if (to <= from) continue;
+        DWRITE_TEXT_RANGE range{ from, to - from };
+        layout->SetDrawingEffect(bright.get(), range);
+        layout->SetFontWeight(static_cast<DWRITE_FONT_WEIGHT>(std::lround(heavier)), range);
+    }
+    dc->DrawTextLayout(D2D1::Point2F(rect.left, rect.top), layout.get(), brushOf(dc, color).get(),
                        D2D1_DRAW_TEXT_OPTIONS_CLIP | D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
+}
+
+} // namespace
+
+void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec2 size)
+{
+    if (text.detail.empty()) {
+        paintLine(dc, dw, text, D2D1::RectF(0, 0, size.x, size.y));
+        return;
+    }
+    // Two lines (decision 079): the text, then its detail in caption style,
+    // centred together in the frame as core sized it (item_metrics).
+    float first = lineHeight(text.style), second = lineHeight(TextStyle::Caption);
+    float top = std::max(0.0f, (size.y - first - second) / 2);
+    paintLine(dc, dw, text, D2D1::RectF(0, top, size.x, top + first));
+    Text detail{ .value = text.detail, .style = TextStyle::Caption, .alignEnd = text.alignEnd };
+    auto f = formatOf(dw, detail);
+    drawString(dc, f.get(), elidedStart(dw, f.get(), widen(text.detail), size.x), D2D1::RectF(0, top + first, size.x, top + first + second),
+               lookOf(TextStyle::Caption).color);
 }
 
 void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& label, Vec2 size, const Color& color, TextStyle style)
@@ -382,6 +437,19 @@ void paintTag(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Tag& tag, Vec2 s
     float fontSize = std::min(t.captionFontSize, size.y * 0.75f);
     auto f = format(dw, textFamily(dw, fontSize), fontSize, t.titleFontWeight, DWRITE_TEXT_ALIGNMENT_CENTER);
     drawString(dc, f.get(), widen(tag.text), size, t.tagTextColor);
+}
+
+void paintPicture(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float side)
+{
+    side = std::min({ side, size.x, size.y });
+    D2D1_MATRIX_3X2_F was{};
+    dc->GetTransform(&was);
+    // Whole pixels, like a glyph: an icon is drawn for its size, and a half
+    // pixel off blurs it.
+    float x = std::round((size.x - side) / 2), y = std::round((size.y - side) / 2);
+    dc->SetTransform(D2D1::Matrix3x2F::Translation(x, y) * was);
+    paintImage(dc, data, { side, side }, 0);
+    dc->SetTransform(was);
 }
 
 void paintImage(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float cornerRadius)

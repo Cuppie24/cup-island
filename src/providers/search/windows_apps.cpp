@@ -7,6 +7,10 @@
 #include <shlobj.h>
 #include <shobjidl.h>
 
+#include <condition_variable>
+#include <cstdlib>
+#include <deque>
+#include <mutex>
 #include <thread>
 
 namespace cup {
@@ -67,7 +71,95 @@ std::vector<Launchable> readApps()
     return out;
 }
 
+// One item's icon as the shell draws it, `side` pixels square, as
+// premultiplied BGRA (what Direct2D draws). Nothing if the shell has none.
+std::shared_ptr<const ImageData> readIcon(const std::wstring& target, int side)
+{
+    winrt::com_ptr<IShellItemImageFactory> factory;
+    if (FAILED(SHCreateItemFromParsingName(target.c_str(), nullptr, IID_PPV_ARGS(factory.put())))) return nullptr;
+    HBITMAP bitmap = nullptr;
+    if (FAILED(factory->GetImage(SIZE{ side, side }, SIIGBF_ICONONLY | SIIGBF_BIGGERSIZEOK, &bitmap)) || !bitmap) return nullptr;
+    BITMAP info{};
+    GetObjectW(bitmap, sizeof info, &info);
+    auto image = std::make_shared<ImageData>();
+    image->width = info.bmWidth;
+    image->height = std::abs(info.bmHeight);
+    image->bgra.resize(static_cast<std::size_t>(image->width) * static_cast<std::size_t>(image->height) * 4);
+    BITMAPINFO want{};
+    want.bmiHeader = { sizeof(BITMAPINFOHEADER), image->width, -image->height, 1, 32, BI_RGB };
+    HDC dc = GetDC(nullptr);
+    int lines = image->bgra.empty() ? 0 : GetDIBits(dc, bitmap, 0, static_cast<UINT>(image->height), image->bgra.data(), &want, DIB_RGB_COLORS);
+    ReleaseDC(nullptr, dc);
+    DeleteObject(bitmap);
+    if (lines != image->height) return nullptr;
+    // The shell's 32-bit icons carry premultiplied alpha; an old one with
+    // none at all (every alpha 0) is opaque, not invisible.
+    bool anyAlpha = false;
+    for (std::size_t i = 3; i < image->bgra.size() && !anyAlpha; i += 4) anyAlpha = image->bgra[i] != 0;
+    if (!anyAlpha)
+        for (std::size_t i = 3; i < image->bgra.size(); i += 4) image->bgra[i] = 255;
+    return image;
+}
+
+// Icons are read one at a time on a thread of their own (the shell wants a
+// single-threaded apartment, and a slow drive must not hold up the island).
+struct IconJob {
+    std::wstring target;
+    int side = 0;
+    winrt::Windows::System::DispatcherQueue queue{ nullptr };
+    std::function<void(std::shared_ptr<const ImageData>)> done;
+};
+std::mutex g_iconLock;
+std::condition_variable g_iconWake;
+std::deque<IconJob> g_iconJobs;
+
+void iconWorker()
+{
+    (void)CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED); // never left: the thread lives as long as the app
+    for (;;) {
+        IconJob job;
+        {
+            std::unique_lock lock(g_iconLock);
+            g_iconWake.wait(lock, [] { return !g_iconJobs.empty(); });
+            job = std::move(g_iconJobs.front());
+            g_iconJobs.pop_front();
+        }
+        auto icon = readIcon(job.target, job.side);
+        if (job.queue) job.queue.TryEnqueue([icon, done = std::move(job.done)] { done(icon); });
+    }
+}
+
 } // namespace
+
+void loadIcon(const std::string& target, int side, std::function<void(std::shared_ptr<const ImageData>)> done)
+{
+    static std::once_flag started;
+    std::call_once(started, [] { std::thread(iconWorker).detach(); }); // lives as long as the app
+    {
+        std::lock_guard lock(g_iconLock);
+        g_iconJobs.push_back({ wide(target), side, winrt::Windows::System::DispatcherQueue::GetForCurrentThread(), std::move(done) });
+    }
+    g_iconWake.notify_one();
+}
+
+bool revealPath(const std::string& path)
+{
+    PIDLIST_ABSOLUTE item = nullptr;
+    if (FAILED(SHParseDisplayName(wide(path).c_str(), nullptr, &item, 0, nullptr))) return false;
+    bool ok = SUCCEEDED(SHOpenFolderAndSelectItems(item, 0, nullptr, 0)); // its folder, it selected
+    CoTaskMemFree(item);
+    if (!ok) platform::logLine("search: couldn't show %s in its folder", path.c_str());
+    return ok;
+}
+
+std::string userFolder()
+{
+    PWSTR path = nullptr;
+    std::string out;
+    if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Profile, 0, nullptr, &path))) out = utf8(path);
+    CoTaskMemFree(path);
+    return out;
+}
 
 void loadWindowsApps(std::function<void(std::vector<Launchable>)> done)
 {

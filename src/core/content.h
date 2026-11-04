@@ -9,6 +9,7 @@
 #include <optional>
 #include <string>
 #include <variant>
+#include <utility>
 #include <vector>
 
 namespace cup {
@@ -80,6 +81,13 @@ struct Text {
     // edges, or in a hugging row): a value that changes keeps one column, and
     // rows with it line up ("120 min" for "5 min" and "25 min", decision 063).
     std::string sizedAs;
+    // A second line under it, in caption style: a search result's folder
+    // (decision 079). Too long, it loses its start, not its end
+    // ("…\\projects\\cwatis\\Debug"): for a path, the end tells two apart.
+    std::string detail;
+    // Parts drawn brighter and bolder: (byte offset, byte length) into
+    // `value`, what a search matched (decision 079).
+    std::vector<std::pair<std::size_t, std::size_t>> bright;
     // Short of room in its row, this text gives up its width before the row's
     // other texts do: a file's folder beside its name, so the name stays
     // readable and the path takes the "…" (search, decision 079).
@@ -122,6 +130,9 @@ struct Button {
     // Primary: the card's one main action (Pomodoro's ▶ / ⏸), a filled circle
     // primaryButtonSize wide, its glyph in the island's colour (decision 064).
     bool primary = false;
+    // Drawn instead of the glyph, resultIconSize square (the glyph stays the
+    // fallback): a search result's own icon from Windows (decision 079).
+    std::shared_ptr<const ImageData> picture;
     bool operator==(const Button&) const = default;
 };
 
@@ -141,6 +152,8 @@ struct TextInput {
     std::string wrapped;     // ...a wrapping one (Text::wrap): `value` broken into lines, like Text::wrapped
     // Set by the provider: at most this many characters (decision 045). 0: no limit.
     std::size_t maxLength = 0;
+    // searchInputHeight tall, its text searchInputFontSize: a search card's field (decision 079).
+    bool large = false;
     // A live field (search, decision 079): set, every edit sends this action
     // with the field's whole text, not just Enter (which still sends
     // actionId). Typing, erasing, pasting and cutting all count.
@@ -241,7 +254,10 @@ enum class RowSpan { Slot, MatchAbove, MatchBelow };
 //            control panel or a timer, nothing to put in an art square.
 //  List:     like Centred, with wider sides (listCardInset): a page of
 //            settings, rows edge to edge (decision 030).
-enum class CardLayout { Standard, Centred, List };
+//  Search:   like List, but searchCardWidth wide with rows across all of it,
+//            and only as tall as its rows: the field alone until there are
+//            results (decision 079).
+enum class CardLayout { Standard, Centred, List, Search };
 
 // A horizontal row of items. Text and Progress stretch; everything else has a fixed size.
 struct Row {

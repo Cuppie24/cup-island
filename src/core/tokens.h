@@ -48,7 +48,7 @@ struct Tokens {
     // along its top edge (decision 026), and this tall (TR §5, §9.1). The
     // width here is only a minimum, and the width layout() uses until the
     // platform says (tests).
-    Vec2 canvas{ 540, 720 }; // room for the largest pill (a Centred card at its tallest, with tabs) and its shadow
+    Vec2 canvas{ 720, 720 }; // room for the largest pill (the search card, a Centred card at its tallest, with tabs) and its shadow
 
     // One knob for the island's overall size: every length below is
     // multiplied by it, on top of the display's scaling (decision 017).
@@ -77,6 +77,12 @@ struct Tokens {
     float listCardVerticalInset = 6;  // ...this much more above and below its rows
     float listCardVisibleRows = 9.5f; // ...and a page that is one list (Settings' root) scrolls past this many rows (decision 037)
     float listCardMinHeight = 240;    // ...and never shorter than this: room to breathe (decision 030)
+    // CardLayout::Search (decision 079): wider than other cards, as tall as
+    // its rows (just the field when nothing is typed), and a bigger field.
+    float searchCardWidth = 640;
+    float searchInputHeight = 48;
+    float searchInputFontSize = 19;
+    float resultIconSize = 24;           // a search result's icon (Button::picture)
     float expandedArtSize = 68; // expanded leading square: as tall as title + artist + caption beside it
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;
@@ -377,6 +383,7 @@ struct Tokens {
     std::size_t searchAppRows = 5;
     std::size_t searchSettingRows = 3;
     std::size_t searchFileRows = 8;
+    std::size_t searchIconCache = 400; // result icons kept in memory; past it, they're all read again
     float searchVisibleRows = 8.5f;
     Ms launcherRefresh{ 600000 };
 

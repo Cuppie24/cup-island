@@ -15,11 +15,12 @@ void submitText(IslandState& state, Ms now); // the field empties and keeps focu
 void showDialog(IslandState& state, const DialogShown& e, Ms now); // only over the shown card; typing stops
 
 // After every event: a draft, dialog or list drag whose card isn't the one shown any more is dropped.
-// A field's unsent text is kept (IslandState::keptText, decision 050).
+// A field's unsent text is kept (IslandState::keptText, decision 050), but not
+// a fieldFirst card's: it opens empty (decision 079).
 void dropStaleOverlays(IslandState& state);
 
 // A shown card that is its field (Content::fieldFirst, decision 079): its
-// field gets the keys, with its kept text (decision 050), unless something
+// field gets the keys, with any kept text (while the card stays open), unless something
 // else has them (another field, a dialog). Not a touch: the idle timeout
 // still counts from the last real one.
 void focusFieldFirst(IslandState& state);
