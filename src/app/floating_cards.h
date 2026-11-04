@@ -20,7 +20,7 @@ namespace cup::app {
 // What it needs from the app, which owns the state and the loop (main.cpp).
 struct FloatHooks {
     HINSTANCE instance{};
-    wuc::Compositor compositor{ nullptr };             // the island's: every card's visuals on it
+    platform::wuc::Compositor compositor{ nullptr };   // the island's: every card's visuals on it
     std::function<void(const Event&, const char* reason)> dispatch;
     MeasureText measure;                                // the island renderer's real font
     std::function<Rect()> pill;                         // the pill on screen (screen px): where a card grows out of
