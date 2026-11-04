@@ -104,8 +104,7 @@ jobs:
           if ($env:MANDATORY -eq 'true') {
               $text = "**Required update:** installed copies install it by themselves at their next start.`n`n<!-- cup-island: mandatory -->`n$text"
           }
-          # Services from before decision 081 can only download their installer,
-          # so it's still attached to this release. Once they've all updated
-          # (the release after the first one with this step), drop $index here.
-          gh release create "v$env:VERSION" "dist/CupIsland-Setup-$env:VERSION.exe" $index `
+          # Only the app's installer on the page: the service's rides inside it
+          # (decision 081; 0.8.8 and 0.8.9 still attached it for older services).
+          gh release create "v$env:VERSION" "dist/CupIsland-Setup-$env:VERSION.exe" `
             --target "$env:GITHUB_SHA" --title "Cup Island $env:VERSION" --generate-notes --latest --notes $text
