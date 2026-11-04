@@ -44,7 +44,9 @@ std::vector<Focusable> focusables(const Scene& scene)
         if (!clickable(p.item) || (dialog && !dialogButton(p.item))) continue;
         // A whole-row button (Row::clickAnywhere) is aimed at by its row, which is what lights up.
         Rect frame = p.listRow ? *p.listRow : p.frame;
-        if (p.list) frame = p.frame.height > 0 ? Rect{ frame.x, p.frame.y, frame.width, p.frame.height } : frame; // where the row is, scrolled
+        // In a list, the row where it is, scrolled and whole (the window clips listRow): the
+        // keys' highlight is as big as the pointer's (decision 079).
+        if (p.list) frame = p.wholeRow ? *p.wholeRow : p.frame.height > 0 ? Rect{ frame.x, p.frame.y, frame.width, p.frame.height } : frame;
         Vec2 point = empty(p.hitFrame) ? centre(p.frame) : centre(p.hitFrame);
         float radius = p.listRow ? p.listRowRadius : p.cornerRadius;
         found.push_back({ "el:" + p.key, frame, point, p.list, p.activityId, radius });

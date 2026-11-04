@@ -258,6 +258,7 @@ void layoutTests()
         }
         if (auto* text = std::get_if<Text>(&e.item); text && !name && text->value.rfind("wallpaper", 0) == 0) name = &e;
     }
+    expect(!big.tabs && tabsBottom == 0, "no tab row over it, though other cards are open (Content::hidesTabs)");
     expect(field && field->frame.y >= tabsBottom && field->frame.y + field->frame.height <= big.size.y,
            "with many results the field stays in the card, clear of the tab row");
     expect(listed > 0 && listTop >= field->frame.y + field->frame.height && listBottom <= big.size.y,
@@ -275,6 +276,14 @@ void layoutTests()
     expect(second && moveAmongRows(big, second->id, Arrow::Up)->id == first->id, "Up: back a row");
     expect(first && !moveAmongRows(big, first->id, Arrow::Up), "Up from the first row: back to typing, nothing highlighted");
     expect(first && defaultRow(big) && defaultRow(big)->id == first->id, "typing, the first row is the one lit: Enter opens it");
+    const Placed* firstButton = nullptr;
+    for (const Placed& e : big.elements)
+        if (first && "el:" + e.key == first->id) firstButton = &e;
+    expect(first && firstButton && firstButton->listRow && first->frame.height == firstButton->listRow->height &&
+               first->frame.height > firstButton->frame.height,
+           "the keys light the whole row, as the pointer does, not just its icon");
+    expect(firstButton && firstButton->listRow->height >= 2 * tokens().listItemPadding + tokens().buttonSize,
+           "a result row is as tall as a full-size icon button");
     expect(!moveAmongRows(big, "", Arrow::Up), "Up with nothing highlighted: still typing");
     std::string at = first ? first->id : "";
     for (int i = 0; i < 30 && !at.empty(); ++i) at = moveAmongRows(big, at, Arrow::Down)->id;

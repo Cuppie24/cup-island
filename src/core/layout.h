@@ -37,6 +37,7 @@ struct Placed {
     std::optional<Color> accent; // the content's accent, for the renderer to tint live data (decision 010)
     std::optional<InList> list;  // in a scrolling list: its frame and hit area are already scrolled (and clipped)
     std::optional<Rect> listRow; // its row is a list item (Row::listItem): lit here while the pointer is on the row
+    std::optional<Rect> wholeRow; // ...listRow before the list's window clipped it: where the keys' highlight goes
     float listRowRadius = 0;
     bool litByRow = false;       // the row's background is its hover: no shape of its own (Row::clickAnywhere)
     std::string providerId;

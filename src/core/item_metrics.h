@@ -10,6 +10,8 @@
 namespace cup {
 
 float lineHeight(TextStyle style); // a line of text in this style
+// The style of a Text::detail line under text in `style` (decision 079).
+TextStyle detailStyleOf(TextStyle style);
 bool isRing(const Item& item);
 // A Dial's diameter: its widest time and its label, as a block, fit inside the circle, dialInset in (decision 065).
 float dialDiameter(const Dial& dial, const MeasureText& measure);

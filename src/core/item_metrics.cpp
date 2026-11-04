@@ -31,6 +31,8 @@ std::string widestDigits(std::string s, TextStyle style, const MeasureText& meas
 
 float lineHeight(TextStyle style) { return std::ceil(fontSize(style) * 1.3f); }
 
+TextStyle detailStyleOf(TextStyle style) { return style == TextStyle::Result ? TextStyle::ResultDetail : TextStyle::Caption; }
+
 bool isRing(const Item& item)
 {
     auto* progress = std::get_if<Progress>(&item);
@@ -55,7 +57,7 @@ float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& m
     const Tokens& t = tokens();
     if (auto* dial = std::get_if<Dial>(&item)) return dialDiameter(*dial, measure);
     if (auto* text = std::get_if<Text>(&item)) // a detail line under it: a caption's height more (decision 079)
-        return lineHeight(text->style) + (text->detail.empty() ? 0.0f : lineHeight(TextStyle::Caption));
+        return lineHeight(text->style) + (text->detail.empty() ? 0.0f : lineHeight(detailStyleOf(text->style)));
     if (std::holds_alternative<Image>(item)) return std::min(slot.width, slot.height);
     if (isRing(item)) return ringSide;
     if (std::holds_alternative<Steps>(item)) return t.stepDotSize;
@@ -116,6 +118,8 @@ float fontSize(TextStyle style)
     case TextStyle::Digits: return t.captionFontSize;
     case TextStyle::Display: return t.displayFontSize;
     case TextStyle::Heading: return t.headingFontSize;
+    case TextStyle::Result: return t.resultFontSize;
+    case TextStyle::ResultDetail: return t.resultDetailFontSize;
     }
     return t.bodyFontSize;
 }

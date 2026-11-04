@@ -82,7 +82,9 @@ struct Tokens {
     float searchCardWidth = 640;
     float searchInputHeight = 48;
     float searchInputFontSize = 19;
-    float resultIconSize = 24;           // a search result's icon (Button::picture)
+    float resultIconSize = 32;           // a search result's icon (Button::picture)
+    float resultFontSize = 17;           // TextStyle::Result: a search result's name
+    float resultDetailFontSize = 14;     // TextStyle::ResultDetail: where it is, under it
     float expandedArtSize = 68; // expanded leading square: as tall as title + artist + caption beside it
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;

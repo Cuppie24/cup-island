@@ -218,6 +218,7 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
             p.frame.y += tabSpace;
             p.hitFrame.y += tabSpace;
             if (p.listRow) p.listRow->y += tabSpace;
+            if (p.wholeRow) p.wholeRow->y += tabSpace;
             if (p.list) p.list->viewport.y += tabSpace;
         }
         for (Tile& tile : scene.tiles) tile.frame.y += tabSpace;

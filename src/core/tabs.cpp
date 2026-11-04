@@ -13,6 +13,11 @@ namespace {
 bool hasTabs(const IslandState& s)
 {
     if (mode(s) != Mode::Expanded) return false;
+    if (auto card = shownCard(s)) { // a card that hides them (Content::hidesTabs)
+        const Activity* a = findActivity(s, card->activityId);
+        const Panel* p = a ? nullptr : findPanel(s, card->activityId);
+        if ((a && a->content.hidesTabs) || (p && p->content.hidesTabs)) return false;
+    }
     bool home = !s.panels.empty();
     bool dormantCard = !s.homeOpen && !findActivity(s, s.expandedId);
     return s.activities.size() + (home ? 1 : 0) > 1 || (home && (dormantCard || s.homeOpen));

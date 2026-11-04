@@ -44,6 +44,8 @@ const Field kFields[] = {
     { "searchInputHeight", &Tokens::searchInputHeight },
     { "searchInputFontSize", &Tokens::searchInputFontSize },
     { "resultIconSize", &Tokens::resultIconSize },
+    { "resultFontSize", &Tokens::resultFontSize },
+    { "resultDetailFontSize", &Tokens::resultDetailFontSize },
     { "listCardMinHeight", &Tokens::listCardMinHeight },
     { "expandedArtSize", &Tokens::expandedArtSize },
     { "slotGap", &Tokens::slotGap },
