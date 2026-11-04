@@ -59,11 +59,15 @@ void parseTests()
     expect(f.kind == Kind::Folders && f.words == std::vector<std::string>{ "music" }, "folder:x is a folder named like x");
     expect(parseQuery("note:1").words == std::vector<std::string>{ "note:1" }, "other colons are plain text");
     Query paths = parseQuery("Personal/Documents d:\\Work\\ \\x / report");
-    expect(paths.paths.size() == 3 && paths.paths[0] == PathWord{ "personal\\documents", "documents" } &&
-           paths.paths[1] == PathWord{ "\\work", "work" } && paths.paths[2] == PathWord{ "\\x", "x" } &&
-           paths.words == std::vector<std::string>{ "report" }, "path words: '/' as '\\', lower case, the drive dropped");
-    expect(paths.kind == Kind::Folders && parseQuery("a/b").kind == Kind::Any, "a trailing separator: folders only");
-    expect(!parseQuery("///").empty() == false && parseQuery("a/b").words.empty(), "only separators is nothing; a path word isn't a name word");
+    expect(paths.paths.size() == 3 && paths.paths[0] == PathWord{ "personal\\documents", "documents", false } &&
+           paths.paths[1] == PathWord{ "\\work", "work", true } && paths.paths[2] == PathWord{ "\\x", "x", false } &&
+           paths.words == std::vector<std::string>{ "report" } && paths.drive == 'd',
+           "path words: '/' as '\\', lower case; a drive is kept apart, and anchors its word at the root");
+    expect(paths.kind == Kind::Any && parseQuery("documents/").paths == std::vector<PathWord>{ { "documents", "documents", false } },
+           "a trailing separator is dropped: documents/ is documents, as a path word");
+    expect(parseQuery("///").empty() && parseQuery("a/b").words.empty(), "only separators is nothing; a path word isn't a name word");
+    Query drive = parseQuery("D:/");
+    expect(!drive.empty() && drive.driveOnly() && drive.drive == 'd' && drive.paths.empty(), "a drive alone: its top level");
     expect(parseQuery("path:\"my music\"").pathWords == std::vector<std::string>{ "my music" }, "a quoted filter value");
     expect(parseQuery("ОТЧЕТ Книги").words == std::vector<std::string>{ "отчет", "книги" }, "Russian words are lowered too");
     expect(parseQuery("   ").empty() && parseQuery("file:").empty() && parseQuery("ext:").empty(), "nothing to look for");
@@ -139,10 +143,27 @@ void pathTests()
     expect(find("personal/documents") == std::vector<std::uint32_t>{ 22, 28, 26 },
            "a path word: its last part names the item, the whole is in its path");
     expect(find("/personal/documents") == std::vector<std::uint32_t>{ 22, 26 }, "a leading separator starts at a folder: not MyPersonal");
-    expect(find("D:\\Personal\\Documents\\") == std::vector<std::uint32_t>{ 22 }, "backslashes, a drive and a trailing separator: that folder");
+    expect(find("D:\\Personal\\Documents\\") == std::vector<std::uint32_t>{ 22, 26 },
+           "backslashes, a drive and a trailing separator: that folder, from the root, and what's in it");
     expect(find("work/documents") == std::vector<std::uint32_t>{}, "the parts must be next to each other in the path");
     expect(find("work/old/doc") == std::vector<std::uint32_t>{ 25 }, "the last part can be the start of the name");
     expect(find("personal/documents ext:txt") == std::vector<std::uint32_t>{ 26 }, "with filters too");
+
+    // The first run on a real PC (decision 075): D:\\Documents\\Micros.
+    FileIndex d;
+    d.put(refOf(20, 1), root, "Documents", kFolder);
+    d.put(refOf(21, 1), refOf(20, 1), "Micros", kFolder);
+    d.put(refOf(22, 1), refOf(21, 1), "notes.txt", 0);
+    d.put(refOf(23, 1), refOf(20, 1), "cv.pdf", 0);
+    d.put(refOf(24, 1), root, "Games", kFolder);
+    d.put(refOf(25, 1), refOf(24, 1), "Documents", kFolder); // D:\\Games\\Documents
+    auto on = [&](const char* text) { return records(search(d, parseQuery(text), 50)); };
+    expect(on("documents/") == std::vector<std::uint32_t>{ 20, 25, 21, 23, 22 },
+           "documents/: the Documents folders themselves first, then what's in them, shorter paths first");
+    expect(on("documents/micros") == std::vector<std::uint32_t>{ 21, 22 }, "documents/micros: Micros, then its contents");
+    expect(on("d:/") == std::vector<std::uint32_t>{ 24, 20 }, "d:/: the drive's top level");
+    expect(on("d:/documents") == std::vector<std::uint32_t>{ 20, 21, 23, 22 }, "d:/documents: that one, from the root, not Games\\Documents");
+    expect(on("documents/ ext:pdf") == std::vector<std::uint32_t>{ 23 }, "and filters still apply");
 }
 
 void rankingTests()

@@ -51,12 +51,20 @@ open. The island runs as the user, installed per user without a UAC prompt
   (А–Я, not Ё): both fold within the same UTF-8 length, so matching stays
   byte by byte. Full Unicode folding (tables, NFC) was weighed and left out
   for speed and size.
-  - **Path words:** a word with `/` or `\` (`personal/documents`) names
-    the item by its last part and must appear whole in the item's own path,
-    so one Documents folder among many can be picked. A drive letter is
-    dropped (each drive is searched on its own), a leading separator starts
-    at a folder (`/documents` isn't `mydocuments`), a trailing one means
-    folders only (`documents/`).
+  - **Path words:** a word with `/` or `\` is matched against whole
+    paths, as Everything does. An item matches if its own path holds the
+    word ending in its name (`documents/micros` is `…\Documents\Micros`),
+    ranked like a name match, or if it's inside a folder that does, ranked
+    after (its contents, shorter paths first). A trailing separator is
+    dropped: `documents/` is the Documents folders themselves, then what's in
+    them. A drive letter keeps the search to that drive and anchors the word
+    at its root (`d:/documents` is `D:\Documents`, not any Documents);
+    `d:/` alone lists the drive's top level. (Its first version needed the
+    last part to name the item and read a trailing `/` as "folders only", so
+    `documents/` found one folder and `d:/` nothing: changed after the first
+    run.) Checked per folder once per search (`PathMemo`): a folder holds
+    the word if its parent does, and a path is built only for folders whose
+    names could end the word.
   - **Ranked:** whole name (or a file's name before its extension:
     "notepad" is notepad.exe's whole name), then name prefix, word start,
     anywhere; on a tie the **shorter path** (fewer folders above it:

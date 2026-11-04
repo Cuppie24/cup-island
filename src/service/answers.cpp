@@ -25,6 +25,14 @@ std::string answerQuery(const QueryRequest& request, const std::vector<std::uniq
     std::vector<std::vector<Found>> found;
     std::vector<std::vector<Hit>> hits;
     for (const auto& volume : volumes) {
+        // A path word's drive ("d:/x", query.h): only that drive is searched.
+        const std::string& root = volume->volume().root;
+        char letter = root.empty() ? 0 : static_cast<char>(root[0] >= 'A' && root[0] <= 'Z' ? root[0] - 'A' + 'a' : root[0]);
+        if (query.drive && letter != query.drive) {
+            found.emplace_back();
+            hits.emplace_back();
+            continue;
+        }
         found.push_back(volume->find(query, candidates));
         hits.emplace_back();
         for (const Found& f : found.back()) hits.back().push_back(f.hit);
