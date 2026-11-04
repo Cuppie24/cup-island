@@ -205,6 +205,7 @@ if(WIN32)
         src/platform/switch_parts.cpp
         src/platform/list_viewports.cpp
         src/platform/file_watcher.cpp
+        src/platform/float_flow.cpp
         src/platform/float_window.cpp
         src/platform/fullscreen_watcher.cpp
         src/platform/graphics_device.cpp

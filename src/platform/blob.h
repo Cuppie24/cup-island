@@ -61,6 +61,15 @@ public:
     // start (no fold animation). Again with a new radius after a tokens reload.
     void detach(float radius);
 
+    // A card flowing out of the pill, or back into it (decision 081):
+    // there now, with no morph, hanging from the edge (the island's flared
+    // top and corners) or off it with `radius` corners...
+    void snapTo(Vec2 size, Vec2 offset);
+    void setShapeNow(bool attached, float radius);
+    // ...then off the edge or onto it as the island lifts and lands (decision
+    // 026: the ears fold first), its corners easing to `radius` over `duration`.
+    void flowShape(bool attached, float radius, Ms duration);
+
     // Tactile click feedback: squash on press, spring back on release.
     void pressDown();
     void pressRelease();

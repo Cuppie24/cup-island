@@ -8,6 +8,7 @@
 #include "app/surface.h"
 #include "core/island.h"
 #include "core/layout.h"
+#include "platform/graphics_device.h"
 #include "platform/interaction_layer.h"
 #include "platform/win.h"
 
@@ -21,6 +22,7 @@ namespace cup::app {
 struct FloatHooks {
     HINSTANCE instance{};
     platform::wuc::Compositor compositor{ nullptr };   // the island's: every card's visuals on it
+    platform::GraphicsDevice* device = nullptr;         // the island renderer's, for the flow's shape
     std::function<void(const Event&, const char* reason)> dispatch;
     MeasureText measure;                                // the island renderer's real font
     std::function<Rect()> pill;                         // the pill on screen (screen px): where a card grows out of
@@ -42,9 +44,9 @@ void setFloatHooks(FloatHooks hooks);
 
 // After every dispatch: lays the cards out from this state, then, once the
 // dispatch is over (queued: raising a card dispatches again), opens the
-// cards that came (popping in, with the keys), redraws the rest, brings one
+// cards that came (flowing out of the pill, then with the keys), redraws the rest, brings one
 // forward when core says, hides them while the island is Hidden, and sends
-// back the ones that went (remembering where they were).
+// back the ones that went, flowing into the pill (remembering where they were).
 void syncFloats(const IslandState& state, Ms now);
 
 Surface* floatSurface(const std::string& cardId); // nullptr: that card isn't floating

@@ -8,6 +8,7 @@
 #include "platform/spring_motion.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace cup::platform {
 
@@ -92,6 +93,39 @@ void Blob::detach(float radius)
     shape_.InsertScalar(L"LeftEar", 0.0f);
     shape_.InsertScalar(L"RightEar", 0.0f);
     leftEar_ = rightEar_ = false;
+}
+
+void Blob::snapTo(Vec2 size, Vec2 offset)
+{
+    offset = { std::round(offset.x), std::round(offset.y) };
+    body_.ImplicitAnimations(nullptr); // set, not morphed
+    body_.Size(toFloat2(size));
+    body_.Offset(toFloat3(offset));
+    body_.ImplicitAnimations(implicit_);
+    size_ = size;
+    offset_ = offset;
+}
+
+void Blob::setShapeNow(bool attached, float radius)
+{
+    float on = attached ? 1.0f : 0.0f;
+    detachedRadius_ = attached ? std::nullopt : std::optional<float>(radius);
+    shape_.InsertScalar(L"MaxRadius", radius);
+    shape_.InsertScalar(L"Attached", on);
+    shape_.InsertScalar(L"Flare", on);
+    shape_.InsertScalar(L"LeftEar", on);
+    shape_.InsertScalar(L"RightEar", on);
+    leftEar_ = rightEar_ = attached;
+}
+
+void Blob::flowShape(bool attached, float radius, Ms duration)
+{
+    detachedRadius_ = attached ? std::nullopt : std::optional<float>(radius);
+    setAttached(attached);
+    auto corners = compositor_.CreateScalarKeyFrameAnimation();
+    corners.InsertKeyFrame(1.0f, radius, easingFor(compositor_, tokens().morphEase));
+    corners.Duration(std::max(duration, Ms{ 1 }));
+    shape_.StartAnimation(L"MaxRadius", corners);
 }
 
 void Blob::setEars(bool left, bool right)

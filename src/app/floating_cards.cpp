@@ -6,6 +6,7 @@
 #include "core/motion.h"
 #include "core/tokens.h"
 #include "platform/displays.h"
+#include "platform/float_flow.h"
 #include "platform/float_window.h"
 #include "platform/log.h"
 #include "platform/pill_renderer.h"
@@ -31,11 +32,13 @@ struct FloatCard {
     FloatWindow window;
     std::string providerId;
     std::uint64_t raised = 0; // the FloatingCard::raised last acted on
+    bool arrived = false;     // its flow out of the pill is over: its windows show
 };
 
 FloatHooks g_hooks;
 std::map<std::string, std::unique_ptr<FloatCard>> g_cards; // by card id; stable, the windows' callbacks find them here
-std::vector<std::unique_ptr<FloatCard>> g_going;           // sent back, shrinking until their animation ends
+std::vector<std::unique_ptr<FloatCard>> g_going;           // sent back, kept until their flow into the pill ends
+platform::FloatFlow g_flow;                                 // the shape flowing between the pill and a card
 Places g_places;
 bool g_placesRead = false;
 
@@ -157,11 +160,20 @@ void openCard(const Wanted& want, bool shown)
     card.providerId = f.providerId;
     card.raised = f.raised;
     platform::logLine("card floats: %s", f.activityId.c_str());
-    card.window.show(shown);
-    card.renderer.appear();
-    card.window.raise(true);
-    platform::raiseIsland(); // the island stays over its cards
-    if (want.savedSize) g_hooks.dispatch(FloatResized{ f.activityId, scene.size }, "card at its saved size");
+    // It flows out of the pill into its place; its own windows show, with
+    // the keys, once it's there (decision 081).
+    std::string id = f.activityId;
+    g_flow.out(g_hooks.instance, g_hooks.compositor, *g_hooks.device, g_hooks.pill(), at, [id, shown] {
+        auto it = g_cards.find(id);
+        if (it == g_cards.end()) return; // sent back meanwhile
+        FloatCard& arrived = *it->second;
+        arrived.arrived = true;
+        arrived.window.show(shown);
+        arrived.renderer.appear();
+        arrived.window.raise(true);
+        platform::raiseIsland(); // the island stays over its cards
+    });
+    platform::raiseIsland(); // over the flow too: it comes out from under the pill g_hooks.dispatch(FloatResized{ f.activityId, scene.size }, "card at its saved size");
 }
 
 void updateCard(FloatCard& card, const Wanted& want, bool shown)
@@ -179,6 +191,7 @@ void updateCard(FloatCard& card, const Wanted& want, bool shown)
     if (dragged) motion.morph.duration = Ms{ 1 };
     card.renderer.apply(scene, motion);
     card.surface.scene = std::move(scene);
+    if (!card.arrived) return; // still flowing out of the pill: shown when it's there
     card.window.show(shown);
     if (want.card.raised != card.raised) {
         card.raised = want.card.raised;
@@ -195,14 +208,17 @@ void sendBack(const std::string& id)
     g_cards.erase(it);
     rememberPlace(*card);
     card->window.hideInput(); // no clicks on a card that's going
+    Rect from = card->window.card();
+    card->window.show(false); // its shape flows back into the pill instead (decision 081)
     FloatCard* going = card.get();
     g_going.push_back(std::move(card));
-    going->renderer.vanish([going] {
-        // Not destroyed inside its own animation's callback: next, on its own.
+    g_flow.in(g_hooks.instance, g_hooks.compositor, *g_hooks.device, from, g_hooks.pill(), [going] {
+        // Not inside the flow's own callback: next, on its own.
         auto drop = [going] { std::erase_if(g_going, [going](const auto& c) { return c.get() == going; }); };
         auto queue = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
         if (!queue || !queue.TryEnqueue(drop)) drop();
     });
+    platform::raiseIsland(); // it goes in under the pill
     platform::logLine("card back in the pill: %s", id.c_str());
 }
 
@@ -294,6 +310,7 @@ void setFloatTextCursor(const Surface& surface, bool text)
 
 void closeAllFloats()
 {
+    g_flow.destroy();
     g_cards.clear();
     g_going.clear();
 }
