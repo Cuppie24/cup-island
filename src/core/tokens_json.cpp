@@ -41,6 +41,7 @@ const Field kFields[] = {
     { "listCardVerticalInset", &Tokens::listCardVerticalInset },
     { "listCardVisibleRows", &Tokens::listCardVisibleRows },
     { "searchCardWidth", &Tokens::searchCardWidth },
+    { "wideCardWidth", &Tokens::wideCardWidth },
     { "searchInputHeight", &Tokens::searchInputHeight },
     { "searchInputFontSize", &Tokens::searchInputFontSize },
     { "resultIconSize", &Tokens::resultIconSize },

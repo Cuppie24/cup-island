@@ -80,6 +80,7 @@ struct Tokens {
     // CardLayout::Search (decision 079): wider than other cards, as tall as
     // its rows (just the field when nothing is typed), and a bigger field.
     float searchCardWidth = 640;
+    float wideCardWidth = 640; // a card that asks for more room (Content::wideCard, decision 085): the timer
     float searchInputHeight = 48;
     float searchInputFontSize = 19;
     float resultIconSize = 32;           // a search result's icon (Button::picture)

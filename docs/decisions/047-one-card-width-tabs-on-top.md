@@ -1,6 +1,6 @@
 # 047: One card width; the tab row on top
 
-Status: Accepted (amends 009 and 043)
+Status: Accepted (amends 009 and 043); amended by 085: the timer's card is wider
 
 **Context.** Pomodoro's card was 440 wide (decision 043), every other card
 and Home 380: switching between them changed the island's width for no

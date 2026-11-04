@@ -105,6 +105,7 @@ void planTests()
     island.send(PillClicked{});
     island.send(TileClicked{ PomodoroProvider::kPanelId });
     Scene card = island.scene();
+    expect(card.size.x == t.wideCardWidth, "the timer's card is wider than other cards (decision 085)");
     auto textAt = [&](const Scene& sc, const std::string& key) {
         const Placed* p = find(sc, key);
         return p && std::holds_alternative<Text>(p->item) ? std::get<Text>(p->item).value : std::string();

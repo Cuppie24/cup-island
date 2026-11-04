@@ -405,6 +405,9 @@ struct Content {
     // Its card floats apart from the island, which keeps showing the pill
     // (decision 081). None: the island expands.
     std::optional<FloatSpec> floating;
+    // Its card is wideCardWidth wide, not every card's expandedSize (decision
+    // 085): room for what it shows side by side (the timer). Its pages too.
+    bool wideCard = false;
     Slot compactLeading;
     Slot compactCenter;  // between the two compact squares, e.g. a swimming title
     Slot compactTrailing;
