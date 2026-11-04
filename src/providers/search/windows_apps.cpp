@@ -142,6 +142,11 @@ void loadIcon(const std::string& target, int side, std::function<void(std::share
     g_iconWake.notify_one();
 }
 
+bool pathExists(const std::string& path)
+{
+    return GetFileAttributesW(wide(path).c_str()) != INVALID_FILE_ATTRIBUTES;
+}
+
 bool revealPath(const std::string& path)
 {
     PIDLIST_ABSOLUTE item = nullptr;

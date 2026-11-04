@@ -2,6 +2,7 @@
 
 #include "core/tokens.h"
 #include "indexer/query.h"
+#include "providers/search/recent_files.h"
 #include "providers/search/result_rows.h"
 
 #include <algorithm>
@@ -54,6 +55,7 @@ void SearchProvider::start(Host& host)
     host_ = &host;
     settings_ = settingsPages(hooks_.windowsBuild, hooks_.russian);
     history_ = LaunchHistory::load(host.load(kHistoryKey));
+    opened_ = LaunchHistory::load(host.load(kOpenedKey));
     searchNow();
     refreshApps();
 }
@@ -143,19 +145,29 @@ void SearchProvider::searchNow()
     host_->callService("index.query", indexer::queryParams(query_, tokens().searchFileRows),
                        [this, ask, alive = alive_](ServiceReply reply) {
                            if (!*alive || ask != fileAsk_) return; // a newer query's answer is what counts
-                           files_.clear();
+                           std::vector<indexer::ResultRow> rows;
                            filesNote_.clear();
                            using P = ServiceReply::Problem;
                            if (reply.problem == P::None) {
                                auto parsed = indexer::parseResponse(reply.body);
-                               if (parsed && parsed->rows) files_ = *parsed->rows;
+                               if (parsed && parsed->rows) rows = *parsed->rows;
                            } else if (reply.problem == P::NotInstalled) {
                                filesNote_ = "File search isn't set up";
                            } else if (reply.problem == P::NotRunning) {
                                filesNote_ = "File search is starting";
                            }
+                           setFiles(std::move(rows)); // without the service, recent files still show
                            publish();
                        });
+}
+
+void SearchProvider::setFiles(std::vector<indexer::ResultRow> rows)
+{
+    std::vector<std::string> gone;
+    files_ = withRecent(std::move(rows), opened_, query_, host_->wallClock(), tokens().searchFileRows, hooks_.exists, gone);
+    if (gone.empty()) return;
+    for (const std::string& key : gone) opened_.uses.erase(key); // deleted or moved: not offered again
+    host_->save(kOpenedKey, opened_.save());
 }
 
 std::vector<SearchProvider::Result> SearchProvider::results() const
@@ -174,6 +186,10 @@ void SearchProvider::open(std::size_t index)
     bool started = false;
     if (r.file) {
         started = hooks_.openFile && hooks_.openFile(r.target);
+        if (started) { // ranks higher next time (decision 082)
+            opened_.record(recentKey({ .name = r.name, .path = r.target, .folder = r.folder }), host_->wallClock());
+            host_->save(kOpenedKey, opened_.save());
+        }
     } else {
         started = hooks_.launch && hooks_.launch(*shown_[index]);
         if (started) {

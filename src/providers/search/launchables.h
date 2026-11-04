@@ -36,8 +36,8 @@ std::vector<Launchable> cleanedApps(std::vector<Launchable> apps);
 std::vector<Launchable> settingsPages(int windowsBuild, bool russian);
 
 // What was launched from search, per user (Host::save), by target: how
-// often, and when last (wall time). Shared later with "recently opened
-// first" for files (decision 075's plan).
+// often, and when last (wall time). Files opened from search keep one of
+// their own (recent_files, decision 082).
 struct LaunchHistory {
     struct Use {
         int count = 0;

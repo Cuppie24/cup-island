@@ -1102,6 +1102,7 @@ int main()
         .launch = launchItem,
         .openFile = openPath,
         .reveal = revealPath,
+        .exists = pathExists,
         // Twice the icon's size: sharp at 200% scaling, drawn smaller below it.
         .loadIcon = [](const std::string& target, std::function<void(std::shared_ptr<const ImageData>)> done) {
             loadIcon(target, static_cast<int>(std::lround(2 * tokens().resultIconSize)), std::move(done));

@@ -135,8 +135,8 @@ open. The island runs as the user, installed per user without a UAC prompt
 6. Hardening: drives coming and going, journal resets, sleep and resume.
 7. Later: sizes and dates from `$MFT`, ReFS, removable and FAT drives.
 
-**Planned (after milestone 5): recently opened first.** Wanted by the owner,
-not built yet. Files you opened recently rank higher in search.
+**Planned (after milestone 5): recently opened first.** Wanted by the owner;
+built in decision 082. Files you opened recently rank higher in search.
 - **The signal:** files opened from the island's search (milestone 5),
   which the island knows exactly. Maybe later also Windows' Recent Items
   (`%APPDATA%\Microsoft\Windows\Recent`, a shortcut per file opened

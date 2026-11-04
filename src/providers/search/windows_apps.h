@@ -27,6 +27,7 @@ bool launchItem(const Launchable& item);
 bool openPath(const std::string& path);
 // Opens its folder in Explorer with it selected.
 bool revealPath(const std::string& path);
+bool pathExists(const std::string& path); // a file or folder is there (a remembered one may be gone)
 // A file's, folder's or app's icon (any shell parsing path) as the shell
 // draws it, `side` pixels square; read on a thread of its own, `done` on the
 // calling (UI) thread, with nothing if there's none.
