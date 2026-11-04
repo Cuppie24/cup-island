@@ -89,6 +89,10 @@ void rankingTests()
     expect(names(rankLaunchables(items, "chrom", used, now, 10)) == std::vector<std::string>{ "Chromium", "Chrome", "Google Chrome Canary" },
            "among equal matches, what was launched comes first");
     expect(names(rankLaunchables(items, "chrome", used, now, 10)).front() == "Chrome", "...never above a better match");
+    expect(!names(rankLaunchables(items, "", used, now, 10)).empty(), "nothing typed: what was launched before");
+    expect(rankLaunchables(items, "d:/projects", used, now, 10).empty() && rankLaunchables(items, "ext:pdf", used, now, 10).empty() &&
+               rankLaunchables(items, "projects/chrom", used, now, 10).empty(),
+           "a path or a filter is for files: no apps, not even the ones launched before");
     expect(names(rankLaunchables(items, "", used, now, 10)) == std::vector<std::string>{ "Chromium" }, "nothing typed: the used ones");
     expect(rankLaunchables(items, "", none, now, 10).empty() && rankLaunchables(items, "chrom", none, now, 1).size() == 1, "and the limit");
 

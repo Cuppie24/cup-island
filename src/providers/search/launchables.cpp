@@ -241,7 +241,12 @@ std::vector<std::size_t> rankLaunchables(const std::vector<Launchable>& items, s
         double used;
     };
     std::vector<Scored> found;
-    bool anyWords = !indexer::parseQuery(query).words.empty();
+    indexer::Query q = indexer::parseQuery(query);
+    // Something typed but no plain words (a path "d:/projects", ext:pdf,
+    // folder:): it's for files; an app or Settings page matches none of it.
+    // Only nothing typed at all lists what was used before.
+    if (q.words.empty() && !q.empty()) return {};
+    bool anyWords = !q.words.empty();
     for (std::size_t i = 0; i < items.size(); ++i) {
         double used = history.weight(items[i].target, now);
         int score = anyWords ? launchScore(items[i], query) : 0;
