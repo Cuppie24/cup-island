@@ -138,6 +138,20 @@ fixed height and `Text::yields` above, and the chevrons:
   `matchedParts`: each word where it starts a word in the name, else its
   first match).
 
+**Third look** (the owner, after using it):
+- **No tab row over search** (`Content::hidesTabs`, core `hasTabs`): it's a
+  card you come to for one thing, and the row took room and keys. A field on
+  Content, not a Host call ("hide the tabs now"): the row is worked out from
+  what's shown on every layout, so it comes back by itself when the card
+  goes, and a provider can't leave it hidden over someone else's card. Any
+  card can set it; the pin goes with the row.
+- **The keys' highlight is the whole row**, as the pointer's is
+  (`Placed::wholeRow`: the row before its list's window clipped it). It was
+  the height of the row's button.
+- **Bigger results:** names in `TextStyle::Result` (`resultFontSize`), the
+  line under in `ResultDetail` (`resultDetailFontSize`), a full-size icon
+  button with a `resultIconSize` icon, to match the big field.
+
 **Open.** Ctrl+Shift+Enter to run as administrator (decision 077) needs the
 host to tell a provider about modifiers, which it never does (decision 035):
 a row button instead, maybe.

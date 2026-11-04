@@ -23,7 +23,8 @@ enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Sour
 
 // Display: a big number, the card's centre (a timer). Heading: a group's name over its rows (Settings'
 // "Dark" and "Light"): small, but heavy and full-strength, so it reads as a divider (decision 037).
-enum class TextStyle { Title, Body, Caption, Digits, Display, Heading };
+// Result and ResultDetail: a search result's name and the line under it (decision 079).
+enum class TextStyle { Title, Body, Caption, Digits, Display, Heading, Result, ResultDetail };
 
 // sRGB plus opacity. As an activity's accent (decision 010) it tints only
 // live data: progress fills (bar and ring), the current step, waveform bars.
@@ -365,6 +366,11 @@ struct Content {
     // and Esc closes the card instead of first stopping the typing. Empty: a
     // field is clicked into, as usual (decision 016).
     std::string fieldFirst;
+    // Shown, it has no tab row over it: a card you come to for one thing and
+    // leave (search, decision 079); Esc or a click outside leaves it. Its pin
+    // goes with the row. Content, not a Host call: whether there's a row is worked
+    // out from what's shown on every layout, so it can't be left on.
+    bool hidesTabs = false;
     // A card on one of its own pages (Settings' Theme page): the action Esc
     // sends, as a click on its back arrow would. Empty: Esc goes back to
     // Home or closes, as anywhere else (decision 033).

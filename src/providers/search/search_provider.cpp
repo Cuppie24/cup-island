@@ -31,8 +31,8 @@ Glyph glyphOf(Launchable::Kind kind) { return kind == Launchable::Kind::App ? Gl
 Row resultRow(Glyph glyph, std::shared_ptr<const ImageData> picture, const SearchProvider::Result& r,
               const std::string& query, const std::string& home, std::size_t index)
 {
-    Row row{ .items = { Button{ .glyph = glyph, .actionId = A::kOpen + std::to_string(index), .compact = true, .picture = std::move(picture) },
-                        Text{ .value = r.name, .detail = r.file ? shortPath(r.caption, home) : r.caption, .bright = matchedParts(r.name, query) } },
+    Row row{ .items = { Button{ .glyph = glyph, .actionId = A::kOpen + std::to_string(index), .picture = std::move(picture) },
+                        Text{ .value = r.name, .style = TextStyle::Result, .detail = r.file ? shortPath(r.caption, home) : r.caption, .bright = matchedParts(r.name, query) } },
              .clickAnywhere = true,
              .list = "results",
              .listItem = true };
@@ -218,6 +218,7 @@ void SearchProvider::publish()
     c.card = CardLayout::Search;
     c.fieldFirst = A::kGo;
     c.keepOpen = true;
+    c.hidesTabs = true; // alone on the island while you look (decision 079)
     c.expandedCenter.push_back(fieldRow());
     std::vector<Result> all = results();
     bool typed = !indexer::parseQuery(query_).empty();

@@ -188,6 +188,8 @@ TextLook lookOf(TextStyle style)
     case TextStyle::Digits: return { t.captionFontSize, t.captionTextColor, t.captionFontWeight };
     case TextStyle::Display: return { t.displayFontSize, t.titleTextColor, t.displayFontWeight };
     case TextStyle::Heading: return { t.headingFontSize, t.titleTextColor, t.headingFontWeight };
+    case TextStyle::Result: return { t.resultFontSize, t.bodyTextColor, t.bodyFontWeight };
+    case TextStyle::ResultDetail: return { t.resultDetailFontSize, t.captionTextColor, t.captionFontWeight };
     }
     return { t.bodyFontSize, t.bodyTextColor, t.bodyFontWeight };
 }
@@ -302,13 +304,14 @@ void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec
     }
     // Two lines (decision 079): the text, then its detail in caption style,
     // centred together in the frame as core sized it (item_metrics).
-    float first = lineHeight(text.style), second = lineHeight(TextStyle::Caption);
+    TextStyle under = detailStyleOf(text.style);
+    float first = lineHeight(text.style), second = lineHeight(under);
     float top = std::max(0.0f, (size.y - first - second) / 2);
     paintLine(dc, dw, text, D2D1::RectF(0, top, size.x, top + first));
-    Text detail{ .value = text.detail, .style = TextStyle::Caption, .alignEnd = text.alignEnd };
+    Text detail{ .value = text.detail, .style = under, .alignEnd = text.alignEnd };
     auto f = formatOf(dw, detail);
     drawString(dc, f.get(), elidedStart(dw, f.get(), widen(text.detail), size.x), D2D1::RectF(0, top + first, size.x, top + first + second),
-               lookOf(TextStyle::Caption).color);
+               lookOf(under).color);
 }
 
 void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& label, Vec2 size, const Color& color, TextStyle style)

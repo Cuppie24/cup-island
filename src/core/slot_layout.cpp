@@ -367,7 +367,10 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
             if (list)
                 for (std::size_t i = first; i < target.size(); ++i) {
                     target[i].hitFrame = clipped(target[i].hitFrame, list->viewport);
-                    if (target[i].listRow) target[i].listRow = clipped(*target[i].listRow, list->viewport);
+                    if (target[i].listRow) {
+                        target[i].wholeRow = target[i].listRow;
+                        target[i].listRow = clipped(*target[i].listRow, list->viewport);
+                    }
                 }
         }
         return contentSpans;
