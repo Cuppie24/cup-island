@@ -1,4 +1,5 @@
 #include "core/dialog.h"
+#include "core/floating.h"
 
 namespace cup {
 
@@ -17,7 +18,8 @@ Content dialogContent(const Dialog& d)
 
 const Dialog* dialogOver(const IslandState& s, const std::string& activityId)
 {
-    return s.dialog && s.dialog->activityId == activityId ? &*s.dialog : nullptr;
+    const CardOverlays* over = overlaysOf(s, activityId); // the island's card's, or a floating card's own (decision 081)
+    return over && over->dialog ? &*over->dialog : nullptr;
 }
 
 } // namespace cup

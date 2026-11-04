@@ -1,5 +1,6 @@
 #include "core/toast.h"
 
+#include "core/floating.h"
 #include "core/item_metrics.h"
 #include "core/tokens.h"
 
@@ -10,7 +11,8 @@ namespace cup {
 
 const Toast* toastOn(const IslandState& s, const std::string& activityId)
 {
-    return s.toast && s.toast->activityId == activityId ? &*s.toast : nullptr;
+    const CardOverlays* over = overlaysOf(s, activityId); // the island's card's, or a floating card's own (decision 081)
+    return over && over->toast ? &*over->toast : nullptr;
 }
 
 ToastScene placeToast(const Toast& toast, const Source& source, Vec2 cardSize, float bottom, Ms now, const MeasureText& measure)

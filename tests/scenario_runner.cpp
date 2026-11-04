@@ -4,7 +4,7 @@
 //   scenario: <name>                  starts a fresh island at t = 0
 //   <command> [args] [-> <Mode> [key=value ...]]
 //
-// Commands:  start <id> [level] [relevance] [expires=<ms>]   update <id>   end <id>
+// Commands:  start <id> [level] [relevance] [expires=<ms>] [float[=noesc]] [by=<provider>]   update <id>   end <id>
 //            alert <name> [level] [for=<activity|panel>] [key=<coalesceKey>] [refresh]
 //            click  outside  esc  pointer  drag-enter  drag-rejected
 //            drag-leave  drop  hide  show  wait <ms>
@@ -19,6 +19,8 @@
 //            open-activity                                                           (the activity shortcut, decision 050)
 //            close-card <id>                                                         (its provider closes it, decision 079)
 //            pin                                                                     (Expanded's pin, decision 046)
+//            focus-float <card>|none  close-float <card>  resize-float <card> <w> <h>  (floating cards, decision 081;
+//                                                                     `float` on start/panel: its card floats; noesc: Esc doesn't send it back)
 //            tabrow top|bottom                                                       (Settings' Tab row, decision 048)
 //            ask <card>  close-dialog                                               (a provider's dialog, decision 020)
 //            toast <card>  toast-acted                                              (a provider's toast, decision 071)
@@ -32,9 +34,11 @@
 //                     caret=<byte offset>  selected=<text>|none  (_ for a space)
 //                     lifted=yes|no  spot=centre|left|right|free  stay=yes|no  tabs=top|bottom
 //                     scroll=<card>/<list>:<offset>[+reveal]  carried=<row>|none  squash=yes|no (a press on empty space, decision 071)
-//                     toast=<card>|none
+//                     toast=<card>|none   (dialog= and toast=: the island's, then each floating card's, comma-separated)
+//                     floats=<card,card>|none  focused=<card>|none  front=<card>  size=<card>:<w>x<h>|none (resized)
 // Levels: passive active timeSensitive critical.  '#' starts a comment.
 
+#include "core/floating.h"
 #include "core/island.h"
 #include "core/lift.h"
 #include "core/text_edit.h"
@@ -72,6 +76,14 @@ std::string underscored(std::string text)
 {
     std::replace(text.begin(), text.end(), ' ', '_');
     return text;
+}
+
+// "a,b", or "none" for nothing.
+std::string joined(const std::vector<std::string>& ids)
+{
+    std::string out;
+    for (const auto& id : ids) out += (out.empty() ? "" : ",") + id;
+    return out.empty() ? "none" : out;
 }
 
 // "key=value" -> value if the key matches.
@@ -119,6 +131,8 @@ struct Runner {
                 if (auto l = parseLevel(w[i])) a.level = *l;
                 else if (auto v = option(w[i], "expires")) a.expiresAt = now + Ms{ std::stoi(*v) };
                 else if (w[i] == "awake") a.content.noIdleTimeout = true;
+                else if (w[i] == "float" || w[i] == "float=noesc") a.content.floating = FloatSpec{ .escCloses = w[i] == "float" };
+                else if (auto v = option(w[i], "by")) a.providerId = *v;
                 else a.relevance = std::stof(w[i]);
             }
             apply(ActivityStarted{ a });
@@ -159,6 +173,7 @@ struct Runner {
             if (arg(2) != "static") p.content.expandedCenter = { row({ Text{ arg(1) } }) };
             p.content.keepOpen = arg(2) == "keep" || arg(2) == "awake";
             p.content.noIdleTimeout = arg(2) == "awake";
+            if (arg(2) == "float") p.content.floating = FloatSpec{};
             if (arg(2) == "field") {
                 p.content.expandedCenter = { row({ TextInput{ .actionId = "go" } }) };
                 p.content.fieldFirst = "go";
@@ -196,6 +211,9 @@ struct Runner {
         else if (cmd == "toast") apply(ToastShown{ { .activityId = arg(1), .text = "Deleted", .actionLabel = "Undo", .actionId = "undo" } });
         else if (cmd == "toast-acted") apply(ToastClosed{});
         else if (cmd == "pin") apply(StayOpenToggled{});
+        else if (cmd == "focus-float") apply(FloatFocused{ arg(1) == "none" ? "" : arg(1) });
+        else if (cmd == "close-float") apply(FloatClosed{ arg(1) });
+        else if (cmd == "resize-float") apply(FloatResized{ arg(1), { std::stof(arg(2)), std::stof(arg(3)) } });
         else if (cmd == "tabrow") apply(TabRowPlaced{ arg(1) != "bottom" });
         else if (cmd == "edit") apply(InputFocused{ "p", arg(1), arg(2), arg(3), /* editing */ true, at(4) });
         else if (cmd == "wheel") apply(ListScrolled{ arg(1), arg(2), std::stof(arg(3)), std::stof(arg(4)), std::stof(arg(5)) });
@@ -231,8 +249,29 @@ struct Runner {
                 std::string id = state.pinnedId.empty() ? "none" : state.pinnedId;
                 if (id != *v) fail("pinned=" + *v + ", got " + id);
             } else if (auto v = option(word, "toast")) {
-                std::string got = state.toast ? state.toast->activityId : "none";
-                if (got != *v) fail("toast=" + *v + ", got " + got);
+                std::vector<std::string> on;
+                if (state.card.toast) on.push_back(state.card.toast->activityId);
+                for (const FloatingCard& f : state.floats)
+                    if (f.overlays.toast) on.push_back(f.overlays.toast->activityId);
+                if (joined(on) != *v) fail("toast=" + *v + ", got " + joined(on));
+            } else if (auto v = option(word, "floats")) {
+                std::vector<std::string> open;
+                for (const FloatingCard& f : state.floats) open.push_back(f.activityId);
+                if (joined(open) != *v) fail("floats=" + *v + ", got " + joined(open));
+            } else if (auto v = option(word, "focused")) {
+                std::string got = state.focusedFloatId.empty() ? "none" : state.focusedFloatId;
+                if (got != *v) fail("focused=" + *v + ", got " + got);
+            } else if (auto v = option(word, "front")) {
+                const FloatingCard* front = nullptr;
+                for (const FloatingCard& fw : state.floats)
+                    if (!front || fw.raised > front->raised) front = &fw;
+                std::string got = front ? front->activityId : "none";
+                if (got != *v) fail("front=" + *v + ", got " + got);
+            } else if (auto v = option(word, "size")) {
+                std::string id = v->substr(0, v->find(':'));
+                const FloatingCard* f = floatFor(state, id);
+                std::string got = f && f->size ? std::to_string(static_cast<int>(f->size->x)) + "x" + std::to_string(static_cast<int>(f->size->y)) : "none";
+                if (id + ":" + got != *v) fail("size=" + *v + ", got " + got);
             } else if (auto v = option(word, "squash")) {
                 std::string got = pressSquashes(state) ? "yes" : "no";
                 if (got != *v) fail("squash=" + *v + ", got " + got);
@@ -246,8 +285,11 @@ struct Runner {
                 std::string shown = state.alert ? state.alert->content.label : "none";
                 if (shown != *v) fail("alert=" + *v + ", got " + shown);
             } else if (auto v = option(word, "dialog")) {
-                std::string got = state.dialog ? state.dialog->activityId : "none";
-                if (got != *v) fail("dialog=" + *v + ", got " + got);
+                std::vector<std::string> over;
+                if (state.card.dialog) over.push_back(state.card.dialog->activityId);
+                for (const FloatingCard& f : state.floats)
+                    if (f.overlays.dialog) over.push_back(f.overlays.dialog->activityId);
+                if (joined(over) != *v) fail("dialog=" + *v + ", got " + joined(over));
             } else if (auto v = option(word, "draft")) {
                 std::string got = !state.draft ? "none" : state.draft->text.empty() ? "empty" : underscored(state.draft->text);
                 if (got != *v) fail("draft=" + *v + ", got " + got);

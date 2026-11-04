@@ -34,27 +34,42 @@ std::optional<ShownCard> shownCard(const IslandState& s)
     return std::nullopt;
 }
 
+const Content* cardContent(const IslandState& s, const std::string& id)
+{
+    if (const Activity* a = findActivity(s, id)) return &a->content;
+    if (const Panel* p = findPanel(s, id)) return &p->content;
+    return nullptr;
+}
+
+std::optional<ShownCard> focusedCard(const IslandState& s)
+{
+    if (!s.focusedFloatId.empty()) {
+        for (const FloatingCard& w : s.floats)
+            if (w.activityId == s.focusedFloatId) return ShownCard{ w.providerId, w.activityId };
+        return std::nullopt; // gone: settle() clears it
+    }
+    return shownCard(s);
+}
+
 std::optional<ShownCard> shownActivity(const IslandState& s)
 {
-    if (!isExpanded(s) || s.homeOpen) return std::nullopt;
-    if (const Activity* a = findActivity(s, s.expandedId)) return ShownCard{ a->providerId, a->id };
-    return std::nullopt;
+    auto card = focusedCard(s);
+    if (!card || !findActivity(s, card->activityId)) return std::nullopt;
+    return card;
 }
 
 std::string backAction(const IslandState& s)
 {
-    if (!isExpanded(s) || s.homeOpen) return "";
-    if (const Activity* a = findActivity(s, s.expandedId)) return a->content.backAction;
-    if (const Panel* p = findPanel(s, s.expandedId)) return p->content.backAction;
-    return "";
+    auto card = focusedCard(s);
+    const Content* c = card ? cardContent(s, card->activityId) : nullptr;
+    return c ? c->backAction : "";
 }
 
 bool escapeCloses(const IslandState& s)
 {
-    if (!isExpanded(s) || s.homeOpen) return false;
-    if (const Activity* a = findActivity(s, s.expandedId)) return !a->content.fieldFirst.empty();
-    const Panel* p = findPanel(s, s.expandedId);
-    return p && !p->content.fieldFirst.empty();
+    auto card = focusedCard(s);
+    const Content* c = card ? cardContent(s, card->activityId) : nullptr;
+    return c && !c->fieldFirst.empty();
 }
 
 std::optional<Ms> timeOfDay(const IslandState& s, Ms now)

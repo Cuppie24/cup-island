@@ -85,6 +85,17 @@ struct Tokens {
     float resultIconSize = 32;           // a search result's icon (Button::picture)
     float resultFontSize = 17;           // TextStyle::Result: a search result's name
     float resultDetailFontSize = 14;     // TextStyle::ResultDetail: where it is, under it
+    // Floating cards (decision 081): a card apart from the island, in its look.
+    // Its provider picks a width; it's as tall as its content, up to floatMaxHeight.
+    float floatNarrowWidth = 360;
+    float floatMediumWidth = 480;
+    float floatWideWidth = 640;
+    float floatMaxHeight = 640;
+    Vec2 floatMinSize{ 320, 160 };  // a resizable one stops here
+    float floatIslandGap = 16;      // FloatStart::NearIsland: this far under the pill
+    float floatCascade = 28;        // opening where another one already is: this far right and down from it
+    float floatCloseSize = 24;      // the ✕ on its top-right corner, shown while the pointer is on the card
+    float floatAppearScale = 0.92f; // it pops in from this scale (and shrinks back to it going), over morphDuration
     float expandedArtSize = 68; // expanded leading square: as tall as title + artist + caption beside it
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;

@@ -1,11 +1,23 @@
 #include "core/card_overlays.h"
 
+#include "core/dialog.h"
+#include "core/floating.h"
 #include "core/text_edit.h"
+#include "core/tokens.h"
 
 namespace cup {
 namespace {
 
+// On the island.
 bool shown(const IslandState& s, const std::string& activityId) { return !s.homeOpen && s.expandedId == activityId; }
+
+// Has the keys: the focused floating card, else the island's (decision 081).
+// Typing belongs there; only one card at a time has a field focused.
+bool focused(const IslandState& s, const std::string& activityId)
+{
+    auto card = focusedCard(s);
+    return card && card->activityId == activityId;
+}
 
 } // namespace
 
@@ -24,7 +36,7 @@ void dropDraft(IslandState& s)
 
 void focusInput(IslandState& s, const InputFocused& e, Ms now)
 {
-    if (!shown(s, e.activityId) || s.dialog) return;
+    if (!focused(s, e.activityId) || dialogOver(s, e.activityId)) return;
     if (!s.draft || s.draft->actionId != e.actionId) {
         dropDraft(s); // the field it leaves keeps its text
         std::string text = e.text;
@@ -50,38 +62,66 @@ void submitText(IslandState& s, Ms now)
 
 void showDialog(IslandState& s, const DialogShown& e, Ms now)
 {
-    if (!shown(s, e.dialog.activityId)) return; // a question needs its card in front of the user
-    s.dialog = e.dialog;
-    dropDraft(s); // the dialog covers the field; its text waits
-    s.lastPointerAt = now;
+    // A question needs its card in front of the user: on the island, or
+    // floating, which keeps it whether it has the keys or not (decision 081).
+    CardOverlays* over = overlaysOf(s, e.dialog.activityId);
+    if (!over) return;
+    over->dialog = e.dialog;
+    if (s.draft && s.draft->activityId == e.dialog.activityId) dropDraft(s); // the dialog covers the field; its text waits
+    if (over == &s.card) s.lastPointerAt = now;
+}
+
+void showToast(IslandState& s, const ToastShown& e, Ms now)
+{
+    CardOverlays* over = overlaysOf(s, e.toast.activityId);
+    if (!over) return; // its card isn't on screen
+    over->toast = e.toast;
+    over->toast->until = now + tokens().toastDuration;
+}
+
+namespace {
+
+// The focused card's: its button or key was the one pressed.
+CardOverlays* focusedOverlays(IslandState& s)
+{
+    auto card = focusedCard(s);
+    return card ? overlaysOf(s, card->activityId) : nullptr;
+}
+
+} // namespace
+
+void closeDialog(IslandState& s)
+{
+    if (CardOverlays* over = focusedOverlays(s)) over->dialog.reset();
+}
+
+void closeToast(IslandState& s)
+{
+    if (CardOverlays* over = focusedOverlays(s)) over->toast.reset();
 }
 
 void dropStaleOverlays(IslandState& s)
 {
-    if (s.draft && !shown(s, s.draft->activityId)) {
+    if (s.draft && !focused(s, s.draft->activityId)) {
         // A card that is its field opens empty next time (search, decision 079):
         // what was typed was for that look. Other fields keep it (decision 050).
-        const Content* content = nullptr;
-        if (const Activity* a = findActivity(s, s.draft->activityId)) content = &a->content;
-        else if (const Panel* p = findPanel(s, s.draft->activityId)) content = &p->content;
+        const Content* content = cardContent(s, s.draft->activityId);
         bool fresh = content && !s.draft->editing && content->fieldFirst == s.draft->actionId;
         std::string key = keptKey(s.draft->activityId, s.draft->actionId);
         dropDraft(s);
         if (fresh) s.keptText.erase(key);
     }
-    if (s.dialog && !shown(s, s.dialog->activityId)) s.dialog.reset();
-    if (s.toast && !shown(s, s.toast->activityId)) s.toast.reset();
-    if (s.listDrag && (!shown(s, s.listDrag->activityId) || s.dialog)) s.listDrag.reset();
+    // The island's question and note go with its card.
+    if (s.card.dialog && !shown(s, s.card.dialog->activityId)) s.card.dialog.reset();
+    if (s.card.toast && !shown(s, s.card.toast->activityId)) s.card.toast.reset();
+    if (s.listDrag && (!cardOnScreen(s, s.listDrag->activityId) || dialogOver(s, s.listDrag->activityId))) s.listDrag.reset();
 }
 
 void focusFieldFirst(IslandState& s)
 {
-    if (s.draft || s.dialog || s.homeOpen || !isExpanded(s)) return;
-    auto card = shownCard(s);
-    if (!card) return;
-    const Content* content = nullptr;
-    if (const Activity* a = findActivity(s, card->activityId)) content = &a->content;
-    else if (const Panel* p = findPanel(s, card->activityId)) content = &p->content;
+    auto card = focusedCard(s); // the island's shown card, or the focused floating one (decision 081)
+    if (s.draft || !card || dialogOver(s, card->activityId)) return;
+    const Content* content = cardContent(s, card->activityId);
     if (!content || content->fieldFirst.empty()) return;
     std::string text;
     auto kept = s.keptText.find(keptKey(card->activityId, content->fieldFirst));

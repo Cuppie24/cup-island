@@ -111,7 +111,7 @@ void runProviderTests()
     auto shown = shownActivity(island.state);
     expect(shown && shown->activityId == DemoMediaProvider::kActivityId, "ctrl+w: the open card is the player's");
     island.registry.closeRequested(*shown);
-    expect(findActivity(island.state, DemoMediaProvider::kActivityId) && !island.state.dialog, "ctrl+w: the player ignores it");
+    expect(findActivity(island.state, DemoMediaProvider::kActivityId) && !island.state.card.dialog, "ctrl+w: the player ignores it");
 
     island.registry.stop("demo");
     expect(island.state.activities.empty() && !island.registry.isRunning("demo"), "stopping ends the activity");

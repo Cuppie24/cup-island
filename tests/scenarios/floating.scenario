@@ -1,0 +1,135 @@
+# Floating cards (decision 081): a card apart from the island, in its look,
+# while the island keeps showing its pill. Several at once, from several providers.
+
+scenario: the pill opens the card floating, and sends it back
+start timer float
+click                               -> Compact floats=timer focused=timer front=timer expanded=none
+click                               -> Compact floats=none focused=none   # again: back into the pill
+click                               -> floats=timer
+close-float timer                   -> Compact floats=none
+
+scenario: the bubble toggles its activity's floating card too
+start timer float
+start media                         -> top=media
+bubble                              -> Split floats=timer
+bubble                              -> Split floats=none
+
+scenario: Esc sends the focused card back, unless its provider said not to
+start timer float
+click
+esc                                 -> Compact floats=none
+start notes float=noesc
+click
+esc                                 -> floats=notes focused=notes
+close-float notes                   -> floats=none
+
+scenario: Esc with no floating card focused is the island's
+start timer float
+click
+focus-float none
+esc                                 -> Compact floats=timer
+
+scenario: floating cards from several providers at once
+start media by=music
+start timer float by=clock
+start notes float by=pad            -> top=notes
+click                               -> floats=notes front=notes Split
+promote timer
+click                               -> floats=notes,timer front=timer focused=timer Split
+focus-float notes                   -> focused=notes
+focus-float gone                    -> focused=none          # not one of ours
+
+scenario: one provider can float many cards: no limit, one per card
+start a float by=p
+click
+start b float by=p
+click
+start c float by=p
+click
+start d float by=p
+click                               -> floats=a,b,c,d Split
+
+scenario: a tab or a widget brings an open floating card to the front, never back
+start timer float
+start notes float
+start media
+click                               -> Expanded expanded=media
+switch timer                        -> Split floats=timer focused=timer expanded=none
+promote notes
+click                               -> floats=timer,notes front=notes
+promote media
+click
+switch timer                        -> floats=timer,notes front=timer   # open: to the front, not back
+
+scenario: from Home, the card floats and the island goes back to its pill
+panel focus float
+click                               -> expanded=home
+tile focus                          -> Idle floats=focus expanded=none
+esc                                 -> Idle floats=none      # the floating card had the keys
+panel todo float
+click
+pin                                 -> stay=yes
+tile todo                           -> Expanded expanded=home floats=todo   # pinned: Home stays (decision 046)
+
+scenario: a floating card goes with its card, and stays for a dormant panel
+panel focus float
+start focus float
+click                               -> floats=focus
+end focus                           -> floats=focus          # the panel's dormant card
+unpanel focus                       -> floats=none focused=none
+
+scenario: the provider can send its card back
+start search float
+click
+close-card search                   -> floats=none
+
+scenario: a floating card's question is its own, focused or not
+start timer float
+start media
+promote timer
+click
+focus-float none
+ask timer                           -> dialog=timer
+promote media
+click                               -> Expanded expanded=media dialog=timer
+ask media                           -> dialog=media,timer
+close-dialog                        -> dialog=timer          # the island had the keys
+focus-float timer
+close-dialog                        -> dialog=none Expanded  # taking the keys alone doesn't close the island's card
+
+scenario: typing is on the card that has the keys, and its text waits when it loses them
+start notes float
+click
+focus notes add
+type hello                          -> draft=hello
+focus-float none                    -> draft=none
+focus notes add                     -> draft=none            # not the focused card
+focus-float notes
+focus notes add                     -> draft=hello           # kept (decision 050)
+
+scenario: a floating card's toast goes by itself
+start todo float
+click
+toast todo                          -> toast=todo
+wait 4999                           -> toast=todo
+wait 1                              -> toast=none floats=todo
+
+scenario: a fullscreen app hides floating cards with the island; they come back with it
+start timer float
+click
+hide                                -> Hidden floats=timer focused=none
+show                                -> Compact floats=timer
+alert battery critical              -> Alert floats=timer    # a critical alert leaves them
+
+scenario: a resized card never goes below floatMinSize; until resized, it fits its content
+start notes float
+click                               -> size=notes:none
+resize-float notes 600 500          -> size=notes:600x500
+resize-float notes 100 100          -> size=notes:320x160
+
+scenario: the activity shortcut toggles its floating card, as the pill does
+start timer float
+click
+focus-float none
+open-activity                       -> Compact floats=none
+open-activity                       -> Compact floats=timer focused=timer

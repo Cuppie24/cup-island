@@ -49,6 +49,11 @@ void CALLBACK onForeground(HWINEVENTHOOK, DWORD, HWND, LONG, LONG, DWORD, DWORD)
 
 } // namespace
 
+void raiseIsland()
+{
+    if (!g_windows.empty()) raise();
+}
+
 void stayOnTop(std::vector<HWND> windows)
 {
     g_windows = std::move(windows);

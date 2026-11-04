@@ -20,10 +20,14 @@
 // Quit any time from the tray icon's right-click menu (Exit). Everything is logged to
 // %LOCALAPPDATA%\CupIsland\logs (platform/log.h); Debug builds also show it in a console.
 
+#include "app/floating_cards.h"
 #include "app/keyboard_input.h"
 #include "app/live_tokens.h"
+#include "app/surface.h"
 #include "core/card_overlays.h"
 #include "core/dialog.h"
+#include "core/float_layout.h"
+#include "core/floating.h"
 #include "core/hit_test.h"
 #include "core/island.h"
 #include "core/island_tint.h"
@@ -32,6 +36,7 @@
 #include "core/placement.h"
 #include "core/tabs.h"
 #include "core/text_edit.h"
+#include "core/toast.h"
 #include "core/tokens.h"
 #include "platform/file_watcher.h"
 #include "platform/hotkeys.h"
@@ -95,7 +100,6 @@ constexpr bool kDemoKeys = true;
 
 const auto g_startTime = std::chrono::steady_clock::now();
 IslandState g_state;
-Scene g_scene;
 IslandTint g_tint; // the playing cover's colour on the island (decision 051)
 bool g_coverColours = false; // ...if Settings has it on (decisions 052, 055)
 PillRenderer g_renderer;
@@ -113,32 +117,18 @@ std::unique_ptr<ProviderRegistry> g_providers;
 SettingsProvider* g_settings = nullptr; // owned by g_providers; told when tokens.json reloads
 UpdateProvider* g_update = nullptr;     // owned by g_providers; Settings' "Check for updates" asks it
 
-// The pointer over the pill. Feedback is the renderer's; what a click means is
-// core's (hitTest). Content reacts to hover, the pill never does (decision 002).
-struct Pointer {
-    std::optional<Vec2> at;      // over the pill, pill coordinates
-    std::string pressedKey;      // the button under the mouse-down
-    std::optional<Placed> scrub; // the progress bar being dragged
-    float scrubFraction = 0;
-    std::optional<Vec2> bubblePress; // mouse-down on the Split bubble, render-layer coordinates
-    bool dragged = false;            // ...and core took it as a drag (BubbleDragged): not a click
-    std::optional<std::string> tabPress;  // mouse-down on an Expanded tab: its activity ("" = Home)
-    std::optional<std::string> tilePress; // mouse-down on a Home tile, off its buttons: its panel
-    std::optional<Vec2> islandPress; // mouse-down on the pill that may lift it (decision 026): where it went down
-    std::optional<Placed> listPress; // mouse-down on a list row that can be dragged (decision 029)
-    float listPressY = 0;            // ...where, pill coordinates: dragged dragStartDistance, it's picked up
-    Vec2 textPress;                  // a press on an editable Text: where, so editing starts with the caret there
-    std::string selecting;           // a press in the focused field: dragging selects (decision 043)
-    Ms lastClickAt{};                // ...the presses before it, for double- and triple-clicks
-    Vec2 lastClickPoint;
-    int clicks = 0;
-} g_pointer;
-PointerTrack g_drag; // the pointer's speed while the island or bubble is carried: a fling when let go (decision 080)
+// The island as a surface (decision 081): its scene, its renderer, the
+// pointer on it. Floating cards will be surfaces of their own.
+app::Surface g_island;
 
-// Pointer callbacks get render-layer points; content works in pill coordinates.
-Vec2 toPill(Vec2 point) { return { point.x - g_scene.offset.x, point.y - g_scene.offset.y }; }
-bool onPill(Vec2 point) { return Rect{ g_scene.offset.x, g_scene.offset.y, g_scene.size.x, g_scene.size.y }.contains(point); }
-bool onBubble(Vec2 point) { return g_scene.bubble && g_scene.bubble->frame.contains(point); }
+// The surface with the keys: what the keyboard moves around and types into.
+// The focused floating card's (decision 081), else the island's.
+app::Surface& keysSurface()
+{
+    if (app::Surface* card = app::floatSurface(g_state.focusedFloatId)) return *card;
+    return g_island;
+}
+PointerTrack g_drag; // the pointer's speed while the island or bubble is carried: a fling when let go (decision 080)
 
 Ms now()
 {
@@ -191,83 +181,64 @@ bool hasActivity(const std::string& id)
     return false;
 }
 
-const Placed* findElement(const std::string& key)
+// The keyboard's focus, on the surface that has the keys only.
+std::optional<cup::Focusable> keyFocusOn(const app::Surface& s)
 {
-    for (const auto& p : g_scene.elements)
-        if (p.key == key) return &p;
-    if (g_scene.toast) // a floating toast's (decision 071)
-        for (const auto& p : g_scene.toast->elements)
-            if (p.key == key) return &p;
-    return nullptr;
-}
-
-// The tab of what's shown (already marked): clicking it does nothing.
-bool isCurrent(const Tab& tab)
-{
-    const auto& strip = *g_scene.tabs;
-    return strip.active && &tab == &strip.tabs[*strip.active];
-}
-
-// Re-run on every pointer move and every new scene: content can move under a still pointer.
-// "<slot>/<row>" of whatever content is under a pill-coordinate point, "" if none.
-const Placed* contentUnder(Vec2 point)
-{
-    if (g_scene.toast && g_scene.toast->frame.contains(point)) return nullptr; // the toast floats over it (decision 071)
-    for (const Placed& p : g_scene.elements)
-        if (p.hitFrame.contains(point) && p.key.rfind("tab/", 0) != 0) return &p;
-    return nullptr;
+    return &s == &keysSurface() ? app::keyFocus() : std::nullopt;
 }
 
 // Where hover feedback comes from: the keyboard's focus while it leads (decision 031), else the pointer.
-std::optional<Vec2> hoverPoint()
+std::optional<Vec2> hoverPoint(const app::Surface& s)
 {
-    if (!g_pointer.scrub)
-        if (auto focused = app::keyFocus()) return focused->point;
-    return g_pointer.at;
+    if (!s.pointer.scrub)
+        if (auto focused = keyFocusOn(s)) return focused->point;
+    return s.pointer.at;
 }
 
-void updateHover()
+void updateHover(app::Surface& s)
 {
-    std::optional<Vec2> at = hoverPoint();
+    std::optional<Vec2> at = hoverPoint(s);
     std::string key;
-    if (g_pointer.scrub) {
-        key = g_pointer.scrub->key; // stays lit while dragged, even off the bar
+    if (s.pointer.scrub) {
+        key = s.pointer.scrub->key; // stays lit while dragged, even off the bar
     } else if (at) {
-        if (auto hit = hitTest(g_scene, *at)) key = hit->key;
+        if (auto hit = hitTest(s.scene, *at)) key = hit->key;
     }
-    g_renderer.setHovered(key);
+    s.renderer->setHovered(key);
     // A text field shows the I-beam (decision 043): the add field, and a to-do only while it's
     // being edited (then it's a field); a field being drag-selected keeps it, even off it.
-    const Placed* under = key.empty() ? nullptr : findElement(key);
-    setTextCursor(!g_pointer.selecting.empty() || (under && std::holds_alternative<TextInput>(under->item)));
-    g_renderer.setHoveredRow(at ? rowAt(g_scene, *at) : std::string()); // reveals a to-do's delete button, the plan's − and + (decision 063)
+    const Placed* under = key.empty() ? nullptr : findElement(s, key);
+    bool text = !s.pointer.selecting.empty() || (under && std::holds_alternative<TextInput>(under->item));
+    if (s.island()) setTextCursor(text);
+    else {
+        app::setFloatTextCursor(s, text);
+        s.renderer->setPointerInside(s.pointer.at.has_value()); // its ✕ shows (decision 081)
+    }
+    s.renderer->setHoveredRow(at ? rowAt(s.scene, *at) : std::string()); // reveals a to-do's delete button, the plan's − and + (decision 063)
 
     // Tabs light up as a whole, except the active one, which is already marked (decision 007).
     // Home's tiles too, unless the pointer is on one of their buttons (decision 009).
-    const Tab* tab = g_scene.tabs && at ? tabAt(*g_scene.tabs, *at) : nullptr;
-    if (tab && isCurrent(*tab)) tab = nullptr;
-    g_renderer.setHoveredTab(tab ? std::optional<std::string>(tab->id) : std::nullopt); // its grey content in colour (decision 072)
-    const Tile* tile = at && key.empty() ? tileAt(g_scene, *at) : nullptr;
+    const Tab* tab = s.scene.tabs && at ? tabAt(*s.scene.tabs, *at) : nullptr;
+    if (tab && isCurrent(s, *tab)) tab = nullptr;
+    s.renderer->setHoveredTab(tab ? std::optional<std::string>(tab->id) : std::nullopt); // its grey content in colour (decision 072)
+    const Tile* tile = at && key.empty() ? tileAt(s.scene, *at) : nullptr;
     if (tile && !tile->clickable()) tile = nullptr; // widgets without a card or tap action don't react
     // A list item (a to-do) lights up as a whole row, like a tab (Row::listItem).
-    const Placed* item = at && !g_pointer.scrub ? contentUnder(*at) : nullptr;
-    if (tab) g_renderer.setAreaHovered(tab->frame, g_scene.tabs->radius);
-    else if (tile) g_renderer.setAreaHovered(tile->frame, g_scene.tileRadius);
-    else if (item && item->listRow) g_renderer.setAreaHovered(item->listRow, item->listRowRadius);
-    else if (auto lit = escapeCloses(g_state) && !app::keyFocus() ? defaultRow(g_scene) : std::nullopt)
-        g_renderer.setAreaHovered(lit->frame, lit->radius); // typing in search: the row Enter opens (decision 079)
-    else g_renderer.setAreaHovered(std::nullopt, 0);
+    const Placed* item = at && !s.pointer.scrub ? contentUnder(s, *at) : nullptr;
+    if (tab) s.renderer->setAreaHovered(tab->frame, s.scene.tabs->radius);
+    else if (tile) s.renderer->setAreaHovered(tile->frame, s.scene.tileRadius);
+    else if (item && item->listRow) s.renderer->setAreaHovered(item->listRow, item->listRowRadius);
+    else if (auto lit = &s == &keysSurface() && escapeCloses(g_state) && !app::keyFocus() ? defaultRow(s.scene) : std::nullopt)
+        s.renderer->setAreaHovered(lit->frame, lit->radius); // typing in search: the row Enter opens (decision 079)
+    else s.renderer->setAreaHovered(std::nullopt, 0);
 
     // The keyboard's focus also gets a ring (decision 033): hover alone can't
     // tell it from the pointer's, and a static widget has no hover at all.
     std::optional<cup::Focusable> focused;
-    if (!g_pointer.scrub) focused = app::keyFocus();
-    if (focused && inView(*focused)) g_renderer.setFocusRing(focused->frame, focused->radius);
-    else g_renderer.setFocusRing(std::nullopt, 0);
+    if (!s.pointer.scrub) focused = keyFocusOn(s);
+    if (focused && inView(*focused)) s.renderer->setFocusRing(focused->frame, focused->radius);
+    else s.renderer->setFocusRing(std::nullopt, 0);
 }
-
-// The Expanded tab under a pill-coordinate point, if any.
-const Tab* tabUnder(Vec2 point) { return g_scene.tabs ? tabAt(*g_scene.tabs, point) : nullptr; }
 
 std::optional<Ms> earliest(std::optional<Ms> a, std::optional<Ms> b)
 {
@@ -292,28 +263,30 @@ void dispatch(const Event& event, const char* reason)
     Ms t = now();
     Spot spot = g_state.spot;
     bool wasHidden = g_state.hidden;
-    std::optional<ShownCard> wasCard = shownCard(g_state);
+    std::vector<ShownCard> wasCards = shownCards(g_state); // the island's and every window's (decision 081)
     std::optional<Draft> wasDraft = g_state.draft;
     g_state = reduce(g_state, event, t);
     Scene next = layout(g_state, t, [](const Text& text) { return g_renderer.measure(text); });
 
-    if (next.mode != g_scene.mode) {
-        logLine("%s -> %s (%s) %s", toString(g_scene.mode), toString(next.mode), reason, next.label.c_str());
+    if (next.mode != g_island.scene.mode) {
+        logLine("%s -> %s (%s) %s", toString(g_island.scene.mode), toString(next.mode), reason, next.label.c_str());
     }
     // One motion for the renderer and the window that follows it (decisions 001, 080).
-    SceneMotion motion = sceneMotion(g_scene, next, flingVelocity(g_drag, t, tokens()), tokens());
+    SceneMotion motion = sceneMotion(g_island.scene, next, flingVelocity(g_drag, t, tokens()), tokens());
     g_renderer.apply(next, motion);
-    Rect bounds = interactiveBounds(next), was = interactiveBounds(g_scene);
+    Rect bounds = interactiveBounds(next), was = interactiveBounds(g_island.scene);
     // Lifted, the window stays where the press went down: it has capture, so
     // every move arrives anyway. Let go, it's over the drop point at once and
     // follows the glide to where the island lands (decision 026).
-    if (g_scene.lifted && !next.lifted) jumpTo({ was.width, was.height }, { was.x, was.y });
-    if (!next.lifted && (bounds != was || g_scene.lifted)) followMorph({ bounds.width, bounds.height }, { bounds.x, bounds.y }, motion);
-    bool lifted = next.lifted && !g_scene.lifted;
-    g_scene = next;
+    if (g_island.scene.lifted && !next.lifted) jumpTo({ was.width, was.height }, { was.x, was.y });
+    if (!next.lifted && (bounds != was || g_island.scene.lifted)) followMorph({ bounds.width, bounds.height }, { bounds.x, bounds.y }, motion);
+    bool lifted = next.lifted && !g_island.scene.lifted;
+    g_island.scene = next;
     if (lifted) onLifted();
     if (g_state.spot != spot) saveSpot();
-    updateHover();
+    app::syncFloats(g_state, t); // the floating cards: opened, redrawn, sent back (decision 081)
+    updateHover(g_island);
+    app::forEachFloat([](app::Surface& card) { updateHover(card); });
 
     // The island in the playing cover's colours, or the theme's (decision 051).
     IslandTint tint = nextTint(g_tint, g_coverColours ? wantedTint(g_state) : WantedTint{}, t);
@@ -321,7 +294,8 @@ void dispatch(const Event& event, const char* reason)
     g_tint = tint;
 
     // One timer for everything time-based: core deadlines, ticking labels and provider wake-ups.
-    auto deadline = earliest(earliest(nextDeadline(g_state), sceneDeadline(g_scene)), tintDeadline(g_tint));
+    auto deadline = earliest(earliest(nextDeadline(g_state), sceneDeadline(g_island.scene)), tintDeadline(g_tint));
+    app::forEachFloat([&deadline](app::Surface& card) { deadline = earliest(deadline, sceneDeadline(card.scene)); });
     if (g_providers) deadline = earliest(deadline, g_providers->nextWake());
     setTimer(TimerId::Deadline, deadline ? std::optional<Ms>(std::max(*deadline - t, Ms{ 0 })) : std::nullopt);
 
@@ -332,7 +306,7 @@ void dispatch(const Event& event, const char* reason)
     }
 
     // A live field's edit goes to its provider at once (search, decision 079).
-    if (auto change = liveChange(wasDraft, g_state.draft, g_scene); change && g_providers) {
+    if (auto change = liveChange(wasDraft, g_state.draft, keysSurface().scene); change && g_providers) { // the draft is on the card with the keys
         app::dropKeyFocus(); // new words, new rows: nothing stays highlighted
         g_providers->route(*change);
     }
@@ -342,10 +316,10 @@ void dispatch(const Event& event, const char* reason)
     if (g_state.hidden != wasHidden && g_settings) g_settings->setHotkeysActive(!g_state.hidden);
     // A card went: its provider may reset it (Settings opens at its list again).
     // ...and one came: what's on it is seen now (Settings' "New" tags, decision 048).
-    std::optional<ShownCard> nowCard = shownCard(g_state);
-    if (nowCard == wasCard || !g_providers) return;
-    if (wasCard) g_providers->cardClosed(*wasCard);
-    if (nowCard) g_providers->cardShown(*nowCard);
+    if (!g_providers) return;
+    CardChanges cards = cardChanges(wasCards, shownCards(g_state));
+    for (const ShownCard& card : cards.closed) g_providers->cardClosed(card);
+    for (const ShownCard& card : cards.shown) g_providers->cardShown(card);
 }
 
 void toggleProvider(const char* id)
@@ -372,8 +346,9 @@ void toggleTimer()
 // button sends the provider its action, then closes it.
 void answerDialog(bool confirmed)
 {
-    if (!g_state.dialog) return;
-    Dialog asked = *g_state.dialog;
+    const Dialog* over = focusedDialog(g_state); // the island's card's, or the focused window's (decision 081)
+    if (!over) return;
+    Dialog asked = *over;
     dispatch(DialogClosed{}, confirmed ? "dialog confirmed" : "dialog cancelled");
     if (confirmed) g_providers->route({ asked.providerId, asked.activityId, asked.confirmAction, 0 });
 }
@@ -385,27 +360,32 @@ void act(const Action& action)
         answerDialog(action.actionId == kDialogConfirm);
         return;
     }
+    if (action.actionId == kCloseFloat) { // a floating card's ✕ (decision 081)
+        dispatch(FloatClosed{ action.activityId }, "card's close");
+        return;
+    }
     g_providers->route(action);
-    if (g_state.toast && action.actionId == g_state.toast->actionId) dispatch(ToastClosed{}, "toast acted"); // done: it goes (decision 071)
+    const Toast* toast = toastOn(g_state, action.activityId);
+    if (toast && action.actionId == toast->actionId) dispatch(ToastClosed{}, "toast acted"); // done: it goes (decision 071)
     dispatch(PointerMoved{}, "action"); // the user is busy here: keep Expanded open
 }
 
 // The wheel over a list scrolls it, from what's shown (decision 029); the renderer eases it there.
-void onWheel(Vec2 canvasPoint, float notches)
+void onWheel(app::Surface& s, Vec2 canvasPoint, float notches)
 {
-    const Placed* p = listAt(g_scene, toPill(canvasPoint));
+    const Placed* p = listAt(s.scene, toLocal(s, canvasPoint));
     if (!p) return;
     dispatch(ListScrolled{ p->activityId, p->list->id, p->list->offset, notches * tokens().scrollStep, p->list->max }, "scroll");
 }
 
 // An edit button (Button::editsText): its row's text becomes a field holding it (decision 029).
-bool startEditing(const Placed& element)
+bool startEditing(app::Surface& s, const Placed& element)
 {
     auto* button = std::get_if<Button>(&element.item);
     if (!button || !button->editsText) return false;
-    const Text* text = editedText(g_scene, element.activityId, button->actionId);
+    const Text* text = editedText(s.scene, element.activityId, button->actionId);
     if (!text) return true; // nothing to edit on screen: the click does nothing
-    SetFocus(g_inputHwnd);
+    SetFocus(s.input);
     dispatch(InputFocused{ element.providerId, element.activityId, button->actionId, text->value, /* editing */ true, std::nullopt,
                            text->editMaxLength }, "edit");
     return true;
@@ -424,30 +404,30 @@ void finishEditing(const char* reason)
 // A press in a field (decision 043): focuses it with the caret where it was
 // pressed; again, the second press selects a word, the third everything.
 // Dragging from there selects (onPointerMoved).
-void pressField(const Placed& field, Vec2 canvasPoint, Vec2 point)
+void pressField(app::Surface& s, const Placed& field, Vec2 canvasPoint, Vec2 point)
 {
     const auto& input = std::get<TextInput>(field.item);
     Ms t = now();
-    bool sameSpot = std::abs(canvasPoint.x - g_pointer.lastClickPoint.x) <= GetSystemMetrics(SM_CXDOUBLECLK) / 2 &&
-                std::abs(canvasPoint.y - g_pointer.lastClickPoint.y) <= GetSystemMetrics(SM_CYDOUBLECLK) / 2;
-    g_pointer.clicks = input.focused && sameSpot && t - g_pointer.lastClickAt <= Ms{ GetDoubleClickTime() } ? g_pointer.clicks % 3 + 1 : 1;
-    g_pointer.lastClickAt = t;
-    g_pointer.lastClickPoint = canvasPoint;
-    g_pointer.selecting = field.key;
-    std::size_t at = g_renderer.caretAt(field, point);
-    SetFocus(g_inputHwnd);
+    bool sameSpot = std::abs(canvasPoint.x - s.pointer.lastClickPoint.x) <= GetSystemMetrics(SM_CXDOUBLECLK) / 2 &&
+                std::abs(canvasPoint.y - s.pointer.lastClickPoint.y) <= GetSystemMetrics(SM_CYDOUBLECLK) / 2;
+    s.pointer.clicks = input.focused && sameSpot && t - s.pointer.lastClickAt <= Ms{ GetDoubleClickTime() } ? s.pointer.clicks % 3 + 1 : 1;
+    s.pointer.lastClickAt = t;
+    s.pointer.lastClickPoint = canvasPoint;
+    s.pointer.selecting = field.key;
+    std::size_t at = s.renderer->caretAt(field, point);
+    SetFocus(s.input);
     if (!input.focused) dispatch(InputFocused{ field.providerId, field.activityId, input.actionId, {}, false, at, input.maxLength }, "focus field");
-    else if (g_pointer.clicks == 2) dispatch(WordSelected{ at }, "select word");
-    else if (g_pointer.clicks == 3) dispatch(AllSelected{}, "select all");
+    else if (s.pointer.clicks == 2) dispatch(WordSelected{ at }, "select word");
+    else if (s.pointer.clicks == 3) dispatch(AllSelected{}, "select all");
     else dispatch(CaretPlaced{ at, GetKeyState(VK_SHIFT) < 0 }, "place caret");
 }
 
 // A list row let go after a drag: the drag ends first (the row glides back),
 // then its provider moves it, so the glide carries on to the new place.
-void dropListRow(bool commit)
+void dropListRow(app::Surface& s, bool commit)
 {
     std::optional<Placed> dragged;
-    for (const Placed& p : g_scene.elements)
+    for (const Placed& p : s.scene.elements)
         if (p.list && p.list->dragged) dragged = p;
     dispatch(ListDragEnded{}, commit ? "drop row" : "drag cancelled");
     if (commit && dragged && dragged->list->dropAt != dragged->list->row)
@@ -456,103 +436,106 @@ void dropListRow(bool commit)
 
 // Mouse-down: the bubble may become a drag, a progress bar starts scrubbing,
 // a button gets its own press feedback, anything else squashes the pill.
-void onPressDown(Vec2 canvasPoint)
+void onPressDown(app::Surface& s, Vec2 canvasPoint)
 {
     g_drag = trackPointer({}, canvasPoint, now(), tokens());
-    if (!onBubble(canvasPoint)) {
+    if (s.island() && !onBubble(s, canvasPoint)) {
         // Held still, the island lifts (decision 026). Core ignores it where
         // it can't (Expanded), and then the press is only what it always was.
         dispatch(IslandPressed{}, "press");
-        if (g_state.pressedAt) g_pointer.islandPress = canvasPoint;
+        if (g_state.pressedAt) s.pointer.islandPress = canvasPoint;
     }
-    if (onBubble(canvasPoint)) {
-        g_pointer.bubblePress = canvasPoint;
-        g_pointer.dragged = false;
-        g_renderer.pressDown(true);
+    if (onBubble(s, canvasPoint)) {
+        s.pointer.bubblePress = canvasPoint;
+        s.pointer.dragged = false;
+        s.renderer->pressDown(true);
         return;
     }
-    Vec2 point = toPill(canvasPoint);
-    g_pointer.at = point;
-    if (const Tab* tab = tabUnder(point)) {
-        g_pointer.tabPress = tab->id; // switches on release, if still on the same tab
+    Vec2 point = toLocal(s, canvasPoint);
+    s.pointer.at = point;
+    if (const Tab* tab = tabUnder(s, point)) {
+        s.pointer.tabPress = tab->id; // switches on release, if still on the same tab
         return;
     }
-    auto hit = hitTest(g_scene, point);
-    const Placed* element = hit ? findElement(hit->key) : nullptr;
+    auto hit = hitTest(s.scene, point);
+    const Placed* element = hit ? findElement(s, hit->key) : nullptr;
     auto* field = element ? std::get_if<TextInput>(&element->item) : nullptr;
     if (g_state.draft && g_state.draft->editing && !(field && field->focused)) {
         finishEditing("edit kept"); // pressed away from the text being edited
-        hit = hitTest(g_scene, point); // the list may have changed under it
-        element = hit ? findElement(hit->key) : nullptr;
+        hit = hitTest(s.scene, point); // the list may have changed under it
+        element = hit ? findElement(s, hit->key) : nullptr;
     }
     if (element && std::holds_alternative<TextInput>(element->item)) {
-        pressField(*element, canvasPoint, point);
+        pressField(s, *element, canvasPoint, point);
         return;
     }
-    if (const Tile* tile = element ? nullptr : tileAt(g_scene, point)) {
+    if (const Tile* tile = element ? nullptr : tileAt(s.scene, point)) {
         // Opens its card on release, if still on the same tile. A widget with no
         // card takes the click too, so it doesn't fall through and close Home.
-        g_pointer.tilePress = tile->id;
+        s.pointer.tilePress = tile->id;
         return;
     }
     if (element && std::holds_alternative<Progress>(element->item)) {
-        g_pointer.scrub = *element;
-        g_pointer.scrubFraction = hit->action.value;
-        g_renderer.scrubElement(hit->key, g_pointer.scrubFraction);
+        s.pointer.scrub = *element;
+        s.pointer.scrubFraction = hit->action.value;
+        s.renderer->scrubElement(hit->key, s.pointer.scrubFraction);
     } else if (element) {
-        g_pointer.pressedKey = hit->key;
-        g_pointer.textPress = point;
-        g_renderer.pressElement(hit->key);
+        s.pointer.pressedKey = hit->key;
+        s.pointer.textPress = point;
+        s.renderer->pressElement(hit->key);
         // A row that can be reordered: dragged far enough, it's picked up instead of clicked.
         if (element->list && !element->list->moveAction.empty()) {
-            g_pointer.listPress = *element;
-            g_pointer.listPressY = point.y;
+            s.pointer.listPress = *element;
+            s.pointer.listPressY = point.y;
         }
+    } else if (!s.island()) {
+        app::startMoving(s); // a floating card's empty space drags it (decision 081)
+        return;
     } else if (pressSquashes(g_state)) { // not where an empty click does nothing (decision 071)
-        g_renderer.pressDown(false);
+        s.renderer->pressDown(false);
     }
-    updateHover();
+    updateHover(s);
 }
 
-void onPointerMoved(Vec2 canvasPoint, bool inside)
+void onPointerMoved(app::Surface& s, Vec2 canvasPoint, bool inside)
 {
     app::pointerMoved(canvasPoint); // a real move takes the lead back from the keyboard
-    if (g_pointer.islandPress || g_pointer.bubblePress) g_drag = trackPointer(g_drag, canvasPoint, now(), tokens());
-    if (g_pointer.islandPress) {
-        Vec2 start = *g_pointer.islandPress;
+    if (s.pointer.islandPress || s.pointer.bubblePress) g_drag = trackPointer(g_drag, canvasPoint, now(), tokens());
+    if (s.pointer.islandPress) {
+        Vec2 start = *s.pointer.islandPress;
         dispatch(IslandDragged{ { canvasPoint.x - start.x, canvasPoint.y - start.y } }, "lift drag");
         if (g_state.lift) return; // carried: nothing under it reacts
     }
-    if (g_pointer.bubblePress) {
-        Vec2 start = *g_pointer.bubblePress;
+    if (s.pointer.bubblePress) {
+        Vec2 start = *s.pointer.bubblePress;
         dispatch(BubbleDragged{ { canvasPoint.x - start.x, canvasPoint.y - start.y } }, "drag");
-        if (g_state.bubbleDrag && !g_pointer.dragged) {
-            g_pointer.dragged = true;
-            g_renderer.pressRelease(true); // un-squash: it's being carried now
+        if (g_state.bubbleDrag && !s.pointer.dragged) {
+            s.pointer.dragged = true;
+            s.renderer->pressRelease(true); // un-squash: it's being carried now
         }
         return;
     }
-    Vec2 point = toPill(canvasPoint);
-    g_pointer.at = inside && onPill(canvasPoint) ? std::optional<Vec2>(point) : std::nullopt;
-    if (const Placed* field = g_pointer.selecting.empty() || !g_state.draft ? nullptr : findElement(g_pointer.selecting)) {
-        std::size_t at = g_renderer.caretAt(*field, point); // off either end: its first or last character
+    Vec2 point = toLocal(s, canvasPoint);
+    s.pointer.at = inside && onShape(s, canvasPoint) ? std::optional<Vec2>(point) : std::nullopt;
+    if (const Placed* field = s.pointer.selecting.empty() || !g_state.draft ? nullptr : findElement(s, s.pointer.selecting)) {
+        std::size_t at = s.renderer->caretAt(*field, point); // off either end: its first or last character
         if (at != g_state.draft->caret) dispatch(CaretPlaced{ at, true }, "select");
         return;
     }
-    if (g_pointer.listPress) {
-        const Placed& row = *g_pointer.listPress;
-        if (!g_state.listDrag && std::abs(point.y - g_pointer.listPressY) >= tokens().dragStartDistance) {
-            if (!g_pointer.pressedKey.empty()) g_renderer.releaseElement(std::exchange(g_pointer.pressedKey, std::string{})); // not a click now
-            dispatch(ListDragStarted{ row.activityId, row.list->id, row.list->row, g_pointer.listPressY, row.list->offset }, "pick up row");
+    if (s.pointer.listPress) {
+        const Placed& row = *s.pointer.listPress;
+        if (!g_state.listDrag && std::abs(point.y - s.pointer.listPressY) >= tokens().dragStartDistance) {
+            if (!s.pointer.pressedKey.empty()) s.renderer->releaseElement(std::exchange(s.pointer.pressedKey, std::string{})); // not a click now
+            dispatch(ListDragStarted{ row.activityId, row.list->id, row.list->row, s.pointer.listPressY, row.list->offset }, "pick up row");
         }
         if (g_state.listDrag) {
             dispatch(ListDragMoved{ point.y }, "carry row");
             return;
         }
     }
-    if (g_pointer.scrub) {
-        g_pointer.scrubFraction = seekFraction(*g_pointer.scrub, point.x);
-        g_renderer.scrubElement(g_pointer.scrub->key, g_pointer.scrubFraction);
+    if (s.pointer.scrub) {
+        s.pointer.scrubFraction = seekFraction(*s.pointer.scrub, point.x);
+        s.renderer->scrubElement(s.pointer.scrub->key, s.pointer.scrubFraction);
     }
     dispatch(PointerMoved{}, "pointer"); // keeps Expanded open while in use; refreshes hover
 }
@@ -575,81 +558,82 @@ void clickTile(const Tile& tile)
 }
 
 // `at`: where a click was (pill coordinates); none for Enter or Space.
-void clickElement(const Hit& hit, std::optional<Vec2> at = std::nullopt)
+void clickElement(app::Surface& s, const Hit& hit, std::optional<Vec2> at = std::nullopt)
 {
-    const Placed* element = findElement(hit.key);
+    const Placed* element = findElement(s, hit.key);
     auto* text = element ? std::get_if<Text>(&element->item) : nullptr;
     if (text && !text->editAction.empty()) {
         // Its text: edit it in place, the caret where it was clicked, else at its end (decision 043).
         std::optional<std::size_t> caret;
-        if (at) caret = g_renderer.caretAt(*element, *at);
-        SetFocus(g_inputHwnd);
+        if (at) caret = s.renderer->caretAt(*element, *at);
+        SetFocus(s.input);
         dispatch(InputFocused{ element->providerId, element->activityId, text->editAction, text->value, true, caret, text->editMaxLength }, "edit");
     } else if (element && std::holds_alternative<TextInput>(element->item)) {
         // A field: focus it for typing (decision 016); nothing is sent until Enter.
-        SetFocus(g_inputHwnd);
+        SetFocus(s.input);
         dispatch(InputFocused{ hit.action.providerId, hit.action.activityId, hit.action.actionId, {}, false, std::nullopt,
                                std::get<TextInput>(element->item).maxLength }, "focus field");
-    } else if (!element || !startEditing(*element)) {
+    } else if (!element || !startEditing(s, *element)) {
         act(hit.action);
     }
 }
 
-void onPressRelease(Vec2 canvasPoint, Release how)
+void onPressRelease(app::Surface& s, Vec2 canvasPoint, Release how)
 {
-    if (g_pointer.islandPress) {
-        g_pointer.islandPress.reset();
+    if (s.pointer.islandPress) {
+        s.pointer.islandPress.reset();
         bool lifted = g_state.lift.has_value();
         dispatch(IslandReleased{}, lifted ? "landed" : "release");
         if (lifted) return; // it was carried, not clicked; lost capture lands it too
     }
-    if (!std::exchange(g_pointer.selecting, std::string{}).empty()) {
-        updateHover();
+    if (!std::exchange(s.pointer.selecting, std::string{}).empty()) {
+        updateHover(s);
         return; // the caret and selection are where the drag left them
     }
-    if (g_pointer.tabPress) {
-        std::string id = *std::exchange(g_pointer.tabPress, std::nullopt);
-        const Tab* tab = how == Release::Inside && onPill(canvasPoint) ? tabUnder(toPill(canvasPoint)) : nullptr;
-        if (tab && tab->id == id && !isCurrent(*tab)) clickTab(id);
+    if (s.pointer.tabPress) {
+        std::string id = *std::exchange(s.pointer.tabPress, std::nullopt);
+        const Tab* tab = how == Release::Inside && onShape(s, canvasPoint) ? tabUnder(s, toLocal(s, canvasPoint)) : nullptr;
+        if (tab && tab->id == id && !isCurrent(s, *tab)) clickTab(id);
         return;
     }
-    if (g_pointer.tilePress) {
-        std::string id = *std::exchange(g_pointer.tilePress, std::nullopt);
-        const Tile* tile = how == Release::Inside && onPill(canvasPoint) ? tileAt(g_scene, toPill(canvasPoint)) : nullptr;
+    if (s.pointer.tilePress) {
+        std::string id = *std::exchange(s.pointer.tilePress, std::nullopt);
+        const Tile* tile = how == Release::Inside && onShape(s, canvasPoint) ? tileAt(s.scene, toLocal(s, canvasPoint)) : nullptr;
         if (tile && tile->id == id) clickTile(*tile);
         return;
     }
-    if (g_pointer.bubblePress) {
-        g_pointer.bubblePress.reset();
-        if (!g_pointer.dragged) g_renderer.pressRelease(true);
+    if (s.pointer.bubblePress) {
+        s.pointer.bubblePress.reset();
+        if (!s.pointer.dragged) s.renderer->pressRelease(true);
         if (g_state.bubbleDrag) dispatch(how == Release::Cancelled ? Event{ BubbleDragCancelled{} } : Event{ BubbleReleased{} }, "drop");
-        else if (!g_pointer.dragged && how == Release::Inside && onBubble(canvasPoint)) dispatch(BubbleClicked{}, "bubble click");
+        else if (!s.pointer.dragged && how == Release::Inside && onBubble(s, canvasPoint)) dispatch(BubbleClicked{}, "bubble click");
         return;
     }
-    if (std::exchange(g_pointer.listPress, std::nullopt) && g_state.listDrag) {
-        dropListRow(how != Release::Cancelled); // dropped anywhere: it lands where it shows it would
+    if (std::exchange(s.pointer.listPress, std::nullopt) && g_state.listDrag) {
+        dropListRow(s, how != Release::Cancelled); // dropped anywhere: it lands where it shows it would
         return;
     }
-    Vec2 point = toPill(canvasPoint);
-    if (g_pointer.scrub) {
+    Vec2 point = toLocal(s, canvasPoint);
+    if (s.pointer.scrub) {
         // A scrub seeks wherever it's let go, even off the pill; only a lost capture cancels it.
-        Placed bar = *std::exchange(g_pointer.scrub, std::nullopt);
+        Placed bar = *std::exchange(s.pointer.scrub, std::nullopt);
         bool commit = how != Release::Cancelled;
-        g_renderer.endScrub(bar.key, commit ? std::optional<float>(g_pointer.scrubFraction) : std::nullopt, now());
-        if (commit) g_providers->route({ bar.providerId, bar.activityId, "seek", g_pointer.scrubFraction });
+        s.renderer->endScrub(bar.key, commit ? std::optional<float>(s.pointer.scrubFraction) : std::nullopt, now());
+        if (commit) g_providers->route({ bar.providerId, bar.activityId, "seek", s.pointer.scrubFraction });
         dispatch(PointerMoved{}, "seek");
         return;
     }
-    if (!g_pointer.pressedKey.empty()) {
-        std::string key = std::exchange(g_pointer.pressedKey, std::string{});
-        g_renderer.releaseElement(key);
+    if (!s.pointer.pressedKey.empty()) {
+        std::string key = std::exchange(s.pointer.pressedKey, std::string{});
+        s.renderer->releaseElement(key);
         // Only a release on the same button counts: sliding off cancels, like any button.
-        auto hit = how == Release::Inside && onPill(canvasPoint) ? hitTest(g_scene, point) : std::nullopt;
-        if (hit && hit->key == key) clickElement(*hit, g_pointer.textPress);
+        auto hit = how == Release::Inside && onShape(s, canvasPoint) ? hitTest(s.scene, point) : std::nullopt;
+        if (hit && hit->key == key) clickElement(s, *hit, s.pointer.textPress);
         return;
     }
-    g_renderer.pressRelease(false);
-    if (how == Release::Inside && onPill(canvasPoint) && !hitTest(g_scene, point)) dispatch(PillClicked{}, "click");
+    if (!s.island()) return; // a floating card's empty space only drags it (decision 081)
+    s.renderer->pressRelease(false);
+    if (how == Release::Inside && onShape(s, canvasPoint) && !hitTest(s.scene, point)) dispatch(PillClicked{}, "click");
 }
 
 // Sends the focused field's text to its provider: what was typed (Enter), or
@@ -719,7 +703,7 @@ void onKey(WPARAM key)
     // Tab and Enter move between its buttons and press one (decision 033);
     // the first press shows focus on Cancel, so a stray Enter answers nothing.
     // No Ctrl or Alt keys: switching tabs or closing would leave it hanging.
-    if (g_state.dialog) {
+    if (focusedDialog(g_state)) {
         if (key == VK_ESCAPE) answerDialog(false);
         else if (!ctrl && !alt) app::navigationKey(key);
         return;
@@ -743,9 +727,10 @@ void onKey(WPARAM key)
         case VK_DOWN: { // a line up or down in wrapped text (decision 045); from the first or last line, its start or end
             if (escapeCloses(g_state) && app::fieldCardKey(key)) break; // a card that is its field: through its rows (decision 079)
             const Placed* field = nullptr;
-            for (const Placed& p : g_scene.elements)
+            app::Surface& keys = keysSurface();
+            for (const Placed& p : keys.scene.elements)
                 if (auto* input = std::get_if<TextInput>(&p.item); input && input->focused) field = &p;
-            auto at = field ? g_renderer.caretOnLine(*field, key == VK_UP ? -1 : 1) : std::nullopt;
+            auto at = field ? keys.renderer->caretOnLine(*field, key == VK_UP ? -1 : 1) : std::nullopt;
             if (at) dispatch(CaretPlaced{ *at, shift }, "caret line");
             else dispatch(CaretMoved{ key == VK_UP ? CaretMove::Start : CaretMove::End, shift }, "caret");
             break;
@@ -762,9 +747,9 @@ void onKey(WPARAM key)
         // One step back, never out of the app: quitting is the tray's Exit. A
         // card's own page goes back to its list, a card opened from Home back
         // to Home, anything else closes (decision 033).
-        if (mode(g_state) != Mode::Expanded) return;
+        if (mode(g_state) != Mode::Expanded && !focusedFloat(g_state)) return; // a floating card has the keys (decision 081)
         std::string back = backAction(g_state);
-        if (auto card = shownCard(g_state); card && !back.empty()) act({ card->providerId, card->activityId, back });
+        if (auto card = focusedCard(g_state); card && !back.empty()) act({ card->providerId, card->activityId, back });
         else dispatch(EscapePressed{}, "esc");
         return;
     }
@@ -774,7 +759,7 @@ void onKey(WPARAM key)
     // no activity to close.
     if (ctrl && key == 'W') {
         auto card = shownActivity(g_state);
-        if (mode(g_state) == Mode::Expanded && card) {
+        if ((mode(g_state) == Mode::Expanded || focusedFloat(g_state)) && card) {
             g_providers->closeRequested(*card);
             dispatch(PointerMoved{}, "close request"); // busy here: keep the card open for an answer
         }
@@ -812,11 +797,11 @@ void positionLayers()
 // button isn't clicked, a scrub doesn't seek) and the pill un-squashes.
 void onLifted()
 {
-    if (!g_pointer.pressedKey.empty()) g_renderer.releaseElement(std::exchange(g_pointer.pressedKey, std::string{}));
-    if (g_pointer.scrub) g_renderer.endScrub(std::exchange(g_pointer.scrub, std::nullopt)->key, std::nullopt, now());
+    if (!g_island.pointer.pressedKey.empty()) g_renderer.releaseElement(std::exchange(g_island.pointer.pressedKey, std::string{}));
+    if (g_island.pointer.scrub) g_renderer.endScrub(std::exchange(g_island.pointer.scrub, std::nullopt)->key, std::nullopt, now());
     g_renderer.pressRelease(false);
-    g_pointer.at.reset();
-    updateHover();
+    g_island.pointer.at.reset();
+    updateHover(g_island);
 }
 
 // Where the island rests on this monitor, kept for the next start (decision 026).
@@ -947,26 +932,27 @@ int main()
     g_spots = parseSpots(readTextFile(g_spotsFile));
     g_state = reduce(g_state, ScreenResized{ static_cast<float>(render.width) }, now());
     g_state = reduce(g_state, SpotRestored{ savedSpot(g_displayId) }, now());
-    g_scene = layout(g_state, now());
-    g_renderer.build(render.compositor, render.root, g_scene);
+    g_island.scene = layout(g_state, now());
+    g_island.renderer = &g_renderer;
+    g_renderer.build(render.compositor, render.root, g_island.scene);
 
     InteractionCallbacks callbacks;
-    callbacks.onPressDown = onPressDown;
-    callbacks.onPressRelease = onPressRelease;
+    callbacks.onPressDown = [](Vec2 point) { onPressDown(g_island, point); };
+    callbacks.onPressRelease = [](Vec2 point, Release how) { onPressRelease(g_island, point, how); };
     callbacks.onClickOutside = [] {
         finishEditing("edit kept"); // the card closes: what was typed into a to-do stays
         dispatch(ClickedOutside{}, "click outside");
     };
-    callbacks.onPointerMoved = onPointerMoved;
+    callbacks.onPointerMoved = [](Vec2 point, bool inside) { onPointerMoved(g_island, point, inside); };
     callbacks.onPointerLeft = [] {
-        g_pointer.at.reset();
-        updateHover();
+        g_island.pointer.at.reset();
+        updateHover(g_island);
     };
     callbacks.onKeyDown = onKey;
     callbacks.onHotkey = app::hotkeyPressed;
     callbacks.onChar = onChar;
     callbacks.onDpiChanged = onDpiChanged;
-    callbacks.onWheel = onWheel;
+    callbacks.onWheel = [](Vec2 point, float notches) { onWheel(g_island, point, notches); };
     callbacks.onTimer = onTimer;
     callbacks.onDisplaysChanged = [] {
         // Re-lists the monitors and puts the island back where it was picked.
@@ -981,12 +967,38 @@ int main()
         dispatch(HomeOpened{}, "launched again");
     };
 
-    Rect bounds = interactiveBounds(g_scene);
+    Rect bounds = interactiveBounds(g_island.scene);
     g_inputHwnd = createInteractionLayer(instance, render.left, render.top, { bounds.width, bounds.height }, { bounds.x, bounds.y }, callbacks);
     if (!g_inputHwnd) {
         logLine("failed to create the interaction window (0x%08lx)", GetLastError());
         return 1;
     }
+    g_island.input = g_inputHwnd;
+    // Floating cards (decision 081): their windows on the island's Compositor,
+    // their input through the same handlers, with their own surfaces.
+    app::setFloatHooks({
+        .instance = instance,
+        .compositor = render.compositor,
+        .dispatch = dispatch,
+        .measure = [](const Text& text) { return g_renderer.measure(text); },
+        .pill = [] {
+            const Scene& pill = g_island.scene;
+            return Rect{ g_render.left + pill.offset.x, g_render.top + pill.offset.y, pill.size.x, pill.size.y };
+        },
+        .islandScreen = [] { return displayFor(g_displayId).id; },
+        .scale = [] { return displayFor(g_displayId).scale * tokens().islandScale; },
+        .placesFile = dataFile(L"floats.txt"),
+        .pressDown = onPressDown,
+        .pressRelease = onPressRelease,
+        .pointerMoved = onPointerMoved,
+        .pointerLeft = [](app::Surface& card) {
+            card.pointer.at.reset();
+            updateHover(card);
+        },
+        .wheel = onWheel,
+        .keyDown = onKey,
+        .character = onChar,
+    });
     createTrayIcon(instance, [] {
         logLine("exit from the tray");
         DestroyWindow(g_inputHwnd); // ends the message loop
@@ -1039,14 +1051,15 @@ int main()
     g_settings->setHotkeysActive(!g_state.hidden); // started under a fullscreen app: none until it's gone
     app::setKeyboardHooks({
         .state = []() -> const IslandState& { return g_state; },
-        .scene = []() -> const Scene& { return g_scene; },
+        .scene = []() -> const Scene& { return keysSurface().scene; },
         .dispatch = dispatch,
         .clickTab = clickTab,
         .clickTile = clickTile,
         .clickElement = [](const Hit& hit) {
-            g_renderer.pressElement(hit.key); // the same squash a click gives
-            g_renderer.releaseElement(hit.key);
-            clickElement(hit);
+            app::Surface& s = keysSurface();
+            s.renderer->pressElement(hit.key); // the same squash a click gives
+            s.renderer->releaseElement(hit.key);
+            clickElement(s, hit);
         },
         .window = g_inputHwnd,
         .settings = g_settings,
@@ -1137,6 +1150,7 @@ int main()
     }).detach();
 
     removeTrayIcon();
+    app::closeAllFloats(); // their windows, before the render layer and the Compositor go
     // Stops Double Ctrl's keyboard-hook thread (tap_hook): left running, its
     // std::thread was still joinable when statics were destroyed, and every
     // exit ended in std::terminate (a crash dump on each update).

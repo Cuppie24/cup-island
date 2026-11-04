@@ -40,6 +40,21 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
 // 045), and text being edited the `source`'s draft.
 float slotHeight(const Slot& slot, Rect frame, const Source& source = {}, const MeasureText& measure = {});
 
+// Expanded's slots for a card of this size, as the card's preset arranges
+// them (decision 014): the island's card, and a window's (decision 081).
+std::vector<SlotFrame> cardSlots(const Content& content, Vec2 size);
+
+// Centred, List and Search cards are one stack of rows across the card (decision 014).
+bool stacked(const Content& content);
+
+// How tall a stacked card is at `size`'s width: as its rows need, never
+// below Expanded's height (a List card's listCardMinHeight) nor past `most`.
+float centredCardHeight(const Source& source, Vec2 size, float most, const MeasureText& measure);
+
+// Moves elements[from..] down by `dy`, with their hit areas, rows and lists'
+// windows: content laid out from the top, put under a tab row or a title bar.
+void moveDown(std::vector<Placed>& elements, std::size_t from, float dy);
+
 // Font size in pixels for a text style (tokens).
 float fontSize(TextStyle style);
 

@@ -12,6 +12,7 @@
 #include "platform/win.h"
 
 #include <chrono>
+#include <functional>
 #include <map>
 #include <optional>
 #include <string>
@@ -22,6 +23,16 @@ namespace cup::platform {
 class PillRenderer {
 public:
     void build(wuc::Compositor const& compositor, wuc::ContainerVisual const& root, const Scene& initial);
+    // A floating card (decision 081): one shape off the screen edge, every
+    // corner round, no bubble; its ✕ (kCloseFloatKey) over it, unclipped.
+    // `root` is its own window's.
+    void buildFloating(wuc::Compositor const& compositor, wuc::ContainerVisual const& root, const Scene& initial);
+    // A floating card pops in: from floatAppearScale, settling with a hint of
+    // overshoot, fading in. vanish() is the way back; `done` runs once it's gone.
+    void appear();
+    void vanish(std::function<void()> done);
+    // The pointer is on the floating card: its ✕ shows.
+    void setPointerInside(bool inside) { pill_.showChrome(inside); }
     // Starts the morph now, along `motion` (decision 080); content follows in a
     // queued call, so building it doesn't hold back the frame the morph starts on (decision 012).
     void apply(const Scene& scene, const SceneMotion& motion);
@@ -49,9 +60,10 @@ public:
     // A floating toast's elements (keys "toast/...", decision 071) are its own; the rest are the content's.
     void setHovered(const std::string& key)
     {
-        bool onToast = isToast(key);
-        pill_.elements().setHovered(onToast ? std::string() : key);
+        bool onToast = isToast(key), onChrome = isChrome(key);
+        pill_.elements().setHovered(onToast || onChrome ? std::string() : key);
         pill_.toastElements().setHovered(onToast ? key : std::string());
+        if (floating_) pill_.chrome().setHovered(onChrome ? key : std::string());
     }
     void setHoveredRow(const std::string& row) { pill_.elements().setHoveredRow(row); }
     void setHoveredTab(const std::optional<std::string>& tab) { pill_.elements().setHoveredTab(tab); } // decision 072
@@ -67,10 +79,18 @@ public:
 
 private:
     void applyContent(); // the latest pending scene's content, for both blobs
+    void applyFloating(const Scene& scene); // apply()'s rest, for a floating card
     static bool isToast(const std::string& key) { return key.rfind("toast/", 0) == 0; }
-    ElementVisuals& elementsFor(const std::string& key) { return isToast(key) ? pill_.toastElements() : pill_.elements(); }
+    static bool isChrome(const std::string& key) { return key.rfind("float/", 0) == 0; }
+    ElementVisuals& elementsFor(const std::string& key)
+    {
+        return isToast(key) ? pill_.toastElements() : isChrome(key) ? pill_.chrome() : pill_.elements();
+    }
 
     GraphicsDevice device_;
+    bool floating_ = false;
+    wuc::Compositor compositor_{ nullptr };
+    wuc::ContainerVisual root_{ nullptr };
     Blob pill_;
     Blob bubble_;
     LiquidBridge bridge_;
