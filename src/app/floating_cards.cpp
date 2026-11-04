@@ -11,6 +11,7 @@
 #include "platform/pill_renderer.h"
 #include "platform/stay_on_top.h"
 
+#include <algorithm>
 #include <fstream>
 #include <map>
 #include <memory>
@@ -37,6 +38,21 @@ std::map<std::string, std::unique_ptr<FloatCard>> g_cards; // by card id; stable
 std::vector<std::unique_ptr<FloatCard>> g_going;           // sent back, shrinking until their animation ends
 Places g_places;
 bool g_placesRead = false;
+
+// What the last dispatch wants on screen, copied out of the state: the
+// windows are changed later, on their own (applyWanted), never inside the
+// dispatch. Raising a card gives it the keys, which tells the island at
+// once (WM_ACTIVATE: a click outside), which dispatches again and replaces
+// the state mid-loop: that read freed memory and opened cards over and over.
+struct Wanted {
+    FloatingCard card;
+    Scene scene;
+    FloatSpec spec;
+};
+std::vector<Wanted> g_wanted;
+bool g_wantShown = true;
+bool g_applyQueued = false;
+bool g_applying = false;
 
 std::string readFile(const std::filesystem::path& file)
 {
@@ -100,41 +116,47 @@ platform::FloatCallbacks callbacksFor(const std::string& id)
     return c;
 }
 
-void openCard(const IslandState& state, const FloatingCard& f, Scene scene)
+void openCard(const Wanted& want, bool shown)
 {
     if (!g_placesRead) {
         g_places = parsePlaces(readFile(g_hooks.placesFile));
         g_placesRead = true;
     }
-    const Content* content = cardContent(state, f.activityId);
-    FloatSpec spec = content && content->floating ? *content->floating : FloatSpec{};
+    const FloatingCard& f = want.card;
+    Scene scene = want.scene;
     float k = g_hooks.scale();
     std::vector<Rect> taken;
     for (const auto& [id, card] : g_cards) taken.push_back(card->window.card());
-    Rect at = placeFloat(spec, { scene.size.x / k, scene.size.y / k }, screens(), g_hooks.islandScreen(), g_hooks.pill(),
+    Rect at = placeFloat(want.spec, { scene.size.x / k, scene.size.y / k }, screens(), g_hooks.islandScreen(), g_hooks.pill(),
                          recall(g_places, f.activityId, f.providerId), taken);
     at.width = scene.size.x; // its own size: it fits its content (resizing isn't in yet)
     at.height = scene.size.y;
 
-    auto card = std::make_unique<FloatCard>();
-    if (!card->window.create(g_hooks.instance, g_hooks.compositor, at, pillCornerRadius(scene.size), tokens().floatCloseSize,
-                             callbacksFor(f.activityId)))
-        return; // logged; the card stays in core with no window: the pill sends it back
-    scene.offset = { card->window.margin(), card->window.margin() };
-    card->renderer.buildFloating(g_hooks.compositor, card->window.root(), scene);
-    card->surface = Surface{ .cardId = f.activityId, .scene = scene, .renderer = &card->renderer, .input = card->window.input() };
-    card->providerId = f.providerId;
-    card->raised = f.raised;
-    card->window.show(floatsShown(state));
-    card->renderer.appear();
-    card->window.raise(true);
-    platform::raiseIsland(); // the island stays over its cards
+    auto made = std::make_unique<FloatCard>();
+    if (!made->window.create(g_hooks.instance, g_hooks.compositor, at, pillCornerRadius(scene.size), tokens().floatCloseSize,
+                             callbacksFor(f.activityId))) {
+        g_hooks.dispatch(FloatClosed{ f.activityId }, "card's windows failed"); // logged; back into the pill, not tried again and again
+        return;
+    }
+    // In the list before anything that can send messages (showing, raising):
+    // whatever runs meanwhile finds it.
+    FloatCard& card = *made;
+    g_cards[f.activityId] = std::move(made);
+    scene.offset = { card.window.margin(), card.window.margin() };
+    card.renderer.buildFloating(g_hooks.compositor, card.window.root(), scene);
+    card.surface = Surface{ .cardId = f.activityId, .scene = scene, .renderer = &card.renderer, .input = card.window.input() };
+    card.providerId = f.providerId;
+    card.raised = f.raised;
     platform::logLine("card floats: %s", f.activityId.c_str());
-    g_cards[f.activityId] = std::move(card);
+    card.window.show(shown);
+    card.renderer.appear();
+    card.window.raise(true);
+    platform::raiseIsland(); // the island stays over its cards
 }
 
-void updateCard(FloatCard& card, const IslandState& state, const FloatingCard& f, Scene scene)
+void updateCard(FloatCard& card, const Wanted& want, bool shown)
 {
+    Scene scene = want.scene;
     scene.offset = { card.window.margin(), card.window.margin() };
     if (scene.size != card.surface.scene.size) { // it grows or shrinks from its top-left
         Rect at = card.window.card();
@@ -142,9 +164,9 @@ void updateCard(FloatCard& card, const IslandState& state, const FloatingCard& f
     }
     card.renderer.apply(scene, sceneMotion(card.surface.scene, scene, {}, tokens()));
     card.surface.scene = std::move(scene);
-    card.window.show(floatsShown(state));
-    if (f.raised != card.raised) {
-        card.raised = f.raised;
+    card.window.show(shown);
+    if (want.card.raised != card.raised) {
+        card.raised = want.card.raised;
         card.window.raise(true);
         platform::raiseIsland();
     }
@@ -173,17 +195,54 @@ void sendBack(const std::string& id)
 
 void setFloatHooks(FloatHooks hooks) { g_hooks = std::move(hooks); }
 
-void syncFloats(const IslandState& state, Ms now)
+namespace {
+
+void queueApply();
+
+// The windows to what the last dispatch wanted (g_wanted), from a copy: a
+// dispatch while this runs (a raise taking the keys from the island) only
+// queues another pass.
+void applyWanted()
 {
+    g_applyQueued = false;
+    if (g_applying) return queueApply();
+    g_applying = true;
+    std::vector<Wanted> wanted = g_wanted;
+    bool shown = g_wantShown;
     std::vector<std::string> gone;
     for (const auto& [id, card] : g_cards)
-        if (!floatFor(state, id)) gone.push_back(id);
+        if (std::none_of(wanted.begin(), wanted.end(), [&](const Wanted& w) { return w.card.activityId == id; })) gone.push_back(id);
     for (const std::string& id : gone) sendBack(id);
-    for (const FloatingCard& f : state.floats) {
-        Scene scene = floatScene(state, f, now, g_hooks.measure);
-        if (auto it = g_cards.find(f.activityId); it != g_cards.end()) updateCard(*it->second, state, f, std::move(scene));
-        else openCard(state, f, std::move(scene));
+    for (const Wanted& want : wanted) {
+        if (auto it = g_cards.find(want.card.activityId); it != g_cards.end()) updateCard(*it->second, want, shown);
+        else openCard(want, shown);
     }
+    g_applying = false;
+}
+
+void queueApply()
+{
+    if (g_applyQueued) return;
+    g_applyQueued = true;
+    auto queue = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
+    if (!queue || !queue.TryEnqueue(applyWanted)) {
+        g_applyQueued = false;
+        if (!g_applying) applyWanted(); // no queue (shutting down): now, if that's safe
+    }
+}
+
+} // namespace
+
+void syncFloats(const IslandState& state, Ms now)
+{
+    // Copied now, while the state is this dispatch's; applied once it's over.
+    g_wanted.clear();
+    for (const FloatingCard& f : state.floats) {
+        const Content* content = cardContent(state, f.activityId);
+        g_wanted.push_back({ f, floatScene(state, f, now, g_hooks.measure), content && content->floating ? *content->floating : FloatSpec{} });
+    }
+    g_wantShown = floatsShown(state);
+    queueApply();
 }
 
 Surface* floatSurface(const std::string& cardId)
