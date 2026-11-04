@@ -1,6 +1,6 @@
 # 047: One card width; the tab row on top
 
-Status: Accepted (amends 009 and 043)
+Status: Accepted (amends 009 and 043); amended by 085: one width is the default, and a card that needs more room asks for it (the timer)
 
 **Context.** Pomodoro's card was 440 wide (decision 043), every other card
 and Home 380: switching between them changed the island's width for no

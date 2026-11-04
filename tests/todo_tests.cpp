@@ -148,7 +148,7 @@ void wrapTests()
     expect(charCount(state.draft->text) == t.todoMaxLength, "and stops at todoMaxLength characters");
     expect(cardScene(state, Ms{ 0 }).size.y <= t.canvas.y, "the card still fits");
 
-    // A Centred card is wider than Expanded: it still grows to both sides from the island's centre.
+    // The timer's card is wider than Home (decision 085): it grows to both sides from the island's centre.
     IslandState wide;
     wide = reduce(wide, ScreenResized{ 1920 }, Ms{ 0 });
     wide = reduce(wide, PanelPublished{ pomodoroPanel(list) }, Ms{ 0 });
@@ -156,7 +156,8 @@ void wrapTests()
     Scene home = cardScene(wide, Ms{ 0 });
     wide = reduce(wide, TileClicked{ PomodoroProvider::kPanelId }, Ms{ 0 });
     Scene pomodoro = cardScene(wide, Ms{ 0 });
-    expect(pomodoro.size.x == home.size.x && home.size.x == tokens().expandedSize.x, "the Pomodoro card as wide as Home: every card is (decision 047)");
+    expect(home.size.x == tokens().expandedSize.x && pomodoro.size.x == tokens().wideCardWidth && pomodoro.size.x > home.size.x,
+           "the timer's card wider than Home, which keeps every card's width (decisions 047, 085)");
     expect(std::abs((pomodoro.offset.x + pomodoro.size.x / 2) - (home.offset.x + home.size.x / 2)) < 0.01f &&
            std::abs(pomodoro.offset.x + pomodoro.size.x / 2 - 960) < 0.01f, "centred where Home was: grown to both sides");
 }

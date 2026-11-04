@@ -188,6 +188,7 @@ Panel pomodoroPanel(const TodoList& todos, const PomodoroPlan& plan, const Pomod
         .card = CardLayout::Centred,
         .keepOpen = true, // a click between the controls or to-dos doesn't close it (Content::keepOpen)
         .noIdleTimeout = true, // nor does being left alone: a timer kept in view (decision 062)
+        .wideCard = true, // more room than other cards (decision 085)
         .expandedCenter = { cornersRow(glance.daysInARow),
                             dialRow({ .duration = plan.focus }, "Focus", plan),
                             Row{ .items = { Button{ .glyph = Glyph::Play, .actionId = act::kStart, .primary = true } }, .align = Align::Center,
@@ -226,6 +227,7 @@ Content pomodoroContent(const PomodoroSession& s, const TodoList& todos, const P
         .card = CardLayout::Centred,
         .keepOpen = true, // a click between the controls or to-dos doesn't close it (Content::keepOpen)
         .noIdleTimeout = true, // nor does being left alone: a timer kept in view (decision 062)
+        .wideCard = true, // more room than other cards (decision 085)
         .compactLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
         .compactCenter = { row({ compactLeft }, Align::Center) },
         .compactTrailing = { row({ ring }, Align::Center) },
