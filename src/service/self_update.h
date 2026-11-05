@@ -13,6 +13,9 @@
 //     are the bytes that run;
 //   - the installer's TMP and TEMP point there too, not C:\Windows\Temp;
 //   - at most one every kUpdateSpacingMs.
+// "There" is the service's install folder, not its data folder: the installer
+// is 32-bit, and it sees paths under System32 (where SYSTEM's LocalAppData is)
+// redirected to SysWOW64, so it found no temp folder and quit (decision 087).
 // The installer stops this service (--stop), replaces it and starts the new one.
 
 #include "indexer/protocol.h"
@@ -27,7 +30,8 @@ namespace cup::service {
 
 class SelfUpdate {
 public:
-    // folder: the service's own (dataFolder()); downloads go in <folder>\updates.
+    // folder: where the service is installed (installFolder()); installers go
+    // in <folder>\updates, the installer's log is <folder>\index-update.log.
     SelfUpdate(std::filesystem::path folder, std::string runningVersion);
     ~SelfUpdate(); // waits for a download in progress
 
@@ -49,6 +53,9 @@ private:
     bool busy_ = false;
     ULONGLONG lastAt_ = 0;
     std::thread worker_;
+    // The last installer started: an update request after it logs how it
+    // ended, since it can't be waited for (it stops this service).
+    Handle installer_;
 };
 
 } // namespace cup::service

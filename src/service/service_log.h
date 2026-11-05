@@ -16,6 +16,12 @@ namespace cup::service {
 // it's that administrator's LocalAppData: fine for trying it out.
 std::filesystem::path dataFolder();
 
+// The folder CupIslandIndex.exe runs from: Program Files\Cup Island File
+// Search when installed, writable only by administrators. Self-updates work
+// here, not in dataFolder(): that path is under System32, which the 32-bit
+// installer would see redirected to SysWOW64 (decision 087).
+std::filesystem::path installFolder();
+
 // Opens <folder>\index.log for appending; over 1 MB it's first moved to
 // index.old.log. echo: also print each line (console mode).
 void startServiceLog(const std::filesystem::path& folder, bool echo);

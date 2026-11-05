@@ -9,6 +9,7 @@
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
+#include <iterator>
 #include <mutex>
 
 namespace cup::service {
@@ -29,6 +30,14 @@ std::filesystem::path dataFolder()
         folder = std::filesystem::path(base) / L"CupIsland" / L"index-service";
     CoTaskMemFree(base);
     return folder;
+}
+
+std::filesystem::path installFolder()
+{
+    wchar_t exe[MAX_PATH * 2] = {};
+    DWORD length = GetModuleFileNameW(nullptr, exe, static_cast<DWORD>(std::size(exe)));
+    if (length == 0 || length >= std::size(exe)) return {};
+    return std::filesystem::path(exe).parent_path();
 }
 
 void startServiceLog(const std::filesystem::path& folder, bool echo)
