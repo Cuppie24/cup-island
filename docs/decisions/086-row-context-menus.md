@@ -13,8 +13,14 @@ Other cards will want menus too (a to-do's Edit / Move / Delete, a widget's
 
 ## What the user sees
 
+- **Menus are per row, as many as a card likes.** Every row of a card can
+  have a menu of its own, each with its own items (a file's differ from an
+  app's on the same card), and lists and plain rows alike. Only one is open
+  at a time, as in Windows: opening another closes the first.
 - **Every result ends in a `›`** (a quiet chevron, `Glyph::ChevronRight`):
-  this row has more. It replaces the hover-only folder button. Not the
+  this row has more. It replaces the hover-only folder button
+(`search.reveal.N`, decision 079), which goes: Reveal in Explorer is in the
+menu, with its shortcut. Not the
   chevron 079 removed (that read "go into"); this one is a button that opens
   the menu, and its look says the Right key does the same.
 - **Right-click on a row:** the menu opens with its top-left corner at the
@@ -23,8 +29,8 @@ Other cards will want menus too (a to-do's Edit / Move / Delete, a widget's
   top aligned to the row's top, `menuGap` right of the row's right edge.
   On the search field the caret owns Left/Right (decision 079), so Right
   opens the menu only when the caret is at the end of the text (where Right
-  does nothing for typing) or a row was highlighted with Down. Recommended:
-  both, so the lit default row's `›` is always one key away.
+  does nothing for typing) or a row was highlighted with Down, so the lit
+  row's `›` is always one key away.
 - **Click on the `›`:** like Right: beside the row.
 - **Out of room:** placed in the screen's band the render layer covers (the
   monitor's width by the canvas's height, decision 026): past the right edge
@@ -41,44 +47,87 @@ Other cards will want menus too (a to-do's Edit / Move / Delete, a widget's
 
 ## The menu's items for search
 
-The first item is the row's own action, bold, so the menu also teaches
-what Enter does. Shown only where it applies:
+In this order, a thin line between groups, each shown only where it
+applies. The first is the row's own action, bold, so the menu also teaches
+what Enter does. Shortcuts are shown at each item's right and work on the
+lit row (the one Enter opens, or the one highlighted with Down) without
+opening the menu, and inside it too.
 
-| Item | Apps (desktop) | Store apps | Settings / Control Panel | Files | Folders |
-| --- | --- | --- | --- | --- | --- |
-| Open | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Run as administrator | ✓ | — | Control Panel items that are .exe/.cpl | .exe, .bat, .cmd, .msc, .ps1 | — |
-| Reveal in Explorer | the shortcut's target | — | — | ✓ | ✓ (its parent) |
-| Open with… | — | — | — | ✓ | — |
-| Open in Terminal | — | — | — | its folder | ✓ |
-| Copy path | target path | — | the `ms-settings:` link | ✓ | ✓ |
-| Copy name | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Properties | the target's | — | — | ✓ | ✓ |
-| App settings | — | ✓ (`ms-settings:appsfeatures-app`, with its package name) | — | — | — |
-| Uninstall | opens Installed apps (`ms-settings:appsfeatures`) | same | — | — | — |
-| Remove from history | when it ranks from LaunchHistory | same | same | when it's a recent file | same |
+| Item | Shortcut | Desktop programs | Store apps | Settings / Control Panel | Files | Folders |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Open** | Enter | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Run as administrator | Ctrl+Shift+Enter | ✓ | — (see below) | Control Panel items that are .exe/.cpl/.msc | .exe, .bat, .cmd, .msc | — |
+| — | | | | | | |
+| Reveal in Explorer | Ctrl+Shift+E | ✓ its .exe (see below) | — | — | ✓ | ✓ (in its parent) |
+| Open in Terminal | Ctrl+Shift+T | the .exe's folder | — | — | its folder | ✓ |
+| — | | | | | | |
+| Copy name | | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Copy path | Ctrl+Shift+C | the .exe's path | — | the `ms-settings:` link | ✓ | ✓ |
+| — | | | | | | |
+| Remove from history | Shift+Delete | when it ranks from LaunchHistory | same | same | when it's a recent file | same |
+| — | | | | | | |
+| App settings | | — | ✓ (`ms-settings:appsfeatures-app`, its package) | — | — | — |
+| Uninstall | | opens Installed apps (`ms-settings:appsfeatures`) | same | — | — | — |
+| — | | | | | | |
+| Properties | Alt+Enter | the .exe's | — | — | ✓ | ✓ |
 
-Suggested beyond the two asked for, in order of value: **Copy path**,
-**Open with…**, **Properties**, **Remove from history** (pure, no Windows
-needed), **Open in Terminal**, then **App settings / Uninstall**. Left out:
-Pin to Start/taskbar (no public API since Windows 10), Delete (a dialog
-and a recycle-bin call for something one keystroke away; later, maybe).
+Shortcuts come from Windows' own habits where it has one (Alt+Enter is
+Explorer's Properties, Shift+Delete removes a browser's suggestion,
+Ctrl+Shift+Enter is the Start menu's "as administrator", Ctrl+Shift+E and
+Ctrl+Shift+C are PowerToys Run's). None of them is a key the field uses
+(Ctrl+A/C/V/X/Z, Ctrl+Backspace/Delete, Ctrl or Shift with arrows, Home,
+End), and none uses Ctrl+Alt, which is AltGr on Russian and other layouts
+and would type a character. The island's system-wide shortcuts (decision
+032) still win: Windows takes them before the island sees the key.
 
-Windows (decision 015, all 1809-safe): `runas` verb on ShellExecuteEx
-(Store apps can't be elevated: not offered); Reveal is today's
-`SHOpenFolderAndSelectItems`; Open with… is `SHOpenWithDialog` (Vista+);
-Properties is `SHObjectProperties` (or the `properties` verb); Terminal is
-`wt.exe -d <dir>` when it's installed, else PowerShell in that folder
-(Windows 10 has no Terminal by default); a desktop app's target is the
-shortcut's `System.Link.TargetParsingPath`. Copy goes through the app's
-clipboard helper (`platform/text_input`), handed in as a hook like
-Settings' `copyLogs`.
+Left out: Open with… (the owner's call), Pin to Start/taskbar (no public
+API since Windows 10), Delete (later, maybe, with a dialog).
+
+**Which programs.** "Desktop programs" is every app in the Start menu's
+list that isn't packaged: anything installed the usual way (an installer,
+a portable app with a Start menu shortcut, Office, Chrome, Visual Studio,
+Steam, the island itself). They get Run as administrator, Reveal in
+Explorer, Copy path, Open in Terminal and Properties. **Store apps**
+(packaged: Calculator, Photos, apps from the Microsoft Store) get none of
+those: they can't be started elevated the usual way, and their folder,
+`C:\Program Files\WindowsApps`, is closed to the user. One exception to
+check on Windows: a few packaged *desktop* apps (Windows Terminal) do offer
+"Run as administrator" in the Start menu. If the `runas` verb works on
+their shell item, they get it too; until checked, they don't.
+
+**Revealing a program.** Today a program's result has no folder button:
+search only knows its shell item (`shell:AppsFolder\<AppUserModelID>`),
+not where it lives. The apps reader learns two more things per app:
+- **packaged or not:** a packaged app has a package family name
+  (`System.AppUserModel.PackageFamilyName`, or a `!` in its
+  AppUserModelID);
+- **its program file:** the shortcut's target
+  (`System.Link.TargetParsingPath` on the item), or, for an app with no
+  shortcut, its AppUserModelID when that is a path (a known folder's GUID
+  then the rest, `{6D809377-...}\App\app.exe`, resolved with
+  `SHGetKnownFolderPath`). Neither: no Reveal or Copy path for it.
+Reveal selects the **.exe** in its folder: the program itself, where its
+files are. The Start menu's "Open file location" opens the *shortcut* in
+the Start Menu folder instead, one more step from the program; the
+shortcut is the fallback when the target is gone or isn't a file.
+`Launchable` gains `packaged` and `location` (the .exe's path, or empty),
+filled by `readApps`; the pure side decides the items from them.
+
+Windows (decision 015, all 1809-safe): `runas` verb on ShellExecuteEx, on
+the shell item so a shortcut's arguments stay; Reveal is today's
+`SHOpenFolderAndSelectItems`; Properties is `SHObjectProperties` (or the
+`properties` verb); Terminal is `wt.exe -d <dir>` when it's installed, else
+PowerShell in that folder (Windows 10 has no Terminal by default). Copy
+goes through the app's clipboard helper (`platform/text_input`), handed in
+as a hook like Settings' `copyLogs`.
 
 ## How it's built
 
 **Content (core/content.h).** A row may carry a menu:
 `Row::menu = std::vector<MenuItem>`, `MenuItem{ label, glyph, actionId,
-bold, destructive, enabled }`. The provider declares items; the host
+chord, bold, destructive, enabled, group }` (`chord`: an optional
+`Chord`, core/shortcuts.h, shown at the right; `group`: items of one
+group sit together, a line between groups). Every row has its own. The provider declares items; the host
 decides everything else: when it opens, where, how it looks, its keys
 (decisions 014, 035). Chosen, the item's action goes to the row's provider
 like a button's. A row with a menu gets the `›` from the host (not an item
@@ -86,6 +135,11 @@ the provider adds), so every menu looks the same. Search builds its items
 in a pure function (`resultMenu(Result, hooks)`, `providers/search/`),
 tested on Linux; its action ids are `search.<verb>.<index>`
 (`search.admin.3`, `search.reveal.3`, `search.copyPath.3`...).
+**Item shortcuts** are the host's too (decision 035: providers never see
+keys): on a key, the app first looks for an item with that chord in the
+lit row's menu, menu open or not, and sends its action; otherwise the key
+goes on as before (the field, the arrows). `menuChord(scene, chord)` in
+core, tested.
 
 **State (core, new `menu.h/.cpp`).** `IslandState::menu`:
 `{ activityId, rowKey, items, anchor, by (Pointer | Keys), highlighted }`.
@@ -152,32 +206,39 @@ interrupted.
 
 ## Steps (each its own PR, tests first)
 
-1. **Core:** `Row::menu`, `MenuItem`, `menu.h` state and events,
+1. **Core:** `Row::menu`, `MenuItem` (with `chord` and `group`), item shortcuts, `menu.h` state and events,
    `placeMenu`, `Scene::menu`, hit-testing and keys; `menu.scenario`;
    unit tests for placement and keys. No visible change yet.
 2. **Search's items:** `resultMenu`, the action ids, new SearchHooks
-   (`runAsAdmin`, `openWith`, `properties`, `openTerminal`, `copyText`,
-   `targetOf`); `search_tests.cpp` checks each kind's items and that each
-   action calls its hook and closes the card when something started.
-   Remove from history is pure and done here.
+   (`runAsAdmin`, `properties`, `openTerminal`, `copyText`), and
+   `Launchable::packaged` / `location`; `search_tests.cpp` checks each
+   kind's items (a desktop program gets Reveal, a Store app doesn't) and
+   that each action calls its hook and closes the card when something
+   started (Copy and Remove from history don't close it). Remove from
+   history is pure and done here. The folder button goes.
 3. **Platform:** `menu_visuals`, the menu's input window, right-click
    (WM_RBUTTONUP on the interaction layer), the `›` drawn by the host. Needs a
    Windows run: placement at screen edges, at 100% and 150% scaling, shadow,
    that the field keeps the keys while the menu is open.
-4. **Hooks on Windows** (`windows_apps.cpp`): runas, SHOpenWithDialog,
-   SHObjectProperties, Terminal with its fallback, the link target.
+4. **Hooks on Windows** (`windows_apps.cpp`): runas, SHObjectProperties,
+   Terminal with its fallback; `readApps` reads packaged-or-not and the
+   program file. Checked on Windows: Reveal on Chrome, Office, a portable
+   app, an app with no shortcut; runas on Windows Terminal.
 5. Decision 079's "Open" note closes; ARCHITECTURE.md's Providers and
    Status get a line.
 
-## Open questions
+## Settled with the owner
 
-- Right on the field with the caret at its end opens the menu (above). If
-  that feels surprising, only Down-highlighted rows open it.
-- Should Ctrl+Enter / Ctrl+Shift+Enter become menu shortcuts shown at the
-  items' right ("Run as administrator   Ctrl+Shift+Enter")? It needs the
-  host to map a chord to a menu item (still no keys for providers): an
-  optional `MenuItem::chord`.
-- Submenus (Open with → each app): not in the first version.
+- Right on the field opens the menu when the caret is at the end of the
+  text, and on any row highlighted with Down.
+- Items show shortcuts, and the shortcuts work without the menu.
+- The menu replaces the file rows' hover folder button.
+- No Open with….
+
+## Open
+
+- Submenus: not in the first version.
+- Rebinding item shortcuts in Settings (decision 032's page): later.
 
 **Consequences.** A second overlay kind besides dialogs and toasts, with
 its own window while open. Any card can give its rows a menu, which is
