@@ -52,6 +52,9 @@ Filename: "{app}\{#ServiceExe}"; Parameters: "--install"; Flags: runhidden waitu
 Filename: "{app}\{#ServiceExe}"; Parameters: "--uninstall"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveService"
 
 [UninstallDelete]
+; The service's self-updates (self_update.h, decision 087).
+Type: filesandordirs; Name: "{app}\updates"
+Type: files; Name: "{app}\index-update.log"
 ; The service's own folder: its saved index and log (service_log.h).
 Type: filesandordirs; Name: "{sys}\config\systemprofile\AppData\Local\CupIsland\index-service"
 Type: dirifempty; Name: "{sys}\config\systemprofile\AppData\Local\CupIsland"

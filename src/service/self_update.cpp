@@ -202,6 +202,19 @@ indexer::UpdateAnswer SelfUpdate::request(const std::string& installer)
         if (busy_ || (lastAt_ && now - lastAt_ < kUpdateSpacingMs)) return indexer::UpdateAnswer::Busy;
         lastAt_ = now;
         busy_ = true;
+        // Still this version, so the last installer didn't replace us: say how it ended.
+        DWORD code = 0;
+        if (installer_.valid() && GetExitCodeProcess(installer_.get(), &code)) {
+            if (code == STILL_ACTIVE) serviceLog("update: the last installer is still running");
+            else serviceLog("update: the last installer exited with code %lu without replacing this service", code);
+            installer_ = Handle();
+        }
+    }
+    if (folder_.empty()) {
+        std::lock_guard guard(lock_);
+        busy_ = false;
+        serviceLog("update: couldn't tell where this service is installed");
+        return indexer::UpdateAnswer::Failed;
     }
     std::string json;
     bool fetched = httpGet(std::wstring(L"https://") + kGitHubHost + kLatestReleasePath, version_, true, kMaxReleaseJsonBytes,
@@ -271,8 +284,12 @@ void SelfUpdate::install(std::string url, std::string sha256, std::string fileNa
                         environment.data(), updates.c_str(), &startup, &process))
         return finish("couldn't start the installer");
     CloseHandle(process.hThread);
-    CloseHandle(process.hProcess);
-    serviceLog("update: installer started; it will stop this service and start the new one");
+    serviceLog("update: installer started; it will stop this service and start the new one (its log: %ls)",
+               (folder_ / L"index-update.log").c_str());
+    {
+        std::lock_guard guard(lock_);
+        installer_ = Handle(process.hProcess);
+    }
     finish(nullptr);
 }
 

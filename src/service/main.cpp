@@ -43,8 +43,10 @@ bool runIndex(bool console)
     std::filesystem::path folder = dataFolder();
     startServiceLog(folder, console);
     serviceLog("starting %s", CUP_VERSION_STRING);
-    SelfUpdate update(folder, CUP_VERSION_STRING);
+    SelfUpdate update(installFolder(), CUP_VERSION_STRING); // not `folder`: decision 087
     update.removeLeftovers(); // an update that finished replaced us; one that didn't, left its installer
+    std::error_code ec;
+    std::filesystem::remove_all(folder / L"updates", ec); // where older services put theirs (decision 087)
     std::vector<std::unique_ptr<VolumeWatcher>> volumes;
     for (VolumeInfo& volume : fixedNtfsVolumes()) {
         serviceLog("%s: indexing", volume.root.c_str());

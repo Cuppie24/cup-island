@@ -70,12 +70,26 @@ Filename: "{sys}\taskkill.exe"; Parameters: "/im {#AppExe} /f"; Flags: runhidden
 Filename: "{sys}\reg.exe"; Parameters: "delete ""HKCU\Software\Microsoft\Windows\CurrentVersion\Run"" /v ""Cup Island"" /f"; Flags: runhidden; RunOnceId: "RemoveStartup"
 
 [Code]
-// A fresh, interactive setup: set up file search now, while the user is
+// The file search setup's version, from its uninstall entry (its AppId,
+// cup-island-index.iss); empty if the service isn't
+// installed, '?' if it is but its version can't be read (then setup runs).
+function InstalledServiceVersion(): String;
+begin
+  Result := '';
+  if RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\CupIslandIndex') and
+     not RegQueryStringValue(HKLM, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{EFB80F5E-CFE8-4649-8F1F-26996CFE6C14}_is1',
+                             'DisplayVersion', Result) then
+    Result := '?';
+end;
+
+// An interactive setup: set up file search now, while the user is
 // here (Windows asks for permission). Refused or failed, the app carries on
 // without it and asks once more after its next update. Not in a silent
 // install: the updater's, with nobody to ask, and the app does it instead.
-// Nor when it's installed already: re-running setup by hand needs no second
-// prompt, and the app asks the service to update itself (decision 076).
+// Nor when this version of it is installed already: re-running setup by hand
+// needs no second prompt. An older one is updated here (decision 087): this
+// is the installer the app's "File search needs an update" card sends people
+// to when the service couldn't update itself.
 // Asked here, the app doesn't ask again for this version: setup writes the
 // key ServiceHost keeps (kAskedKey, decision 078) in the providers' store, laid out
 // as decision 028 says: <LocalAppData>\CupIsland\store\<provider>\<key>.txt.
@@ -84,8 +98,7 @@ var
   ErrorCode: Integer;
   Store: String;
 begin
-  if (CurStep = ssPostInstall) and not WizardSilent() and
-     not RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\CupIslandIndex') then
+  if (CurStep = ssPostInstall) and not WizardSilent() and (InstalledServiceVersion() <> '{#AppVersion}') then
   begin
     ShellExec('runas', ExpandConstant('{app}\CupIsland-Index-Setup.exe'), '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-',
               '', SW_SHOW, ewWaitUntilTerminated, ErrorCode);

@@ -1,7 +1,8 @@
 # 081: The service updates from the installer the app brought
 
 Status: Accepted (changes where decision 076's update gets its file; the
-rest of 076 stands).
+rest of 076 stands; where the update runs from, and the app's installer
+updating an older service: decision 087).
 
 **Context.** A release page listed four files: the app's installer, the
 service's installer and two pdbs. People downloaded the wrong one. The
