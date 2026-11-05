@@ -18,6 +18,11 @@ namespace cup::app {
 // is core's (hitTest). Content reacts to hover, the pill never does (decision 002).
 struct Pointer {
     std::optional<Vec2> at;      // over the surface's shape, its own coordinates
+    // Hasn't moved since what's under it changed some other way (a card
+    // opened, typing changed the results): it lights nothing until it moves
+    // (decision 087). A press or the wheel counts as moving.
+    bool still = true;
+    std::optional<Vec2> lastMove; // the last move's point (the window's): Windows repeats one when windows change under a still pointer
     std::string pressedKey;      // the button under the mouse-down
     std::optional<Placed> scrub; // the progress bar being dragged
     float scrubFraction = 0;
