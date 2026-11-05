@@ -298,6 +298,9 @@ void SearchProvider::publish()
         c.expandedCenter.push_back(resultRow(glyph, iconFor(r.target), r, query_, hooks_.home, i));
         if (i == 0) c.expandedCenter.back().visibleRows = tokens().searchVisibleRows; // the list's window, from its first row
     }
+    // Room under the field: the first result is lit (defaultRow), and two
+    // filled shapes rowSpacing apart looked stuck together (decision 079).
+    if (c.expandedCenter.size() > 1) c.expandedCenter[1].apart = true;
     host_->publishPanel({ .id = kPanelId, .content = std::move(c) });
 }
 

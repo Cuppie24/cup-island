@@ -117,6 +117,7 @@ RowPlan planRows(const Slot& slot, const std::vector<float>& heights, const List
         }
         std::size_t end = r;
         while (end < slot.size() && slot[end].list == slot[r].list) ++end;
+        if (slot[r].apart && r > 0) y += t.groupGap; // a list set apart from the rows above: the gap is outside its window
         y += planList(slot, heights, windowHeights ? *windowHeights : heights, state, r, end, y, room, plan) + t.rowSpacing;
         r = end;
     }

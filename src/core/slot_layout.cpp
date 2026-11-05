@@ -68,8 +68,13 @@ float radiusFor(const Item& item, Rect frame, float nestedRadius)
 // A list item's extra height: room above and below its content (Row::listItem).
 float listPadding(const Row& row) { return row.listItem ? 2 * tokens().listItemPadding : 0; }
 
-// Room above a group's first row (Row::section, decision 037).
-float sectionGap(const Row& row) { return row.section ? tokens().sectionGap : row.apart ? tokens().groupGap : 0; } // Row::apart: decision 066
+// Room above a group's first row (Row::section, decision 037). A list's
+// row set apart has it above the list's window instead (planRows), so it
+// doesn't scroll away or sit inside the row's lit background.
+float sectionGap(const Row& row)
+{
+    return row.section ? tokens().sectionGap : row.apart && row.list.empty() ? tokens().groupGap : 0; // Row::apart: decision 066
+}
 
 // Each row's ring side (a ring matches the other items in its row; alone, it
 // fills the slot's square) and natural height.
