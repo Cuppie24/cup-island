@@ -28,6 +28,11 @@ bool openPath(const std::string& path);
 // Opens its folder in Explorer with it selected.
 bool revealPath(const std::string& path);
 bool pathExists(const std::string& path); // a file or folder is there (a remembered one may be gone)
+// A result's menu (decision 086). An app's shell item or a file's path, as administrator (Windows asks first).
+bool runAsAdmin(const std::string& target);
+bool openTerminal(const std::string& folder); // Windows Terminal there, else PowerShell
+bool showProperties(const std::string& path); // Explorer's Properties window
+bool copyFileToClipboard(const std::string& path); // the file itself, as Explorer's Copy does
 // A file's, folder's or app's icon (any shell parsing path) as the shell
 // draws it, `side` pixels square; read on a thread of its own, `done` on the
 // calling (UI) thread, with nothing if there's none.

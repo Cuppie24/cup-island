@@ -190,12 +190,14 @@ if(WIN32)
         assets/cup_island.rc
         src/app/floating_cards.cpp
         src/app/keyboard_input.cpp
+        src/app/menu_input.cpp
         src/app/live_tokens.cpp
         src/app/main.cpp
         src/app/surface.cpp
         src/platform/autostart.cpp
         src/platform/badge_dots.cpp
         src/platform/toast_layer.cpp
+        src/platform/menu_layer.cpp
         src/platform/blob.cpp
         src/platform/blob_motion.cpp
         src/platform/blob_shape.cpp

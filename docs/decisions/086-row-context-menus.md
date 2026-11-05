@@ -1,6 +1,6 @@
 # 086: Context menus on a card's rows (first user: search's results)
 
-Status: Proposed (a plan; builds on decisions 020, 029, 035, 079)
+Status: Accepted; built, not yet run on Windows (builds on decisions 020, 029, 035, 079)
 
 **Context.** A search result does one thing: Enter or a click opens it, and
 a file's folder button (shown on hover) reveals it (decision 079). The owner
@@ -216,29 +216,43 @@ interrupted.
 `menuFontSize`, `menuIconSize`, `menuBackground`, `menuDisabledText`,
 `menuOpenMs`, `menuEase`. No sizes in code.
 
-## Steps (each its own PR, tests first)
+## As built
 
-1. **Core:** `Row::menu`, `MenuItem` (with `chord` and `group`), item shortcuts, `menu.h` state and events,
-   `placeMenu`, `Scene::menu`, hit-testing and keys; `menu.scenario`;
-   unit tests for placement and keys. No visible change yet.
-2. **Search's items:** `resultMenu`, the action ids, new SearchHooks
-   (`runAsAdmin`, `properties`, `openTerminal`, `copyText`, `copyFile`), and
-   `Launchable::packaged` / `location`; `search_tests.cpp` checks each
-   kind's items (a desktop program gets Reveal, a Store app doesn't) and
-   that each action calls its hook and closes the card when something
-   started (Copy, Copy path and Remove from history don't close it; with
-   text selected, Ctrl+C still copies the text). Remove from history is
-   pure and done here. The folder button goes.
-3. **Platform:** `menu_visuals`, the menu's input window, right-click
-   (WM_RBUTTONUP on the interaction layer), the `›` drawn by the host. Needs a
-   Windows run: placement at screen edges, at 100% and 150% scaling, shadow,
-   that the field keeps the keys while the menu is open.
-4. **Hooks on Windows** (`windows_apps.cpp`): runas, SHObjectProperties,
-   Terminal with its fallback; `readApps` reads packaged-or-not and the
-   program file. Checked on Windows: Reveal on Chrome, Office, a portable
-   app, an app with no shortcut; runas on Windows Terminal.
-5. Decision 079's "Open" note closes; ARCHITECTURE.md's Providers and
-   Status get a line.
+The plan above, with these differences (the Windows side compiles in CI but
+hasn't been run yet):
+- **Input: the interaction window grows, no window of its own.** The island's
+  input window is already a bounding rectangle (the pill, plus the bubble in
+  Split), not a shaped region, so `interactiveBounds` simply covers the open
+  menu too, as it does the bubble. A press anywhere while the menu is open is
+  the menu's: on an item, it's chosen on release; elsewhere it only closes
+  the menu, as Windows' menus do. To check on Windows: the window following
+  that change (decision 001's morph replay) when nothing else moves.
+- **Drawn** by `platform/menu_layer`, in the render layer's root over the pill
+  and the bubble: the raised colour a toast uses (`islandHighlightColor`), a
+  faint `trackColor` edge, its lit item in `buttonHoverColor`, lines in
+  `trackColor`. No shadow and no colour tokens of its own: every theme's
+  colours fit as they are. It grows from where it opened
+  (`contentArriveScale`) and fades in over `menuOpenMs`, and goes at once.
+  Laid out in core (`placeMenu`), like the toast.
+- **Tokens:** `menuMinWidth`, `menuMaxWidth`, `menuItemHeight`,
+  `menuPadding`, `menuItemInset`, `menuRadius`, `menuGap`, `menuLineGap`,
+  `menuOpenMs`. Its text is Body (shortcuts Caption), the bold item bright.
+- **The island's card only.** A floating card's overlays can hold a menu,
+  but it isn't drawn there yet, so it doesn't open there.
+- **Control Panel items** get Open only: their shell items don't say which
+  program they are.
+- **Code:** `core/menu` (state, keys, placement, hit-testing),
+  `providers/search/result_menu` (search's items), `app/menu_input` (the
+  pointer, the keys, shortcuts; the WM_CHAR after a key it took isn't typed),
+  `platform/menu_layer`, `windows_apps` (runas, Terminal, Properties, copying
+  a file, an app's package and program file). Tests: `menu.scenario`,
+  `menu_tests.cpp`, `search_tests.cpp`.
+
+To check on Windows: placement at the screen's edges at 100% and 150%; the
+field keeping the keys while a menu is open; Reveal on Chrome, Office, a
+portable app and an app with no shortcut; runas on Windows Terminal (a
+packaged desktop app: not offered yet); `ms-settings:appsfeatures-app` with a
+package family name; Alt+Enter not beeping.
 
 ## Settled with the owner
 

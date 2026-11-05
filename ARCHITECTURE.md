@@ -43,6 +43,7 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 cover_palette.h + island_tint.h (the island in the playing cover's colours, decision 051),
                 tokens.h (+ tokens_json.h, json_reader.h), easing.h, motion.h (the morph's spring, fling, stagger, decision 080),
                 floating.h (a card floating apart from the island, decision 081) + float_layout.h (its scene) + float_placement.h (where it opens)
+                menu.h (a row's context menu: when it opens, its keys, where it goes, decision 086)
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them; a floating card's one detached shape, decision 081), float_window (a floating card's window pair) + float_flow (its flow out of the pill), element_visuals (one visual
                 per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts) + tap_hook (double-tap shortcuts, decision 079), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
@@ -59,7 +60,7 @@ src/service/    CupIslandIndex.exe, the file index service (Windows, decision 07
                 (its own installer from GitHub, decision 076), --install/--stop/--uninstall for its installer;
                 index_client, the pipe's client, shared by cupindex.exe (its terminal tool) and the app
 src/app/        main.cpp: wiring only; surface.h: the island and each floating card as a surface, its scene, renderer and pointer, floating_cards.cpp: their windows (decision 081); live_tokens.cpp: tokens.json load/reload; keyboard_input.cpp: keyboard focus,
-                Enter/Space, system-wide shortcuts and recording new keys (decisions 031, 032)
+                Enter/Space, system-wide shortcuts and recording new keys (decisions 031, 032); menu_input.cpp: a row's menu under the pointer and keys (decision 086)
 assets/         tokens.json: the live-tunable sizes, timings and curves; the app icon (cup_island.rc/.ico)
 installer/      Inno Setup script for the Windows installer (decision 011); its version comes from build.ps1
 .github/        workflows/release.yml: the Release button (build, test, tag, publish); build.yml: every PR built and tested on Windows (decision 036)
@@ -130,6 +131,9 @@ opens; the host draws it in the island's look and the user drags it. Nothing els
 the provider: `onCardShown`/`onCardClosed` simply come for several cards.
 Lists (`Row::list`, decision 029) are scrolled, reordered and edited by the
 host; the provider publishes every row and gets the result as actions.
+A row can have a context menu (`Row::menu`, decision 086): the provider lists
+its items and their shortcuts; the host ends the row in a ›, opens it (a
+right-click, Right, the ›), places it and runs its keys and shortcuts.
 Text fields are edited by the host like any text box, caret and selection in
 core (`core/text_edit`, decision 043). A live field (`TextInput::changeAction`,
 decision 079) reports every edit, not just Enter; a card that is its field
@@ -244,6 +248,7 @@ over the file's, so `tokens()` is always what's on screen.
 | Search card (decisions 077, 079): apps, Settings pages, Control Panel, files; live field; Double Ctrl; launch history | rules tested; the hook, the shell folders, launching and the look need a Windows run |
 | Providers reach the service only through the host, by granted module (decision 078) | done; tested |
 | Floating cards (decision 081): a card floats apart from the island in its look (`Content::floating`), the island keeps its pill; several at once, focus routes keys, a dialog and toast per card, sized to its content, placement remembered per card | rules tested; the first Windows drawing flickered (decision 083), so nothing floats yet: Pomodoro is on the island. Drawing in a fixed canvas (083) and fluid layout (084) are proposed |
+| Row context menus (decision 086): search's results (Open, Run as administrator, Reveal, Terminal, Copy, Copy path, Remove from history, App settings, Uninstall, Properties), each with a shortcut; right-click, Right or the › | rules tested; drawing, input and the Windows hooks compile in CI, need a Windows run |
 | Plugin pipe (PS §8 Tier 2) | not yet |
 | Activity expiry (`expiresAt`) | done, tested |
 | Rate limits, stale activities (PS §4, §6.3) | not yet |
