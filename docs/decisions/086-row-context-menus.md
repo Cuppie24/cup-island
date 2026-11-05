@@ -61,7 +61,7 @@ opening the menu, and inside it too.
 | Reveal in Explorer | Ctrl+Shift+E | ✓ its .exe (see below) | — | — | ✓ | ✓ (in its parent) |
 | Open in Terminal | Ctrl+Shift+T | the .exe's folder | — | — | its folder | ✓ |
 | — | | | | | | |
-| Copy name | | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Copy | Ctrl+C | — | — | — | ✓ | ✓ |
 | Copy path | Ctrl+Shift+C | the .exe's path | — | the `ms-settings:` link | ✓ | ✓ |
 | — | | | | | | |
 | Remove from history | Shift+Delete | when it ranks from LaunchHistory | same | same | when it's a recent file | same |
@@ -74,9 +74,10 @@ opening the menu, and inside it too.
 Shortcuts come from Windows' own habits where it has one (Alt+Enter is
 Explorer's Properties, Shift+Delete removes a browser's suggestion,
 Ctrl+Shift+Enter is the Start menu's "as administrator", Ctrl+Shift+E and
-Ctrl+Shift+C are PowerToys Run's). None of them is a key the field uses
-(Ctrl+A/C/V/X/Z, Ctrl+Backspace/Delete, Ctrl or Shift with arrows, Home,
-End), and none uses Ctrl+Alt, which is AltGr on Russian and other layouts
+Ctrl+Shift+C are PowerToys Run's, Ctrl+C is Explorer's Copy). None of them
+takes a key from the field (Ctrl+A/V/X/Z, Ctrl+Backspace/Delete, Ctrl or
+Shift with arrows, Home, End; Ctrl+C copies the file only when no text is
+selected, see Copy below), and none uses Ctrl+Alt, which is AltGr on Russian and other layouts
 and would type a character. The island's system-wide shortcuts (decision
 032) still win: Windows takes them before the island sees the key.
 
@@ -118,8 +119,19 @@ the shell item so a shortcut's arguments stay; Reveal is today's
 `SHOpenFolderAndSelectItems`; Properties is `SHObjectProperties` (or the
 `properties` verb); Terminal is `wt.exe -d <dir>` when it's installed, else
 PowerShell in that folder (Windows 10 has no Terminal by default). Copy
-goes through the app's clipboard helper (`platform/text_input`), handed in
-as a hook like Settings' `copyLogs`.
+path goes through the app's clipboard helper (`platform/text_input`),
+handed in as a hook like Settings' `copyLogs`.
+
+**Copy** puts the file or folder itself on the clipboard, as Explorer's
+Copy does: paste it into a folder, an email, a chat. The shell item's own
+data object (`IShellItem::BindToHandler(BHID_DataObject)`, Windows Vista+)
+through `OleSetClipboard`, marked as a copy (`CFSTR_PREFERREDDROPEFFECT` =
+`DROPEFFECT_COPY`), so Explorer pastes a copy and never moves it. Only for
+files and folders: copying a program's .exe somewhere isn't what anyone
+means, and Settings pages aren't files. Its shortcut is **Ctrl+C**, as in
+Explorer, only when the field has no selection: with text selected, Ctrl+C
+copies the text as before, so typing is never surprised. Neither Copy nor
+Copy path closes the card.
 
 ## How it's built
 
@@ -210,12 +222,13 @@ interrupted.
    `placeMenu`, `Scene::menu`, hit-testing and keys; `menu.scenario`;
    unit tests for placement and keys. No visible change yet.
 2. **Search's items:** `resultMenu`, the action ids, new SearchHooks
-   (`runAsAdmin`, `properties`, `openTerminal`, `copyText`), and
+   (`runAsAdmin`, `properties`, `openTerminal`, `copyText`, `copyFile`), and
    `Launchable::packaged` / `location`; `search_tests.cpp` checks each
    kind's items (a desktop program gets Reveal, a Store app doesn't) and
    that each action calls its hook and closes the card when something
-   started (Copy and Remove from history don't close it). Remove from
-   history is pure and done here. The folder button goes.
+   started (Copy, Copy path and Remove from history don't close it; with
+   text selected, Ctrl+C still copies the text). Remove from history is
+   pure and done here. The folder button goes.
 3. **Platform:** `menu_visuals`, the menu's input window, right-click
    (WM_RBUTTONUP on the interaction layer), the `›` drawn by the host. Needs a
    Windows run: placement at screen edges, at 100% and 150% scaling, shadow,
