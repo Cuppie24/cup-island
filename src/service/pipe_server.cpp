@@ -151,7 +151,7 @@ bool PipeServer::run()
 void PipeServer::serve(Handle pipe)
 {
     // Only this runs as the client, and only for as long as one folder's
-    // check takes: everything else (searching, an update's download) stays
+    // check takes: everything else (searching, an update's install) stays
     // the service's own.
     HANDLE raw = pipe.get();
     indexer::FolderAccess access([raw](const std::string& folder) {

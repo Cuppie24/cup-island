@@ -1,7 +1,7 @@
 # 081: The service updates from the installer the app brought
 
 Status: Accepted (changes where decision 076's update gets its file; the
-rest of 076 stands; where the update runs from, and the app's installer
+rest of 076 stands; the download fallback is gone, decision 088; where the update runs from, and the app's installer
 updating an older service: decision 087).
 
 **Context.** A release page listed four files: the app's installer, the

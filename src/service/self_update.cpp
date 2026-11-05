@@ -31,10 +31,10 @@ private:
     HINTERNET h_;
 };
 
-// GETs an https URL. Each chunk of the body goes to `sink`, which returns
-// false to stop. Follows GitHub's redirect to its download host. False on
-// any failure, a non-200 answer or more than maxBytes.
-bool httpGet(const std::wstring& url, const std::string& version, bool api, std::size_t maxBytes,
+// GETs an https URL from GitHub's API (JSON only: the service downloads no
+// files, decision 088). Each chunk of the body goes to `sink`, which returns
+// false to stop. False on any failure, a non-200 answer or more than maxBytes.
+bool httpGet(const std::wstring& url, const std::string& version, std::size_t maxBytes,
              const std::function<bool(const char*, DWORD)>& sink)
 {
     URL_COMPONENTS parts{ sizeof parts };
@@ -54,8 +54,8 @@ bool httpGet(const std::wstring& url, const std::string& version, bool api, std:
     HttpHandle request(WinHttpOpenRequest(connection.get(), L"GET", path, nullptr, WINHTTP_NO_REFERER,
                                           WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE));
     if (!request) return false;
-    const wchar_t* accept = api ? L"Accept: application/vnd.github+json" : WINHTTP_NO_ADDITIONAL_HEADERS;
-    if (!WinHttpSendRequest(request.get(), accept, api ? static_cast<DWORD>(-1L) : 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0) ||
+    if (!WinHttpSendRequest(request.get(), L"Accept: application/vnd.github+json", static_cast<DWORD>(-1L),
+                            WINHTTP_NO_REQUEST_DATA, 0, 0, 0) ||
         !WinHttpReceiveResponse(request.get(), nullptr))
         return false;
     DWORD status = 0, size = sizeof status;
@@ -149,17 +149,6 @@ bool copyLocal(const std::wstring& source, const std::filesystem::path& target)
     }
 }
 
-// The release's attached installer, downloaded to `target`.
-bool download(const std::wstring& url, const std::filesystem::path& target, const std::string& version)
-{
-    Handle out(CreateFileW(target.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
-    if (!out.valid()) return false;
-    return httpGet(url, version, false, kMaxInstallerBytes, [&](const char* data, DWORD size) {
-        DWORD written = 0;
-        return WriteFile(out.get(), data, size, &written, nullptr) && written == size;
-    });
-}
-
 // `file` reopened read-only, sharing only reading, if its SHA-256 is
 // `sha256`: from then until the installer has started, nobody can change or
 // delete it, and the hash was read through this same handle. Otherwise none.
@@ -217,7 +206,7 @@ indexer::UpdateAnswer SelfUpdate::request(const std::string& installer)
         return indexer::UpdateAnswer::Failed;
     }
     std::string json;
-    bool fetched = httpGet(std::wstring(L"https://") + kGitHubHost + kLatestReleasePath, version_, true, kMaxReleaseJsonBytes,
+    bool fetched = httpGet(std::wstring(L"https://") + kGitHubHost + kLatestReleasePath, version_, kMaxReleaseJsonBytes,
                            [&](const char* data, DWORD size) {
                                json.append(data, size);
                                return true;
@@ -235,19 +224,19 @@ indexer::UpdateAnswer SelfUpdate::request(const std::string& installer)
     }
     std::string local = plainLocalPath(installer) ? installer : std::string();
     if (!installer.empty() && local.empty()) serviceLog("update: the app's installer path isn't a plain local one; ignored");
-    if (local.empty() && offer->url.empty()) {
+    if (local.empty()) { // the service downloads nothing itself (decision 088)
         std::lock_guard guard(lock_);
         busy_ = false;
-        serviceLog("update: %s has no attached installer and the app sent none", versionText(offer->version).c_str());
+        serviceLog("update: the app sent no installer for %s", versionText(offer->version).c_str());
         return indexer::UpdateAnswer::Failed;
     }
     serviceLog("update: %s -> %s", version_.c_str(), versionText(offer->version).c_str());
     if (worker_.joinable()) worker_.join(); // an earlier one, long finished
-    worker_ = std::thread([this, url = offer->url, sha = offer->sha256, name = offer->fileName, local] { install(url, sha, name, local); });
+    worker_ = std::thread([this, sha = offer->sha256, name = offer->fileName, local] { install(sha, name, local); });
     return indexer::UpdateAnswer::Started;
 }
 
-void SelfUpdate::install(std::string url, std::string sha256, std::string fileName, std::string installer)
+void SelfUpdate::install(std::string sha256, std::string fileName, std::string installer)
 {
     std::filesystem::path updates = folder_ / L"updates", file = updates / widen(fileName);
     auto finish = [this](const char* problem) {
@@ -257,24 +246,14 @@ void SelfUpdate::install(std::string url, std::string sha256, std::string fileNa
     };
     std::error_code ec;
     std::filesystem::create_directories(updates, ec);
-    // The app's copy first (decision 081), then the release's attached file:
-    // whichever arrives with the release's hash is the one that runs.
-    Handle locked;
-    bool fromApp = !installer.empty() && copyLocal(widen(installer), file);
-    if (fromApp) {
-        locked = lockedIfMatches(file, sha256);
-        fromApp = locked.valid();
-        if (!fromApp) serviceLog("update: the app's copy isn't the release's installer");
-    }
-    if (!locked.valid() && !url.empty()) {
-        if (!download(widen(url), file, version_)) return finish("the download failed");
-        locked = lockedIfMatches(file, sha256);
-    }
+    // Only the app's copy (decisions 081, 088), and only if it has the release's hash.
+    if (!copyLocal(widen(installer), file)) return finish("couldn't copy the app's installer");
+    Handle locked = lockedIfMatches(file, sha256);
     if (!locked.valid()) {
         std::filesystem::remove(file, ec);
-        return finish("no installer with the release's checksum");
+        return finish("the app's copy isn't the release's installer");
     }
-    serviceLog("update: running the installer %s", fromApp ? "the app brought" : "attached to the release");
+    serviceLog("update: running the installer the app brought");
     std::wstring command = L"\"" + file.wstring() + L"\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /LOG=\"" +
                            (folder_ / L"index-update.log").wstring() + L"\"";
     std::vector<wchar_t> environment = environmentWithTemp(updates);
