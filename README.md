@@ -66,3 +66,7 @@ maximized windows don't hide it.
 Demo keys (Debug builds only, once the pill has focus): **M** fake music
 player on/off, **T** second activity, **C** critical alert, **D** simulated
 drag, **H** hide.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
