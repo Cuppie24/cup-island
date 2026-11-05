@@ -113,9 +113,9 @@ bool menuKey(WPARAM vk)
             if (!m) // closed: the row's provider, from the card that's shown
                 for (const Placed& p : scene().elements)
                     if (rowKeyOf(p.key) == row) action.providerId = p.providerId;
+            g_swallow = true; // first: the action may pump messages (ShellExecute), and the key's WM_CHAR with them
             if (m) dispatch(MenuClosed{}, "menu shortcut");
             g_hooks.act(action);
-            g_swallow = true;
             return true;
         }
     if (!m) return false;
@@ -126,8 +126,10 @@ bool menuKey(WPARAM vk)
     case VK_END: light(menuEnd(*m, true), "menu keys"); return true;
     case VK_RETURN:
     case VK_SPACE:
-        if (m->lit) choose(*m->lit);
+        // Set before choosing: starting what was picked can pump messages (ShellExecute,
+        // a COM call), and the Enter's WM_CHAR would then reach the field and open the row too.
         g_swallow = true;
+        if (m->lit) choose(*m->lit);
         return true;
     case VK_ESCAPE:
     case VK_LEFT: dispatch(MenuClosed{}, "menu keys"); return true; // back to its row, which keeps the highlight
