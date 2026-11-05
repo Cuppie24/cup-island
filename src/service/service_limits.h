@@ -46,7 +46,7 @@ constexpr int kMaxVolumeRetries = 5;
 // ask; and size caps for what GitHub sends back.
 constexpr std::uint32_t kUpdateSpacingMs = 10 * 60 * 1000;
 constexpr std::size_t kMaxReleaseJsonBytes = 1024 * 1024;
-constexpr std::size_t kMaxInstallerBytes = 64 * 1024 * 1024;
+constexpr std::size_t kMaxInstallerBytes = 64 * 1024 * 1024; // the app's copy, copied locally
 constexpr wchar_t kGitHubHost[] = L"api.github.com";
 constexpr wchar_t kLatestReleasePath[] = L"/repos/Cuppie24/cup-island/releases/latest";
 

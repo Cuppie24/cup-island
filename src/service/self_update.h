@@ -1,13 +1,13 @@
 #pragma once
-// The service updating itself (decisions 076, 081). A client's `update`
+// The service updating itself (decisions 076, 081, 088). A client's `update`
 // request names no version: the service asks GitHub for this repository's
 // latest release itself and installs that release's service installer,
 // checked against the SHA-256 the release gives, or nothing. So no client
 // can make it install a file or version of its choosing.
-//   - the bytes come from the app's own copy (the request's `installer`,
-//     a plain local path) or, failing that, the release's attached file;
-//     either way they're copied into the service's own folder, which no user
-//     can write to, and only the release's hash decides;
+//   - the bytes come only from the app's own copy (the request's `installer`,
+//     a plain local path): the service fetches the release's JSON but never
+//     downloads a file (decision 088). The copy goes into the service's own
+//     folder, which no user can write to, and only the release's hash decides;
 //   - reopened locked (read-only, no one may write or delete it), hashed
 //     through that handle and started while it's held: the bytes checked
 //     are the bytes that run;
@@ -33,11 +33,11 @@ public:
     // folder: where the service is installed (installFolder()); installers go
     // in <folder>\updates, the installer's log is <folder>\index-update.log.
     SelfUpdate(std::filesystem::path folder, std::string runningVersion);
-    ~SelfUpdate(); // waits for a download in progress
+    ~SelfUpdate(); // waits for an install in progress
 
     // Checks GitHub now (on the caller's thread: a client is waiting for the
-    // answer); if there's a newer or other release, downloads and installs it
-    // on a thread of its own and answers Started.
+    // answer); if there's a newer or other release, installs the app's copy
+    // of its installer on a thread of its own and answers Started.
     // `installer`: the app's copy (UpdateRequest::installer), or empty.
     indexer::UpdateAnswer request(const std::string& installer);
 
@@ -45,7 +45,7 @@ public:
     void removeLeftovers();
 
 private:
-    void install(std::string url, std::string sha256, std::string fileName, std::string installer);
+    void install(std::string sha256, std::string fileName, std::string installer);
 
     std::filesystem::path folder_;
     std::string version_;
