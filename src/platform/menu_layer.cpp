@@ -34,6 +34,8 @@ void MenuLayer::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Con
     litShape_.FillBrush(litFill_);
     shapes_.Shapes().Append(litShape_);
     lineFill_ = c.CreateColorBrush(toUiColor(t.trackColor));
+    lines_ = c.CreateShapeVisual();
+    layer_.Children().InsertAbove(lines_, shapes_);
     elements_.init(c, device, layer_); // labels and shortcuts, above its shapes
 }
 
@@ -59,6 +61,7 @@ void MenuLayer::show(const std::optional<MenuScene>& menu, Vec2 offset, Ms now)
     layer_.Offset({ offset.x + f.x, offset.y + f.y, 0 });
     layer_.Size({ f.width, f.height });
     shapes_.Size({ f.width, f.height });
+    lines_.Size({ f.width, f.height });
     float half = t.dividerThickness / 2; // the edge's stroke inside the frame
     background_.Offset({ half, half });
     background_.Size({ std::max(0.0f, f.width - 2 * half), std::max(0.0f, f.height - 2 * half) });
@@ -74,16 +77,14 @@ void MenuLayer::show(const std::optional<MenuScene>& menu, Vec2 offset, Ms now)
     } else {
         litShape_.FillBrush(nullptr);
     }
-    for (auto& line : lines_) shapes_.Shapes().Remove(line);
-    lines_.clear();
+    lines_.Shapes().Clear(); // an IVector: no Remove by value
     for (const Rect& l : menu->lines) {
         auto geometry = compositor_.CreateRectangleGeometry();
         geometry.Offset({ l.x - f.x, l.y - f.y });
         geometry.Size({ l.width, l.height });
         auto line = compositor_.CreateSpriteShape(geometry);
         line.FillBrush(lineFill_);
-        shapes_.Shapes().Append(line);
-        lines_.push_back(line);
+        lines_.Shapes().Append(line);
     }
 
     if (shownRow_ == menu->activityId + "/" + menu->row) return; // already up: only what's lit changed
