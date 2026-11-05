@@ -100,19 +100,36 @@ RowSizes rowSizes(const Slot& rows, Rect frame, const MeasureText& measure)
     return sizes;
 }
 
+// A row with a menu ends in the host's › (decision 086): a quiet button that
+// opens it beside the row, and says the Right key does. After its own
+// trailing items, so their keys stay as they were.
+bool hasMenus(const Slot& slot)
+{
+    return std::any_of(slot.begin(), slot.end(), [](const Row& r) { return !r.menu.empty(); });
+}
+Slot withMenuButtons(Slot slot)
+{
+    for (Row& r : slot)
+        if (!r.menu.empty())
+            r.trailing.push_back(Button{ .glyph = Glyph::ChevronRight, .actionId = kMenuOpen, .compact = true, .secondary = true });
+    return slot;
+}
+
 // Places the slot's rows into `out`; returns the height they take.
 float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, Ms now, std::vector<Placed>& out,
                 const MeasureText& measure)
 {
     const Tokens& t = tokens();
-    const Slot& rows = *slot.slot;
+    // A page that starts at the top (Content::pageAtTop): its card's height is another view's, and it scrolls in it.
+    bool atTop = source.content && source.content->pageAtTop && slot.slot == &source.content->expandedCenter;
+    Slot buttoned;
+    if (hasMenus(*slot.slot)) buttoned = withMenuButtons(*slot.slot);
+    const Slot& rows = buttoned.empty() ? *slot.slot : buttoned;
 
     RowSizes sizes = rowSizes(rows, slot.frame, measure);
     const std::vector<float> oneLine = sizes.heights; // a list's window counts rows of one line (decision 045)
     // Lists windowed, scrolled, a row dragged (decision 029); the rest stacked.
     ListState lists{ source.activityId, source.scrolls, source.listDrag };
-    // A page that starts at the top (Content::pageAtTop): its card's height is another view's, and it scrolls in it.
-    bool atTop = source.content && source.content->pageAtTop && slot.slot == &source.content->expandedCenter;
     RowPlan plan = planRows(rows, sizes.heights, lists, &oneLine, slot.frame.height);
     float contentTop = atTop ? slot.frame.y : slot.frame.y + (slot.frame.height - plan.height) / 2; // centred vertically
     std::vector<float> wrapped(rows.size(), 0); // each row's wrapping text's height, once its width is known

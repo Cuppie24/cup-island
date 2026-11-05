@@ -1,6 +1,6 @@
 #pragma once
-// Draws the island: the pill, the Split bubble beside it, and the liquid
-// neck between them. apply() sets targets and implicit animations do the
+// Draws the island: the pill, the Split bubble beside it, the liquid neck
+// between them, and a row's open menu over them (decision 086). apply() sets targets and implicit animations do the
 // morph (TR §5), so this never redraws per frame.
 
 #include "core/layout.h"
@@ -9,6 +9,7 @@
 #include "platform/blob.h"
 #include "platform/graphics_device.h"
 #include "platform/liquid_bridge.h"
+#include "platform/menu_layer.h"
 #include "platform/win.h"
 
 #include <chrono>
@@ -85,6 +86,7 @@ private:
     Blob pill_;
     Blob bubble_;
     LiquidBridge bridge_;
+    MenuLayer menu_; // a row's open menu, over all of it (decision 086)
     std::map<std::pair<std::string, TextStyle>, float> measured_;
     Tokens applied_; // what the visuals were last built or recoloured for: tells a recolour from a resize
     winrt::Windows::System::DispatcherQueue queue_{ nullptr };

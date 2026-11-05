@@ -126,6 +126,15 @@ struct Tokens {
     float primaryGlyphSize = 22;
     float playGlyphNudge = 0.08f;  // a primary ▶ moved right by this share of its width: a triangle's optical centre (decision 071)
     Vec2 toastPadding{ 14, 6 };    // a toast: room around its text and button inside its pill (decision 071)
+    // A row's menu (decision 086): drawn in islandColor, its lit item in buttonHoverColor, its lines in trackColor.
+    float menuMinWidth = 200;      // ...at least this wide, at most menuMaxWidth: as its longest label and shortcut
+    float menuMaxWidth = 340;
+    float menuItemHeight = 34;
+    float menuPadding = 6;         // ...room around its items, inside it
+    float menuItemInset = 12;      // ...an item's label and shortcut this far in from its lit band's ends
+    float menuRadius = 14;
+    float menuGap = 6;             // ...opened by the keys: this far beside its row
+    float menuLineGap = 9;         // ...the room a line between groups takes
     float dividerThickness = 1;    // a Divider's line
     float dialInset = 10;          // a Dial: room between its time (and label) and its ring (decision 065)
     float groupGap = 20;           // Row::apart: space above a card's group (decision 066)
@@ -266,6 +275,7 @@ struct Tokens {
     Ms alertDuration{ 3000 };
     Ms toastDuration{ 5000 }; // a toast at a card's bottom goes after this (decision 071)
     Ms toastSlideDuration{ 260 }; // ...and slides up from below the card's edge, fading in, and back down, over this
+    Ms menuOpenDuration{ 140 };   // a row's menu grows and fades in from where it opens, over this (decision 086); it goes at once
     Ms floatHandOff{ 34 }; // a floating card's flow (decision 081): its layer stays this long after the card's window shows, so nothing blinks
 
     Ms expandedIdleTimeout{ 8000 };

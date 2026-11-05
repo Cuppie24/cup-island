@@ -181,6 +181,10 @@ try {
         }
         return 0;
 
+    case WM_RBUTTONUP: // a row's menu, at the pointer (decision 086); not on the way down, as Windows' own menus
+        if (!g_pressed) call(g_callbacks.onRightClick, pointFrom(lParam));
+        return 0;
+
     case WM_CAPTURECHANGED:
         // Capture taken by someone else mid-press: spring back, don't stick.
         if (g_pressed) {

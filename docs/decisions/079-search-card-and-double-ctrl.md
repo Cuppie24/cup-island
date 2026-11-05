@@ -157,6 +157,9 @@ listed the apps launched before, as if nothing were typed: they rank by
 plain words, and it had none. Now such a query lists no apps or Settings,
 only files (`rankLaunchables`).
 
+**Run as administrator** (Ctrl+Shift+Enter, decision 077) and the file
+rows' folder button became a result's menu (decision 086): the host maps an
+item's shortcut to its action, so providers still never see keys.
 **Fix:** the field and the first result (lit, as Enter's row) sat
 `rowSpacing` apart, two filled shapes all but touching. The first row under
 the field is `Row::apart` now: `groupGap` above it. On a list's first row

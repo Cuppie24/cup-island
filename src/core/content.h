@@ -3,6 +3,7 @@
 // (decision 004). Providers describe; the host lays out and draws. Pure data.
 
 #include "core/geometry.h"
+#include "core/shortcuts.h"
 
 #include <chrono>
 #include <cstdint>
@@ -280,6 +281,27 @@ struct FloatSpec {
     bool operator==(const FloatSpec&) const = default;
 };
 
+// One entry of a row's menu (decision 086). The provider says what's in it;
+// the host opens it (a right-click, Right, the row's ›), places it, draws it
+// and moves through it with the keys. Chosen, `actionId` goes to the row's
+// provider like a button's.
+struct MenuItem {
+    std::string label;
+    std::string actionId;
+    // Its shortcut, shown at its right: it works on the lit row with the menu
+    // closed too (search: Ctrl+Shift+E reveals the lit result).
+    std::optional<Chord> chord;
+    bool bold = false;        // the row's own action (Enter's): first, in bold
+    bool destructive = false; // reads as dangerous (red)
+    bool enabled = true;      // dim, skipped by the keys, a click does nothing
+    int group = 0;            // items of one group sit together; a thin line between groups
+    bool operator==(const MenuItem&) const = default;
+};
+
+// The host's name for a row's › (decision 086): the Button it ends a row with
+// a menu in. A click opens that row's menu beside it. Never a provider's action.
+inline constexpr const char* kMenuOpen = "menu.open";
+
 // A horizontal row of items. Text and Progress stretch; everything else has a fixed size.
 struct Row {
     std::vector<Item> items;
@@ -340,6 +362,9 @@ struct Row {
     // middle while the rows around it (a page's title, its back arrow at the
     // card's edge) keep the card's width (Pomodoro's statistics, decision 070).
     bool narrow = false;
+    // Its context menu (decision 086): every row may have its own. The host
+    // ends the row in a › that opens it, beside the row.
+    std::vector<MenuItem> menu;
     bool operator==(const Row&) const = default;
 };
 

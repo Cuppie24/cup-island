@@ -104,6 +104,21 @@ struct ToastScene {
     bool operator==(const ToastScene&) const = default;
 };
 
+// A row's open menu (decision 086, core/menu.h): a rounded panel over the
+// card, which may reach past the island's shape, its items one under another.
+struct MenuScene {
+    std::string activityId, row; // whose row it's for
+    Rect frame;                  // pill coordinates
+    float radius = 0;
+    Vec2 from;                   // where it grows from: the pointer, or the row's top corner beside it
+    std::vector<Rect> items;     // each item's band (pill coordinates): lit under the pointer or the keys
+    std::vector<bool> enabled;   // ...and whether it can be chosen
+    std::optional<std::size_t> lit;
+    std::vector<Rect> lines;     // thin lines between its groups
+    std::vector<Placed> elements; // keys "menu/<item>/0/<n>": the label, then its shortcut
+    bool operator==(const MenuScene&) const = default;
+};
+
 struct Scene {
     Mode mode = Mode::Idle;
     Vec2 size;                     // pill target size, render-layer coordinates
@@ -119,6 +134,7 @@ struct Scene {
     float tileRadius = 0;          // tile background corners, nested in the card's
     std::vector<Vec2> badges;      // notification dots' centres (decision 038, core/badges.h)
     std::optional<ToastScene> toast; // a toast floating over the card's bottom (decision 071, core/toast.h)
+    std::optional<MenuScene> menu;   // a row's menu, open over the card (decision 086, core/menu.h)
     bool dropTarget = false;       // the dragged bubble is over the pill: letting go swaps them (pill lightens)
     Vec2 bubbleTuck;               // no bubble: it shrinks to this point, on the top edge inside the pill
     std::string label;             // accessible name of what's shown
@@ -139,7 +155,7 @@ using MeasureText = std::function<float(const Text& text)>;
 // tabs). Without it, a rough per-character estimate is used (tests).
 Scene layout(const IslandState& state, Ms now, const MeasureText& measure = {});
 
-// What the interaction layer must cover: the pill, plus the bubble at rest in Split.
+// What the interaction layer must cover: the pill, plus the bubble at rest in Split, plus a row's open menu (decision 086).
 Rect interactiveBounds(const Scene& scene);
 
 // The pill's bottom corner radius at `size`: half the height, capped by

@@ -20,7 +20,8 @@ struct Hit {
 // editable Text, with its editAction (the app starts editing it, decision
 // 030). Anything else returns nothing (the click is then a plain pill click).
 // A floating toast (decision 071) is tested first: its button, or nothing
-// for the rest of it, never what's under it.
+// for the rest of it, never what's under it. Over a row's open menu
+// (decision 086): nothing; menuItemAt (core/menu.h) says which item.
 std::optional<Hit> hitTest(const Scene& scene, Vec2 point);
 
 // Where along a progress bar `x` (pill coordinates) points, 0..1. Clamped, so

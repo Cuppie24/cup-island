@@ -22,6 +22,8 @@
 
 #include "app/floating_cards.h"
 #include "app/keyboard_input.h"
+#include "app/menu_input.h"
+#include "core/menu.h"
 #include "app/live_tokens.h"
 #include "app/surface.h"
 #include "core/card_overlays.h"
@@ -221,7 +223,8 @@ void updateHover(app::Surface& s)
     const Tile* tile = at && key.empty() ? tileAt(s.scene, *at) : nullptr;
     if (tile && !tile->clickable()) tile = nullptr; // widgets without a card or tap action don't react
     // A list item (a to-do) lights up as a whole row, like a tab (Row::listItem).
-    const Placed* item = at && !s.pointer.scrub ? contentUnder(s, *at) : nullptr;
+    bool onMenu = at && s.scene.menu && s.scene.menu->frame.contains(*at); // a row's menu covers what's under it (decision 086)
+    const Placed* item = at && !s.pointer.scrub && !onMenu ? contentUnder(s, *at) : nullptr;
     if (tab) s.renderer->setAreaHovered(tab->frame, s.scene.tabs->radius);
     else if (tile) s.renderer->setAreaHovered(tile->frame, s.scene.tileRadius);
     else if (item && item->listRow) s.renderer->setAreaHovered(item->listRow, item->listRowRadius);
@@ -435,6 +438,7 @@ void dropListRow(app::Surface& s, bool commit)
 // a button gets its own press feedback, anything else squashes the pill.
 void onPressDown(app::Surface& s, Vec2 canvasPoint)
 {
+    if (s.island() && app::menuPress(toLocal(s, canvasPoint))) return; // an open menu takes the press (decision 086)
     g_drag = trackPointer({}, canvasPoint, now(), tokens());
     if (s.island() && !onBubble(s, canvasPoint)) {
         // Held still, the island lifts (decision 026). Core ignores it where
@@ -497,6 +501,7 @@ void onPressDown(app::Surface& s, Vec2 canvasPoint)
 void onPointerMoved(app::Surface& s, Vec2 canvasPoint, bool inside)
 {
     app::pointerMoved(canvasPoint); // a real move takes the lead back from the keyboard
+    if (s.island()) app::menuPointerMoved(toLocal(s, canvasPoint)); // lights the menu's item under it (decision 086)
     if (s.pointer.islandPress || s.pointer.bubblePress) g_drag = trackPointer(g_drag, canvasPoint, now(), tokens());
     if (s.pointer.islandPress) {
         Vec2 start = *s.pointer.islandPress;
@@ -557,6 +562,10 @@ void clickTile(const Tile& tile)
 // `at`: where a click was (pill coordinates); none for Enter or Space.
 void clickElement(app::Surface& s, const Hit& hit, std::optional<Vec2> at = std::nullopt)
 {
+    if (hit.action.actionId == kMenuOpen) { // a row's ›: its menu, beside the row (decision 086)
+        dispatch(MenuOpened{ hit.action.activityId, rowKeyOf(hit.key), std::nullopt }, "row's menu button");
+        return;
+    }
     const Placed* element = findElement(s, hit.key);
     auto* text = element ? std::get_if<Text>(&element->item) : nullptr;
     if (text && !text->editAction.empty()) {
@@ -577,6 +586,10 @@ void clickElement(app::Surface& s, const Hit& hit, std::optional<Vec2> at = std:
 
 void onPressRelease(app::Surface& s, Vec2 canvasPoint, Release how)
 {
+    if (s.island() && app::menuRelease(toLocal(s, canvasPoint))) { // ...and its release (decision 086)
+        updateHover(s);
+        return;
+    }
     if (s.pointer.islandPress) {
         s.pointer.islandPress.reset();
         bool lifted = g_state.lift.has_value();
@@ -667,6 +680,7 @@ void paste()
 void onChar(wchar_t c)
 {
     static wchar_t highSurrogate = 0; // the first half of a character outside the BMP (emoji)
+    if (app::swallowChar()) return;   // a key a row's menu took: Enter, Space, a letter, a shortcut (decision 086)
     if (!g_state.draft) return;
     if (c == L'\r') {
         if (escapeCloses(g_state) && app::activateFocused()) return; // a highlighted row: Enter opens it (decision 079)
@@ -694,6 +708,7 @@ void onChar(wchar_t c)
 
 void onKey(WPARAM key)
 {
+    app::clearCharSwallow();
     if (app::recordKey(key)) return; // Settings is recording a shortcut's new keys (decision 032)
     bool ctrl = GetKeyState(VK_CONTROL) < 0, alt = GetKeyState(VK_MENU) < 0;
     // A dialog: Esc cancels it, the card stays (decision 020). The arrows,
@@ -703,6 +718,13 @@ void onKey(WPARAM key)
     if (focusedDialog(g_state)) {
         if (key == VK_ESCAPE) answerDialog(false);
         else if (!ctrl && !alt) app::navigationKey(key);
+        return;
+    }
+    // A row's menu (decision 086): its items' shortcuts on the lit row, and the keys in it while it's open.
+    // The Menu key and Shift+F10 open it, as anywhere in Windows.
+    if (app::menuKey(key)) return;
+    if (key == VK_APPS || (key == VK_F10 && GetKeyState(VK_SHIFT) < 0)) {
+        app::openMenuByKeys();
         return;
     }
     // A focused field gets the keys (onChar): no demo keys while typing. Esc
@@ -717,7 +739,15 @@ void onKey(WPARAM key)
             break;
         // Moving the caret (decision 043): Shift selects, Ctrl goes a word at a time.
         case VK_LEFT: dispatch(CaretMoved{ ctrl ? CaretMove::WordLeft : CaretMove::Left, shift }, "caret"); break;
-        case VK_RIGHT: dispatch(CaretMoved{ ctrl ? CaretMove::WordRight : CaretMove::Right, shift }, "caret"); break;
+        case VK_RIGHT: {
+            // On a card that is its field (search), Right at the text's end, or on a row highlighted
+            // with Down, opens the lit row's menu: the caret has nowhere to go (decision 086).
+            const Draft& d = *g_state.draft;
+            bool atEnd = d.caret == d.text.size() && d.anchor == d.caret;
+            if (escapeCloses(g_state) && !ctrl && !shift && (atEnd || app::keyFocus()) && app::openMenuByKeys()) break;
+            dispatch(CaretMoved{ ctrl ? CaretMove::WordRight : CaretMove::Right, shift }, "caret");
+            break;
+        }
         case VK_HOME: dispatch(CaretMoved{ CaretMove::Start, shift }, "caret"); break;
         case VK_END: dispatch(CaretMoved{ CaretMove::End, shift }, "caret"); break;
         case VK_UP:
@@ -937,10 +967,12 @@ int main()
     callbacks.onPressDown = [](Vec2 point) { onPressDown(g_island, point); };
     callbacks.onPressRelease = [](Vec2 point, Release how) { onPressRelease(g_island, point, how); };
     callbacks.onClickOutside = [] {
+        if (g_state.card.menu) dispatch(MenuClosed{}, "click outside"); // pinned, the card stays; its menu doesn't
         finishEditing("edit kept"); // the card closes: what was typed into a to-do stays
         dispatch(ClickedOutside{}, "click outside");
     };
     callbacks.onPointerMoved = [](Vec2 point, bool inside) { onPointerMoved(g_island, point, inside); };
+    callbacks.onRightClick = [](Vec2 point) { app::menuRightClick(toLocal(g_island, point)); }; // a row's menu (decision 086)
     callbacks.onPointerLeft = [] {
         g_island.pointer.at.reset();
         updateHover(g_island);
@@ -1062,6 +1094,12 @@ int main()
         .window = g_inputHwnd,
         .settings = g_settings,
     });
+    app::setMenuHooks({
+        .state = []() -> const IslandState& { return g_state; },
+        .scene = []() -> const Scene& { return g_island.scene; },
+        .dispatch = dispatch,
+        .act = act,
+    });
     g_providers->add(std::move(settings));
     // Updates from GitHub Releases (decision 036); a dev build never checks.
     auto update = std::make_unique<UpdateProvider>(UpdateHooks{
@@ -1101,6 +1139,11 @@ int main()
         .openFile = openPath,
         .reveal = revealPath,
         .exists = pathExists,
+        .runAsAdmin = runAsAdmin, // a result's menu (decision 086)
+        .openTerminal = openTerminal,
+        .properties = showProperties,
+        .copyText = [](const std::string& text) { return writeClipboardText(g_inputHwnd, text); },
+        .copyFile = copyFileToClipboard,
         // Twice the icon's size: sharp at 200% scaling, drawn smaller below it.
         .loadIcon = [](const std::string& target, std::function<void(std::shared_ptr<const ImageData>)> done) {
             loadIcon(target, static_cast<int>(std::lround(2 * tokens().resultIconSize)), std::move(done));

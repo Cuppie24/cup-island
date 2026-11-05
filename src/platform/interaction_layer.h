@@ -28,6 +28,7 @@ struct InteractionCallbacks {
     std::function<void(Vec2 point)> onPressDown;
     std::function<void(Vec2 point, Release how)> onPressRelease; // a click is Release::Inside
     std::function<void()> onClickOutside; // something else was activated
+    std::function<void(Vec2 point)> onRightClick; // the right button let go over it: a row's menu (decision 086)
     std::function<void(Vec2 point, bool inside)> onPointerMoved;
     std::function<void()> onPointerLeft;
     std::function<void(WPARAM key)> onKeyDown; // WM_KEYDOWN, and WM_SYSKEYDOWN (keys pressed with Alt)

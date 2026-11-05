@@ -1,5 +1,7 @@
 #include "app/keyboard_input.h"
 
+#include "app/menu_input.h"
+
 #include "platform/tap_hook.h"
 #include "providers/search/search_provider.h"
 
@@ -184,7 +186,10 @@ bool navigationKey(WPARAM key)
         break;
     }
     case VK_LEFT: to = moveFocus(scene(), g_focus, Arrow::Left); break;
-    case VK_RIGHT: to = moveFocus(scene(), g_focus, Arrow::Right); break;
+    case VK_RIGHT:
+        to = moveFocus(scene(), g_focus, Arrow::Right);
+        if (!to && expanded && openMenuByKeys()) return true; // nothing further right on a row with a menu: its menu (decision 086)
+        break;
     case VK_TAB: to = shift ? previousFocus(scene(), g_focus) : nextFocus(scene(), g_focus); break;
     case VK_HOME: to = firstFocus(scene()); break;
     case VK_END: to = lastFocus(scene()); break;

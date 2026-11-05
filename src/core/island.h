@@ -122,11 +122,26 @@ struct Toast {
     bool operator==(const Toast&) const = default;
 };
 
-// What sits over one shown card: its question and its note (decisions 020,
-// 071). The island's card has one; each floating card has its own.
+// A row's context menu, open (decision 086, core/menu.h). One at a time.
+struct Menu {
+    std::string providerId;
+    std::string activityId; // the card it's on
+    std::string row;        // the row's key, "<slot>/<row>" (its elements' keys less the item)
+    std::vector<MenuItem> items; // as the row had them when it opened: it closes if they change
+    // Opened by a right-click: where (card coordinates), its corner goes
+    // there. None: by the keys or the row's ›, beside the row.
+    std::optional<Vec2> at;
+    std::optional<std::size_t> lit; // the item the keys or the pointer are on
+    bool operator==(const Menu&) const = default;
+};
+
+// What sits over one shown card: its question, its note and a row's menu
+// (decisions 020, 071, 086). The island's card has one; each floating card has
+// its own (a floating card's menu isn't drawn yet: only the island's opens).
 struct CardOverlays {
     std::optional<Dialog> dialog;
     std::optional<Toast> toast;
+    std::optional<Menu> menu;
     bool operator==(const CardOverlays&) const = default;
 };
 
@@ -193,6 +208,11 @@ struct DialogShown { Dialog dialog; };   // a provider asked (Host::ask)
 struct DialogClosed {};                  // answered or dismissed: the app sends confirmAction first if confirmed
 struct ToastShown { Toast toast; };      // a provider posted one (Host::toast)
 struct ToastClosed {};                   // its action was clicked: it goes at once
+// A row's menu (decision 086). `at`: a right-click's point (card coordinates);
+// none: the keys or the row's ›, beside the row with its first item lit.
+struct MenuOpened { std::string activityId, row; std::optional<Vec2> at; };
+struct MenuLit { std::optional<std::size_t> item; }; // the keys or the pointer moved onto an item (none: off it)
+struct MenuClosed {};                    // chosen (the app sends the item's action next), Esc, a click elsewhere
 // The wheel over a list (decision 029): `from` is the offset shown (a reveal
 // included), `max` how far it can go (both from the scene).
 struct ListScrolled { std::string activityId, list; float from = 0, delta = 0, max = 0; };
@@ -221,7 +241,7 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            PanelPublished, PanelRemoved, HomeOpened, ActivityOpened, CardCloseRequested, TileClicked, ClockSynced,
                            InputFocused, TextTyped, TextErased, CaretMoved, CaretPlaced, WordSelected, AllSelected,
                            InputSubmitted, InputCancelled,
-                           DialogShown, DialogClosed, ToastShown, ToastClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,
+                           DialogShown, DialogClosed, ToastShown, ToastClosed, MenuOpened, MenuLit, MenuClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,
                            ListDragEnded, StayOpenToggled, TabRowPlaced, FloatFocused, FloatClosed, FloatResized>;
 
 // --- State --------------------------------------------------------------

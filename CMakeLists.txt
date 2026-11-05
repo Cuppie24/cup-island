@@ -42,6 +42,7 @@ add_library(cup_core STATIC
     src/core/keyboard.cpp
     src/core/json_reader.cpp
     src/core/layout.cpp
+    src/core/menu.cpp
     src/core/lift.cpp
     src/core/lists.cpp
     src/core/motion.cpp
@@ -77,6 +78,7 @@ add_library(cup_providers STATIC
     src/providers/system/system_panels.cpp
     src/providers/file_store.cpp
     src/providers/search/launchables.cpp
+    src/providers/search/result_menu.cpp
     src/providers/search/result_rows.cpp
     src/providers/search/recent_files.cpp
     src/providers/search/search_provider.cpp
@@ -121,6 +123,7 @@ if(CUP_BUILD_TESTS)
         tests/list_card_tests.cpp
         tests/main.cpp
         tests/media_tests.cpp
+        tests/menu_tests.cpp
         tests/motion_tests.cpp
         tests/placement_tests.cpp
         tests/pomodoro_stats_tests.cpp
@@ -187,12 +190,14 @@ if(WIN32)
         assets/cup_island.rc
         src/app/floating_cards.cpp
         src/app/keyboard_input.cpp
+        src/app/menu_input.cpp
         src/app/live_tokens.cpp
         src/app/main.cpp
         src/app/surface.cpp
         src/platform/autostart.cpp
         src/platform/badge_dots.cpp
         src/platform/toast_layer.cpp
+        src/platform/menu_layer.cpp
         src/platform/blob.cpp
         src/platform/blob_motion.cpp
         src/platform/blob_shape.cpp

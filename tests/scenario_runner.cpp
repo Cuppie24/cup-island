@@ -9,8 +9,10 @@
 //            click  outside  esc  pointer  drag-enter  drag-rejected
 //            drag-leave  drop  hide  show  wait <ms>
 //            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel
-//            panel <id> [static|keep|awake|field]  unpanel <id>  home  tile <id>  (static: a widget with no card;
+//            panel <id> [static|keep|awake|field|menu|menu=changed]  unpanel <id>  home  tile <id>  (static: a widget with no card;
 //                                                                     field: a card that is its field "go", decision 079;
+//                                                                     menu: field, then rows 1 and 2 with menus Open, Run (dim), Reveal;
+//                                                                     menu=changed: the same rows, other items;
 //                                                                     keep: its card stays open on a click, decision 030;
 //                                                                     awake: keep, and no idle timeout, decision 062)
 //            focus <card> <action> [at=<n>|max=<chars>]  type <text...>  erase [word]  submit  cancel-input   (a TextInput, decision 016)
@@ -24,6 +26,8 @@
 //            tabrow top|bottom                                                       (Settings' Tab row, decision 048)
 //            ask <card>  close-dialog                                               (a provider's dialog, decision 020)
 //            toast <card>  toast-acted                                              (a provider's toast, decision 071)
+//            menu <card> <row> [pointer]  menu-step <1|-1>  menu-end first|last      (a row's menu, decision 086: by the keys, or a right-click)
+//            menu-letter <c>  menu-light <n>|none  menu-close
 //            edit <card> <action> <text> [at=<n>]                                   (a Text edited in place, decision 029)
 //            wheel <card> <list> <from> <delta> <max>  reveal <card> <list> <row>    (lists, decision 029)
 //            pick <card> <list> <row> <y>  carry <y>  put-down
@@ -35,12 +39,14 @@
 //                     lifted=yes|no  spot=centre|left|right|free  stay=yes|no  tabs=top|bottom
 //                     scroll=<card>/<list>:<offset>[+reveal]  carried=<row>|none  squash=yes|no (a press on empty space, decision 071)
 //                     toast=<card>|none   (dialog= and toast=: the island's, then each floating card's, comma-separated)
+//                     menu=<card>/<row>|none  lit=<item>|none   (the island's open menu, and its lit item)
 //                     floats=<card,card>|none  focused=<card>|none  front=<card>  size=<card>:<w>x<h>|none (resized)
 // Levels: passive active timeSensitive critical.  '#' starts a comment.
 
 #include "core/floating.h"
 #include "core/island.h"
 #include "core/lift.h"
+#include "core/menu.h"
 #include "core/text_edit.h"
 #include "expect.h"
 
@@ -174,9 +180,15 @@ struct Runner {
             p.content.keepOpen = arg(2) == "keep" || arg(2) == "awake";
             p.content.noIdleTimeout = arg(2) == "awake";
             if (arg(2) == "float") p.content.floating = FloatSpec{};
-            if (arg(2) == "field") {
+            if (arg(2) == "field" || arg(2).rfind("menu", 0) == 0) {
                 p.content.expandedCenter = { row({ TextInput{ .actionId = "go" } }) };
                 p.content.fieldFirst = "go";
+            }
+            if (arg(2).rfind("menu", 0) == 0) {
+                std::vector<MenuItem> items{ { .label = "Open", .actionId = "open", .bold = true },
+                                             { .label = "Run", .actionId = "run", .enabled = false },
+                                             { .label = arg(2) == "menu=changed" ? "Copy" : "Reveal", .actionId = "reveal", .group = 1 } };
+                for (const char* name : { "one", "two" }) p.content.expandedCenter.push_back(Row{ .items = { Text{ name } }, .menu = items });
             }
             apply(PanelPublished{ p });
         }
@@ -210,6 +222,19 @@ struct Runner {
         else if (cmd == "close-dialog") apply(DialogClosed{});
         else if (cmd == "toast") apply(ToastShown{ { .activityId = arg(1), .text = "Deleted", .actionLabel = "Undo", .actionId = "undo" } });
         else if (cmd == "toast-acted") apply(ToastClosed{});
+        else if (cmd == "menu") {
+            std::optional<Vec2> point;
+            if (arg(3) == "pointer") point = Vec2{ 40, 60 };
+            apply(MenuOpened{ arg(1), "expandedCenter/" + arg(2), point });
+        }
+        else if (cmd == "menu-step" || cmd == "menu-end" || cmd == "menu-letter") {
+            if (!state.card.menu) fail(cmd + " with no menu open");
+            else if (cmd == "menu-step") apply(MenuLit{ menuStep(*state.card.menu, std::stoi(arg(1))) });
+            else if (cmd == "menu-end") apply(MenuLit{ menuEnd(*state.card.menu, arg(1) == "last") });
+            else apply(MenuLit{ menuLetter(*state.card.menu, arg(1).empty() ? ' ' : arg(1)[0]) });
+        }
+        else if (cmd == "menu-light") apply(MenuLit{ arg(1) == "none" ? std::nullopt : std::optional<std::size_t>(std::stoul(arg(1))) });
+        else if (cmd == "menu-close") apply(MenuClosed{});
         else if (cmd == "pin") apply(StayOpenToggled{});
         else if (cmd == "focus-float") apply(FloatFocused{ arg(1) == "none" ? "" : arg(1) });
         else if (cmd == "close-float") apply(FloatClosed{ arg(1) });
@@ -254,6 +279,12 @@ struct Runner {
                 for (const FloatingCard& f : state.floats)
                     if (f.overlays.toast) on.push_back(f.overlays.toast->activityId);
                 if (joined(on) != *v) fail("toast=" + *v + ", got " + joined(on));
+            } else if (auto v = option(word, "menu")) {
+                std::string open = state.card.menu ? state.card.menu->activityId + "/" + state.card.menu->row.substr(state.card.menu->row.find('/') + 1) : "none";
+                if (open != *v) fail("menu=" + *v + ", got " + open);
+            } else if (auto v = option(word, "lit")) {
+                std::string lit = state.card.menu && state.card.menu->lit ? std::to_string(*state.card.menu->lit) : "none";
+                if (lit != *v) fail("lit=" + *v + ", got " + lit);
             } else if (auto v = option(word, "floats")) {
                 std::vector<std::string> open;
                 for (const FloatingCard& f : state.floats) open.push_back(f.activityId);

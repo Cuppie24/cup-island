@@ -5,6 +5,7 @@
 #include "core/floating.h"
 #include "core/lift.h"
 #include "core/lists.h"
+#include "core/menu.h"
 #include "core/split.h"
 #include "core/text_edit.h"
 #include "core/tokens.h"
@@ -83,6 +84,9 @@ void openHome(IslandState& s, Ms now)
 // Unsent text in a field on the island's card: Expanded doesn't time out under it (decision 016).
 bool typing(const IslandState& s) { return s.draft && !s.draft->text.empty() && s.focusedFloatId.empty(); }
 
+// Busy on the island's card: typing, or a row's menu open (decision 086). It doesn't time out under them.
+bool busy(const IslandState& s) { return typing(s) || s.card.menu.has_value(); }
+
 // Is what Expanded shows still there? A card stays while its activity or its
 // panel exists: a panel's activity ending shows the dormant card (decision 009).
 bool expandedViewExists(const IslandState& s)
@@ -114,12 +118,13 @@ void settle(IslandState& s, Ms now)
     if (!s.pinnedId.empty() && !findActivity(s, s.pinnedId)) s.pinnedId.clear(); // a pick dies with its activity
 
     if (isExpanded(s)) {
-        bool timedOut = now >= s.lastPointerAt + tokens().expandedIdleTimeout && !typing(s) && !s.stayOpen && !shownCardIgnoresIdle(s);
+        bool timedOut = now >= s.lastPointerAt + tokens().expandedIdleTimeout && !busy(s) && !s.stayOpen && !shownCardIgnoresIdle(s);
         if (timedOut || !expandedViewExists(s)) collapse(s);
     }
     if (s.card.toast && now >= s.card.toast->until) s.card.toast.reset(); // a toast goes by itself (decision 071)
     settleFloats(s, now); // a floating card goes with its card (decision 081)
     dropStaleOverlays(s); // a draft, dialog or toast goes with its card
+    dropStaleMenu(s);     // ...and a row's menu, or when its row changed (decision 086)
     focusFieldFirst(s);   // ...and a card that is its field has it at once (decision 079)
 
     settleAlerts(s, now); // after Expanded may have closed: alerts it held back can show
@@ -347,8 +352,21 @@ Draft* busyDraft(IslandState& s, Ms now)
     s.lastPointerAt = now;
     return &*s.draft;
 }
-void handle(IslandState& s, const TextTyped& e, Ms now) { if (Draft* d = busyDraft(s, now)) insertAtCaret(*d, e.text); }
-void handle(IslandState& s, const TextErased& e, Ms now) { if (Draft* d = busyDraft(s, now)) eraseAtCaret(*d, e.forward, e.word); }
+// Typing into the field closes a row's menu: the rows under it change (decision 086).
+void handle(IslandState& s, const TextTyped& e, Ms now)
+{
+    if (Draft* d = busyDraft(s, now)) {
+        closeMenu(s);
+        insertAtCaret(*d, e.text);
+    }
+}
+void handle(IslandState& s, const TextErased& e, Ms now)
+{
+    if (Draft* d = busyDraft(s, now)) {
+        closeMenu(s);
+        eraseAtCaret(*d, e.forward, e.word);
+    }
+}
 void handle(IslandState& s, const CaretMoved& e, Ms now) { if (Draft* d = busyDraft(s, now)) moveCaret(*d, e.move, e.select); }
 void handle(IslandState& s, const CaretPlaced& e, Ms now) { if (Draft* d = busyDraft(s, now)) placeCaret(*d, e.at, e.select); }
 void handle(IslandState& s, const WordSelected& e, Ms now) { if (Draft* d = busyDraft(s, now)) selectWordAt(*d, e.at); }
@@ -359,7 +377,14 @@ void handle(IslandState& s, const DialogShown& e, Ms now) { showDialog(s, e, now
 void handle(IslandState& s, const DialogClosed&, Ms) { closeDialog(s); } // a floating card's goes to its own (decision 081)
 void handle(IslandState& s, const ToastShown& e, Ms now) { showToast(s, e, now); }
 void handle(IslandState& s, const ToastClosed&, Ms) { closeToast(s); }
-void handle(IslandState& s, const ListScrolled& e, Ms now) { scrollList(s, e, now); } // lists.h, decision 029
+void handle(IslandState& s, const ListScrolled& e, Ms now) // lists.h, decision 029
+{
+    closeMenu(s); // a menu doesn't scroll with its row
+    scrollList(s, e, now);
+}
+void handle(IslandState& s, const MenuOpened& e, Ms now) { openMenu(s, e, now); } // menu.h, decision 086
+void handle(IslandState& s, const MenuLit& e, Ms now) { lightMenu(s, e, now); }
+void handle(IslandState& s, const MenuClosed&, Ms) { closeMenu(s); }
 void handle(IslandState& s, const ListRevealed& e, Ms) { revealListRow(s, e); }
 void handle(IslandState& s, const ListDragStarted& e, Ms now) { startListDrag(s, e, now); }
 void handle(IslandState& s, const ListDragMoved& e, Ms now) { moveListDrag(s, e, now); }
@@ -420,7 +445,7 @@ std::optional<Ms> nextDeadline(const IslandState& s)
     if (s.alert) consider(s.alertUntil);
     for (const auto& a : s.activities)
         if (a.expiresAt) consider(*a.expiresAt);
-    if (isExpanded(s) && !typing(s) && !s.stayOpen && !shownCardIgnoresIdle(s)) consider(s.lastPointerAt + tokens().expandedIdleTimeout);
+    if (isExpanded(s) && !busy(s) && !s.stayOpen && !shownCardIgnoresIdle(s)) consider(s.lastPointerAt + tokens().expandedIdleTimeout);
     for (const auto& a : s.alertQueue) consider(a.postedAt + tokens().heldAlertMaxAge + Ms{ 1 });
     if (s.card.toast) consider(s.card.toast->until);
     for (const FloatingCard& f : s.floats)

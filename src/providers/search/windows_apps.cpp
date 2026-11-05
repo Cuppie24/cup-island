@@ -3,6 +3,8 @@
 #include "platform/log.h"
 #include "platform/win.h"
 
+#include <ole2.h>
+#include <propsys.h>
 #include <shellapi.h>
 #include <shlobj.h>
 #include <shobjidl.h>
@@ -34,6 +36,41 @@ std::wstring wide(const std::string& text)
     return out;
 }
 
+// PKEY_Link_TargetParsingPath, spelled out so no extra GUID library is needed (as app_activation.cpp).
+constexpr PROPERTYKEY kLinkTarget{ { 0xB9B4B3FC, 0x2B51, 0x4A42, { 0xB5, 0xD8, 0x32, 0x41, 0x46, 0xAF, 0xCF, 0x25 } }, 2 };
+
+// A Store app's AppUserModelID is "<package family>!<app>": its family (decision 086). A desktop app's has no '!'.
+std::string packageOf(const std::wstring& id)
+{
+    std::size_t bang = id.find(L'!');
+    return bang == std::wstring::npos || bang == 0 ? std::string() : utf8(id.substr(0, bang).c_str());
+}
+
+// A desktop program's file (decision 086): its shortcut's target; else its
+// AppUserModelID when that is a path, written from a known folder
+// ("{6D809377-...}\\App\\app.exe") or in full. Empty: not known (a web link, a Store app).
+std::string programFile(IShellItem* item, const std::wstring& id)
+{
+    std::wstring path;
+    winrt::com_ptr<IShellItem2> more;
+    PWSTR target = nullptr;
+    if (SUCCEEDED(item->QueryInterface(IID_PPV_ARGS(more.put()))) && SUCCEEDED(more->GetString(kLinkTarget, &target)) && target) path = target;
+    CoTaskMemFree(target);
+    if (path.empty() && id.size() > 2 && id[0] == L'{') {
+        std::size_t close = id.find(L'}');
+        KNOWNFOLDERID folder{};
+        PWSTR base = nullptr;
+        if (close != std::wstring::npos && SUCCEEDED(CLSIDFromString(id.substr(0, close + 1).c_str(), &folder)) &&
+            SUCCEEDED(SHGetKnownFolderPath(folder, KF_FLAG_DEFAULT, nullptr, &base)))
+            path = std::wstring(base) + id.substr(close + 1);
+        CoTaskMemFree(base);
+    } else if (path.empty() && id.size() > 2 && id[1] == L':' && id[2] == L'\\') {
+        path = id;
+    }
+    if (path.find(L"://") != std::wstring::npos) return {}; // a link to a website, not a file
+    return utf8(path.c_str());
+}
+
 // Every item of a shell folder: its name as shown, and the path to reach it
 // again (`prefix` + its parsing name, or its full parsing path).
 void addItems(IShellItem* folder, Launchable::Kind kind, const std::wstring& prefix, std::vector<Launchable>& out)
@@ -45,8 +82,13 @@ void addItems(IShellItem* folder, Launchable::Kind kind, const std::wstring& pre
         // An app's parsing name inside the Applications folder is its
         // AppUserModelID (or a path); a Control Panel item's is a full path.
         SIGDN how = prefix.empty() ? SIGDN_DESKTOPABSOLUTEPARSING : SIGDN_PARENTRELATIVEPARSING;
-        if (SUCCEEDED(item->GetDisplayName(SIGDN_NORMALDISPLAY, &name)) && SUCCEEDED(item->GetDisplayName(how, &parsing)))
+        if (SUCCEEDED(item->GetDisplayName(SIGDN_NORMALDISPLAY, &name)) && SUCCEEDED(item->GetDisplayName(how, &parsing))) {
             out.push_back({ kind, utf8(name), utf8((prefix + parsing).c_str()), {}, nullptr });
+            if (kind == Launchable::Kind::App) { // where it lives, for its menu (decision 086)
+                out.back().package = packageOf(parsing);
+                if (out.back().package.empty()) out.back().location = programFile(item.get(), parsing);
+            }
+        }
         CoTaskMemFree(name);
         CoTaskMemFree(parsing);
     }
@@ -201,6 +243,68 @@ bool launchItem(const Launchable& item)
     bool ok = ShellExecuteExW(&info) != FALSE;
     CoTaskMemFree(list);
     if (!ok) platform::logLine("search: %s didn't start (%lu)", item.name.c_str(), GetLastError());
+    return ok;
+}
+
+// The shell item's PIDL, run with `verb` ("runas"): an app through its shortcut (its arguments kept), or a file.
+bool runVerb(const std::string& target, const wchar_t* verb)
+{
+    winrt::com_ptr<IShellItem> shellItem;
+    if (FAILED(SHCreateItemFromParsingName(wide(target).c_str(), nullptr, IID_PPV_ARGS(shellItem.put())))) return false;
+    PIDLIST_ABSOLUTE list = nullptr;
+    if (FAILED(SHGetIDListFromObject(shellItem.get(), &list))) return false;
+    SHELLEXECUTEINFOW info{ sizeof info };
+    info.fMask = SEE_MASK_IDLIST | SEE_MASK_FLAG_NO_UI;
+    info.lpIDList = list;
+    info.lpVerb = verb;
+    info.nShow = SW_SHOWNORMAL;
+    bool ok = ShellExecuteExW(&info) != FALSE;
+    CoTaskMemFree(list);
+    // The user saying No to the consent prompt is ERROR_CANCELLED: not worth a line in the log.
+    if (!ok && GetLastError() != ERROR_CANCELLED) platform::logLine("search: %s didn't start as admin (%lu)", target.c_str(), GetLastError());
+    return ok;
+}
+
+bool runAsAdmin(const std::string& target) { return runVerb(target, L"runas"); }
+
+bool openTerminal(const std::string& folder)
+{
+    // Windows Terminal (an app alias on PATH where it's installed; Windows 10 has
+    // none by default), else PowerShell, which every Windows since 7 has (decision 015).
+    std::wstring dir = wide(folder);
+    std::wstring args = L"-d \"" + dir + (dir.size() > 0 && dir.back() == L'\\' ? L"\\" : L"") + L"\"";
+    if (reinterpret_cast<INT_PTR>(ShellExecuteW(nullptr, L"open", L"wt.exe", args.c_str(), nullptr, SW_SHOWNORMAL)) > 32) return true;
+    return reinterpret_cast<INT_PTR>(ShellExecuteW(nullptr, L"open", L"powershell.exe", L"-NoExit", dir.c_str(), SW_SHOWNORMAL)) > 32;
+}
+
+bool showProperties(const std::string& path)
+{
+    return SHObjectProperties(nullptr, SHOP_FILEPATH, wide(path).c_str(), nullptr) != FALSE; // Explorer's window, its own thread
+}
+
+bool copyFileToClipboard(const std::string& path)
+{
+    // The shell item's own data object, as Explorer's Copy puts on the clipboard, marked as a copy (never a move).
+    if (FAILED(OleInitialize(nullptr))) return false; // the clipboard's OLE side; counted, so a second call is harmless
+    winrt::com_ptr<IShellItem> item;
+    winrt::com_ptr<IDataObject> data;
+    bool ok = SUCCEEDED(SHCreateItemFromParsingName(wide(path).c_str(), nullptr, IID_PPV_ARGS(item.put()))) &&
+              SUCCEEDED(item->BindToHandler(nullptr, BHID_DataObject, IID_PPV_ARGS(data.put())));
+    if (ok) {
+        FORMATETC format{ static_cast<CLIPFORMAT>(RegisterClipboardFormatW(CFSTR_PREFERREDDROPEFFECT)), nullptr, DVASPECT_CONTENT, -1, TYMED_HGLOBAL };
+        STGMEDIUM medium{ TYMED_HGLOBAL };
+        medium.hGlobal = GlobalAlloc(GMEM_MOVEABLE, sizeof(DWORD));
+        if (medium.hGlobal) {
+            if (auto* effect = static_cast<DWORD*>(GlobalLock(medium.hGlobal))) {
+                *effect = DROPEFFECT_COPY;
+                GlobalUnlock(medium.hGlobal);
+            }
+            if (FAILED(data->SetData(&format, &medium, TRUE))) ReleaseStgMedium(&medium); // TRUE: it owns the memory now
+        }
+        ok = SUCCEEDED(OleSetClipboard(data.get())) && SUCCEEDED(OleFlushClipboard()); // flushed: it stays after the island lets go
+    }
+    if (!ok) platform::logLine("search: couldn't copy %s", path.c_str());
+    OleUninitialize();
     return ok;
 }
 

@@ -23,6 +23,8 @@ bool same(std::string_view a, std::string_view b)
 std::string keyName(int key)
 {
     if (key == kSpace) return "Space";
+    if (key == kEnter) return "Enter";
+    if (key == kDelete) return "Delete";
     if (key >= kF1 && key < kF1 + 12) return "F" + std::to_string(key - kF1 + 1);
     return std::string(1, static_cast<char>(key));
 }

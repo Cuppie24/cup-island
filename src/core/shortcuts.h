@@ -31,6 +31,8 @@ constexpr int kF1 = 0x70;
 constexpr int kShift = 0x10; // VK_SHIFT, VK_CONTROL, VK_MENU: either side's
 constexpr int kCtrl = 0x11;
 constexpr int kAlt = 0x12;
+constexpr int kEnter = 0x0D;  // VK_RETURN, VK_DELETE: only menu items' shortcuts end in them (decision 086)
+constexpr int kDelete = 0x2E;
 
 bool shortcutKey(int key);                         // a key a shortcut may end in (not a modifier, not Enter or the arrows)
 std::string chordText(const Chord& chord);         // "Ctrl+Alt+Space", "Ctrl+Q", "Double Ctrl"

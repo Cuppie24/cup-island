@@ -22,6 +22,7 @@ void PillRenderer::build(wuc::Compositor const& c, wuc::ContainerVisual const& r
     pill_.build(c, device_, root, initial.size, initial.offset);
     bubble_.build(c, device_, root, {}, initial.bubbleTuck); // above the pill: it's dragged over it
     bridge_.build(c, root, pill_, bubble_);
+    menu_.build(c, device_, root); // last: over the pill and the bubble
     apply(initial, {});
 }
 
@@ -57,6 +58,7 @@ void PillRenderer::refreshAnimations()
     }
     bubble_.refreshAnimations(coloursOnly);
     bridge_.refreshAnimations();
+    menu_.refresh(coloursOnly);
     measured_.clear();
 }
 
@@ -123,6 +125,8 @@ void PillRenderer::apply(const Scene& scene, const SceneMotion& motion)
     for (const Tile& tile : scene.tiles) tiles.push_back(tile.frame);
     pill_.setTiles(tiles, scene.tileRadius);
     pill_.setBadges(scene.badges);
+    // A row's menu at once, not with the queued content: it answers a click or a key (decision 086).
+    menu_.show(scene.menu, scene.offset, scene.now);
 
     // While the bubble is dragged it just follows the cursor: no neck, no
     // other motion (decision 007). The neck is for budding and settling.

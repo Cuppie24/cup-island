@@ -12,6 +12,7 @@
 #include "expect.h"
 #include "panel_host.h"
 #include "providers/search/recent_files.h"
+#include "providers/search/result_menu.h"
 #include "providers/search/result_rows.h"
 #include "providers/search/search_provider.h"
 
@@ -185,13 +186,116 @@ void providerTests()
     expect(name && name->detail == "C:\\Users\\me", "and its folder under it");
     auto* open = std::get_if<Button>(&fileRow.items[0]);
     expect(open && open->actionId.rfind(search_action::kOpen, 0) == 0 && fileRow.clickAnywhere, "its icon is the row's button: the whole row opens it");
-    auto* folder = fileRow.trailing.empty() ? nullptr : std::get_if<Button>(&fileRow.trailing[0]);
-    expect(folder && folder->revealOnHover && folder->glyph == Glyph::Folder, "its folder button shows under the pointer");
-    expect(std::get_if<Button>(&rows[1].items[0]) && rows[1].trailing.empty(), "an app has no folder button");
-    search.onAction({ "search", "search", folder->actionId, 0, "" });
-    expect(host.closed.size() == 2, "no reveal hook: nothing happens");
+    expect(fileRow.trailing.empty() && !fileRow.menu.empty(), "no folder button: its menu has Reveal (decision 086)");
+    std::string revealIt;
+    for (const MenuItem& item : fileRow.menu)
+        if (item.label == "Reveal in Explorer") revealIt = item.actionId;
+    search.onAction({ "search", "search", revealIt, 0, "" });
+    expect(!revealIt.empty() && host.closed.size() == 2, "no reveal hook: nothing happens");
     search.onCardClosed("search");
     expect(search.results().empty() && host.published.back().content.expandedCenter.size() == 1, "closed: it opens empty next time");
+}
+
+// A result's menu (decision 086): what each kind offers, in order, with its
+// keys, and what each item does.
+std::vector<std::string> labels(const std::vector<MenuItem>& menu)
+{
+    std::vector<std::string> out;
+    for (const MenuItem& item : menu) out.push_back(item.label);
+    return out;
+}
+
+void menuTests()
+{
+    using R = SearchProvider::Result;
+    using L = std::vector<std::string>;
+    R program{ .kind = Kind::App, .name = "Chrome", .target = "shell:AppsFolder\\Chrome", .location = "C:\\Chrome\\chrome.exe" };
+    R store{ .kind = Kind::App, .name = "Calculator", .target = "shell:AppsFolder\\Calc!App", .package = "Microsoft.WindowsCalculator_8wekyb3d8bbwe" };
+    R setting{ .kind = Kind::Setting, .name = "Display", .target = "ms-settings:display", .remembered = true };
+    R panel{ .kind = Kind::ControlPanel, .name = "Power Options", .target = "::{power}" };
+    R file{ .file = true, .name = "report.pdf", .target = "C:\\Docs\\report.pdf", .remembered = true };
+    R script{ .file = true, .name = "build.cmd", .target = "C:\\my.dir\\build.cmd" };
+    R folder{ .file = true, .folder = true, .name = "Docs", .target = "C:\\Docs" };
+    expect(labels(resultMenu(program, 0)) == L{ "Open", "Run as administrator", "Reveal in Explorer", "Open in Terminal", "Copy path", "Uninstall", "Properties" },
+           "a desktop program: run elevated, revealed, its path, uninstalled, its properties");
+    expect(labels(resultMenu(store, 0)) == L{ "Open", "App settings", "Uninstall" }, "a Store app: none of a program file's items");
+    expect(labels(resultMenu(setting, 0)) == L{ "Open", "Copy path", "Remove from history" }, "a Settings page: its link, and out of the history");
+    expect(labels(resultMenu(panel, 0)) == L{ "Open" }, "a Control Panel item: Open");
+    expect(labels(resultMenu(file, 0)) == L{ "Open", "Reveal in Explorer", "Open in Terminal", "Copy", "Copy path", "Remove from history", "Properties" },
+           "a file: the file itself copied, a recent one forgotten");
+    expect(labels(resultMenu(script, 0))[1] == "Run as administrator", "a script runs as administrator (a dot in a folder isn't its type)");
+    expect(labels(resultMenu(folder, 0)) == L{ "Open", "Reveal in Explorer", "Open in Terminal", "Copy", "Copy path", "Properties" }, "a folder");
+    R noLocation = program;
+    noLocation.location.clear();
+    expect(labels(resultMenu(noLocation, 0)) == L{ "Open", "Run as administrator", "Uninstall" }, "a program whose file isn't known: nothing to reveal");
+
+    std::vector<MenuItem> m = resultMenu(file, 3);
+    expect(m[0].bold && m[0].actionId == "search.open.3" && m[0].chord == Chord{ .key = kEnter }, "Open first, bold, Enter, on its index");
+    auto chordOf = [&](const std::string& label) {
+        for (const MenuItem& item : m)
+            if (item.label == label) return item.chord ? chordText(*item.chord) : std::string();
+        return std::string("missing");
+    };
+    expect(chordOf("Reveal in Explorer") == "Ctrl+Shift+E" && chordOf("Open in Terminal") == "Ctrl+Shift+T" && chordOf("Copy") == "Ctrl+C" &&
+               chordOf("Copy path") == "Ctrl+Shift+C" && chordOf("Remove from history") == "Shift+Delete" && chordOf("Properties") == "Alt+Enter",
+           "each item's keys");
+    expect(chordText(*resultMenu(program, 0)[1].chord) == "Ctrl+Shift+Enter", "Run as administrator: Ctrl+Shift+Enter");
+    expect(m[1].group == m[2].group && m[2].group != m[3].group && m[3].group == m[4].group && m[5].group != m[6].group,
+           "groups: open, places, copies, history, properties");
+
+    // What they do, through the hooks.
+    SearchHost host;
+    std::vector<std::string> calls;
+    auto hook = [&](const char* name) { return [&calls, name](const std::string& arg) { calls.push_back(std::string(name) + " " + arg); return true; }; };
+    SearchProvider search({ .loadApps = [&](std::function<void(std::vector<Launchable>)> d) {
+                               Launchable chrome{ .name = "Chrome", .target = "shell:AppsFolder\\Chrome", .location = "C:\\Chrome\\chrome.exe" };
+                               Launchable calc{ .name = "Calculator", .target = "Calc!App", .package = "Microsoft.Calc_8wekyb3d8bbwe" };
+                               d({ chrome, calc });
+                           },
+                            .launch = [&](const Launchable& l) { calls.push_back("launch " + l.target); return true; },
+                            .reveal = hook("reveal"),
+                            .runAsAdmin = hook("admin"),
+                            .openTerminal = hook("terminal"),
+                            .properties = hook("properties"),
+                            .copyText = hook("copyText"),
+                            .copyFile = hook("copyFile") });
+    search.start(host);
+    auto type = [&](const std::string& text) { search.onAction({ "search", "search", search_action::kTyped, 0, text }); };
+    auto act = [&](std::string id) { search.onAction({ "search", "search", std::move(id), 0, "" }); };
+    type("chrome");
+    host.answers.back()({ ServiceReply::Problem::None,
+                          R"({"jsonrpc":"2.0","id":1,"result":{"hits":[{"name":"chrome.zip","path":"C:\\Downloads\\chrome.zip"}]}})" });
+    expect(search.results().size() == 2, "the program, then a file");
+    act("search.admin.0");
+    act("search.reveal.0");
+    act("search.terminal.0");
+    act("search.properties.0");
+    act("search.copyPath.0");
+    act("search.copy.1");
+    act("search.terminal.1");
+    act("search.uninstall.0");
+    expect(calls == L{ "admin shell:AppsFolder\\Chrome", "reveal C:\\Chrome\\chrome.exe", "terminal C:\\Chrome", "properties C:\\Chrome\\chrome.exe",
+                       "copyText C:\\Chrome\\chrome.exe", "copyFile C:\\Downloads\\chrome.zip", "terminal C:\\Downloads", "launch ms-settings:appsfeatures" },
+           "each item calls its hook: elevated on the shell item, the rest on the program's file");
+    expect(host.closed.size() == 6, "what opens a window closes the card; copying doesn't");
+    calls.clear();
+    act("search.copy.0");
+    act("search.admin.1");
+    expect(calls.empty(), "a program can't be copied, a zip can't be elevated");
+    type("calc");
+    act("search.appSettings.0");
+    act("search.reveal.0");
+    expect(calls == L{ "launch ms-settings:appsfeatures-app?Microsoft.Calc_8wekyb3d8bbwe" }, "a Store app's own settings page; nothing to reveal");
+
+    // Remove from history: launched, it ranks first and offers it; removed, it doesn't.
+    calls.clear();
+    act("search.open.0");
+    expect(search.results()[0].remembered, "launched: in the history");
+    L offered = labels(resultMenu(search.results()[0], 0));
+    expect(std::find(offered.begin(), offered.end(), "Remove from history") != offered.end(), "and its menu offers to remove it");
+    act("search.forget.0");
+    expect(!search.results()[0].remembered && host.store[SearchProvider::kHistoryKey].find("Calc!App") == std::string::npos,
+           "removed, and saved");
 }
 
 void rowTextTests()
@@ -417,6 +521,7 @@ void liveFieldTests()
 
 void runSearchTests()
 {
+    menuTests();
     cleanupTests();
     settingsTests();
     rankingTests();

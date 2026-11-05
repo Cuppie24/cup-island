@@ -5,6 +5,7 @@
 #include "core/toast.h"
 #include "core/home.h"
 #include "core/lift.h"
+#include "core/menu.h"
 #include "core/slot_layout.h"
 #include "core/split.h"
 #include "core/tabs.h"
@@ -232,6 +233,15 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
             scene.toast = placeToast(*toast, source, scene.size, bottom, now, measureText);
         }
     scene.tabs = tabStripFor(state, scene.size, nestedRadius, measureText, scene.elements);
+    // A row's menu, over everything (decision 086): it may leave the island's
+    // shape, never the render layer (the monitor's width by the canvas's height).
+    const Menu* menu = state.card.menu ? &*state.card.menu : nullptr;
+    if (scene.mode == Mode::Expanded && source.content && menu && menu->activityId == source.activityId) {
+        Rect row = rowFrame(scene, menu->row);
+        float screen = state.screenWidth > 0 ? state.screenWidth : tokens().canvas.x;
+        Rect bounds{ -scene.offset.x, -scene.offset.y, screen, tokens().canvas.y };
+        if (row.width > 0 || menu->at) scene.menu = placeMenu(*menu, source, row, bounds, now, measureText);
+    }
     scene.badges = badgeCentres(scene);
     return scene;
 }
@@ -258,11 +268,14 @@ float pillCornerRadius(Vec2 size)
 Rect interactiveBounds(const Scene& scene)
 {
     Rect pill{ scene.offset.x, scene.offset.y, scene.size.x, scene.size.y };
-    if (!scene.bubble) return pill;
-    const Rect& b = scene.bubble->frame;
-    float left = std::min(pill.x, b.x), top = std::min(pill.y, b.y);
-    float right = std::max(pill.x + pill.width, b.x + b.width), bottom = std::max(pill.y + pill.height, b.y + b.height);
-    return { left, top, right - left, bottom - top };
+    auto grow = [&pill](Rect r) {
+        float left = std::min(pill.x, r.x), top = std::min(pill.y, r.y);
+        float right = std::max(pill.x + pill.width, r.x + r.width), bottom = std::max(pill.y + pill.height, r.y + r.height);
+        pill = { left, top, right - left, bottom - top };
+    };
+    if (scene.bubble) grow(scene.bubble->frame);
+    if (scene.menu) grow({ scene.offset.x + scene.menu->frame.x, scene.offset.y + scene.menu->frame.y, scene.menu->frame.width, scene.menu->frame.height }); // decision 086
+    return pill;
 }
 
 const Tile* tileAt(const Scene& scene, Vec2 point)
