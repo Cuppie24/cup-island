@@ -22,6 +22,12 @@ struct Launchable {
     std::string target; // App, ControlPanel: the shell item's parsing name; Setting: its ms-settings: link
     std::vector<std::string> words; // more to match (a Settings page's "wifi", "вайфай"), lower case
     std::shared_ptr<const ImageData> icon; // App and ControlPanel, if Windows had one
+    // An app (decision 086): its package family name, if it's packaged (a Store
+    // app: it can't run as administrator and its folder is closed to the
+    // user); and, for a desktop program, its program file (the .exe its
+    // shortcut starts), what its menu reveals, copies and shows properties of.
+    std::string package;
+    std::string location;
     bool operator==(const Launchable&) const = default;
 };
 

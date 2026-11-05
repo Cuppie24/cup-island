@@ -3,6 +3,7 @@
 #include "core/tokens.h"
 #include "indexer/query.h"
 #include "providers/search/recent_files.h"
+#include "providers/search/result_menu.h"
 #include "providers/search/result_rows.h"
 
 #include <algorithm>
@@ -27,8 +28,8 @@ Glyph glyphOf(Launchable::Kind kind) { return kind == Launchable::Kind::App ? Gl
 
 // A result (decision 079): its icon is the row's button, so the whole row
 // opens it; its name, the typed words in it brighter; under it, where it is
-// (a path loses its start when too long, so the end tells two apart). A
-// file's folder button shows under the pointer.
+// (a path loses its start when too long, so the end tells two apart). Its
+// menu has the rest (decision 086): the host ends the row in a › for it.
 Row resultRow(Glyph glyph, std::shared_ptr<const ImageData> picture, const SearchProvider::Result& r,
               const std::string& query, const std::string& home, std::size_t index)
 {
@@ -36,10 +37,8 @@ Row resultRow(Glyph glyph, std::shared_ptr<const ImageData> picture, const Searc
                         Text{ .value = r.name, .style = TextStyle::Result, .detail = r.file ? shortPath(r.caption, home) : r.caption, .bright = matchedParts(r.name, query) } },
              .clickAnywhere = true,
              .list = "results",
-             .listItem = true };
-    if (r.file)
-        row.trailing.push_back(Button{ .glyph = Glyph::Folder, .actionId = A::kReveal + std::to_string(index), .compact = true,
-                                       .revealOnHover = true, .secondary = true });
+             .listItem = true,
+             .menu = resultMenu(r, index) };
     return row;
 }
 
@@ -109,6 +108,13 @@ void SearchProvider::onAction(const Action& action)
         open(static_cast<std::size_t>(std::strtoul(action.actionId.c_str() + std::string_view(A::kOpen).size(), nullptr, 10)));
     } else if (action.actionId.rfind(A::kReveal, 0) == 0) {
         reveal(static_cast<std::size_t>(std::strtoul(action.actionId.c_str() + std::string_view(A::kReveal).size(), nullptr, 10)));
+    } else {
+        // The rest of a result's menu (decision 086): "search.<verb>.<index>".
+        for (const char* verb : { A::kAdmin, A::kTerminal, A::kCopy, A::kCopyPath, A::kForget, A::kAppSettings, A::kUninstall, A::kProperties })
+            if (action.actionId.rfind(verb, 0) == 0) {
+                menuAction(verb, std::strtoul(action.actionId.c_str() + std::string_view(verb).size(), nullptr, 10));
+                return;
+            }
     }
 }
 
@@ -173,8 +179,12 @@ void SearchProvider::setFiles(std::vector<indexer::ResultRow> rows)
 std::vector<SearchProvider::Result> SearchProvider::results() const
 {
     std::vector<Result> out;
-    for (const Launchable* l : shown_) out.push_back({ l->kind, false, false, l->name, captionOf(l->kind), l->target });
-    for (const indexer::ResultRow& f : files_) out.push_back({ Launchable::Kind::App, true, f.folder, f.name, folderOf(f.path), f.path });
+    for (const Launchable* l : shown_)
+        out.push_back({ l->kind, false, false, l->name, captionOf(l->kind), l->target, l->package, l->location, history_.uses.count(l->target) > 0 });
+    for (const indexer::ResultRow& f : files_) {
+        bool recent = opened_.uses.count(recentKey({ .name = f.name, .path = f.path, .folder = f.folder })) > 0;
+        out.push_back({ Launchable::Kind::App, true, f.folder, f.name, folderOf(f.path), f.path, {}, {}, recent });
+    }
     return out;
 }
 
@@ -203,8 +213,50 @@ void SearchProvider::open(std::size_t index)
 void SearchProvider::reveal(std::size_t index)
 {
     std::vector<Result> all = results();
-    if (index >= all.size() || !all[index].file) return;
-    if (hooks_.reveal && hooks_.reveal(all[index].target)) host_->closeCard(kPanelId);
+    std::string path = index < all.size() ? pathOf(all[index]) : std::string();
+    if (path.empty()) return; // a Store app, a Settings page: nowhere to show
+    if (hooks_.reveal && hooks_.reveal(path)) host_->closeCard(kPanelId);
+}
+
+void SearchProvider::menuAction(const std::string& verb, std::size_t index)
+{
+    std::vector<Result> all = results();
+    if (index >= all.size()) return;
+    const Result& r = all[index];
+    std::string path = pathOf(r);
+    auto call = [](const auto& hook, const std::string& arg) { return hook && !arg.empty() && hook(arg); };
+    // Copying and forgetting leave the card open: next is pasting, or another pick.
+    if (verb == A::kCopy) {
+        if (r.file) call(hooks_.copyFile, r.target);
+        return;
+    }
+    if (verb == A::kCopyPath) {
+        call(hooks_.copyText, !r.file && r.kind == Launchable::Kind::Setting ? r.target : path); // a Settings page's path is its link
+        return;
+    }
+    if (verb == A::kForget) {
+        if (forget(r)) searchNow(); // its rank changes: what's shown is worked out again
+        return;
+    }
+    bool started = false;
+    if (verb == A::kAdmin && elevates(r)) started = call(hooks_.runAsAdmin, r.target);
+    else if (verb == A::kTerminal) started = call(hooks_.openTerminal, r.folder ? path : folderOf(path));
+    else if (verb == A::kProperties) started = call(hooks_.properties, path);
+    else if (verb == A::kUninstall || verb == A::kAppSettings) {
+        // Installed apps in Settings; a Store app's own page there, by its package.
+        std::string link = verb == A::kAppSettings && !r.package.empty() ? "ms-settings:appsfeatures-app?" + r.package : "ms-settings:appsfeatures";
+        started = hooks_.launch && hooks_.launch(Launchable{ .kind = Launchable::Kind::Setting, .target = link });
+    }
+    if (started) host_->closeCard(kPanelId); // out of the way of the window it opened
+}
+
+bool SearchProvider::forget(const Result& r)
+{
+    LaunchHistory& from = r.file ? opened_ : history_;
+    std::string key = r.file ? recentKey({ .name = r.name, .path = r.target, .folder = r.folder }) : r.target;
+    if (from.uses.erase(key) == 0) return false;
+    host_->save(r.file ? kOpenedKey : kHistoryKey, from.save());
+    return true;
 }
 
 std::shared_ptr<const ImageData> SearchProvider::iconFor(const std::string& target)

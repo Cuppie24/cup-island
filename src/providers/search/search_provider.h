@@ -35,6 +35,13 @@ struct SearchHooks {
     std::function<bool(const std::string& path)> openFile; // opens it as Explorer would
     std::function<bool(const std::string& path)> reveal;   // its folder in Explorer, it selected
     std::function<bool(const std::string& path)> exists;   // a remembered file is still there (recent_files)
+    // A result's menu (decision 086). `target`: a shell parsing name, an app's
+    // (its shortcut's arguments kept) or a file's path.
+    std::function<bool(const std::string& target)> runAsAdmin;    // the "runas" verb: Windows asks for consent
+    std::function<bool(const std::string& folder)> openTerminal;  // Windows Terminal there, else PowerShell
+    std::function<bool(const std::string& path)> properties;      // Explorer's Properties window
+    std::function<bool(const std::string& text)> copyText;        // onto the clipboard
+    std::function<bool(const std::string& path)> copyFile;        // the file itself, as Explorer's Copy does
     // A result's icon as Windows draws it (a file's, an app's), resultIconSize
     // square; `done` on the UI thread, with nothing if there's none.
     std::function<void(const std::string& target, std::function<void(std::shared_ptr<const ImageData>)> done)> loadIcon;
@@ -47,7 +54,16 @@ namespace search_action {
 inline constexpr const char* kTyped = "search.typed"; // the field's live edit (TextInput::changeAction)
 inline constexpr const char* kGo = "search.go";       // Enter: the top result
 inline constexpr const char* kOpen = "search.open.";  // + a result's index
-inline constexpr const char* kReveal = "search.reveal."; // + a file result's index: its folder
+inline constexpr const char* kReveal = "search.reveal."; // + a result's index: its folder, it selected
+// A result's menu (decision 086), each + the result's index.
+inline constexpr const char* kAdmin = "search.admin.";
+inline constexpr const char* kTerminal = "search.terminal.";
+inline constexpr const char* kCopy = "search.copy.";
+inline constexpr const char* kCopyPath = "search.copyPath.";
+inline constexpr const char* kForget = "search.forget."; // Remove from history
+inline constexpr const char* kAppSettings = "search.appSettings.";
+inline constexpr const char* kUninstall = "search.uninstall.";
+inline constexpr const char* kProperties = "search.properties.";
 } // namespace search_action
 
 class SearchProvider : public Provider {
@@ -73,6 +89,8 @@ public:
         bool file = false;
         bool folder = false; // a file result that's a folder
         std::string name, caption, target;
+        std::string package, location; // an app's (Launchable): packaged, and its program file
+        bool remembered = false;        // in the launch history (or a recent file): it can be removed from it
     };
     std::vector<Result> results() const;
     const std::string& filesNote() const { return filesNote_; }
@@ -84,6 +102,8 @@ private:
     void publish();
     void open(std::size_t index);
     void reveal(std::size_t index);
+    void menuAction(const std::string& verb, std::size_t index); // a menu item's, other than Open and Reveal
+    bool forget(const Result& r);                               // Remove from history
     std::shared_ptr<const ImageData> iconFor(const std::string& target); // asks Windows the first time
 
     SearchHooks hooks_;
