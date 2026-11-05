@@ -152,6 +152,11 @@ fixed height and `Text::yields` above, and the chevrons:
   line under in `ResultDetail` (`resultDetailFontSize`), a full-size icon
   button with a `resultIconSize` icon, to match the big field.
 
+**Fix:** a query with only a path or filters (`d:/projects`, `ext:pdf`)
+listed the apps launched before, as if nothing were typed: they rank by
+plain words, and it had none. Now such a query lists no apps or Settings,
+only files (`rankLaunchables`).
+
 **Open.** Ctrl+Shift+Enter to run as administrator (decision 077) needs the
 host to tell a provider about modifiers, which it never does (decision 035):
 a row button instead, maybe.

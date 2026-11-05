@@ -62,7 +62,8 @@ int launchScore(const Launchable& item, std::string_view query);
 
 // The best `limit` of `items` for `query`, best first: score, then past use
 // (decision 077), then the shorter name. Indices into `items`. An empty
-// query lists the most used, if any were used.
+// query lists the most used, if any were used; one with only paths or
+// filters ("d:/projects", "ext:pdf") lists nothing: those are for files.
 std::vector<std::size_t> rankLaunchables(const std::vector<Launchable>& items, std::string_view query,
                                           const LaunchHistory& history, Ms now, std::size_t limit);
 
