@@ -157,6 +157,12 @@ listed the apps launched before, as if nothing were typed: they rank by
 plain words, and it had none. Now such a query lists no apps or Settings,
 only files (`rankLaunchables`).
 
+**Fix:** the field and the first result (lit, as Enter's row) sat
+`rowSpacing` apart, two filled shapes all but touching. The first row under
+the field is `Row::apart` now: `groupGap` above it. On a list's first row
+that gap goes above the list's window, so it neither scrolls away nor sits
+inside the row's lit background.
+
 **Open.** Ctrl+Shift+Enter to run as administrator (decision 077) needs the
 host to tell a provider about modifiers, which it never does (decision 035):
 a row button instead, maybe.

@@ -268,6 +268,8 @@ void layoutTests()
            "with many results the field stays in the card, clear of the tab row");
     expect(listed > 0 && listTop >= field->frame.y + field->frame.height && listBottom <= big.size.y,
            "the results sit under the field and inside the card: they scroll, they don't spill");
+    expect(field && listTop - (field->frame.y + field->frame.height) >= tokens().groupGap,
+           "room between the field and the first result, which is lit: not stuck together");
     expect(listBottom - listTop > 4 * 40, "and they fill the card's height, not a strip of it");
     expect(name && name->frame.width > big.size.x / 2, "a file's name has the row's width: its path is under it, not beside it");
     expect(field && name && std::abs(field->frame.x - name->frame.x) < 64, "rows start at the card's side, not after a media art column");

@@ -333,6 +333,8 @@ struct Row {
     bool even = false;
     // Starts one of a card's groups (the timer, its progress, its controls):
     // groupGap of space above it, more than between rows (decision 066).
+    // A list's first row: the gap is above the list's window, outside its
+    // scrolling and its rows' lit backgrounds (search's results, decision 079).
     bool apart = false;
     // At most narrowRowWidth wide, centred: short columns kept together in the
     // middle while the rows around it (a page's title, its back arrow at the
