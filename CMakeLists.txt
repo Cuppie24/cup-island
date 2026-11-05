@@ -42,6 +42,7 @@ add_library(cup_core STATIC
     src/core/keyboard.cpp
     src/core/json_reader.cpp
     src/core/layout.cpp
+    src/core/menu.cpp
     src/core/lift.cpp
     src/core/lists.cpp
     src/core/motion.cpp
@@ -121,6 +122,7 @@ if(CUP_BUILD_TESTS)
         tests/list_card_tests.cpp
         tests/main.cpp
         tests/media_tests.cpp
+        tests/menu_tests.cpp
         tests/motion_tests.cpp
         tests/placement_tests.cpp
         tests/pomodoro_stats_tests.cpp

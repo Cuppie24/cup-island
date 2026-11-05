@@ -31,6 +31,8 @@ std::optional<Hit> hitIn(const std::vector<Placed>& elements, Vec2 point)
 
 std::optional<Hit> hitTest(const Scene& scene, Vec2 point)
 {
+    // A row's menu is over everything (decision 086): it hides what's under it; menuItemAt says which item.
+    if (scene.menu && scene.menu->frame.contains(point)) return std::nullopt;
     // A toast floats over the content (decision 071): its button first, and the rest of it hides what's under it.
     if (scene.toast && scene.toast->frame.contains(point)) return hitIn(scene.toast->elements, point);
     return hitIn(scene.elements, point);
@@ -41,6 +43,7 @@ std::string rowAt(const Scene& scene, Vec2 point)
     auto rowOf = [](const Placed& p) { return p.key.substr(0, p.key.rfind('/')); };
     auto isRow = [](const Placed& p) { return p.key.rfind("tab/", 0) != 0; };
     if (scene.toast && scene.toast->frame.contains(point)) return {}; // a floating toast covers the rows (decision 071)
+    if (scene.menu && scene.menu->frame.contains(point)) return {};   // ...and a row's menu (decision 086)
     for (const Placed& p : scene.elements)
         if (isRow(p) && p.hitFrame.contains(point)) return rowOf(p);
     // Between its items: the band their hit frames span top to bottom (they reach half the gap to the next row).
