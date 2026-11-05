@@ -24,11 +24,11 @@ public:
 private:
     wuc::Compositor compositor_{ nullptr };
     wuc::ContainerVisual layer_{ nullptr };        // at the menu's frame; scales and fades as one
-    wuc::ShapeVisual shapes_{ nullptr };           // its background, lit item and lines
+    wuc::ShapeVisual shapes_{ nullptr };           // its background and lit item
+    wuc::ShapeVisual lines_{ nullptr };            // the lines between its groups: cleared and drawn anew each time
     wuc::CompositionRoundedRectangleGeometry background_{ nullptr }, lit_{ nullptr };
     wuc::CompositionSpriteShape litShape_{ nullptr };
     wuc::CompositionColorBrush fill_{ nullptr }, edge_{ nullptr }, litFill_{ nullptr }, lineFill_{ nullptr };
-    std::vector<wuc::CompositionSpriteShape> lines_;
     ElementVisuals elements_;                      // its labels and shortcuts
     std::optional<std::string> shownRow_;          // the row whose menu is up: another's opens afresh
 };
