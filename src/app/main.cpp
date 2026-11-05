@@ -189,13 +189,18 @@ std::optional<cup::Focusable> keyFocusOn(const app::Surface& s)
     return &s == &keysSurface() ? app::keyFocus() : std::nullopt;
 }
 
-// Where hover feedback comes from: the keyboard's focus while it leads (decision 031), else the pointer.
+// Where hover feedback comes from: the keyboard's focus while it leads (decision 031), else the pointer,
+// once it has moved: content that came under a still pointer isn't lit by it (decision 087).
 std::optional<Vec2> hoverPoint(const app::Surface& s)
 {
     if (!s.pointer.scrub)
         if (auto focused = keyFocusOn(s)) return focused->point;
+    if (s.pointer.still && !s.pointer.scrub) return std::nullopt;
     return s.pointer.at;
 }
+
+// What's under the pointer changed without it moving: it lights nothing until it does (decision 087).
+void pointerStill(app::Surface& s) { s.pointer.still = true; }
 
 void updateHover(app::Surface& s)
 {
@@ -209,7 +214,9 @@ void updateHover(app::Surface& s)
     s.renderer->setHovered(key);
     // A text field shows the I-beam (decision 043): the add field, and a to-do only while it's
     // being edited (then it's a field); a field being drag-selected keeps it, even off it.
-    const Placed* under = key.empty() ? nullptr : findElement(s, key);
+    // The cursor is where the pointer is, still or not (decision 087 holds back only what lights up).
+    auto cursorHit = s.pointer.at && !s.pointer.scrub ? hitTest(s.scene, *s.pointer.at) : std::nullopt;
+    const Placed* under = cursorHit ? findElement(s, cursorHit->key) : nullptr;
     bool text = !s.pointer.selecting.empty() || (under && std::holds_alternative<TextInput>(under->item));
     if (s.island()) setTextCursor(text);
     else app::setFloatTextCursor(s, text);
@@ -285,6 +292,10 @@ void dispatch(const Event& event, const char* reason)
     if (lifted) onLifted();
     if (g_state.spot != spot) saveSpot();
     app::syncFloats(g_state, t); // the floating cards: opened, redrawn, sent back (decision 081)
+    if (shownCards(g_state) != wasCards) { // a card opened or switched under the pointer (decision 087)
+        pointerStill(g_island);
+        app::forEachFloat(pointerStill);
+    }
     updateHover(g_island);
     app::forEachFloat([](app::Surface& card) { updateHover(card); });
 
@@ -373,6 +384,7 @@ void act(const Action& action)
 // The wheel over a list scrolls it, from what's shown (decision 029); the renderer eases it there.
 void onWheel(app::Surface& s, Vec2 canvasPoint, float notches)
 {
+    s.pointer.still = false; // the wheel is the pointer at work: what scrolls under it lights (decision 087)
     const Placed* p = listAt(s.scene, toLocal(s, canvasPoint));
     if (!p) return;
     dispatch(ListScrolled{ p->activityId, p->list->id, p->list->offset, notches * tokens().scrollStep, p->list->max }, "scroll");
@@ -438,6 +450,7 @@ void dropListRow(app::Surface& s, bool commit)
 // a button gets its own press feedback, anything else squashes the pill.
 void onPressDown(app::Surface& s, Vec2 canvasPoint)
 {
+    s.pointer.still = false; // pressed: the pointer is in use (decision 087)
     if (s.island() && app::menuPress(toLocal(s, canvasPoint))) return; // an open menu takes the press (decision 086)
     g_drag = trackPointer({}, canvasPoint, now(), tokens());
     if (s.island() && !onBubble(s, canvasPoint)) {
@@ -501,7 +514,12 @@ void onPressDown(app::Surface& s, Vec2 canvasPoint)
 void onPointerMoved(app::Surface& s, Vec2 canvasPoint, bool inside)
 {
     app::pointerMoved(canvasPoint); // a real move takes the lead back from the keyboard
-    if (s.island()) app::menuPointerMoved(toLocal(s, canvasPoint)); // lights the menu's item under it (decision 086)
+    // Windows repeats a move, at the same point, when windows change under a
+    // still pointer: only a real one lets it light things (decision 087).
+    bool moved = s.pointer.lastMove != canvasPoint;
+    s.pointer.lastMove = canvasPoint;
+    if (moved) s.pointer.still = false;
+    if (s.island() && moved) app::menuPointerMoved(toLocal(s, canvasPoint)); // lights the menu's item under it (decision 086)
     if (s.pointer.islandPress || s.pointer.bubblePress) g_drag = trackPointer(g_drag, canvasPoint, now(), tokens());
     if (s.pointer.islandPress) {
         Vec2 start = *s.pointer.islandPress;
@@ -709,6 +727,7 @@ void onChar(wchar_t c)
 void onKey(WPARAM key)
 {
     app::clearCharSwallow();
+    pointerStill(keysSurface()); // typing changes what's under the pointer (search's results): it waits for a move (decision 087)
     if (app::recordKey(key)) return; // Settings is recording a shortcut's new keys (decision 032)
     bool ctrl = GetKeyState(VK_CONTROL) < 0, alt = GetKeyState(VK_MENU) < 0;
     // A dialog: Esc cancels it, the card stays (decision 020). The arrows,
