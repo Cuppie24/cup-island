@@ -125,7 +125,7 @@ struct Flood : winrt::implements<Flood, IGraphicsEffect, abi::IGraphicsEffectD2D
     {
         if (index != D2D1_FLOOD_PROP_COLOR) return E_INVALIDARG;
         try {
-            *value = winrt::Windows::Foundation::PropertyValue::CreateSingleArray(color).as<ABI::Windows::Foundation::IPropertyValue>().detach();
+            *value = winrt::Windows::Foundation::PropertyValue::CreateSingleArray(winrt::array_view<float const>(color.data(), color.data() + color.size())).as<ABI::Windows::Foundation::IPropertyValue>().detach();
             return S_OK;
         } catch (...) {
             return winrt::to_hresult();
@@ -175,7 +175,9 @@ Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush co
     // Each step named, so a refusal in the log says which one Windows turned down.
     auto make = [&](IGraphicsEffect const& effect, bool even) {
         step = "factory";
-        auto factory = even ? compositor.CreateEffectFactory(effect, std::vector<winrt::hstring>{ L"Luminosity.Color" }) // animated: fadeLuminosity : compositor.CreateEffectFactory(effect);
+        // The brightness is animated by name (fadeLuminosity), so it's declared here.
+        auto factory = even ? compositor.CreateEffectFactory(effect, std::vector<winrt::hstring>{ L"Luminosity.Color" })
+                            : compositor.CreateEffectFactory(effect);
         step = "brush";
         auto brush = factory.CreateBrush();
         step = "mask";
