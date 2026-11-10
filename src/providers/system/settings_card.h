@@ -86,7 +86,7 @@ struct SettingsView {
     std::string shortcutNote;               // under the shortcuts: "Press the new keys…", or why one wasn't changed
     std::string version;                    // the running build's; empty: no line for it
     std::optional<UpdateNote> update;       // nothing: the app can't check, no row
-    std::optional<UpdateStatus> offer;      // an update offered (by any check): an "Update and restart" row
+    std::optional<UpdateStatus> offer;      // an update offered (by any check): the updates row says "Update and restart" (decision 091)
     bool tabsOnTop = true;                  // the tab row's place (decision 048)
     std::optional<bool> coverColours;       // the island in the playing cover's colours (decision 052); nothing: no row
     std::optional<FadeSpeed> fadeSpeed;     // how fast colours fade (decision 053); nothing: no choice

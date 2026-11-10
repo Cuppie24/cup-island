@@ -275,5 +275,5 @@ over the file's, so `tokens()` is always what's on screen.
 | Settings: Update and restart under Check for updates, every action a list row, headings that stand out (decision 037) | done; rules tested, visuals need Windows |
 | Notification badges: a dot on a widget, tab or button with something new; Settings' widget and its Update row when an update waits (decision 038) | done; placement tested, drawing needs Windows |
 | An update offer survives a restart (decision 039); Bluetooth removed (decision 042) | rules tested |
-| Grouped rows (decision 090): a quiet label over rows on one background, each a name over its description; every Settings page uses them | done; layout tested, the look needs a Windows run |
+| Grouped rows (decision 090): a quiet label over rows on one background, each a name over its description; every Settings page uses them. One updates row that turns into Update and restart (decision 091) | done; layout tested, the look needs a Windows run |
 | Mandatory releases: the Release workflow's checkbox; installed by itself at the next start, with an alert, 3 tries at most (decision 041) | rules tested; the workflow's first mandatory run confirms it |

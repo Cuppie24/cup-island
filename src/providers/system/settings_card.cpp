@@ -36,28 +36,26 @@ Row choiceRow(const std::string& name, bool picked, std::string action, const Th
     return r;
 }
 
-// "Check for updates" (decision 036): the whole row checks; the line under it
-// says what the last check found, and until then the running version
-// (decisions 037, 090: one row less than a version line of its own). An update found is
-// offered on Home, as always, and right under this row (installRow).
-Row updateRow(const UpdateNote& note, const std::string& running)
+// The one updates row (decisions 036, 091). Nothing offered: "Check for
+// updates", a refresh glyph, and under it what the last check found, until
+// then the running version. An update offered (by any check): the same row
+// turns into "Update and restart", the running and offered versions under it
+// and the download glyph: the same install as Home's Update card.
+Row updateRow(const UpdateNote& note, const std::string& running, const std::optional<UpdateStatus>& offer)
 {
+    if (offer) {
+        bool installing = offer->stage == UpdateStage::Installing;
+        std::string versions = running.empty() ? offer->version : running + " → " + offer->version;
+        std::string said = installing ? "Installing…" : offer->stage == UpdateStage::Failed ? offer->problem : versions;
+        return groupItem(itemText(offer->stage == UpdateStage::Failed ? "Try the update again" : "Update and restart", said),
+                         { Button{ .glyph = Glyph::Download, .actionId = P::kInstallUpdate, .enabled = !installing, .compact = true } });
+    }
     std::string said = note.checking ? "Checking…" : !note.found ? (running.empty() ? "" : "Version " + running) : *note.found == CheckOutcome::UpToDate ? "Up to date"
                      : *note.found == CheckOutcome::Available ? note.version + " available"
                      : *note.found == CheckOutcome::Failed    ? "Couldn't check"
                                                               : "Not in dev builds";
     return groupItem(itemText("Check for updates", said),
-                     { Button{ .glyph = Glyph::Download, .actionId = P::kCheckUpdates, .enabled = !note.checking, .compact = true } });
-}
-
-// "Update and restart" (decision 037), while an update is offered: the same
-// install as Home's Update card. Its value says how it's going.
-Row installRow(const UpdateStatus& offer)
-{
-    bool installing = offer.stage == UpdateStage::Installing;
-    std::string said = installing ? "Installing…" : offer.stage == UpdateStage::Failed ? offer.problem : offer.version;
-    return groupItem(itemText(offer.stage == UpdateStage::Failed ? "Try the update again" : "Update and restart", said),
-                     { Button{ .glyph = Glyph::Download, .actionId = P::kInstallUpdate, .enabled = !installing, .compact = true } });
+                     { Button{ .glyph = Glyph::Refresh, .actionId = P::kCheckUpdates, .enabled = !note.checking, .compact = true } });
 }
 
 // A row that does one thing when clicked: its name, and a glyph for what it does.
@@ -124,8 +122,7 @@ Slot listPage(const SettingsView& v)
     group("General", std::move(general));
 
     std::vector<Row> updates;
-    if (v.update) updates.push_back(marked(updateRow(*v.update, v.version), "updates", v));
-    if (v.update && v.offer) updates.push_back(installRow(*v.offer));
+    if (v.update) updates.push_back(marked(updateRow(*v.update, v.version, v.offer), "updates", v));
     group("Updates", std::move(updates));
     // One list, sized to the card: with every row there (two monitors, an
     // update offered) it's more than fits, and scrolls; usually it all shows.
