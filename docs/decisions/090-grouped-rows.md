@@ -28,6 +28,11 @@ Settings-only look: any card with groups of rows should get it for free.
   parent, so it stays behind its row's content even when rebuilt, and has no
   click area: the row's control still takes the clicks. A grouped list item
   lights within its own piece, under the translucent fill.
+  A piece's height comes from its row's own height (plus the row spacing
+  when the group goes on), never from two scrolled tops: their difference
+  moved by a float's rounding as the list scrolled, and since only a real
+  size change rebuilds an element (decision 071), every piece was rebuilt
+  and faded in on each scroll step: they flickered.
 - **Two levels**: the description is the row's `Text::detail` (decision
   079's second line), with `detailTrimsEnd` so a long one ends in "…" like
   any text, not at its start like a path. A text's natural width is its
