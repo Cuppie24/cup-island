@@ -29,7 +29,8 @@ inline constexpr const char* kEditShortcut = "shortcut.edit:"; // + its index in
 inline constexpr const char* kToggleAutostart = "autostart.toggle";
 inline constexpr const char* kToggleCoverColours = "covercolours.toggle"; // decision 052
 inline constexpr const char* kOpenMusicColours = "musiccolours.open";      // decision 053
-inline constexpr const char* kPickFade = "fade.pick:";                     // + 0 fast, 1 medium, 2 slow: its row's Segments
+inline constexpr const char* kPickFade = "fade.pick:";                     // + 0 fast, 1 medium, 2 slow
+inline constexpr const char* kToggleGlass = "glass.toggle";                // decision 089
 inline constexpr const char* kCopyLogs = "logs.copy";
 inline constexpr const char* kCentreIsland = "island.centre";
 inline constexpr const char* kCheckUpdates = "updates.check";
@@ -66,8 +67,8 @@ struct SettingItem {
 };
 
 // Every announced setting, oldest first: add a line when adding a setting.
-// Rows' ids: "theme", "musiccolours" (and "covercolours", "fade" on its page), "display",
-// "tabrow", "centre", "autostart",
+// Rows' ids: "theme", "glass", "musiccolours" (and "covercolours", "fade" on its page), "display",
+// "tabrow" (and "tabrow.top", "tabrow.bottom" on its page), "centre", "autostart",
 // "shortcuts", "logs", "updates".
 std::vector<SettingItem> announcedSettings();
 
@@ -88,6 +89,7 @@ struct SettingsView {
     bool tabsOnTop = true;                  // the tab row's place (decision 048)
     std::optional<bool> coverColours;       // the island in the playing cover's colours (decision 052); nothing: no row
     std::optional<FadeSpeed> fadeSpeed;     // how fast colours fade (decision 053); nothing: no choice
+    std::optional<bool> glass;              // the island as glass (decision 089); nothing: no row (Windows 10)
     std::vector<SettingItem> announced;     // what can be new (announcedSettings)...
     std::set<std::string> unseen;           // ...and which of those haven't been seen yet: tagged "New"
 };

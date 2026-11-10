@@ -1,0 +1,32 @@
+#pragma once
+// Glass (decision 089): what Windows offers for it. Windows 11 only, looked
+// up at runtime (decision 015); on Windows 10 the island stays solid.
+
+#include "platform/win.h"
+
+namespace cup::platform {
+
+// Lets `window`'s visuals show the desktop behind it, blurred by Windows (a
+// host backdrop brush). False where Windows can't: Windows 10, where a Win32
+// window has no way to, and nothing is changed.
+bool allowBackdrop(HWND window);
+
+// The desktop behind the window, blurred by Windows, at `luminosity`'s
+// lightness, cut to `mask`'s alpha: what the glass shows through the island.
+// `luminosity` is a surface brush painted in glassLuminosityColor (its alpha
+// is how strongly): Windows refused that colour as a flood effect, and
+// likely as a colour brush. A backdrop can't be a mask brush's source, so
+// it's effects (Blend, then Composite source-in). If Windows refuses the
+// brightness step, the plain blur (even false); if it refuses that too, no
+// brush: the island stays solid. Each outcome is logged.
+struct Glass {
+    wuc::CompositionEffectBrush brush{ nullptr };
+    bool even = false; // at one brightness (luminosity applies)
+};
+Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush const& mask, wuc::CompositionBrush const& luminosity);
+
+// Windows' "Transparency effects" (Personalisation > Colours). Off, glass is
+// drawn solid, as Windows draws its own; on where it can't be read.
+bool transparencyOn();
+
+} // namespace cup::platform

@@ -41,6 +41,7 @@ leaves it out cleanly.
 | `DCompositionWaitForCompositorClock` (Windows 11) | `DwmFlush()` | `platform/interaction_layer.cpp`, decision 001 |
 | `AppInfo::GetFromAppUserModelId` (2004) | app name from the exe name | `providers/media/smtc_reading.cpp` |
 | Segoe Fluent Icons, Segoe UI Variable (Windows 11 fonts) | Segoe MDL2 Assets, Segoe UI | `platform/element_painting.cpp` |
+| Host backdrop for a Win32 window (`DWMWA_USE_HOSTBACKDROPBRUSH`, Windows 11) | no Glass setting: the island stays solid | `platform/glass.cpp`, decision 089 |
 | Font weight axis (`IDWriteTextFormat3`, 1803) and grayscale contrast (`IDWriteFactory1`), queried with `try_as` | the named weight; plain enhanced contrast | `platform/element_painting.cpp`, `graphics_device.cpp`, decision 024 |
 
 **Checking.**

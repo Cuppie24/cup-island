@@ -1,5 +1,6 @@
 #include "platform/float_window.h"
 
+#include "platform/glass.h"
 #include "platform/log.h"
 #include "platform/render_layer.h"
 
@@ -91,6 +92,7 @@ bool FloatWindow::create(HINSTANCE instance, wuc::Compositor const& compositor, 
         destroy();
         return false;
     }
+    allowBackdrop(render_); // a card can be glass too (decision 089); where the island can't, it never is
     target_ = createWindowTarget(compositor, render_);
     root_ = compositor.CreateContainerVisual();
     target_.Root(root_);

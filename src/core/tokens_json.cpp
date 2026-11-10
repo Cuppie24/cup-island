@@ -149,6 +149,12 @@ const Field kFields[] = {
     { "edgeSnap", &Tokens::edgeSnap },
     { "shadowBlur", &Tokens::shadowBlur, true },
     { "shadowOffset", &Tokens::shadowOffset },
+    { "glassOpacity", &Tokens::glassOpacity, true },
+    { "glassPlainOpacity", &Tokens::glassPlainOpacity },
+    { "glassGlowHeight", &Tokens::glassGlowHeight },
+    { "glassGlowOpacity", &Tokens::glassGlowOpacity },
+    { "glassGlowCurve", &Tokens::glassGlowCurve },
+    { "glassRimWidth", &Tokens::glassRimWidth },
     { "tabHeight", &Tokens::tabHeight, true },
     { "tabGap", &Tokens::tabGap },
     { "tabMaxWidth", &Tokens::tabMaxWidth },
@@ -222,9 +228,11 @@ const Field kFields[] = {
     { "coverFullChroma", &Tokens::coverFullChroma },
     { "coverSecondShare", &Tokens::coverSecondShare },
     { "coverInkChroma", &Tokens::coverInkChroma },
+    { "coverDarkGlow", &Tokens::coverDarkGlow },
     { "islandColor", &Tokens::islandColor, true },
     { "islandHighlightColor", &Tokens::islandHighlightColor },
     { "islandSecondColor", &Tokens::islandSecondColor }, // set from islandColor and the cover (live_tokens), not the file
+    { "islandGlowColor", &Tokens::islandGlowColor },     // set from the cover as glass (decision 090), not the file
     { "titleTextColor", &Tokens::titleTextColor },
     { "bodyTextColor", &Tokens::bodyTextColor },
     { "captionTextColor", &Tokens::captionTextColor },
@@ -252,6 +260,9 @@ const Field kFields[] = {
     { "badgeColor", &Tokens::badgeColor },
     { "imagePlaceholderColor", &Tokens::imagePlaceholderColor },
     { "shadowColor", &Tokens::shadowColor },
+    { "glassShadowColor", &Tokens::glassShadowColor },
+    { "glassRimColor", &Tokens::glassRimColor },
+    { "glassLuminosityColor", &Tokens::glassLuminosityColor },
     { "pomodoroFocusColor", &Tokens::pomodoroFocusColor },
     { "pomodoroBreakColor", &Tokens::pomodoroBreakColor },
     { "pomodoroFocusMs", &Tokens::pomodoroFocus, true },
@@ -430,7 +441,7 @@ TokensParse parseTokens(std::string_view json)
         Tokens themed = withTheme(result.tokens, theme.name);
         theme.island = themed.islandColor;
         theme.accent = themed.liveColor;
-        theme.light = 0.2126f * theme.island.r + 0.7152f * theme.island.g + 0.0722f * theme.island.b > 127.5f;
+        theme.light = pale(theme.island);
     }
     return result;
 }
@@ -445,6 +456,8 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
         std::string_view n(name);
         return n.starts_with("cover") || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" || n == "searchVisibleRows" ||
                n == "primaryHoverOpacity" || n == "playGlyphNudge" || // a share of an opacity, of a width (decisions 066, 071)
+               n == "glassOpacity" || n == "glassPlainOpacity" ||    // opacities (decision 089)
+               n == "glassGlowOpacity" || n == "glassGlowCurve" || // a share, an exponent (decision 090)
                n.ends_with("Bounce") || n == "contentArriveScale" || n == "contentRevealAt" || n == "morphSpringSettle" || n == "alertPulseScale" || // shares (decision 080)
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
     };
@@ -469,6 +482,7 @@ bool onlyColorsDiffer(const Tokens& a, const Tokens& b)
     Tokens mixed = b;
     mixed.fadeSpeed = a.fadeSpeed; // how fast colours fade isn't anything to rebuild either
     mixed.reducedMotion = a.reducedMotion; // read when a motion starts, like the fade speed
+    mixed.glass = a.glass;                 // glass on or off only fades the fill (decision 089)
     for (const Field& f : kFields)
         if (auto* member = std::get_if<Color Tokens::*>(&f.member)) mixed.*(*member) = a.*(*member);
     return mixed == a;

@@ -204,4 +204,21 @@ std::vector<ThemeColor> coverColors(const CoverTint& tint, const Tokens& themed)
     return out;
 }
 
+std::vector<ThemeColor> glassCoverColors(const CoverTint& tint, const Tokens& themed, const Tokens& midnight)
+{
+    std::vector<ThemeColor> out = coverColors(tint, themed);
+    // The island itself stays neutral, so any cover's colour fades into it.
+    for (ThemeColor& c : out) {
+        if (c.token == "islandColor" || c.token == "islandSecondColor") c.color = midnight.islandColor;
+        if (c.token == "islandHighlightColor") c.color = midnight.islandHighlightColor;
+    }
+    // The glow: the cover's main hue, as vivid as its accent, dark enough
+    // under white text.
+    double vivid = std::clamp(static_cast<double>(tint.vividness), 0.0, 1.0);
+    double chroma = themed.coverAccentChroma.x + (themed.coverAccentChroma.y - themed.coverAccentChroma.x) * vivid;
+    double alpha = std::clamp(themed.glassGlowOpacity, 0.0f, 1.0f) * 255;
+    out.push_back({ "islandGlowColor", fromLch(themed.coverDarkGlow, chroma, toLch(tint.main).h, static_cast<std::uint8_t>(std::lround(alpha))) });
+    return out;
+}
+
 } // namespace cup

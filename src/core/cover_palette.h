@@ -28,4 +28,12 @@ std::optional<CoverTint> coverTint(const ImageData& image);
 // (islandSecondColor), at the same lightness, so text reads the same on both.
 std::vector<ThemeColor> coverColors(const CoverTint& tint, const Tokens& themed);
 
+// The same as glass (decision 090): text, accents and marks still take the
+// cover's colours (coverColors), but the island keeps `midnight`'s colours
+// (the colours as written, one of them: no gradient), and the cover's main
+// hue glows up from its bottom edge (islandGlowColor, at coverDarkGlow,
+// glassGlowOpacity strong, glassGlowHeight px up). Glass is for dark
+// islands only (decision 089).
+std::vector<ThemeColor> glassCoverColors(const CoverTint& tint, const Tokens& themed, const Tokens& midnight);
+
 } // namespace cup

@@ -2,7 +2,8 @@
 // One black island shape with its content: the pill, or the Split bubble.
 // Both hang from the top edge (straight top flaring into the edge, rounded
 // bottom; decision 025), so content nests in their corners the same way. Sets targets only; implicit
-// animations do the motion (TR §5).
+// animations do the motion (TR §5). As glass (decision 089), the blurred
+// desktop shows through its fill.
 
 #include "core/layout.h"
 #include "core/motion.h"
@@ -18,6 +19,16 @@
 #include <vector>
 
 namespace cup::platform {
+
+// The island's fill (decision 054): a left-to-right gradient from
+// islandColor to islandSecondColor (the same colour unless a cover has
+// two), and each ear in its end's colour, so the flared corners join
+// without a seam. Static: only a recolour animates it.
+struct ShapeFill {
+    wuc::CompositionLinearGradientBrush gradient{ nullptr };
+    wuc::CompositionColorGradientStop left{ nullptr }, right{ nullptr };
+    wuc::CompositionColorBrush leftEar{ nullptr }, rightEar{ nullptr };
+};
 
 class Blob {
 public:
@@ -92,18 +103,41 @@ private:
     // Null where Windows can't snapshot a visual (before 1903): no shadow.
     wuc::SpriteVisual caster_{ nullptr };
     wuc::ShapeVisual outline_{ nullptr }; // the snapshot's source: the body's shape without its content
+    wuc::CompositionVisualSurface snapshot_{ nullptr }; // ...live: the shadow's mask, and the glass's
     wuc::DropShadow shadow_{ nullptr };
     void buildShadow(wuc::Compositor const& compositor, wuc::ContainerVisual const& parent);
     void applyShadow(); // colour, blur, offset from tokens
+    // Glass (decision 089): a sprite between the outline and the body showing
+    // the desktop behind, blurred, cut to the outline's snapshot. Made the
+    // first time glass is on (only Windows 11 offers it); faded out when off,
+    // so the outline under it is the solid island again. The rim: a stroke
+    // just inside the body's edge, see-through but for glass.
+    wuc::SpriteVisual glass_{ nullptr };
+    bool glassEven_ = false; // its brightness evened out (glassLuminosityColor), not the plain blur
+    // The brightness colour, painted on a little surface: the one kind of
+    // colour input Windows takes into the effect. Repainted (not faded) when it changes.
+    wuc::CompositionDrawingSurface luminosity_{ nullptr };
+    Color luminosityPainted_{ 0, 0, 0, 0 };
+    void paintLuminosity(Color color);
+    GraphicsDevice* device_ = nullptr; // build()'s: draws the brightness surface
+    bool glassTried_ = false; // made once, or failed once: not tried again
+    bool glassShown_ = false;
+    wuc::CompositionSpriteShape rim_{ nullptr };
+    wuc::CompositionColorGradientStop rimTop_{ nullptr }, rimBottom_{ nullptr };
+    void buildGlass();
+    // The glow (decision 090): the cover's colour (islandGlowColor) along the
+    // body's bottom edge, fading out glassGlowHeight px up along glowFade's
+    // curve, from the bottom stop up. Clear unless glass has a cover's
+    // colours.
+    std::vector<wuc::CompositionColorGradientStop> glow_;
+    void buildGlow(wuc::Compositor const& compositor, wuc::CompositionGeometry const& outline);
+    void fadeGlow(Ms duration);
+    void buildRim(wuc::Compositor const& compositor);
+    void applyGlass(Ms duration); // tokens().glass: on or off, and the rim's colour and width
     wuc::CompositionPropertySet shape_{ nullptr }; // MaxRadius, FlareRadius, Attached, Flare, Left/RightEar: read by the shape expressions
     wuc::CompositionPropertySet drag_{ nullptr };  // Centre: the cursor, while following; Drop: lifted, below the edge
-    // The island's fill (decision 054): a left-to-right gradient from
-    // islandColor to islandSecondColor (the same colour unless a cover has
-    // two). Static: only a recolour animates it. Each ear takes its end's
-    // colour, so the flared corners join without a seam.
-    wuc::CompositionLinearGradientBrush gradient_{ nullptr };
-    wuc::CompositionColorGradientStop leftStop_{ nullptr }, rightStop_{ nullptr };
-    wuc::CompositionColorBrush leftFill_{ nullptr }, rightFill_{ nullptr };
+    ShapeFill fill_;  // the body's: see-through as glass (islandFill, decision 089)
+    ShapeFill solid_; // the outline's: always opaque, so its snapshot is the whole shape
     void fadeFill(Ms duration); // to the current colours (highlighted: the highlight's, both ends)
     wuc::ImplicitAnimationCollection implicit_{ nullptr }; // the Size/Offset morph, along built_
     Motion motion_; // the latest morph's: a landing uses it too

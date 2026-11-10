@@ -204,6 +204,7 @@ if(WIN32)
         src/platform/menu_layer.cpp
         src/platform/blob.cpp
         src/platform/blob_motion.cpp
+        src/platform/blob_backdrop.cpp
         src/platform/blob_shape.cpp
         src/platform/crash_report.cpp
         src/platform/displays.cpp
@@ -220,6 +221,7 @@ if(WIN32)
         src/platform/float_window.cpp
         src/platform/foreground.cpp
         src/platform/fullscreen_watcher.cpp
+        src/platform/glass.cpp
         src/platform/graphics_device.cpp
         src/platform/hotkeys.cpp
         src/platform/interaction_layer.cpp

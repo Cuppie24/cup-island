@@ -20,6 +20,7 @@ std::string g_theme;    // the app theme (decision 022)
 std::optional<CoverTint> g_tint; // the playing cover's colours, over the theme (decisions 051, 054)
 FadeSpeed g_fadeSpeed = FadeSpeed::Medium; // Settings' pick (decision 053)
 bool g_reducedMotion = false;               // Windows' animation setting (decision 080)
+bool g_glass = false;                       // glass picked, and Windows' transparency on (decision 089)
 
 void log(const std::string& message)
 {
@@ -57,10 +58,14 @@ bool commit(const std::string& message)
 {
     Tokens themed = withTheme(g_file, g_theme);
     themed.islandSecondColor = themed.islandColor; // one colour, unless a two-colour cover says otherwise (decision 054)
-    if (g_tint) themed = withColors(themed, coverColors(*g_tint, themed));
+    // As glass (a dark theme's island, decision 089), the cover glows along
+    // the bottom of a Midnight island: the file's colours as written (decision 090).
+    bool glass = withGlass(themed, g_glass).glass;
+    if (g_tint) themed = withColors(themed, glass ? glassCoverColors(*g_tint, themed, g_file) : coverColors(*g_tint, themed));
     Tokens next = scaleTokens(themed, g_scale);
     next.fadeSpeed = g_fadeSpeed;
     next.reducedMotion = g_reducedMotion;
+    next = withGlass(next, g_glass); // not on a light theme's island (decision 089)
     if (next == tokens()) return false;
     warnIfClipped(next);
     setTokens(next);
@@ -138,6 +143,15 @@ bool setReducedMotion(bool reduced)
 {
     g_reducedMotion = reduced;
     return commit(reduced ? "motion: reduced (Windows' animation effects are off)" : "motion: full");
+}
+
+bool setGlass(bool on)
+{
+    g_glass = on;
+    bool changed = commit("glass re-applied");
+    // Said every time, changed or not: why the island is or isn't glass.
+    log(!on ? "glass: off" : tokens().glass ? "glass: on" : "glass: picked, but the island is light (a light theme): solid");
+    return changed;
 }
 
 } // namespace cup::app

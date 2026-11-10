@@ -48,7 +48,7 @@ void LiquidBridge::build(wuc::Compositor const& c, wuc::ContainerVisual const& p
 {
     params_ = c.CreatePropertySet();
     params_.InsertScalar(L"On", 1.0f);
-    brush_ = c.CreateColorBrush(toUiColor(tokens().islandColor)); // the fade in refreshAnimations() starts from it
+    brush_ = c.CreateColorBrush(toUiColor(islandFill(tokens(), tokens().islandColor))); // the fade in refreshAnimations() starts from it
     refreshAnimations();
 
     visual_ = c.CreateShapeVisual();
@@ -73,7 +73,9 @@ void LiquidBridge::refreshAnimations()
 {
     params_.InsertScalar(L"Thickness", tokens().bridgeThickness);
     params_.InsertScalar(L"Reach", std::max(tokens().bridgeReach, 0.01f)); // divided by
-    fadeColor(brush_, tokens().islandColor); // with the pill's fill (decision 051)
+    // With the pill's fill (decision 051), see-through as glass: the neck is
+    // thin and short-lived, so it has no blur of its own (decision 089).
+    fadeColor(brush_, islandFill(tokens(), tokens().islandColor));
 }
 
 void LiquidBridge::setEnabled(bool on)

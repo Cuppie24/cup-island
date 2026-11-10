@@ -15,6 +15,7 @@ struct RenderLayer {
     wuc::Compositor compositor{ nullptr };
     wuc::Desktop::DesktopWindowTarget target{ nullptr };
     wuc::ContainerVisual root{ nullptr };
+    bool backdrop = false; // its visuals can show the desktop behind, blurred: glass (decision 089), Windows 11
 };
 
 // Windows.UI.Composition needs a DispatcherQueue on the thread that creates

@@ -134,6 +134,32 @@ void paletteTests()
     auto duo = coverColors({ .main = { 220, 30, 40 }, .second = Color{ 30, 60, 220 }, .vividness = 1 }, midnight);
     expect(strongest(tokenColor(duo, "islandSecondColor")) == 2 && strongest(tokenColor(duo, "islandColor")) == 0,
            "two colours: the island runs from red to blue");
+    expect(withColors(midnight, duo).islandGlowColor.a == 0, "solid: no glow");
+
+    // Glass (decision 090): a Midnight island, one colour, the cover's main
+    // hue glowing from the bottom; text and accents still the cover's.
+    for (const Theme& theme : parsed.tokens.themes) {
+        if (theme.light) continue; // light themes have no glass
+        Tokens themed = withTheme(parsed.tokens, theme.name);
+        CoverTint tint{ .main = { 220, 30, 40 }, .second = Color{ 30, 60, 220 }, .vividness = 1 };
+        auto glass = glassCoverColors(tint, themed, parsed.tokens);
+        auto solidColours = coverColors(tint, themed);
+        Tokens tinted = withColors(themed, glass);
+        Color glow = tinted.islandGlowColor;
+        expect(tinted.islandColor == parsed.tokens.islandColor && tinted.islandSecondColor == parsed.tokens.islandColor &&
+                   tinted.islandHighlightColor == parsed.tokens.islandHighlightColor,
+               "glass: a Midnight island, one colour, under " + theme.name);
+        expect(strongest(glow) == 0 && glow.a == static_cast<std::uint8_t>(std::lround(parsed.tokens.glassGlowOpacity * 255)),
+               "glass: the glow is the cover's main colour, glassGlowOpacity strong: " + theme.name);
+        expect(tokenColor(glass, "liveColor") == tokenColor(solidColours, "liveColor") &&
+                   tokenColor(glass, "titleTextColor") == tokenColor(solidColours, "titleTextColor"),
+               "glass: the accent and text still follow the cover: " + theme.name);
+        Color underGlow = glow;
+        underGlow.a = 255; // at its strongest, opaque: the hardest case for text
+        expect(contrast(tinted.titleTextColor, underGlow) >= 4.5 && contrast(tinted.captionTextColor, underGlow) >= 2,
+               "glass: text reads over the glow: " + theme.name);
+    }
+    expect(Tokens{}.islandGlowColor.a == 0, "no cover: no glow");
 }
 
 void tintTests()

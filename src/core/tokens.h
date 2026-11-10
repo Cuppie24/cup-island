@@ -208,6 +208,21 @@ struct Tokens {
     float shadowBlur = 16;
     Vec2 shadowOffset{ 0, 4 };    // down: the island hangs from the top edge
 
+    // Glass (decision 089): the blurred desktop behind the island, at one
+    // brightness (glassLuminosityColor) like Windows' own acrylic, the island's
+    // colours over it, and a light rim inside its edge, brightest along the
+    // bottom. Windows 11 and dark islands only; colours in glassLuminosityColor,
+    // glassRimColor, glassShadowColor.
+    bool glass = false;           // drawn as glass now (withGlass): set by the app, not tokens.json
+    float glassOpacity = 0.15f;   // how strong the island's colours are over the blur: 1 solid, 0 none (acrylic's tint opacity)
+    float glassPlainOpacity = 0.7f; // ...over the plain blur, where Windows won't even out its brightness: it needs more
+    // Glass with the cover's colours (decision 090): the island stays
+    // Midnight, and the cover's colour glows up from its bottom edge.
+    float glassGlowHeight = 40.0f;  // px: the glow's reach up from the bottom edge, the same on the pill and a tall card
+    float glassGlowOpacity = 0.8f;  // how strong the glow is along the bottom edge
+    float glassGlowCurve = 2.5f;    // how it fades up its reach (glowFade): higher hugs the edge more; past 1, it melts away at the top
+    float glassRimWidth = 1;      // the rim's width, inside the edge
+
     // Expanded's tabs: one per activity along the top of the card (decisions 007, 047).
     float tabHeight = 36;
     float tabGap = 4;
@@ -337,6 +352,7 @@ struct Tokens {
     float coverFullChroma = 0.2f;        // a cover's main colour this vivid (chroma) or more counts as fully vivid
     float coverSecondShare = 0.3f;       // a second hue needs this share of the main one's weight to make a gradient
     float coverInkChroma = 0.03f;        // ...text and icons: barely, so they read as white or ink
+    float coverDarkGlow = 0.45f;         // glass (decision 090): the glow's lightness; its chroma is the accent's
 
     // Colours: every colour the island draws. tokens.json writes [r, g, b] or
     // [r, g, b, alpha], channels 0..255 and alpha 0..1, like CSS rgba().
@@ -345,6 +361,9 @@ struct Tokens {
     // The island's right end: a gradient from islandColor (decision 054). Not
     // in tokens.json: islandColor's, unless a two-colour cover sets it.
     Color islandSecondColor{ 0, 0, 0 };
+    // The glow along the island's bottom edge (decision 090): glass with the
+    // cover's colours. Not in tokens.json: none (clear) unless a cover sets it.
+    Color islandGlowColor{ 0, 0, 0, 0 };
     Color titleTextColor{ 255, 255, 255 };
     Color bodyTextColor{ 255, 255, 255, 179 };
     Color captionTextColor{ 255, 255, 255, 140 }; // also Digits
@@ -372,6 +391,12 @@ struct Tokens {
     Color badgeColor{ 255, 69, 58 };               // a notification dot (decision 038): the red every OS uses for "new"
     Color imagePlaceholderColor{ 255, 255, 255, 31 }; // art that hasn't arrived
     Color shadowColor{ 0, 0, 0, 115 };             // under the island in every mode; its alpha is the shadow's strength
+    Color glassShadowColor{ 0, 0, 0, 51 };         // ...as glass (decision 089): fainter, since it also shows through the island
+    Color glassRimColor{ 255, 255, 255, 46 };      // glass's rim (decision 089), at its brightest along the bottom
+    // Glass's brightness (decision 089): the blur takes this colour's
+    // lightness, keeping the desktop's hue, this strongly (alpha), as Windows'
+    // acrylic does; 0 alpha: the desktop's own brightness shows, lighter.
+    Color glassLuminosityColor{ 44, 44, 44, 245 };
     Color pomodoroFocusColor{ 255, 99, 71 };       // accents (decision 010)
     Color pomodoroBreakColor{ 52, 199, 89 };
 
@@ -441,6 +466,28 @@ struct Tokens {
 
 // The colour fade's duration at the picked speed (recolorFast/Medium/Slow).
 Ms recolorDuration(const Tokens& t);
+
+// The island's fill as drawn (decision 089): `color`, or as glass, see-through
+// by glassOpacity; by glassPlainOpacity over the plain blur (`evenBlur`
+// false: Windows refused to even out its brightness). The pill, the bubble
+// and the neck between them all use it.
+Color islandFill(const Tokens& t, Color color, bool evenBlur = true);
+
+// The glow's fade (decision 090): at `up` of its reach (0 the bottom edge, 1
+// its top), the share of its colour left: (1 - up)^glassGlowCurve. Steep at
+// the edge, so the colour hugs it; flat at the top, so it melts into the card
+// with no line. Drawn as kGlowStops gradient stops sampling it, evenly.
+float glowFade(const Tokens& t, float up);
+constexpr int kGlowStops = 9;
+
+// A pale colour: perceived brightness past half. A theme whose island is pale
+// is a light theme (decision 030).
+bool pale(Color color);
+
+// `t` as glass if the user picked it (decision 089), except on a pale island
+// (a light theme, or its cover tint): glass there turns its dark text grey on
+// whatever the desktop shows.
+Tokens withGlass(Tokens t, bool picked);
 
 // The active tokens: defaults until the app applies a loaded tokens.json.
 const Tokens& tokens();
