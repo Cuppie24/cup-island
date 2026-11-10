@@ -29,4 +29,15 @@ Color islandFill(const Tokens& t, Color color)
     return color;
 }
 
+bool pale(Color c)
+{
+    return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b > 127.5f;
+}
+
+Tokens withGlass(Tokens t, bool picked)
+{
+    t.glass = picked && !pale(t.islandColor);
+    return t;
+}
+
 } // namespace cup

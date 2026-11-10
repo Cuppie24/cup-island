@@ -185,6 +185,15 @@ void runTokensTests()
     expect(islandFill(glass, island) == island, "glass on: an opacity past 1 is solid, not an overflow");
     expect(onlyColorsDiffer(solid, glass) == false && onlyColorsDiffer(solid, Tokens{ .glass = true }),
            "glass on or off rebuilds nothing; a new glassOpacity does");
+    // Glass is for dark islands only: a light theme, or a cover tinting a
+    // light theme's island, stays solid even with it picked.
+    TokensParse themed = parseTokens(R"({ "themes": { "Midnight": {}, "Paper": { "islandColor": [246, 246, 248] } } })");
+    expect(withGlass(withTheme(themed.tokens, "Midnight"), true).glass, "glass: on for a dark theme when picked");
+    expect(!withGlass(withTheme(themed.tokens, "Midnight"), false).glass, "glass: off when not picked");
+    expect(!withGlass(withTheme(themed.tokens, "Paper"), true).glass, "glass: never on a light theme");
+    expect(!withGlass(withGlass(solid, true), false).glass, "glass: picked off again, off");
+    expect(pale({ 246, 246, 248 }) && !pale({ 0, 0, 0 }) && !pale({ 24, 9, 42 }) && themed.tokens.themes[1].light,
+           "glass: 'light' is the same test Settings' theme list uses");
     expect(scaleTokens(glass, 2).glassOpacity == glass.glassOpacity && scaleTokens(solid, 2).glassRimWidth == solid.glassRimWidth * 2 * solid.islandScale,
            "glassOpacity is a share, glassRimWidth a length");
 }

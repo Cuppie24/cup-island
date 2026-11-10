@@ -21,6 +21,10 @@ for an island that should cost nothing at rest, so this is frosted glass.
 - Glass is drawn only while Windows' **Transparency effects** are on too
   (read at start and on `WM_SETTINGCHANGE` "ImmersiveColorSet"). Off, the
   island is solid, as Windows' own surfaces are.
+- **Dark islands only** (`withGlass`): with a light theme (a pale island, the
+  same test as Settings' Light group), glass stays off even when picked. Its
+  dark text over whatever the desktop shows turned grey and hard to read on
+  the first Windows run. The switch keeps the pick; a dark theme brings it back.
 - How it's drawn, per shape (pill, bubble, floating card):
   - Between the outline twin and the body (decision 018) sits a sprite of
     the **host backdrop** (already blurred by Windows), cut to the twin's live
@@ -28,8 +32,15 @@ for an island that should cost nothing at rest, so this is frosted glass.
     press and drag on the compositor, ears included. A backdrop can't be a
     mask brush's source, so the cut is a Direct2D Composite effect
     (source-in) built by hand (`platform/glass.cpp`), with no Win2D.
+  - Before the cut, the backdrop takes `glassLuminosityColor`'s lightness
+    and keeps its own hue (a Blend effect), as Windows' acrylic does. The
+    first run without it was lighter than the Start menu beside it: a plain
+    tint keeps a bright sky bright. Direct2D's Colour and Luminosity blend
+    modes are swapped against their names; WinUI's AcrylicBrush uses
+    "Colour" for this step, and so do we. Acrylic's grain (a noise texture)
+    is left out.
   - The body's fill is the theme's (or the cover's) colours at
-    `glassOpacity` (`islandFill`, core). The twin keeps them opaque: it's the
+    `glassOpacity` (`islandFill`, core), acrylic's tint over that. The twin keeps them opaque: it's the
     snapshot's alpha, and the solid island wherever the backdrop shows
     nothing. Turning glass on or off fades the fill like any recolour.
   - A rim: `glassRimColor`, `glassRimWidth` wide, a stroke just inside the
@@ -43,7 +54,9 @@ for an island that should cost nothing at rest, so this is frosted glass.
     gone in a moment.
 
 Tokens: `glassOpacity` (a share, not scaled), `glassRimWidth` (a length),
-`glassRimColor`, `glassShadowColor` (themes may set both). `glass` itself is
+`glassLuminosityColor` (its alpha is how strongly the brightness is evened
+out), `glassRimColor`, `glassShadowColor` (themes may set all three). The
+defaults follow WinUI's dark acrylic: `#2C2C2C` at 0.96, tint 0.15. `glass` itself is
 the app's, like `fadeSpeed`, not tokens.json's. Glass on or off counts as a
 recolour (`onlyColorsDiffer`): nothing is rebuilt.
 

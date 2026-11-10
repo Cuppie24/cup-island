@@ -113,6 +113,7 @@ private:
     // so the outline under it is the solid island again. The rim: a stroke
     // just inside the body's edge, see-through but for glass.
     wuc::SpriteVisual glass_{ nullptr };
+    wuc::CompositionColorBrush luminosity_{ nullptr }; // glassLuminosityColor: the blur's brightness
     bool glassTried_ = false; // made once, or failed once: not tried again
     bool glassShown_ = false;
     wuc::CompositionSpriteShape rim_{ nullptr };

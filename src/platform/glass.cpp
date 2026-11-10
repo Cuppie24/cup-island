@@ -19,26 +19,29 @@ namespace abi = ABI::Windows::Graphics::Effects;
 using winrt::Windows::Graphics::Effects::IGraphicsEffect;
 using winrt::Windows::Graphics::Effects::IGraphicsEffectSource;
 
-// Direct2D's Composite effect, described the way Composition reads effects
-// (what Win2D's CompositeEffect does, without Win2D). Input 0 is the
-// destination, 1 the source; source-in keeps the source where the
-// destination has alpha: the backdrop, cut to the island's shape.
-struct SourceIn : winrt::implements<SourceIn, IGraphicsEffect, abi::IGraphicsEffectD2D1Interop> {
+// A Direct2D effect with two inputs and a mode, described the way
+// Composition reads effects (what Win2D's CompositeEffect and BlendEffect
+// do, without Win2D). Input 0 is the destination (Win2D's Background), 1 the
+// source (Foreground).
+struct TwoInputEffect : winrt::implements<TwoInputEffect, IGraphicsEffect, abi::IGraphicsEffectD2D1Interop> {
+    GUID id{};
+    UINT modeIndex = 0; // the effect's mode property
+    UINT32 mode = 0;
     IGraphicsEffectSource destination, source;
     winrt::hstring name;
 
     winrt::hstring Name() { return name; }
     void Name(winrt::hstring const& value) { name = value; }
 
-    IFACEMETHODIMP GetEffectId(GUID* id) override
+    IFACEMETHODIMP GetEffectId(GUID* result) override
     {
-        *id = CLSID_D2D1Composite;
+        *result = id;
         return S_OK;
     }
     IFACEMETHODIMP GetNamedPropertyMapping(LPCWSTR property, UINT* index, abi::GRAPHICS_EFFECT_PROPERTY_MAPPING* mapping) override
     {
         if (std::wcscmp(property, L"Mode") != 0) return E_INVALIDARG; // nothing here is animated by name
-        *index = D2D1_COMPOSITE_PROP_MODE;
+        *index = modeIndex;
         *mapping = abi::GRAPHICS_EFFECT_PROPERTY_MAPPING_DIRECT;
         return S_OK;
     }
@@ -49,10 +52,9 @@ struct SourceIn : winrt::implements<SourceIn, IGraphicsEffect, abi::IGraphicsEff
     }
     IFACEMETHODIMP GetProperty(UINT index, ABI::Windows::Foundation::IPropertyValue** value) override
     {
-        if (index != D2D1_COMPOSITE_PROP_MODE) return E_INVALIDARG;
+        if (index != modeIndex) return E_INVALIDARG;
         try { // nothing may throw back into the compositor
-            auto mode = winrt::Windows::Foundation::PropertyValue::CreateUInt32(D2D1_COMPOSITE_MODE_SOURCE_IN);
-            *value = mode.as<ABI::Windows::Foundation::IPropertyValue>().detach();
+            *value = winrt::Windows::Foundation::PropertyValue::CreateUInt32(mode).as<ABI::Windows::Foundation::IPropertyValue>().detach();
             return S_OK;
         } catch (...) {
             return winrt::to_hresult();
@@ -75,6 +77,17 @@ struct SourceIn : winrt::implements<SourceIn, IGraphicsEffect, abi::IGraphicsEff
     }
 };
 
+IGraphicsEffect twoInputs(GUID id, UINT modeIndex, UINT32 mode, IGraphicsEffectSource const& destination, IGraphicsEffectSource const& source)
+{
+    auto effect = winrt::make_self<TwoInputEffect>();
+    effect->id = id;
+    effect->modeIndex = modeIndex;
+    effect->mode = mode;
+    effect->destination = destination;
+    effect->source = source;
+    return effect.as<IGraphicsEffect>();
+}
+
 } // namespace
 
 bool allowBackdrop(HWND window)
@@ -91,16 +104,25 @@ bool allowBackdrop(HWND window)
     return SUCCEEDED(result);
 }
 
-wuc::CompositionBrush maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush const& mask)
+wuc::CompositionBrush maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush const& mask,
+                                     wuc::CompositionBrush const& luminosity)
 {
     try {
-        auto effect = winrt::make_self<SourceIn>();
-        effect->name = L"Glass";
-        effect->destination = wuc::CompositionEffectSourceParameter(L"Mask");
-        effect->source = wuc::CompositionEffectSourceParameter(L"Backdrop");
-        auto brush = compositor.CreateEffectFactory(effect.as<IGraphicsEffect>()).CreateBrush();
+        // The backdrop at the luminosity colour's lightness, keeping its own
+        // hue: Windows' acrylic recipe (WinUI's AcrylicBrush). Direct2D's
+        // Colour and Luminosity blend modes are swapped against their names,
+        // so "Colour" is the one that takes the top layer's lightness, as
+        // WinUI notes and uses.
+        IGraphicsEffect even = twoInputs(CLSID_D2D1Blend, D2D1_BLEND_PROP_MODE, D2D1_BLEND_MODE_COLOR,
+                                         wuc::CompositionEffectSourceParameter(L"Backdrop"),
+                                         wuc::CompositionEffectSourceParameter(L"Luminosity"));
+        // ...then cut to the island's shape: source-in keeps it where the mask has alpha.
+        IGraphicsEffect glass = twoInputs(CLSID_D2D1Composite, D2D1_COMPOSITE_PROP_MODE, D2D1_COMPOSITE_MODE_SOURCE_IN,
+                                          wuc::CompositionEffectSourceParameter(L"Mask"), even);
+        auto brush = compositor.CreateEffectFactory(glass).CreateBrush();
         brush.SetSourceParameter(L"Mask", mask);
         brush.SetSourceParameter(L"Backdrop", compositor.CreateHostBackdropBrush()); // already blurred by Windows
+        brush.SetSourceParameter(L"Luminosity", luminosity);
         return brush;
     } catch (winrt::hresult_error const& e) {
         logLine("glass: no backdrop brush (0x%08lx): the island stays solid", static_cast<unsigned long>(e.code()));

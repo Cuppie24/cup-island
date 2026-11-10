@@ -247,6 +247,7 @@ const Field kFields[] = {
     { "shadowColor", &Tokens::shadowColor },
     { "glassShadowColor", &Tokens::glassShadowColor },
     { "glassRimColor", &Tokens::glassRimColor },
+    { "glassLuminosityColor", &Tokens::glassLuminosityColor },
     { "pomodoroFocusColor", &Tokens::pomodoroFocusColor },
     { "pomodoroBreakColor", &Tokens::pomodoroBreakColor },
     { "pomodoroFocusMs", &Tokens::pomodoroFocus, true },
@@ -423,7 +424,7 @@ TokensParse parseTokens(std::string_view json)
         Tokens themed = withTheme(result.tokens, theme.name);
         theme.island = themed.islandColor;
         theme.accent = themed.liveColor;
-        theme.light = 0.2126f * theme.island.r + 0.7152f * theme.island.g + 0.0722f * theme.island.b > 127.5f;
+        theme.light = pale(theme.island);
     }
     return result;
 }

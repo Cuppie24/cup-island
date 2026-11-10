@@ -122,7 +122,8 @@ void Blob::buildGlass()
 {
     glassTried_ = true;
     if (!snapshot_) return; // no snapshot before 1903; glass is Windows 11's anyway
-    auto brush = maskedBackdrop(compositor_, compositor_.CreateSurfaceBrush(snapshot_));
+    luminosity_ = compositor_.CreateColorBrush(toUiColor(tokens().glassLuminosityColor)); // applyGlass() fades it
+    auto brush = maskedBackdrop(compositor_, compositor_.CreateSurfaceBrush(snapshot_), luminosity_);
     if (!brush) return; // logged: the island stays solid
     glass_ = compositor_.CreateSpriteVisual();
     glass_.Brush(brush);
@@ -142,6 +143,7 @@ void Blob::applyGlass(Ms duration)
     fadeColor(rimBottom_, t.glass ? t.glassRimColor : clear(t.glassRimColor), duration);
 
     if (t.glass && !glass_ && !glassTried_) buildGlass();
+    if (luminosity_) fadeColor(luminosity_, t.glassLuminosityColor, duration);
     if (!glass_ || t.glass == glassShown_) return;
     glassShown_ = t.glass;
     // On, it's there at once: the body over it still has its old, opaque
