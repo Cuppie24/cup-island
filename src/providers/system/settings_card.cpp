@@ -134,6 +134,7 @@ Slot listPage(const SettingsView& v)
     };
     std::vector<Row> appearance;
     if (!tokens().themes.empty()) appearance.push_back(marked(settingRow("Theme", v.theme, P::kOpenThemes), "theme", v));
+    if (v.glass) appearance.push_back(marked(toggleRow("Glass", *v.glass, P::kToggleGlass), "glass", v)); // decision 089
     if (v.coverColours) appearance.push_back(marked(settingRow("Music colours", *v.coverColours ? "On" : "Off", P::kOpenMusicColours), "musiccolours", v));
     if (!v.displays.empty()) appearance.push_back(marked(settingRow("Display", v.displays[v.display], P::kOpenDisplays), "display", v));
     appearance.push_back(marked(settingRow("Tab row", v.tabsOnTop ? "Top" : "Bottom", P::kOpenTabRow), "tabrow", v));
@@ -244,6 +245,7 @@ std::vector<SettingItem> announcedSettings()
         { "covercolours", "musiccolours" }, // decision 052; on Music colours' page since 053
         { "musiccolours", "" },            // decision 053
         { "fade", "musiccolours" },        // decision 053
+        { "glass", "" },                   // decision 089
     };
 }
 

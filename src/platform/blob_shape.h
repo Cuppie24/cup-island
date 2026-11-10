@@ -15,7 +15,7 @@ wuc::CubicBezierEasingFunction easingFor(wuc::Compositor const& c, Bezier curve)
 
 // Binds target.property to an expression that can read the body visual as
 // `pill` and the Blob's property set as `shape` (MaxRadius, FlareRadius,
-// Attached, Flare, LeftEar, RightEar).
+// Attached, Flare, LeftEar, RightEar, Overlap, RimInset).
 void bindToBlob(wuc::Compositor const& c, wuc::CompositionObject const& target, std::wstring const& property,
                 std::wstring const& expression, wuc::ShapeVisual const& body, wuc::CompositionPropertySet const& shape);
 
@@ -26,6 +26,12 @@ void bindToBlob(wuc::Compositor const& c, wuc::CompositionObject const& target, 
 // edge (decision 026); this one, without it, is the larger of the two.
 inline const std::wstring kEarSize = L"(shape.Flare * Min(shape.FlareRadius, pill.Size.Y))";
 inline std::wstring earSize(bool left) { return L"(" + kEarSize + (left ? L" * shape.LeftEar)" : L" * shape.RightEar)"); }
+
+// The body's background (straight top, rounded bottom; round all over off
+// the edge, decision 025), filled with `fill`, as a shape of `target`, whose
+// Size is the body's.
+void addBackground(wuc::Compositor const& c, wuc::ShapeVisual const& target, wuc::CompositionPropertySet const& shape,
+                   wuc::CompositionBrush const& fill);
 
 // Adds the two flared top corners ("ears") beside the body's top edge, as
 // children of the body, each in its end's colour (decisions 025, 054).

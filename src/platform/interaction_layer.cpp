@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cwchar>
 #include <exception>
 #include <thread>
 
@@ -268,6 +269,8 @@ try {
 
     case WM_SETTINGCHANGE: // also to every top-level window; wParam names what changed
         if (wParam == SPI_SETCLIENTAREAANIMATION) call(g_callbacks.onAnimationSettingChanged);
+        // "Transparency effects" says only this: the colour set changed.
+        if (lParam && std::wcscmp(reinterpret_cast<const wchar_t*>(lParam), L"ImmersiveColorSet") == 0) call(g_callbacks.onColourSettingChanged);
         break;
 
     case WM_POWERBROADCAST: // only logged: a user's log then shows what happened around a sleep (decision 060)

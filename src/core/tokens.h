@@ -199,6 +199,13 @@ struct Tokens {
     float shadowBlur = 16;
     Vec2 shadowOffset{ 0, 4 };    // down: the island hangs from the top edge
 
+    // Glass (decision 089): the island's colours see-through over the blurred
+    // desktop behind it, and a light rim inside its edge, brightest along the
+    // bottom. Windows 11 only; colours in glassRimColor, glassShadowColor.
+    bool glass = false;           // drawn as glass now: the user's pick, where Windows can; set by the app, not tokens.json
+    float glassOpacity = 0.6f;    // how strong the island's colours are over the blur: 1 solid, 0 bare blur
+    float glassRimWidth = 1;      // the rim's width, inside the edge
+
     // Expanded's tabs: one per activity along the top of the card (decisions 007, 047).
     float tabHeight = 36;
     float tabGap = 4;
@@ -363,6 +370,8 @@ struct Tokens {
     Color badgeColor{ 255, 69, 58 };               // a notification dot (decision 038): the red every OS uses for "new"
     Color imagePlaceholderColor{ 255, 255, 255, 31 }; // art that hasn't arrived
     Color shadowColor{ 0, 0, 0, 115 };             // under the island in every mode; its alpha is the shadow's strength
+    Color glassShadowColor{ 0, 0, 0, 51 };         // ...as glass (decision 089): fainter, since it also shows through the island
+    Color glassRimColor{ 255, 255, 255, 46 };      // glass's rim (decision 089), at its brightest along the bottom
     Color pomodoroFocusColor{ 255, 99, 71 };       // accents (decision 010)
     Color pomodoroBreakColor{ 52, 199, 89 };
 
@@ -428,6 +437,10 @@ struct Tokens {
 
 // The colour fade's duration at the picked speed (recolorFast/Medium/Slow).
 Ms recolorDuration(const Tokens& t);
+
+// The island's fill as drawn (decision 089): `color`, or as glass, see-through
+// by glassOpacity. The pill, the bubble and the neck between them all use it.
+Color islandFill(const Tokens& t, Color color);
 
 // The active tokens: defaults until the app applies a loaded tokens.json.
 const Tokens& tokens();

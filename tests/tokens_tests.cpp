@@ -170,6 +170,23 @@ void runTokensTests()
     Tokens other = speeds;
     other.fadeSpeed = FadeSpeed::Fast;
     expect(onlyColorsDiffer(speeds, other), "a new speed rebuilds nothing");
+
+    // Glass (decision 089): the island's colours see-through by glassOpacity,
+    // and only while it's on. Turning it on or off only fades the fill.
+    Tokens solid{};
+    Color island{ 24, 9, 42 };
+    expect(islandFill(solid, island) == island, "glass off: the island's colour as it is");
+    Tokens glass = solid;
+    glass.glass = true;
+    glass.glassOpacity = 0.6f;
+    expect(islandFill(glass, island) == Color{ 24, 9, 42, 153 }, "glass on: the same colour, glassOpacity strong");
+    expect(islandFill(glass, Color{ 0, 0, 0, 128 }).a == 77, "glass on: a colour already see-through, more so");
+    glass.glassOpacity = 2;
+    expect(islandFill(glass, island) == island, "glass on: an opacity past 1 is solid, not an overflow");
+    expect(onlyColorsDiffer(solid, glass) == false && onlyColorsDiffer(solid, Tokens{ .glass = true }),
+           "glass on or off rebuilds nothing; a new glassOpacity does");
+    expect(scaleTokens(glass, 2).glassOpacity == glass.glassOpacity && scaleTokens(solid, 2).glassRimWidth == solid.glassRimWidth * 2 * solid.islandScale,
+           "glassOpacity is a share, glassRimWidth a length");
 }
 
 } // namespace cup::test

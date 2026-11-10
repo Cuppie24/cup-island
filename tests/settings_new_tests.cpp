@@ -1,4 +1,4 @@
-// Settings' Tab row (decision 048), Music colours (decisions 052, 053), and "New" on settings not seen yet: a
+// Settings' Tab row (decision 048), Music colours (decisions 052, 053), Glass (decision 089), and "New" on settings not seen yet: a
 // tag on the row, a dot on its parent's while it's on a page not opened, and
 // seen only once the card closes after showing it.
 
@@ -218,12 +218,46 @@ void coverColoursTests()
     without.stop();
 }
 
+// Glass (decision 089): a switch on the list, off until turned on, and only
+// where the app can draw it (Windows 11): no hook, no row.
+void glassTests()
+{
+    auto switchedOn = [](const Row* r) {
+        auto* toggle = r && r->clickAnywhere && r->items.size() > 1 ? std::get_if<Switch>(&r->items.back()) : nullptr;
+        return toggle && toggle->on;
+    };
+    PanelHost h;
+    std::vector<bool> applied;
+    SettingsProvider settings({ .setGlass = [&](bool on) { applied.push_back(on); } });
+    settings.start(h);
+    expect(applied == std::vector<bool>{ false } && rowNamed(h.published.back(), "Glass") && !switchedOn(rowNamed(h.published.back(), "Glass")),
+           "glass: off by default, the app told, a switch on the list");
+    settings.onAction({ "system.settings", SettingsProvider::kPanelId, P::kToggleGlass, 0 });
+    expect(applied.back() == true && h.store[SettingsProvider::kGlassKey] == "on" && switchedOn(rowNamed(h.published.back(), "Glass")),
+           "glass: a click turns it on, saved");
+    settings.stop();
+    settings.start(h);
+    expect(applied.back() == true && switchedOn(rowNamed(h.published.back(), "Glass")), "glass: kept over a restart");
+    settings.onAction({ "system.settings", SettingsProvider::kPanelId, P::kToggleGlass, 0 });
+    expect(applied.back() == false && h.store[SettingsProvider::kGlassKey] == "off", "glass: and back off");
+    settings.stop();
+
+    PanelHost bare;
+    SettingsProvider without({});
+    without.start(bare);
+    without.onAction({ "system.settings", SettingsProvider::kPanelId, P::kToggleGlass, 0 });
+    expect(!rowNamed(bare.published.back(), "Glass") && bare.store[SettingsProvider::kGlassKey].empty(),
+           "glass: no hook (Windows 10), no row, and its action does nothing");
+    without.stop();
+}
+
 } // namespace
 
 void runSettingsNewTests()
 {
     tabRowTests();
     coverColoursTests();
+    glassTests();
     newTagTests();
     tagKeepsTheEnd();
 }

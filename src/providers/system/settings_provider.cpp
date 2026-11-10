@@ -74,6 +74,8 @@ void SettingsProvider::start(Host& host)
     std::string fade = trimmed(host_->load(kFadeKey));
     fadeSpeed_ = fade == "fast" ? FadeSpeed::Fast : fade == "slow" ? FadeSpeed::Slow : FadeSpeed::Medium;
     if (hooks_.setFadeSpeed) hooks_.setFadeSpeed(fadeSpeed_);
+    glass_ = trimmed(host_->load(kGlassKey)) == "on"; // off until turned on: an update changes nothing (decision 089)
+    if (hooks_.setGlass) hooks_.setGlass(glass_);
     pick(known(trimmed(host_->load(kThemeKey))));
 }
 
@@ -91,7 +93,7 @@ void SettingsProvider::loadSeen()
     // setting is as new as the rest (none tagged), or an update from before
     // tags existed, which kept other settings (all announced ones are new).
     bool fresh = true;
-    for (const char* key : { kAutostartKey, kThemeKey, kDisplayKey, kShortcutsKey, kTabRowKey, kCoverColoursKey, kFadeKey })
+    for (const char* key : { kAutostartKey, kThemeKey, kDisplayKey, kShortcutsKey, kTabRowKey, kCoverColoursKey, kFadeKey, kGlassKey })
         if (!trimmed(host_->load(key)).empty()) fresh = false;
     if (!fresh) return;
     for (const SettingItem& s : hooks_.announced) seen_.insert(s.id);
@@ -186,6 +188,11 @@ void SettingsProvider::onAction(const Action& action)
         coverColours_ = !coverColours_;
         hooks_.setCoverColours(coverColours_);
         host_->save(kCoverColoursKey, coverColours_ ? "on" : "off");
+        publish();
+    } else if (id == settings_action::kToggleGlass && hooks_.setGlass) {
+        glass_ = !glass_;
+        hooks_.setGlass(glass_);
+        host_->save(kGlassKey, glass_ ? "on" : "off");
         publish();
     } else if (id == settings_action::kInstallUpdate) {
         if (hooks_.installUpdate && offer_ && offer_->stage != UpdateStage::Installing) hooks_.installUpdate();
@@ -366,6 +373,7 @@ SettingsView SettingsProvider::view() const
     }
     if (hooks_.startsWithWindows) v.startsWithWindows = hooks_.startsWithWindows();
     if (hooks_.setCoverColours) v.coverColours = coverColours_;
+    if (hooks_.setGlass) v.glass = glass_;
     if (hooks_.setCoverColours && hooks_.setFadeSpeed) v.fadeSpeed = fadeSpeed_; // on Music colours' page
     return v;
 }

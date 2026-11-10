@@ -45,7 +45,8 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 floating.h (a card floating apart from the island, decision 081) + float_layout.h (its scene) + float_placement.h (where it opens)
                 menu.h (a row's context menu: when it opens, its keys, where it goes, decision 086)
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
-                pill + Split bubble, and the liquid_bridge between them; a floating card's one detached shape, decision 081), float_window (a floating card's window pair) + float_flow (its flow out of the pill), element_visuals (one visual
+                pill + Split bubble, and the liquid_bridge between them; a floating card's one detached shape, decision 081;
+                blob_backdrop: what's under a blob, its shadow and glass, decision 089), glass (Windows 11's blurred backdrop, decision 089), float_window (a floating card's window pair) + float_flow (its flow out of the pill), element_visuals (one visual
                 per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts) + tap_hook (double-tap shortcuts, decision 079), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules and the media widget, SMTC provider for real Windows media),

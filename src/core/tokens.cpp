@@ -1,5 +1,8 @@
 #include "core/tokens.h"
 
+#include <algorithm>
+#include <cmath>
+
 namespace cup {
 namespace {
 Tokens g_tokens;
@@ -16,6 +19,14 @@ Ms recolorDuration(const Tokens& t)
     case FadeSpeed::Medium: break;
     }
     return t.recolorMedium;
+}
+
+Color islandFill(const Tokens& t, Color color)
+{
+    if (!t.glass) return color;
+    float share = std::clamp(t.glassOpacity, 0.0f, 1.0f);
+    color.a = static_cast<std::uint8_t>(std::lround(color.a * share));
+    return color;
 }
 
 } // namespace cup

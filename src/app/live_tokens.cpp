@@ -20,6 +20,7 @@ std::string g_theme;    // the app theme (decision 022)
 std::optional<CoverTint> g_tint; // the playing cover's colours, over the theme (decisions 051, 054)
 FadeSpeed g_fadeSpeed = FadeSpeed::Medium; // Settings' pick (decision 053)
 bool g_reducedMotion = false;               // Windows' animation setting (decision 080)
+bool g_glass = false;                       // drawn as glass (decision 089)
 
 void log(const std::string& message)
 {
@@ -61,6 +62,7 @@ bool commit(const std::string& message)
     Tokens next = scaleTokens(themed, g_scale);
     next.fadeSpeed = g_fadeSpeed;
     next.reducedMotion = g_reducedMotion;
+    next.glass = g_glass;
     if (next == tokens()) return false;
     warnIfClipped(next);
     setTokens(next);
@@ -138,6 +140,12 @@ bool setReducedMotion(bool reduced)
 {
     g_reducedMotion = reduced;
     return commit(reduced ? "motion: reduced (Windows' animation effects are off)" : "motion: full");
+}
+
+bool setGlass(bool on)
+{
+    g_glass = on;
+    return commit(on ? "glass: on" : "glass: off");
 }
 
 } // namespace cup::app

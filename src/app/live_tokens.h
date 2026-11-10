@@ -47,4 +47,8 @@ bool setFadeSpeed(FadeSpeed speed);
 // (tokens().reducedMotion), kept over every reload. Returns true if tokens changed.
 bool setReducedMotion(bool reduced);
 
+// Glass (decision 089): the island drawn as glass (tokens().glass), kept over
+// every reload. Returns true if tokens changed.
+bool setGlass(bool on);
+
 } // namespace cup::app
