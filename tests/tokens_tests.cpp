@@ -181,6 +181,9 @@ void runTokensTests()
     glass.glassOpacity = 0.6f;
     expect(islandFill(glass, island) == Color{ 24, 9, 42, 153 }, "glass on: the same colour, glassOpacity strong");
     expect(islandFill(glass, Color{ 0, 0, 0, 128 }).a == 77, "glass on: a colour already see-through, more so");
+    glass.glassPlainOpacity = 0.8f;
+    expect(islandFill(glass, island, false) == Color{ 24, 9, 42, 204 }, "glass over the plain blur: glassPlainOpacity, stronger");
+    expect(islandFill(solid, island, false) == island, "glass off: the plain blur changes nothing");
     glass.glassOpacity = 2;
     expect(islandFill(glass, island) == island, "glass on: an opacity past 1 is solid, not an overflow");
     expect(onlyColorsDiffer(solid, glass) == false && onlyColorsDiffer(solid, Tokens{ .glass = true }),
@@ -194,7 +197,7 @@ void runTokensTests()
     expect(!withGlass(withGlass(solid, true), false).glass, "glass: picked off again, off");
     expect(pale({ 246, 246, 248 }) && !pale({ 0, 0, 0 }) && !pale({ 24, 9, 42 }) && themed.tokens.themes[1].light,
            "glass: 'light' is the same test Settings' theme list uses");
-    expect(scaleTokens(glass, 2).glassOpacity == glass.glassOpacity && scaleTokens(solid, 2).glassRimWidth == solid.glassRimWidth * 2 * solid.islandScale,
+    expect(scaleTokens(glass, 2).glassOpacity == glass.glassOpacity && scaleTokens(glass, 2).glassPlainOpacity == glass.glassPlainOpacity && scaleTokens(solid, 2).glassRimWidth == solid.glassRimWidth * 2 * solid.islandScale,
            "glassOpacity is a share, glassRimWidth a length");
 }
 

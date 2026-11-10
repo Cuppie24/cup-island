@@ -114,7 +114,8 @@ private:
     // just inside the body's edge, see-through but for glass.
     wuc::SpriteVisual glass_{ nullptr };
     wuc::CompositionEffectBrush glassBrush_{ nullptr };
-    bool glassEven_ = false; // its brightness evened out (glassLuminosityColor), not the plain blur
+    bool glassEven_ = false;     // its brightness evened out (glassLuminosityColor), not the plain blur
+    bool glassAnimated_ = false; // ...and that brightness can fade to a new one
     bool glassTried_ = false; // made once, or failed once: not tried again
     bool glassShown_ = false;
     wuc::CompositionSpriteShape rim_{ nullptr };

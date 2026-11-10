@@ -171,13 +171,21 @@ Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush co
         return twoInputs(L"Glass", CLSID_D2D1Composite, D2D1_COMPOSITE_PROP_MODE, D2D1_COMPOSITE_MODE_SOURCE_IN,
                          CompositionEffectSourceParameter(L"Mask"), inner);
     };
+    // The backdrop at the luminosity colour's lightness, keeping its own hue:
+    // Windows' acrylic recipe (WinUI's AcrylicBrush). Direct2D's Colour and
+    // Luminosity blend modes are swapped against their names, so "Colour" is
+    // the one that takes the top layer's lightness, as WinUI notes and uses.
+    auto evenOut = [&](UINT32 mode) {
+        return twoInputs(L"Even", CLSID_D2D1Blend, D2D1_BLEND_PROP_MODE, mode, CompositionEffectSourceParameter(L"Backdrop"),
+                         flood(L"Luminosity", luminosity));
+    };
     const char* step = "";
     // Each step named, so a refusal in the log says which one Windows turned down.
-    auto make = [&](IGraphicsEffect const& effect, bool even) {
+    auto make = [&](IGraphicsEffect const& effect, bool animated) {
         step = "factory";
-        // The brightness is animated by name (fadeLuminosity), so it's declared here.
-        auto factory = even ? compositor.CreateEffectFactory(effect, std::vector<winrt::hstring>{ L"Luminosity.Color" })
-                            : compositor.CreateEffectFactory(effect);
+        // An animated brightness (fadeLuminosity) is declared up front.
+        auto factory = animated ? compositor.CreateEffectFactory(effect, std::vector<winrt::hstring>{ L"Luminosity.Color" })
+                                : compositor.CreateEffectFactory(effect);
         step = "brush";
         auto brush = factory.CreateBrush();
         step = "mask";
@@ -186,24 +194,43 @@ Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush co
         brush.SetSourceParameter(L"Backdrop", compositor.CreateHostBackdropBrush()); // already blurred by Windows
         return brush;
     };
-    try {
-        // The backdrop at the luminosity colour's lightness, keeping its own
-        // hue: Windows' acrylic recipe (WinUI's AcrylicBrush). Direct2D's
-        // Colour and Luminosity blend modes are swapped against their names,
-        // so "Colour" is the one that takes the top layer's lightness, as
-        // WinUI notes and uses.
-        IGraphicsEffect even = twoInputs(L"Even", CLSID_D2D1Blend, D2D1_BLEND_PROP_MODE, D2D1_BLEND_MODE_COLOR,
-                                         CompositionEffectSourceParameter(L"Backdrop"), flood(L"Luminosity", luminosity));
-        auto brush = make(cut(even), true);
-        logLine("glass: backdrop ready, at one brightness");
-        return { brush, true };
-    } catch (winrt::hresult_error const& e) {
-        logLine("glass: no even brightness (%s: 0x%08lx): the plain blur instead", step, static_cast<unsigned long>(e.code()));
+    // The evened-out blur, with its brightness animated, then fixed; Windows
+    // refused the first on the first runs (factory: 0x80070057), so each try is
+    // logged until one is taken.
+    struct Try {
+        const char* what;
+        bool animated;
+    };
+    for (Try t : { Try{ "animated", true }, Try{ "fixed", false } }) {
+        try {
+            auto brush = make(cut(evenOut(D2D1_BLEND_MODE_COLOR)), t.animated);
+            logLine("glass: backdrop ready, at one brightness (%s)", t.what);
+            return { brush, true, t.animated };
+        } catch (winrt::hresult_error const& e) {
+            logLine("glass: no even brightness, %s (%s: 0x%08lx)", t.what, step, static_cast<unsigned long>(e.code()));
+        }
+    }
+    // What Windows objects to, asked once: a blend in a mode it surely has
+    // (Multiply), and the flood colour alone. Only logged, never drawn.
+    static bool probed = false;
+    if (!probed) {
+        probed = true;
+        auto probe = [&](const char* what, IGraphicsEffect const& effect) {
+            try {
+                compositor.CreateEffectFactory(effect);
+                logLine("glass: probe: Windows accepts %s", what);
+            } catch (winrt::hresult_error const& e) {
+                logLine("glass: probe: Windows refuses %s (0x%08lx)", what, static_cast<unsigned long>(e.code()));
+            }
+        };
+        probe("a Multiply blend", cut(evenOut(D2D1_BLEND_MODE_MULTIPLY)));
+        probe("a Luminosity blend", cut(evenOut(D2D1_BLEND_MODE_LUMINOSITY)));
+        probe("a flood colour", cut(flood(L"Luminosity", luminosity)));
     }
     try {
         auto brush = make(cut(CompositionEffectSourceParameter(L"Backdrop")), false);
         logLine("glass: backdrop ready, plain blur");
-        return { brush, false };
+        return { brush, false, false };
     } catch (winrt::hresult_error const& e) {
         logLine("glass: no backdrop brush (%s: 0x%08lx): the island stays solid", step, static_cast<unsigned long>(e.code()));
         return {};
@@ -212,7 +239,7 @@ Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush co
 
 void fadeLuminosity(Glass const& glass, Color color, Ms duration)
 {
-    if (!glass.brush || !glass.even) return;
+    if (!glass.brush || !glass.animated) return; // fixed: a new brightness shows when the glass is next built
     auto anim = glass.brush.Compositor().CreateColorKeyFrameAnimation();
     anim.InsertKeyFrame(1.0f, toUiColor(color));
     anim.Duration(std::max(duration, Ms{ 1 }));

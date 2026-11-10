@@ -39,10 +39,14 @@ for an island that should cost nothing at rest, so this is frosted glass.
     modes are swapped against their names; WinUI's AcrylicBrush uses
     "Colour" for this step, and so do we. The colour goes in as a Flood
     effect (Win2D's ColorSourceEffect), animated by name
-    ("Luminosity.Color"): a colour brush as an effect's source was refused
-    with 0x80070057 on the first Windows run. If the brightness step is
-    refused anyway, the plain cut of the blur is used, and the log says
-    which step failed. Acrylic's grain (a noise texture) is left out.
+    ("Luminosity.Color"). On the first Windows runs, Windows refused this
+    graph when the effect factory was made (0x80070057). So it's tried
+    animated, then with a fixed colour; if both are refused, the log
+    probes once what Windows objects to (a Multiply blend, a Luminosity
+    blend, the flood colour alone), and the plain cut of the blur is used.
+    Over the plain blur the island's colours are stronger
+    (`glassPlainOpacity`, 0.7): at acrylic's 0.15 the island turned as light
+    as a bright wallpaper. Acrylic's grain (a noise texture) is left out.
   - The body's fill is the theme's (or the cover's) colours at
     `glassOpacity` (`islandFill`, core), acrylic's tint over that. The twin keeps them opaque: it's the
     snapshot's alpha, and the solid island wherever the backdrop shows
@@ -57,7 +61,7 @@ for an island that should cost nothing at rest, so this is frosted glass.
   - The liquid neck takes the see-through colour but no blur: it's thin and
     gone in a moment.
 
-Tokens: `glassOpacity` (a share, not scaled), `glassRimWidth` (a length),
+Tokens: `glassOpacity` and `glassPlainOpacity` (shares, not scaled), `glassRimWidth` (a length),
 `glassLuminosityColor` (its alpha is how strongly the brightness is evened
 out), `glassRimColor`, `glassShadowColor` (themes may set all three). The
 defaults follow WinUI's dark acrylic: `#2C2C2C` at 0.96, tint 0.15. `glass` itself is

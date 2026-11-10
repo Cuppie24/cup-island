@@ -206,6 +206,7 @@ struct Tokens {
     // glassRimColor, glassShadowColor.
     bool glass = false;           // drawn as glass now (withGlass): set by the app, not tokens.json
     float glassOpacity = 0.15f;   // how strong the island's colours are over the blur: 1 solid, 0 none (acrylic's tint opacity)
+    float glassPlainOpacity = 0.7f; // ...over the plain blur, where Windows won't even out its brightness: it needs more
     float glassRimWidth = 1;      // the rim's width, inside the edge
 
     // Expanded's tabs: one per activity along the top of the card (decisions 007, 047).
@@ -445,8 +446,10 @@ struct Tokens {
 Ms recolorDuration(const Tokens& t);
 
 // The island's fill as drawn (decision 089): `color`, or as glass, see-through
-// by glassOpacity. The pill, the bubble and the neck between them all use it.
-Color islandFill(const Tokens& t, Color color);
+// by glassOpacity; by glassPlainOpacity over the plain blur (`evenBlur`
+// false: Windows refused to even out its brightness). The pill, the bubble
+// and the neck between them all use it.
+Color islandFill(const Tokens& t, Color color, bool evenBlur = true);
 
 // A pale colour: perceived brightness past half. A theme whose island is pale
 // is a light theme (decision 030).

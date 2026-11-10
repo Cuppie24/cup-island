@@ -126,6 +126,7 @@ void Blob::buildGlass()
     if (!made.brush) return; // logged: the island stays solid
     glassBrush_ = made.brush;
     glassEven_ = made.even;
+    glassAnimated_ = made.animated;
     glass_ = compositor_.CreateSpriteVisual();
     glass_.Brush(made.brush);
     glass_.Opacity(0.0f);
@@ -144,7 +145,7 @@ void Blob::applyGlass(Ms duration)
     fadeColor(rimBottom_, t.glass ? t.glassRimColor : clear(t.glassRimColor), duration);
 
     if (t.glass && !glass_ && !glassTried_) buildGlass();
-    fadeLuminosity({ glassBrush_, glassEven_ }, t.glassLuminosityColor, duration);
+    fadeLuminosity({ glassBrush_, glassEven_, glassAnimated_ }, t.glassLuminosityColor, duration);
     if (!glass_ || t.glass == glassShown_) return;
     glassShown_ = t.glass;
     // On, it's there at once: the body over it still has its old, opaque

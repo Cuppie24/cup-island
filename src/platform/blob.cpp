@@ -114,8 +114,8 @@ void Blob::refreshAnimations(bool coloursOnly)
     // Colours are tokens too, and every one fades, so a cover's colours or a
     // new theme ease in (decision 051): the fill, the shadow, the marks. Glass
     // on or off fades the same way (decision 089).
+    applyGlass(recolorDuration(t)); // first: whether the blur is evened out sets the fill's strength
     fadeFill(recolorDuration(t));
-    applyGlass(recolorDuration(t));
     if (shadow_) fadeColor(shadow_, t.glass ? t.glassShadowColor : t.shadowColor);
     for (Mark* mark : { &selectedTab_, &pinnedTab_ })
         if (mark->brush) fadeColor(mark->brush, t.tabSelectedColor);
@@ -163,7 +163,9 @@ void Blob::setHighlighted(bool on)
 void Blob::fadeFill(Ms duration)
 {
     Color left = leftColor(highlighted_), right = rightColor(highlighted_);
-    fade(fill_, islandFill(tokens(), left), islandFill(tokens(), right), duration); // see-through as glass
+    // See-through as glass; more strongly over the plain blur (decision 089).
+    bool even = glassEven_ || !glass_;
+    fade(fill_, islandFill(tokens(), left, even), islandFill(tokens(), right, even), duration);
     fade(solid_, left, right, duration);
 }
 

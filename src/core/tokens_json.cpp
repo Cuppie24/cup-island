@@ -141,6 +141,7 @@ const Field kFields[] = {
     { "shadowBlur", &Tokens::shadowBlur, true },
     { "shadowOffset", &Tokens::shadowOffset },
     { "glassOpacity", &Tokens::glassOpacity, true },
+    { "glassPlainOpacity", &Tokens::glassPlainOpacity },
     { "glassRimWidth", &Tokens::glassRimWidth },
     { "tabHeight", &Tokens::tabHeight, true },
     { "tabGap", &Tokens::tabGap },
@@ -439,7 +440,7 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
         std::string_view n(name);
         return n.starts_with("cover") || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" || n == "searchVisibleRows" ||
                n == "primaryHoverOpacity" || n == "playGlyphNudge" || // a share of an opacity, of a width (decisions 066, 071)
-               n == "glassOpacity" ||                                // an opacity (decision 089)
+               n == "glassOpacity" || n == "glassPlainOpacity" ||    // opacities (decision 089)
                n.ends_with("Bounce") || n == "contentArriveScale" || n == "contentRevealAt" || n == "morphSpringSettle" || n == "alertPulseScale" || // shares (decision 080)
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
     };

@@ -21,10 +21,10 @@ Ms recolorDuration(const Tokens& t)
     return t.recolorMedium;
 }
 
-Color islandFill(const Tokens& t, Color color)
+Color islandFill(const Tokens& t, Color color, bool evenBlur)
 {
     if (!t.glass) return color;
-    float share = std::clamp(t.glassOpacity, 0.0f, 1.0f);
+    float share = std::clamp(evenBlur ? t.glassOpacity : t.glassPlainOpacity, 0.0f, 1.0f);
     color.a = static_cast<std::uint8_t>(std::lround(color.a * share));
     return color;
 }

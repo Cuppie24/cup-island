@@ -17,14 +17,15 @@ bool allowBackdrop(HWND window);
 // glass shows through the island. A backdrop can't be a mask brush's source,
 // so it's effects (Flood and Blend, then Composite source-in). If Windows
 // refuses the brightness step, the plain blur (even false); if it refuses
-// that too, no brush: the island stays solid. Each outcome is logged.
+// that too, no brush: the island stays solid. Each try is logged.
 struct Glass {
     wuc::CompositionEffectBrush brush{ nullptr };
-    bool even = false; // at one brightness (luminosity applies)
+    bool even = false;     // at one brightness (luminosity applies)
+    bool animated = false; // ...that fadeLuminosity can change
 };
 Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush const& mask, Color luminosity);
 
-// Fades the brightness to `color` (decision 089); nothing without the brightness step.
+// Fades the brightness to `color` (decision 089); nothing unless it's animated.
 void fadeLuminosity(Glass const& glass, Color color, Ms duration);
 
 // Windows' "Transparency effects" (Personalisation > Colours). Off, glass is
