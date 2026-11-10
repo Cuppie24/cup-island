@@ -48,8 +48,9 @@ void runSettingsTests()
            rowNamed(widget, "General") && rowNamed(widget, "General")->section && themeRow.list == settings_action::kSettingsList &&
            themeRow.visibleRows == tokens().listCardVisibleRows,
            "settings: the list in groups under headings, one list sized to the card (decision 037)");
-    expect(themeRow.listItem && themeRow.clickAnywhere && std::get<Button>(themeRow.items[2]).actionId == settings_action::kOpenThemes,
-           "settings: the theme row is a list item; a click anywhere on it opens the themes");
+    expect(themeRow.listItem && themeRow.clickAnywhere && themeRow.grouped && std::get<Button>(themeRow.items[1]).actionId == settings_action::kOpenThemes &&
+           !first.grouped && std::get<Text>(themeRow.items[0]).detailTrimsEnd,
+           "settings: the theme row is one of its group's rows, its value under its name; a click anywhere on it opens the themes (decision 090)");
 
     auto press = [&](const std::string& actionId) { settings.onAction({ "system.settings", SettingsProvider::kPanelId, actionId, 0 }); };
     press(settings_action::kOpenThemes);
@@ -61,8 +62,8 @@ void runSettingsTests()
            cardText(sh.published.back(), 5) == "Light" && cardItem(sh.published.back(), 6, 1) == "Paper",
            "themes: dark ones, then light ones, each under its heading");
     expect(std::get<Text>(page[1].items[0]).style == TextStyle::Heading && std::get<Text>(page[5].items[0]).style == TextStyle::Heading &&
-           !page[1].section && page[5].section && page[5].inset && !page[5].listItem,
-           "themes: the headings stand out (Heading), the second with room above it, lined up with the names (decision 037)");
+           !page[1].section && page[5].section && !page[5].grouped && page[2].grouped && page[6].grouped && !page[6].section,
+           "themes: each group under its label (Heading), the second with room above it (decision 090)");
     expect(std::get<Swatch>(page[3].items[0]) == Swatch{ .fill = { 24, 9, 42 }, .mark = { 191, 90, 242 } },
            "themes: each starts with a swatch of its island and accent");
     expect(std::get<Button>(page[4].items[2]).glyph == Glyph::Checked && std::get<Button>(page[2].items[2]).glyph == Glyph::Unchecked &&
@@ -135,11 +136,11 @@ void runSettingsTests()
                 if (!r.items.empty() && std::holds_alternative<Text>(r.items[0]) && std::get<Text>(r.items[0]).value == "Check for updates") return &r;
             return nullptr;
         };
-        auto said = [&] { return std::get<Text>(updateRow()->items[1]).value; };
+        auto said = [&] { return std::get<Text>(updateRow()->items[0]).detail; };
         expect(updateRow() && updateRow()->listItem && updateRow()->clickAnywhere && said().empty(), "updates: a row that says nothing yet");
         auto press = [&] { s.onAction({ "system.settings", SettingsProvider::kPanelId, settings_action::kCheckUpdates, 0 }); };
         press();
-        expect(checks == 1 && said() == "Checking…" && !std::get<Button>(updateRow()->items[2]).enabled, "updates: checking");
+        expect(checks == 1 && said() == "Checking…" && !std::get<Button>(updateRow()->items[1]).enabled, "updates: checking");
         press();
         expect(checks == 1, "updates: a second click while checking does nothing");
         pending(CheckOutcome::Available, "0.5.1");
@@ -154,39 +155,52 @@ void runSettingsTests()
         expect(said().empty(), "updates: reopened, the row starts fresh");
         s.stop();
 
-        // Update and restart (decision 037): under Check for updates while an
-        // update is offered, whichever check found it; the same install as Home's card.
+        // Update and restart (decisions 037, 091): while an update is offered, whichever
+        // check found it, the Check for updates row turns into it; the same install as Home's card.
         PanelHost ih;
         int installs = 0;
-        SettingsProvider offered({ .checkForUpdates = [](auto) {}, .installUpdate = [&] { ++installs; } });
+        SettingsProvider offered({ .version = "0.5.0", .checkForUpdates = [](auto) {}, .installUpdate = [&] { ++installs; } });
         offered.start(ih);
-        auto rowAfterCheck = [&]() -> std::optional<Row> {
-            const Slot& card = ih.published.back().content.expandedCenter;
-            for (std::size_t i = 0; i + 1 < card.size(); ++i)
-                if (std::get<Text>(card[i].items[0]).value == "Check for updates") return card[i + 1];
+        auto updatesRow = [&]() -> std::optional<Row> { // the row whose button checks or installs
+            for (const Row& r : ih.published.back().content.expandedCenter)
+                for (const Item& item : r.items)
+                    if (auto* b = std::get_if<Button>(&item);
+                        b && (b->actionId == settings_action::kCheckUpdates || b->actionId == settings_action::kInstallUpdate))
+                        return r;
             return std::nullopt;
         };
-        auto textOf = [](const Row& r, std::size_t i) { return std::get<Text>(r.items[i]).value; };
-        expect(!rowAfterCheck(), "install: nothing offered, no row (Updates is the last group)");
+        auto count = [&] {
+            int n = 0;
+            for (const Row& r : ih.published.back().content.expandedCenter)
+                if (r.grouped && !r.items.empty() && std::get<Text>(r.items[0]).value.find("pdate") != std::string::npos) ++n;
+            return n;
+        };
+        auto textOf = [](const Row& r, std::size_t i) { return i == 0 ? std::get<Text>(r.items[0]).value : std::get<Text>(r.items[0]).detail; };
+        auto button = [](const Row& r) { return std::get<Button>(r.items[1]); };
+        auto row = updatesRow();
+        expect(row && textOf(*row, 0) == "Check for updates" && textOf(*row, 1) == "Version 0.5.0" &&
+               button(*row).glyph == Glyph::Refresh && button(*row).actionId == settings_action::kCheckUpdates,
+               "install: nothing offered, the row checks: the running version under it, a refresh glyph");
         offered.updateStatusChanged(UpdateStatus{ .version = "0.5.1" });
-        auto install = rowAfterCheck();
-        expect(install && textOf(*install, 0) == "Update and restart" && textOf(*install, 1) == "0.5.1" && install->listItem &&
-               install->clickAnywhere && std::get<Button>(install->items[2]).enabled,
-               "install: an offer (from the daily check too) puts Update and restart under Check for updates");
-        expect(!ih.published.back().content.badge && !std::get<Button>(install->items[2]).badge,
-               "install: no dot in Settings: the Update widget has it (decision 038)");
+        row = updatesRow();
+        expect(row && count() == 1 && textOf(*row, 0) == "Update and restart" && textOf(*row, 1) == "0.5.0 → 0.5.1" &&
+               button(*row).glyph == Glyph::Download && button(*row).actionId == settings_action::kInstallUpdate && button(*row).enabled &&
+               row->clickAnywhere,
+               "install: an offer (from the daily check too) turns the same row into Update and restart, both versions under it");
+        expect(!ih.published.back().content.badge && !button(*row).badge, "install: no dot in Settings: the Update widget has it (decision 038)");
         offered.onAction({ "system.settings", SettingsProvider::kPanelId, settings_action::kInstallUpdate, 0 });
         expect(installs == 1, "install: a click installs it");
         offered.updateStatusChanged(UpdateStatus{ .version = "0.5.1", .stage = UpdateStage::Installing });
-        install = rowAfterCheck();
-        expect(textOf(*install, 1) == "Installing…" && !std::get<Button>(install->items[2]).enabled, "install: under way, it says so");
+        row = updatesRow();
+        expect(textOf(*row, 1) == "Installing…" && !button(*row).enabled, "install: under way, it says so");
         offered.onAction({ "system.settings", SettingsProvider::kPanelId, settings_action::kInstallUpdate, 0 });
         expect(installs == 1, "install: a second click while installing does nothing");
         offered.updateStatusChanged(UpdateStatus{ .version = "0.5.1", .stage = UpdateStage::Failed, .problem = "Couldn't download" });
-        install = rowAfterCheck();
-        expect(textOf(*install, 0) == "Try the update again" && textOf(*install, 1) == "Couldn't download", "install: a failure says why, and offers again");
+        row = updatesRow();
+        expect(textOf(*row, 0) == "Try the update again" && textOf(*row, 1) == "Couldn't download", "install: a failure says why, and offers again");
         offered.updateStatusChanged(std::nullopt);
-        expect(!rowAfterCheck(), "install: withdrawn, the row goes");
+        row = updatesRow();
+        expect(row && textOf(*row, 0) == "Check for updates" && button(*row).glyph == Glyph::Refresh, "install: withdrawn, the row checks again");
         offered.stop();
 
         PanelHost nh;
@@ -304,7 +318,7 @@ void runSettingsTests()
     registry.stop("system.settings");
 
     // Every row there (two monitors, an update offered, with tabs): the root
-    // page scrolls instead of growing past the canvas (decision 037).
+    // page fits the canvas, scrolling rather than growing past it (decisions 037, 091).
     Tokens withThemes = saved;
     withThemes.themes = { { "Midnight", {} }, { "Grape", {} } }; // a Theme row too
     setTokens(withThemes);
@@ -323,9 +337,9 @@ void runSettingsTests()
     const Placed* lastRow = nullptr;
     for (const Placed& e : scene.elements)
         if (e.list && e.list->id == settings_action::kSettingsList) lastRow = &e;
-    expect(rowNamed(full, "Theme") && rowNamed(full, "Display") && rowNamed(full, "Update and restart") && scene.tabs && needed <= t.canvas.y - (t.tabHeight + t.slotGap) && lastRow && lastRow->list->max > 0,
-           "settings: with everything, the list scrolls and the card still fits the canvas");
-    expect(valueOf(full, "Check for updates") == "5.2.0" && !rowNamed(full, "Cup Island 5.2.0"),
+    expect(rowNamed(full, "Theme") && rowNamed(full, "Display") && rowNamed(full, "Update and restart") && !rowNamed(full, "Check for updates") && scene.tabs && needed <= t.canvas.y - (t.tabHeight + t.slotGap) && lastRow,
+           "settings: with everything, the card still fits the canvas (one list: past listCardVisibleRows it scrolls)");
+    expect(valueOf(full, "Update and restart") == "5.2.0 → 5.3.0" && !rowNamed(full, "Cup Island 5.2.0"),
            "settings: the version is Check for updates' value until a check, not a row of its own");
     setTokens(saved);
 }

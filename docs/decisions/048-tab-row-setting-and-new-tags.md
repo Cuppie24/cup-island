@@ -1,6 +1,6 @@
 # 048: The tab row's place is a setting; new settings say "New"
 
-Status: Accepted
+Status: Accepted (its Tab row page replaced by Segments: decision 093)
 
 **Context.** Decision 047 moved the tab row to the top; some will want it
 back at the bottom. And a setting added in an update is easy to miss: nothing

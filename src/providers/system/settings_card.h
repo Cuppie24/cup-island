@@ -21,8 +21,7 @@ namespace settings_action {
 inline constexpr const char* kOpenThemes = "theme.open";
 inline constexpr const char* kOpenDisplays = "display.open";
 inline constexpr const char* kOpenShortcuts = "shortcuts.open";
-inline constexpr const char* kOpenTabRow = "tabrow.open";
-inline constexpr const char* kPickTabRow = "tabrow.pick:";     // + 0 (top) or 1 (bottom)
+inline constexpr const char* kPickTabRow = "tabrow.pick:";     // + 0 (top) or 1 (bottom): its row's Segments (decision 093)
 inline constexpr const char* kBack = "settings.back";
 inline constexpr const char* kPickTheme = "theme.pick:";       // + its index in tokens().themes
 inline constexpr const char* kPickDisplay = "display.pick:";   // + its index in SettingsView::displays
@@ -40,7 +39,6 @@ inline constexpr const char* kInstallUpdate = "updates.install"; // the offer: i
 inline constexpr const char* kThemeList = "themes";
 inline constexpr const char* kDisplayList = "displays";
 inline constexpr const char* kShortcutList = "shortcuts"; // the keys: more than fit on the card
-inline constexpr const char* kTabRowList = "tabrow";
 inline constexpr const char* kMusicColoursList = "musiccolours";
 inline constexpr const char* kSettingsList = "settings";  // the root page: may be more than fit (decision 037)
 } // namespace settings_action
@@ -58,7 +56,7 @@ struct UpdateNote {
 };
 
 // Which page the card shows: the list of settings, or one setting's choices.
-enum class SettingsPage { List, Themes, Displays, Shortcuts, TabRow, MusicColours };
+enum class SettingsPage { List, Themes, Displays, Shortcuts, MusicColours };
 
 // A setting added after people already had the app (decision 048): shown
 // with a "New" tag until it's been seen, and a dot on its parent's row while
@@ -87,7 +85,7 @@ struct SettingsView {
     std::string shortcutNote;               // under the shortcuts: "Press the new keys…", or why one wasn't changed
     std::string version;                    // the running build's; empty: no line for it
     std::optional<UpdateNote> update;       // nothing: the app can't check, no row
-    std::optional<UpdateStatus> offer;      // an update offered (by any check): an "Update and restart" row
+    std::optional<UpdateStatus> offer;      // an update offered (by any check): the updates row says "Update and restart" (decision 091)
     bool tabsOnTop = true;                  // the tab row's place (decision 048)
     std::optional<bool> coverColours;       // the island in the playing cover's colours (decision 052); nothing: no row
     std::optional<FadeSpeed> fadeSpeed;     // how fast colours fade (decision 053); nothing: no choice

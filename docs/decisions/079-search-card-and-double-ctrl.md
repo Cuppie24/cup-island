@@ -57,7 +57,7 @@ provider to close its own card once it has started what was picked.
   - **Coming to the front:** a real hotkey gives the app that receives it
     leave to take the foreground; a hook doesn't. If SetForegroundWindow is
     refused, a harmless Alt tap first lets it through (`bringToFront`), as
-    launchers such as PowerToys do.
+    launchers such as PowerToys do. Over Start or search, see decision 089.
 - **Opening** (the command): search's card, its field focused and empty
   (see "Second look" below). Pressed again while it's open, the card closes.
 

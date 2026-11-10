@@ -20,10 +20,4 @@ namespace cup::platform {
 bool startTapHook(HWND hwnd, int id, int key);
 void stopTapHook(); // when the shortcuts go off (a fullscreen app, decision 032) or the window goes
 
-// SetForegroundWindow, for a shortcut that arrived without Windows' leave
-// to come to the front (a hook's isn't a real hotkey): if Windows refuses,
-// a harmless Alt tap first, which is what lets it through. Launchers such as
-// PowerToys do the same.
-void bringToFront(HWND hwnd);
-
 } // namespace cup::platform

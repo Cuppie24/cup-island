@@ -44,6 +44,8 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 tokens.h (+ tokens_json.h, json_reader.h), easing.h, motion.h (the morph's spring, fling, stagger, decision 080),
                 floating.h (a card floating apart from the island, decision 081) + float_layout.h (its scene) + float_placement.h (where it opens)
                 menu.h (a row's context menu: when it opens, its keys, where it goes, decision 086)
+                groups.h (grouped rows: a quiet label, one background, a name over its description, decision 090)
+                keycaps.h (Keys drawn as key caps, decision 092), segments.h (a few options picked in place, decision 093)
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them; a floating card's one detached shape, decision 081;
                 blob_backdrop: what's under a blob, its shadow and glass, decision 089), glass (Windows 11's blurred backdrop, decision 089), float_window (a floating card's window pair) + float_flow (its flow out of the pill), element_visuals (one visual
@@ -214,7 +216,7 @@ over the file's, so `tokens()` is always what's on screen.
 - **State rules → `tests/scenarios/*.scenario`.** One line per step, with the
   expected mode after it. Readable as a spec and runnable anywhere. The
   format is documented at the top of `tests/scenario_runner.cpp`.
-- **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing), `list_card_tests.cpp` (Settings' List card), `badge_tests.cpp` (notification dots),
+- **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing), `list_card_tests.cpp` (Settings' List card), `group_tests.cpp` (grouped rows), `badge_tests.cpp` (notification dots),
   `home_tests.cpp` (tiles, Home tab, idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop), `pomodoro_stats_tests.cpp` (statistics, days off),
   `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install), `float_tests.cpp` (a floating card's scene and placement).**
@@ -275,4 +277,5 @@ over the file's, so `tokens()` is always what's on screen.
 | Settings: Update and restart under Check for updates, every action a list row, headings that stand out (decision 037) | done; rules tested, visuals need Windows |
 | Notification badges: a dot on a widget, tab or button with something new; Settings' widget and its Update row when an update waits (decision 038) | done; placement tested, drawing needs Windows |
 | An update offer survives a restart (decision 039); Bluetooth removed (decision 042) | rules tested |
+| Grouped rows (decision 090): a quiet label over rows on one background, each a name over its description; every Settings page uses them. One updates row that turns into Update and restart (decision 091). Key caps on the shortcuts page (decision 092). Segments: Tab row and Colour fade picked in place (decision 093) | done; layout tested, the look needs a Windows run |
 | Mandatory releases: the Release workflow's checkbox; installed by itself at the next start, with an alert, 3 tries at most (decision 041) | rules tested; the workflow's first mandatory run confirms it |

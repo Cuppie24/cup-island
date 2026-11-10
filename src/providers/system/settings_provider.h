@@ -70,7 +70,7 @@ public:
     void onCardShown(const std::string& activityId) override;  // what's on it now is being seen (decision 048)
 
     // The update offer changed (UpdateProvider::onStatus): one found, its
-    // install under way or failed, or none. Settings shows it under "Check for updates".
+    // install under way or failed, or none. Settings' "Check for updates" row turns into it (decision 091).
     void updateStatusChanged(const std::optional<UpdateStatus>& offer);
 
     // tokens.json was reloaded: its themes may have changed (one renamed, removed).

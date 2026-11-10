@@ -83,15 +83,4 @@ void stopTapHook()
     g_detector.reset();
 }
 
-void bringToFront(HWND hwnd)
-{
-    if (SetForegroundWindow(hwnd)) return;
-    INPUT alt[2] = {};
-    alt[0].type = alt[1].type = INPUT_KEYBOARD;
-    alt[0].ki.wVk = alt[1].ki.wVk = VK_MENU;
-    alt[1].ki.dwFlags = KEYEVENTF_KEYUP;
-    SendInput(2, alt, sizeof(INPUT));
-    SetForegroundWindow(hwnd);
-}
-
 } // namespace cup::platform

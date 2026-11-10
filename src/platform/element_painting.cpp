@@ -1,6 +1,8 @@
 #include "platform/element_painting.h"
 
 #include "core/item_metrics.h"
+#include "core/keycaps.h"
+#include "core/segments.h"
 #include "core/text_edit.h"
 #include "core/tokens.h"
 #include "platform/text_format.h"
@@ -96,6 +98,7 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Search: return L"\uE721"; // search (decision 079); in MDL2 Assets and Fluent Icons alike
     case Glyph::File: return L"\uE8A5";
     case Glyph::Folder: return L"\uE8B7";
+    case Glyph::Refresh: return L"\uE72C"; // Check for updates (decision 091)
     case Glyph::Close: return L"\uE711"; // Cancel: a window's ✕ (decision 081)
     case Glyph::Centre: return L"\uE8E3"; // AlignCenter: back to the middle
     case Glyph::Minus: return L"\uE738";  // Remove
@@ -188,7 +191,7 @@ TextLook lookOf(TextStyle style)
     case TextStyle::Caption:
     case TextStyle::Digits: return { t.captionFontSize, t.captionTextColor, t.captionFontWeight };
     case TextStyle::Display: return { t.displayFontSize, t.titleTextColor, t.displayFontWeight };
-    case TextStyle::Heading: return { t.headingFontSize, t.titleTextColor, t.headingFontWeight };
+    case TextStyle::Heading: return { t.headingFontSize, t.captionTextColor, t.headingFontWeight }; // quiet: decision 090
     case TextStyle::Result: return { t.resultFontSize, t.bodyTextColor, t.bodyFontWeight };
     case TextStyle::ResultDetail: return { t.resultDetailFontSize, t.captionTextColor, t.captionFontWeight };
     }
@@ -216,6 +219,14 @@ winrt::com_ptr<IDWriteTextLayout> wrappedLayout(IDWriteFactory* dw, const Text& 
 
 } // namespace
 
+
+void paintGroupFill(ID2D1DeviceContext* dc, const GroupFill& fill, Vec2 size, float radius)
+{
+    // A square end reaches a radius past the surface, which cuts it off: one
+    // rounded rect gives any mix of rounded and square ends (decision 090).
+    float top = fill.roundTop ? 0 : -radius, bottom = fill.roundBottom ? size.y : size.y + radius;
+    dc->FillRoundedRectangle(D2D1_ROUNDED_RECT{ D2D1::RectF(0, top, size.x, bottom), radius, radius }, brushOf(dc, tokens().tileColor).get());
+}
 
 void paintDivider(ID2D1DeviceContext* dc, Vec2 size)
 {
@@ -311,7 +322,9 @@ void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec
     paintLine(dc, dw, text, D2D1::RectF(0, top, size.x, top + first));
     Text detail{ .value = text.detail, .style = under, .alignEnd = text.alignEnd };
     auto f = formatOf(dw, detail);
-    drawString(dc, f.get(), elidedStart(dw, f.get(), widen(text.detail), size.x), D2D1::RectF(0, top + first, size.x, top + first + second),
+    // A path loses its start; a description its end, as any text does (decision 090).
+    std::wstring shown = text.detailTrimsEnd ? widen(text.detail) : elidedStart(dw, f.get(), widen(text.detail), size.x);
+    drawString(dc, f.get(), shown, D2D1::RectF(0, top + first, size.x, top + first + second),
                lookOf(under).color);
 }
 
@@ -357,6 +370,39 @@ float measureText(IDWriteFactory* dw, const Text& text)
     DWRITE_TEXT_METRICS metrics{};
     winrt::check_hresult(layout->GetMetrics(&metrics));
     return std::ceil(metrics.widthIncludingTrailingWhitespace);
+}
+
+void paintSegmentLabels(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Segments& segments, Vec2 size, const Color& color)
+{
+    // Each in its option's frame, core's (segments.h), so the labels sit where clicks land and the pill goes.
+    Rect whole{ 0, 0, size.x, size.y };
+    for (std::size_t i = 0; i < segments.options.size(); ++i) {
+        Rect f = segmentFrame(segments, whole, i);
+        Text text = segmentText(segments, i);
+        drawString(dc, formatOf(dw, text).get(), widen(text.value), D2D1::RectF(f.x, f.y, f.x + f.width, f.y + f.height), color);
+    }
+}
+
+void paintKeys(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Keys& keys, Vec2 size)
+{
+    // Cap by cap, as core sized them (keycaps.h), with the same font's widths.
+    const Tokens& t = tokens();
+    MeasureText measure = [dw](const Text& text) { return measureText(dw, text); };
+    float h = std::min(t.keyCapHeight, size.y), top = std::round((size.y - h) / 2), x = 0;
+    float r = std::min(t.keyCapRadius, h / 2);
+    for (const KeyPart& part : keyParts(keys.text)) {
+        float w = keyPartWidth(part, measure);
+        Text text = keyPartText(part);
+        D2D1_RECT_F box = D2D1::RectF(x, top, x + w, top + h);
+        if (part.cap) {
+            // Over the group's fill, its colour again: a shade apart in every theme; edged like a swatch.
+            D2D1_ROUNDED_RECT cap{ D2D1::RectF(x + 0.5f, top + 0.5f, x + w - 0.5f, top + h - 0.5f), r, r };
+            dc->FillRoundedRectangle(cap, brushOf(dc, t.tileColor).get());
+            dc->DrawRoundedRectangle(cap, brushOf(dc, t.trackColor).get(), 1.0f);
+        }
+        drawString(dc, formatOf(dw, text).get(), widen(part.label), box, part.cap ? t.bodyTextColor : t.captionTextColor);
+        x += w + t.keyCapGap;
+    }
 }
 
 void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, float width, float lead, float gap, float height)

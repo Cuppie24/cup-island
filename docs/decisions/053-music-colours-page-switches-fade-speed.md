@@ -1,6 +1,6 @@
 # 053: Music colours page, on/off switches, a fade speed to pick
 
-Status: Accepted
+Status: Accepted (Colour fade picked with Segments: decision 093)
 
 **Context.** Colour fades (decision 051) felt too quick at 600 ms, and 1.2 s
 was still on the quick side, but how slow is right is a matter of taste.

@@ -149,14 +149,11 @@ void SettingsProvider::onAction(const Action& action)
         page_ = SettingsPage::MusicColours;
         publish();
     } else if (auto at = choiceIndex(id, settings_action::kPickFade)) {
-        // The page stays, like the tab row's: the next recolour shows the new speed.
+        // The page stays: the next recolour shows the new speed.
         if (*at <= 2 && hooks_.setFadeSpeed) pickFade(*at == 0 ? FadeSpeed::Fast : *at == 2 ? FadeSpeed::Slow : FadeSpeed::Medium);
     }
-    else if (id == settings_action::kOpenTabRow) {
-        page_ = SettingsPage::TabRow;
-        publish();
-    } else if (auto at = choiceIndex(id, settings_action::kPickTabRow)) {
-        if (*at <= 1) placeTabRow(*at == 0); // the page stays: the card behind it shows where the row went
+    else if (auto at = choiceIndex(id, settings_action::kPickTabRow)) {
+        if (*at <= 1) placeTabRow(*at == 0); // picked in place (decision 093): the card shows where the row went
     }
     else if (id == settings_action::kBack) {
         stopRecording();
