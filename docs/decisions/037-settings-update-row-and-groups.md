@@ -1,6 +1,6 @@
 # 037: Settings can install an update; every row is a list row; headings that read
 
-Status: Accepted
+Status: Accepted (headings made quiet, groups on a background: decision 090)
 
 **Context.** An update could only be installed from Home's Update widget:
 Settings' Check for updates found one and said "0.5.1 on Home", sending the

@@ -134,7 +134,8 @@ void newTagTests()
            tag->frame.height == tokens().tagHeight, "new: the tag right after the name");
 }
 
-// A tagged setting's value and chevron stay at the row's end, where an untagged one's are.
+// A tagged setting's name and value (under it, decision 090) stay where an
+// untagged one's are, and its chevron at the row's end.
 void tagKeepsTheEnd()
 {
     std::vector<Placed> rowOf[2];
@@ -155,15 +156,14 @@ void tagKeepsTheEnd()
         for (const Placed& e : row) if (pick(e)) return &e;
         return nullptr;
     };
-    auto value = [](const Placed& e) { auto* x = std::get_if<Text>(&e.item); return x && x->value == "Top"; };
+    auto value = [](const Placed& e) { auto* x = std::get_if<Text>(&e.item); return x && x->value == "Tab row" && x->detail == "Top"; };
     auto chevron = [](const Placed& e) { return std::holds_alternative<Button>(e.item); };
     const Placed* plainValue = find(rowOf[0], value);
     const Placed* taggedValue = find(rowOf[1], value);
     const Placed* plainChevron = find(rowOf[0], chevron);
     const Placed* taggedChevron = find(rowOf[1], chevron);
-    expect(plainValue && taggedValue && taggedValue->frame.width > 0 &&
-           taggedValue->frame.x + taggedValue->frame.width == plainValue->frame.x + plainValue->frame.width,
-           "new: the tagged row's value still ends at the row's end");
+    expect(plainValue && taggedValue && taggedValue->frame.width > 0 && taggedValue->frame.x == plainValue->frame.x,
+           "new: the tagged row's name and value start where an untagged one's do");
     expect(plainChevron && taggedChevron && taggedChevron->frame.x == plainChevron->frame.x, "new: and its chevron stays at the edge");
 }
 
@@ -175,7 +175,7 @@ void coverColoursTests()
         auto* toggle = r && r->clickAnywhere && r->items.size() > 1 ? std::get_if<Switch>(&r->items.back()) : nullptr;
         return toggle && toggle->on;
     };
-    auto value = [](const Row* r) { return r && r->items.size() > 1 ? std::get<Text>(r->items[1]).value : std::string(); };
+    auto value = [](const Row* r) { return r ? std::get<Text>(r->items[0]).detail : std::string(); }; // under its name (decision 090)
     PanelHost h;
     std::vector<bool> applied;
     std::vector<FadeSpeed> speeds;

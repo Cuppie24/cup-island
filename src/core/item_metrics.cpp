@@ -33,6 +33,14 @@ float lineHeight(TextStyle style) { return std::ceil(fontSize(style) * 1.3f); }
 
 TextStyle detailStyleOf(TextStyle style) { return style == TextStyle::Result ? TextStyle::ResultDetail : TextStyle::Caption; }
 
+float textWidth(const Text& text, const MeasureText& measure)
+{
+    auto widthOf = [&](const Text& t) { return measure ? measure(t) : estimateTextWidth(t); };
+    float w = widthOf(text);
+    if (!text.detail.empty()) w = std::max(w, widthOf(Text{ .value = text.detail, .style = detailStyleOf(text.style) }));
+    return w;
+}
+
 bool isRing(const Item& item)
 {
     auto* progress = std::get_if<Progress>(&item);

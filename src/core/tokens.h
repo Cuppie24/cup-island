@@ -108,14 +108,14 @@ struct Tokens {
     float bodyFontSize = 15;
     float captionFontSize = 13; // the smallest text: ~11 px on screen at 100% after islandScale
     float displayFontSize = 48; // TextStyle::Display: a timer as the card's centre
-    float headingFontSize = 14; // TextStyle::Heading: a group's name, a little over caption size
+    float headingFontSize = 12; // TextStyle::Heading: a group's label, in the caption colour, under caption size (decision 090)
     // Font weights, 100..900 (400 regular, 600 semibold; decision 024). Segoe UI Variable
     // (Windows 11) takes any value in between; other fonts use the nearest weight they have.
     float titleFontWeight = 700;   // bold: Segoe UI Variable's heaviest
     float bodyFontWeight = 600;    // semibold: text on the island reads heavier than on a page (decision 024)
     float captionFontWeight = 600;
     float displayFontWeight = 300; // big and still the lightest, like a clock face
-    float headingFontWeight = 700; // a heading stands out from the rows under it: bold, and the title colour
+    float headingFontWeight = 600; // a group's label is quiet: its group's background sets it apart (decision 090)
     // Darkens antialiased text strokes (DirectWrite's grayscale enhanced
     // contrast): 0 = none, 1 = Windows' usual, higher = bolder-looking edges.
     float textContrast = 1.5f;
@@ -145,6 +145,8 @@ struct Tokens {
     float listItemPadding = 6;    // Row::listItem: above and below its content; = listItemInset, so a checkbox's corners nest in the row's (decision 006)
     float listItemInset = 6;      // Row::listItem: its content in from the hover background's edges
     float sectionGap = 12;        // Row::section: space above a group's heading (decision 037)
+    float groupItemPadding = 9;   // Row::grouped: above and below each row's content, in place of listItemPadding (decision 090)
+    float groupRadius = 12;       // ...the group's background's corners (its colour: tileColor)
     float listItemTextInset = 14; // ...where the edge item is text: clear of the background's rounded end (decision 030)
     float editInset = 6;          // editable Text is drawn this far in from its stretch, which its field fills when edited (decision 043)
     float buttonLabelPadding = 10; // a text button: its label plus this on each side        // hover circle; the click area also takes in half the gaps around it

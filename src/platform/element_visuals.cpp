@@ -246,7 +246,9 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     place(view);
     view.visual.Size(toFloat2(pixelSize(visualSize)));
     view.visual.CenterPoint({ visualSize.x / 2, visualSize.y / 2, 0 });
-    lists_.parentFor(placed).Children().InsertAtTop(view.visual);
+    // A group's background goes under everything, even when it's rebuilt after its row's content (decision 090).
+    if (std::holds_alternative<GroupFill>(placed.item)) lists_.parentFor(placed).Children().InsertAtBottom(view.visual);
+    else lists_.parentFor(placed).Children().InsertAtTop(view.visual);
     if (placed.list) lists_.setGliding(view.visual, !placed.list->dragged); // after its first place: it appears there
 
     if (view.grey && view.track) view.track.Color(toUiColor(greyOf(t.trackColor)));
@@ -384,6 +386,8 @@ void ElementVisuals::paint(View& view)
             paintDial(dc, dw, *dial, size);
         } else if (std::holds_alternative<Divider>(item)) {
             paintDivider(dc, size);
+        } else if (auto* fill = std::get_if<GroupFill>(&item)) {
+            paintGroupFill(dc, *fill, pixelSize(size), view.placed.cornerRadius);
         } else if (auto* swatch = std::get_if<Swatch>(&item)) {
             paintSwatch(dc, *swatch, size);
         }

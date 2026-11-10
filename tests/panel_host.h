@@ -78,10 +78,11 @@ inline const Row* rowNamed(const Panel& p, const std::string& name)
     return nullptr;
 }
 
-// That row's value (its second item's text), "?" if there's none.
+// That row's value: the description under its name (decision 090), else its second item's text; "?" if there's none.
 inline std::string valueOf(const Panel& p, const std::string& name)
 {
     const Row* r = rowNamed(p, name);
+    if (r && !std::get<Text>(r->items[0]).detail.empty()) return std::get<Text>(r->items[0]).detail;
     if (!r || r->items.size() < 2) return "?";
     auto* text = std::get_if<Text>(&r->items[1]);
     return text ? text->value : "?";

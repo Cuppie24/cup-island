@@ -30,8 +30,9 @@ void runShortcutSettingsTests()
            cardItem(sh.published.back(), 3, 1) == "Ctrl+Alt+Q" && cardItem(sh.published.back(), 4, 0) == "Search apps and files" &&
            cardItem(sh.published.back(), 4, 1) == "Double Ctrl" && cardItem(sh.published.back(), 6, 0) == "Move between items",
            "shortcuts: a page with each one's keys and what they do");
-    expect(rowNamed(sh.published.back(), "Move between items")->inset && rowNamed(sh.published.back(), "Open Home")->listItem,
-           "shortcuts: the fixed keys line up with the editable one's name");
+    expect(rowNamed(sh.published.back(), "Move between items")->grouped && !rowNamed(sh.published.back(), "Move between items")->listItem &&
+           rowNamed(sh.published.back(), "Open Home")->listItem && rowNamed(sh.published.back(), "Open Home")->grouped,
+           "shortcuts: two groups; the fixed keys' rows are plain, nothing lit (decision 090)");
     press(settings_action::kBack);
 
     settings.stop();

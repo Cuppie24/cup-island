@@ -188,7 +188,7 @@ TextLook lookOf(TextStyle style)
     case TextStyle::Caption:
     case TextStyle::Digits: return { t.captionFontSize, t.captionTextColor, t.captionFontWeight };
     case TextStyle::Display: return { t.displayFontSize, t.titleTextColor, t.displayFontWeight };
-    case TextStyle::Heading: return { t.headingFontSize, t.titleTextColor, t.headingFontWeight };
+    case TextStyle::Heading: return { t.headingFontSize, t.captionTextColor, t.headingFontWeight }; // quiet: decision 090
     case TextStyle::Result: return { t.resultFontSize, t.bodyTextColor, t.bodyFontWeight };
     case TextStyle::ResultDetail: return { t.resultDetailFontSize, t.captionTextColor, t.captionFontWeight };
     }
@@ -216,6 +216,14 @@ winrt::com_ptr<IDWriteTextLayout> wrappedLayout(IDWriteFactory* dw, const Text& 
 
 } // namespace
 
+
+void paintGroupFill(ID2D1DeviceContext* dc, const GroupFill& fill, Vec2 size, float radius)
+{
+    // A square end reaches a radius past the surface, which cuts it off: one
+    // rounded rect gives any mix of rounded and square ends (decision 090).
+    float top = fill.roundTop ? 0 : -radius, bottom = fill.roundBottom ? size.y : size.y + radius;
+    dc->FillRoundedRectangle(D2D1_ROUNDED_RECT{ D2D1::RectF(0, top, size.x, bottom), radius, radius }, brushOf(dc, tokens().tileColor).get());
+}
 
 void paintDivider(ID2D1DeviceContext* dc, Vec2 size)
 {
@@ -311,7 +319,9 @@ void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec
     paintLine(dc, dw, text, D2D1::RectF(0, top, size.x, top + first));
     Text detail{ .value = text.detail, .style = under, .alignEnd = text.alignEnd };
     auto f = formatOf(dw, detail);
-    drawString(dc, f.get(), elidedStart(dw, f.get(), widen(text.detail), size.x), D2D1::RectF(0, top + first, size.x, top + first + second),
+    // A path loses its start; a description its end, as any text does (decision 090).
+    std::wstring shown = text.detailTrimsEnd ? widen(text.detail) : elidedStart(dw, f.get(), widen(text.detail), size.x);
+    drawString(dc, f.get(), shown, D2D1::RectF(0, top + first, size.x, top + first + second),
                lookOf(under).color);
 }
 

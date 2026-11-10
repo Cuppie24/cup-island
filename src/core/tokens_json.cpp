@@ -101,6 +101,8 @@ const Field kFields[] = {
     { "listItemInset", &Tokens::listItemInset },
     { "listItemTextInset", &Tokens::listItemTextInset },
     { "sectionGap", &Tokens::sectionGap },
+    { "groupItemPadding", &Tokens::groupItemPadding },
+    { "groupRadius", &Tokens::groupRadius },
     { "editInset", &Tokens::editInset },
     { "buttonLabelPadding", &Tokens::buttonLabelPadding },
     { "buttonGlyphSize", &Tokens::buttonGlyphSize },
