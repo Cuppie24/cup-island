@@ -267,6 +267,8 @@ const Field kFields[] = {
     { "serviceUpdateTries", &Tokens::serviceUpdateTries },
     { "doubleTapMs", &Tokens::doubleTap, true },
     { "doubleTapHoldMs", &Tokens::doubleTapHold, true },
+    { "foregroundRetryMs", &Tokens::foregroundRetry, true },
+    { "foregroundRetries", &Tokens::foregroundRetries },
     { "searchAppRows", &Tokens::searchAppRows, true },
     { "searchSettingRows", &Tokens::searchSettingRows },
     { "searchFileRows", &Tokens::searchFileRows },

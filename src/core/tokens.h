@@ -408,6 +408,10 @@ struct Tokens {
     // doubleTapHold long (a held Ctrl is someone about to press Ctrl+C).
     Ms doubleTap{ 350 };
     Ms doubleTapHold{ 300 };
+    // A shortcut that can't bring the island forward at once (Start or
+    // search still closing, decision 089) tries again this often, this many times.
+    Ms foregroundRetry{ 30 };
+    std::size_t foregroundRetries = 20;
     // Search's card (decision 079): at most this many rows of each group, so
     // a hundred files never push the app you meant off the list; the list's
     // window in rows; and how old the list of apps may get before the card

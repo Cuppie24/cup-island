@@ -2,7 +2,7 @@
 
 #include "app/menu_input.h"
 
-#include "platform/tap_hook.h"
+#include "platform/foreground.h"
 #include "providers/search/search_provider.h"
 
 #include "core/keyboard.h"
@@ -73,8 +73,8 @@ void openWidget(std::size_t n)
 }
 
 // A system-wide shortcut was pressed (decision 032). The island comes to
-// the front with it (Windows allows that to whoever gets a hotkey), so the
-// arrows work at once and a click elsewhere closes it like any other time.
+// the front with it, so the arrows work at once and a click elsewhere closes
+// it like any other time: over Start or search too, which close (decision 089).
 void run(Command command)
 {
     switch (command) {
@@ -84,11 +84,11 @@ void run(Command command)
             return;
         }
         dispatch(HomeOpened{}, "shortcut");
-        if (state().homeOpen) SetForegroundWindow(g_hooks.window);
+        if (state().homeOpen) platform::bringToFront(g_hooks.window);
         return;
     case Command::OpenActivity: // the pill's activity's card; again on it, closes (decision 050)
         dispatch(ActivityOpened{}, "shortcut");
-        if (!state().expandedId.empty()) SetForegroundWindow(g_hooks.window);
+        if (!state().expandedId.empty()) platform::bringToFront(g_hooks.window);
         return;
     case Command::OpenSearch: { // search's card, typing in its field at once; again, it closes (decision 079)
         const std::string id = SearchProvider::kPanelId;
@@ -98,8 +98,7 @@ void run(Command command)
         }
         dispatch(TileClicked{ id }, "shortcut");
         if (state().expandedId != id) return;
-        platform::bringToFront(g_hooks.window); // a double tap isn't a real hotkey: no leave to come forward (tap_hook.h)
-        SetFocus(g_hooks.window); // the card's field has the keys already (Content::fieldFirst)
+        platform::bringToFront(g_hooks.window); // focused: the card's field has the keys already (Content::fieldFirst)
         dispatch(AllSelected{}, "shortcut"); // open already: its words selected, typing replaces them
         return;
     }
