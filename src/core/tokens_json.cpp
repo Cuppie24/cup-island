@@ -223,8 +223,7 @@ const Field kFields[] = {
     { "islandColor", &Tokens::islandColor, true },
     { "islandHighlightColor", &Tokens::islandHighlightColor },
     { "islandSecondColor", &Tokens::islandSecondColor }, // set from islandColor and the cover (live_tokens), not the file
-    { "islandCardColor", &Tokens::islandCardColor },     // set from the cover as glass (decision 090), not the file
-    { "islandGlowColor", &Tokens::islandGlowColor },     // ...the same
+    { "islandGlowColor", &Tokens::islandGlowColor },     // set from the cover as glass (decision 090), not the file
     { "titleTextColor", &Tokens::titleTextColor },
     { "bodyTextColor", &Tokens::bodyTextColor },
     { "captionTextColor", &Tokens::captionTextColor },

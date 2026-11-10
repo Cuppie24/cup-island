@@ -207,9 +207,9 @@ struct Tokens {
     bool glass = false;           // drawn as glass now (withGlass): set by the app, not tokens.json
     float glassOpacity = 0.15f;   // how strong the island's colours are over the blur: 1 solid, 0 none (acrylic's tint opacity)
     float glassPlainOpacity = 0.7f; // ...over the plain blur, where Windows won't even out its brightness: it needs more
-    // Glass with the cover's colours (decision 090): the open card stays
+    // Glass with the cover's colours (decision 090): the island stays
     // Midnight, and the cover's colour glows up from its bottom edge.
-    float glassGlowHeight = 40.0f;  // px: the glow's reach up from the bottom edge, the same on any card's height
+    float glassGlowHeight = 40.0f;  // px: the glow's reach up from the bottom edge, the same on the pill and a tall card
     float glassGlowOpacity = 0.8f;  // how strong the glow is along the bottom edge
     float glassGlowCurve = 2.5f;    // how it fades up its reach (glowFade): higher hugs the edge more; past 1, it melts away at the top
     float glassRimWidth = 1;      // the rim's width, inside the edge
@@ -352,10 +352,8 @@ struct Tokens {
     // The island's right end: a gradient from islandColor (decision 054). Not
     // in tokens.json: islandColor's, unless a two-colour cover sets it.
     Color islandSecondColor{ 0, 0, 0 };
-    // Glass with the cover's colours (decision 090): the open card's own
-    // colour (Midnight's), and the glow along its bottom edge. Not in
-    // tokens.json: clear unless a cover sets them; clear, a card is islandColor like the pill.
-    Color islandCardColor{ 0, 0, 0, 0 };
+    // The glow along the island's bottom edge (decision 090): glass with the
+    // cover's colours. Not in tokens.json: none (clear) unless a cover sets it.
     Color islandGlowColor{ 0, 0, 0, 0 };
     Color titleTextColor{ 255, 255, 255 };
     Color bodyTextColor{ 255, 255, 255, 179 };

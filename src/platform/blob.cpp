@@ -165,19 +165,9 @@ void Blob::setHighlighted(bool on)
     fadeFill(tokens().hoverFadeDuration);
 }
 
-void Blob::setCard(bool on)
-{
-    if (on == card_) return;
-    card_ = on;
-    fadeFill(tokens().morphDuration);
-    fadeGlow(tokens().morphDuration);
-}
-
 void Blob::fadeFill(Ms duration)
 {
     Color left = leftColor(highlighted_), right = rightColor(highlighted_);
-    // An open card as glass with a cover's colours: its own, one colour (decision 090).
-    if (card_ && !highlighted_ && tokens().islandCardColor.a != 0) left = right = tokens().islandCardColor;
     // See-through as glass; more strongly over the plain blur (decision 089).
     bool even = glassEven_ || !glass_;
     fade(fill_, islandFill(tokens(), left, even), islandFill(tokens(), right, even), duration);

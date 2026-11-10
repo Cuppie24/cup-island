@@ -112,8 +112,6 @@ void PillRenderer::apply(const Scene& scene, const SceneMotion& motion)
     // monitor. In Split the right edge is the bubble's.
     pill_.setEars(!scene.flushLeft, !(scene.flushRight && !scene.bubble));
     pill_.setHighlighted(scene.dropTarget);
-    // An open card (a floating one always is); the pill and alerts the cover's colours whole (decision 090).
-    pill_.setCard(floating_ || scene.mode == Mode::Expanded);
     const TabStrip* tabs = scene.tabs ? &*scene.tabs : nullptr;
     // No background under a tab that isn't shown, only its hover (decision 072).
     pill_.setPinnedTab(tabs && tabs->pin && tabs->pinned ? std::optional<Rect>(tabs->pin->frame) : std::nullopt, tabs ? tabs->radius : 0);

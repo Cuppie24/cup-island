@@ -136,8 +136,8 @@ void paletteTests()
            "two colours: the island runs from red to blue");
     expect(withColors(midnight, duo).islandGlowColor.a == 0, "solid: no glow");
 
-    // Glass (decision 090): the pill as when solid; the open card Midnight,
-    // the cover's main hue glowing from its bottom; text and accents the cover's.
+    // Glass (decision 090): a Midnight island, one colour, the cover's main
+    // hue glowing from the bottom; text and accents still the cover's.
     for (const Theme& theme : parsed.tokens.themes) {
         if (theme.light) continue; // light themes have no glass
         Tokens themed = withTheme(parsed.tokens, theme.name);
@@ -146,10 +146,9 @@ void paletteTests()
         auto solidColours = coverColors(tint, themed);
         Tokens tinted = withColors(themed, glass);
         Color glow = tinted.islandGlowColor;
-        expect(tinted.islandColor == tokenColor(solidColours, "islandColor") &&
-                   tinted.islandSecondColor == tokenColor(solidColours, "islandSecondColor"),
-               "glass: the pill whole in the cover's colours, as when solid, under " + theme.name);
-        expect(tinted.islandCardColor == parsed.tokens.islandColor, "glass: the open card Midnight, under " + theme.name);
+        expect(tinted.islandColor == parsed.tokens.islandColor && tinted.islandSecondColor == parsed.tokens.islandColor &&
+                   tinted.islandHighlightColor == parsed.tokens.islandHighlightColor,
+               "glass: a Midnight island, one colour, under " + theme.name);
         expect(strongest(glow) == 0 && glow.a == static_cast<std::uint8_t>(std::lround(parsed.tokens.glassGlowOpacity * 255)),
                "glass: the glow is the cover's main colour, glassGlowOpacity strong: " + theme.name);
         expect(tokenColor(glass, "liveColor") == tokenColor(solidColours, "liveColor") &&
@@ -160,7 +159,7 @@ void paletteTests()
         expect(contrast(tinted.titleTextColor, underGlow) >= 4.5 && contrast(tinted.captionTextColor, underGlow) >= 2,
                "glass: text reads over the glow: " + theme.name);
     }
-    expect(Tokens{}.islandGlowColor.a == 0 && Tokens{}.islandCardColor.a == 0, "no cover: no glow, the card as the pill");
+    expect(Tokens{}.islandGlowColor.a == 0, "no cover: no glow");
 }
 
 void tintTests()

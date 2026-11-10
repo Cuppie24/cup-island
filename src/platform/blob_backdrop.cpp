@@ -159,9 +159,8 @@ void Blob::buildGlow(Compositor const& c, CompositionGeometry const& outline)
 
 void Blob::fadeGlow(Ms duration)
 {
-    // Only on an open card (decision 090): the pill and alerts are coloured whole.
     const Tokens& t = tokens();
-    Color glow = card_ ? t.islandGlowColor : clear(t.islandGlowColor);
+    const Color& glow = t.islandGlowColor;
     for (std::size_t i = 0; i < glow_.size(); ++i) {
         Color c = glow;
         c.a = static_cast<std::uint8_t>(std::lround(glow.a * glowFade(t, i / float(kGlowStops - 1))));
