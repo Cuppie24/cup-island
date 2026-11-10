@@ -14,8 +14,9 @@ Apple's Liquid Glass would need a shader over a screen capture: too costly
 for an island that should cost nothing at rest, so this is frosted glass.
 
 **Decision.**
-- A **Glass** switch in Settings → Appearance, **off by default**: an update
-  changes nothing. It's there only where Windows can draw it (Windows 11;
+- A **Glass** switch in Settings → Appearance, **on by default**, after an
+  update too (nothing saved reads as on; the user asked for it once glass
+  looked right). Turning it off is saved and kept. It's there only where Windows can draw it (Windows 11;
   `allowBackdrop` succeeded on the render layer). Windows 10 has no row, and
   the island stays solid (decision 015: Windows 11-only looks are extras).
 - Glass is drawn only while Windows' **Transparency effects** are on too

@@ -101,7 +101,7 @@ public:
     static constexpr const char* kTabRowKey = "tabrow";       // "top" or "bottom" ("": top)
     static constexpr const char* kCoverColoursKey = "covercolours"; // "on" or "off" ("": on, decision 052)
     static constexpr const char* kFadeKey = "fade";           // "fast", "medium" or "slow" ("": medium, decision 053)
-    static constexpr const char* kGlassKey = "glass";         // "on" or "off" ("": off, decision 089)
+    static constexpr const char* kGlassKey = "glass";         // "on" or "off" ("": on, decision 089)
     static constexpr const char* kSeenKey = "seen";           // "seen1", then the announced settings seen, one id per line
 
 private:
@@ -134,7 +134,7 @@ private:
     bool tabsOnTop_ = true;
     bool coverColours_ = true;
     FadeSpeed fadeSpeed_ = FadeSpeed::Medium;
-    bool glass_ = false;
+    bool glass_ = true;
     std::set<std::string> seen_;     // announced settings seen in earlier visits (decision 048)
     std::set<std::string> seeing_;   // ...and shown during this one: seen once the card closes
     bool visible_ = false;           // the card is on screen

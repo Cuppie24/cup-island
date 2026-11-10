@@ -74,7 +74,7 @@ void SettingsProvider::start(Host& host)
     std::string fade = trimmed(host_->load(kFadeKey));
     fadeSpeed_ = fade == "fast" ? FadeSpeed::Fast : fade == "slow" ? FadeSpeed::Slow : FadeSpeed::Medium;
     if (hooks_.setFadeSpeed) hooks_.setFadeSpeed(fadeSpeed_);
-    glass_ = trimmed(host_->load(kGlassKey)) == "on"; // off until turned on: an update changes nothing (decision 089)
+    glass_ = trimmed(host_->load(kGlassKey)) != "off"; // on until turned off, after an update too (decision 089)
     if (hooks_.setGlass) hooks_.setGlass(glass_);
     pick(known(trimmed(host_->load(kThemeKey))));
 }

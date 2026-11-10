@@ -218,8 +218,8 @@ void coverColoursTests()
     without.stop();
 }
 
-// Glass (decision 089): a switch on the list, off until turned on, and only
-// where the app can draw it (Windows 11): no hook, no row.
+// Glass (decision 089): a switch on the list, on until turned off (after an
+// update too), and only where the app can draw it (Windows 11): no hook, no row.
 void glassTests()
 {
     auto switchedOn = [](const Row* r) {
@@ -230,16 +230,16 @@ void glassTests()
     std::vector<bool> applied;
     SettingsProvider settings({ .setGlass = [&](bool on) { applied.push_back(on); } });
     settings.start(h);
-    expect(applied == std::vector<bool>{ false } && rowNamed(h.published.back(), "Glass") && !switchedOn(rowNamed(h.published.back(), "Glass")),
-           "glass: off by default, the app told, a switch on the list");
+    expect(applied == std::vector<bool>{ true } && h.store[SettingsProvider::kGlassKey].empty() && switchedOn(rowNamed(h.published.back(), "Glass")),
+           "glass: on by default (nothing saved, as after an update), the app told, a switch on the list");
     settings.onAction({ "system.settings", SettingsProvider::kPanelId, P::kToggleGlass, 0 });
-    expect(applied.back() == true && h.store[SettingsProvider::kGlassKey] == "on" && switchedOn(rowNamed(h.published.back(), "Glass")),
-           "glass: a click turns it on, saved");
+    expect(applied.back() == false && h.store[SettingsProvider::kGlassKey] == "off" && !switchedOn(rowNamed(h.published.back(), "Glass")),
+           "glass: a click turns it off, saved");
     settings.stop();
     settings.start(h);
-    expect(applied.back() == true && switchedOn(rowNamed(h.published.back(), "Glass")), "glass: kept over a restart");
+    expect(applied.back() == false && !switchedOn(rowNamed(h.published.back(), "Glass")), "glass: off kept over a restart");
     settings.onAction({ "system.settings", SettingsProvider::kPanelId, P::kToggleGlass, 0 });
-    expect(applied.back() == false && h.store[SettingsProvider::kGlassKey] == "off", "glass: and back off");
+    expect(applied.back() == true && h.store[SettingsProvider::kGlassKey] == "on", "glass: and back on");
     settings.stop();
 
     PanelHost bare;
