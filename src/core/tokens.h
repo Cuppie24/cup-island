@@ -209,9 +209,9 @@ struct Tokens {
     float glassPlainOpacity = 0.7f; // ...over the plain blur, where Windows won't even out its brightness: it needs more
     // Glass with the cover's colours (decision 090): the open card stays
     // Midnight, and the cover's colour glows up from its bottom edge.
-    float glassGlowHeight = 32.0f;  // px: the glow's reach up from the bottom edge, the same on any card's height
+    float glassGlowHeight = 40.0f;  // px: the glow's reach up from the bottom edge, the same on any card's height
     float glassGlowOpacity = 0.8f;  // how strong the glow is along the bottom edge
-    float glassGlowMiddle = 0.25f;  // ...and halfway up its reach, as a share of that: low, a soft fade that hugs the edge
+    float glassGlowCurve = 2.5f;    // how it fades up its reach (glowFade): higher hugs the edge more; past 1, it melts away at the top
     float glassRimWidth = 1;      // the rim's width, inside the edge
 
     // Expanded's tabs: one per activity along the top of the card (decisions 007, 047).
@@ -461,6 +461,13 @@ Ms recolorDuration(const Tokens& t);
 // false: Windows refused to even out its brightness). The pill, the bubble
 // and the neck between them all use it.
 Color islandFill(const Tokens& t, Color color, bool evenBlur = true);
+
+// The glow's fade (decision 090): at `up` of its reach (0 the bottom edge, 1
+// its top), the share of its colour left: (1 - up)^glassGlowCurve. Steep at
+// the edge, so the colour hugs it; flat at the top, so it melts into the card
+// with no line. Drawn as kGlowStops gradient stops sampling it, evenly.
+float glowFade(const Tokens& t, float up);
+constexpr int kGlowStops = 9;
 
 // A pale colour: perceived brightness past half. A theme whose island is pale
 // is a light theme (decision 030).

@@ -29,6 +29,11 @@ Color islandFill(const Tokens& t, Color color, bool evenBlur)
     return color;
 }
 
+float glowFade(const Tokens& t, float up)
+{
+    return std::pow(1.0f - std::clamp(up, 0.0f, 1.0f), std::max(t.glassGlowCurve, 0.0f));
+}
+
 bool pale(Color c)
 {
     return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b > 127.5f;

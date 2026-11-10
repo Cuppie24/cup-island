@@ -130,9 +130,10 @@ private:
     wuc::CompositionColorGradientStop rimTop_{ nullptr }, rimBottom_{ nullptr };
     void buildGlass();
     // The glow (decision 090): the cover's colour (islandGlowColor) along the
-    // body's bottom edge, fading out glassGlowHeight px up. Clear unless
-    // glass has a cover's colours, and only on an open card.
-    wuc::CompositionColorGradientStop glowTop_{ nullptr }, glowMiddle_{ nullptr }, glowBottom_{ nullptr };
+    // body's bottom edge, fading out glassGlowHeight px up along glowFade's
+    // curve, from the bottom stop up. Clear unless glass has a cover's
+    // colours, and only on an open card.
+    std::vector<wuc::CompositionColorGradientStop> glow_;
     bool card_ = false; // setCard()
     void buildGlow(wuc::Compositor const& compositor, wuc::CompositionGeometry const& outline);
     void fadeGlow(Ms duration);

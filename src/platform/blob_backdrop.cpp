@@ -128,27 +128,30 @@ void Blob::buildGlow(Compositor const& c, CompositionGeometry const& outline)
     // reaches a radius above the body while it hangs from the screen edge),
     // so they follow it: the glow reaches glassGlowHeight px up, whatever
     // the card's height.
-    // A third stop halfway up, faint (glassGlowMiddle): the colour hugs the
-    // edge and fades out softly, not in a straight ramp.
+    // Many stops sampling glowFade's curve (kGlowStops), not a straight
+    // ramp: the colour hugs the edge and melts away with no line.
     Color none = clear(tokens().islandGlowColor);
-    glowTop_ = c.CreateColorGradientStop(0.85f, toUiColor(none));
-    glowMiddle_ = c.CreateColorGradientStop(0.925f, toUiColor(none));
-    glowBottom_ = c.CreateColorGradientStop(1.0f, toUiColor(none));
-    try {
-        const std::wstring outline = L"Max(pill.Size.Y + shape.Attached * Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius), 1)";
-        bind(c, glowTop_, L"Offset", L"Max(1 - shape.GlowHeight / " + outline + L", 0)", body_, shape_);
-        bind(c, glowMiddle_, L"Offset", L"Max(1 - shape.GlowHeight / 2 / " + outline + L", 0)", body_, shape_);
-    } catch (winrt::hresult_error const& e) {
-        // A stop's offset that can't follow the size: a fixed share of the
-        // outline's height instead (taller on a tall card).
-        logLine("glass: the glow can't follow the island's height (0x%08lx)", static_cast<unsigned long>(e.code()));
+    const std::wstring height = L"Max(pill.Size.Y + shape.Attached * Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius), 1)";
+    bool bound = true;
+    glow_.clear();
+    for (int i = 0; i < kGlowStops; ++i) {
+        float up = i / float(kGlowStops - 1);
+        // Until bound (or if it can't be): a fixed share of the outline's height.
+        auto stop = c.CreateColorGradientStop(1.0f - 0.15f * up, toUiColor(none));
+        if (bound) {
+            try {
+                bind(c, stop, L"Offset", L"Max(1 - shape.GlowHeight * " + std::to_wstring(i) + L" / " + std::to_wstring(kGlowStops - 1) + L" / " + height + L", 0)", body_, shape_);
+            } catch (winrt::hresult_error const& e) {
+                bound = false; // taller on a tall card, then
+                logLine("glass: the glow can't follow the island's height (0x%08lx)", static_cast<unsigned long>(e.code()));
+            }
+        }
+        glow_.push_back(stop);
     }
     auto brush = c.CreateLinearGradientBrush();
     brush.StartPoint({ 0.5f, 0.0f });
     brush.EndPoint({ 0.5f, 1.0f });
-    brush.ColorStops().Append(glowTop_);
-    brush.ColorStops().Append(glowMiddle_);
-    brush.ColorStops().Append(glowBottom_);
+    for (auto it = glow_.rbegin(); it != glow_.rend(); ++it) brush.ColorStops().Append(*it); // top first: rising offsets
     auto glow = c.CreateSpriteShape(outline);
     glow.FillBrush(brush);
     body_.Shapes().Append(glow);
@@ -159,11 +162,11 @@ void Blob::fadeGlow(Ms duration)
     // Only on an open card (decision 090): the pill and alerts are coloured whole.
     const Tokens& t = tokens();
     Color glow = card_ ? t.islandGlowColor : clear(t.islandGlowColor);
-    Color middle = glow;
-    middle.a = static_cast<std::uint8_t>(std::lround(glow.a * std::clamp(t.glassGlowMiddle, 0.0f, 1.0f)));
-    fadeColor(glowBottom_, glow, duration);
-    fadeColor(glowMiddle_, middle, duration);
-    fadeColor(glowTop_, clear(glow), duration);
+    for (std::size_t i = 0; i < glow_.size(); ++i) {
+        Color c = glow;
+        c.a = static_cast<std::uint8_t>(std::lround(glow.a * glowFade(t, i / float(kGlowStops - 1))));
+        fadeColor(glow_[i], c, duration);
+    }
 }
 
 void Blob::buildGlass()

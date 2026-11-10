@@ -17,12 +17,13 @@ colour, and a theme's own tint (Grape, Lagoon…) mixed into it.
   gradient. The cover's **main** hue (never the second) **glows up from its
   bottom edge**: `islandGlowColor`, at lightness `coverDarkGlow` (0.45: dark
   enough under white text, tested for every dark theme) and as vivid as the
-  cover's accent, `glassGlowOpacity` (0.8) strong along the bottom,
-  `glassGlowMiddle` (0.25) of that halfway up, nothing `glassGlowHeight`
-  (32 px) up. A fixed height, not a share: the same small band on a short
-  card and a tall one; the faint middle stop makes the fade soft, the colour
-  hugging the edge (the user asked for a shorter, softer band after a first
-  try at 0.3 of the height).
+  cover's accent, `glassGlowOpacity` (0.8) strong along the bottom, fading
+  to nothing `glassGlowHeight` (40 px) up. A fixed height, not a share: the
+  same small band on a short card and a tall one. The fade follows a curve,
+  `(1 - up)^glassGlowCurve` (2.5, `glowFade`), drawn as 9 gradient stops:
+  steep at the edge so the colour hugs it, flat at the top so it melts into
+  the card with no line. (The user asked for a shorter, softer band after a
+  first try at 0.3 of the height, then a smoother fade than three stops.)
 - Switching between the two (pill to card and back) fades over
   `morphDuration`, with the morph, not over the slower recolour.
 - Everything else that follows the cover (text, the accent on progress bars
@@ -45,5 +46,5 @@ a fixed share.
 
 **Consequences.** Tested in `tests/cover_tests.cpp` (the pill as when
 solid, a Midnight card, the glow's hue and strength, text readable over it, the accent
-still the cover's). How it looks needs a Windows run; the four numbers are
-live tokens.
+still the cover's) and `tests/tokens_tests.cpp` (the fade's curve). How it
+looks needs a Windows run; the four numbers are live tokens.

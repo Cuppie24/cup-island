@@ -144,7 +144,7 @@ const Field kFields[] = {
     { "glassPlainOpacity", &Tokens::glassPlainOpacity },
     { "glassGlowHeight", &Tokens::glassGlowHeight },
     { "glassGlowOpacity", &Tokens::glassGlowOpacity },
-    { "glassGlowMiddle", &Tokens::glassGlowMiddle },
+    { "glassGlowCurve", &Tokens::glassGlowCurve },
     { "glassRimWidth", &Tokens::glassRimWidth },
     { "tabHeight", &Tokens::tabHeight, true },
     { "tabGap", &Tokens::tabGap },
@@ -447,7 +447,7 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
         return n.starts_with("cover") || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" || n == "searchVisibleRows" ||
                n == "primaryHoverOpacity" || n == "playGlyphNudge" || // a share of an opacity, of a width (decisions 066, 071)
                n == "glassOpacity" || n == "glassPlainOpacity" ||    // opacities (decision 089)
-               n == "glassGlowOpacity" || n == "glassGlowMiddle" || // shares (decision 090)
+               n == "glassGlowOpacity" || n == "glassGlowCurve" || // a share, an exponent (decision 090)
                n.ends_with("Bounce") || n == "contentArriveScale" || n == "contentRevealAt" || n == "morphSpringSettle" || n == "alertPulseScale" || // shares (decision 080)
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
     };

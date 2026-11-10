@@ -200,8 +200,14 @@ void runTokensTests()
     expect(scaleTokens(glass, 2).glassOpacity == glass.glassOpacity && scaleTokens(glass, 2).glassPlainOpacity == glass.glassPlainOpacity && scaleTokens(solid, 2).glassRimWidth == solid.glassRimWidth * 2 * solid.islandScale,
            "glassOpacity is a share, glassRimWidth a length");
     expect(scaleTokens(solid, 2).glassGlowHeight == solid.glassGlowHeight * 2 * solid.islandScale &&
-               scaleTokens(solid, 2).glassGlowMiddle == solid.glassGlowMiddle,
-           "the glow's reach is a fixed length (decision 090), its middle a share");
+               scaleTokens(solid, 2).glassGlowCurve == solid.glassGlowCurve,
+           "the glow's reach is a fixed length (decision 090), its curve unitless");
+    // The glow's fade (decision 090): full at the edge, gone at the top, smooth.
+    bool falling = true;
+    for (int i = 1; i < kGlowStops; ++i) falling = falling && glowFade(solid, i / float(kGlowStops - 1)) < glowFade(solid, (i - 1) / float(kGlowStops - 1));
+    expect(glowFade(solid, 0) == 1 && glowFade(solid, 1) == 0 && falling, "the glow fades from full at the edge to nothing at its top");
+    expect(glowFade(solid, 0.5f) < 0.25f, "the glow hugs the edge: under a quarter halfway up");
+    expect(glowFade(solid, 1.0f - 1.0f / (kGlowStops - 1)) < 0.01f, "the glow melts away at its top: no line where it ends");
 }
 
 } // namespace cup::test
