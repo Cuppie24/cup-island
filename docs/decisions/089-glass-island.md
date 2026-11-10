@@ -37,8 +37,12 @@ for an island that should cost nothing at rest, so this is frosted glass.
     first run without it was lighter than the Start menu beside it: a plain
     tint keeps a bright sky bright. Direct2D's Colour and Luminosity blend
     modes are swapped against their names; WinUI's AcrylicBrush uses
-    "Colour" for this step, and so do we. Acrylic's grain (a noise texture)
-    is left out.
+    "Colour" for this step, and so do we. The colour goes in as a Flood
+    effect (Win2D's ColorSourceEffect), animated by name
+    ("Luminosity.Color"): a colour brush as an effect's source was refused
+    with 0x80070057 on the first Windows run. If the brightness step is
+    refused anyway, the plain cut of the blur is used, and the log says
+    which step failed. Acrylic's grain (a noise texture) is left out.
   - The body's fill is the theme's (or the cover's) colours at
     `glassOpacity` (`islandFill`, core), acrylic's tint over that. The twin keeps them opaque: it's the
     snapshot's alpha, and the solid island wherever the backdrop shows

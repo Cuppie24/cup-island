@@ -122,11 +122,12 @@ void Blob::buildGlass()
 {
     glassTried_ = true;
     if (!snapshot_) return; // no snapshot before 1903; glass is Windows 11's anyway
-    luminosity_ = compositor_.CreateColorBrush(toUiColor(tokens().glassLuminosityColor)); // applyGlass() fades it
-    auto brush = maskedBackdrop(compositor_, compositor_.CreateSurfaceBrush(snapshot_), luminosity_);
-    if (!brush) return; // logged: the island stays solid
+    Glass made = maskedBackdrop(compositor_, compositor_.CreateSurfaceBrush(snapshot_), tokens().glassLuminosityColor);
+    if (!made.brush) return; // logged: the island stays solid
+    glassBrush_ = made.brush;
+    glassEven_ = made.even;
     glass_ = compositor_.CreateSpriteVisual();
-    glass_.Brush(brush);
+    glass_.Brush(made.brush);
     glass_.Opacity(0.0f);
     coverBodyAndEars(compositor_, glass_, body_, shape_);
     outline_.Parent().Children().InsertAbove(glass_, outline_); // over the solid twin, under the body
@@ -143,7 +144,7 @@ void Blob::applyGlass(Ms duration)
     fadeColor(rimBottom_, t.glass ? t.glassRimColor : clear(t.glassRimColor), duration);
 
     if (t.glass && !glass_ && !glassTried_) buildGlass();
-    if (luminosity_) fadeColor(luminosity_, t.glassLuminosityColor, duration);
+    fadeLuminosity({ glassBrush_, glassEven_ }, t.glassLuminosityColor, duration);
     if (!glass_ || t.glass == glassShown_) return;
     glassShown_ = t.glass;
     // On, it's there at once: the body over it still has its old, opaque
