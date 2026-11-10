@@ -213,6 +213,7 @@ if(WIN32)
         src/platform/file_watcher.cpp
         src/platform/float_flow.cpp
         src/platform/float_window.cpp
+        src/platform/foreground.cpp
         src/platform/fullscreen_watcher.cpp
         src/platform/graphics_device.cpp
         src/platform/hotkeys.cpp
