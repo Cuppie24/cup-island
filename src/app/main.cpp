@@ -936,7 +936,9 @@ void setCoverColours(bool on)
 void applyGlass(const char* reason)
 {
     Vec2 oldCanvas = tokens().canvas;
-    if (app::setGlass(g_glassPicked && transparencyOn())) tokensChanged(oldCanvas, reason);
+    bool transparency = transparencyOn();
+    if (g_glassPicked && !transparency) logLine("glass: picked, but Windows' transparency effects are off: solid");
+    if (app::setGlass(g_glassPicked && transparency)) tokensChanged(oldCanvas, reason);
 }
 
 // The Settings card picked a theme: recolour everything (decision 022).

@@ -107,6 +107,19 @@ bool allowBackdrop(HWND window)
 wuc::CompositionBrush maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush const& mask,
                                      wuc::CompositionBrush const& luminosity)
 {
+    using wuc::CompositionEffectSourceParameter;
+    // Cut to the island's shape: source-in keeps `inner` where the mask has alpha.
+    auto cut = [](IGraphicsEffectSource const& inner) {
+        return twoInputs(CLSID_D2D1Composite, D2D1_COMPOSITE_PROP_MODE, D2D1_COMPOSITE_MODE_SOURCE_IN,
+                         CompositionEffectSourceParameter(L"Mask"), inner);
+    };
+    auto make = [&](IGraphicsEffect const& effect, bool even) {
+        auto brush = compositor.CreateEffectFactory(effect).CreateBrush();
+        brush.SetSourceParameter(L"Mask", mask);
+        brush.SetSourceParameter(L"Backdrop", compositor.CreateHostBackdropBrush()); // already blurred by Windows
+        if (even) brush.SetSourceParameter(L"Luminosity", luminosity);
+        return brush;
+    };
     try {
         // The backdrop at the luminosity colour's lightness, keeping its own
         // hue: Windows' acrylic recipe (WinUI's AcrylicBrush). Direct2D's
@@ -114,15 +127,16 @@ wuc::CompositionBrush maskedBackdrop(wuc::Compositor const& compositor, wuc::Com
         // so "Colour" is the one that takes the top layer's lightness, as
         // WinUI notes and uses.
         IGraphicsEffect even = twoInputs(CLSID_D2D1Blend, D2D1_BLEND_PROP_MODE, D2D1_BLEND_MODE_COLOR,
-                                         wuc::CompositionEffectSourceParameter(L"Backdrop"),
-                                         wuc::CompositionEffectSourceParameter(L"Luminosity"));
-        // ...then cut to the island's shape: source-in keeps it where the mask has alpha.
-        IGraphicsEffect glass = twoInputs(CLSID_D2D1Composite, D2D1_COMPOSITE_PROP_MODE, D2D1_COMPOSITE_MODE_SOURCE_IN,
-                                          wuc::CompositionEffectSourceParameter(L"Mask"), even);
-        auto brush = compositor.CreateEffectFactory(glass).CreateBrush();
-        brush.SetSourceParameter(L"Mask", mask);
-        brush.SetSourceParameter(L"Backdrop", compositor.CreateHostBackdropBrush()); // already blurred by Windows
-        brush.SetSourceParameter(L"Luminosity", luminosity);
+                                         CompositionEffectSourceParameter(L"Backdrop"), CompositionEffectSourceParameter(L"Luminosity"));
+        auto brush = make(cut(even), true);
+        logLine("glass: backdrop ready, at one brightness");
+        return brush;
+    } catch (winrt::hresult_error const& e) {
+        logLine("glass: no even brightness (0x%08lx): the plain blur instead", static_cast<unsigned long>(e.code()));
+    }
+    try {
+        auto brush = make(cut(CompositionEffectSourceParameter(L"Backdrop")), false);
+        logLine("glass: backdrop ready, plain blur");
         return brush;
     } catch (winrt::hresult_error const& e) {
         logLine("glass: no backdrop brush (0x%08lx): the island stays solid", static_cast<unsigned long>(e.code()));

@@ -145,7 +145,10 @@ bool setReducedMotion(bool reduced)
 bool setGlass(bool on)
 {
     g_glass = on;
-    return commit(on ? "glass: on" : "glass: off");
+    bool changed = commit("glass re-applied");
+    // Said every time, changed or not: why the island is or isn't glass.
+    log(!on ? "glass: off" : tokens().glass ? "glass: on" : "glass: picked, but the island is light (a light theme): solid");
+    return changed;
 }
 
 } // namespace cup::app
