@@ -47,6 +47,10 @@ public:
     void lift(std::optional<float> centreX, Vec2 fling = {});
     void setEars(bool left, bool right);     // false: that side is flush with the screen edge, no ear (decision 026)
     void setHighlighted(bool on);            // drop target: the background lightens (decision 007)
+    // Showing an open card (Expanded, or floating): as glass with a cover's
+    // colours, Midnight with a glow from below; the pill and alerts are the
+    // cover's colours whole (decision 090). Fades over a morph's time.
+    void setCard(bool on);
     // `reveal`: new content waits this long (the morph's, decision 080).
     void setContent(const std::vector<Placed>& elements, Ms now, Ms reveal) { elements_.apply(elements, now, reveal); }
     ElementVisuals& elements() { return elements_; } // hover, press, scrub feedback on content
@@ -126,9 +130,10 @@ private:
     wuc::CompositionColorGradientStop rimTop_{ nullptr }, rimBottom_{ nullptr };
     void buildGlass();
     // The glow (decision 090): the cover's colour (islandGlowColor) along the
-    // body's bottom edge, fading out glassGlowHeight of the way up. Clear
-    // unless glass has a cover's colours.
-    wuc::CompositionColorGradientStop glowTop_{ nullptr }, glowBottom_{ nullptr };
+    // body's bottom edge, fading out glassGlowHeight px up. Clear unless
+    // glass has a cover's colours, and only on an open card.
+    wuc::CompositionColorGradientStop glowTop_{ nullptr }, glowMiddle_{ nullptr }, glowBottom_{ nullptr };
+    bool card_ = false; // setCard()
     void buildGlow(wuc::Compositor const& compositor, wuc::CompositionGeometry const& outline);
     void fadeGlow(Ms duration);
     void buildRim(wuc::Compositor const& compositor);

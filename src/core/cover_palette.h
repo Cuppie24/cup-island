@@ -28,11 +28,12 @@ std::optional<CoverTint> coverTint(const ImageData& image);
 // (islandSecondColor), at the same lightness, so text reads the same on both.
 std::vector<ThemeColor> coverColors(const CoverTint& tint, const Tokens& themed);
 
-// The same as glass (decision 090): text, accents and marks still take the
-// cover's colours (coverColors), but the island keeps `midnight`'s colours
-// (the colours as written, one of them: no gradient), and the cover's main
-// hue glows up from its bottom edge (islandGlowColor, at coverDarkGlow,
-// glassGlowOpacity strong). Glass is for dark islands only (decision 089).
+// The same as glass (decision 090): coverColors (the pill, alerts and the
+// bubble whole in the cover's colours, as when solid), plus the open card's
+// own: `midnight`'s island colour (islandCardColor, the colours as written),
+// with the cover's main hue glowing up from its bottom edge
+// (islandGlowColor, at coverDarkGlow, glassGlowOpacity strong). Glass is for
+// dark islands only (decision 089).
 std::vector<ThemeColor> glassCoverColors(const CoverTint& tint, const Tokens& themed, const Tokens& midnight);
 
 } // namespace cup

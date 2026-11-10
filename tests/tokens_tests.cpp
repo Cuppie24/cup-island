@@ -199,6 +199,9 @@ void runTokensTests()
            "glass: 'light' is the same test Settings' theme list uses");
     expect(scaleTokens(glass, 2).glassOpacity == glass.glassOpacity && scaleTokens(glass, 2).glassPlainOpacity == glass.glassPlainOpacity && scaleTokens(solid, 2).glassRimWidth == solid.glassRimWidth * 2 * solid.islandScale,
            "glassOpacity is a share, glassRimWidth a length");
+    expect(scaleTokens(solid, 2).glassGlowHeight == solid.glassGlowHeight * 2 * solid.islandScale &&
+               scaleTokens(solid, 2).glassGlowMiddle == solid.glassGlowMiddle,
+           "the glow's reach is a fixed length (decision 090), its middle a share");
 }
 
 } // namespace cup::test

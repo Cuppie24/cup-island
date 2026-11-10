@@ -40,7 +40,7 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 keyboard.h (arrow, Tab and digit focus, decisions 031, 033) + shortcuts.h (the shortcut table, decision 031)
                 + double_tap.h (Double Ctrl, decision 079),
                 badges.h (where notification dots go, decision 038),
-                cover_palette.h + island_tint.h (the island in the playing cover's colours, decision 051; as glass, a glow from below, decision 090),
+                cover_palette.h + island_tint.h (the island in the playing cover's colours, decision 051; as glass, a Midnight card with a glow from below, decision 090),
                 tokens.h (+ tokens_json.h, json_reader.h), easing.h, motion.h (the morph's spring, fling, stagger, decision 080),
                 floating.h (a card floating apart from the island, decision 081) + float_layout.h (its scene) + float_placement.h (where it opens)
                 menu.h (a row's context menu: when it opens, its keys, where it goes, decision 086)
