@@ -2,6 +2,7 @@
 
 #include "core/item_metrics.h"
 #include "core/keycaps.h"
+#include "core/segments.h"
 #include "core/text_edit.h"
 #include "core/tokens.h"
 #include "platform/text_format.h"
@@ -369,6 +370,29 @@ float measureText(IDWriteFactory* dw, const Text& text)
     DWRITE_TEXT_METRICS metrics{};
     winrt::check_hresult(layout->GetMetrics(&metrics));
     return std::ceil(metrics.widthIncludingTrailingWhitespace);
+}
+
+void paintSegments(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Segments& segments, Vec2 size)
+{
+    // Where each option goes is core's (segments.h), so clicks land on what's drawn.
+    const Tokens& t = tokens();
+    float r = size.y / 2;
+    // The track: the island showing through the group, a recess; the pick on a pill like a Switch's knob.
+    dc->FillRoundedRectangle(D2D1_ROUNDED_RECT{ D2D1::RectF(0, 0, size.x, size.y), r, r }, brushOf(dc, t.islandColor).get());
+    Rect whole{ 0, 0, size.x, size.y };
+    for (std::size_t i = 0; i < segments.options.size(); ++i) {
+        Rect f = segmentFrame(segments, whole, i);
+        D2D1_RECT_F box = D2D1::RectF(f.x, f.y, f.x + f.width, f.y + f.height);
+        bool picked = i == segments.picked;
+        if (picked) {
+            float pr = f.height / 2;
+            dc->FillRoundedRectangle(D2D1_ROUNDED_RECT{ box, pr, pr },
+                                     brushOf(dc, segments.enabled ? t.buttonColor : t.buttonDisabledColor).get());
+        }
+        Text text = segmentText(segments, i);
+        Color color = picked ? t.islandColor : segments.enabled ? t.bodyTextColor : t.buttonDisabledColor;
+        drawString(dc, formatOf(dw, text).get(), widen(text.value), box, color);
+    }
 }
 
 void paintKeys(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Keys& keys, Vec2 size)

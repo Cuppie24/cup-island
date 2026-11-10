@@ -253,6 +253,18 @@ struct Keys {
     bool operator==(const Keys&) const = default;
 };
 
+// One of a few options, picked in place (decision 093): a pill-shaped track
+// with the options side by side, the picked one on a filled pill. Each
+// option is as wide as the widest. A click on option i sends
+// `actionId` + i ("tabrow.pick:1"); the provider moves `picked` and republishes.
+struct Segments {
+    std::vector<std::string> options;
+    std::size_t picked = 0;
+    std::string actionId; // a prefix: the option's index is appended
+    bool enabled = true;
+    bool operator==(const Segments&) const = default;
+};
+
 // The host's, never a provider's: a group's background behind one of its
 // rows (Row::grouped, decision 090), tileColor. Rounded only at the
 // group's ends, so its rows' pieces join into one shape.
@@ -263,7 +275,7 @@ struct GroupFill {
 };
 
 using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch, Tag, Switch, Divider, Dial,
-                          GroupFill, Keys>;
+                          GroupFill, Keys, Segments>;
 
 enum class Align { Start, Center, End };
 

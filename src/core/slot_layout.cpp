@@ -58,6 +58,7 @@ Rect clipped(Rect r, Rect clip)
 // Rounded content (art, button hover shapes, text fields) only.
 float radiusFor(const Item& item, Rect frame, float nestedRadius)
 {
+    if (std::holds_alternative<Segments>(item)) return frame.height / 2; // a pill: its focus ring too (decision 093)
     if (!std::holds_alternative<Image>(item) && !std::holds_alternative<Button>(item) && !std::holds_alternative<TextInput>(item)) return 0;
     if (auto* b = std::get_if<Button>(&item); b && (b->primary || b->round || (b->secondary && b->label.empty())))
         return std::min(frame.width, frame.height) / 2; // circles: their hover and press follow the circle (decisions 066, 067)

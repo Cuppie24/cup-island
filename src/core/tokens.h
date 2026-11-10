@@ -150,6 +150,9 @@ struct Tokens {
     float keyCapHeight = 24;      // Keys: a key cap's height; a one-character cap is at least this wide (decision 092)
     float keyCapPadding = 7;      // ...its label's room on each side
     float keyCapGap = 4;          // ...between caps, and around the words between them
+    float segmentHeight = 30;     // Segments: the track's height (decision 093)
+    float segmentInset = 3;       // ...the picked pill in from the track's edge
+    float segmentPadding = 12;    // ...an option's room on each side of its label
     float keyCapRadius = 6;       // ...its corners (fill: tileColor over the group's; edge: trackColor)
     float listItemTextInset = 14; // ...where the edge item is text: clear of the background's rounded end (decision 030)
     float editInset = 6;          // editable Text is drawn this far in from its stretch, which its field fills when edited (decision 043)

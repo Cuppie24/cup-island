@@ -6,6 +6,7 @@
 #include "core/item_metrics.h"
 #include "core/keycaps.h"
 #include "core/layout.h"
+#include "core/segments.h"
 #include "core/tokens.h"
 #include "expect.h"
 
@@ -94,6 +95,18 @@ void runGroupTests()
     expect(capped == (8 * 4 + 1 + 2 * t.keyCapPadding) + t.keyCapGap + t.keyCapHeight &&
            heightOf(Keys{ "Q" }, { 0, 0, 100, 100 }, 0) == t.keyCapHeight,
            "keys: caps as wide as their label plus padding, a one-letter one square; keyCapHeight tall");
+
+    // Segments (decision 093): every option as wide as the widest, inside the track's inset.
+    Segments speeds{ .options = { "Fast", "Medium", "Slow" }, .picked = 1, .actionId = "fade.pick:" };
+    float option = 8 * 6 + 1 + 2 * t.segmentPadding;
+    Rect at{ 100, 10, segmentsWidth(speeds, eight), t.segmentHeight };
+    expect(at.width == 3 * option + 2 * t.segmentInset, "segments: the widest label sets every option's width");
+    Rect slow = segmentFrame(speeds, at, 2);
+    expect(slow.x == 100 + t.segmentInset + 2 * option && slow.width == option && slow.height == t.segmentHeight - 2 * t.segmentInset,
+           "segments: each option in its share, inset from the track");
+    expect(segmentAt(speeds, at, slow.x + 1) == 2u && segmentAt(speeds, at, 0) == 0u && segmentAt(speeds, at, 1000) == 2u &&
+           segmentAction(speeds, 2) == "fade.pick:2",
+           "segments: a point picks the option under it, the nearest past the ends; its action is the prefix and index");
 
     // A name keeps the room its description needs: the description isn't cut beside a short name.
     MeasureText perChar = [](const Text& text) { return 8.0f * static_cast<float>(text.value.size()); };

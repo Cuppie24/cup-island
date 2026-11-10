@@ -45,6 +45,7 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 floating.h (a card floating apart from the island, decision 081) + float_layout.h (its scene) + float_placement.h (where it opens)
                 menu.h (a row's context menu: when it opens, its keys, where it goes, decision 086)
                 groups.h (grouped rows: a quiet label, one background, a name over its description, decision 090)
+                keycaps.h (Keys drawn as key caps, decision 092), segments.h (a few options picked in place, decision 093)
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them; a floating card's one detached shape, decision 081), float_window (a floating card's window pair) + float_flow (its flow out of the pill), element_visuals (one visual
                 per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts) + tap_hook (double-tap shortcuts, decision 079), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
@@ -275,5 +276,5 @@ over the file's, so `tokens()` is always what's on screen.
 | Settings: Update and restart under Check for updates, every action a list row, headings that stand out (decision 037) | done; rules tested, visuals need Windows |
 | Notification badges: a dot on a widget, tab or button with something new; Settings' widget and its Update row when an update waits (decision 038) | done; placement tested, drawing needs Windows |
 | An update offer survives a restart (decision 039); Bluetooth removed (decision 042) | rules tested |
-| Grouped rows (decision 090): a quiet label over rows on one background, each a name over its description; every Settings page uses them. One updates row that turns into Update and restart (decision 091) | done; layout tested, the look needs a Windows run |
+| Grouped rows (decision 090): a quiet label over rows on one background, each a name over its description; every Settings page uses them. One updates row that turns into Update and restart (decision 091). Key caps on the shortcuts page (decision 092). Segments: Tab row and Colour fade picked in place (decision 093) | done; layout tested, the look needs a Windows run |
 | Mandatory releases: the Release workflow's checkbox; installed by itself at the next start, with an alert, 3 tries at most (decision 041) | rules tested; the workflow's first mandatory run confirms it |

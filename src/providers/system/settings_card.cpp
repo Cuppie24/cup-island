@@ -110,7 +110,10 @@ Slot listPage(const SettingsView& v)
     if (!tokens().themes.empty()) appearance.push_back(marked(settingRow("Theme", v.theme, P::kOpenThemes), "theme", v));
     if (v.coverColours) appearance.push_back(marked(settingRow("Music colours", *v.coverColours ? "On" : "Off", P::kOpenMusicColours), "musiccolours", v));
     if (!v.displays.empty()) appearance.push_back(marked(settingRow("Display", v.displays[v.display], P::kOpenDisplays), "display", v));
-    appearance.push_back(marked(settingRow("Tab row", v.tabsOnTop ? "Top" : "Bottom", P::kOpenTabRow), "tabrow", v));
+    // Picked in place (decision 093): two options don't need a page.
+    appearance.push_back(marked(groupItem(itemText("Tab row", "Home and pin buttons"),
+                                          { Segments{ .options = { "Top", "Bottom" }, .picked = v.tabsOnTop ? 0u : 1u, .actionId = P::kPickTabRow } }),
+                                "tabrow", v));
     appearance.push_back(marked(actionRow("Centre island", Glyph::Centre, P::kCentreIsland), "centre", v));
     group("Appearance", std::move(appearance));
 
@@ -152,35 +155,22 @@ Slot themesPage(const SettingsView& v)
     return card;
 }
 
-// Where the tab row goes (decision 048). Picking one moves it at once: the
-// card behind the page is the preview, so the page stays.
-Slot tabRowPage(const SettingsView& v)
-{
-    Slot card{ pageTitle("Tab row") };
-    addGroup(card, "", { marked(choiceRow("Top", v.tabsOnTop, std::string(P::kPickTabRow) + "0"), "tabrow.top", v),
-                         marked(choiceRow("Bottom", !v.tabsOnTop, std::string(P::kPickTabRow) + "1"), "tabrow.bottom", v) },
-             P::kTabRowList);
-    if (card.size() > 1) card[1].section = false;
-    return card;
-}
-
 // The island in the music's colours (decisions 052, 053): on or off, and how
-// fast colours fade from one cover (or theme) to the next. Picks apply at once.
+// fast colours fade from one cover (or theme) to the next, picked in place
+// (decision 093). Picks apply at once.
 Slot musicColoursPage(const SettingsView& v)
 {
     Slot card{ pageTitle("Music colours") };
-    if (v.coverColours)
-        addGroup(card, "", { marked(toggleRow("Colours from music", *v.coverColours, P::kToggleCoverColours), "covercolours", v) },
-                 P::kMusicColoursList);
+    std::vector<Row> rows;
+    if (v.coverColours) rows.push_back(marked(toggleRow("Colours from music", *v.coverColours, P::kToggleCoverColours), "covercolours", v));
     if (v.fadeSpeed) {
-        std::vector<Row> speeds;
-        int i = 0;
-        for (FadeSpeed speed : { FadeSpeed::Fast, FadeSpeed::Medium, FadeSpeed::Slow })
-            speeds.push_back(choiceRow(fadeName(speed), speed == *v.fadeSpeed, P::kPickFade + std::to_string(i++)));
-        std::size_t label = card.size();
-        addGroup(card, "Colour fade", std::move(speeds), P::kMusicColoursList);
-        card[label] = marked(card[label], "fade", v); // its label carries the "New" (decision 053)
+        std::size_t picked = *v.fadeSpeed == FadeSpeed::Fast ? 0 : *v.fadeSpeed == FadeSpeed::Slow ? 2 : 1;
+        rows.push_back(marked(groupItem(itemText("Colour fade", "From one cover to the next"),
+                                        { Segments{ .options = { fadeName(FadeSpeed::Fast), fadeName(FadeSpeed::Medium), fadeName(FadeSpeed::Slow) },
+                                                    .picked = picked, .actionId = P::kPickFade } }),
+                              "fade", v));
     }
+    addGroup(card, "", std::move(rows), P::kMusicColoursList);
     if (card.size() > 1) card[1].section = false; // right under the title
     return card;
 }
@@ -275,7 +265,6 @@ Panel settingsPanel(const SettingsView& view)
         .backAction = view.page == SettingsPage::List ? "" : P::kBack, // Esc on a page: back to the list (decision 033)
         .expandedCenter = view.page == SettingsPage::Themes      ? themesPage(view)
                           : view.page == SettingsPage::Displays  ? displaysPage(view)
-                          : view.page == SettingsPage::TabRow    ? tabRowPage(view)
                           : view.page == SettingsPage::MusicColours ? musicColoursPage(view)
                           : view.page == SettingsPage::Shortcuts ? shortcutsPage(view)
                                                                  : listPage(view),

@@ -52,7 +52,7 @@ void runKeyboardTests()
     auto above = moveFocus(list, f->id, Arrow::Up);
     expect(above && above->id.rfind("tab:", 0) == 0, "keys: up from the first row: the tabs, on top (decision 047)");
     f = moveFocus(list, f->id, Arrow::Down);
-    expect(clicks(list, f) == P::kOpenTabRow, "keys: down, the next row (Tab row, decision 048)");
+    expect(clicks(list, f) == std::string(P::kPickTabRow) + "1", "keys: down, the next row: Tab row's options, Enter picks the next (decisions 048, 093)");
     f = moveFocus(list, f->id, Arrow::Down);
     expect(clicks(list, f) == P::kCentreIsland, "keys: down, the next row (Appearance's last)");
     f = moveFocus(list, f->id, Arrow::Down);

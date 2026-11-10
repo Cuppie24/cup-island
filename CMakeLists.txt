@@ -45,6 +45,7 @@ add_library(cup_core STATIC
     src/core/menu.cpp
     src/core/groups.cpp
     src/core/keycaps.cpp
+    src/core/segments.cpp
     src/core/lift.cpp
     src/core/lists.cpp
     src/core/motion.cpp

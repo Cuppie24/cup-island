@@ -21,8 +21,7 @@ namespace settings_action {
 inline constexpr const char* kOpenThemes = "theme.open";
 inline constexpr const char* kOpenDisplays = "display.open";
 inline constexpr const char* kOpenShortcuts = "shortcuts.open";
-inline constexpr const char* kOpenTabRow = "tabrow.open";
-inline constexpr const char* kPickTabRow = "tabrow.pick:";     // + 0 (top) or 1 (bottom)
+inline constexpr const char* kPickTabRow = "tabrow.pick:";     // + 0 (top) or 1 (bottom): its row's Segments (decision 093)
 inline constexpr const char* kBack = "settings.back";
 inline constexpr const char* kPickTheme = "theme.pick:";       // + its index in tokens().themes
 inline constexpr const char* kPickDisplay = "display.pick:";   // + its index in SettingsView::displays
@@ -30,7 +29,7 @@ inline constexpr const char* kEditShortcut = "shortcut.edit:"; // + its index in
 inline constexpr const char* kToggleAutostart = "autostart.toggle";
 inline constexpr const char* kToggleCoverColours = "covercolours.toggle"; // decision 052
 inline constexpr const char* kOpenMusicColours = "musiccolours.open";      // decision 053
-inline constexpr const char* kPickFade = "fade.pick:";                     // + 0 fast, 1 medium, 2 slow
+inline constexpr const char* kPickFade = "fade.pick:";                     // + 0 fast, 1 medium, 2 slow: its row's Segments
 inline constexpr const char* kCopyLogs = "logs.copy";
 inline constexpr const char* kCentreIsland = "island.centre";
 inline constexpr const char* kCheckUpdates = "updates.check";
@@ -39,7 +38,6 @@ inline constexpr const char* kInstallUpdate = "updates.install"; // the offer: i
 inline constexpr const char* kThemeList = "themes";
 inline constexpr const char* kDisplayList = "displays";
 inline constexpr const char* kShortcutList = "shortcuts"; // the keys: more than fit on the card
-inline constexpr const char* kTabRowList = "tabrow";
 inline constexpr const char* kMusicColoursList = "musiccolours";
 inline constexpr const char* kSettingsList = "settings";  // the root page: may be more than fit (decision 037)
 } // namespace settings_action
@@ -57,7 +55,7 @@ struct UpdateNote {
 };
 
 // Which page the card shows: the list of settings, or one setting's choices.
-enum class SettingsPage { List, Themes, Displays, Shortcuts, TabRow, MusicColours };
+enum class SettingsPage { List, Themes, Displays, Shortcuts, MusicColours };
 
 // A setting added after people already had the app (decision 048): shown
 // with a "New" tag until it's been seen, and a dot on its parent's row while
@@ -69,7 +67,7 @@ struct SettingItem {
 
 // Every announced setting, oldest first: add a line when adding a setting.
 // Rows' ids: "theme", "musiccolours" (and "covercolours", "fade" on its page), "display",
-// "tabrow" (and "tabrow.top", "tabrow.bottom" on its page), "centre", "autostart",
+// "tabrow", "centre", "autostart",
 // "shortcuts", "logs", "updates".
 std::vector<SettingItem> announcedSettings();
 
