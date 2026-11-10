@@ -83,6 +83,29 @@ void runGroupTests()
     auto hit = hitTest(scene, { first->frame.x + first->frame.width / 2, first->frame.y + 2 });
     expect(hit && hit->action.actionId == "auto" && first->hitFrame.width == 0, "groups: a background is never clicked: its row's control is");
 
+    // Scrolled, a background keeps its exact size: only a real size change
+    // rebuilds an element, and a rebuilt one fades in, so a size that moved by
+    // a float's rounding made every piece flicker as the list scrolled (decision 071).
+    {
+        std::vector<Row> many;
+        for (int i = 0; i < 12; ++i) many.push_back(groupItem(itemText("Row " + std::to_string(i), "under it"), { Button{ Glyph::ChevronRight, "go" } }));
+        Slot scrolling;
+        addGroup(scrolling, "Long", std::move(many), "long");
+        Content longCard{ .card = CardLayout::List, .expandedCenter = scrolling };
+        IslandState st = expandedWith(longCard);
+        std::vector<float> was;
+        for (const Placed& e : layout(st, Ms{ 0 }).elements)
+            if (std::holds_alternative<GroupFill>(e.item)) was.push_back(e.frame.height);
+        bool same = !was.empty();
+        for (float offset : { 0.37f, 13.1f, 57.93f }) {
+            st = reduce(st, ListScrolled{ "demo.groups", "long", 0, offset, 10000 }, Ms{ 0 });
+            std::size_t i = 0;
+            for (const Placed& e : layout(st, Ms{ 0 }).elements)
+                if (std::holds_alternative<GroupFill>(e.item)) same = same && i < was.size() && e.frame.height == was[i++];
+        }
+        expect(same, "groups: scrolled, every background keeps its exact size: nothing rebuilt, nothing flickers");
+    }
+
     // Keys (decision 092): a combination's keys in caps, the words between them plain.
     using KP = std::vector<KeyPart>;
     expect(keyParts("Ctrl+Shift+Tab") == KP{ { "Ctrl" }, { "Shift" }, { "Tab" } } &&
