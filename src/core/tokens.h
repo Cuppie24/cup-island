@@ -99,7 +99,7 @@ struct Tokens {
     float floatTitleBarHeight = 34; // a strip along its top holding the ✕, like a window's title bar; it drags the card too
     float floatCornerRadius = 8;    // a window's corners, as Windows 11 rounds them: not the island's
     float floatResizeBorder = 6;    // a resizable card's edges: this wide a band inside them resizes it
-    float expandedArtSize = 68; // expanded leading square: as tall as title + artist + caption beside it
+    float expandedArtSize = 88; // expanded leading square: the cover, bigger than the text beside it (decision 094)
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;
     float itemSpacing = 8;
@@ -124,6 +124,8 @@ struct Tokens {
     float buttonSize = 36;
     float primaryButtonSize = 56;  // Button::primary: the card's main action, a filled circle (decision 064)
     float primaryGlyphSize = 22;
+    float compactPrimaryButtonSize = 48; // a compact primary: the main action in a row of controls (media's ▶, decision 094)
+    float compactPrimaryGlyphSize = 20;
     float playGlyphNudge = 0.08f;  // a primary ▶ moved right by this share of its width: a triangle's optical centre (decision 071)
     Vec2 toastPadding{ 14, 6 };    // a toast: room around its text and button inside its pill (decision 071)
     // A row's menu (decision 086): drawn in islandColor, its lit item in buttonHoverColor, its lines in trackColor.
@@ -207,6 +209,9 @@ struct Tokens {
     // The island's shadow, under the pill and the bubble (decision 018); colour in shadowColor.
     float shadowBlur = 16;
     Vec2 shadowOffset{ 0, 4 };    // down: the island hangs from the top edge
+    // Under the expanded card's cover (decision 094), colour in artShadowColor: it sits on the card, not in it.
+    float artShadowBlur = 12;
+    Vec2 artShadowOffset{ 0, 3 };
 
     // Glass (decision 089): the blurred desktop behind the island, at one
     // brightness (glassLuminosityColor) like Windows' own acrylic, the island's
@@ -391,6 +396,7 @@ struct Tokens {
     Color badgeColor{ 255, 69, 58 };               // a notification dot (decision 038): the red every OS uses for "new"
     Color imagePlaceholderColor{ 255, 255, 255, 31 }; // art that hasn't arrived
     Color shadowColor{ 0, 0, 0, 115 };             // under the island in every mode; its alpha is the shadow's strength
+    Color artShadowColor{ 0, 0, 0, 102 };          // under the expanded card's cover (decision 094)
     Color glassShadowColor{ 0, 0, 0, 51 };         // ...as glass (decision 089): fainter, since it also shows through the island
     Color glassRimColor{ 255, 255, 255, 46 };      // glass's rim (decision 089), at its brightest along the bottom
     // Glass's brightness (decision 089): the blur takes this colour's

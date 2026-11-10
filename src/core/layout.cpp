@@ -68,6 +68,15 @@ float centredCardHeight(const Source& source, Vec2 size, float most, const Measu
     return std::clamp(needed, least, std::max(least, most));
 }
 
+float standardCardHeight(const Source& source, Vec2 size, float most, const MeasureText& measure)
+{
+    const Tokens& t = tokens();
+    const Slot& under = source.content->expandedBottom;
+    float p = t.expandedPadding, top = p + t.expandedArtSize + t.slotGap; // as slotFrames puts the bottom slot
+    float bottom = under.empty() ? 0 : slotHeight(under, { p, top, std::max(0.0f, size.x - 2 * p), size.y }, source, measure);
+    return std::clamp(top + bottom + p, t.expandedSize.y, std::max(t.expandedSize.y, most));
+}
+
 namespace {
 
 // The padding a mode keeps on every side of its content.
@@ -110,7 +119,7 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
         float art = t.expandedArtSize, y = p, centerX = p + art + t.slotGap, bottomY = y + art + t.slotGap;
         float corner = t.buttonSize, cornerX = size.x - p - corner;
         float centerRight = c.expandedTrailing.empty() ? size.x - p : cornerX - t.slotGap;
-        return { { "expandedLeading", &c.expandedLeading, { p, y, art, art } },
+        return { { "expandedLeading", &c.expandedLeading, { p, y, art, art }, false, true },
                  { "expandedCenter", &c.expandedCenter, { centerX, y, centerRight - centerX, art } },
                  { "expandedTrailing", &c.expandedTrailing, { cornerX, y, corner, corner } },
                  { "expandedBottom", &c.expandedBottom, { p, bottomY, size.x - 2 * p, size.y - bottomY - p } } };
@@ -174,6 +183,8 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
         scene.size.x = std::min(tokens().wideCardWidth, tokens().canvas.x); // the timer: wider (decision 085)
     if (scene.mode == Mode::Expanded && source.content && stacked(*source.content)) {
         scene.size.y = centredCardHeight(source, scene.size, tokens().canvas.y - tabSpace, measureText);
+    } else if (scene.mode == Mode::Expanded && source.content) {
+        scene.size.y = standardCardHeight(source, scene.size, tokens().canvas.y - tabSpace, measureText);
     }
     if (scene.mode == Mode::Expanded && state.homeOpen) scene.size.y = homeCardHeight(state, tokens().canvas.y - tabSpace);
     scene.size.y += tabSpace;

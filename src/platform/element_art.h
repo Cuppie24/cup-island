@@ -20,6 +20,13 @@ struct ArtParts {
 ArtParts createActionArt(wuc::Compositor const& c, Vec2 frame, float cornerRadius,
                          wuc::CompositionDrawingSurface const& art, wuc::CompositionDrawingSurface const& glyph);
 
+// Raised art (Placed::raised, decision 094): a soft shadow under it, cast by
+// a brushless sprite at the bottom of `container`, masked to `shape` (the
+// art's rounded rect, drawn opaque) so it follows the corners, not the square.
+// Blur, offset and colour from tokens; a recolour fades the colour (fadeColor).
+wuc::DropShadow addArtShadow(wuc::Compositor const& c, wuc::ContainerVisual const& container, Vec2 frame,
+                             wuc::CompositionDrawingSurface const& shape);
+
 // Hover in: the overlay fades in and the glyph springs up (with the press
 // release's overshoot). Hover out: both settle back.
 void showArtOverlay(wuc::Compositor const& c, const ArtParts& parts, bool on);

@@ -15,8 +15,9 @@ float measureText(IDWriteFactory* dw, const Text& text);
 // Swimming text: the string twice, `gap` apart, starting at x = `lead`, so
 // scrolling one copy's width plus the gap loops seamlessly.
 void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, float width, float lead, float gap, float height);
-// The "this toggle is on" dot under a glyph of `glyphSize` centred in `size`.
-void paintToggleDot(ID2D1DeviceContext* dc, Vec2 size, float glyphSize);
+// A toggle that's on (shuffle, repeat): a soft circle behind its glyph, in
+// tabSelectedColor, a picked thing's fill in every theme and cover (decision 094).
+void paintToggleFill(ID2D1DeviceContext* dc, Vec2 size);
 // `precise`: exactly centred on its ink, unsnapped, a ▶ optically nudged (a primary button's glyph, decision 071).
 void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float fontSize, Vec2 size, const Color& color,
                 bool precise = false);
