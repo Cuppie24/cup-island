@@ -22,10 +22,10 @@ using Ms = std::chrono::milliseconds;
 // Built-in icons; the renderer maps them to font glyphs.
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
                    Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre,
-                   Minus, Plus, Pin, Pinned, Fire, Chart, ChevronDown, Search, File, Folder, Close };
+                   Minus, Plus, Pin, Pinned, Fire, Chart, ChevronDown, Search, File, Folder, Close, Refresh };
 
-// Display: a big number, the card's centre (a timer). Heading: a group's name over its rows (Settings'
-// "Dark" and "Light"): small, but heavy and full-strength, so it reads as a divider (decision 037).
+// Display: a big number, the card's centre (a timer). Heading: a group's label over its rows (Settings'
+// "General", "Dark"): small and quiet, since the group's background already sets it apart (decision 090).
 // Result and ResultDetail: a search result's name and the line under it (decision 079).
 enum class TextStyle { Title, Body, Caption, Digits, Display, Heading, Result, ResultDetail };
 
@@ -89,6 +89,9 @@ struct Text {
     // (decision 079). Too long, it loses its start, not its end
     // ("…\\projects\\cwatis\\Debug"): for a path, the end tells two apart.
     std::string detail;
+    // ...and too long, the detail ends in "…" instead: a description
+    // ("Version 0.6.14"), where the start says the most (decision 090).
+    bool detailTrimsEnd = false;
     // Parts drawn brighter and bolder: (byte offset, byte length) into
     // `value`, what a search matched (decision 079).
     std::vector<std::pair<std::size_t, std::size_t>> bright;
@@ -242,7 +245,37 @@ struct Dial {
     bool operator==(const Dial&) const = default;
 };
 
-using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch, Tag, Switch, Divider, Dial>;
+// A key combination drawn as key caps (decision 092): "Ctrl+Shift+Tab" as
+// three caps, words between them ("or", "to", "Double") as plain text.
+// As wide as its caps (core/keycaps.h splits it); keyCapHeight tall.
+struct Keys {
+    std::string text;
+    bool operator==(const Keys&) const = default;
+};
+
+// One of a few options, picked in place (decision 093): a pill-shaped track
+// with the options side by side, the picked one on a filled pill. Each
+// option is as wide as the widest. A click on option i sends
+// `actionId` + i ("tabrow.pick:1"); the provider moves `picked` and republishes.
+struct Segments {
+    std::vector<std::string> options;
+    std::size_t picked = 0;
+    std::string actionId; // a prefix: the option's index is appended
+    bool enabled = true;
+    bool operator==(const Segments&) const = default;
+};
+
+// The host's, never a provider's: a group's background behind one of its
+// rows (Row::grouped, decision 090), tileColor. Rounded only at the
+// group's ends, so its rows' pieces join into one shape.
+struct GroupFill {
+    bool roundTop = true;
+    bool roundBottom = true;
+    bool operator==(const GroupFill&) const = default;
+};
+
+using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch, Tag, Switch, Divider, Dial,
+                          GroupFill, Keys, Segments>;
 
 enum class Align { Start, Center, End };
 
@@ -362,6 +395,12 @@ struct Row {
     // middle while the rows around it (a page's title, its back arrow at the
     // card's edge) keep the card's width (Pomodoro's statistics, decision 070).
     bool narrow = false;
+    // One of a group's rows (decision 090): rows back to back with this sit
+    // on one background (tileColor, groupRadius), like Windows' own Settings,
+    // each groupItemPadding above and below, its content inset like a list
+    // item's. A row set apart (section, apart) starts a new group.
+    // core/groups.h builds them.
+    bool grouped = false;
     // Its context menu (decision 086): every row may have its own. The host
     // ends the row in a › that opens it, beside the row.
     std::vector<MenuItem> menu;

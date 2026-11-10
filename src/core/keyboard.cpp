@@ -1,6 +1,7 @@
 #include "core/keyboard.h"
 
 #include "core/dialog.h"
+#include "core/segments.h"
 #include "core/tokens.h"
 
 #include <algorithm>
@@ -18,6 +19,7 @@ bool clickable(const Item& item)
 {
     if (auto* button = std::get_if<Button>(&item)) return button->enabled;
     if (auto* toggle = std::get_if<Switch>(&item)) return toggle->enabled;
+    if (auto* segments = std::get_if<Segments>(&item)) return segments->enabled && segments->options.size() > 1;
     if (auto* image = std::get_if<Image>(&item)) return !image->actionId.empty();
     return std::holds_alternative<TextInput>(item);
 }
@@ -48,6 +50,9 @@ std::vector<Focusable> focusables(const Scene& scene)
         // keys' highlight is as big as the pointer's (decision 079).
         if (p.list) frame = p.wholeRow ? *p.wholeRow : p.frame.height > 0 ? Rect{ frame.x, p.frame.y, frame.width, p.frame.height } : frame;
         Vec2 point = empty(p.hitFrame) ? centre(p.frame) : centre(p.hitFrame);
+        // Segments (decision 093): Enter and Space move to the next option, round to the first.
+        if (auto* segments = std::get_if<Segments>(&p.item))
+            point = centre(segmentFrame(*segments, p.frame, (segments->picked + 1) % segments->options.size()));
         float radius = p.listRow ? p.listRowRadius : p.cornerRadius;
         found.push_back({ "el:" + p.key, frame, point, p.list, p.activityId, radius });
     }

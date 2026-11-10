@@ -23,6 +23,15 @@ void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float f
 // A text button's label, centred.
 void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& label, Vec2 size, const Color& color,
                 TextStyle style = TextStyle::Body);
+// A group's piece of background behind its row (decision 090): tileColor,
+// `radius` round at the ends the group ends at, square where it goes on.
+void paintGroupFill(ID2D1DeviceContext* dc, const GroupFill& fill, Vec2 size, float radius);
+// Segments' labels (decision 093), every one in `color`, each centred in its
+// option. Drawn twice: on the track, and in the island's colour inside the pill.
+// The track and the pill are shapes (segments_parts.h).
+void paintSegmentLabels(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Segments& segments, Vec2 size, const Color& color);
+// Keys (decision 092): each key in a cap (tileColor, edged in trackColor), the words between them plain.
+void paintKeys(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Keys& keys, Vec2 size);
 // A Divider: its line, in the track colour (decision 064).
 void paintDivider(ID2D1DeviceContext* dc, Vec2 size);
 // A Dial's middle (decision 065): its time big, its label under it, the two centred as a block. Its ring is shapes.

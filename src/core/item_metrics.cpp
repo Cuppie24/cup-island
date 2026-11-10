@@ -1,5 +1,7 @@
 #include "core/item_metrics.h"
 
+#include "core/keycaps.h"
+#include "core/segments.h"
 #include "core/slot_layout.h"
 #include "core/tokens.h"
 
@@ -32,6 +34,14 @@ std::string widestDigits(std::string s, TextStyle style, const MeasureText& meas
 float lineHeight(TextStyle style) { return std::ceil(fontSize(style) * 1.3f); }
 
 TextStyle detailStyleOf(TextStyle style) { return style == TextStyle::Result ? TextStyle::ResultDetail : TextStyle::Caption; }
+
+float textWidth(const Text& text, const MeasureText& measure)
+{
+    auto widthOf = [&](const Text& t) { return measure ? measure(t) : estimateTextWidth(t); };
+    float w = widthOf(text);
+    if (!text.detail.empty()) w = std::max(w, widthOf(Text{ .value = text.detail, .style = detailStyleOf(text.style) }));
+    return w;
+}
 
 bool isRing(const Item& item)
 {
@@ -67,6 +77,8 @@ float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& m
     if (auto* button = std::get_if<Button>(&item)) return button->primary ? t.primaryButtonSize : button->compact ? t.smallButtonSize : t.buttonSize;
     if (auto* input = std::get_if<TextInput>(&item)) return input->large ? t.searchInputHeight : t.inputHeight;
     if (std::holds_alternative<Divider>(item)) return t.dividerThickness;
+    if (std::holds_alternative<Keys>(item)) return t.keyCapHeight;
+    if (std::holds_alternative<Segments>(item)) return t.segmentHeight;
     // Seekable bars get a taller row to be easy to click; a bar nobody clicks is just its line.
     if (auto* bar = std::get_if<Progress>(&item)) return bar->seekable ? t.progressHitHeight : t.progressHeight;
     if (auto* label = std::get_if<TimeLabel>(&item)) return lineHeight(label->style);
@@ -87,6 +99,8 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
     }
     if (std::holds_alternative<Swatch>(item)) return t.swatchSize;
     if (std::holds_alternative<Switch>(item)) return t.switchSize.x;
+    if (auto* keys = std::get_if<Keys>(&item)) return keysWidth(*keys, measure);
+    if (auto* segments = std::get_if<Segments>(&item)) return segmentsWidth(*segments, measure);
     if (auto* tag = std::get_if<Tag>(&item)) {
         Text text{ tag->text, TextStyle::Caption };
         return (measure ? measure(text) : estimateTextWidth(text)) + 2 * t.tagPadding;

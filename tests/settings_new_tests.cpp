@@ -4,7 +4,10 @@
 
 #include "expect.h"
 #include "panel_host.h"
+#include "core/hit_test.h"
+#include "core/keyboard.h"
 #include "core/layout.h"
+#include "core/segments.h"
 #include "core/tokens.h"
 #include "providers/system/settings_provider.h"
 
@@ -33,7 +36,7 @@ bool dotted(const Row* r)
 
 void tabRowTests()
 {
-    // The setting: under Appearance, a page of Top and Bottom; picking moves the row at once.
+    // The setting: under Appearance, Top and Bottom picked in place (decision 093); picking moves the row at once.
     PanelHost h;
     h.store[SettingsProvider::kTabRowKey] = "bottom";
     h.store[SettingsProvider::kSeenKey] = "seen1\ntabrow\n"; // seen already: no tag between its name and value
@@ -41,13 +44,35 @@ void tabRowTests()
     SettingsProvider s({ .placeTabRow = [&](bool top) { placed.push_back(top); } });
     s.start(h);
     expect(placed == std::vector<bool>{ false }, "tab row: the saved place is applied at start");
-    expect(valueOf(h.published.back(), "Tab row") == "Bottom", "tab row: a row that says where it is");
-    s.onAction({ "system.settings", SettingsProvider::kPanelId, P::kOpenTabRow, 0 });
-    const Panel& page = h.published.back();
-    expect(cardText(page, 1) == "Top" && cardText(page, 2) == "Bottom", "tab row: its page, Top and Bottom");
-    s.onAction({ "system.settings", SettingsProvider::kPanelId, std::string(P::kPickTabRow) + "0", 0 });
-    expect(placed.back() && h.store[SettingsProvider::kTabRowKey] == "top" && cardText(h.published.back(), 1) == "Top",
-           "tab row: picked Top, applied and kept; the page stays");
+    auto segments = [&] { return std::get<Segments>(rowNamed(h.published.back(), "Tab row")->items.back()); };
+    expect(segments().options == std::vector<std::string>{ "Top", "Bottom" } && segments().picked == 1 &&
+           !rowNamed(h.published.back(), "Tab row")->clickAnywhere,
+           "tab row: a row with Top and Bottom side by side, Bottom picked; the row itself isn't one button");
+    s.onAction({ "system.settings", SettingsProvider::kPanelId, segmentAction(segments(), 0), 0 });
+    expect(placed.back() && h.store[SettingsProvider::kTabRowKey] == "top" && segments().picked == 0 &&
+           h.published.back().content.expandedCenter[0].leading.empty(),
+           "tab row: picked Top, applied and kept, on the list itself: no page");
+
+    // Laid out: the options side by side; a click on one picks it, Enter on the control the next one.
+    {
+        Panel panel = h.published.back();
+        panel.providerId = "system.settings";
+        IslandState st;
+        st = reduce(st, PanelPublished{ panel }, Ms{ 0 });
+        st = reduce(st, HomeOpened{}, Ms{ 0 });
+        st = reduce(st, TileClicked{ kSettingsPanelId }, Ms{ 0 });
+        Scene scene = layout(st, Ms{ 0 });
+        const Placed* control = nullptr;
+        for (const Placed& e : scene.elements)
+            if (std::holds_alternative<Segments>(e.item)) control = &e;
+        Rect bottom = control ? segmentFrame(segments(), control->frame, 1) : Rect{};
+        auto hit = control ? hitTest(scene, { bottom.x + bottom.width / 2, bottom.y + bottom.height / 2 }) : std::nullopt;
+        expect(control && control->frame.height == tokens().segmentHeight && hit && hit->action.actionId == std::string(P::kPickTabRow) + "1",
+               "segments: a click on Bottom sends its pick");
+        auto f = control ? findFocusable(scene, "el:" + control->key) : std::nullopt;
+        auto pressed = f ? hitTest(scene, f->point) : std::nullopt;
+        expect(pressed && pressed->action.actionId == std::string(P::kPickTabRow) + "1", "segments: Enter on Top picks the next one, Bottom");
+    }
 
     // The core side: the strip along the bottom, the content where it is without one.
     IslandState top, bottom;
@@ -99,25 +124,25 @@ void newTagTests()
 
     // A new subitem: a dot on its parent's row, the tag on the item itself.
     PanelHost sub;
-    sub.store[SettingsProvider::kSeenKey] = "seen1\ntabrow\n";
-    std::vector<SettingItem> announced{ { "tabrow", "" }, { "tabrow.bottom", "tabrow" } };
-    SettingsProvider n({ .announced = announced });
+    sub.store[SettingsProvider::kSeenKey] = "seen1\nmusiccolours\n";
+    std::vector<SettingItem> announced{ { "musiccolours", "" }, { "covercolours", "musiccolours" } };
+    SettingsProvider n({ .setCoverColours = [](bool) {}, .announced = announced });
     n.start(sub);
     auto list = [&] { return sub.published.back(); };
-    expect(dotted(rowNamed(list(), "Tab row")) && !tagged(rowNamed(list(), "Tab row")), "new subitem: a dot on its parent, no tag there");
+    expect(dotted(rowNamed(list(), "Music colours")) && !tagged(rowNamed(list(), "Music colours")), "new subitem: a dot on its parent, no tag there");
     n.onCardShown(SettingsProvider::kPanelId);
     n.onCardClosed(SettingsProvider::kPanelId);
-    expect(dotted(rowNamed(list(), "Tab row")), "new subitem: its page not opened, re-entering keeps the dot");
+    expect(dotted(rowNamed(list(), "Music colours")), "new subitem: its page not opened, re-entering keeps the dot");
     n.onCardShown(SettingsProvider::kPanelId);
-    n.onAction({ "system.settings", SettingsProvider::kPanelId, P::kOpenTabRow, 0 });
-    expect(tagged(rowNamed(list(), "Bottom")) && !tagged(rowNamed(list(), "Top")), "new subitem: on its page, tagged New");
+    n.onAction({ "system.settings", SettingsProvider::kPanelId, P::kOpenMusicColours, 0 });
+    expect(tagged(rowNamed(list(), "Colours from music")), "new subitem: on its page, tagged New");
     n.onCardClosed(SettingsProvider::kPanelId);
-    expect(!dotted(rowNamed(list(), "Tab row")), "new subitem: seen, the parent's dot is gone");
-    n.onAction({ "system.settings", SettingsProvider::kPanelId, P::kOpenTabRow, 0 });
-    expect(!tagged(rowNamed(list(), "Bottom")), "new subitem: and so is its tag");
+    expect(!dotted(rowNamed(list(), "Music colours")), "new subitem: seen, the parent's dot is gone");
+    n.onAction({ "system.settings", SettingsProvider::kPanelId, P::kOpenMusicColours, 0 });
+    expect(!tagged(rowNamed(list(), "Colours from music")), "new subitem: and so is its tag");
 
     // Laid out: the tag sits right after the name, not pushed to the row's end.
-    Panel tagPanel = settingsPanel({ .page = SettingsPage::TabRow, .announced = announced, .unseen = { "tabrow.bottom" } });
+    Panel tagPanel = settingsPanel({ .page = SettingsPage::MusicColours, .coverColours = false, .announced = announced, .unseen = { "covercolours" } });
     tagPanel.providerId = "system.settings";
     IslandState st;
     st = reduce(st, PanelPublished{ tagPanel }, Ms{ 0 });
@@ -127,14 +152,15 @@ void newTagTests()
     const Placed* name = nullptr;
     const Placed* tag = nullptr;
     for (const Placed& p : scene.elements) {
-        if (auto* x = std::get_if<Text>(&p.item); x && x->value == "Bottom") name = &p;
+        if (auto* x = std::get_if<Text>(&p.item); x && x->value == "Colours from music") name = &p;
         if (std::holds_alternative<Tag>(p.item)) tag = &p;
     }
     expect(name && tag && std::abs(tag->frame.x - (name->frame.x + name->frame.width + tokens().itemSpacing)) < 0.01f &&
            tag->frame.height == tokens().tagHeight, "new: the tag right after the name");
 }
 
-// A tagged setting's value and chevron stay at the row's end, where an untagged one's are.
+// A tagged setting's name and description (under it, decision 090) stay where an
+// untagged one's are, and its control at the row's end.
 void tagKeepsTheEnd()
 {
     std::vector<Placed> rowOf[2];
@@ -155,15 +181,14 @@ void tagKeepsTheEnd()
         for (const Placed& e : row) if (pick(e)) return &e;
         return nullptr;
     };
-    auto value = [](const Placed& e) { auto* x = std::get_if<Text>(&e.item); return x && x->value == "Top"; };
-    auto chevron = [](const Placed& e) { return std::holds_alternative<Button>(e.item); };
+    auto value = [](const Placed& e) { auto* x = std::get_if<Text>(&e.item); return x && x->value == "Tab row"; };
+    auto chevron = [](const Placed& e) { return std::holds_alternative<Segments>(e.item); };
     const Placed* plainValue = find(rowOf[0], value);
     const Placed* taggedValue = find(rowOf[1], value);
     const Placed* plainChevron = find(rowOf[0], chevron);
     const Placed* taggedChevron = find(rowOf[1], chevron);
-    expect(plainValue && taggedValue && taggedValue->frame.width > 0 &&
-           taggedValue->frame.x + taggedValue->frame.width == plainValue->frame.x + plainValue->frame.width,
-           "new: the tagged row's value still ends at the row's end");
+    expect(plainValue && taggedValue && taggedValue->frame.width > 0 && taggedValue->frame.x == plainValue->frame.x,
+           "new: the tagged row's name and value start where an untagged one's do");
     expect(plainChevron && taggedChevron && taggedChevron->frame.x == plainChevron->frame.x, "new: and its chevron stays at the edge");
 }
 
@@ -175,7 +200,7 @@ void coverColoursTests()
         auto* toggle = r && r->clickAnywhere && r->items.size() > 1 ? std::get_if<Switch>(&r->items.back()) : nullptr;
         return toggle && toggle->on;
     };
-    auto value = [](const Row* r) { return r && r->items.size() > 1 ? std::get<Text>(r->items[1]).value : std::string(); };
+    auto value = [](const Row* r) { return r ? std::get<Text>(r->items[0]).detail : std::string(); }; // under its name (decision 090)
     PanelHost h;
     std::vector<bool> applied;
     std::vector<FadeSpeed> speeds;
@@ -189,10 +214,9 @@ void coverColoursTests()
     settings.onAction({ "system.settings", SettingsProvider::kPanelId, P::kOpenMusicColours, 0 });
     expect(rowNamed(h.published.back(), "Colours from music") && !switchedOn(rowNamed(h.published.back(), "Colours from music")),
            "music colours: its page, the switch off");
-    const Row* medium = rowNamed(h.published.back(), "Medium");
-    expect(medium && std::get<Button>(medium->items.back()).glyph == Glyph::Checked && rowNamed(h.published.back(), "Fast") &&
-               rowNamed(h.published.back(), "Slow") && rowNamed(h.published.back(), "Colour fade"),
-           "music colours: the fade's three speeds, medium picked");
+    auto fade = [&] { return std::get<Segments>(rowNamed(h.published.back(), "Colour fade")->items.back()); };
+    expect(fade().options == std::vector<std::string>{ "Fast", "Medium", "Slow" } && fade().picked == 1,
+           "music colours: the fade's three speeds side by side, medium picked (decision 093)");
 
     settings.onAction({ "system.settings", SettingsProvider::kPanelId, P::kToggleCoverColours, 0 });
     expect(applied.back() == true && h.store[SettingsProvider::kCoverColoursKey] == "on" &&
@@ -200,7 +224,7 @@ void coverColoursTests()
            "music colours: a click switches it on, saved, the page stays");
     settings.onAction({ "system.settings", SettingsProvider::kPanelId, std::string(P::kPickFade) + "2", 0 });
     expect(speeds.back() == FadeSpeed::Slow && h.store[SettingsProvider::kFadeKey] == "slow" &&
-               std::get<Button>(rowNamed(h.published.back(), "Slow")->items.back()).glyph == Glyph::Checked,
+               fade().picked == 2,
            "music colours: slow picked, saved, ticked");
     settings.onAction({ "system.settings", SettingsProvider::kPanelId, P::kBack, 0 });
     expect(value(rowNamed(h.published.back(), "Music colours")) == "On", "music colours: the list says on");

@@ -55,6 +55,12 @@ Color hoverColorOf(const Placed& p)
     return tokens().buttonHoverColor;
 }
 
+// Clicked into or picked from, not pressed: no squash on press (decisions 043, 093).
+bool noSquash(const Item& item)
+{
+    return std::holds_alternative<TextInput>(item) || std::holds_alternative<Text>(item) || std::holds_alternative<Segments>(item);
+}
+
 // A list item's delete button: hidden until the pointer is on its row (decision 020).
 bool revealsOnHover(const Item& item)
 {
@@ -176,6 +182,11 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     if (auto* toggle = std::get_if<Switch>(&placed.item)) {
         view.toggle = createSwitch(compositor_, size, toggle->on);
         view.visual = view.toggle.visual;
+    } else if (auto* segments = std::get_if<Segments>(&placed.item)) {
+        // Its pill a shape that slides, its labels twice (decision 093).
+        view.surface = device_->createSurface(size);
+        view.segments = createSegments(compositor_, view.surface, device_->createSurface(size), size, *segments);
+        view.visual = view.segments.visual;
     } else if (std::holds_alternative<Dial>(placed.item)) {
         // A Dial (decision 065): the ring's shapes, with its time painted on a surface laid over them.
         RingParts parts = createRing(compositor_, size, accent);
@@ -246,7 +257,9 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     place(view);
     view.visual.Size(toFloat2(pixelSize(visualSize)));
     view.visual.CenterPoint({ visualSize.x / 2, visualSize.y / 2, 0 });
-    lists_.parentFor(placed).Children().InsertAtTop(view.visual);
+    // A group's background goes under everything, even when it's rebuilt after its row's content (decision 090).
+    if (std::holds_alternative<GroupFill>(placed.item)) lists_.parentFor(placed).Children().InsertAtBottom(view.visual);
+    else lists_.parentFor(placed).Children().InsertAtTop(view.visual);
     if (placed.list) lists_.setGliding(view.visual, !placed.list->dragged); // after its first place: it appears there
 
     if (view.grey && view.track) view.track.Color(toUiColor(greyOf(t.trackColor)));
@@ -318,6 +331,7 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     else if (recoloured) recolor(view); // redraws its pixels too (a new picture: already in its fresh surface)
     if (!changed) return false;
     if (view.toggle.knob) slideSwitch(compositor_, view.toggle, pixelSize(sizeOf(placed)), std::get<Switch>(placed.item).on);
+    if (view.segments.pill) slideSegments(compositor_, view.segments, pixelSize(sizeOf(placed)), std::get<Segments>(placed.item));
     if (view.highlight && focusedField(placed.item) != wasFocused) // focus came or went: background follows (or hover keeps it)
         fadeTo(compositor_, view.highlight, focusedField(placed.item) || placed.key == hovered_ ? 1.0f : 0.0f, tokens().hoverFadeDuration);
     if (view.surface && !newPicture) paint(view);
@@ -342,6 +356,7 @@ void ElementVisuals::recolor(View& view)
         fadeColor(view.toggle.track, switchTrackColor(on));
         fadeColor(view.toggle.knobBrush, switchKnobColor(on));
     }
+    if (view.segments.pill) recolorSegments(view.segments, std::get<Segments>(view.placed.item));
     // Text and icons are pixels in a surface: redrawn in their new colours at once.
     if (view.surface) paint(view);
 }
@@ -384,6 +399,12 @@ void ElementVisuals::paint(View& view)
             paintDial(dc, dw, *dial, size);
         } else if (std::holds_alternative<Divider>(item)) {
             paintDivider(dc, size);
+        } else if (auto* segments = std::get_if<Segments>(&item)) {
+            paintSegmentLabels(dc, dw, *segments, size, segments->enabled ? t.bodyTextColor : t.buttonDisabledColor);
+        } else if (auto* keys = std::get_if<Keys>(&item)) {
+            paintKeys(dc, dw, *keys, size);
+        } else if (auto* fill = std::get_if<GroupFill>(&item)) {
+            paintGroupFill(dc, *fill, pixelSize(size), view.placed.cornerRadius);
         } else if (auto* swatch = std::get_if<Swatch>(&item)) {
             paintSwatch(dc, *swatch, size);
         }
@@ -392,6 +413,8 @@ void ElementVisuals::paint(View& view)
         if (view.grey) paintGrey(dc, content); // a muted tab's (decision 072)
         else content(dc);
     });
+    if (auto* segments = std::get_if<Segments>(&item); drawn && segments && view.segments.picked) // the labels inside the pill
+        drawn = device_->draw(view.segments.picked, [&](ID2D1DeviceContext* dc) { paintSegmentLabels(dc, dw, *segments, size, t.islandColor); });
     if (drawn && view.glyphSurface)
         drawn = device_->draw(view.glyphSurface, [&](ID2D1DeviceContext* dc) {
             paintGlyph(dc, dw, Glyph::OpenApp, t.artHoverGlyphSize, pixelSize(size), t.artHoverGlyphColor);
@@ -495,7 +518,8 @@ void ElementVisuals::press(const std::string& key)
     if (it->second.highlight) fadeTo(compositor_, it->second.highlight, 1.0f, t.hoverFadeDuration);
     if (it->second.art.overlay && key != hovered_) showArtOverlay(compositor_, it->second.art, true); // pressed without a hover (touch)
     // A field, or text a click edits (decision 043), is clicked into, not pressed: no squash.
-    if (std::holds_alternative<TextInput>(it->second.placed.item) || std::holds_alternative<Text>(it->second.placed.item)) return;
+    // Nor Segments: its pill's slide is the answer, and a wide control shrinking as one looked wrong (decision 093).
+    if (noSquash(it->second.placed.item)) return;
     // Art is big: the pill's gentle squash, not a button's deep one.
     float scale = std::holds_alternative<Image>(it->second.placed.item) ? t.pressScale : t.buttonPressScale;
     playScale(compositor_, it->second.visual, scale, t.pressDownDuration, t.pressDownEase);
@@ -509,7 +533,7 @@ void ElementVisuals::release(const std::string& key)
     if (it->second.highlight && key != hovered_ && !focusedField(it->second.placed.item))
         fadeTo(compositor_, it->second.highlight, 0.0f, t.hoverFadeDuration);
     if (it->second.art.overlay && key != hovered_) showArtOverlay(compositor_, it->second.art, false);
-    if (std::holds_alternative<TextInput>(it->second.placed.item) || std::holds_alternative<Text>(it->second.placed.item)) return;
+    if (noSquash(it->second.placed.item)) return;
     playScale(compositor_, it->second.visual, 1.0f, t.pressReleaseDuration, t.pressReleaseEase);
 }
 
