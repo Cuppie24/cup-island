@@ -26,9 +26,10 @@ void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& l
 // A group's piece of background behind its row (decision 090): tileColor,
 // `radius` round at the ends the group ends at, square where it goes on.
 void paintGroupFill(ID2D1DeviceContext* dc, const GroupFill& fill, Vec2 size, float radius);
-// Segments (decision 093): a recessed track in islandColor, the picked option
-// on a buttonColor pill with its label in islandColor, the rest in bodyTextColor.
-void paintSegments(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Segments& segments, Vec2 size);
+// Segments' labels (decision 093), every one in `color`, each centred in its
+// option. Drawn twice: on the track, and in the island's colour inside the pill.
+// The track and the pill are shapes (segments_parts.h).
+void paintSegmentLabels(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Segments& segments, Vec2 size, const Color& color);
 // Keys (decision 092): each key in a cap (tileColor, edged in trackColor), the words between them plain.
 void paintKeys(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Keys& keys, Vec2 size);
 // A Divider: its line, in the track colour (decision 064).

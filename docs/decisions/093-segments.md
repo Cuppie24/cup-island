@@ -17,6 +17,14 @@ and a click back, and hides what's picked behind a chevron.
 - **Geometry is core's** (`core/segments.h`): the width, each option's
   frame, the option at a point. Layout, hit-testing, the keys and the
   renderer use the same functions, so a click lands on what's drawn.
+- **Motion**: the picked pill is a shape of its own that slides to the new
+  option on the switch knob's curve (`settleEase`, `morphDuration`), from
+  wherever it is, so a quick second pick turns back smoothly. The labels are
+  drawn twice: in the text colour on the track, and in `islandColor` in a
+  copy clipped to the pill (a geometric clip, Windows 10 1809+), so a label
+  turns dark exactly where the pill covers it, mid-slide too. No press
+  squash: the whole control shrinking on a click looked wrong; the slide is
+  the answer. The pill never jumps.
 - **Keys**: it is one focus stop; Enter or Space picks the next option,
   round to the first. Its focus ring is a pill like it.
 - **Look**: the track is `islandColor` (the island showing through the

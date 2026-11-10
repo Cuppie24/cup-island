@@ -213,6 +213,7 @@ if(WIN32)
         src/platform/element_parts.cpp
         src/platform/element_visuals.cpp
         src/platform/switch_parts.cpp
+        src/platform/segments_parts.cpp
         src/platform/list_viewports.cpp
         src/platform/file_watcher.cpp
         src/platform/float_flow.cpp

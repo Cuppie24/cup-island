@@ -8,6 +8,7 @@
 #include "platform/element_art.h"
 #include "platform/graphics_device.h"
 #include "platform/list_viewports.h"
+#include "platform/segments_parts.h"
 #include "platform/switch_parts.h"
 
 #include <map>
@@ -59,6 +60,7 @@ private:
         // Shape colours, kept so a recolour fades them (decision 051); null when unused.
         wuc::CompositionColorBrush track{ nullptr }, accent{ nullptr }, knobBrush{ nullptr }, hover{ nullptr };
         SwitchParts toggle; // a Switch's track and knob (decision 053)
+        SegmentsParts segments; // Segments' track, sliding pill and labels (decision 093)
         bool lit = false;   // a secondary button under the pointer: drawn at full strength (decision 064)
         bool grey = false;  // drawn muted now: an inactive tab's, its tab not hovered (decision 072)
     };
