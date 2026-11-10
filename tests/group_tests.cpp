@@ -70,6 +70,12 @@ void runGroupTests()
            "groups: the name and the control inset in the background, like a list item's");
     expect(name->listRow && name->listRow->y == second->frame.y - first->frame.height && name->listRow->height <= first->frame.height,
            "groups: a row lights within its own piece");
+    const Placed* switchRow = find(scene, "expandedCenter/1/0"); // a lit row's band is its own height, without the gap below it
+    const Placed* buttonRow = find(scene, "expandedCenter/2/0");
+    const Placed* keyRow = find(scene, "expandedCenter/5/group"); // the last row: its piece is its height
+    expect(switchRow->listRow && buttonRow->listRow && switchRow->listRow->height == buttonRow->listRow->height && keyRow &&
+           std::abs(keyRow->frame.height - (t.smallButtonSize + 2 * t.groupItemPadding)) < 0.01f,
+           "groups: a row ending in a switch, or in nothing, is as tall as one ending in a button");
     float tall = heightOf(slot[4].items[0], { 0, 0, 300, 300 }, 0) + 2 * t.groupItemPadding;
     expect(std::abs(lone->frame.height - tall) < 0.01f, "groups: a row with a description is two lines tall, plus groupItemPadding");
     auto hit = hitTest(scene, { first->frame.x + first->frame.width / 2, first->frame.y + 2 });

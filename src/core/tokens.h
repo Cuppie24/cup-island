@@ -108,7 +108,7 @@ struct Tokens {
     float bodyFontSize = 15;
     float captionFontSize = 13; // the smallest text: ~11 px on screen at 100% after islandScale
     float displayFontSize = 48; // TextStyle::Display: a timer as the card's centre
-    float headingFontSize = 12; // TextStyle::Heading: a group's label, in the caption colour, under caption size (decision 090)
+    float headingFontSize = 14; // TextStyle::Heading: a group's label, in the caption colour, a little over caption size (decision 090)
     // Font weights, 100..900 (400 regular, 600 semibold; decision 024). Segoe UI Variable
     // (Windows 11) takes any value in between; other fonts use the nearest weight they have.
     float titleFontWeight = 700;   // bold: Segoe UI Variable's heaviest

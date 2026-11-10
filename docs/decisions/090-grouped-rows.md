@@ -16,7 +16,9 @@ Settings-only look: any card with groups of rows should get it for free.
   sit on one background: `tileColor` (Home's tiles' surface, so every theme
   already has it), `groupRadius` corners. A row set apart (`section`,
   `apart`) or in another list starts a new group. Each grouped row has
-  `groupItemPadding` above and below (roomier than a list item's) and its
+  `groupItemPadding` above and below (roomier than a list item's), is at
+  least `smallButtonSize` tall whatever it ends in (a switch, or no control,
+  is shorter than a button: Start with Windows looked squashed), and its
   content inset like a list item's.
 - **Drawn as one piece per row** (`GroupFill`, a host-only item), from under
   the row's gap to the next row's top, so pieces meet with no seam, rounded
@@ -31,7 +33,7 @@ Settings-only look: any card with groups of rows should get it for free.
   any text, not at its start like a path. A text's natural width is its
   wider line, so a short name never cuts its description.
 - **Labels are quiet**: `TextStyle::Heading` is now the caption colour,
-  `headingFontSize` 12, weight 600, sitting at the group's edge. The
+  `headingFontSize` 14 (12 read as too small on screen), weight 600, sitting at the group's edge. The
   background separates the groups; a loud heading on top of it was double.
 - **Builders** in `core/groups.h`: `itemText(name, description)`,
   `groupItem(text, end)` (a Button or Switch at the end makes the whole row

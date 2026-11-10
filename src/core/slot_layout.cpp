@@ -107,6 +107,9 @@ RowSizes rowSizes(const Slot& rows, Rect frame, const MeasureText& measure)
         float h = 0;
         for (const auto* items : { &r.items, &r.leading, &r.trailing })
             for (const Item& item : *items) h = std::max(h, heightOf(item, frame, ringSide, measure));
+        // A group's rows are one height whatever they end in: a switch or no control
+        // is shorter than a compact button, and its row looked squashed (decision 090).
+        if (r.grouped) h = std::max(h, tokens().smallButtonSize);
         sizes.ringSides.push_back(ringSide);
         sizes.heights.push_back(h + listPadding(r) + sectionGap(r));
     }
