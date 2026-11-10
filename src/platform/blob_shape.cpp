@@ -25,7 +25,8 @@ void bindToBlob(Compositor const& c, CompositionObject const& target, std::wstri
 // pillCornerRadius(), which content radii are nested in. Dragged off the edge
 // (Attached 0) the top corners round too: the square bubble becomes a circle
 // (decision 025). Built on `target`, whose Size is the body's.
-void addBackground(Compositor const& c, ShapeVisual const& target, CompositionPropertySet const& shape, CompositionBrush const& fill)
+CompositionRoundedRectangleGeometry addBackground(Compositor const& c, ShapeVisual const& target, CompositionPropertySet const& shape,
+                                                  CompositionBrush const& fill)
 {
     auto background = c.CreateRoundedRectangleGeometry();
     bindToBlob(c, background, L"CornerRadius",
@@ -37,6 +38,7 @@ void addBackground(Compositor const& c, ShapeVisual const& target, CompositionPr
     auto backgroundShape = c.CreateSpriteShape(background);
     backgroundShape.FillBrush(fill);
     target.Shapes().Append(backgroundShape);
+    return background;
 }
 
 void addEars(Compositor const& c, ShapeVisual const& body, CompositionPropertySet const& shape, CompositionBrush const& leftFill,

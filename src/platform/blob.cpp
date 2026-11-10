@@ -50,6 +50,7 @@ void fade(ShapeFill& f, Color left, Color right, Ms duration)
 void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::ContainerVisual const& parent, Vec2 size, Vec2 offset)
 {
     compositor_ = c;
+    device_ = &device;
     size_ = size;
     offset_ = offset;
 
@@ -71,13 +72,15 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     shape_.InsertScalar(L"RightEar", 1.0f);
     shape_.InsertScalar(L"Overlap", 1.0f);  // ears reach this far into the body: 0 as glass (blob_shape.cpp)
     shape_.InsertScalar(L"RimInset", 0.0f); // half the glass rim's width (decision 089)
+    shape_.InsertScalar(L"GlowHeight", tokens().glassGlowHeight); // the glow's reach (decision 090)
     bind(c, body_, L"CenterPoint", L"Vector3(pill.Size.X / 2, 0, 0)", body_, shape_);
 
     const Tokens& t = tokens();
     fill_ = makeFill(c, islandFill(t, leftColor(false)), islandFill(t, rightColor(false)));
     solid_ = makeFill(c, leftColor(false), rightColor(false));
-    addBackground(c, body_, shape_, fill_.gradient);
-    buildRim(c); // over the fill; the ears and content over it
+    auto background = addBackground(c, body_, shape_, fill_.gradient);
+    buildGlow(c, background); // over the fill: the cover's colour from the bottom edge (decision 090)
+    buildRim(c);              // over both; the ears and content over it
     addEars(c, body_, shape_, fill_.leftEar, fill_.rightEar); // the flared top corners (decision 025)
 
     // Content lives in a container clipped to the shape's live size, so new
@@ -110,12 +113,14 @@ void Blob::refreshAnimations(bool coloursOnly)
     }
     shape_.InsertScalar(L"MaxRadius", detachedRadius_.value_or(t.maxCornerRadius)); // a floating card's are a window's
     shape_.InsertScalar(L"FlareRadius", t.flareRadius);
+    shape_.InsertScalar(L"GlowHeight", t.glassGlowHeight);
 
     // Colours are tokens too, and every one fades, so a cover's colours or a
     // new theme ease in (decision 051): the fill, the shadow, the marks. Glass
     // on or off fades the same way (decision 089).
     applyGlass(recolorDuration(t)); // first: whether the blur is evened out sets the fill's strength
     fadeFill(recolorDuration(t));
+    fadeGlow(recolorDuration(t));
     if (shadow_) fadeColor(shadow_, t.glass ? t.glassShadowColor : t.shadowColor);
     for (Mark* mark : { &selectedTab_, &pinnedTab_ })
         if (mark->brush) fadeColor(mark->brush, t.tabSelectedColor);

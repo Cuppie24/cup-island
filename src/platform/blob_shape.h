@@ -29,9 +29,9 @@ inline std::wstring earSize(bool left) { return L"(" + kEarSize + (left ? L" * s
 
 // The body's background (straight top, rounded bottom; round all over off
 // the edge, decision 025), filled with `fill`, as a shape of `target`, whose
-// Size is the body's.
-void addBackground(wuc::Compositor const& c, wuc::ShapeVisual const& target, wuc::CompositionPropertySet const& shape,
-                   wuc::CompositionBrush const& fill);
+// Size is the body's. Returns its outline, for shapes drawn on the same one (the glow).
+wuc::CompositionRoundedRectangleGeometry addBackground(wuc::Compositor const& c, wuc::ShapeVisual const& target,
+                                                       wuc::CompositionPropertySet const& shape, wuc::CompositionBrush const& fill);
 
 // Adds the two flared top corners ("ears") beside the body's top edge, as
 // children of the body, each in its end's colour (decisions 025, 054).

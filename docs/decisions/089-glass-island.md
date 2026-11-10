@@ -37,13 +37,13 @@ for an island that should cost nothing at rest, so this is frosted glass.
     first run without it was lighter than the Start menu beside it: a plain
     tint keeps a bright sky bright. Direct2D's Colour and Luminosity blend
     modes are swapped against their names; WinUI's AcrylicBrush uses
-    "Colour" for this step, and so do we. The colour goes in as a Flood
-    effect (Win2D's ColorSourceEffect), animated by name
-    ("Luminosity.Color"). On the first Windows runs, Windows refused this
-    graph when the effect factory was made (0x80070057). So it's tried
-    animated, then with a fixed colour; if both are refused, the log
-    probes once what Windows objects to (a Multiply blend, a Luminosity
-    blend, the flood colour alone), and the plain cut of the blur is used.
+    "Colour" for this step, and so do we. The colour goes in as a little
+    surface painted in it (repainted, not faded, when it changes). Windows
+    refused it as a Flood effect (Win2D's ColorSourceEffect) when the
+    effect factory was made (0x80070057), even on its own, and likely as a
+    colour brush too; a surface brush is what the mask already is. If the
+    brightness step is still refused, the log probes once whether Windows
+    takes a blend at all, and the plain cut of the blur is used.
     Over the plain blur the island's colours are stronger
     (`glassPlainOpacity`, 0.7): at acrylic's 0.15 the island turned as light
     as a bright wallpaper. Acrylic's grain (a noise texture) is left out.

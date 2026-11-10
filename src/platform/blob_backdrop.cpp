@@ -7,6 +7,7 @@
 #include "platform/blob_shape.h"
 #include "platform/element_parts.h"
 #include "platform/glass.h"
+#include "platform/log.h"
 
 #include <winrt/Windows.Foundation.Metadata.h>
 
@@ -118,20 +119,67 @@ void Blob::buildRim(Compositor const& c)
     body_.Shapes().Append(rim_);
 }
 
+void Blob::buildGlow(Compositor const& c, CompositionGeometry const& outline)
+{
+    // A vertical gradient on the background's own outline, so it has the
+    // island's shape. Relative to that outline's bounds, which reach a radius
+    // above the body while it hangs from the screen edge: the clear stop is
+    // placed by the visible height, so the glow reaches glassGlowHeight of
+    // what shows, on the small pill and the tall card alike.
+    Color none = clear(tokens().islandGlowColor);
+    glowTop_ = c.CreateColorGradientStop(1.0f - tokens().glassGlowHeight, toUiColor(none));
+    glowBottom_ = c.CreateColorGradientStop(1.0f, toUiColor(none));
+    try {
+        const std::wstring radius = L"Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius)";
+        bind(c, glowTop_, L"Offset",
+             L"1 - shape.GlowHeight * pill.Size.Y / Max(pill.Size.Y + shape.Attached * " + radius + L", 1)", body_, shape_);
+    } catch (winrt::hresult_error const& e) {
+        // A stop's offset that can't follow the size: a share of the outline's
+        // height instead (a little shorter on the small pill).
+        logLine("glass: the glow can't follow the island's height (0x%08lx)", static_cast<unsigned long>(e.code()));
+    }
+    auto brush = c.CreateLinearGradientBrush();
+    brush.StartPoint({ 0.5f, 0.0f });
+    brush.EndPoint({ 0.5f, 1.0f });
+    brush.ColorStops().Append(glowTop_);
+    brush.ColorStops().Append(glowBottom_);
+    auto glow = c.CreateSpriteShape(outline);
+    glow.FillBrush(brush);
+    body_.Shapes().Append(glow);
+}
+
+void Blob::fadeGlow(Ms duration)
+{
+    const Color& glow = tokens().islandGlowColor;
+    fadeColor(glowBottom_, glow, duration);
+    fadeColor(glowTop_, clear(glow), duration);
+}
+
 void Blob::buildGlass()
 {
     glassTried_ = true;
     if (!snapshot_) return; // no snapshot before 1903; glass is Windows 11's anyway
-    Glass made = maskedBackdrop(compositor_, compositor_.CreateSurfaceBrush(snapshot_), tokens().glassLuminosityColor);
+    luminosity_ = device_->createSurface({ 8, 8 }); // stretched over the glass: one colour everywhere
+    paintLuminosity(tokens().glassLuminosityColor);
+    auto luminosity = compositor_.CreateSurfaceBrush(luminosity_);
+    luminosity.Stretch(wuc::CompositionStretch::Fill);
+    Glass made = maskedBackdrop(compositor_, compositor_.CreateSurfaceBrush(snapshot_), luminosity);
     if (!made.brush) return; // logged: the island stays solid
-    glassBrush_ = made.brush;
     glassEven_ = made.even;
-    glassAnimated_ = made.animated;
     glass_ = compositor_.CreateSpriteVisual();
     glass_.Brush(made.brush);
     glass_.Opacity(0.0f);
     coverBodyAndEars(compositor_, glass_, body_, shape_);
     outline_.Parent().Children().InsertAbove(glass_, outline_); // over the solid twin, under the body
+}
+
+void Blob::paintLuminosity(Color color)
+{
+    // A lost GPU loses this too; it's painted again with the next new colour.
+    device_->draw(luminosity_, [&](ID2D1DeviceContext* dc) {
+        dc->Clear(D2D1_COLOR_F{ color.r / 255.0f, color.g / 255.0f, color.b / 255.0f, color.a / 255.0f });
+    });
+    luminosityPainted_ = color;
 }
 
 void Blob::applyGlass(Ms duration)
@@ -145,7 +193,7 @@ void Blob::applyGlass(Ms duration)
     fadeColor(rimBottom_, t.glass ? t.glassRimColor : clear(t.glassRimColor), duration);
 
     if (t.glass && !glass_ && !glassTried_) buildGlass();
-    fadeLuminosity({ glassBrush_, glassEven_, glassAnimated_ }, t.glassLuminosityColor, duration);
+    if (glassEven_ && t.glassLuminosityColor != luminosityPainted_) paintLuminosity(t.glassLuminosityColor);
     if (!glass_ || t.glass == glassShown_) return;
     glassShown_ = t.glass;
     // On, it's there at once: the body over it still has its old, opaque

@@ -142,6 +142,8 @@ const Field kFields[] = {
     { "shadowOffset", &Tokens::shadowOffset },
     { "glassOpacity", &Tokens::glassOpacity, true },
     { "glassPlainOpacity", &Tokens::glassPlainOpacity },
+    { "glassGlowHeight", &Tokens::glassGlowHeight },
+    { "glassGlowOpacity", &Tokens::glassGlowOpacity },
     { "glassRimWidth", &Tokens::glassRimWidth },
     { "tabHeight", &Tokens::tabHeight, true },
     { "tabGap", &Tokens::tabGap },
@@ -216,9 +218,11 @@ const Field kFields[] = {
     { "coverFullChroma", &Tokens::coverFullChroma },
     { "coverSecondShare", &Tokens::coverSecondShare },
     { "coverInkChroma", &Tokens::coverInkChroma },
+    { "coverDarkGlow", &Tokens::coverDarkGlow },
     { "islandColor", &Tokens::islandColor, true },
     { "islandHighlightColor", &Tokens::islandHighlightColor },
     { "islandSecondColor", &Tokens::islandSecondColor }, // set from islandColor and the cover (live_tokens), not the file
+    { "islandGlowColor", &Tokens::islandGlowColor },     // set from the cover as glass (decision 090), not the file
     { "titleTextColor", &Tokens::titleTextColor },
     { "bodyTextColor", &Tokens::bodyTextColor },
     { "captionTextColor", &Tokens::captionTextColor },
@@ -441,6 +445,7 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
         return n.starts_with("cover") || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" || n == "searchVisibleRows" ||
                n == "primaryHoverOpacity" || n == "playGlyphNudge" || // a share of an opacity, of a width (decisions 066, 071)
                n == "glassOpacity" || n == "glassPlainOpacity" ||    // opacities (decision 089)
+               n == "glassGlowHeight" || n == "glassGlowOpacity" ||  // a share of the height, an opacity (decision 090)
                n.ends_with("Bounce") || n == "contentArriveScale" || n == "contentRevealAt" || n == "morphSpringSettle" || n == "alertPulseScale" || // shares (decision 080)
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
     };

@@ -207,6 +207,10 @@ struct Tokens {
     bool glass = false;           // drawn as glass now (withGlass): set by the app, not tokens.json
     float glassOpacity = 0.15f;   // how strong the island's colours are over the blur: 1 solid, 0 none (acrylic's tint opacity)
     float glassPlainOpacity = 0.7f; // ...over the plain blur, where Windows won't even out its brightness: it needs more
+    // Glass with the cover's colours (decision 090): the island stays
+    // Midnight, and the cover's colour glows up from its bottom edge.
+    float glassGlowHeight = 0.3f;   // the glow's reach: this share of the island's height, fading out to its top
+    float glassGlowOpacity = 0.85f; // how strong the glow is along the bottom edge
     float glassRimWidth = 1;      // the rim's width, inside the edge
 
     // Expanded's tabs: one per activity along the top of the card (decisions 007, 047).
@@ -338,6 +342,7 @@ struct Tokens {
     float coverFullChroma = 0.2f;        // a cover's main colour this vivid (chroma) or more counts as fully vivid
     float coverSecondShare = 0.3f;       // a second hue needs this share of the main one's weight to make a gradient
     float coverInkChroma = 0.03f;        // ...text and icons: barely, so they read as white or ink
+    float coverDarkGlow = 0.45f;         // glass (decision 090): the glow's lightness; its chroma is the accent's
 
     // Colours: every colour the island draws. tokens.json writes [r, g, b] or
     // [r, g, b, alpha], channels 0..255 and alpha 0..1, like CSS rgba().
@@ -346,6 +351,9 @@ struct Tokens {
     // The island's right end: a gradient from islandColor (decision 054). Not
     // in tokens.json: islandColor's, unless a two-colour cover sets it.
     Color islandSecondColor{ 0, 0, 0 };
+    // The glow along the island's bottom edge (decision 090): glass with the
+    // cover's colours. Not in tokens.json: none (clear) unless a cover sets it.
+    Color islandGlowColor{ 0, 0, 0, 0 };
     Color titleTextColor{ 255, 255, 255 };
     Color bodyTextColor{ 255, 255, 255, 179 };
     Color captionTextColor{ 255, 255, 255, 140 }; // also Digits

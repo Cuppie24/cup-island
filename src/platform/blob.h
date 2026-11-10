@@ -113,14 +113,24 @@ private:
     // so the outline under it is the solid island again. The rim: a stroke
     // just inside the body's edge, see-through but for glass.
     wuc::SpriteVisual glass_{ nullptr };
-    wuc::CompositionEffectBrush glassBrush_{ nullptr };
-    bool glassEven_ = false;     // its brightness evened out (glassLuminosityColor), not the plain blur
-    bool glassAnimated_ = false; // ...and that brightness can fade to a new one
+    bool glassEven_ = false; // its brightness evened out (glassLuminosityColor), not the plain blur
+    // The brightness colour, painted on a little surface: the one kind of
+    // colour input Windows takes into the effect. Repainted (not faded) when it changes.
+    wuc::CompositionDrawingSurface luminosity_{ nullptr };
+    Color luminosityPainted_{ 0, 0, 0, 0 };
+    void paintLuminosity(Color color);
+    GraphicsDevice* device_ = nullptr; // build()'s: draws the brightness surface
     bool glassTried_ = false; // made once, or failed once: not tried again
     bool glassShown_ = false;
     wuc::CompositionSpriteShape rim_{ nullptr };
     wuc::CompositionColorGradientStop rimTop_{ nullptr }, rimBottom_{ nullptr };
     void buildGlass();
+    // The glow (decision 090): the cover's colour (islandGlowColor) along the
+    // body's bottom edge, fading out glassGlowHeight of the way up. Clear
+    // unless glass has a cover's colours.
+    wuc::CompositionColorGradientStop glowTop_{ nullptr }, glowBottom_{ nullptr };
+    void buildGlow(wuc::Compositor const& compositor, wuc::CompositionGeometry const& outline);
+    void fadeGlow(Ms duration);
     void buildRim(wuc::Compositor const& compositor);
     void applyGlass(Ms duration); // tokens().glass: on or off, and the rim's colour and width
     wuc::CompositionPropertySet shape_{ nullptr }; // MaxRadius, FlareRadius, Attached, Flare, Left/RightEar: read by the shape expressions
