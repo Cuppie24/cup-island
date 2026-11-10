@@ -5,6 +5,7 @@
 #include "platform/element_painting.h"
 #include "platform/field_painting.h"
 #include "platform/element_parts.h"
+#include "platform/text_format.h"
 
 #include <algorithm>
 #include <cmath>
@@ -254,6 +255,19 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         view.visual = sprite;
         if (std::holds_alternative<Image>(placed.item)) view.picture = sprite;
     }
+    if (placed.raised && view.picture) { // the expanded card's cover: a soft shadow under it (decision 094)
+        // Clickable art is a container already. Plain art is a sprite, whose children
+        // would draw over its picture: it goes into a container, over the shadow.
+        wuc::ContainerVisual holder = view.art.visual;
+        if (!holder) {
+            holder = compositor_.CreateContainerVisual();
+            view.picture.Size(toFloat2(size)); // already whole pixels
+            holder.Children().InsertAtTop(view.picture);
+            view.visual = holder;
+        }
+        view.shadowShape = device_->createSurface(size); // painted with the rest, in paint()
+        view.shadow = addArtShadow(compositor_, holder, size, view.shadowShape);
+    }
     place(view);
     view.visual.Size(toFloat2(pixelSize(visualSize)));
     view.visual.CenterPoint({ visualSize.x / 2, visualSize.y / 2, 0 });
@@ -351,6 +365,7 @@ void ElementVisuals::recolor(View& view)
     if (view.accent) fadeColor(view.accent, toned(accentOf(view.placed), view.grey));
     if (view.knobBrush) fadeColor(view.knobBrush, toned(t.knobColor, view.grey));
     if (view.hover) fadeColor(view.hover, hoverColorOf(view.placed));
+    if (view.shadow) fadeColor(view.shadow, t.artShadowColor);
     if (view.toggle.knob) {
         bool on = std::get<Switch>(view.placed.item).on;
         fadeColor(view.toggle.track, switchTrackColor(on));
@@ -374,11 +389,12 @@ void ElementVisuals::paint(View& view)
         } else if (auto* icon = std::get_if<Icon>(&item)) {
             paintGlyph(dc, dw, icon->glyph, t.iconSize, pixelSize(size), icon->quiet ? t.buttonOffColor : t.iconColor); // the surface's whole pixels
         } else if (auto* button = std::get_if<Button>(&item)) {
-            bool toggledOff = button->on && !*button->on;
-            bool idle = button->secondary && !view.lit; // grey until hovered (decision 064)
-            Color color = !button->enabled ? t.buttonDisabledColor : toggledOff || idle ? t.buttonOffColor
+            bool toggledOn = button->on && *button->on, toggledOff = button->on && !*button->on;
+            bool idle = button->secondary && !view.lit && !toggledOn; // grey until hovered (decision 064) or on (decision 094)
+            Color color = !button->enabled ? t.buttonDisabledColor : (toggledOff && !button->secondary) || idle ? t.buttonOffColor
                         : button->destructive         ? t.dangerColor
                                                       : t.buttonColor;
+            if (toggledOn && !button->round) paintToggleFill(dc, pixelSize(size)); // under its glyph (decision 094)
             if (button->primary) paintPrimaryButton(dc, dw, *button, pixelSize(size), view.lit);
             else if (button->round) paintRoundButton(dc, dw, *button, size);
             else if (button->quiet) paintLabel(dc, dw, button->label, size, t.captionTextColor, TextStyle::Caption); // a way into more (decision 063)
@@ -386,7 +402,6 @@ void ElementVisuals::paint(View& view)
             else if (button->picture) paintPicture(dc, button->picture.get(), size, t.resultIconSize); // a result's own icon (decision 079)
             // Centred in the surface's whole pixels, like the hover shape around it, not the fractional frame.
             else paintGlyph(dc, dw, button->glyph, glyphSizeOf(*button), pixelSize(size), color);
-            if (button->on && *button->on && !button->round) paintToggleDot(dc, pixelSize(size), t.buttonGlyphSize);
         } else if (auto* image = std::get_if<Image>(&item)) {
             paintImage(dc, image->data.get(), size, view.placed.cornerRadius);
         } else if (auto* input = std::get_if<TextInput>(&item)) {
@@ -415,6 +430,12 @@ void ElementVisuals::paint(View& view)
     });
     if (auto* segments = std::get_if<Segments>(&item); drawn && segments && view.segments.picked) // the labels inside the pill
         drawn = device_->draw(view.segments.picked, [&](ID2D1DeviceContext* dc) { paintSegmentLabels(dc, dw, *segments, size, t.islandColor); });
+    if (drawn && view.shadowShape) // the shadow's mask: opaque where the art is, its corners too
+        drawn = device_->draw(view.shadowShape, [&](ID2D1DeviceContext* dc) {
+            float r = view.placed.cornerRadius;
+            Vec2 whole = pixelSize(size); // the surface's size
+            dc->FillRoundedRectangle(D2D1_ROUNDED_RECT{ D2D1::RectF(0, 0, whole.x, whole.y), r, r }, brushOf(dc, Color{ 0, 0, 0, 255 }).get());
+        });
     if (drawn && view.glyphSurface)
         drawn = device_->draw(view.glyphSurface, [&](ID2D1DeviceContext* dc) {
             paintGlyph(dc, dw, Glyph::OpenApp, t.artHoverGlyphSize, pixelSize(size), t.artHoverGlyphColor);

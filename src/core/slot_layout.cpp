@@ -238,6 +238,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 }
                 placed.providerId = source.providerId;
                 placed.activityId = source.activityId;
+                placed.raised = slot.raised && std::holds_alternative<Image>(item);
                 if (auto* label = std::get_if<TimeLabel>(&item)) placed.ticking = label->timeline;
                 if (auto* dial = std::get_if<Dial>(&item)) placed.ticking = dial->timeline; // its time changes too
                 target.push_back(std::move(placed));

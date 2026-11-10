@@ -8,6 +8,8 @@
 #include "providers/demo/demo_media_provider.h"
 #include "providers/provider_registry.h"
 
+#include <cmath>
+
 namespace cup::test {
 namespace {
 
@@ -68,10 +70,29 @@ void runProviderTests()
     island.click(playPause);
     expect(island.button(playPause)->glyph == Glyph::Play, "play/pause button pauses");
     expect(mode(island.state) == Mode::Expanded, "button click doesn't collapse");
-    for (const Placed& p : island.scene().elements)
-        if (p.key == "expandedBottom/1/2")
-            expect(p.frame.y + p.frame.height == island.scene().size.y - tokens().expandedPadding,
-                   "media controls keep the same bottom margin as the sides");
+    const Tokens& tk = tokens();
+    Scene card = island.scene();
+    for (const Placed& p : card.elements) {
+        if (p.key == playPause)
+            expect(std::abs(p.frame.y + p.frame.height - (card.size.y - tk.expandedPadding)) < 0.01f,
+                   "the tallest control, play, keeps the same bottom margin as the sides");
+        if (p.key == "expandedBottom/1/2") {
+            const Placed* play = nullptr;
+            for (const Placed& q : card.elements)
+                if (q.key == playPause) play = &q;
+            expect(play && std::abs((p.frame.y + p.frame.height / 2) - (play->frame.y + play->frame.height / 2)) < 0.01f,
+                   "next sits on play's middle");
+        }
+    }
+    // Decision 094: play is the hero, a filled circle; the card grows to fit it under a bigger cover.
+    const Button* hero = island.button(playPause);
+    expect(hero && hero->primary && hero->compact, "play is the card's primary action, sized for a row of controls");
+    expect(card.size.y > tk.expandedSize.y, "the media card grows past Expanded's height for its controls");
+    for (const Placed& p : card.elements)
+        if (p.key == "expandedLeading/0/0")
+            expect(p.raised && p.frame.width == tk.expandedArtSize, "the cover is raised (a shadow under it), at its full size");
+    for (const Placed& p : card.elements)
+        if (p.key == "compactLeading/0/0") expect(!p.raised, "only the expanded cover is raised");
     Scene paused = island.scene();
     const Progress* progress = nullptr;
     for (const Placed& p : paused.elements)
@@ -83,6 +104,7 @@ void runProviderTests()
     const std::string repeat = "expandedBottom/1/3", shuffle = "expandedBottom/1/4";
     expect(island.button(shuffle) && island.button(shuffle)->glyph == Glyph::Shuffle && island.button(shuffle)->on == false,
            "shuffle shows, off");
+    expect(island.button(shuffle)->secondary && island.button(repeat)->secondary, "shuffle and repeat are quiet until on (decision 094)");
     island.click(shuffle);
     expect(island.button(shuffle)->on == true, "shuffle click turns it on");
     island.click(shuffle);

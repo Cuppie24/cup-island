@@ -46,6 +46,8 @@ struct Placed {
     // In a tab that isn't the one shown, or the pin while off (decision 072): drawn grey
     // and dim, picture and ring included, until the pointer is on its tab.
     bool muted = false;
+    // Art that sits on the card: a soft shadow under it (the expanded card's cover, decision 094).
+    bool raised = false;
     bool operator==(const Placed&) const = default;
 };
 

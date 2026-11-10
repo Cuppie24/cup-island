@@ -5,6 +5,7 @@
 #include "core/segments.h"
 #include "core/text_edit.h"
 #include "core/tokens.h"
+#include "platform/figures.h"
 #include "platform/text_format.h"
 
 #include <d2d1effects.h>
@@ -198,6 +199,9 @@ TextLook lookOf(TextStyle style)
     return { t.bodyFontSize, t.bodyTextColor, t.bodyFontWeight };
 }
 
+// Times, drawn with tabular figures so they don't jitter as they tick (decision 094).
+bool figures(TextStyle style) { return style == TextStyle::Digits || style == TextStyle::Display; }
+
 winrt::com_ptr<IDWriteTextFormat> formatOf(IDWriteFactory* dw, const Text& text)
 {
     TextLook look = lookOf(text.style);
@@ -216,6 +220,8 @@ winrt::com_ptr<IDWriteTextLayout> wrappedLayout(IDWriteFactory* dw, const Text& 
     winrt::check_hresult(dw->CreateTextLayout(value.c_str(), static_cast<UINT32>(value.size()), f.get(), width, height, layout.put()));
     return layout;
 }
+
+void paintLine(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, D2D1_RECT_F rect); // below
 
 } // namespace
 
@@ -239,7 +245,7 @@ void paintDial(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Dial& dial, Vec
     Text label{ .value = dial.label, .style = TextStyle::Caption, .centred = true };
     float timeHeight = lineHeight(TextStyle::Display), labelHeight = dial.label.empty() ? 0 : lineHeight(TextStyle::Caption);
     float top = (size.y - timeHeight - labelHeight) / 2;
-    drawString(dc, formatOf(dw, time).get(), widen(time.value), D2D1::RectF(0, top, size.x, top + timeHeight), lookOf(time.style).color);
+    paintLine(dc, dw, time, D2D1::RectF(0, top, size.x, top + timeHeight)); // tabular figures: it ticks (decision 094)
     if (labelHeight > 0)
         drawString(dc, formatOf(dw, label).get(), widen(label.value), D2D1::RectF(0, top + timeHeight, size.x, top + timeHeight + labelHeight),
                    lookOf(label.style).color);
@@ -274,13 +280,20 @@ std::wstring elidedStart(IDWriteFactory* dw, IDWriteTextFormat* f, const std::ws
 void paintLine(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, D2D1_RECT_F rect)
 {
     Color color = lookOf(text.style).color;
-    if (!text.struck && text.wrapped.empty() && !text.brightDigits && text.bright.empty()) {
+    if (!figures(text.style) && !text.struck && text.wrapped.empty() && !text.brightDigits && text.bright.empty()) {
         drawString(dc, formatOf(dw, text).get(), widen(text.value), rect, color);
         return;
     }
-    // Wrapped, struck through (a solved to-do), with bright digits (decision 068)
-    // or a search's matched parts (decision 079): a layout carries each run's look.
+    // Wrapped, struck through (a solved to-do), with bright digits (decision 068),
+    // a search's matched parts (decision 079) or tabular figures (decision 094):
+    // a layout carries each run's look.
     auto layout = wrappedLayout(dw, text, rect.right - rect.left, rect.bottom - rect.top);
+    float nudge = 0;
+    if (figures(text.style)) {
+        useTabularFigures(dw, layout.get(), static_cast<UINT32>(widen(text.wrapped.empty() ? text.value : text.wrapped).size()));
+        // A time's digits on the middle of its line, where the bar beside it is drawn.
+        if (text.style == TextStyle::Digits && text.wrapped.empty()) nudge = figureNudge(dw, layout.get());
+    }
     if (text.struck) layout->SetStrikethrough(TRUE, DWRITE_TEXT_RANGE{ 0, static_cast<UINT32>(widen(text.value).size()) });
     auto bright = brushOf(dc, tokens().titleTextColor); // kept alive until drawn
     if (text.brightDigits) {
@@ -302,7 +315,7 @@ void paintLine(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, D2D
         layout->SetDrawingEffect(bright.get(), range);
         layout->SetFontWeight(static_cast<DWRITE_FONT_WEIGHT>(std::lround(heavier)), range);
     }
-    dc->DrawTextLayout(D2D1::Point2F(rect.left, rect.top), layout.get(), brushOf(dc, color).get(),
+    dc->DrawTextLayout(D2D1::Point2F(rect.left, rect.top + nudge), layout.get(), brushOf(dc, color).get(),
                        D2D1_DRAW_TEXT_OPTIONS_CLIP | D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
 }
 
@@ -341,7 +354,7 @@ void paintPrimaryButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button
     Color fill = button.enabled ? t.buttonColor : t.buttonDisabledColor;
     if (lit && button.enabled) fill.a = static_cast<std::uint8_t>(std::lround(fill.a * std::clamp(t.primaryHoverOpacity, 0.0f, 1.0f)));
     dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(size.x / 2, size.y / 2), r, r), brushOf(dc, fill).get());
-    paintGlyph(dc, dw, button.glyph, t.primaryGlyphSize, size, t.islandColor, /* precise */ true); // centred on its circle
+    paintGlyph(dc, dw, button.glyph, primaryGlyphOf(button), size, t.islandColor, /* precise */ true); // centred on its circle
 }
 
 void paintRoundButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size)
@@ -367,6 +380,7 @@ float measureText(IDWriteFactory* dw, const Text& text)
     winrt::com_ptr<IDWriteTextLayout> layout;
     winrt::check_hresult(dw->CreateTextLayout(value.c_str(), static_cast<UINT32>(value.size()), formatOf(dw, text).get(),
                                               100000.0f, 1000.0f, layout.put()));
+    if (figures(text.style)) useTabularFigures(dw, layout.get(), static_cast<UINT32>(value.size())); // measured as drawn
     DWRITE_TEXT_METRICS metrics{};
     winrt::check_hresult(layout->GetMetrics(&metrics));
     return std::ceil(metrics.widthIncludingTrailingWhitespace);
@@ -450,11 +464,10 @@ void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float f
     dc->DrawTextLayout(at, glyphLayout.get(), brush.get(), options);
 }
 
-void paintToggleDot(ID2D1DeviceContext* dc, Vec2 size, float glyphSize)
+void paintToggleFill(ID2D1DeviceContext* dc, Vec2 size)
 {
-    auto brush = brushOf(dc, tokens().buttonColor);
-    float r = std::max(1.0f, glyphSize / 10), y = std::min(size.y / 2 + glyphSize / 2 + 2 * r + 1, size.y - r);
-    dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(size.x / 2, y), r, r), brush.get());
+    float r = std::min(size.x, size.y) / 2; // the hover shape's circle (slot_layout's radiusFor)
+    dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(size.x / 2, size.y / 2), r, r), brushOf(dc, tokens().tabSelectedColor).get());
 }
 
 void paintSteps(ID2D1DeviceContext* dc, const Steps& steps, Vec2 size, const Color& accent)

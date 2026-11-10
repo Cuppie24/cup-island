@@ -43,6 +43,16 @@ float textWidth(const Text& text, const MeasureText& measure)
     return w;
 }
 
+float primarySize(const Button& button)
+{
+    return button.compact ? tokens().compactPrimaryButtonSize : tokens().primaryButtonSize;
+}
+
+float primaryGlyphOf(const Button& button)
+{
+    return button.compact ? tokens().compactPrimaryGlyphSize : tokens().primaryGlyphSize;
+}
+
 bool isRing(const Item& item)
 {
     auto* progress = std::get_if<Progress>(&item);
@@ -74,7 +84,7 @@ float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& m
     if (std::holds_alternative<Swatch>(item)) return t.swatchSize;
     if (std::holds_alternative<Switch>(item)) return t.switchSize.y;
     if (std::holds_alternative<Tag>(item)) return t.tagHeight;
-    if (auto* button = std::get_if<Button>(&item)) return button->primary ? t.primaryButtonSize : button->compact ? t.smallButtonSize : t.buttonSize;
+    if (auto* button = std::get_if<Button>(&item)) return button->primary ? primarySize(*button) : button->compact ? t.smallButtonSize : t.buttonSize;
     if (auto* input = std::get_if<TextInput>(&item)) return input->large ? t.searchInputHeight : t.inputHeight;
     if (std::holds_alternative<Divider>(item)) return t.dividerThickness;
     if (std::holds_alternative<Keys>(item)) return t.keyCapHeight;
@@ -106,7 +116,7 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
         return (measure ? measure(text) : estimateTextWidth(text)) + 2 * t.tagPadding;
     }
     if (auto* button = std::get_if<Button>(&item)) {
-        if (button->primary) return t.primaryButtonSize;
+        if (button->primary) return primarySize(*button);
         if (button->round) return t.buttonSize;
         if (button->label.empty()) return button->compact ? t.smallButtonSize : t.buttonSize;
         Text text{ button->label, button->quiet ? TextStyle::Caption : TextStyle::Body };

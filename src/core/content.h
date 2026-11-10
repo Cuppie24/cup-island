@@ -118,7 +118,7 @@ struct Button {
     Glyph glyph = Glyph::Play;
     std::string actionId; // sent back to the provider when clicked
     bool enabled = true;
-    std::optional<bool> on; // toggles only (shuffle, repeat): lit with a dot when on, dimmed when off
+    std::optional<bool> on; // toggles only (shuffle, repeat): on a soft pill when on, dimmed when off (decision 094)
     std::string label;      // a text button ("Clear all") instead of the glyph; as wide as its text
     bool compact = false;   // smallButtonSize: list rows (a to-do's checkbox), not main controls. Not "small": windows.h #defines it
     bool revealOnHover = false; // hidden until the pointer is on its row: a list item's delete (decision 020)
@@ -136,6 +136,7 @@ struct Button {
     bool secondary = false;
     // Primary: the card's one main action (Pomodoro's ▶ / ⏸), a filled circle
     // primaryButtonSize wide, its glyph in the island's colour (decision 064).
+    // Compact too: compactPrimaryButtonSize, in a row of controls (media's ▶, decision 094).
     bool primary = false;
     // Drawn instead of the glyph, resultIconSize square (the glyph stays the
     // fallback): a search result's own icon from Windows (decision 079).

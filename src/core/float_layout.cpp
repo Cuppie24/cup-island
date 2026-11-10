@@ -49,7 +49,7 @@ Scene floatScene(const IslandState& s, const FloatingCard& f, Ms now, const Meas
     float width = content->floating ? floatWidth(content->floating->width) : t.floatMediumWidth;
     if (f.size) scene.size = *f.size;
     else if (stacked(*content)) scene.size = { width, centredCardHeight(source, { width, 0 }, limits.most.y - bar, measureText) + bar };
-    else scene.size = { width, t.expandedSize.y + bar };
+    else scene.size = { width, standardCardHeight(source, { width, 0 }, limits.most.y - bar, measureText) + bar };
     scene.size = clampSize(scene.size, limits);
     scene.titleBar = { 0, 0, scene.size.x, bar };
 

@@ -53,6 +53,21 @@ ArtParts createActionArt(Compositor const& c, Vec2 frame, float cornerRadius, Co
     return parts;
 }
 
+DropShadow addArtShadow(Compositor const& c, ContainerVisual const& container, Vec2 frame, CompositionDrawingSurface const& shape)
+{
+    const Tokens& t = tokens();
+    auto shadow = c.CreateDropShadow();
+    shadow.Mask(c.CreateSurfaceBrush(shape)); // DropShadow.Mask: Windows 10 1607, so every supported Windows (decision 015)
+    shadow.BlurRadius(t.artShadowBlur);
+    shadow.Offset(toFloat3(t.artShadowOffset));
+    shadow.Color(toUiColor(t.artShadowColor));
+    auto caster = c.CreateSpriteVisual(); // no brush: only its shadow shows
+    caster.Size(toFloat2(frame));
+    caster.Shadow(shadow);
+    container.Children().InsertAtBottom(caster);
+    return shadow;
+}
+
 void showArtOverlay(Compositor const& c, const ArtParts& parts, bool on)
 {
     const Tokens& t = tokens();

@@ -27,6 +27,7 @@ struct SlotFrame {
     const Slot* slot;
     Rect frame;          // pill (or bubble) coordinates
     bool square = false; // a one-glyph square (compact ends, an alert's leading, the bubble): content always centred in it
+    bool raised = false; // its art casts a shadow (Placed::raised): Expanded's leading square (decision 094)
 };
 
 // Appends the slot's items to `out`, rows stacked and centred vertically in the frame.
@@ -50,6 +51,11 @@ bool stacked(const Content& content);
 // How tall a stacked card is at `size`'s width: as its rows need, never
 // below Expanded's height (a List card's listCardMinHeight) nor past `most`.
 float centredCardHeight(const Source& source, Vec2 size, float most, const MeasureText& measure);
+
+// How tall a Standard card is at `size`'s width: its art and the rows under
+// it, never below Expanded's height nor past `most`. Media's controls under
+// a bigger cover make it taller than the other cards (decision 094).
+float standardCardHeight(const Source& source, Vec2 size, float most, const MeasureText& measure);
 
 // Moves elements[from..] down by `dy`, with their hit areas, rows and lists'
 // windows: content laid out from the top, put under a tab row or a title bar.
