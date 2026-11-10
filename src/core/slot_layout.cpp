@@ -355,16 +355,19 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
             placeEdge(row.trailing, row.items.size(), area.x + area.width - trailingWidth + gap);
             placeEdge(row.leading, row.items.size() + row.trailing.size(), area.x);
             // Its piece of its group's background (decision 090): from under its
-            // gap down to the next row's top, so the pieces meet with no seam.
-            // Behind its content (the renderer puts it at the bottom), never clicked.
+            // gap down to the next row's top (the row spacing too), so the pieces
+            // meet with no seam. Behind its content (the renderer puts it at the
+            // bottom), never clicked. Its height from the row's own, never from two
+            // scrolled tops: their difference moved by a float's rounding as the
+            // list scrolled, which rebuilt the piece, and it flickered (decision 071).
             if (row.grouped) {
                 bool joinsAbove = r > 0 && groupGoesOn(rows, r - 1), joinsBelow = groupGoesOn(rows, r);
-                float top = y + sectionGap(row);
-                float bottom = joinsBelow ? contentTop + plan.rows[r + 1].y : y + rowHeight;
+                float above = sectionGap(row);
+                float height = rowHeight - above + (joinsBelow ? t.rowSpacing : 0);
                 Placed fill;
                 fill.key = slot.name + "/" + rowName + "/group";
                 fill.item = GroupFill{ .roundTop = !joinsAbove, .roundBottom = !joinsBelow };
-                fill.frame = { background.x, top, background.width, std::max(0.0f, bottom - top) };
+                fill.frame = { background.x, y + above, background.width, std::max(0.0f, height) };
                 fill.cornerRadius = std::min(t.groupRadius, fill.frame.width / 2);
                 fill.list = list;
                 fill.providerId = source.providerId;
