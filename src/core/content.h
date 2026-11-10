@@ -245,6 +245,14 @@ struct Dial {
     bool operator==(const Dial&) const = default;
 };
 
+// A key combination drawn as key caps (decision 092): "Ctrl+Shift+Tab" as
+// three caps, words between them ("or", "to", "Double") as plain text.
+// As wide as its caps (core/keycaps.h splits it); keyCapHeight tall.
+struct Keys {
+    std::string text;
+    bool operator==(const Keys&) const = default;
+};
+
 // The host's, never a provider's: a group's background behind one of its
 // rows (Row::grouped, decision 090), tileColor. Rounded only at the
 // group's ends, so its rows' pieces join into one shape.
@@ -255,7 +263,7 @@ struct GroupFill {
 };
 
 using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch, Tag, Switch, Divider, Dial,
-                          GroupFill>;
+                          GroupFill, Keys>;
 
 enum class Align { Start, Center, End };
 

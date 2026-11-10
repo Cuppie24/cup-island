@@ -2,6 +2,7 @@
 // recording new keys, aborting on any conflict, and letting the keys go
 // while a fullscreen app hides the island.
 
+#include "core/layout.h"
 #include "expect.h"
 #include "panel_host.h"
 #include "core/shortcuts.h"
@@ -33,6 +34,24 @@ void runShortcutSettingsTests()
     expect(rowNamed(sh.published.back(), "Move between items")->grouped && !rowNamed(sh.published.back(), "Move between items")->listItem &&
            rowNamed(sh.published.back(), "Open Home")->listItem && rowNamed(sh.published.back(), "Open Home")->grouped,
            "shortcuts: two groups; the fixed keys' rows are plain, nothing lit (decision 090)");
+    // Every key's row one height, editable or not; the page one list as tall as the card allows (decision 092).
+    {
+        Panel page = sh.published.back();
+        page.providerId = "system.settings";
+        IslandState st;
+        st = reduce(st, PanelPublished{ page }, Ms{ 0 });
+        st = reduce(st, HomeOpened{}, Ms{ 0 });
+        st = reduce(st, TileClicked{ kSettingsPanelId }, Ms{ 0 });
+        Scene scene = layout(st, Ms{ 0 });
+        float editable = 0, fixed = 0;
+        for (const Placed& e : scene.elements) {
+            if (e.key == "expandedCenter/2/group") editable = e.frame.height;            // Open Home: not its group's last
+            if (e.key == "expandedCenter/6/group") fixed = e.frame.height;               // Move between items: nor this
+        }
+        expect(editable > 0 && editable == fixed && std::holds_alternative<Keys>(keys[6].items[1]) &&
+               keys[2].visibleRows == tokens().listCardVisibleRows && scene.size.y <= tokens().canvas.y,
+               "shortcuts: the fixed keys' rows as tall as the editable ones, keys in caps, the list the card's height");
+    }
     press(settings_action::kBack);
 
     settings.stop();

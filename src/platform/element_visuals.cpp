@@ -386,6 +386,8 @@ void ElementVisuals::paint(View& view)
             paintDial(dc, dw, *dial, size);
         } else if (std::holds_alternative<Divider>(item)) {
             paintDivider(dc, size);
+        } else if (auto* keys = std::get_if<Keys>(&item)) {
+            paintKeys(dc, dw, *keys, size);
         } else if (auto* fill = std::get_if<GroupFill>(&item)) {
             paintGroupFill(dc, *fill, pixelSize(size), view.placed.cornerRadius);
         } else if (auto* swatch = std::get_if<Swatch>(&item)) {

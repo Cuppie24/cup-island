@@ -202,22 +202,25 @@ Slot displaysPage(const SettingsView& v)
 Slot shortcutsPage(const SettingsView& v)
 {
     Slot card{ pageTitle("Keyboard shortcuts") };
-    // A key's row: what it does, its keys at the end like a table's column.
-    auto keyRow = [](const std::string& does, const std::string& keys, std::vector<Item> end) {
-        end.insert(end.begin(), Text{ .value = keys, .style = TextStyle::Caption, .alignEnd = true });
+    // A key's row: what it does, its keys at the end as key caps (decision 092).
+    // Waiting for new keys, a note there instead.
+    auto keyRow = [](const std::string& does, Item keys, std::vector<Item> end) {
+        end.insert(end.begin(), std::move(keys));
         return groupItem(itemText(does), std::move(end));
     };
     std::vector<Row> anywhere, island;
     const auto& all = commands();
     for (std::size_t i = 0; i < all.size(); ++i) {
-        bool waiting = v.recording == all[i].command;
-        std::string keys = waiting ? "Press keys…" : chordText(chordOf(v.shortcuts, all[i].command));
-        anywhere.push_back(keyRow(all[i].does, keys, { Button{ .glyph = Glyph::Edit, .actionId = P::kEditShortcut + std::to_string(i), .compact = true } }));
+        Item keys = v.recording == all[i].command ? Item{ Text{ .value = "Press keys…", .style = TextStyle::Caption, .alignEnd = true } }
+                                                  : Item{ Keys{ chordText(chordOf(v.shortcuts, all[i].command)) } };
+        anywhere.push_back(keyRow(all[i].does, std::move(keys), { Button{ .glyph = Glyph::Edit, .actionId = P::kEditShortcut + std::to_string(i), .compact = true } }));
     }
-    for (const FixedKey& k : fixedKeys()) island.push_back(keyRow(k.does, k.keys, {})); // nothing to click, nothing lit
+    for (const FixedKey& k : fixedKeys()) island.push_back(keyRow(k.does, Keys{ k.keys }, {})); // nothing to click, nothing lit
     addGroup(card, "Anywhere", std::move(anywhere), P::kShortcutList);
     addGroup(card, "On the island", std::move(island), P::kShortcutList);
     if (card.size() > 1) card[1].section = false;
+    // One list as tall as the card allows, like the root page: more keys in view at once.
+    for (std::size_t i = 1; i < card.size(); ++i) card[i].visibleRows = tokens().listCardVisibleRows;
     if (!v.shortcutNote.empty()) card.push_back(row({ Text{ .value = v.shortcutNote, .style = TextStyle::Caption, .centred = true } }));
     return card;
 }

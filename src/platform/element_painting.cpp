@@ -1,6 +1,7 @@
 #include "platform/element_painting.h"
 
 #include "core/item_metrics.h"
+#include "core/keycaps.h"
 #include "core/text_edit.h"
 #include "core/tokens.h"
 #include "platform/text_format.h"
@@ -368,6 +369,28 @@ float measureText(IDWriteFactory* dw, const Text& text)
     DWRITE_TEXT_METRICS metrics{};
     winrt::check_hresult(layout->GetMetrics(&metrics));
     return std::ceil(metrics.widthIncludingTrailingWhitespace);
+}
+
+void paintKeys(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Keys& keys, Vec2 size)
+{
+    // Cap by cap, as core sized them (keycaps.h), with the same font's widths.
+    const Tokens& t = tokens();
+    MeasureText measure = [dw](const Text& text) { return measureText(dw, text); };
+    float h = std::min(t.keyCapHeight, size.y), top = std::round((size.y - h) / 2), x = 0;
+    float r = std::min(t.keyCapRadius, h / 2);
+    for (const KeyPart& part : keyParts(keys.text)) {
+        float w = keyPartWidth(part, measure);
+        Text text = keyPartText(part);
+        D2D1_RECT_F box = D2D1::RectF(x, top, x + w, top + h);
+        if (part.cap) {
+            // Over the group's fill, its colour again: a shade apart in every theme; edged like a swatch.
+            D2D1_ROUNDED_RECT cap{ D2D1::RectF(x + 0.5f, top + 0.5f, x + w - 0.5f, top + h - 0.5f), r, r };
+            dc->FillRoundedRectangle(cap, brushOf(dc, t.tileColor).get());
+            dc->DrawRoundedRectangle(cap, brushOf(dc, t.trackColor).get(), 1.0f);
+        }
+        drawString(dc, formatOf(dw, text).get(), widen(part.label), box, part.cap ? t.bodyTextColor : t.captionTextColor);
+        x += w + t.keyCapGap;
+    }
 }
 
 void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, float width, float lead, float gap, float height)

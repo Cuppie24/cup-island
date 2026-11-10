@@ -52,11 +52,12 @@ inline std::string cardText(const Panel& p, std::size_t row)
     return "?";
 }
 
-// A card row's `item`th item's text.
+// A card row's `item`th item's text (or its key caps' text).
 inline std::string cardItem(const Panel& p, std::size_t row, std::size_t item)
 {
     const Slot& card = p.content.expandedCenter;
     if (row >= card.size() || item >= card[row].items.size()) return "?";
+    if (auto* keys = std::get_if<Keys>(&card[row].items[item])) return keys->text; // key caps (decision 092)
     auto* text = std::get_if<Text>(&card[row].items[item]);
     return text ? text->value : "?";
 }

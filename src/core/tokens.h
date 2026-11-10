@@ -147,6 +147,10 @@ struct Tokens {
     float sectionGap = 12;        // Row::section: space above a group's heading (decision 037)
     float groupItemPadding = 9;   // Row::grouped: above and below each row's content, in place of listItemPadding (decision 090)
     float groupRadius = 12;       // ...the group's background's corners (its colour: tileColor)
+    float keyCapHeight = 24;      // Keys: a key cap's height; a one-character cap is at least this wide (decision 092)
+    float keyCapPadding = 7;      // ...its label's room on each side
+    float keyCapGap = 4;          // ...between caps, and around the words between them
+    float keyCapRadius = 6;       // ...its corners (fill: tileColor over the group's; edge: trackColor)
     float listItemTextInset = 14; // ...where the edge item is text: clear of the background's rounded end (decision 030)
     float editInset = 6;          // editable Text is drawn this far in from its stretch, which its field fills when edited (decision 043)
     float buttonLabelPadding = 10; // a text button: its label plus this on each side        // hover circle; the click area also takes in half the gaps around it

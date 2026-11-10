@@ -4,6 +4,7 @@
 #include "core/groups.h"
 #include "core/hit_test.h"
 #include "core/item_metrics.h"
+#include "core/keycaps.h"
 #include "core/layout.h"
 #include "core/tokens.h"
 #include "expect.h"
@@ -80,6 +81,19 @@ void runGroupTests()
     expect(std::abs(lone->frame.height - tall) < 0.01f, "groups: a row with a description is two lines tall, plus groupItemPadding");
     auto hit = hitTest(scene, { first->frame.x + first->frame.width / 2, first->frame.y + 2 });
     expect(hit && hit->action.actionId == "auto" && first->hitFrame.width == 0, "groups: a background is never clicked: its row's control is");
+
+    // Keys (decision 092): a combination's keys in caps, the words between them plain.
+    using KP = std::vector<KeyPart>;
+    expect(keyParts("Ctrl+Shift+Tab") == KP{ { "Ctrl" }, { "Shift" }, { "Tab" } } &&
+           keyParts("Enter or Space") == KP{ { "Enter" }, { "or", false }, { "Space" } } &&
+           keyParts("1 to 9") == KP{ { "1" }, { "to", false }, { "9" } } &&
+           keyParts("Double Ctrl") == KP{ { "Double", false }, { "Ctrl" } } && keyParts("Ctrl++") == KP{ { "Ctrl" }, { "+" } },
+           "keys: split into caps and the words between them");
+    MeasureText eight = [](const Text& text) { return 8.0f * static_cast<float>(text.value.size()); };
+    float capped = keysWidth(Keys{ "Ctrl+Q" }, eight);
+    expect(capped == (8 * 4 + 1 + 2 * t.keyCapPadding) + t.keyCapGap + t.keyCapHeight &&
+           heightOf(Keys{ "Q" }, { 0, 0, 100, 100 }, 0) == t.keyCapHeight,
+           "keys: caps as wide as their label plus padding, a one-letter one square; keyCapHeight tall");
 
     // A name keeps the room its description needs: the description isn't cut beside a short name.
     MeasureText perChar = [](const Text& text) { return 8.0f * static_cast<float>(text.value.size()); };
