@@ -42,7 +42,7 @@ CompositionRoundedRectangleGeometry addBackground(Compositor const& c, ShapeVisu
 }
 
 void addEars(Compositor const& c, ShapeVisual const& body, CompositionPropertySet const& shape, CompositionBrush const& leftFill,
-             CompositionBrush const& rightFill)
+             CompositionBrush const& rightFill, std::wstring const& overlap)
 {
     // Each ear is an E×E square beside the top edge, minus a quarter circle of
     // radius E centred on its bottom outer corner: the edge curving down into
@@ -55,10 +55,12 @@ void addEars(Compositor const& c, ShapeVisual const& body, CompositionPropertySe
     // into the body: 1 while the island's colours are opaque, so no seam shows
     // where two antialiased edges would meet at a fractional size; 0 as glass
     // (decision 089), where a see-through overlap would draw a darker line.
+    // The twin under the glass always overlaps (`overlap` 1, decision 097):
+    // it's the glass's mask, which mustn't have that seam.
     for (bool left : { true, false }) {
         const std::wstring e = earSize(left);
         auto ring = c.CreateEllipseGeometry();
-        bindToBlob(c, ring, L"Center", left ? L"Vector2(0, " + e + L")" : L"Vector2(Min(" + e + L", shape.Overlap) + " + e + L", " + e + L")", body, shape);
+        bindToBlob(c, ring, L"Center", left ? L"Vector2(0, " + e + L")" : L"Vector2(Min(" + e + L", " + overlap + L") + " + e + L", " + e + L")", body, shape);
         bindToBlob(c, ring, L"Radius", L"Vector2(1.5 * " + e + L", 1.5 * " + e + L")", body, shape); // the stroke's middle
         auto stroke = c.CreateSpriteShape(ring);
         stroke.StrokeBrush(left ? leftFill : rightFill);
@@ -67,8 +69,8 @@ void addEars(Compositor const& c, ShapeVisual const& body, CompositionPropertySe
         auto ear = c.CreateShapeVisual(); // clips the ring to the ear's square
         ear.Shapes().Append(stroke);
         // Min(E, Overlap): no sliver of an ear when there's no flare.
-        bindToBlob(c, ear, L"Size", L"Vector2(" + e + L" + Min(" + e + L", shape.Overlap), " + e + L")", body, shape);
-        bindToBlob(c, ear, L"Offset", left ? L"Vector3(-" + e + L", 0, 0)" : L"Vector3(pill.Size.X - Min(" + e + L", shape.Overlap), 0, 0)",
+        bindToBlob(c, ear, L"Size", L"Vector2(" + e + L" + Min(" + e + L", " + overlap + L"), " + e + L")", body, shape);
+        bindToBlob(c, ear, L"Offset", left ? L"Vector3(-" + e + L", 0, 0)" : L"Vector3(pill.Size.X - Min(" + e + L", " + overlap + L"), 0, 0)",
                    body, shape);
         body.Children().InsertAtBottom(ear);
     }

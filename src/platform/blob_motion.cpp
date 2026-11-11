@@ -81,7 +81,6 @@ void Blob::setAttached(bool on)
     };
     play(L"Flare", on ? 1.0f : 0.0f, on ? whole - first : Ms{ 0 }, first);
     play(L"Attached", on ? 1.0f : 0.0f, on ? Ms{ 0 } : first, whole - first);
-    showTwin(whole); // as glass, no gap at the folding corners (decision 097)
 }
 
 void Blob::detach(float radius)
@@ -123,7 +122,6 @@ void Blob::flowShape(bool attached, float radius, Ms duration)
 {
     detachedRadius_ = attached ? std::nullopt : std::optional<float>(radius);
     setAttached(attached);
-    showTwin(std::max(duration, tokens().morphDuration));
     auto corners = compositor_.CreateScalarKeyFrameAnimation();
     corners.InsertKeyFrame(1.0f, radius, easingFor(compositor_, tokens().morphEase));
     corners.Duration(std::max(duration, Ms{ 1 }));
@@ -142,10 +140,8 @@ void Blob::setEars(bool left, bool right)
         anim.Duration(tokens().morphDuration);
         shape_.StartAnimation(property, anim);
     };
-    bool same = leftEar_ == left && rightEar_ == right;
     fold(L"LeftEar", left, leftEar_);
     fold(L"RightEar", right, rightEar_);
-    if (!same) showTwin(tokens().morphDuration); // decision 097
 }
 
 } // namespace cup::platform
