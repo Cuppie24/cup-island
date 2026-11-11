@@ -36,6 +36,20 @@ whole glass it's at most a slightly fainter tint. (Showing the twin while
 the shape changed was tried first, on the guess that the snapshot lagged;
 it didn't help, since the twin had the same seam, and it was taken out.)
 
+**The twin's scale is its holder's.** The gap at the corners showed only
+while the pill was held, before it lifts to be dragged: the press shrinks
+the body (`pressScale`, about its top centre). The twin was scaled the
+same way, and so are the glass and the shadow's caster, which stretch the
+snapshot over themselves. If the snapshot draws the twin with its own
+scale, the glass's cut shrank twice and stopped short of the corners; the
+opaque twin, visible before, hid that. Now the holder carries the scale
+(about `pill.Offset + pill.CenterPoint`, the body's centre in the parent's
+space), so the twin on screen still shrinks with the body, while its
+snapshot, drawn without its parents (as its ignored `Offset` already
+shows), is always full size and is scaled once, by the glass. The seam fix
+above didn't cure this gap but is kept: the seam is real at fractional
+positions.
+
 **Consequences.** If the snapshot did take its parent's opacity after all,
 glass and its shadow would vanish while glass is on: the first Windows run
 says. Solid islands are unchanged.
