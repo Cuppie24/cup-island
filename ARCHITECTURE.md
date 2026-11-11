@@ -244,7 +244,7 @@ over the file's, so `tokens()` is always what's on screen.
 | Real input for drag (OLE drop target) | not yet; the D key simulates it |
 | Provider API (PS §7 Tier 1), registry, demo music player | done, tested |
 | Switching activities (decision 007): bubble click, drag-to-swap, Expanded tabs, sticky pick | done; rules tested, tab visuals need Windows |
-| Real media provider (SMTC, TR §6): art, controls, seek, multi-app switch, paused linger | done; rules tested, WinRT part needs Windows |
+| Real media provider (SMTC, TR §6): art, controls, seek, multi-app switch, paused media stays (decision 099) | done; rules tested, WinRT part needs Windows |
 | File index logic (decision 075): USN records, the index, journal changes, queries, snapshots, pipe protocol | done, tested |
 | File index service + cupindex (decision 075, milestone 3) | runs on a real PC: both drives indexed, searches answered as the user |
 | File search installed with the app, self-updating (decision 076, milestone 4): its own admin installer, carried by the app's; set up at the end of setup or at the app's first start; updates from GitHub through the service | rules tested; --install/--uninstall and the update request run under Wine; installers and a real update need a Windows run; the search panel not yet |

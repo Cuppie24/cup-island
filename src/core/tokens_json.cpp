@@ -213,7 +213,6 @@ const Field kFields[] = {
     { "expandedIdleTimeoutMs", &Tokens::expandedIdleTimeout },
     { "heldAlertMaxAgeMs", &Tokens::heldAlertMaxAge },
     { "alertQueueCapacity", &Tokens::alertQueueCapacity },
-    { "mediaPausedLingerMs", &Tokens::mediaPausedLinger, true },
     { "mediaSessionRecheckMs", &Tokens::mediaSessionRecheck },
     { "mediaSessionGoneGraceMs", &Tokens::mediaSessionGoneGrace },
     { "mediaArtFadeMs", &Tokens::mediaArtFade },

@@ -57,7 +57,7 @@ The island shows whatever Windows is playing (Spotify, browser tabs, VLC,
 Media Player…): album art and a live waveform in the compact pill, and title,
 artist, progress and ⏮ ⏯ ⏭ when you click it. Clicking the progress bar
 seeks. With several players, ⇄ switches between them. Paused music stays
-for 5 minutes (`mediaPausedLingerMs`).
+as long as the app keeps its media session in Windows.
 
 The island hides itself over fullscreen apps (games, F11 browsers, fullscreen
 video) on its monitor, and comes back when they leave fullscreen. Normal

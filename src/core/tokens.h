@@ -323,8 +323,6 @@ struct Tokens {
     Ms heldAlertMaxAge{ 30000 };
     std::size_t alertQueueCapacity = 5;
 
-    // Media (PS §10): a paused track stays on the island this long, then ends.
-    Ms mediaPausedLinger{ 300000 };
     // After any app starts/stops playing, ask Windows again this much later:
     // its "current session" can switch slightly after the playback event.
     Ms mediaSessionRecheck{ 300 };
