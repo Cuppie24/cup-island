@@ -194,8 +194,8 @@ void paletteTests()
     };
     for (Color dark : { Color{ 220, 30, 40 }, Color{ 130, 40, 200 }, Color{ 30, 60, 220 } })
         expect(glowOf(dark) == plainGlowOf(dark), "glass: red, purple and blue glow at coverDarkGlow");
-    for (Color light : { Color{ 240, 210, 20 }, Color{ 40, 200, 60 }, Color{ 40, 200, 220 } })
-        expect(lightness(glowOf(light)) > lightness(plainGlowOf(light)) + 20, "glass: yellow, green and cyan glow lighter");
+    for (Color light : { Color{ 240, 210, 20 }, Color{ 40, 200, 60 }, Color{ 40, 200, 220 }, Color{ 120, 70, 30 } })
+        expect(lightness(glowOf(light)) > lightness(plainGlowOf(light)) + 20, "glass: yellow, green, cyan and brown glow lighter");
     expect(Tokens{}.islandGlowColor.a == 0, "no cover: no glow");
 }
 

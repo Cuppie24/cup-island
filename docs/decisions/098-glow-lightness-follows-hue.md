@@ -13,7 +13,7 @@ forest-dark. Dark, dull colours read as a stain, not as light.
 **Decision.** The glow's lightness rises with its hue's cusp: from
 `coverDarkGlow` for a cusp at or below `coverGlowLiftCusp.x` (0.64: red,
 purple, blue unchanged) to `coverDarkGlowLifted` (0.56) at `.y` (0.74) and
-up (yellow, green, cyan, orange), linearly between (light blue, magenta a
+up (yellow, green, cyan, orange and brown: a dark orange, it glows amber, not mud), linearly between (light blue, magenta a
 little). Only the glow changes: the island, text and accents are as in 090,
 and nothing outside glass with music colours is touched.
 
