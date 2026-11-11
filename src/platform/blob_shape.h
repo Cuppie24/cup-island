@@ -35,7 +35,10 @@ wuc::CompositionRoundedRectangleGeometry addBackground(wuc::Compositor const& c,
 
 // Adds the two flared top corners ("ears") beside the body's top edge, as
 // children of the body, each in its end's colour (decisions 025, 054).
+// `overlap`: how far each reaches into the body, px (an expression):
+// shape.Overlap for the body; 1 for the always-opaque twin (decision 097).
 void addEars(wuc::Compositor const& c, wuc::ShapeVisual const& body, wuc::CompositionPropertySet const& shape,
-             wuc::CompositionBrush const& leftFill, wuc::CompositionBrush const& rightFill);
+             wuc::CompositionBrush const& leftFill, wuc::CompositionBrush const& rightFill,
+             std::wstring const& overlap = L"shape.Overlap");
 
 } // namespace cup::platform

@@ -22,16 +22,19 @@ subtree as invisible; at that strength the fringe is gone. Off, the holder
 is opaque again at once, under the glass fading out. The glass sprite is
 inserted above the holder, not inside it.
 
-**But not while the shape changes.** The glass is cut to a snapshot of
-the twin, and the snapshot catches up with the shape a moment late. With
-the twin hidden, a gap opened between the island and its flared corners
-as they folded (holding the pill to drag it), where the lagging glass left
-only the see-through fill over the unblurred desktop; the opaque twin used
-to cover that. So `Blob::showTwin` shows the twin again for every shape
-change (the corners folding or unfolding, `setAttached`/`flowShape`; an
-ear folding, `setEars`; a resize, `place`), held for the change's time and
-then faded out over `hoverFadeDuration`. A new change restarts the hold.
-The fringe is back only while the shape moves, where it isn't noticed.
+**The twin's ears always overlap the body.** As glass the body's ears
+only meet it (`shape.Overlap` 0, decision 089: a see-through overlap draws
+a darker line), and so did the twin's. Mid-motion (a drag, a morph's
+spring) the island sits between pixels, so the pixel at that seam was only
+partly covered by each side, and the twin, being the glass's mask, cut the
+glass there too: a thin line of the unblurred desktop between the island
+and its corners while it moved, gone at rest (whole pixels). It had been
+there since glass came in. The twin's ears now reach 1 px into it always
+(`addEars`' `overlap`): it's opaque, so overlap draws nothing darker, and
+the glass behind the seam is whole. The body's own seam is left: over
+whole glass it's at most a slightly fainter tint. (Showing the twin while
+the shape changed was tried first, on the guess that the snapshot lagged;
+it didn't help, since the twin had the same seam, and it was taken out.)
 
 **Consequences.** If the snapshot did take its parent's opacity after all,
 glass and its shadow would vanish while glass is on: the first Windows run

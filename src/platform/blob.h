@@ -106,10 +106,6 @@ private:
     // ...in a holder of its own, faded out as glass: the snapshot draws the
     // twin as its own root, so it still has the shape (decision 097).
     wuc::ContainerVisual twin_{ nullptr };
-    // As glass, the twin shows again while the shape changes (`hold`: how
-    // long), then hides: the glass follows the shape a moment late, and the
-    // twin covers the gap meanwhile (decision 097). Solid: nothing to do.
-    void showTwin(Ms hold);
     wuc::CompositionVisualSurface snapshot_{ nullptr }; // ...live: the shadow's mask, and the glass's
     wuc::DropShadow shadow_{ nullptr };
     void buildShadow(wuc::Compositor const& compositor, wuc::ContainerVisual const& parent);
