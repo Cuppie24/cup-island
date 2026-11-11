@@ -103,9 +103,12 @@ private:
     // Null where Windows can't snapshot a visual (before 1903): no shadow.
     wuc::SpriteVisual caster_{ nullptr };
     wuc::ShapeVisual outline_{ nullptr }; // the snapshot's source: the body's shape without its content
-    // ...in a holder of its own, faded out as glass: the snapshot draws the
-    // twin as its own root, so it still has the shape (decision 097).
-    wuc::ContainerVisual twin_{ nullptr };
+    // ...in a layer of its own. As glass it's the island's see-through tint,
+    // over the glass: the layer is made see-through as one (glassShare), so
+    // where its ears overlap the body nothing is tinted twice, and the body's
+    // own fill is clear. The snapshot draws the twin as its own root, without
+    // the layer's opacity or scale (decision 097).
+    wuc::LayerVisual twin_{ nullptr };
     wuc::CompositionVisualSurface snapshot_{ nullptr }; // ...live: the shadow's mask, and the glass's
     wuc::DropShadow shadow_{ nullptr };
     void buildShadow(wuc::Compositor const& compositor, wuc::ContainerVisual const& parent);
@@ -139,7 +142,7 @@ private:
     void applyGlass(Ms duration); // tokens().glass: on or off, and the rim's colour and width
     wuc::CompositionPropertySet shape_{ nullptr }; // MaxRadius, FlareRadius, Attached, Flare, Left/RightEar: read by the shape expressions
     wuc::CompositionPropertySet drag_{ nullptr };  // Centre: the cursor, while following; Drop: lifted, below the edge
-    ShapeFill fill_;  // the body's: see-through as glass (islandFill, decision 089)
+    ShapeFill fill_;  // the body's: clear over the glass, the twin tints it (decision 097)
     ShapeFill solid_; // the outline's: always opaque, so its snapshot is the whole shape
     void fadeFill(Ms duration); // to the current colours (highlighted: the highlight's, both ends)
     wuc::ImplicitAnimationCollection implicit_{ nullptr }; // the Size/Offset morph, along built_

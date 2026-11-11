@@ -55,11 +55,12 @@ void Blob::buildShadow(Compositor const& c, ContainerVisual const& parent)
     // played, which was enough GPU load to make audio stutter. The twin only
     // changes when the shape does (morph, press, drag). It sits right under
     // the body with the same colours, always opaque (solid_): solid, it's
-    // never seen; as glass, the glass covers it (decision 089).
+    // never seen; as glass, its layer, see-through, is the tint over the
+    // glass (decision 097).
     outline_ = c.CreateShapeVisual();
     bind(c, outline_, L"Size", L"pill.Size", body_, shape_);
     bind(c, outline_, L"Offset", L"pill.Offset", body_, shape_);
-    // Not its Scale: that's its holder's, below (decision 097).
+    // Not its Scale: that's its layer's, below (decision 097).
     addBackground(c, outline_, shape_, solid_.gradient);
     // Always overlapping the body, even as glass: the twin is the glass's
     // mask, and a seam in it let the desktop through between the island and
@@ -79,9 +80,13 @@ void Blob::buildShadow(Compositor const& c, ContainerVisual const& parent)
     coverBodyAndEars(c, caster_, body_, shape_);
     caster_.Shadow(shadow_);
     parent.Children().InsertAtTop(caster_);
-    twin_ = c.CreateContainerVisual(); // to hide the twin as glass, not its snapshot (decision 097)
+    // A layer, made see-through as one: as glass it's the island's tint
+    // (decision 097). From the parent's origin past the body's far corner
+    // (its right ear included), where the twin can be.
+    twin_ = c.CreateLayerVisual();
+    bind(c, twin_, L"Size", L"Vector2(pill.Offset.X + pill.Size.X + " + kEarSize + L" + 2, pill.Offset.Y + pill.Size.Y + 2)", body_, shape_);
     twin_.Children().InsertAtTop(outline_);
-    // The press's shrink (and any scale) is the holder's, about the body's
+    // The press's shrink (and any scale) is the layer's, about the body's
     // centre point in the parent's space: the twin on screen shrinks with the
     // body, but its snapshot, drawn without its parents, stays full size. The
     // glass and the shadow scale it with themselves (coverBodyAndEars);
@@ -195,7 +200,7 @@ void Blob::buildGlass()
     glass_.Brush(made.brush);
     glass_.Opacity(0.0f);
     coverBodyAndEars(compositor_, glass_, body_, shape_);
-    twin_.Parent().Children().InsertAbove(glass_, twin_); // over the solid twin (not in its holder), under the body
+    twin_.Parent().Children().InsertBelow(glass_, twin_); // under the twin's layer, its tint (decision 097)
 }
 
 void Blob::paintLuminosity(Color color)
@@ -219,20 +224,18 @@ void Blob::applyGlass(Ms duration)
 
     if (t.glass && !glass_ && !glassTried_) buildGlass();
     if (glassEven_ && t.glassLuminosityColor != luminosityPainted_) paintLuminosity(t.glassLuminosityColor);
-    if (!glass_ || t.glass == glassShown_) return;
-    glassShown_ = t.glass;
-    // On, it's there at once: the body over it still has its old, opaque
-    // colours, and fades to see-through. Off, it fades out as the body fades
-    // back in, uncovering the solid twin under it in the same colours.
-    fadeTo(compositor_, glass_, t.glass ? 1.0f : 0.0f, t.glass ? Ms{ 1 } : duration);
-    // The opaque twin under the glass showed along a curved edge, where a
-    // pixel is only partly inside the shape: the glass covers it only partly
-    // there too, so a dark fringe beside the light rim stepped round the
-    // corners on light desktops (decision 097). As glass it's hidden; its
-    // holder's opacity, not its own, so the snapshot (the twin as its own
-    // root) keeps the shape. Not quite 0, so Windows never skips drawing it.
-    // Off, it's there at once, under the glass fading out.
-    twin_.Opacity(t.glass ? 0.01f : 1.0f);
+    if (glass_ && t.glass != glassShown_) {
+        glassShown_ = t.glass;
+        // On, it's there at once, under the twin's layer, still opaque, which
+        // fades to its see-through tint. Off, it fades out as the layer
+        // fades back to opaque over it.
+        fadeTo(compositor_, glass_, t.glass ? 1.0f : 0.0f, t.glass ? Ms{ 1 } : duration);
+    }
+    // As glass, the twin's layer is the island's tint over it (decision
+    // 097): seamless, since the layer is see-through as one, and with no
+    // opaque fringe along the curves (the reason it was hidden before). A
+    // Transparency pick fades it too. Solid, it's opaque under the body.
+    if (twin_) fadeTo(compositor_, twin_, glassShown_ ? glassShare(t, glassEven_) : 1.0f, duration);
 }
 
 } // namespace cup::platform

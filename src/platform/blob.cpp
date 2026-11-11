@@ -168,10 +168,18 @@ void Blob::setHighlighted(bool on)
 void Blob::fadeFill(Ms duration)
 {
     Color left = leftColor(highlighted_), right = rightColor(highlighted_);
-    // See-through as glass; more strongly over the plain blur (decision 089).
-    bool even = glassEven_ || !glass_;
-    fade(fill_, islandFill(tokens(), left, even), islandFill(tokens(), right, even), duration);
-    fade(solid_, left, right, duration);
+    // Over the glass, the twin's layer is the tint and the body's fill is
+    // clear: the two fills met in a seam at the ears, light whenever the
+    // island sat between pixels (decision 097). Without the glass (none
+    // made), see-through as glass was, over the opaque twin (decision 089).
+    if (glassShown_) {
+        left.a = right.a = 0;
+        fade(fill_, left, right, duration);
+    } else {
+        bool even = glassEven_ || !glass_;
+        fade(fill_, islandFill(tokens(), left, even), islandFill(tokens(), right, even), duration);
+    }
+    fade(solid_, leftColor(highlighted_), rightColor(highlighted_), duration);
 }
 
 void Blob::setSelectedTab(std::optional<Rect> tab, float cornerRadius) { showMark(selectedTab_, tab, cornerRadius, tokens().tabSelectedColor, true); }
