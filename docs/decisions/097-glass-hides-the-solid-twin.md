@@ -22,6 +22,17 @@ subtree as invisible; at that strength the fringe is gone. Off, the holder
 is opaque again at once, under the glass fading out. The glass sprite is
 inserted above the holder, not inside it.
 
+**But not while the shape changes.** The glass is cut to a snapshot of
+the twin, and the snapshot catches up with the shape a moment late. With
+the twin hidden, a gap opened between the island and its flared corners
+as they folded (holding the pill to drag it), where the lagging glass left
+only the see-through fill over the unblurred desktop; the opaque twin used
+to cover that. So `Blob::showTwin` shows the twin again for every shape
+change (the corners folding or unfolding, `setAttached`/`flowShape`; an
+ear folding, `setEars`; a resize, `place`), held for the change's time and
+then faded out over `hoverFadeDuration`. A new change restarts the hold.
+The fringe is back only while the shape moves, where it isn't noticed.
+
 **Consequences.** If the snapshot did take its parent's opacity after all,
 glass and its shadow would vanish while glass is on: the first Windows run
 says. Solid islands are unchanged.

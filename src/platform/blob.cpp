@@ -152,7 +152,10 @@ void Blob::place(Vec2 size, Vec2 offset, const Motion& motion)
         built_ = motion_;
         body_.ImplicitAnimations(implicit_);
     }
-    if (resize) body_.Size(toFloat2(size));
+    if (resize) {
+        body_.Size(toFloat2(size));
+        showTwin(motion_.duration); // as glass, no gap while the shape catches up (decision 097)
+    }
     if (move) body_.Offset(toFloat3(offset));
     size_ = size;
     offset_ = offset;

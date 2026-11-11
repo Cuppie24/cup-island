@@ -33,6 +33,10 @@ void coverBodyAndEars(Compositor const& c, Visual const& visual, ShapeVisual con
     bind(c, visual, L"Scale", L"pill.Scale", body, shape);
 }
 
+// The twin's holder as glass at rest (decision 097): not quite 0, so
+// Windows never skips drawing it, and the snapshot keeps the shape.
+constexpr float kTwinHidden = 0.01f;
+
 Color clear(Color c)
 {
     c.a = 0;
@@ -220,9 +224,28 @@ void Blob::applyGlass(Ms duration)
     // there too, so a dark fringe beside the light rim stepped round the
     // corners on light desktops (decision 097). As glass it's hidden; its
     // holder's opacity, not its own, so the snapshot (the twin as its own
-    // root) keeps the shape. Not quite 0, so Windows never skips drawing it.
-    // Off, it's there at once, under the glass fading out.
-    twin_.Opacity(t.glass ? 0.01f : 1.0f);
+    // root) keeps the shape. Off, it's there at once, under the glass fading
+    // out. Stopped first: showTwin() may be animating it.
+    twin_.StopAnimation(L"Opacity");
+    twin_.Opacity(t.glass ? kTwinHidden : 1.0f);
+}
+
+void Blob::showTwin(Ms hold)
+{
+    // The glass is cut to a snapshot of the twin, which catches up with the
+    // shape a moment late: while the corners fold or the island resizes, its
+    // edge lags the body's, and without the twin a gap showed there (the
+    // desktop through the body's see-through fill, unblurred). So the twin
+    // is there for the change, and fades back out once the shape has
+    // settled; its fringe isn't noticed on a shape in motion.
+    if (!twin_ || !glassShown_) return;
+    Ms fade = tokens().hoverFadeDuration, whole = hold + fade;
+    auto anim = compositor_.CreateScalarKeyFrameAnimation();
+    anim.InsertKeyFrame(0.0f, 1.0f);
+    anim.InsertKeyFrame(static_cast<float>(hold.count()) / std::max<float>(static_cast<float>(whole.count()), 1.0f), 1.0f);
+    anim.InsertKeyFrame(1.0f, kTwinHidden);
+    anim.Duration(std::max(whole, Ms{ 1 }));
+    twin_.StartAnimation(L"Opacity", anim); // replaces one still running: the hold starts again
 }
 
 } // namespace cup::platform
