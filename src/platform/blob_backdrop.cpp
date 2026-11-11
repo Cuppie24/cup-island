@@ -59,8 +59,7 @@ void Blob::buildShadow(Compositor const& c, ContainerVisual const& parent)
     outline_ = c.CreateShapeVisual();
     bind(c, outline_, L"Size", L"pill.Size", body_, shape_);
     bind(c, outline_, L"Offset", L"pill.Offset", body_, shape_);
-    bind(c, outline_, L"CenterPoint", L"pill.CenterPoint", body_, shape_);
-    bind(c, outline_, L"Scale", L"pill.Scale", body_, shape_);
+    // Not its Scale: that's its holder's, below (decision 097).
     addBackground(c, outline_, shape_, solid_.gradient);
     // Always overlapping the body, even as glass: the twin is the glass's
     // mask, and a seam in it let the desktop through between the island and
@@ -82,6 +81,14 @@ void Blob::buildShadow(Compositor const& c, ContainerVisual const& parent)
     parent.Children().InsertAtTop(caster_);
     twin_ = c.CreateContainerVisual(); // to hide the twin as glass, not its snapshot (decision 097)
     twin_.Children().InsertAtTop(outline_);
+    // The press's shrink (and any scale) is the holder's, about the body's
+    // centre point in the parent's space: the twin on screen shrinks with the
+    // body, but its snapshot, drawn without its parents, stays full size. The
+    // glass and the shadow scale it with themselves (coverBodyAndEars);
+    // scaled in the snapshot too, the glass's cut shrank twice while the pill
+    // was held, and a gap opened at its corners (decision 097).
+    bind(c, twin_, L"CenterPoint", L"pill.Offset + pill.CenterPoint", body_, shape_);
+    bind(c, twin_, L"Scale", L"pill.Scale", body_, shape_);
     parent.Children().InsertAtTop(twin_); // above the shadow, below the body (inserted next)
 }
 
