@@ -153,8 +153,12 @@ const Field kFields[] = {
     { "shadowOffset", &Tokens::shadowOffset },
     { "artShadowBlur", &Tokens::artShadowBlur },
     { "artShadowOffset", &Tokens::artShadowOffset },
-    { "glassOpacity", &Tokens::glassOpacity, true },
+    { "glassDenseOpacity", &Tokens::glassDenseOpacity, true }, // Transparency Low (decision 096)
+    { "glassOpacity", &Tokens::glassOpacity },                 // ...Medium
+    { "glassClearOpacity", &Tokens::glassClearOpacity },       // ...High
+    { "glassDensePlainOpacity", &Tokens::glassDensePlainOpacity },
     { "glassPlainOpacity", &Tokens::glassPlainOpacity },
+    { "glassClearPlainOpacity", &Tokens::glassClearPlainOpacity },
     { "glassGlowHeight", &Tokens::glassGlowHeight },
     { "glassGlowOpacity", &Tokens::glassGlowOpacity },
     { "glassGlowCurve", &Tokens::glassGlowCurve },
@@ -461,8 +465,8 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
         std::string_view n(name);
         return n.starts_with("cover") || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" || n == "searchVisibleRows" ||
                n == "primaryHoverOpacity" || n == "playGlyphNudge" || // a share of an opacity, of a width (decisions 066, 071)
-               n == "glassOpacity" || n == "glassPlainOpacity" ||    // opacities (decision 089)
-               n == "glassGlowOpacity" || n == "glassGlowCurve" || // a share, an exponent (decision 090)
+               (n.starts_with("glass") && n.ends_with("Opacity")) || // opacities (decisions 089, 090, 096)
+               n == "glassGlowCurve" ||                               // an exponent (decision 090)
                n.ends_with("Bounce") || n == "contentArriveScale" || n == "contentRevealAt" || n == "morphSpringSettle" || n == "alertPulseScale" || // shares (decision 080)
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
     };
@@ -488,6 +492,7 @@ bool onlyColorsDiffer(const Tokens& a, const Tokens& b)
     mixed.fadeSpeed = a.fadeSpeed; // how fast colours fade isn't anything to rebuild either
     mixed.reducedMotion = a.reducedMotion; // read when a motion starts, like the fade speed
     mixed.glass = a.glass;                 // glass on or off only fades the fill (decision 089)
+    mixed.glassTransparency = a.glassTransparency; // ...and so does how see-through it is (decision 096)
     for (const Field& f : kFields)
         if (auto* member = std::get_if<Color Tokens::*>(&f.member)) mixed.*(*member) = a.*(*member);
     return mixed == a;

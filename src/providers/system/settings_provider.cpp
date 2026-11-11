@@ -76,6 +76,9 @@ void SettingsProvider::start(Host& host)
     if (hooks_.setFadeSpeed) hooks_.setFadeSpeed(fadeSpeed_);
     glass_ = trimmed(host_->load(kGlassKey)) != "off"; // on until turned off, after an update too (decision 089)
     if (hooks_.setGlass) hooks_.setGlass(glass_);
+    std::string level = trimmed(host_->load(kTransparencyKey));
+    transparency_ = level == "low" ? Transparency::Low : level == "high" ? Transparency::High : Transparency::Medium;
+    if (hooks_.setTransparency) hooks_.setTransparency(transparency_);
     pick(known(trimmed(host_->load(kThemeKey))));
 }
 
@@ -93,7 +96,7 @@ void SettingsProvider::loadSeen()
     // setting is as new as the rest (none tagged), or an update from before
     // tags existed, which kept other settings (all announced ones are new).
     bool fresh = true;
-    for (const char* key : { kAutostartKey, kThemeKey, kDisplayKey, kShortcutsKey, kTabRowKey, kCoverColoursKey, kFadeKey, kGlassKey })
+    for (const char* key : { kAutostartKey, kThemeKey, kDisplayKey, kShortcutsKey, kTabRowKey, kCoverColoursKey, kFadeKey, kGlassKey, kTransparencyKey })
         if (!trimmed(host_->load(key)).empty()) fresh = false;
     if (!fresh) return;
     for (const SettingItem& s : hooks_.announced) seen_.insert(s.id);
@@ -115,6 +118,14 @@ void SettingsProvider::pickFade(FadeSpeed speed)
     fadeSpeed_ = speed;
     host_->save(kFadeKey, speed == FadeSpeed::Fast ? "fast" : speed == FadeSpeed::Slow ? "slow" : "medium");
     if (hooks_.setFadeSpeed) hooks_.setFadeSpeed(speed);
+    publish();
+}
+
+void SettingsProvider::pickTransparency(Transparency level)
+{
+    transparency_ = level;
+    host_->save(kTransparencyKey, level == Transparency::Low ? "low" : level == Transparency::High ? "high" : "medium");
+    if (hooks_.setTransparency) hooks_.setTransparency(level);
     publish();
 }
 
@@ -148,6 +159,12 @@ void SettingsProvider::onAction(const Action& action)
     else if (id == settings_action::kOpenMusicColours && hooks_.setCoverColours) {
         page_ = SettingsPage::MusicColours;
         publish();
+    } else if (id == settings_action::kOpenGlass && hooks_.setGlass) {
+        page_ = SettingsPage::Glass;
+        publish();
+    } else if (auto at = choiceIndex(id, settings_action::kPickTransparency)) {
+        // The page stays: the island, faded to it at once, is the preview.
+        if (*at <= 2 && hooks_.setTransparency) pickTransparency(*at == 0 ? Transparency::Low : *at == 2 ? Transparency::High : Transparency::Medium);
     } else if (auto at = choiceIndex(id, settings_action::kPickFade)) {
         // The page stays: the next recolour shows the new speed.
         if (*at <= 2 && hooks_.setFadeSpeed) pickFade(*at == 0 ? FadeSpeed::Fast : *at == 2 ? FadeSpeed::Slow : FadeSpeed::Medium);
@@ -371,6 +388,7 @@ SettingsView SettingsProvider::view() const
     if (hooks_.startsWithWindows) v.startsWithWindows = hooks_.startsWithWindows();
     if (hooks_.setCoverColours) v.coverColours = coverColours_;
     if (hooks_.setGlass) v.glass = glass_;
+    if (hooks_.setGlass && hooks_.setTransparency) v.transparency = transparency_; // on Glass' page
     if (hooks_.setCoverColours && hooks_.setFadeSpeed) v.fadeSpeed = fadeSpeed_; // on Music colours' page
     return v;
 }

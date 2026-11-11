@@ -99,6 +99,11 @@ const char* fadeName(FadeSpeed speed)
     return speed == FadeSpeed::Fast ? "Fast" : speed == FadeSpeed::Slow ? "Slow" : "Medium";
 }
 
+const char* transparencyName(Transparency level)
+{
+    return level == Transparency::Low ? "Low" : level == Transparency::High ? "High" : "Medium";
+}
+
 // The list of settings, in groups under labels (decisions 037, 090): how the
 // island looks and where it is, how it behaves, and updates. A group with
 // nothing to show (no way to check for updates) has no label.
@@ -108,7 +113,7 @@ Slot listPage(const SettingsView& v)
     auto group = [&](const char* name, std::vector<Row> rows) { addGroup(card, name, std::move(rows)); };
     std::vector<Row> appearance;
     if (!tokens().themes.empty()) appearance.push_back(marked(settingRow("Theme", v.theme, P::kOpenThemes), "theme", v));
-    if (v.glass) appearance.push_back(marked(toggleRow("Glass", *v.glass, P::kToggleGlass), "glass", v)); // decision 089
+    if (v.glass) appearance.push_back(marked(settingRow("Glass", *v.glass ? "On" : "Off", P::kOpenGlass), "glass", v)); // decisions 089, 096
     if (v.coverColours) appearance.push_back(marked(settingRow("Music colours", *v.coverColours ? "On" : "Off", P::kOpenMusicColours), "musiccolours", v));
     if (!v.displays.empty()) appearance.push_back(marked(settingRow("Display", v.displays[v.display], P::kOpenDisplays), "display", v));
     // Picked in place (decision 093): two options don't need a page.
@@ -176,6 +181,26 @@ Slot musicColoursPage(const SettingsView& v)
     return card;
 }
 
+// The island as glass (decisions 089, 096): on or off, and how see-through,
+// picked in place like the colour fade. Picks apply at once.
+Slot glassPage(const SettingsView& v)
+{
+    Slot card{ pageTitle("Glass") };
+    std::vector<Row> rows;
+    if (v.glass) rows.push_back(toggleRow("Glass effect", *v.glass, P::kToggleGlass));
+    if (v.transparency) {
+        std::size_t picked = *v.transparency == Transparency::Low ? 0 : *v.transparency == Transparency::High ? 2 : 1;
+        rows.push_back(marked(groupItem(itemText("Transparency", "How much shows through"),
+                                        { Segments{ .options = { transparencyName(Transparency::Low), transparencyName(Transparency::Medium),
+                                                                 transparencyName(Transparency::High) },
+                                                    .picked = picked, .actionId = P::kPickTransparency } }),
+                              "transparency", v));
+    }
+    addGroup(card, "", std::move(rows), P::kGlassList);
+    if (card.size() > 1) card[1].section = false; // right under the title
+    return card;
+}
+
 Slot displaysPage(const SettingsView& v)
 {
     Slot card{ pageTitle("Display") };
@@ -226,6 +251,7 @@ std::vector<SettingItem> announcedSettings()
         { "musiccolours", "" },            // decision 053
         { "fade", "musiccolours" },        // decision 053
         { "glass", "" },                   // decision 089
+        { "transparency", "glass" },       // decision 096
     };
 }
 
@@ -268,6 +294,7 @@ Panel settingsPanel(const SettingsView& view)
         .expandedCenter = view.page == SettingsPage::Themes      ? themesPage(view)
                           : view.page == SettingsPage::Displays  ? displaysPage(view)
                           : view.page == SettingsPage::MusicColours ? musicColoursPage(view)
+                          : view.page == SettingsPage::Glass     ? glassPage(view)
                           : view.page == SettingsPage::Shortcuts ? shortcutsPage(view)
                                                                  : listPage(view),
         // One line, the gear in the side square like the other widgets' icons, bold like their titles (decision 073).

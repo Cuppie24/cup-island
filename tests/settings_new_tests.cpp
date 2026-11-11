@@ -242,26 +242,43 @@ void coverColoursTests()
     without.stop();
 }
 
-// Glass (decision 089): a switch on the list, on until turned off (after an
-// update too), and only where the app can draw it (Windows 11): no hook, no row.
+// Glass (decisions 089, 096): a row on the list opening its page, with a
+// switch that's on until turned off (after an update too) and how
+// see-through, medium by default; only where the app can draw it (Windows
+// 11): no hook, no row.
 void glassTests()
 {
     auto switchedOn = [](const Row* r) {
         auto* toggle = r && r->clickAnywhere && r->items.size() > 1 ? std::get_if<Switch>(&r->items.back()) : nullptr;
         return toggle && toggle->on;
     };
+    auto value = [](const Row* r) { return r ? std::get<Text>(r->items[0]).detail : std::string(); };
     PanelHost h;
     std::vector<bool> applied;
-    SettingsProvider settings({ .setGlass = [&](bool on) { applied.push_back(on); } });
+    std::vector<Transparency> levels;
+    SettingsProvider settings({ .setGlass = [&](bool on) { applied.push_back(on); },
+                                .setTransparency = [&](Transparency t) { levels.push_back(t); } });
     settings.start(h);
-    expect(applied == std::vector<bool>{ true } && h.store[SettingsProvider::kGlassKey].empty() && switchedOn(rowNamed(h.published.back(), "Glass")),
-           "glass: on by default (nothing saved, as after an update), the app told, a switch on the list");
+    expect(applied == std::vector<bool>{ true } && levels == std::vector<Transparency>{ Transparency::Medium } &&
+               h.store[SettingsProvider::kGlassKey].empty() && value(rowNamed(h.published.back(), "Glass")) == "On" &&
+               !rowNamed(h.published.back(), "Glass effect"),
+           "glass: on and medium by default (nothing saved, as after an update), the app told; one row on the list");
+    settings.onAction({ "system.settings", SettingsProvider::kPanelId, P::kOpenGlass, 0 });
+    auto level = [&] { return std::get<Segments>(rowNamed(h.published.back(), "Transparency")->items.back()); };
+    expect(switchedOn(rowNamed(h.published.back(), "Glass effect")) && level().options == std::vector<std::string>{ "Low", "Medium", "High" } &&
+               level().picked == 1,
+           "glass: its page, the switch on, three levels side by side, medium picked");
+    settings.onAction({ "system.settings", SettingsProvider::kPanelId, std::string(P::kPickTransparency) + "2", 0 });
+    expect(levels.back() == Transparency::High && h.store[SettingsProvider::kTransparencyKey] == "high" && level().picked == 2,
+           "glass: high picked, saved, the page stays");
     settings.onAction({ "system.settings", SettingsProvider::kPanelId, P::kToggleGlass, 0 });
-    expect(applied.back() == false && h.store[SettingsProvider::kGlassKey] == "off" && !switchedOn(rowNamed(h.published.back(), "Glass")),
+    expect(applied.back() == false && h.store[SettingsProvider::kGlassKey] == "off" && !switchedOn(rowNamed(h.published.back(), "Glass effect")),
            "glass: a click turns it off, saved");
+    settings.onAction({ "system.settings", SettingsProvider::kPanelId, P::kBack, 0 });
+    expect(value(rowNamed(h.published.back(), "Glass")) == "Off", "glass: the list says off");
     settings.stop();
     settings.start(h);
-    expect(applied.back() == false && !switchedOn(rowNamed(h.published.back(), "Glass")), "glass: off kept over a restart");
+    expect(applied.back() == false && levels.back() == Transparency::High, "glass: off and high kept over a restart");
     settings.onAction({ "system.settings", SettingsProvider::kPanelId, P::kToggleGlass, 0 });
     expect(applied.back() == true && h.store[SettingsProvider::kGlassKey] == "on", "glass: and back on");
     settings.stop();
@@ -270,8 +287,10 @@ void glassTests()
     SettingsProvider without({});
     without.start(bare);
     without.onAction({ "system.settings", SettingsProvider::kPanelId, P::kToggleGlass, 0 });
-    expect(!rowNamed(bare.published.back(), "Glass") && bare.store[SettingsProvider::kGlassKey].empty(),
-           "glass: no hook (Windows 10), no row, and its action does nothing");
+    without.onAction({ "system.settings", SettingsProvider::kPanelId, std::string(P::kPickTransparency) + "0", 0 });
+    expect(!rowNamed(bare.published.back(), "Glass") && bare.store[SettingsProvider::kGlassKey].empty() &&
+               bare.store[SettingsProvider::kTransparencyKey].empty(),
+           "glass: no hook (Windows 10), no row, and its actions do nothing");
     without.stop();
 }
 

@@ -31,6 +31,8 @@ inline constexpr const char* kToggleCoverColours = "covercolours.toggle"; // dec
 inline constexpr const char* kOpenMusicColours = "musiccolours.open";      // decision 053
 inline constexpr const char* kPickFade = "fade.pick:";                     // + 0 fast, 1 medium, 2 slow
 inline constexpr const char* kToggleGlass = "glass.toggle";                // decision 089
+inline constexpr const char* kOpenGlass = "glass.open";                    // decision 096
+inline constexpr const char* kPickTransparency = "transparency.pick:";     // + 0 low, 1 medium, 2 high
 inline constexpr const char* kCopyLogs = "logs.copy";
 inline constexpr const char* kCentreIsland = "island.centre";
 inline constexpr const char* kCheckUpdates = "updates.check";
@@ -40,6 +42,7 @@ inline constexpr const char* kThemeList = "themes";
 inline constexpr const char* kDisplayList = "displays";
 inline constexpr const char* kShortcutList = "shortcuts"; // the keys: more than fit on the card
 inline constexpr const char* kMusicColoursList = "musiccolours";
+inline constexpr const char* kGlassList = "glasspage";
 inline constexpr const char* kSettingsList = "settings";  // the root page: may be more than fit (decision 037)
 } // namespace settings_action
 
@@ -56,7 +59,7 @@ struct UpdateNote {
 };
 
 // Which page the card shows: the list of settings, or one setting's choices.
-enum class SettingsPage { List, Themes, Displays, Shortcuts, MusicColours };
+enum class SettingsPage { List, Themes, Displays, Shortcuts, MusicColours, Glass };
 
 // A setting added after people already had the app (decision 048): shown
 // with a "New" tag until it's been seen, and a dot on its parent's row while
@@ -67,7 +70,7 @@ struct SettingItem {
 };
 
 // Every announced setting, oldest first: add a line when adding a setting.
-// Rows' ids: "theme", "glass", "musiccolours" (and "covercolours", "fade" on its page), "display",
+// Rows' ids: "theme", "glass" (and "transparency" on its page), "musiccolours" (and "covercolours", "fade" on its page), "display",
 // "tabrow" (and "tabrow.top", "tabrow.bottom" on its page), "centre", "autostart",
 // "shortcuts", "logs", "updates".
 std::vector<SettingItem> announcedSettings();
@@ -90,6 +93,7 @@ struct SettingsView {
     std::optional<bool> coverColours;       // the island in the playing cover's colours (decision 052); nothing: no row
     std::optional<FadeSpeed> fadeSpeed;     // how fast colours fade (decision 053); nothing: no choice
     std::optional<bool> glass;              // the island as glass (decision 089); nothing: no row (Windows 10)
+    std::optional<Transparency> transparency; // how see-through (decision 096); nothing: no choice
     std::vector<SettingItem> announced;     // what can be new (announcedSettings)...
     std::set<std::string> unseen;           // ...and which of those haven't been seen yet: tagged "New"
 };
