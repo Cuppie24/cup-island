@@ -194,6 +194,8 @@ void runTokensTests()
     glass.glassDensePlainOpacity = 1.0f;
     expect(islandFill(glass, island) == Color{ 24, 9, 42, 230 } && islandFill(glass, island, false) == island,
            "glass, Transparency Low: the dense ones");
+    expect(glassShare(glass) == 0.9f && glassShare(glass, false) == 1.0f && glassShare(solid) == 1.0f,
+           "the share of opacity glass keeps, for a whole layer (decision 097): 1 when solid");
     expect(onlyColorsDiffer(glass, [&] { Tokens t = glass; t.glassTransparency = Transparency::Medium; return t; }()),
            "a new Transparency pick rebuilds nothing: the fill fades");
     glass.glassTransparency = Transparency::Medium;

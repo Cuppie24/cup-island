@@ -493,6 +493,9 @@ Ms recolorDuration(const Tokens& t);
 // ones at a Low or High Transparency pick (decision 096). The pill, the
 // bubble and the neck between them all use it.
 Color islandFill(const Tokens& t, Color color, bool evenBlur = true);
+// ...the share it keeps of a colour's opacity: 1 when not glass. The island
+// over the glass applies it to a whole layer (decision 097).
+float glassShare(const Tokens& t, bool evenBlur = true);
 
 // The glow's fade (decision 090): at `up` of its reach (0 the bottom edge, 1
 // its top), the share of its colour left: (1 - up)^glassGlowCurve. Steep at
