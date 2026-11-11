@@ -11,14 +11,16 @@ it, the way they pick how fast music colours fade (decision 053).
 - **Glass gets a page**, like Music colours: the list's Glass row says On or
   Off and opens it. On the page: the **Glass effect** switch (as before: on
   by default, decision 089) and **Transparency**, three levels picked in
-  place (decision 093): **Low, Medium, High**. Medium by default, which is
-  the strength glass had before, so nothing changes until someone picks.
+  place (decision 093): **Low, Medium, High**. Medium by default.
 - Each level has its own pair of opacities in tokens.json: how strong the
   island's colours are over the evened-out blur, and over the plain blur
   (which needs more):
-  - Low: `glassDenseOpacity` 0.3, `glassDensePlainOpacity` 0.85;
-  - Medium: `glassOpacity` 0.15, `glassPlainOpacity` 0.7 (unchanged);
-  - High: `glassClearOpacity` 0.06, `glassClearPlainOpacity` 0.5.
+  - Low: `glassDenseOpacity` 0.2, `glassDensePlainOpacity` 0.6;
+  - Medium: `glassOpacity` 0.1, `glassPlainOpacity` 0.45;
+  - High: `glassClearOpacity` 0.04, `glassClearPlainOpacity` 0.3.
+  First tried at 0.3/0.85, 0.15/0.7 (glass's old strength) and 0.06/0.5:
+  on screen every level was too solid, Low most of all, so all three were
+  made clearer and Medium no longer matches the old strength.
 - A pick applies at once and **fades** the fill (it's only its opacity:
   `onlyColorsDiffer`), over the picked colour-fade speed, like a theme.
 - Saved as `transparency` ("low", "medium", "high"; nothing saved: medium).
