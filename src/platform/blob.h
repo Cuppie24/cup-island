@@ -103,6 +103,9 @@ private:
     // Null where Windows can't snapshot a visual (before 1903): no shadow.
     wuc::SpriteVisual caster_{ nullptr };
     wuc::ShapeVisual outline_{ nullptr }; // the snapshot's source: the body's shape without its content
+    // ...in a holder of its own, faded out as glass: the snapshot draws the
+    // twin as its own root, so it still has the shape (decision 097).
+    wuc::ContainerVisual twin_{ nullptr };
     wuc::CompositionVisualSurface snapshot_{ nullptr }; // ...live: the shadow's mask, and the glass's
     wuc::DropShadow shadow_{ nullptr };
     void buildShadow(wuc::Compositor const& compositor, wuc::ContainerVisual const& parent);

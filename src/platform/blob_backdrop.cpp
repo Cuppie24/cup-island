@@ -77,7 +77,9 @@ void Blob::buildShadow(Compositor const& c, ContainerVisual const& parent)
     coverBodyAndEars(c, caster_, body_, shape_);
     caster_.Shadow(shadow_);
     parent.Children().InsertAtTop(caster_);
-    parent.Children().InsertAtTop(outline_); // above the shadow, below the body (inserted next)
+    twin_ = c.CreateContainerVisual(); // to hide the twin as glass, not its snapshot (decision 097)
+    twin_.Children().InsertAtTop(outline_);
+    parent.Children().InsertAtTop(twin_); // above the shadow, below the body (inserted next)
 }
 
 void Blob::applyShadow()
@@ -183,7 +185,7 @@ void Blob::buildGlass()
     glass_.Brush(made.brush);
     glass_.Opacity(0.0f);
     coverBodyAndEars(compositor_, glass_, body_, shape_);
-    outline_.Parent().Children().InsertAbove(glass_, outline_); // over the solid twin, under the body
+    twin_.Parent().Children().InsertAbove(glass_, twin_); // over the solid twin (not in its holder), under the body
 }
 
 void Blob::paintLuminosity(Color color)
@@ -213,6 +215,14 @@ void Blob::applyGlass(Ms duration)
     // colours, and fades to see-through. Off, it fades out as the body fades
     // back in, uncovering the solid twin under it in the same colours.
     fadeTo(compositor_, glass_, t.glass ? 1.0f : 0.0f, t.glass ? Ms{ 1 } : duration);
+    // The opaque twin under the glass showed along a curved edge, where a
+    // pixel is only partly inside the shape: the glass covers it only partly
+    // there too, so a dark fringe beside the light rim stepped round the
+    // corners on light desktops (decision 097). As glass it's hidden; its
+    // holder's opacity, not its own, so the snapshot (the twin as its own
+    // root) keeps the shape. Not quite 0, so Windows never skips drawing it.
+    // Off, it's there at once, under the glass fading out.
+    twin_.Opacity(t.glass ? 0.01f : 1.0f);
 }
 
 } // namespace cup::platform
