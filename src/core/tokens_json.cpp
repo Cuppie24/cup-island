@@ -237,6 +237,8 @@ const Field kFields[] = {
     { "coverSecondShare", &Tokens::coverSecondShare },
     { "coverInkChroma", &Tokens::coverInkChroma },
     { "coverDarkGlow", &Tokens::coverDarkGlow },
+    { "coverGlowLiftCusp", &Tokens::coverGlowLiftCusp },
+    { "coverDarkGlowLifted", &Tokens::coverDarkGlowLifted },
     { "islandColor", &Tokens::islandColor, true },
     { "islandHighlightColor", &Tokens::islandHighlightColor },
     { "islandSecondColor", &Tokens::islandSecondColor }, // set from islandColor and the cover (live_tokens), not the file
