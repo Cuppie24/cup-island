@@ -1,6 +1,6 @@
 # 089: Glass, on Windows 11
 
-Status: Accepted
+Status: Accepted; the switch moved to a Glass page with three transparency levels by 096
 
 **Context.** People asked for a "glass" island: the desktop behind it showing
 through, blurred, like Windows 11's own surfaces. TR §5 already said a blur

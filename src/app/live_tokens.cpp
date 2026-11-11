@@ -21,6 +21,7 @@ std::optional<CoverTint> g_tint; // the playing cover's colours, over the theme 
 FadeSpeed g_fadeSpeed = FadeSpeed::Medium; // Settings' pick (decision 053)
 bool g_reducedMotion = false;               // Windows' animation setting (decision 080)
 bool g_glass = false;                       // glass picked, and Windows' transparency on (decision 089)
+Transparency g_transparency = Transparency::Medium; // Settings' pick (decision 096)
 
 void log(const std::string& message)
 {
@@ -65,6 +66,7 @@ bool commit(const std::string& message)
     Tokens next = scaleTokens(themed, g_scale);
     next.fadeSpeed = g_fadeSpeed;
     next.reducedMotion = g_reducedMotion;
+    next.glassTransparency = g_transparency;
     next = withGlass(next, g_glass); // not on a light theme's island (decision 089)
     if (next == tokens()) return false;
     warnIfClipped(next);
@@ -143,6 +145,13 @@ bool setReducedMotion(bool reduced)
 {
     g_reducedMotion = reduced;
     return commit(reduced ? "motion: reduced (Windows' animation effects are off)" : "motion: full");
+}
+
+bool setTransparency(Transparency level)
+{
+    g_transparency = level;
+    const char* name = level == Transparency::Low ? "low" : level == Transparency::High ? "high" : "medium";
+    return commit(std::string("glass transparency: ") + name);
 }
 
 bool setGlass(bool on)

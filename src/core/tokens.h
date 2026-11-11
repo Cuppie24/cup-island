@@ -43,6 +43,9 @@ struct Theme {
 // How fast colours fade (decision 053): the user's pick in Settings.
 enum class FadeSpeed { Fast, Medium, Slow };
 
+// How see-through the glass is (decision 096): the user's pick in Settings.
+enum class Transparency { Low, Medium, High };
+
 struct Tokens {
     // Render layer: as wide as the island's monitor, so the island can move
     // along its top edge (decision 026), and this tall (TR §5, §9.1). The
@@ -219,8 +222,17 @@ struct Tokens {
     // bottom. Windows 11 and dark islands only; colours in glassLuminosityColor,
     // glassRimColor, glassShadowColor.
     bool glass = false;           // drawn as glass now (withGlass): set by the app, not tokens.json
-    float glassOpacity = 0.15f;   // how strong the island's colours are over the blur: 1 solid, 0 none (acrylic's tint opacity)
-    float glassPlainOpacity = 0.7f; // ...over the plain blur, where Windows won't even out its brightness: it needs more
+    // How strong the island's colours are over the blur, 1 solid, 0 none
+    // (acrylic's tint opacity), at each Transparency pick (decision 096):
+    // Low is dense, Medium as written, High clear. Over the plain blur, where
+    // Windows won't even out its brightness, it needs more (Plain).
+    float glassDenseOpacity = 0.3f;
+    float glassOpacity = 0.15f;
+    float glassClearOpacity = 0.06f;
+    float glassDensePlainOpacity = 0.85f;
+    float glassPlainOpacity = 0.7f;
+    float glassClearPlainOpacity = 0.5f;
+    Transparency glassTransparency = Transparency::Medium; // the user's pick: set by the app from Settings, not by tokens.json
     // Glass with the cover's colours (decision 090): the island stays
     // Midnight, and the cover's colour glows up from its bottom edge.
     float glassGlowHeight = 40.0f;  // px: the glow's reach up from the bottom edge, the same on the pill and a tall card
@@ -475,8 +487,9 @@ Ms recolorDuration(const Tokens& t);
 
 // The island's fill as drawn (decision 089): `color`, or as glass, see-through
 // by glassOpacity; by glassPlainOpacity over the plain blur (`evenBlur`
-// false: Windows refused to even out its brightness). The pill, the bubble
-// and the neck between them all use it.
+// false: Windows refused to even out its brightness); the Dense or Clear
+// ones at a Low or High Transparency pick (decision 096). The pill, the
+// bubble and the neck between them all use it.
 Color islandFill(const Tokens& t, Color color, bool evenBlur = true);
 
 // The glow's fade (decision 090): at `up` of its reach (0 the bottom edge, 1

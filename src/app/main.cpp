@@ -1114,6 +1114,12 @@ int main()
             applyGlass(on ? "glass on" : "glass off");
         })
                                       : nullptr,
+        // How see-through (decision 096): with the Glass row, so not on Windows 10 either.
+        .setTransparency = g_render.backdrop ? std::function<void(Transparency)>([](Transparency level) {
+            Vec2 oldCanvas = tokens().canvas;
+            if (app::setTransparency(level)) tokensChanged(oldCanvas, "glass transparency");
+        })
+                                             : nullptr,
     });
     g_settings = settings.get();
     g_settings->setHotkeysActive(!g_state.hidden); // started under a fullscreen app: none until it's gone

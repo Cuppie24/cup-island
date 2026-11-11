@@ -184,6 +184,19 @@ void runTokensTests()
     glass.glassPlainOpacity = 0.8f;
     expect(islandFill(glass, island, false) == Color{ 24, 9, 42, 204 }, "glass over the plain blur: glassPlainOpacity, stronger");
     expect(islandFill(solid, island, false) == island, "glass off: the plain blur changes nothing");
+    glass.glassTransparency = Transparency::High;
+    glass.glassClearOpacity = 0.2f;
+    glass.glassClearPlainOpacity = 0.4f;
+    expect(islandFill(glass, island) == Color{ 24, 9, 42, 51 } && islandFill(glass, island, false) == Color{ 24, 9, 42, 102 },
+           "glass, Transparency High: the clear opacities (decision 096)");
+    glass.glassTransparency = Transparency::Low;
+    glass.glassDenseOpacity = 0.9f;
+    glass.glassDensePlainOpacity = 1.0f;
+    expect(islandFill(glass, island) == Color{ 24, 9, 42, 230 } && islandFill(glass, island, false) == island,
+           "glass, Transparency Low: the dense ones");
+    expect(onlyColorsDiffer(glass, [&] { Tokens t = glass; t.glassTransparency = Transparency::Medium; return t; }()),
+           "a new Transparency pick rebuilds nothing: the fill fades");
+    glass.glassTransparency = Transparency::Medium;
     glass.glassOpacity = 2;
     expect(islandFill(glass, island) == island, "glass on: an opacity past 1 is solid, not an overflow");
     expect(onlyColorsDiffer(solid, glass) == false && onlyColorsDiffer(solid, Tokens{ .glass = true }),
@@ -197,7 +210,7 @@ void runTokensTests()
     expect(!withGlass(withGlass(solid, true), false).glass, "glass: picked off again, off");
     expect(pale({ 246, 246, 248 }) && !pale({ 0, 0, 0 }) && !pale({ 24, 9, 42 }) && themed.tokens.themes[1].light,
            "glass: 'light' is the same test Settings' theme list uses");
-    expect(scaleTokens(glass, 2).glassOpacity == glass.glassOpacity && scaleTokens(glass, 2).glassPlainOpacity == glass.glassPlainOpacity && scaleTokens(solid, 2).glassRimWidth == solid.glassRimWidth * 2 * solid.islandScale,
+    expect(scaleTokens(glass, 2).glassOpacity == glass.glassOpacity && scaleTokens(glass, 2).glassPlainOpacity == glass.glassPlainOpacity && scaleTokens(glass, 2).glassClearPlainOpacity == glass.glassClearPlainOpacity && scaleTokens(solid, 2).glassRimWidth == solid.glassRimWidth * 2 * solid.islandScale,
            "glassOpacity is a share, glassRimWidth a length");
     expect(scaleTokens(solid, 2).glassGlowHeight == solid.glassGlowHeight * 2 * solid.islandScale &&
                scaleTokens(solid, 2).glassGlowCurve == solid.glassGlowCurve,
