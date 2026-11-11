@@ -1,6 +1,6 @@
 # 090: Glass with music colours: a Midnight island, the cover glowing from below
 
-Status: Accepted (amends 054 for glass)
+Status: Accepted (amends 054 for glass; the glow's lightness amended by 098)
 
 **Context.** With glass on (decision 089), "Colours from music" still
 painted the whole island in the cover's colours, two of them as a left to

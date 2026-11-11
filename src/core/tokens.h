@@ -370,6 +370,10 @@ struct Tokens {
     float coverSecondShare = 0.3f;       // a second hue needs this share of the main one's weight to make a gradient
     float coverInkChroma = 0.03f;        // ...text and icons: barely, so they read as white or ink
     float coverDarkGlow = 0.45f;         // glass (decision 090): the glow's lightness; its chroma is the accent's
+    // ...lighter for a hue whose most vivid lightness (its cusp) is high (decision 098):
+    // from coverDarkGlow at a cusp of .x (red, purple, blue stay) to coverDarkGlowLifted at .y and up (yellow, green, cyan).
+    Vec2 coverGlowLiftCusp{ 0.64f, 0.74f };
+    float coverDarkGlowLifted = 0.56f;
 
     // Colours: every colour the island draws. tokens.json writes [r, g, b] or
     // [r, g, b, alpha], channels 0..255 and alpha 0..1, like CSS rgba().
