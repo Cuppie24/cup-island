@@ -37,7 +37,6 @@ private:
 
     Host& host_;
     std::optional<MediaSnapshot> last_;
-    std::optional<Ms> pausedSince_;
     std::optional<Ms> goneSince_; // no session since then; what's shown waits out the grace
 };
 

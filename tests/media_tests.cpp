@@ -89,18 +89,17 @@ void runMediaTests()
     presenter.show(track("Chrome", "Video"));
     expect(host.alerts.size() == 1, "switching to another app doesn't alert");
 
-    // Pausing: expiry fixed at the first paused snapshot.
+    // Paused media never expires: it stays while Windows has the session (decision 099).
     host.clock = Ms{ 10000 };
     presenter.show(track("Chrome", "Video", false));
-    Ms expected = Ms{ 10000 } + tokens().mediaPausedLinger;
-    expect(host.started.back().expiresAt == expected, "pause sets the linger expiry");
-    host.clock = Ms{ 20000 };
+    expect(!host.started.back().expiresAt && host.ended.empty(), "paused: no expiry, still shown");
+    host.clock = Ms{ 10000 } + Ms{ 3600000 };
     auto seeked = track("Chrome", "Video", false);
     seeked.media.timeline.position = Ms{ 30000 };
     presenter.show(seeked);
-    expect(host.started.back().expiresAt == expected, "later paused snapshots don't extend it");
+    expect(!host.started.back().expiresAt && host.ended.empty(), "an hour paused: still shown");
     presenter.show(track("Chrome", "Video", true));
-    expect(!host.started.back().expiresAt, "resuming clears the expiry");
+    expect(!host.started.back().expiresAt, "resuming: still no expiry");
 
     // No session (decision 074): what's shown waits out a grace, since some
     // apps (Yandex Music) drop their session for a moment on a track change.

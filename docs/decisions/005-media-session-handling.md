@@ -69,9 +69,8 @@ art and timelines unreliably, and their events arrive on background threads.
   launching a browser by id would open a new window.
 - **Alerts:** only for a track change within the same app. Never on
   startup, when an app appears, or when switching apps with ⇄.
-- **Paused media lingers** for `mediaPausedLingerMs` (5 min), using core
-  activity expiry, then ends. iPhone keeps paused music around similarly.
-  Browsers can hold paused sessions for hours, so "forever" would be noise.
+- **Paused media stays** as long as Windows has the session (decision 099;
+  it used to end after `mediaPausedLingerMs`, 5 min).
 - **Timeline noise:** a re-sent timeline within 750 ms of where the current
   one says playback is gets ignored, so frequent updates don't republish or
   re-arm the progress animation.
