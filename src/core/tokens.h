@@ -86,19 +86,14 @@ struct Tokens {
     float resultIconSize = 32;           // a search result's icon (Button::picture)
     float resultFontSize = 17;           // TextStyle::Result: a search result's name
     float resultDetailFontSize = 14;     // TextStyle::ResultDetail: where it is, under it
-    // Floating cards (decision 081): a card apart from the island, in its look.
-    // Its provider picks a width; it's as tall as its content, up to floatMaxHeight.
-    float floatNarrowWidth = 360;
-    float floatMediumWidth = 480;
-    float floatWideWidth = 640;
-    float floatMaxHeight = 640;
-    Vec2 floatMinSize{ 320, 160 };  // a resizable one stops here
-    float floatIslandGap = 16;      // FloatStart::NearIsland: this far under the pill
-    float floatCascade = 28;        // opening where another one already is: this far right and down from it
-    float floatCloseSize = 28;      // the ✕ at the right end of its title bar
-    float floatTitleBarHeight = 34; // a strip along its top holding the ✕, like a window's title bar; it drags the card too
-    float floatCornerRadius = 8;    // a window's corners, as Windows 11 rounds them: not the island's
-    float floatResizeBorder = 6;    // a resizable card's edges: this wide a band inside them resizes it
+    // Windows (decision 090): a provider's own window, apart from the island.
+    // Its provider picks a size class; the user resizes it and it's remembered.
+    Vec2 windowSmallSize{ 420, 360 };
+    Vec2 windowMediumSize{ 640, 480 };
+    Vec2 windowLargeSize{ 880, 620 };
+    Vec2 windowMinSize{ 320, 240 };   // no smaller, by its frame or the provider's ask
+    float windowIslandGap = 16;       // WindowStart::NearIsland: this far under the pill
+    float windowCascade = 28;         // opening where another one already is: this far right and down from it
     float expandedArtSize = 68; // expanded leading square: as tall as title + artist + caption beside it
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;
@@ -276,7 +271,10 @@ struct Tokens {
     Ms toastDuration{ 5000 }; // a toast at a card's bottom goes after this (decision 071)
     Ms toastSlideDuration{ 260 }; // ...and slides up from below the card's edge, fading in, and back down, over this
     Ms menuOpenDuration{ 140 };   // a row's menu grows and fades in from where it opens, over this (decision 086); it goes at once
-    Ms floatHandOff{ 34 }; // a floating card's flow (decision 081): its layer stays this long after the card's window shows, so nothing blinks
+    // A provider may open a window, or bring one to the front, only this
+    // soon after the user acted on it (decision 090): nothing pops up by itself.
+    Ms windowOpenGrace{ 3000 };
+    std::size_t windowsPerProvider = 4; // open at once; past it, opening another is refused
 
     Ms expandedIdleTimeout{ 8000 };
     Ms heldAlertMaxAge{ 30000 };

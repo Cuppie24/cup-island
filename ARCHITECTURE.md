@@ -42,10 +42,11 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 badges.h (where notification dots go, decision 038),
                 cover_palette.h + island_tint.h (the island in the playing cover's colours, decision 051),
                 tokens.h (+ tokens_json.h, json_reader.h), easing.h, motion.h (the morph's spring, fling, stagger, decision 080),
-                floating.h (a card floating apart from the island, decision 081) + float_layout.h (its scene) + float_placement.h (where it opens)
+                open_windows.h (providers' own windows: which are open, when one may open, decision 090) + window_content.h (what's in one)
+                + window_placement.h (where one opens)
                 menu.h (a row's context menu: when it opens, its keys, where it goes, decision 086)
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
-                pill + Split bubble, and the liquid_bridge between them; a floating card's one detached shape, decision 081), float_window (a floating card's window pair) + float_flow (its flow out of the pill), element_visuals (one visual
+                pill + Split bubble, and the liquid_bridge between them), element_visuals (one visual
                 per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts) + tap_hook (double-tap shortcuts, decision 079), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules and the media widget, SMTC provider for real Windows media),
@@ -59,7 +60,7 @@ src/service/    CupIslandIndex.exe, the file index service (Windows, decision 07
                 drive (scan or snapshot, then the journal), PipeServer (folder checks as each client), SelfUpdate
                 (its own installer from GitHub, decision 076), --install/--stop/--uninstall for its installer;
                 index_client, the pipe's client, shared by cupindex.exe (its terminal tool) and the app
-src/app/        main.cpp: wiring only; surface.h: the island and each floating card as a surface, its scene, renderer and pointer, floating_cards.cpp: their windows (decision 081); live_tokens.cpp: tokens.json load/reload; keyboard_input.cpp: keyboard focus,
+src/app/        main.cpp: wiring only; surface.h: the island as a surface, its scene, renderer and pointer; live_tokens.cpp: tokens.json load/reload; keyboard_input.cpp: keyboard focus,
                 Enter/Space, system-wide shortcuts and recording new keys (decisions 031, 032); menu_input.cpp: a row's menu under the pointer and keys (decision 086)
 assets/         tokens.json: the live-tunable sizes, timings and curves; the app icon (cup_island.rc/.ico)
 installer/      Inno Setup script for the Windows installer (decision 011); its version comes from build.ps1
@@ -125,10 +126,13 @@ A provider never starts or reaches a process itself (decision 078): Cup
 Island's service is called through `Host::callService("<module>.<method>")`,
 only for modules the registry granted it (`ProviderRegistry::grant`), and
 carried by ServiceHost.
-A card can float apart from the island instead (`Content::floating`,
-decision 081): the provider picks a width, whether it resizes and where it
-opens; the host draws it in the island's look and the user drags it. Nothing else changes for
-the provider: `onCardShown`/`onCardClosed` simply come for several cards.
+A provider can also have **windows** of its own (decision 090): Settings, a
+timer's full view. It describes one as pages of sections of the same rows
+(`core/window_content.h`) and calls `Host::openWindow` / `updateWindow` /
+`closeWindow`; the host draws it as an ordinary window and sends its clicks
+to `onAction` with `Action::windowId` set. Windows aren't the island's state:
+the registry keeps them (`core/open_windows.h`). A window opens only just
+after the user acted on its provider, so nothing pops up or takes the keys by itself.
 Lists (`Row::list`, decision 029) are scrolled, reordered and edited by the
 host; the provider publishes every row and gets the result as actions.
 A row can have a context menu (`Row::menu`, decision 086): the provider lists
@@ -216,7 +220,7 @@ over the file's, so `tokens()` is always what's on screen.
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing), `list_card_tests.cpp` (Settings' List card), `badge_tests.cpp` (notification dots),
   `home_tests.cpp` (tiles, Home tab, idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop), `pomodoro_stats_tests.cpp` (statistics, days off),
-  `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install), `float_tests.cpp` (a floating card's scene and placement).**
+  `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install), `window_tests.cpp` (where a window opens; the registry between providers and their windows).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
 
@@ -247,7 +251,7 @@ over the file's, so `tokens()` is always what's on screen.
 | File search installed with the app, self-updating (decision 076, milestone 4): its own admin installer, carried by the app's; set up at the end of setup or at the app's first start; updates from GitHub through the service | rules tested; --install/--uninstall and the update request run under Wine; installers and a real update need a Windows run; the search panel not yet |
 | Search card (decisions 077, 079): apps, Settings pages, Control Panel, files; live field; Double Ctrl; launch history | rules tested; the hook, the shell folders, launching and the look need a Windows run |
 | Providers reach the service only through the host, by granted module (decision 078) | done; tested |
-| Floating cards (decision 081): a card floats apart from the island in its look (`Content::floating`), the island keeps its pill; several at once, focus routes keys, a dialog and toast per card, sized to its content, placement remembered per card | rules tested; the first Windows drawing flickered (decision 083), so nothing floats yet: Pomodoro is on the island. Drawing in a fixed canvas (083) and fluid layout (084) are proposed |
+| Providers' windows (decision 090, replacing 081's floating cards): the Host API, `WindowContent`, which are open, when one may open, placement | core and registry done, tested; window layout and the Windows window are next. Fluid layout (084) is proposed |
 | Hover waits for a real pointer move after a card opens or a key is pressed (decision 087) | done; needs a Windows run |
 | Row context menus (decision 086): search's results (Open, Run as administrator, Reveal, Terminal, Copy, Copy path, Remove from history, App settings, Uninstall, Properties), each with a shortcut; right-click, Right or the › | rules tested; drawing, input and the Windows hooks compile in CI, need a Windows run |
 | Plugin pipe (PS §8 Tier 2) | not yet |

@@ -41,7 +41,7 @@ void placeSlot(const SlotFrame& slot, const Source& source, float nestedRadius, 
 float slotHeight(const Slot& slot, Rect frame, const Source& source = {}, const MeasureText& measure = {});
 
 // Expanded's slots for a card of this size, as the card's preset arranges
-// them (decision 014): the island's card, and a window's (decision 081).
+// them (decision 014): the island's card.
 std::vector<SlotFrame> cardSlots(const Content& content, Vec2 size);
 
 // Centred, List and Search cards are one stack of rows across the card (decision 014).

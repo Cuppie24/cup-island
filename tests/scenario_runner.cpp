@@ -4,7 +4,7 @@
 //   scenario: <name>                  starts a fresh island at t = 0
 //   <command> [args] [-> <Mode> [key=value ...]]
 //
-// Commands:  start <id> [level] [relevance] [expires=<ms>] [float[=noesc]] [by=<provider>]   update <id>   end <id>
+// Commands:  start <id> [level] [relevance] [expires=<ms>] [by=<provider>]   update <id>   end <id>
 //            alert <name> [level] [for=<activity|panel>] [key=<coalesceKey>] [refresh]
 //            click  outside  esc  pointer  drag-enter  drag-rejected
 //            drag-leave  drop  hide  show  wait <ms>
@@ -21,8 +21,10 @@
 //            open-activity                                                           (the activity shortcut, decision 050)
 //            close-card <id>                                                         (its provider closes it, decision 079)
 //            pin                                                                     (Expanded's pin, decision 046)
-//            focus-float <card>|none  close-float <card>  resize-float <card> <w> <h>  (floating cards, decision 081;
-//                                                                     `float` on start/panel: its card floats; noesc: Esc doesn't send it back)
+//            acted <provider>  open-window <provider> <id> [page=<page>]  update-window <provider> <id> [pages=<a,b>]
+//            close-window <provider> <id>  pick-page <provider> <id> <page>  stop-provider <provider>
+//                                                                    (providers' windows, decision 090: open-window's pages are
+//                                                                     a, b, c; update-window's are pages=, default a)
 //            tabrow top|bottom                                                       (Settings' Tab row, decision 048)
 //            ask <card>  close-dialog                                               (a provider's dialog, decision 020)
 //            toast <card>  toast-acted                                              (a provider's toast, decision 071)
@@ -38,13 +40,14 @@
 //                     caret=<byte offset>  selected=<text>|none  (_ for a space)
 //                     lifted=yes|no  spot=centre|left|right|free  stay=yes|no  tabs=top|bottom
 //                     scroll=<card>/<list>:<offset>[+reveal]  carried=<row>|none  squash=yes|no (a press on empty space, decision 071)
-//                     toast=<card>|none   (dialog= and toast=: the island's, then each floating card's, comma-separated)
+//                     toast=<card>|none
 //                     menu=<card>/<row>|none  lit=<item>|none   (the island's open menu, and its lit item)
-//                     floats=<card,card>|none  focused=<card>|none  front=<card>  size=<card>:<w>x<h>|none (resized)
+//                     windows=<provider/id,...>|none  front=<provider/id>|none  page=<provider/id>:<page>  opened=<result>
+//                     (opened: what the last open-window got: opened, raised, notnow, toomany, badid)
 // Levels: passive active timeSensitive critical.  '#' starts a comment.
 
-#include "core/floating.h"
 #include "core/island.h"
+#include "core/open_windows.h"
 #include "core/lift.h"
 #include "core/menu.h"
 #include "core/text_edit.h"
@@ -102,7 +105,20 @@ std::optional<std::string> option(const std::string& word, const std::string& ke
 struct Runner {
     std::string where; // "file:line" of the current step, for messages
     IslandState state;
+    Windows windows; // beside the island, as the registry keeps them (decision 090)
+    std::string opened = "none";
     Ms now{ 0 };
+
+    static WindowContent pages(const std::string& ids)
+    {
+        WindowContent content{ .title = "Window" };
+        for (std::size_t from = 0; from <= ids.size();) {
+            std::size_t comma = std::min(ids.find(',', from), ids.size());
+            content.pages.push_back({ .id = ids.substr(from, comma - from) });
+            from = comma + 1;
+        }
+        return content;
+    }
 
     void fail(const std::string& message) { expect(false, where + ": " + message); }
 
@@ -137,7 +153,6 @@ struct Runner {
                 if (auto l = parseLevel(w[i])) a.level = *l;
                 else if (auto v = option(w[i], "expires")) a.expiresAt = now + Ms{ std::stoi(*v) };
                 else if (w[i] == "awake") a.content.noIdleTimeout = true;
-                else if (w[i] == "float" || w[i] == "float=noesc") a.content.floating = FloatSpec{ .escCloses = w[i] == "float" };
                 else if (auto v = option(w[i], "by")) a.providerId = *v;
                 else a.relevance = std::stof(w[i]);
             }
@@ -179,7 +194,6 @@ struct Runner {
             if (arg(2) != "static") p.content.expandedCenter = { row({ Text{ arg(1) } }) };
             p.content.keepOpen = arg(2) == "keep" || arg(2) == "awake";
             p.content.noIdleTimeout = arg(2) == "awake";
-            if (arg(2) == "float") p.content.floating = FloatSpec{};
             if (arg(2) == "field" || arg(2).rfind("menu", 0) == 0) {
                 p.content.expandedCenter = { row({ TextInput{ .actionId = "go" } }) };
                 p.content.fieldFirst = "go";
@@ -236,9 +250,17 @@ struct Runner {
         else if (cmd == "menu-light") apply(MenuLit{ arg(1) == "none" ? std::nullopt : std::optional<std::size_t>(std::stoul(arg(1))) });
         else if (cmd == "menu-close") apply(MenuClosed{});
         else if (cmd == "pin") apply(StayOpenToggled{});
-        else if (cmd == "focus-float") apply(FloatFocused{ arg(1) == "none" ? "" : arg(1) });
-        else if (cmd == "close-float") apply(FloatClosed{ arg(1) });
-        else if (cmd == "resize-float") apply(FloatResized{ arg(1), { std::stof(arg(2)), std::stof(arg(3)) } });
+        else if (cmd == "acted") userActed(windows, arg(1), now);
+        else if (cmd == "open-window") {
+            WindowSpec spec{ .id = arg(2) };
+            if (auto v = option(arg(3), "page")) spec.page = *v;
+            static const char* names[] = { "opened", "raised", "notnow", "toomany", "badid" };
+            opened = names[static_cast<int>(openWindow(windows, arg(1), spec, pages("a,b,c"), now))];
+        }
+        else if (cmd == "update-window") updateWindow(windows, { arg(1), arg(2) }, pages(option(arg(3), "pages").value_or("a")));
+        else if (cmd == "close-window") closeWindow(windows, { arg(1), arg(2) });
+        else if (cmd == "pick-page") showPage(windows, { arg(1), arg(2) }, arg(3));
+        else if (cmd == "stop-provider") closeProviderWindows(windows, arg(1));
         else if (cmd == "tabrow") apply(TabRowPlaced{ arg(1) != "bottom" });
         else if (cmd == "edit") apply(InputFocused{ "p", arg(1), arg(2), arg(3), /* editing */ true, at(4) });
         else if (cmd == "wheel") apply(ListScrolled{ arg(1), arg(2), std::stof(arg(3)), std::stof(arg(4)), std::stof(arg(5)) });
@@ -274,35 +296,32 @@ struct Runner {
                 std::string id = state.pinnedId.empty() ? "none" : state.pinnedId;
                 if (id != *v) fail("pinned=" + *v + ", got " + id);
             } else if (auto v = option(word, "toast")) {
-                std::vector<std::string> on;
-                if (state.card.toast) on.push_back(state.card.toast->activityId);
-                for (const FloatingCard& f : state.floats)
-                    if (f.overlays.toast) on.push_back(f.overlays.toast->activityId);
-                if (joined(on) != *v) fail("toast=" + *v + ", got " + joined(on));
+                std::string got = state.card.toast ? state.card.toast->activityId : "none";
+                if (got != *v) fail("toast=" + *v + ", got " + got);
             } else if (auto v = option(word, "menu")) {
                 std::string open = state.card.menu ? state.card.menu->activityId + "/" + state.card.menu->row.substr(state.card.menu->row.find('/') + 1) : "none";
                 if (open != *v) fail("menu=" + *v + ", got " + open);
             } else if (auto v = option(word, "lit")) {
                 std::string lit = state.card.menu && state.card.menu->lit ? std::to_string(*state.card.menu->lit) : "none";
                 if (lit != *v) fail("lit=" + *v + ", got " + lit);
-            } else if (auto v = option(word, "floats")) {
+            } else if (auto v = option(word, "windows")) {
                 std::vector<std::string> open;
-                for (const FloatingCard& f : state.floats) open.push_back(f.activityId);
-                if (joined(open) != *v) fail("floats=" + *v + ", got " + joined(open));
-            } else if (auto v = option(word, "focused")) {
-                std::string got = state.focusedFloatId.empty() ? "none" : state.focusedFloatId;
-                if (got != *v) fail("focused=" + *v + ", got " + got);
+                for (const OpenWindow& o : windows.open) open.push_back(o.key.providerId + "/" + o.key.windowId);
+                if (joined(open) != *v) fail("windows=" + *v + ", got " + joined(open));
             } else if (auto v = option(word, "front")) {
-                const FloatingCard* front = nullptr;
-                for (const FloatingCard& fw : state.floats)
-                    if (!front || fw.raised > front->raised) front = &fw;
-                std::string got = front ? front->activityId : "none";
+                const OpenWindow* front = nullptr;
+                for (const OpenWindow& o : windows.open)
+                    if (!front || o.raised > front->raised) front = &o;
+                std::string got = front ? front->key.providerId + "/" + front->key.windowId : "none";
                 if (got != *v) fail("front=" + *v + ", got " + got);
-            } else if (auto v = option(word, "size")) {
-                std::string id = v->substr(0, v->find(':'));
-                const FloatingCard* f = floatFor(state, id);
-                std::string got = f && f->size ? std::to_string(static_cast<int>(f->size->x)) + "x" + std::to_string(static_cast<int>(f->size->y)) : "none";
-                if (id + ":" + got != *v) fail("size=" + *v + ", got " + got);
+            } else if (auto v = option(word, "page")) {
+                std::string key = v->substr(0, v->find(':'));
+                std::string got = "none";
+                for (const OpenWindow& o : windows.open)
+                    if (o.key.providerId + "/" + o.key.windowId == key) got = o.page;
+                if (key + ":" + got != *v) fail("page=" + *v + ", got " + got);
+            } else if (auto v = option(word, "opened")) {
+                if (opened != *v) fail("opened=" + *v + ", got " + opened);
             } else if (auto v = option(word, "squash")) {
                 std::string got = pressSquashes(state) ? "yes" : "no";
                 if (got != *v) fail("squash=" + *v + ", got " + got);
@@ -316,11 +335,8 @@ struct Runner {
                 std::string shown = state.alert ? state.alert->content.label : "none";
                 if (shown != *v) fail("alert=" + *v + ", got " + shown);
             } else if (auto v = option(word, "dialog")) {
-                std::vector<std::string> over;
-                if (state.card.dialog) over.push_back(state.card.dialog->activityId);
-                for (const FloatingCard& f : state.floats)
-                    if (f.overlays.dialog) over.push_back(f.overlays.dialog->activityId);
-                if (joined(over) != *v) fail("dialog=" + *v + ", got " + joined(over));
+                std::string got = state.card.dialog ? state.card.dialog->activityId : "none";
+                if (got != *v) fail("dialog=" + *v + ", got " + got);
             } else if (auto v = option(word, "draft")) {
                 std::string got = !state.draft ? "none" : state.draft->text.empty() ? "empty" : underscored(state.draft->text);
                 if (got != *v) fail("draft=" + *v + ", got " + got);

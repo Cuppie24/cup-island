@@ -3,6 +3,7 @@
 // in-process). Built-ins use exactly this: no private back doors (PS §1 rule 3).
 
 #include "core/island.h"
+#include "core/open_windows.h"
 
 #include <functional>
 #include <optional>
@@ -26,12 +27,15 @@ struct ServiceReply {
 };
 
 // A click on a button or a seekable progress bar, routed to its provider.
+// From a provider's window (decision 090): `windowId` names it and
+// `activityId` is empty; the same items send the same actions there.
 struct Action {
     std::string providerId;
     std::string activityId;
     std::string actionId; // the Button's actionId, "seek", or a TextInput's actionId
     float value = 0;      // "seek": target position as a 0..1 fraction
     std::string text;     // a TextInput: what was typed (Enter) or pasted (may hold several lines)
+    std::string windowId; // set: from that window of the provider's (decision 090)
     bool operator==(const Action&) const = default;
 };
 
@@ -84,6 +88,19 @@ public:
     // (search, after starting what was picked: decision 079). Default: nothing.
     virtual void closeCard(const std::string& /*activityId*/) {}
 
+    // A window of the provider's own (decision 090): pages of the island's
+    // rows, laid out, drawn and kept by the host. Opens it, or, open, gives
+    // it this content and brings it to the front. Only just after the user
+    // acted on this provider (a click on its card, its card opening): see
+    // WindowOpen for what else refuses it. Its actions come to onAction with
+    // Action::windowId set. Default: no windows (tests' hosts).
+    virtual WindowOpen openWindow(const WindowSpec& /*spec*/, WindowContent /*content*/) { return WindowOpen::NotNow; }
+    // New content for an open window, without bringing it forward: the
+    // user's page, scroll and typing stay. Not open (closed meanwhile): nothing.
+    virtual void updateWindow(const std::string& /*windowId*/, WindowContent /*content*/) {}
+    // Closes it. No onWindowClosed follows: the provider knows.
+    virtual void closeWindow(const std::string& /*windowId*/) {}
+
     // Calls Cup Island's service (decision 078): `method` is
     // "<module>.<name>" ("index.query"), `params` a JSON object's text.
     // Allowed only for modules this provider was granted. `done` comes later,
@@ -118,6 +135,9 @@ public:
     // or ignore it (what a media player does: it closes when the music
     // does). Ignoring is the default: nothing ends behind a provider's back.
     virtual void onCloseRequested(const std::string& /*activityId*/) {}
+    // The user closed one of its windows (its ✕, Alt+F4, Esc; decision 090).
+    // Not when the provider closed it, or stopped.
+    virtual void onWindowClosed(const std::string& /*windowId*/) {}
 };
 
 } // namespace cup

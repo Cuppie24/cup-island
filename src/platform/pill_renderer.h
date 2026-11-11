@@ -24,12 +24,6 @@ namespace cup::platform {
 class PillRenderer {
 public:
     void build(wuc::Compositor const& compositor, wuc::ContainerVisual const& root, const Scene& initial);
-    GraphicsDevice& device() { return device_; } // shared, on the same Compositor: the flow layer's shape (decision 081)
-    // A floating card (decision 081): one shape off the screen edge, with a
-    // window's corners (floatCornerRadius), no bubble. `root` is its own window's.
-    void buildFloating(wuc::Compositor const& compositor, wuc::ContainerVisual const& root, const Scene& initial);
-    // A floating card shows where its flow out of the pill ended: it fades in.
-    void appear();
     // Starts the morph now, along `motion` (decision 080); content follows in a
     // queued call, so building it doesn't hold back the frame the morph starts on (decision 012).
     void apply(const Scene& scene, const SceneMotion& motion);
@@ -75,14 +69,10 @@ public:
 
 private:
     void applyContent(); // the latest pending scene's content, for both blobs
-    void applyFloating(const Scene& scene); // apply()'s rest, for a floating card
     static bool isToast(const std::string& key) { return key.rfind("toast/", 0) == 0; }
     ElementVisuals& elementsFor(const std::string& key) { return isToast(key) ? pill_.toastElements() : pill_.elements(); }
 
     GraphicsDevice device_;
-    bool floating_ = false;
-    wuc::Compositor compositor_{ nullptr };
-    wuc::ContainerVisual root_{ nullptr };
     Blob pill_;
     Blob bubble_;
     LiquidBridge bridge_;

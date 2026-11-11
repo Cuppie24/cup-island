@@ -1,4 +1,4 @@
-#include "core/float_placement.h"
+#include "core/window_placement.h"
 
 #include "core/tokens.h"
 
@@ -39,16 +39,16 @@ Rect keepOn(Rect r, Rect area)
     return r;
 }
 
-Rect firstPlace(const FloatSpec& spec, Vec2 size, const Screen& on, Rect pill)
+Rect firstPlace(const WindowSpec& spec, Vec2 size, const Screen& on, Rect pill)
 {
     Rect area = on.workArea;
     Rect r{ 0, 0, size.x * on.scale, size.y * on.scale };
-    if (spec.start == FloatStart::Centre) {
+    if (spec.start == WindowStart::Centre) {
         r.x = area.x + (area.width - r.width) / 2;
         r.y = area.y + (area.height - r.height) / 2;
-    } else { // under the pill, centred on it: it grows out of it (decision 081)
+    } else { // under the pill, centred on it: it came from there
         r.x = pill.x + (pill.width - r.width) / 2;
-        r.y = pill.y + pill.height + tokens().floatIslandGap * on.scale;
+        r.y = pill.y + pill.height + tokens().windowIslandGap * on.scale;
     }
     return keepOn(r, area);
 }
@@ -57,27 +57,40 @@ bool sameCorner(Rect a, Rect b) { return std::abs(a.x - b.x) < 2 && std::abs(a.y
 
 } // namespace
 
-void remember(Places& places, const std::string& cardId, const std::string& providerId, const SavedPlace& place)
+void remember(Places& places, const std::string& windowKey, const std::string& providerId, const SavedPlace& place)
 {
-    places.byCard[cardId] = place;
+    places.byWindow[windowKey] = place;
     places.byProvider[providerId] = place;
 }
 
-std::optional<SavedPlace> recall(const Places& places, const std::string& cardId, const std::string& providerId)
+std::optional<SavedPlace> recall(const Places& places, const std::string& windowKey, const std::string& providerId)
 {
-    if (auto it = places.byCard.find(cardId); it != places.byCard.end()) return it->second;
+    if (auto it = places.byWindow.find(windowKey); it != places.byWindow.end()) return it->second;
     if (auto it = places.byProvider.find(providerId); it != places.byProvider.end()) return it->second;
     return std::nullopt;
 }
 
-Rect placeFloat(const FloatSpec& spec, Vec2 size, const std::vector<Screen>& screens, const std::string& islandScreen,
-                Rect pill, const std::optional<SavedPlace>& saved, const std::vector<Rect>& open)
+Vec2 windowSize(WindowSize size)
 {
+    const Tokens& t = tokens();
+    switch (size) {
+    case WindowSize::Small: return t.windowSmallSize;
+    case WindowSize::Medium: return t.windowMediumSize;
+    case WindowSize::Large: return t.windowLargeSize;
+    }
+    return t.windowMediumSize;
+}
+
+Rect placeWindow(const WindowSpec& spec, const std::vector<Screen>& screens, const std::string& islandScreen, Rect pill,
+                 const std::optional<SavedPlace>& saved, const std::vector<Rect>& open)
+{
+    Vec2 size = windowSize(spec.size);
     if (screens.empty()) return { pill.x, pill.y + pill.height, size.x, size.y };
     Rect r;
     const Screen* on = saved ? findScreen(screens, saved->screen) : nullptr;
     if (on) {
-        Vec2 logical = spec.resizable ? Vec2{ saved->frame.width, saved->frame.height } : size;
+        Vec2 least = tokens().windowMinSize;
+        Vec2 logical = spec.resizable ? Vec2{ std::max(saved->frame.width, least.x), std::max(saved->frame.height, least.y) } : size;
         r = keepOn({ on->workArea.x + saved->frame.x * on->scale, on->workArea.y + saved->frame.y * on->scale, logical.x * on->scale,
                      logical.y * on->scale },
                    on->workArea);
@@ -86,12 +99,12 @@ Rect placeFloat(const FloatSpec& spec, Vec2 size, const std::vector<Screen>& scr
         r = firstPlace(spec, size, on ? *on : screens.front(), pill);
     }
     // Not exactly over another one: a step right and down, as Windows cascades
-    // windows, so two cards from one place both show.
+    // windows, so two from one place both show.
     const Screen& holder = screenOf(screens, r);
     for (std::size_t step = 0; step < open.size(); ++step) {
         bool taken = std::any_of(open.begin(), open.end(), [&](Rect o) { return sameCorner(o, r); });
         if (!taken) break;
-        float d = tokens().floatCascade * holder.scale;
+        float d = tokens().windowCascade * holder.scale;
         Rect next = keepOn({ r.x + d, r.y + d, r.width, r.height }, holder.workArea);
         if (sameCorner(next, r)) break; // against the screen's corner: no room to step
         r = next;
@@ -114,7 +127,7 @@ std::string formatPlaces(const Places& places)
             out << kind << '\t' << id << '\t' << p.screen << '\t' << p.frame.x << '\t' << p.frame.y << '\t' << p.frame.width << '\t'
                 << p.frame.height << '\n';
     };
-    write("card", places.byCard);
+    write("window", places.byWindow);
     write("provider", places.byProvider);
     return out.str();
 }
@@ -129,7 +142,7 @@ Places parsePlaces(const std::string& text)
         if (!std::getline(fields, kind, '\t') || !std::getline(fields, id, '\t') || !std::getline(fields, screen, '\t') ||
             !std::getline(fields, x, '\t') || !std::getline(fields, y, '\t') || !std::getline(fields, w, '\t') || !std::getline(fields, h))
             continue;
-        auto* by = kind == "card" ? &places.byCard : kind == "provider" ? &places.byProvider : nullptr;
+        auto* by = kind == "window" ? &places.byWindow : kind == "provider" ? &places.byProvider : nullptr;
         try {
             Rect frame{ std::stof(x), std::stof(y), std::stof(w), std::stof(h) };
             if (!by || id.empty() || screen.empty() || frame.width <= 0 || frame.height <= 0) continue;

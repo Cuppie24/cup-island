@@ -1,6 +1,7 @@
 # 084: Cards adapt to their size
 
-Status: Proposed (after decision 083)
+Status: Proposed. Written for floating cards (081, 083), now gone; it applies
+as written to resizable windows (decision 090), whose rows are the same.
 
 **Context.** The content model (decision 004) and its presets (decision
 014) were made for one card size: Expanded's, `expandedSize`, the same

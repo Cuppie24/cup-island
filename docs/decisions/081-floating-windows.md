@@ -1,10 +1,9 @@
 # 081: A card can float apart from the island
 
-Status: Accepted for the rules, the app's surfaces, placement and
-resizing. The first Windows drawing below (a window pair per card, a flow
-handed off between windows) is superseded by 083 (Proposed): it flickered
-opening and resizing. Until 083 lands no provider floats a card; Pomodoro
-is back on the island's card. Fluid layout for resized cards: 084.
+Status: Superseded by 090 (providers' own windows, drawn by the host). Its
+placement (where one opens, remembered per window and screen) lives on as
+`core/window_placement.h`; the rest was removed. Kept for why floating
+cards didn't work.
 
 **Context.** A card grows out of the island and covers the top of the
 screen while it's open; a click elsewhere or leaving it alone closes it,
