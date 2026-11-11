@@ -226,10 +226,10 @@ struct Tokens {
     // (acrylic's tint opacity), at each Transparency pick (decision 096):
     // Low is dense, Medium as written, High clear. Over the plain blur, where
     // Windows won't even out its brightness, it needs more (Plain).
-    float glassDenseOpacity = 0.2f;
+    float glassDenseOpacity = 0.3f;
     float glassOpacity = 0.1f;
     float glassClearOpacity = 0.04f;
-    float glassDensePlainOpacity = 0.6f;
+    float glassDensePlainOpacity = 0.75f;
     float glassPlainOpacity = 0.45f;
     float glassClearPlainOpacity = 0.3f;
     Transparency glassTransparency = Transparency::Medium; // the user's pick: set by the app from Settings, not by tokens.json
