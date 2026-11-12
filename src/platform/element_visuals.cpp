@@ -389,6 +389,11 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     // In a list, its place is in the list's scroller: scrolling moves the scroller, not it.
     Vec2 was = lists_.positionOf(view.placed), at = lists_.positionOf(placed);
     bool moved = was.x != at.x || was.y != at.y;
+    // Moved by a fraction, its whole-pixel size (taken from where it is, both
+    // edges rounded) can come out a pixel different. Kept at the old size,
+    // neighbours that should meet overlapped or left a gap: a line across a
+    // group's background where two rows' pieces join (decision 090).
+    bool resnapped = moved && sizeOf(view.placed) != sizeOf(placed);
     bool changed = !(view.placed.item == placed.item);
     auto pictureOf = [](const Item& item) { auto* image = std::get_if<Image>(&item); return image ? image->data : nullptr; };
     bool newPicture = view.picture && pictureOf(view.placed.item) != pictureOf(placed.item);
@@ -396,12 +401,15 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     bool reinked = inkOf(view.placed.item, false).has_value() != inkOf(placed.item, false).has_value();
     bool relisted = view.placed.list.has_value() != placed.list.has_value() ||
                     (placed.list && (view.placed.list->id != placed.list->id || view.placed.activityId != placed.activityId));
-    if (resized || retyped || relisted || reinked || (changed && (swims(view.placed.item) || swims(placed.item)))) {
+    if (resized || retyped || relisted || reinked || resnapped || (changed && (swims(view.placed.item) || swims(placed.item)))) {
         // A different kind of visual, a new size (tokens.json edits), another list or a new swimming string: rebuild it.
         if (auto parent = view.visual.Parent()) parent.Children().Remove(view.visual);
         // A to-do's text turning into its field (or back) swaps in place: a fade would flash it (decision 043).
+        // Only its pixels' size changed (resnapped): the same thing, in place, with no fade either.
         auto editable = [](const Item& item) { return std::holds_alternative<Text>(item) || std::holds_alternative<TextInput>(item); };
-        view = create(placed, now, !(retyped && editable(view.placed.item) && editable(placed.item)));
+        bool inPlace = (retyped && editable(view.placed.item) && editable(placed.item)) ||
+                       (resnapped && !resized && !retyped && !relisted && !reinked && !changed);
+        view = create(placed, now, !inPlace);
         return true;
     }
     bool wasFocused = focusedField(view.placed.item);
