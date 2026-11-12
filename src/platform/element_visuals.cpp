@@ -49,6 +49,43 @@ Color greyOf(const Color& c)
 Color toned(const Color& c, bool grey) { return grey ? greyOf(c) : c; }
 float opacityOf(bool grey) { return grey ? tokens().tabMutedOpacity : 1.0f; }
 
+// A plain button's glyph or label colour: greyed when disabled, off or idle
+// (decisions 064, 094), red when destructive.
+Color buttonColorOf(const Button& button, bool lit)
+{
+    const Tokens& t = tokens();
+    bool toggledOn = button.on && *button.on, toggledOff = button.on && !*button.on;
+    bool idle = button.secondary && !lit && !toggledOn; // grey until hovered (decision 064) or on (decision 094)
+    return !button.enabled                                    ? t.buttonDisabledColor
+           : (toggledOff && !button.secondary) || idle        ? t.buttonOffColor
+           : button.destructive                               ? t.dangerColor
+                                                              : t.buttonColor;
+}
+
+// The one colour an item's pixels are drawn in, if it's one (decision 102):
+// then they're painted white and coloured by a brush that fades. Text in
+// one colour, an icon, a button's glyph or label; not an emoji (its own
+// colours), a round button (two), or a picture.
+std::optional<Color> inkOf(const Item& item, bool lit)
+{
+    const Tokens& t = tokens();
+    if (auto* text = std::get_if<Text>(&item)) return singleInkOf(*text);
+    if (auto* icon = std::get_if<Icon>(&item)) {
+        if (icon->glyph == Glyph::Fire) return std::nullopt;
+        return icon->quiet ? t.buttonOffColor : t.iconColor;
+    }
+    auto* button = std::get_if<Button>(&item);
+    if (!button) return std::nullopt;
+    // As paint() draws it: the first that applies.
+    auto emoji = [](const std::string& s) { return std::any_of(s.begin(), s.end(), [](unsigned char c) { return c >= 0xF0; }); };
+    if (button->primary) return t.islandColor;
+    if (button->round || emoji(button->label)) return std::nullopt;
+    if (button->quiet) return t.captionTextColor;
+    if (!button->label.empty()) return buttonColorOf(*button, lit);
+    if (button->picture || button->glyph == Glyph::Fire) return std::nullopt;
+    return buttonColorOf(*button, lit);
+}
+
 // A button's filled circle (decision 101): a primary's, in the button colour
 // (softer under the pointer, decision 066), or a toggle's, tabSelectedColor
 // while on and clear while off (decision 094). Nothing: it has none.
@@ -254,6 +291,14 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         view.highlight = placed.litByRow || (button && button->primary) ? nullptr : parts.highlight; // lit by its row, or by its fill: stays hidden
         view.glyphHost = parts.glyph;
         syncFill(view, Ms{ 0 }); // a primary's or a toggle's circle, under the glyph
+        if (auto ink = inkOf(placed.item, false)) { // its glyph or label in one colour: painted white, coloured through (decision 102)
+            view.ink = compositor_.CreateColorBrush(toUiColor(*ink));
+            view.inkTarget = *ink;
+            auto masked = compositor_.CreateMaskBrush();
+            masked.Source(view.ink);
+            masked.Mask(parts.glyph.Brush());
+            parts.glyph.Brush(masked);
+        }
     } else if (clickableArt(placed.item)) {
         view.surface = device_->createSurface(size);
         view.glyphSurface = device_->createSurface(size);
@@ -271,13 +316,19 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
             view.lead = t.marqueeFadeWidth;
             visualSize.x += view.lead;
             view.surface = device_->createSurface({ view.lead + 2 * width + t.marqueeGap, size.y });
-            sprite.Brush(createMarqueeBrush(compositor_, view.surface, visualSize, view.lead, width + t.marqueeGap));
+            std::optional<Color> ink = inkOf(placed.item, false);
+            auto inkBrush = ink ? compositor_.CreateColorBrush(toUiColor(*ink)) : wuc::CompositionColorBrush{ nullptr };
+            MarqueeBrush made = createMarqueeBrush(compositor_, view.surface, visualSize, view.lead, width + t.marqueeGap, inkBrush);
+            sprite.Brush(made.brush);
+            if (made.inked) { // its colour fades too (decision 102)
+                view.ink = inkBrush;
+                view.inkTarget = *ink;
+            }
         } else {
             view.surface = device_->createSurface(size);
             auto pixels = compositor_.CreateSurfaceBrush(view.surface);
-            auto* text = std::get_if<Text>(&placed.item);
-            if (auto ink = text ? singleInkOf(*text) : std::nullopt) {
-                // One colour: painted white, coloured by a brush through it, which fades (decision 102).
+            if (auto ink = inkOf(placed.item, false)) {
+                // One colour (a text, an icon): painted white, coloured by a brush through it, which fades (decision 102).
                 view.ink = compositor_.CreateColorBrush(toUiColor(*ink));
                 view.inkTarget = *ink;
                 auto masked = compositor_.CreateMaskBrush();
@@ -342,8 +393,7 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     auto pictureOf = [](const Item& item) { auto* image = std::get_if<Image>(&item); return image ? image->data : nullptr; };
     bool newPicture = view.picture && pictureOf(view.placed.item) != pictureOf(placed.item);
     // A text that gains a second colour (bright digits, a detail) can't be one ink any more, or the reverse (decision 102).
-    auto oneInk = [](const Item& item) { auto* text = std::get_if<Text>(&item); return text && singleInkOf(*text).has_value(); };
-    bool reinked = std::holds_alternative<Text>(placed.item) && oneInk(view.placed.item) != oneInk(placed.item);
+    bool reinked = inkOf(view.placed.item, false).has_value() != inkOf(placed.item, false).has_value();
     bool relisted = view.placed.list.has_value() != placed.list.has_value() ||
                     (placed.list && (view.placed.list->id != placed.list->id || view.placed.activityId != placed.activityId));
     if (resized || retyped || relisted || reinked || (changed && (swims(view.placed.item) || swims(placed.item)))) {
@@ -417,7 +467,7 @@ void ElementVisuals::recolor(View& view)
     // 101). Text and glyphs are pixels in a surface: redrawn in their new
     // colours at once (a crossfade of two copies looked like one laid over the other).
     syncFill(view, recolorDuration(t));
-    if (view.ink) { // a one-colour text: its brush fades, its white pixels stay (decision 102)
+    if (view.ink) { // one colour (text, an icon, a glyph): its brush fades, its white pixels stay (decision 102)
         fadeInk(view, recolorDuration(t));
         return;
     }
@@ -426,8 +476,7 @@ void ElementVisuals::recolor(View& view)
 
 void ElementVisuals::fadeInk(View& view, Ms duration)
 {
-    auto* text = std::get_if<Text>(&view.placed.item);
-    std::optional<Color> ink = text ? singleInkOf(*text) : std::nullopt;
+    std::optional<Color> ink = inkOf(view.placed.item, view.lit);
     if (!ink || *ink == view.inkTarget) return; // unchanged: a fade under way carries on
     view.inkTarget = *ink;
     fadeColor(view.ink, *ink, duration);
@@ -463,22 +512,21 @@ void ElementVisuals::paint(View& view)
     Vec2 size = sizeOf(view.placed);
     IDWriteFactory* dw = device_->dwrite();
     const Item& item = view.placed.item;
+    // Coloured by its brush (decision 102): its pixels are white.
+    std::optional<Color> white = view.ink ? std::optional<Color>(Color{ 255, 255, 255 }) : std::nullopt;
     auto content = [&](ID2D1DeviceContext* dc) {
         if (auto* text = std::get_if<Text>(&item)) {
-            if (view.marqueeWidth > 0) paintMarquee(dc, dw, *text, view.marqueeWidth, view.lead, t.marqueeGap, size.y);
-            else paintText(dc, dw, *text, size, view.ink ? std::optional<Color>(Color{ 255, 255, 255 }) : std::nullopt);
+            if (view.marqueeWidth > 0) paintMarquee(dc, dw, *text, view.marqueeWidth, view.lead, t.marqueeGap, size.y, white);
+            else paintText(dc, dw, *text, size, white);
         } else if (auto* icon = std::get_if<Icon>(&item)) {
-            paintGlyph(dc, dw, icon->glyph, t.iconSize, pixelSize(size), icon->quiet ? t.buttonOffColor : t.iconColor); // the surface's whole pixels
+            Color color = icon->quiet ? t.buttonOffColor : t.iconColor;
+            paintGlyph(dc, dw, icon->glyph, t.iconSize, pixelSize(size), white.value_or(color)); // the surface's whole pixels
         } else if (auto* button = std::get_if<Button>(&item)) {
-            bool toggledOn = button->on && *button->on, toggledOff = button->on && !*button->on;
-            bool idle = button->secondary && !view.lit && !toggledOn; // grey until hovered (decision 064) or on (decision 094)
-            Color color = !button->enabled ? t.buttonDisabledColor : (toggledOff && !button->secondary) || idle ? t.buttonOffColor
-                        : button->destructive         ? t.dangerColor
-                                                      : t.buttonColor;
+            Color color = white.value_or(buttonColorOf(*button, view.lit));
             // A primary's and a toggle's circle is a shape under this (syncFill, decision 101).
-            if (button->primary) paintPrimaryButton(dc, dw, *button, pixelSize(size));
+            if (button->primary) paintPrimaryButton(dc, dw, *button, pixelSize(size), white);
             else if (button->round) paintRoundButton(dc, dw, *button, size);
-            else if (button->quiet) paintLabel(dc, dw, button->label, size, t.captionTextColor, TextStyle::Caption); // a way into more (decision 063)
+            else if (button->quiet) paintLabel(dc, dw, button->label, size, white.value_or(t.captionTextColor), TextStyle::Caption); // a way into more (decision 063)
             else if (!button->label.empty()) paintLabel(dc, dw, button->label, size, color);
             else if (button->picture) paintPicture(dc, button->picture.get(), size, t.resultIconSize); // a result's own icon (decision 079)
             // Centred in the surface's whole pixels, like the hover shape around it, not the fractional frame.
@@ -610,6 +658,7 @@ void ElementVisuals::showHover(const std::string& key, bool on)
         view.lit = on; // grey to full strength and back (decision 064); a primary's fill softens (decision 066)
         paint(view);
         syncFill(view, tokens().hoverFadeDuration);
+        if (view.ink) fadeInk(view, tokens().hoverFadeDuration); // grey to full strength, and back
     }
 }
 
