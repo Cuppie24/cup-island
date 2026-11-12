@@ -49,7 +49,7 @@ public:
     void drawThenShow(const std::function<void()>& draw, std::function<void()> shown = {});
     void reveal(); // uncloaked, once its first frame is in (or windowRevealLatest later): drawThenShow's end
 
-    static constexpr UINT kRevealMessage = WM_APP + 21; // posted when the first frame's commit completes
+    static constexpr UINT kRevealMessage = WM_APP + 21; // posted after drawing its first frame: handled once that's committed
     static constexpr UINT_PTR kRevealTimer = 1;
     void raise();                                // to the front, with the keys; restored if minimized
     void minimize();

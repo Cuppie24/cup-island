@@ -5,6 +5,8 @@
 #include "platform/provider_window.h"
 #include "platform/log.h"
 
+#include <dwmapi.h>
+
 #include <cmath>
 #include <exception>
 #include <utility>
@@ -150,6 +152,7 @@ LRESULT ProviderWindow::handle(UINT message, WPARAM wParam, LPARAM lParam)
         if (!maximizable_ && ((wParam & 0xFFF0) == SC_MAXIMIZE)) return 0; // Win+Up, the system menu
         break;
     case kRevealMessage:
+        DwmFlush(); // the first frame, committed as the queue turn that drew it ended, composed
         reveal();
         return 0;
     case WM_TIMER:

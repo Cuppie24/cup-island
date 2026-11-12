@@ -11,7 +11,9 @@
 #include "platform/stay_on_top.h"
 #include "providers/provider_registry.h"
 
+#include <exception>
 #include <fstream>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
@@ -42,6 +44,19 @@ bool g_placesRead = false;
 bool g_syncQueued = false;
 std::optional<Tokens> g_drawnFor; // what the windows were drawn for: tells a recolour from a resize
 bool g_glass = false;              // windows as glass (setWindowsGlass)
+
+// A queued call's work, its errors logged: one escaping a DispatcherQueue
+// callback is a stowed exception (0xC000027B) and ends the app.
+void guarded(const char* what, const std::function<void()>& work)
+{
+    try {
+        work();
+    } catch (winrt::hresult_error const& e) {
+        platform::logLine("WinRT error %s: 0x%08x %ls", what, static_cast<unsigned int>(e.code()), e.message().c_str());
+    } catch (std::exception const& e) {
+        platform::logLine("Exception %s: %s", what, e.what());
+    }
+}
 
 std::string placeKey(const WindowKey& key) { return key.providerId + "/" + key.windowId; }
 
@@ -292,10 +307,12 @@ void openWindowFor(const OpenWindow& w)
     WindowKey key = w.key;
     bool onTop = w.spec.keepOnTop;
     auto draw = [key, onTop] {
-        Shown* shown = find(key);
-        if (!shown) return;
-        shown->window->drawThenShow([shown] { relayout(*shown); }, [onTop] {
-            if (onTop) platform::raiseIsland(); // the island stays over its windows
+        guarded("drawing a new window", [&] {
+            Shown* shown = find(key);
+            if (!shown) return;
+            shown->window->drawThenShow([shown] { relayout(*shown); }, [onTop] {
+                if (onTop) platform::raiseIsland(); // the island stays over its windows
+            });
         });
     };
     auto queue = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
@@ -342,7 +359,8 @@ void syncWindows()
     if (g_syncQueued) return;
     g_syncQueued = true;
     auto queue = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
-    if (!queue || !queue.TryEnqueue([] { applyWindows(); })) applyWindows(); // no queue (shutting down): now
+    auto apply = [] { guarded("updating windows", applyWindows); };
+    if (!queue || !queue.TryEnqueue(apply)) apply(); // no queue (shutting down): now
 }
 
 void refreshWindows()

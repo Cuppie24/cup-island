@@ -194,10 +194,11 @@ void ProviderWindow::drawDecor()
 }
 
 // Shown cloaked (DWMWA_CLOAK, Windows 8+): Windows composes it but nobody
-// sees it, so its first frame can be drawn. Uncloaked once the commit of
-// what `draw` changed completes (Compositor::GetCommitBatch, Windows 10
-// 1511+, decision 015). Hidden, not cloaked, the window was never composed,
-// that never completed, and it never showed; a timer reveals it anyway.
+// sees it, so its first frame can be drawn. What `draw` changed is
+// committed when this queue turn ends; the message posted here comes after
+// that, and waits for DWM's next frame (DwmFlush) before uncloaking. A
+// timer reveals it anyway. (Kept hidden instead, it was never composed;
+// the commit batch API waited on, it threw in a queued call and ended the app.)
 void ProviderWindow::drawThenShow(const std::function<void()>& draw, std::function<void()> shown)
 {
     shown_ = std::move(shown);
@@ -207,9 +208,7 @@ void ProviderWindow::drawThenShow(const std::function<void()>& draw, std::functi
     SetForegroundWindow(hwnd_);
     draw();
     if (!cloaked_) return reveal(); // Windows wouldn't cloak it: as it is
-    HWND hwnd = hwnd_;
-    auto batch = compositor_.GetCommitBatch(wuc::CompositionBatchTypes::None);
-    batch.Completed([hwnd](auto&&, auto&&) { PostMessageW(hwnd, kRevealMessage, 0, 0); }); // to the window: it may be gone by then
+    PostMessageW(hwnd_, kRevealMessage, 0, 0);
     SetTimer(hwnd_, kRevealTimer, static_cast<UINT>(tokens().windowRevealLatest.count()), nullptr);
 }
 
