@@ -10,6 +10,7 @@
 #include "core/layout.h"
 #include "core/segments.h"
 #include "core/tokens.h"
+#include "core/tokens_json.h"
 #include "core/window_layout.h"
 #include "providers/system/settings_provider.h"
 
@@ -345,10 +346,35 @@ void glassTests()
     without.stop();
 }
 
+// The theme page in its window at the app's real scale (islandScale 0.85):
+// Lagoon's piece of the Dark group ended at 243.5, Ember's began at
+// 243.49998, and whole pixels apart they overlapped: a line across the group.
+void groupPiecesMeet()
+{
+    Tokens saved = tokens();
+    Tokens real = scaleTokens(saved, 1.0f);
+    Theme plain{ "Midnight", {} };
+    real.themes = { plain, { "Grape", {} }, { "Lagoon", {} }, { "Ember", {} }, { "Lime", {} }, { "Bubblegum", {} }, { "Sapphire", {} } };
+    setTokens(real);
+    OpenWindow w{ .key = { "system.settings", kSettingsWindowId }, .content = settingsWindow({ .page = SettingsPage::Themes, .theme = "Midnight" }),
+                  .page = kAppearancePage };
+    WindowScene scene = windowLayout(w, { 900, 700 }, 0, Ms{ 0 }, [](const Text& text) { return 7.5f * static_cast<float>(text.value.size()); });
+    std::vector<Rect> pieces;
+    for (const Placed& p : scene.page)
+        if (std::holds_alternative<GroupFill>(p.item)) pieces.push_back(snapToPixels(p.frame));
+    bool meet = pieces.size() == 7;
+    for (std::size_t i = 1; i < pieces.size(); ++i) meet = meet && pieces[i - 1].y + pieces[i - 1].height == pieces[i].y;
+    expect(meet, "groups: at the app's scale, each piece of the Dark group ends on the whole pixel the next begins on: no line between them");
+    expect(snapToPixels({ 0, 197.59999f, 10, 45.90001f }).y + snapToPixels({ 0, 197.59999f, 10, 45.90001f }).height == snapToPixels({ 0, 243.49998f, 10, 45.9f }).y,
+           "snap: 243.5 and 243.49998, one edge computed two ways, are the same pixel");
+    setTokens(saved);
+}
+
 } // namespace
 
 void runSettingsNewTests()
 {
+    groupPiecesMeet();
     tabRowTests();
     coverColoursTests();
     glassTests();
