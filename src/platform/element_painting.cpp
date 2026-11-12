@@ -347,14 +347,9 @@ void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& l
     drawString(dc, formatOf(dw, text).get(), widen(label), size, color);
 }
 
-void paintPrimaryButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size, bool lit)
+void paintPrimaryButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size)
 {
-    const Tokens& t = tokens();
-    float r = std::min(size.x, size.y) / 2;
-    Color fill = button.enabled ? t.buttonColor : t.buttonDisabledColor;
-    if (lit && button.enabled) fill.a = static_cast<std::uint8_t>(std::lround(fill.a * std::clamp(t.primaryHoverOpacity, 0.0f, 1.0f)));
-    dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(size.x / 2, size.y / 2), r, r), brushOf(dc, fill).get());
-    paintGlyph(dc, dw, button.glyph, primaryGlyphOf(button), size, t.islandColor, /* precise */ true); // centred on its circle
+    paintGlyph(dc, dw, button.glyph, primaryGlyphOf(button), size, tokens().islandColor, /* precise */ true); // centred on its circle
 }
 
 void paintRoundButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size)
@@ -462,12 +457,6 @@ void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float f
     D2D1_DRAW_TEXT_OPTIONS options = emoji ? D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT : D2D1_DRAW_TEXT_OPTIONS_NONE;
     if (precise) options = options | D2D1_DRAW_TEXT_OPTIONS_NO_SNAP;
     dc->DrawTextLayout(at, glyphLayout.get(), brush.get(), options);
-}
-
-void paintToggleFill(ID2D1DeviceContext* dc, Vec2 size)
-{
-    float r = std::min(size.x, size.y) / 2; // the hover shape's circle (slot_layout's radiusFor)
-    dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(size.x / 2, size.y / 2), r, r), brushOf(dc, tokens().tabSelectedColor).get());
 }
 
 void paintSteps(ID2D1DeviceContext* dc, const Steps& steps, Vec2 size, const Color& accent)

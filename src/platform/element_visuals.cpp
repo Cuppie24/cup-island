@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 
 namespace cup::platform {
 namespace {
@@ -47,6 +48,27 @@ Color greyOf(const Color& c)
 }
 Color toned(const Color& c, bool grey) { return grey ? greyOf(c) : c; }
 float opacityOf(bool grey) { return grey ? tokens().tabMutedOpacity : 1.0f; }
+
+// A button's filled circle (decision 101): a primary's, in the button colour
+// (softer under the pointer, decision 066), or a toggle's, tabSelectedColor
+// while on and clear while off (decision 094). Nothing: it has none.
+std::optional<Color> buttonFillOf(const Placed& p, bool lit)
+{
+    auto* button = std::get_if<Button>(&p.item);
+    if (!button) return std::nullopt;
+    const Tokens& t = tokens();
+    if (button->primary) {
+        Color fill = button->enabled ? t.buttonColor : t.buttonDisabledColor;
+        if (lit && button->enabled) fill.a = static_cast<std::uint8_t>(std::lround(fill.a * std::clamp(t.primaryHoverOpacity, 0.0f, 1.0f)));
+        return fill;
+    }
+    if (button->on && !button->round) {
+        Color fill = t.tabSelectedColor;
+        if (!*button->on) fill.a = 0;
+        return fill;
+    }
+    return std::nullopt;
+}
 
 // The shape under a hovered button, a text field's background, the dim over clickable art.
 Color hoverColorOf(const Placed& p)
@@ -200,7 +222,6 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         middle.Brush(compositor_.CreateSurfaceBrush(view.surface));
         middle.Size(toFloat2(size));
         parts.visual.Children().InsertAtTop(middle);
-        view.surfaceHost = middle;
     } else if (isRing(placed.item)) {
         RingParts parts = createRing(compositor_, size, accent);
         view.visual = parts.visual;
@@ -231,7 +252,8 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         view.visual = parts.visual;
         view.hover = parts.hover;
         view.highlight = placed.litByRow || (button && button->primary) ? nullptr : parts.highlight; // lit by its row, or by its fill: stays hidden
-        view.surfaceHost = parts.glyph;
+        view.glyphHost = parts.glyph;
+        syncFill(view, Ms{ 0 }); // a primary's or a toggle's circle, under the glyph
     } else if (clickableArt(placed.item)) {
         view.surface = device_->createSurface(size);
         view.glyphSurface = device_->createSurface(size);
@@ -253,7 +275,6 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         } else {
             view.surface = device_->createSurface(size);
             sprite.Brush(compositor_.CreateSurfaceBrush(view.surface));
-            if (!std::holds_alternative<Image>(placed.item)) view.surfaceHost = sprite; // a picture's pixels don't change with colours
         }
         view.visual = sprite;
         if (std::holds_alternative<Image>(placed.item)) view.picture = sprite;
@@ -352,6 +373,7 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     if (view.highlight && focusedField(placed.item) != wasFocused) // focus came or went: background follows (or hover keeps it)
         fadeTo(compositor_, view.highlight, focusedField(placed.item) || placed.key == hovered_ ? 1.0f : 0.0f, tokens().hoverFadeDuration);
     if (view.surface && !newPicture) paint(view);
+    syncFill(view, tokens().hoverFadeDuration); // a toggle switched on or off, a button enabled
     // While scrubbing, the bar belongs to the pointer; endScrub() re-arms it.
     if (view.fill && !view.scrubbing) armProgress(compositor_, view.fill, std::get<Progress>(placed.item).timeline, placed.frame.width, now);
     // A Dial changes every second (its time); its ring is re-armed only when its timeline does.
@@ -375,19 +397,35 @@ void ElementVisuals::recolor(View& view)
         fadeColor(view.toggle.knobBrush, switchKnobColor(on));
     }
     if (view.segments.pill) recolorSegments(view.segments, std::get<Segments>(view.placed.item));
-    // Text, icons and buttons are pixels in a surface: painted again in their
-    // new colours on a fresh one, which the old fades off over, as long as the
-    // shapes take (decision 101). The play button's filled circle changed
-    // colour at once with every cover. Swimming text and pictures: redrawn.
-    if (!view.surface) return;
-    if (view.surfaceHost) {
-        auto size = view.surface.Size();
-        view.surface = device_->createSurface({ size.Width, size.Height });
-        paint(view);
-        fadeInSurface(view.surfaceHost, view.surface, recolorDuration(t));
-    } else {
-        paint(view);
+    // A button's filled circle is a shape: it fades with the rest (decision
+    // 101). Text and glyphs are pixels in a surface: redrawn in their new
+    // colours at once (a crossfade of two copies looked like one laid over the other).
+    syncFill(view, recolorDuration(t));
+    if (view.surface) paint(view);
+}
+
+void ElementVisuals::syncFill(View& view, Ms duration)
+{
+    std::optional<Color> fill = buttonFillOf(view.placed, view.lit);
+    if (!view.buttonFill) {
+        if (!fill || !view.glyphHost) return;
+        // Made once, the first time it has a colour: a circle in the glyph's
+        // whole pixels (where the glyph is centred), under it.
+        Vec2 size = pixelSize(sizeOf(view.placed));
+        float r = std::min(size.x, size.y) / 2;
+        auto circle = compositor_.CreateEllipseGeometry();
+        circle.Center({ size.x / 2, size.y / 2 });
+        circle.Radius({ r, r });
+        view.buttonFill = compositor_.CreateColorBrush(toUiColor(*fill)); // new: set, not faded
+        auto shape = compositor_.CreateSpriteShape(circle);
+        shape.FillBrush(view.buttonFill);
+        auto visual = compositor_.CreateShapeVisual();
+        visual.Size(toFloat2(size));
+        visual.Shapes().Append(shape);
+        view.glyphHost.Parent().Children().InsertBelow(visual, view.glyphHost);
+        return;
     }
+    fadeColor(view.buttonFill, fill.value_or(Color{ 0, 0, 0, 0 }), duration); // none now: clear
 }
 
 void ElementVisuals::paint(View& view)
@@ -408,8 +446,8 @@ void ElementVisuals::paint(View& view)
             Color color = !button->enabled ? t.buttonDisabledColor : (toggledOff && !button->secondary) || idle ? t.buttonOffColor
                         : button->destructive         ? t.dangerColor
                                                       : t.buttonColor;
-            if (toggledOn && !button->round) paintToggleFill(dc, pixelSize(size)); // under its glyph (decision 094)
-            if (button->primary) paintPrimaryButton(dc, dw, *button, pixelSize(size), view.lit);
+            // A primary's and a toggle's circle is a shape under this (syncFill, decision 101).
+            if (button->primary) paintPrimaryButton(dc, dw, *button, pixelSize(size));
             else if (button->round) paintRoundButton(dc, dw, *button, size);
             else if (button->quiet) paintLabel(dc, dw, button->label, size, t.captionTextColor, TextStyle::Caption); // a way into more (decision 063)
             else if (!button->label.empty()) paintLabel(dc, dw, button->label, size, color);
@@ -542,6 +580,7 @@ void ElementVisuals::showHover(const std::string& key, bool on)
     if (auto* button = std::get_if<Button>(&view.placed.item); button && (button->secondary || button->primary) && view.lit != on) {
         view.lit = on; // grey to full strength and back (decision 064); a primary's fill softens (decision 066)
         paint(view);
+        syncFill(view, tokens().hoverFadeDuration);
     }
 }
 

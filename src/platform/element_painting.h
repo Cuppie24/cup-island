@@ -15,9 +15,6 @@ float measureText(IDWriteFactory* dw, const Text& text);
 // Swimming text: the string twice, `gap` apart, starting at x = `lead`, so
 // scrolling one copy's width plus the gap loops seamlessly.
 void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, float width, float lead, float gap, float height);
-// A toggle that's on (shuffle, repeat): a soft circle behind its glyph, in
-// tabSelectedColor, a picked thing's fill in every theme and cover (decision 094).
-void paintToggleFill(ID2D1DeviceContext* dc, Vec2 size);
 // `precise`: exactly centred on its ink, unsnapped, a ▶ optically nudged (a primary button's glyph, decision 071).
 void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float fontSize, Vec2 size, const Color& color,
                 bool precise = false);
@@ -37,9 +34,9 @@ void paintKeys(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Keys& keys, Vec
 void paintDivider(ID2D1DeviceContext* dc, Vec2 size);
 // A Dial's middle (decision 065): its time big, its label under it, the two centred as a block. Its ring is shapes.
 void paintDial(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Dial& dial, Vec2 size);
-// Button::primary: a filled circle in the button colour, its glyph in the island's (decision 064).
-// `lit`: under the pointer, the fill primaryHoverOpacity as strong (decision 066).
-void paintPrimaryButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size, bool lit);
+// Button::primary: its glyph in the island's colour (decision 064), over its
+// filled circle, which is a shape whose colour fades (ElementVisuals, decision 101).
+void paintPrimaryButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size);
 // Button::round: its circle (a Switch's colours: the theme's live colour when on, its track's when off) and label.
 void paintRoundButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size);
 // Where in `text` (a byte offset) a click at `at` (from its frame's top left) lands:

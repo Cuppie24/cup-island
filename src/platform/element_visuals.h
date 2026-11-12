@@ -44,9 +44,10 @@ private:
     struct View {
         Placed placed;
         wuc::Visual visual{ nullptr };
-        // The sprite showing `surface`, where a recolour crossfades it to its
-        // new pixels (text, icons, buttons); null where it's redrawn at once.
-        wuc::SpriteVisual surfaceHost{ nullptr };
+        // A button's glyph sprite, and the filled circle under it (a primary
+        // button, a toggle that's on): a shape whose colour fades (decision 101).
+        wuc::SpriteVisual glyphHost{ nullptr };
+        wuc::CompositionColorBrush buttonFill{ nullptr };
         float lead = 0; // the visual starts this far left of the frame (knob overhang, marquee fade)
         wuc::CompositionDrawingSurface surface{ nullptr };          // text, icon, button glyph, image
         float marqueeWidth = 0;                                     // > 0: swimming text, one copy's width
@@ -76,6 +77,7 @@ private:
     bool update(View& view, const Placed& placed, Ms now); // true = rebuilt
     void paint(View& view);
     void recolor(View& view); // fades its shapes to the current colours and redraws its pixels
+    void syncFill(View& view, Ms duration); // a button's filled circle to its colour now: made, or faded
     void animateBars(View& view);
     void showHover(const std::string& key, bool on);
     bool greyNow(const Placed& placed) const;
