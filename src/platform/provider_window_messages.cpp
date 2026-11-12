@@ -149,6 +149,12 @@ LRESULT ProviderWindow::handle(UINT message, WPARAM wParam, LPARAM lParam)
     case WM_SYSCOMMAND:
         if (!maximizable_ && ((wParam & 0xFFF0) == SC_MAXIMIZE)) return 0; // Win+Up, the system menu
         break;
+    case kRevealMessage:
+        reveal();
+        return 0;
+    case WM_TIMER:
+        if (wParam == kRevealTimer) reveal();
+        return 0;
     case WM_CLOSE:
         call(callbacks_.onCloseRequested); // the app closes it, through its provider's registry
         return 0;

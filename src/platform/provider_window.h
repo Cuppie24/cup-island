@@ -47,6 +47,10 @@ public:
     // that, a window with no GDI surface showed what was behind it for a frame.
     // `shown`: after it shows (the island raised over a window kept on top).
     void drawThenShow(const std::function<void()>& draw, std::function<void()> shown = {});
+    void reveal(); // uncloaked, once its first frame is in (or windowRevealLatest later): drawThenShow's end
+
+    static constexpr UINT kRevealMessage = WM_APP + 21; // posted when the first frame's commit completes
+    static constexpr UINT_PTR kRevealTimer = 1;
     void raise();                                // to the front, with the keys; restored if minimized
     void minimize();
     void refresh(bool coloursOnly); // tokens changed: recoloured, or rebuilt on the next draw()
@@ -90,6 +94,8 @@ private:
     wuc::ContainerVisual pane_{ nullptr }, scroller_{ nullptr }, pageLayer_{ nullptr }, pageDots_{ nullptr }, rowHover_{ nullptr };
     wuc::ContainerVisual footerLayer_{ nullptr }, chromeLayer_{ nullptr }, focusLayer_{ nullptr };
     bool glass_ = false;
+    bool cloaked_ = false;
+    std::function<void()> shown_;
     ElementVisuals sidebar_, page_, footer_, chrome_;
 
     WindowScene scene_;

@@ -222,6 +222,7 @@ const Field kFields[] = {
     { "menuOpenMs", &Tokens::menuOpenDuration },
     { "windowOpenGraceMs", &Tokens::windowOpenGrace },
     { "windowsPerProvider", &Tokens::windowsPerProvider },
+    { "windowRevealLatestMs", &Tokens::windowRevealLatest },
     { "expandedIdleTimeoutMs", &Tokens::expandedIdleTimeout },
     { "heldAlertMaxAgeMs", &Tokens::heldAlertMaxAge },
     { "alertQueueCapacity", &Tokens::alertQueueCapacity },

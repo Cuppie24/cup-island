@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 #include <exception>
 
 namespace cup::platform {
@@ -21,6 +22,7 @@ constexpr DWORD kImmersiveDarkMode = 20;
 // Windows 11 22H2 and later. Older builds refuse it, and the window stays solid.
 constexpr DWORD kSystemBackdropType = 38;
 constexpr int kBackdropNone = 1, kBackdropAcrylic = 3; // DWMSBT_NONE, DWMSBT_TRANSIENTWINDOW
+constexpr DWORD kCloak = 13;                          // DWMWA_CLOAK: composed, not seen (Windows 8+)
 
 // A pale island (a light theme): Windows' light frame and acrylic, else its dark ones.
 BOOL lightTheme() { const Color& c = tokens().islandColor; return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b > 128 ? TRUE : FALSE; }
@@ -191,20 +193,35 @@ void ProviderWindow::drawDecor()
     if (hoveredRow_) rowHover_.Children().InsertAtTop(roundedRect(compositor_, *hoveredRow_, hoveredRowRadius_, t.hoverColor));
 }
 
+// Shown cloaked (DWMWA_CLOAK, Windows 8+): Windows composes it but nobody
+// sees it, so its first frame can be drawn. Uncloaked once the commit of
+// what `draw` changed completes (Compositor::GetCommitBatch, Windows 10
+// 1511+, decision 015). Hidden, not cloaked, the window was never composed,
+// that never completed, and it never showed; a timer reveals it anyway.
 void ProviderWindow::drawThenShow(const std::function<void()>& draw, std::function<void()> shown)
 {
-    // The commit batch of what `draw` changed (Compositor::GetCommitBatch,
-    // Windows 10 1511+, decision 015) completes once that is committed to the
-    // compositor: the window's first frame is its own, not what was behind it.
+    shown_ = std::move(shown);
+    BOOL cloak = TRUE;
+    cloaked_ = SUCCEEDED(DwmSetWindowAttribute(hwnd_, kCloak, &cloak, sizeof cloak));
+    ShowWindow(hwnd_, SW_SHOW);
+    SetForegroundWindow(hwnd_);
     draw();
-    auto batch = compositor_.GetCommitBatch(wuc::CompositionBatchTypes::None);
+    if (!cloaked_) return reveal(); // Windows wouldn't cloak it: as it is
     HWND hwnd = hwnd_;
-    batch.Completed([hwnd, shown = std::move(shown)](auto&&, auto&&) {
-        if (!IsWindow(hwnd)) return; // closed meanwhile
-        ShowWindow(hwnd, SW_SHOW);
-        SetForegroundWindow(hwnd);
-        if (shown) shown();
-    });
+    auto batch = compositor_.GetCommitBatch(wuc::CompositionBatchTypes::None);
+    batch.Completed([hwnd](auto&&, auto&&) { PostMessageW(hwnd, kRevealMessage, 0, 0); }); // to the window: it may be gone by then
+    SetTimer(hwnd_, kRevealTimer, static_cast<UINT>(tokens().windowRevealLatest.count()), nullptr);
+}
+
+void ProviderWindow::reveal()
+{
+    KillTimer(hwnd_, kRevealTimer);
+    if (cloaked_) {
+        BOOL cloak = FALSE;
+        DwmSetWindowAttribute(hwnd_, kCloak, &cloak, sizeof cloak);
+        cloaked_ = false;
+    }
+    if (auto shown = std::exchange(shown_, nullptr)) shown();
 }
 
 void ProviderWindow::raise()
