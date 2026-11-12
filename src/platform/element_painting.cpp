@@ -103,6 +103,8 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Pin: return L"\uE718";
     case Glyph::Pinned: return L"\uE840"; // Pinned, the outline with its needle; paintGlyph fills it (PinnedFill under it)
     case Glyph::Chart: return L"\uE9D2"; // AreaChart: the statistics (decision 066)
+    case Glyph::Palette: return L"\uE790"; // Color: a window's Appearance page (decision 090)
+    case Glyph::Sliders: return L"\uE9E9"; // Equalizer: its General page
     case Glyph::Fire: return L"\U0001F525"; // not in the icon fonts: Segoe UI Emoji's, in colour (paintGlyph)
     }
     return L"?";
@@ -191,6 +193,7 @@ TextLook lookOf(TextStyle style)
     case TextStyle::Heading: return { t.headingFontSize, t.titleTextColor, t.headingFontWeight };
     case TextStyle::Result: return { t.resultFontSize, t.bodyTextColor, t.bodyFontWeight };
     case TextStyle::ResultDetail: return { t.resultDetailFontSize, t.captionTextColor, t.captionFontWeight };
+    case TextStyle::PageTitle: return { t.pageTitleFontSize, t.titleTextColor, t.pageTitleFontWeight };
     }
     return { t.bodyFontSize, t.bodyTextColor, t.bodyFontWeight };
 }
@@ -441,6 +444,28 @@ void paintTag(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Tag& tag, Vec2 s
     float fontSize = std::min(t.captionFontSize, size.y * 0.75f);
     auto f = format(dw, textFamily(dw, fontSize), fontSize, t.titleFontWeight, DWRITE_TEXT_ALIGNMENT_CENTER);
     drawString(dc, f.get(), widen(tag.text), size, t.tagTextColor);
+}
+
+void paintSegmented(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Segmented& segmented, Vec2 size)
+{
+    const Tokens& t = tokens();
+    if (segmented.options.empty()) return;
+    float r = size.y / 2;
+    // The track in the window's own colour, sunk into its group (decision 090).
+    dc->FillRoundedRectangle(D2D1_ROUNDED_RECT{ D2D1::RectF(0, 0, size.x, size.y), r, r }, brushOf(dc, t.islandColor).get());
+    float share = size.x / static_cast<float>(segmented.options.size()), inset = t.segmentedInset;
+    auto f = format(dw, textFamily(dw, t.bodyFontSize), t.bodyFontSize, t.bodyFontWeight, DWRITE_TEXT_ALIGNMENT_CENTER);
+    for (std::size_t i = 0; i < segmented.options.size(); ++i) {
+        D2D1_RECT_F cell = D2D1::RectF(share * static_cast<float>(i), 0, share * static_cast<float>(i + 1), size.y);
+        bool picked = i == segmented.picked;
+        if (picked) { // filled like a switch's knob, its label in the track's colour
+            float ri = r - inset;
+            dc->FillRoundedRectangle(D2D1_ROUNDED_RECT{ D2D1::RectF(cell.left + inset, inset, cell.right - inset, size.y - inset), ri, ri },
+                                     brushOf(dc, t.knobColor).get());
+        }
+        Color color = !segmented.enabled ? t.buttonDisabledColor : picked ? t.islandColor : t.bodyTextColor;
+        drawString(dc, f.get(), widen(segmented.options[i]), cell, color);
+    }
 }
 
 void paintPicture(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float side)

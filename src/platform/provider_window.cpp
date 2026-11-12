@@ -1,0 +1,365 @@
+#include "platform/provider_window.h"
+
+#include "core/tokens.h"
+#include "platform/log.h"
+#include "platform/render_layer.h"
+
+#include <dwmapi.h>
+
+#include <cmath>
+#include <exception>
+
+namespace cup::platform {
+namespace {
+
+constexpr wchar_t kClassName[] = L"CupIslandProviderWindow";
+
+// Windows 10 20H1+ and 11 read it; older builds refuse it, harmlessly (decision 015).
+constexpr DWORD kImmersiveDarkMode = 20;
+
+void registerClass(HINSTANCE instance, WNDPROC proc)
+{
+    static bool registered = false;
+    if (registered) return;
+    WNDCLASSEXW wc{ sizeof wc };
+    wc.lpfnWndProc = proc;
+    wc.hInstance = instance;
+    wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+    wc.hIcon = static_cast<HICON>(LoadImageW(instance, MAKEINTRESOURCEW(1), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE));
+    wc.hbrBackground = static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));
+    wc.lpszClassName = kClassName;
+    registered = RegisterClassExW(&wc) != 0;
+}
+
+wuc::SpriteVisual colourRect(wuc::Compositor const& c, Rect r, const Color& color)
+{
+    auto v = c.CreateSpriteVisual();
+    v.Brush(c.CreateColorBrush(toUiColor(color)));
+    v.Size({ r.width, r.height });
+    v.Offset({ std::round(r.x), std::round(r.y), 0 });
+    return v;
+}
+
+wuc::ShapeVisual roundedRect(wuc::Compositor const& c, Rect r, float radius, const Color& color)
+{
+    auto geometry = c.CreateRoundedRectangleGeometry();
+    geometry.Size({ r.width, r.height });
+    geometry.CornerRadius({ radius, radius });
+    auto shape = c.CreateSpriteShape(geometry);
+    shape.FillBrush(c.CreateColorBrush(toUiColor(color)));
+    auto v = c.CreateShapeVisual();
+    v.Size({ r.width, r.height });
+    v.Offset({ std::round(r.x), std::round(r.y), 0 });
+    v.Shapes().Append(shape);
+    return v;
+}
+
+wuc::ShapeVisual dot(wuc::Compositor const& c, Vec2 centre, float radius, const Color& color)
+{
+    auto geometry = c.CreateEllipseGeometry();
+    geometry.Radius({ radius, radius });
+    geometry.Center({ radius, radius });
+    auto shape = c.CreateSpriteShape(geometry);
+    shape.FillBrush(c.CreateColorBrush(toUiColor(color)));
+    auto v = c.CreateShapeVisual();
+    v.Size({ 2 * radius, 2 * radius });
+    v.Offset({ centre.x - radius, centre.y - radius, 0 });
+    v.Shapes().Append(shape);
+    return v;
+}
+
+wuc::ContainerVisual layer(wuc::Compositor const& c, wuc::ContainerVisual const& parent)
+{
+    auto v = c.CreateContainerVisual();
+    parent.Children().InsertAtTop(v);
+    return v;
+}
+
+Vec2 pointOf(LPARAM lParam) { return { static_cast<float>(GET_X_LPARAM(lParam)), static_cast<float>(GET_Y_LPARAM(lParam)) }; }
+
+} // namespace
+
+ProviderWindow::~ProviderWindow()
+{
+    if (hwnd_) {
+        SetWindowLongPtrW(hwnd_, GWLP_USERDATA, 0); // nothing reaches this object while it goes
+        DestroyWindow(hwnd_);
+    }
+}
+
+bool ProviderWindow::create(HINSTANCE instance, wuc::Compositor const& compositor, GraphicsDevice& device, Rect frame, Vec2 minSize,
+                            bool keepOnTop, bool resizable, ProviderWindowCallbacks callbacks)
+{
+    callbacks_ = std::move(callbacks);
+    minSize_ = minSize;
+    resizable_ = resizable;
+    compositor_ = compositor;
+    device_ = &device;
+    registerClass(instance, proc);
+    // An ordinary window, its whole area ours (WM_NCCALCSIZE): no GDI surface
+    // under the Composition content, so nothing white flashes as it opens or resizes.
+    DWORD style = WS_OVERLAPPEDWINDOW;
+    if (!resizable) style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
+    DWORD exStyle = WS_EX_NOREDIRECTIONBITMAP | (keepOnTop ? WS_EX_TOPMOST : 0);
+    hwnd_ = CreateWindowExW(exStyle, kClassName, L"", style, static_cast<int>(std::lround(frame.x)), static_cast<int>(std::lround(frame.y)),
+                            static_cast<int>(std::lround(frame.width)), static_cast<int>(std::lround(frame.height)), nullptr, nullptr, instance, this);
+    if (!hwnd_) {
+        logLine("a provider's window failed (0x%08lx)", GetLastError());
+        return false;
+    }
+    BOOL dark = TRUE;
+    DwmSetWindowAttribute(hwnd_, kImmersiveDarkMode, &dark, sizeof dark);
+    MARGINS shadow{ 0, 0, 0, 1 }; // a sliver of frame kept: Windows' shadow and snap animations stay
+    DwmExtendFrameIntoClientArea(hwnd_, &shadow);
+    SetWindowPos(hwnd_, nullptr, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+    normal_ = frame;
+
+    target_ = createWindowTarget(compositor_, hwnd_);
+    root_ = compositor_.CreateContainerVisual();
+    target_.Root(root_);
+    background_ = colourRect(compositor_, {}, tokens().islandColor);
+    root_.Children().InsertAtTop(background_);
+    paneBackground_ = colourRect(compositor_, {}, tokens().windowPaneColor);
+    root_.Children().InsertAtTop(paneBackground_);
+    sidebarDecor_ = layer(compositor_, root_);
+    sidebarLayer_ = layer(compositor_, root_);
+    pane_ = layer(compositor_, root_);
+    pane_.Clip(compositor_.CreateInsetClip()); // the page shows only in the pane
+    scroller_ = layer(compositor_, pane_);
+    pageDecor_ = layer(compositor_, scroller_);
+    pageLayer_ = layer(compositor_, scroller_);
+    footerLayer_ = layer(compositor_, root_);
+    chromeLayer_ = layer(compositor_, root_);
+    sidebar_.init(compositor_, device, sidebarLayer_);
+    page_.init(compositor_, device, pageLayer_);
+    footer_.init(compositor_, device, footerLayer_);
+    chrome_.init(compositor_, device, chromeLayer_);
+    return true;
+}
+
+void ProviderWindow::draw(const WindowScene& scene, Ms now)
+{
+    scene_ = scene;
+    std::wstring title = winrt::to_hstring(scene.title).c_str();
+    SetWindowTextW(hwnd_, title.c_str()); // the taskbar's and Alt-Tab's name
+    background_.Size(toFloat2(scene.size));
+    paneBackground_.Size({ scene.pane.width, scene.size.y - scene.pane.y });
+    paneBackground_.Offset({ scene.pane.x, scene.pane.y, 0 });
+    pane_.Size({ scene.pane.width, scene.pane.height });
+    pane_.Offset({ scene.pane.x, scene.pane.y, 0 });
+    scroller_.Offset({ 0, -std::round(scene.scroll), 0 }); // the page moves as a whole: scrolling redraws nothing
+    drawDecor();
+    sidebar_.apply(scene.sidebarItems, now);
+    page_.apply(scene.page, now);
+    footer_.apply(scene.footer, now);
+    chrome_.apply(scene.chrome, now);
+}
+
+// The shapes behind the items: the picked page's highlight (and the hovered
+// one's), the sidebar's dots, each group's panel and the lines between rows.
+// Rebuilt whole: a handful of shapes, and nothing about them animates.
+void ProviderWindow::drawDecor()
+{
+    const Tokens& t = tokens();
+    sidebarDecor_.Children().RemoveAll();
+    for (std::size_t i = 0; i < scene_.nav.size(); ++i) {
+        const NavEntry& n = scene_.nav[i];
+        if (n.picked) sidebarDecor_.Children().InsertAtTop(roundedRect(compositor_, n.frame, scene_.navRadius, t.tabSelectedColor));
+        else if (hoveredNav_ == i) sidebarDecor_.Children().InsertAtTop(roundedRect(compositor_, n.frame, scene_.navRadius, t.hoverColor));
+        if (n.badge) sidebarDecor_.Children().InsertAtTop(dot(compositor_, { n.frame.x + n.frame.width - 12, n.frame.y + n.frame.height / 2 },
+                                                              t.badgeSize / 2, t.badgeColor));
+    }
+    pageDecor_.Children().RemoveAll();
+    for (const Rect& g : scene_.groups) pageDecor_.Children().InsertAtTop(roundedRect(compositor_, g, scene_.groupRadius, t.tileColor));
+    for (const Rect& d : scene_.dividers) pageDecor_.Children().InsertAtTop(colourRect(compositor_, d, t.hoverColor));
+}
+
+void ProviderWindow::show()
+{
+    ShowWindow(hwnd_, SW_SHOW);
+    SetForegroundWindow(hwnd_);
+}
+
+void ProviderWindow::raise()
+{
+    if (IsIconic(hwnd_)) ShowWindow(hwnd_, SW_RESTORE);
+    SetForegroundWindow(hwnd_);
+}
+
+void ProviderWindow::minimize() { ShowWindow(hwnd_, SW_MINIMIZE); }
+
+void ProviderWindow::refresh(bool coloursOnly)
+{
+    for (ElementVisuals* v : { &sidebar_, &page_, &footer_, &chrome_ }) v->refresh(coloursOnly);
+    background_.Brush(compositor_.CreateColorBrush(toUiColor(tokens().islandColor)));
+    paneBackground_.Brush(compositor_.CreateColorBrush(toUiColor(tokens().windowPaneColor)));
+    drawDecor();
+}
+
+ElementVisuals& ProviderWindow::visualsFor(const std::string& key)
+{
+    if (key.rfind("chrome/", 0) == 0) return chrome_;
+    if (key.rfind("footer/", 0) == 0) return footer_;
+    if (key.rfind("side/", 0) == 0 || key.rfind("nav", 0) == 0) return sidebar_;
+    return page_;
+}
+
+void ProviderWindow::setHovered(const std::string& key, std::optional<std::size_t> nav)
+{
+    for (ElementVisuals* v : { &sidebar_, &page_, &footer_, &chrome_ }) v->setHovered(v == &visualsFor(key) ? key : std::string());
+    if (nav != hoveredNav_) {
+        hoveredNav_ = nav;
+        drawDecor();
+    }
+}
+
+void ProviderWindow::press(const std::string& key) { visualsFor(key).press(key); }
+void ProviderWindow::release(const std::string& key) { visualsFor(key).release(key); }
+
+void ProviderWindow::rememberNormal()
+{
+    if (!hwnd_ || IsZoomed(hwnd_) || IsIconic(hwnd_)) return;
+    RECT r{};
+    GetWindowRect(hwnd_, &r);
+    normal_ = { static_cast<float>(r.left), static_cast<float>(r.top), static_cast<float>(r.right - r.left), static_cast<float>(r.bottom - r.top) };
+}
+
+Vec2 ProviderWindow::clientSize() const
+{
+    RECT r{};
+    GetClientRect(hwnd_, &r);
+    return { static_cast<float>(r.right - r.left), static_cast<float>(r.bottom - r.top) };
+}
+
+LRESULT CALLBACK ProviderWindow::proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    if (message == WM_NCCREATE) {
+        auto* create = reinterpret_cast<CREATESTRUCTW*>(lParam);
+        SetWindowLongPtrW(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(create->lpCreateParams));
+        static_cast<ProviderWindow*>(create->lpCreateParams)->hwnd_ = hwnd; // messages arrive before CreateWindowEx returns
+    }
+    auto* self = reinterpret_cast<ProviderWindow*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+    if (!self) return DefWindowProcW(hwnd, message, wParam, lParam);
+    try {
+        return self->handle(message, wParam, lParam);
+    } catch (winrt::hresult_error const& e) {
+        logLine("WinRT error in a provider's window, message 0x%04x: 0x%08x %ls", message, static_cast<unsigned int>(e.code()), e.message().c_str());
+    } catch (std::exception const& e) {
+        logLine("Exception in a provider's window, message 0x%04x: %s", message, e.what());
+    } catch (...) {
+        logLine("Unknown exception in a provider's window, message 0x%04x", message);
+    }
+    return 0;
+}
+
+LRESULT ProviderWindow::handle(UINT message, WPARAM wParam, LPARAM lParam)
+{
+    auto call = [](const auto& f, auto&&... args) {
+        if (f) f(std::forward<decltype(args)>(args)...);
+    };
+    switch (message) {
+    case WM_NCCALCSIZE:
+        if (wParam) {
+            // The whole window is client area: our title bar is the top of it.
+            // Maximized, Windows puts the frame off screen: keep the content on it.
+            if (IsZoomed(hwnd_)) {
+                auto* params = reinterpret_cast<NCCALCSIZE_PARAMS*>(lParam);
+                int frame = GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
+                InflateRect(&params->rgrc[0], -frame, -frame);
+            }
+            return 0;
+        }
+        break;
+    case WM_NCHITTEST: {
+        POINT p{ GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+        ScreenToClient(hwnd_, &p);
+        RECT r{};
+        GetClientRect(hwnd_, &r);
+        if (resizable_ && !IsZoomed(hwnd_)) {
+            int band = GetSystemMetrics(SM_CXSIZEFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
+            bool left = p.x < band, right = p.x >= r.right - band, top = p.y < band, bottom = p.y >= r.bottom - band;
+            if (top && left) return HTTOPLEFT;
+            if (top && right) return HTTOPRIGHT;
+            if (bottom && left) return HTBOTTOMLEFT;
+            if (bottom && right) return HTBOTTOMRIGHT;
+            if (left) return HTLEFT;
+            if (right) return HTRIGHT;
+            if (top) return HTTOP;
+            if (bottom) return HTBOTTOM;
+        }
+        if (callbacks_.isCaption && callbacks_.isCaption({ static_cast<float>(p.x), static_cast<float>(p.y) })) return HTCAPTION;
+        return HTCLIENT;
+    }
+    case WM_GETMINMAXINFO: {
+        auto* info = reinterpret_cast<MINMAXINFO*>(lParam);
+        info->ptMinTrackSize = { static_cast<LONG>(std::lround(minSize_.x)), static_cast<LONG>(std::lround(minSize_.y)) };
+        return 0;
+    }
+    case WM_SIZE:
+        rememberNormal();
+        if (root_ && wParam != SIZE_MINIMIZED) // not while CreateWindowEx is still building it
+            call(callbacks_.onResized, Vec2{ static_cast<float>(LOWORD(lParam)), static_cast<float>(HIWORD(lParam)) });
+        return 0;
+    case WM_MOVE:
+        rememberNormal();
+        return 0;
+    case WM_EXITSIZEMOVE:
+        call(callbacks_.onMoved);
+        return 0;
+    case WM_ERASEBKGND:
+        return 1; // Composition draws all of it
+    case WM_MOUSEMOVE:
+        if (!trackingLeave_) {
+            TRACKMOUSEEVENT track{ sizeof track, TME_LEAVE, hwnd_, 0 };
+            trackingLeave_ = TrackMouseEvent(&track) != FALSE;
+        }
+        call(callbacks_.onPointerMoved, pointOf(lParam));
+        return 0;
+    case WM_MOUSELEAVE:
+        trackingLeave_ = false;
+        call(callbacks_.onPointerLeft);
+        return 0;
+    case WM_LBUTTONDOWN:
+        SetCapture(hwnd_);
+        pressed_ = true;
+        call(callbacks_.onPressDown, pointOf(lParam));
+        return 0;
+    case WM_LBUTTONUP: {
+        if (!pressed_) return 0;
+        pressed_ = false;
+        Vec2 p = pointOf(lParam);
+        Vec2 size = clientSize();
+        ReleaseCapture();
+        call(callbacks_.onPressRelease, p, p.x >= 0 && p.y >= 0 && p.x < size.x && p.y < size.y);
+        return 0;
+    }
+    case WM_CAPTURECHANGED:
+        if (pressed_) { // taken mid-press by someone else: nothing is clicked
+            pressed_ = false;
+            call(callbacks_.onPressRelease, Vec2{ -1, -1 }, false);
+        }
+        return 0;
+    case WM_MOUSEWHEEL: {
+        POINT p{ GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+        ScreenToClient(hwnd_, &p);
+        call(callbacks_.onWheel, Vec2{ static_cast<float>(p.x), static_cast<float>(p.y) },
+             static_cast<float>(GET_WHEEL_DELTA_WPARAM(wParam)) / WHEEL_DELTA);
+        return 0;
+    }
+    case WM_KEYDOWN:
+        call(callbacks_.onKeyDown, wParam);
+        return 0;
+    case WM_SYSKEYDOWN:
+        if (wParam == VK_F4) break; // Alt+F4: Windows sends WM_CLOSE
+        call(callbacks_.onKeyDown, wParam);
+        break;
+    case WM_CLOSE:
+        call(callbacks_.onCloseRequested); // the app closes it, through its provider's registry
+        return 0;
+    default:
+        break;
+    }
+    return DefWindowProcW(hwnd_, message, wParam, lParam);
+}
+
+} // namespace cup::platform

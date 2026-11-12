@@ -386,6 +386,8 @@ void ElementVisuals::paint(View& view)
             paintDivider(dc, size);
         } else if (auto* swatch = std::get_if<Swatch>(&item)) {
             paintSwatch(dc, *swatch, size);
+        } else if (auto* segmented = std::get_if<Segmented>(&item)) {
+            paintSegmented(dc, dw, *segmented, size);
         }
     };
     bool drawn = device_->draw(view.surface, [&](ID2D1DeviceContext* dc) {

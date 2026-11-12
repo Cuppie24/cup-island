@@ -1,5 +1,7 @@
 // Keyboard navigation and shortcuts (decision 031): where the arrows go on
-// the Settings card, its theme page and Home, and the shortcuts (decision 032).
+// a List card of settings, a page of themes and Home, and the shortcuts
+// (decision 032). The cards are list_card_fixture.h's: Settings itself is a
+// window now (decision 090).
 
 #include "core/dialog.h"
 #include "core/hit_test.h"
@@ -7,22 +9,21 @@
 #include "core/shortcuts.h"
 #include "core/tokens.h"
 #include "expect.h"
-#include "providers/system/settings_provider.h"
+#include "list_card_fixture.h"
 
 namespace cup::test {
 namespace {
 
-// The Settings card open, as the app shows it.
-Scene settingsScene(const SettingsView& view)
+// The card open, from Home, as the app shows it.
+IslandState opened(const Panel& card)
 {
     IslandState s;
-    Panel settings = settingsPanel(view);
-    settings.providerId = "system.settings";
-    s = reduce(s, PanelPublished{ settings }, Ms{ 0 });
+    s = reduce(s, PanelPublished{ card }, Ms{ 0 });
     s = reduce(s, HomeOpened{}, Ms{ 0 });
-    s = reduce(s, TileClicked{ settings.id }, Ms{ 0 });
-    return layout(s, Ms{ 0 });
+    s = reduce(s, TileClicked{ card.id }, Ms{ 0 });
+    return s;
 }
+Scene cardScene(const Panel& card) { return layout(opened(card), Ms{ 0 }); }
 
 // The action a focusable's point clicks, or "".
 std::string clicks(const Scene& scene, const std::optional<Focusable>& f)
@@ -36,7 +37,7 @@ std::string clicks(const Scene& scene, const std::optional<Focusable>& f)
 
 void runKeyboardTests()
 {
-    namespace P = settings_action;
+    namespace P = fixture;
     Tokens saved = tokens();
     Tokens themed = saved;
     themed.themes.clear();
@@ -44,9 +45,9 @@ void runKeyboardTests()
     for (const char* name : { "Paper", "Sorbet", "Mint" }) themed.themes.push_back({ .name = name, .light = true });
     setTokens(themed);
 
-    // The Settings list: the first press shows focus on the first row; then
+    // A list of settings: the first press shows focus on the first row; then
     // rows top to bottom, over the group headings (nothing to click there).
-    Scene list = settingsScene({ .theme = "Grape", .startsWithWindows = true });
+    Scene list = cardScene(fixture::settingsList());
     auto f = moveFocus(list, "", Arrow::Down);
     expect(clicks(list, f) == P::kOpenThemes, "keys: the first press lands on the first row (Theme)");
     auto above = moveFocus(list, f->id, Arrow::Up);
@@ -54,9 +55,9 @@ void runKeyboardTests()
     f = moveFocus(list, f->id, Arrow::Down);
     expect(clicks(list, f) == P::kOpenTabRow, "keys: down, the next row (Tab row, decision 048)");
     f = moveFocus(list, f->id, Arrow::Down);
-    expect(clicks(list, f) == P::kCentreIsland, "keys: down, the next row (Appearance's last)");
+    expect(clicks(list, f) == P::kCentre, "keys: down, the next row (Appearance's last)");
     f = moveFocus(list, f->id, Arrow::Down);
-    expect(clicks(list, f) == P::kToggleAutostart, "keys: down past General's heading to its first row");
+    expect(clicks(list, f) == P::kAutostart, "keys: down past General's heading to its first row");
     f = moveFocus(list, f->id, Arrow::Down);
     expect(clicks(list, f) == P::kOpenShortcuts, "keys: down again");
     f = moveFocus(list, f->id, Arrow::Down);
@@ -68,7 +69,7 @@ void runKeyboardTests()
     expect(!moveFocus(list, f->id, Arrow::Left), "keys: a whole-row item has nothing beside it");
 
     // The theme page: the back arrow above a list longer than its window.
-    Scene themes = settingsScene({ .page = SettingsPage::Themes, .theme = "Grape" });
+    Scene themes = cardScene(fixture::themesPage());
     f = moveFocus(themes, "", Arrow::Down);
     expect(clicks(themes, f) == P::kBack, "themes: the back arrow first");
     f = moveFocus(themes, f->id, Arrow::Down);
@@ -95,31 +96,17 @@ void runKeyboardTests()
     auto up = moveFocus(themes, f->id, Arrow::Up);
     expect(up && up->list && up->list->row < f->list->row, "themes: up from the last, the one before it");
 
-    // Esc on one of Settings' pages goes back to its list, like the back
-    // arrow; on the list itself there's no page to leave (decision 033).
-    auto escOn = [](SettingsPage page) {
-        IslandState s;
-        Panel p = settingsPanel({ .page = page });
-        p.providerId = "system.settings";
-        s = reduce(s, PanelPublished{ p }, Ms{ 0 });
-        s = reduce(s, HomeOpened{}, Ms{ 0 });
-        s = reduce(s, TileClicked{ p.id }, Ms{ 0 });
-        return backAction(s);
-    };
-    expect(escOn(SettingsPage::Themes) == P::kBack && escOn(SettingsPage::Shortcuts) == P::kBack && escOn(SettingsPage::Displays) == P::kBack,
-           "esc: a Settings page goes back to the list");
-    expect(escOn(SettingsPage::List).empty(), "esc: the list has no page to leave (Esc goes back to Home)");
+    // Esc on a page goes back to its list, like the back arrow; on the list
+    // itself there's no page to leave (decision 033).
+    expect(backAction(opened(fixture::themesPage())) == P::kBack && backAction(opened(fixture::shortcutsPage())) == P::kBack,
+           "esc: a page goes back to its list");
+    expect(backAction(opened(fixture::settingsList())).empty(), "esc: the list has no page to leave (Esc goes back to Home)");
 
     // The list of keys scrolls (most rows have nothing to click): down from
     // its last stop scrolls it, focus staying, until its end is in view;
     // then down leaves it. Up scrolls it back the same way (decision 033).
     {
-        IslandState s;
-        Panel p = settingsPanel({ .page = SettingsPage::Shortcuts });
-        p.providerId = "system.settings";
-        s = reduce(s, PanelPublished{ p }, Ms{ 0 });
-        s = reduce(s, HomeOpened{}, Ms{ 0 });
-        s = reduce(s, TileClicked{ p.id }, Ms{ 0 });
+        IslandState s = opened(fixture::shortcutsPage());
         Scene keys = layout(s, Ms{ 0 });
         auto back = moveFocus(keys, "", Arrow::Down);
         auto edit = moveFocus(keys, back->id, Arrow::Down);

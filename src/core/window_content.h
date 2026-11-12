@@ -35,8 +35,10 @@ struct WindowSpec {
     bool operator==(const WindowSpec&) const = default;
 };
 
-// A group of rows under a heading. The rows are the island's (content.h):
-// every item, list, menu, switch and field works as it does on a card.
+// A group of rows under an optional heading, drawn as one rounded panel
+// with a line between rows. The rows are the island's (content.h): items,
+// switches, menus and fields work as on a card; a whole page scrolls, so
+// Row::list's own scrolling isn't used in a window.
 struct WindowSection {
     std::string title; // a Heading over its rows; "": none
     std::vector<Row> rows;
@@ -49,6 +51,11 @@ struct WindowSection {
 struct WindowPage {
     std::string id;    // stable: names it in actions and in WindowSpec::page
     std::string title; // in the sidebar, and over the page
+    // Over the page, under its title, in small print: what it's about. "": none.
+    std::string subtitle;
+    // A page within this page (Settings' themes, from its Theme row): a back
+    // arrow before the title sends this, and so does Esc. "": none.
+    std::string backAction;
     Glyph glyph = Glyph::Settings;
     bool badge = false; // a dot in the sidebar: something new on it (decision 038)
     std::vector<WindowSection> sections;

@@ -48,7 +48,8 @@ void captureKeys(bool on);
 
 // A key pressed while recording: it's the new keys (Esc: none). True if it
 // was recording, so nothing else may act on the key.
-bool recordKey(WPARAM key);
+// `inSettings`: pressed in Settings' window, where the shortcuts are (decision 090).
+bool recordKey(WPARAM key, bool inSettings);
 
 // The keys that move around the island (decisions 031, 033): the arrows,
 // Tab and Shift+Tab, Home/End, Ctrl+Tab and Ctrl+Shift+Tab (the next and

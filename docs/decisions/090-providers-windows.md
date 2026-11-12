@@ -1,9 +1,9 @@
 # 090: Providers get windows of their own, drawn by the host
 
-Status: Accepted for the core, the Host API and the registry (built and
-tested). Proposed for the window's layout and its Windows side (next).
-Supersedes decision 081's floating cards and decision 083's canvas; 081's
-placement stays, as window placement.
+Status: Accepted. Built: the core, the Host API, the registry, the layout
+(`core/window_layout.h`), the Windows window (`platform/provider_window`,
+`app/provider_windows`) and Settings in a window. The Windows side needs a
+run to judge, above all how it resizes.
 
 **Context.** Some things don't belong on the island: Settings, which keeps
 growing; a timer's full view (statistics, to-dos, its settings) while the
@@ -78,22 +78,62 @@ back. Windows share the *platform* around the island, not the island.
   and its shapes, the spring (080), the render and input window pair
   (001, 026). A window is one ordinary window.
 
-**Next, proposed.**
-1. `windowLayout(window, size, measure) → Scene`, pure: sidebar, page
-   title, sections, footer, scrolling; and each window's own interaction
-   state (focus, draft, scroll, list drag) with its reducer, in core.
-2. The Windows window (`platform/provider_window`): a normal top-level
-   window (title bar, taskbar, Alt-Tab; topmost with `keepOnTop`), a
-   Composition target on the island's Compositor (`createWindowTarget`),
-   the elements drawn by the same painters. Win11's rounded corners and
-   Mica looked up at runtime with a fallback (decision 015). It must resize
-   without flicker before anything ships in it: content laid out in the
-   size message, anchored top-left, the window's background the theme's.
-   If Composition can't keep up with a live resize, a flip-model swap chain
-   drawn in `WM_SIZE` instead; that's the prototype's question.
-3. Pomodoro's full view (the card keeps its compact role), then Settings.
-4. Plugins (PS §8 Tier 2) send `WindowSpec`/`WindowContent` as JSON over
-   the pipe; a preview tool renders a JSON file and reloads it on save.
+**Laid out by core** (`windowLayout`, `windowHitTest`): our own title
+bar (`windowTitleBarHeight`) with minimize and close at its right
+(`windowChromeButtonWidth` each), as Windows draws its own; with several
+pages, a sidebar (`windowSidebarWidth`) of the window's title over an entry
+per page (its glyph and name), the shown one lit (`tabSelectedColor`), a
+dot on one with something new. The page beside it: its title
+(`TextStyle::PageTitle`), a back arrow before it on a page within a page
+(`WindowPage::backAction`, which Esc sends too), a line under it
+(`subtitle`), then each section as a panel of rows (`tileColor`,
+`windowGroupRadius`) with a line between them, a row at least
+`windowRowHeight` tall, no wider than `windowPageMaxWidth`. The page scrolls
+as a whole; Row::list's own scrolling isn't used in a window. A click is
+`windowHitTest`'s: the title bar's empty part drags, a sidebar entry picks
+its page, an item acts with `Action::windowId` set.
+- Colours follow the theme, light ones too: the sidebar is `islandColor`,
+  the page over it `windowPaneColor` (a faint white), groups `tileColor`,
+  lines `hoverColor`. Nothing in a window is a colour of its own.
+- **`Segmented`** (content.h): a few choices side by side in a pill, the
+  picked one filled (`knobColor` on `islandColor`). Equal segments; a click
+  sends `Action{actionId, value = index}`. An Item, so cards can use it too.
+
+**On Windows.** An ordinary top-level window (`WS_OVERLAPPEDWINDOW`):
+taskbar, Alt-Tab, snapping, maximize; topmost only with `keepOnTop`. Its
+whole area is ours (`WM_NCCALCSIZE`), with a sliver of DWM frame kept so
+Windows' shadow stays; `WM_NCHITTEST` gives the resize edges and, where
+core says so, the caption. No redirection bitmap: Composition draws all of
+it, on the island's Compositor (`createWindowTarget`), the items by the
+island's own `ElementVisuals` and painters, panels and lines as shapes
+under them, the page in a clipped container that scrolls by its offset.
+A resize lays it out again inside `WM_SIZE`, so the drawing keeps up with
+the frame. Rows stretch with the window only below `windowPageMaxWidth`;
+there, each width change rebuilds a row's text (decision 083's caveat):
+judged on Windows before anything wider ships. Tokens are the island's
+display's pixels (decision 017), so windows use that scale on every
+monitor, as the island does; per-monitor scale is left for both. Where a
+window was left is saved in `windows.txt`. Keys: Esc steps back or closes,
+Ctrl+W closes, Ctrl+Tab goes through the pages, Page Up/Down, Home and End
+scroll. Moving focus with the arrows in a window is not built yet.
+
+**Settings moved into a window** (decisions 022, 030, 048). The widget on
+Home has no card: its tap (`Panel::tapAction`) opens the window, or brings
+it forward. Pages: Appearance (Theme, Music colours, Display; Tab row as a
+`Segmented`, Centre island), General (Start with Windows, Keyboard
+shortcuts, Copy logs), Updates (Check for updates, Update and restart, the
+version). A setting's value is under its name (`Text::detail`). Its choices
+(themes, displays, music colours, shortcuts) are a page within its page,
+with a back arrow; picking another page in the sidebar leaves it. "New"
+(decision 048): a tag on the row, a dot on its parent's row and on its page
+in the sidebar; seen once the window closes after its page was shown.
+Recording a shortcut takes the next key pressed in Settings' window; a key
+on the island stops it. The old card's rows survive only as a test fixture
+for keyboard navigation over lists (`tests/list_card_fixture.h`).
+
+**Next.** Arrow-key focus in windows (decision 035's rules on a window's
+scene); Pomodoro's full view; plugins (PS §8 Tier 2) sending
+`WindowSpec`/`WindowContent` as JSON over the pipe, with a preview tool.
 
 **A plugin's own window**, for what the content model can't show, stays
 possible and needs no host API to launch anything: the host starts only

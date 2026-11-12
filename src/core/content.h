@@ -22,12 +22,14 @@ using Ms = std::chrono::milliseconds;
 // Built-in icons; the renderer maps them to font glyphs.
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
                    Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre,
-                   Minus, Plus, Pin, Pinned, Fire, Chart, ChevronDown, Search, File, Folder, Close };
+                   Minus, Plus, Pin, Pinned, Fire, Chart, ChevronDown, Search, File, Folder, Close,
+                   Palette, Sliders };
 
 // Display: a big number, the card's centre (a timer). Heading: a group's name over its rows (Settings'
 // "Dark" and "Light"): small, but heavy and full-strength, so it reads as a divider (decision 037).
 // Result and ResultDetail: a search result's name and the line under it (decision 079).
-enum class TextStyle { Title, Body, Caption, Digits, Display, Heading, Result, ResultDetail };
+// PageTitle: a window page's name, over its groups (decision 090).
+enum class TextStyle { Title, Body, Caption, Digits, Display, Heading, Result, ResultDetail, PageTitle };
 
 // sRGB plus opacity. As an activity's accent (decision 010) it tints only
 // live data: progress fills (bar and ring), the current step, waveform bars.
@@ -242,7 +244,20 @@ struct Dial {
     bool operator==(const Dial&) const = default;
 };
 
-using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch, Tag, Switch, Divider, Dial>;
+// One of a few choices, side by side in a pill, the picked one filled
+// (decision 090): where the tab row goes, Top or Bottom. Equal segments, as
+// wide as the longest label. A click on a segment sends Action{actionId,
+// value = its index}; the provider moves `picked` and republishes.
+struct Segmented {
+    std::vector<std::string> options;
+    std::size_t picked = 0;
+    std::string actionId;
+    bool enabled = true;
+    bool operator==(const Segmented&) const = default;
+};
+
+using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch, Tag, Switch, Divider, Dial,
+                          Segmented>;
 
 enum class Align { Start, Center, End };
 

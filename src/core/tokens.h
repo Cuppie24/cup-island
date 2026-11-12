@@ -94,6 +94,22 @@ struct Tokens {
     Vec2 windowMinSize{ 320, 240 };   // no smaller, by its frame or the provider's ask
     float windowIslandGap = 16;       // WindowStart::NearIsland: this far under the pill
     float windowCascade = 28;         // opening where another one already is: this far right and down from it
+    // Inside a window (decision 090): an ordinary window's chrome, a sidebar of pages, groups of rows.
+    Vec2 windowPagePadding{ 48, 32 }; // a page's content from the pane's left and top
+    float windowTitleBarHeight = 36; // our own title bar: it drags the window; minimize and close at its right
+    float windowChromeButtonWidth = 46; // each of those, the bar's height tall, as Windows draws its own
+    float windowSidebarWidth = 190; // the pages, with the window's title over them (only with several pages)
+    float windowSidebarInset = 14; // the sidebar's items from its edges
+    float windowSidebarHeader = 56; // the window's title, over the pages
+    float windowNavHeight = 38; // a page's entry in the sidebar
+    float windowPageMaxWidth = 600; // a page's content no wider: rows of settings don't need a wide screen
+    float windowSubtitleGap = 6; // the page's title to the line under it
+    float windowHeaderGap = 26; // the page's title (and subtitle) to its first group
+    float windowSectionGap = 22; // between groups
+    float windowRowHeight = 56; // a row in a group, at least: a name with its value under it
+    float windowRowPadding = 16; // a row's content from its group's sides
+    float windowGroupRadius = 10; // a group's corners
+    float windowNavRadius = 8; // the picked page's highlight
     float expandedArtSize = 68; // expanded leading square: as tall as title + artist + caption beside it
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;
@@ -104,6 +120,7 @@ struct Tokens {
     float captionFontSize = 13; // the smallest text: ~11 px on screen at 100% after islandScale
     float displayFontSize = 48; // TextStyle::Display: a timer as the card's centre
     float headingFontSize = 14; // TextStyle::Heading: a group's name, a little over caption size
+    float pageTitleFontSize = 24; // TextStyle::PageTitle: a window page's name (decision 090)
     // Font weights, 100..900 (400 regular, 600 semibold; decision 024). Segoe UI Variable
     // (Windows 11) takes any value in between; other fonts use the nearest weight they have.
     float titleFontWeight = 700;   // bold: Segoe UI Variable's heaviest
@@ -111,6 +128,7 @@ struct Tokens {
     float captionFontWeight = 600;
     float displayFontWeight = 300; // big and still the lightest, like a clock face
     float headingFontWeight = 700; // a heading stands out from the rows under it: bold, and the title colour
+    float pageTitleFontWeight = 700;
     // Darkens antialiased text strokes (DirectWrite's grayscale enhanced
     // contrast): 0 = none, 1 = Windows' usual, higher = bolder-looking edges.
     float textContrast = 1.5f;
@@ -156,6 +174,10 @@ struct Tokens {
     float badgeInset = 7;         // ...at least this far in from a widget's or tab's edges (its corner's rounding sets it, decision 038)
     float swatchSize = 24;        // Swatch: a colour sample (a theme on Settings' list, decision 030)
     Vec2 switchSize{ 36, 20 };    // Switch: an on/off setting's track (decision 053); the knob is its height, inset
+    // Segmented (decision 090): a pill of equal segments, the picked one filled.
+    float segmentedHeight = 36;
+    float segmentedPadding = 18;  // a segment's label from its ends
+    float segmentedInset = 3;     // the picked segment's fill inside the track
     float switchKnobInset = 3;    // ...the knob this far inside the track
     float tagHeight = 18;         // Tag: "New" beside a setting not seen yet (decision 048)
     float tagPadding = 7;         // ...its text this far in from the pill's ends
@@ -351,7 +373,8 @@ struct Tokens {
     Color stepTodoColor{ 255, 255, 255, 51 };
     Color tabSelectedColor{ 255, 255, 255, 41 };
     Color hoverColor{ 255, 255, 255, 20 };         // a tab or tile under the pointer
-    Color tileColor{ 255, 255, 255, 20 };          // Home's tile backgrounds, always shown (tabs have none, decision 072)
+    Color tileColor{ 255, 255, 255, 20 };          // Home's tile backgrounds, always shown (tabs have none, decision 072); a window's groups
+    Color windowPaneColor{ 255, 255, 255, 8 };     // a window's page pane, over islandColor (its sidebar's): a shade lighter (decision 090)
     Color focusRingColor{ 255, 255, 255, 153 };    // around what the keyboard has focus on (decision 033): a theme's accent
     Color inputColor{ 255, 255, 255, 26 };         // a text field's background (decision 016)
     Color placeholderTextColor{ 255, 255, 255, 128 }; // "Add a to-do…": like body text, a little dimmer

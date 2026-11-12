@@ -31,6 +31,23 @@ std::string widestDigits(std::string s, TextStyle style, const MeasureText& meas
 
 float lineHeight(TextStyle style) { return std::ceil(fontSize(style) * 1.3f); }
 
+float segmentWidth(const Segmented& segmented, const MeasureText& measure)
+{
+    float widest = 0;
+    for (const std::string& option : segmented.options) {
+        Text label{ option, TextStyle::Body };
+        widest = std::max(widest, measure ? measure(label) : estimateTextWidth(label));
+    }
+    return std::ceil(widest + 2 * tokens().segmentedPadding);
+}
+
+std::optional<std::size_t> segmentAt(const Segmented& segmented, Rect frame, float x)
+{
+    if (segmented.options.empty() || frame.width <= 0 || x < frame.x || x >= frame.x + frame.width) return std::nullopt;
+    auto n = segmented.options.size();
+    return std::min(n - 1, static_cast<std::size_t>((x - frame.x) / (frame.width / static_cast<float>(n))));
+}
+
 TextStyle detailStyleOf(TextStyle style) { return style == TextStyle::Result ? TextStyle::ResultDetail : TextStyle::Caption; }
 
 bool isRing(const Item& item)
@@ -63,6 +80,7 @@ float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& m
     if (std::holds_alternative<Steps>(item)) return t.stepDotSize;
     if (std::holds_alternative<Swatch>(item)) return t.swatchSize;
     if (std::holds_alternative<Switch>(item)) return t.switchSize.y;
+    if (std::holds_alternative<Segmented>(item)) return t.segmentedHeight;
     if (std::holds_alternative<Tag>(item)) return t.tagHeight;
     if (auto* button = std::get_if<Button>(&item)) return button->primary ? t.primaryButtonSize : button->compact ? t.smallButtonSize : t.buttonSize;
     if (auto* input = std::get_if<TextInput>(&item)) return input->large ? t.searchInputHeight : t.inputHeight;
@@ -87,6 +105,7 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
     }
     if (std::holds_alternative<Swatch>(item)) return t.swatchSize;
     if (std::holds_alternative<Switch>(item)) return t.switchSize.x;
+    if (auto* seg = std::get_if<Segmented>(&item)) return segmentWidth(*seg, measure) * static_cast<float>(seg->options.size());
     if (auto* tag = std::get_if<Tag>(&item)) {
         Text text{ tag->text, TextStyle::Caption };
         return (measure ? measure(text) : estimateTextWidth(text)) + 2 * t.tagPadding;
@@ -120,6 +139,7 @@ float fontSize(TextStyle style)
     case TextStyle::Heading: return t.headingFontSize;
     case TextStyle::Result: return t.resultFontSize;
     case TextStyle::ResultDetail: return t.resultDetailFontSize;
+    case TextStyle::PageTitle: return t.pageTitleFontSize;
     }
     return t.bodyFontSize;
 }

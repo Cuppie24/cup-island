@@ -46,6 +46,9 @@ void paintTag(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Tag& tag, Vec2 s
 // Whatever `paint` draws, drawn into `dc` without colour (decision 072): a muted
 // tab's text, glyph and picture alike. Plain `paint(dc)` if the effect can't be made.
 void paintGrey(ID2D1DeviceContext* dc, const std::function<void(ID2D1DeviceContext*)>& paint);
+// A Segmented (decision 090): a pill in islandColor, the picked segment filled
+// in knobColor with its label in islandColor, the others' labels in body text.
+void paintSegmented(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Segmented& segmented, Vec2 size);
 // Fills a rounded rect with the image scaled to cover it; a neutral tile if `data` is null.
 void paintImage(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float cornerRadius);
 // `data` as an icon, `side` square (no bigger than `size`), centred on whole

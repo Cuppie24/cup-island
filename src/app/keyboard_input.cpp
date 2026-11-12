@@ -140,18 +140,16 @@ void captureKeys(bool on) { g_capturing = on; }
 
 // Settings is recording a shortcut: the next key is its new keys, Esc leaves
 // it. A modifier on its own is part of what's being pressed: wait for more.
-bool recordKey(WPARAM key)
+bool recordKey(WPARAM key, bool inSettings)
 {
     if (!g_capturing) return false;
     if (!g_hooks.settings) {
         g_capturing = false;
         return false;
     }
-    bool settingsShown = !state().homeOpen && state().expandedId == SettingsProvider::kPanelId;
-    if (!settingsShown || key == VK_ESCAPE) g_hooks.settings->keysPressed(std::nullopt);
+    // Pressed in Settings' window: the new keys (decision 090). Anywhere else, or Esc: it stops waiting.
+    if (!inSettings || key == VK_ESCAPE) g_hooks.settings->keysPressed(std::nullopt);
     else if (auto chord = platform::chordPressed(key)) g_hooks.settings->keysPressed(chord);
-    else return true;
-    dispatch(PointerMoved{}, "shortcut keys"); // busy here: keep the card open
     return true;
 }
 

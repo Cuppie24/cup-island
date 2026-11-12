@@ -1,14 +1,15 @@
 #pragma once
-// Settings on Home (decisions 022, 030): what the card's actions do. The
+// Settings (decisions 022, 030, 090): a widget on Home that opens the
+// Settings window, and what the window's actions do. The
 // app theme, colours from music (decision 052), the display (decision 023), Start with Windows, the keyboard
 // shortcuts (decisions 031, 032), Copy logs and Centre island (decision 026).
 // Picks are kept in the host's store (decision 028); recolouring, moving the
 // island, the Run key, hotkeys and the clipboard are the app's (handed in),
-// so this stays pure and is tested on Linux. The card itself: settings_card.h.
+// so this stays pure and is tested on Linux. The window itself: settings_window.h.
 
 #include "core/provider.h"
 #include "core/shortcuts.h"
-#include "providers/system/settings_card.h"
+#include "providers/system/settings_window.h"
 
 #include <functional>
 #include <optional>
@@ -62,10 +63,9 @@ public:
     const char* id() const override { return "system.settings"; }
     void start(Host& host) override; // applies the saved theme and display, Start with Windows the first time
     void stop() override;
-    void onAction(const Action& action) override; // the card's rows, choices and buttons
+    void onAction(const Action& action) override; // the widget's tap (opens the window), the window's rows and choices
     void onWake() override;                       // the note has shown for logsNoteMs: back to "Copy logs"
-    void onCardClosed(const std::string& activityId) override; // reopened, it starts at the list; what was seen stays seen
-    void onCardShown(const std::string& activityId) override;  // what's on it now is being seen (decision 048)
+    void onWindowClosed(const std::string& windowId) override; // reopened, it starts at its pages; what was seen stays seen
 
     // The update offer changed (UpdateProvider::onStatus): one found, its
     // install under way or failed, or none. Settings shows it under "Check for updates".
@@ -105,7 +105,8 @@ private:
     void pick(const std::string& theme); // apply it, show it
     void pickDisplay(const std::string& id);
     void placeIsland();                   // apply the wanted display if connected, else the main one
-    void open(SettingsPage page);         // a choice page, scrolled to what's picked
+    void openWindow();                    // the window, or to the front if it's open
+    void open(SettingsPage page);         // a page within a page
     SettingsView view() const;
     void publish();
     void stopRecording();
@@ -132,8 +133,9 @@ private:
     bool coverColours_ = true;
     FadeSpeed fadeSpeed_ = FadeSpeed::Medium;
     std::set<std::string> seen_;     // announced settings seen in earlier visits (decision 048)
-    std::set<std::string> seeing_;   // ...and shown during this one: seen once the card closes
-    bool visible_ = false;           // the card is on screen
+    std::set<std::string> seeing_;   // ...and shown during this one: seen once the window closes
+    bool windowOpen_ = false;        // the window is on screen
+    std::string sidebar_ = kAppearancePage; // the page the user has it on
 };
 
 } // namespace cup

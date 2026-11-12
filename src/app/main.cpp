@@ -22,6 +22,7 @@
 
 #include "app/keyboard_input.h"
 #include "app/menu_input.h"
+#include "app/provider_windows.h"
 #include "core/menu.h"
 #include "app/live_tokens.h"
 #include "app/surface.h"
@@ -702,7 +703,7 @@ void onKey(WPARAM key)
 {
     app::clearCharSwallow();
     pointerStill(g_island); // typing changes what's under the pointer (search's results): it waits for a move (decision 087)
-    if (app::recordKey(key)) return; // Settings is recording a shortcut's new keys (decision 032)
+    if (app::recordKey(key, false)) return; // a key on the island while Settings records a shortcut: it stops waiting (decision 032)
     bool ctrl = GetKeyState(VK_CONTROL) < 0, alt = GetKeyState(VK_MENU) < 0;
     // A dialog: Esc cancels it, the card stays (decision 020). The arrows,
     // Tab and Enter move between its buttons and press one (decision 033);
@@ -850,6 +851,7 @@ void tokensChanged(Vec2 oldCanvas, const char* reason)
 {
     if (tokens().canvas != oldCanvas) positionLayers();
     g_renderer.refreshAnimations(); // also drops content visuals, so they're redrawn at the new sizes
+    app::refreshWindows();          // providers' windows too: a theme recolours them (decision 090)
     dispatch(Tick{}, reason);
 }
 
@@ -1014,6 +1016,25 @@ int main()
         .wallClock = wallClock,
         .utcOffset = platform::utcOffset,
     });
+    // Providers' own windows (decision 090): on the island's Compositor, drawn
+    // by its renderer's device, following the registry's list of open ones.
+    app::setWindowHooks({
+        .instance = instance,
+        .compositor = render.compositor,
+        .device = &g_renderer.device(),
+        .registry = g_providers.get(),
+        .now = now,
+        .measure = [](const Text& text) { return g_renderer.measure(text); },
+        .pill = [] {
+            const Scene& pill = g_island.scene;
+            return Rect{ static_cast<float>(g_render.left) + pill.offset.x, static_cast<float>(g_render.top) + pill.offset.y, pill.size.x, pill.size.y };
+        },
+        .islandScreen = [] { return displayFor(g_displayId).id; },
+        .placesFile = dataFile(L"windows.txt"),
+        // Settings recording a shortcut takes the next key pressed in its window (decision 032).
+        .takeKey = [](const WindowKey& window, WPARAM key) { return window.providerId == "system.settings" && app::recordKey(key, true); },
+    });
+    g_providers->onWindowsChanged(app::syncWindows);
     g_providers->add(std::make_unique<SmtcMediaProvider>(postToUi));
     g_providers->add(std::make_unique<DemoMediaProvider>()); // M key
     g_providers->add(std::make_unique<ThemeProvider>(postToUi));
@@ -1159,6 +1180,7 @@ int main()
     }).detach();
 
     removeTrayIcon();
+    app::closeAllWindows(); // providers' windows, places saved, before the Compositor goes
     // Stops Double Ctrl's keyboard-hook thread (tap_hook): left running, its
     // std::thread was still joinable when statics were destroyed, and every
     // exit ended in std::terminate (a crash dump on each update).

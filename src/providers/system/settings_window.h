@@ -1,9 +1,12 @@
 #pragma once
-// The Settings card (decisions 030, 032): built from a SettingsView by one
-// pure function. A list of settings, or a page of one setting's choices
-// (themes, displays) or the keyboard shortcuts.
+// The Settings window (decisions 030, 032, 090): built from a SettingsView by
+// one pure function. Pages in a sidebar (Appearance, General, Updates) of
+// grouped settings; a setting with choices (themes, displays, music colours)
+// or the keyboard shortcuts opens a page within its page, with a back arrow.
+// The widget on Home only opens it.
 
 #include "core/island.h"
+#include "core/window_content.h"
 #include "core/shortcuts.h"
 #include "core/tokens.h"
 #include "providers/update/release.h"
@@ -16,13 +19,13 @@
 
 namespace cup {
 
-// What the card's buttons send. A choice's action is its prefix and its index in the page's list.
+// What the window's buttons send. A choice's action is its prefix and its index in the page's list.
 namespace settings_action {
+inline constexpr const char* kOpenWindow = "settings.window"; // the widget's tap: opens the window (decision 090)
+inline constexpr const char* kSetTabRow = "tabrow.set";       // the Segmented: value 0 top, 1 bottom
 inline constexpr const char* kOpenThemes = "theme.open";
 inline constexpr const char* kOpenDisplays = "display.open";
 inline constexpr const char* kOpenShortcuts = "shortcuts.open";
-inline constexpr const char* kOpenTabRow = "tabrow.open";
-inline constexpr const char* kPickTabRow = "tabrow.pick:";     // + 0 (top) or 1 (bottom)
 inline constexpr const char* kBack = "settings.back";
 inline constexpr const char* kPickTheme = "theme.pick:";       // + its index in tokens().themes
 inline constexpr const char* kPickDisplay = "display.pick:";   // + its index in SettingsView::displays
@@ -35,16 +38,14 @@ inline constexpr const char* kCopyLogs = "logs.copy";
 inline constexpr const char* kCentreIsland = "island.centre";
 inline constexpr const char* kCheckUpdates = "updates.check";
 inline constexpr const char* kInstallUpdate = "updates.install"; // the offer: install and restart (decision 037)
-// The choice pages' lists (Row::list), for Host::reveal.
-inline constexpr const char* kThemeList = "themes";
-inline constexpr const char* kDisplayList = "displays";
-inline constexpr const char* kShortcutList = "shortcuts"; // the keys: more than fit on the card
-inline constexpr const char* kTabRowList = "tabrow";
-inline constexpr const char* kMusicColoursList = "musiccolours";
-inline constexpr const char* kSettingsList = "settings";  // the root page: may be more than fit (decision 037)
 } // namespace settings_action
 
-inline constexpr const char* kSettingsPanelId = "system.settings"; // the widget's, and its card's
+inline constexpr const char* kSettingsPanelId = "system.settings"; // the widget's
+inline constexpr const char* kSettingsWindowId = "main";           // its window's (WindowSpec::id)
+// The sidebar's pages (WindowPage::id).
+inline constexpr const char* kAppearancePage = "appearance";
+inline constexpr const char* kGeneralPage = "general";
+inline constexpr const char* kUpdatesPage = "updates";
 inline constexpr const char* kMainDisplayName = "Main display";    // the first display choice
 
 enum class LogsNote { Ready, Copied, Failed }; // what the Copy logs button says
@@ -56,8 +57,9 @@ struct UpdateNote {
     std::string version; // Available: the offer's
 };
 
-// Which page the card shows: the list of settings, or one setting's choices.
-enum class SettingsPage { List, Themes, Displays, Shortcuts, TabRow, MusicColours };
+// A page within a sidebar page: none (its settings), or one setting's
+// choices. Themes, Displays and MusicColours are within Appearance, Shortcuts within General.
+enum class SettingsPage { List, Themes, Displays, Shortcuts, MusicColours };
 
 // A setting added after people already had the app (decision 048): shown
 // with a "New" tag until it's been seen, and a dot on its parent's row while
@@ -69,11 +71,10 @@ struct SettingItem {
 
 // Every announced setting, oldest first: add a line when adding a setting.
 // Rows' ids: "theme", "musiccolours" (and "covercolours", "fade" on its page), "display",
-// "tabrow" (and "tabrow.top", "tabrow.bottom" on its page), "centre", "autostart",
-// "shortcuts", "logs", "updates".
+// "tabrow", "centre", "autostart", "shortcuts", "logs", "updates".
 std::vector<SettingItem> announcedSettings();
 
-// Everything the card shows, so building it is one pure function.
+// Everything the window shows, so building it is one pure function.
 struct SettingsView {
     SettingsPage page = SettingsPage::List;
     std::string theme;                  // the applied theme's name
@@ -94,11 +95,15 @@ struct SettingsView {
     std::set<std::string> unseen;           // ...and which of those haven't been seen yet: tagged "New"
 };
 
-// The announced settings shown on this card, by their rows' ids: what the user sees of them now.
-std::vector<std::string> shownSettings(const Panel& panel, const std::vector<SettingItem>& announced);
+// The announced settings on this page of the window, by their rows' ids: what the user sees of them now.
+std::vector<std::string> shownSettings(const WindowContent& window, const std::string& page, const std::vector<SettingItem>& announced);
 
-// The widget and its card.
+// The widget: a tap opens the window (Panel::tapAction), a dot while something's new in it.
 Panel settingsPanel(const SettingsView& view);
+// The window (decision 090).
+WindowContent settingsWindow(const SettingsView& view);
+// The sidebar page a setting's row is on, by its id ("theme" -> appearance).
+std::string pageOfSetting(const std::string& id);
 
 // The theme page's list, top to bottom: dark themes under "Dark", then light
 // ones under "Light" (Theme::light), each in tokens.json's order.

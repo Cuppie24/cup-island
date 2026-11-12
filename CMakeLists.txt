@@ -55,6 +55,7 @@ add_library(cup_core STATIC
     src/core/text_wrap.cpp
     src/core/tokens.cpp
     src/core/tokens_json.cpp
+    src/core/window_layout.cpp
     src/core/window_placement.cpp
 )
 target_include_directories(cup_core PUBLIC src)
@@ -72,7 +73,7 @@ add_library(cup_providers STATIC
     src/providers/pomodoro/pomodoro_session.cpp
     src/providers/pomodoro/pomodoro_stats.cpp
     src/providers/pomodoro/todo_list.cpp
-    src/providers/system/settings_card.cpp
+    src/providers/system/settings_window.cpp
     src/providers/system/settings_provider.cpp
     src/providers/system/system_panels.cpp
     src/providers/file_store.cpp
@@ -191,6 +192,7 @@ if(WIN32)
         src/app/menu_input.cpp
         src/app/live_tokens.cpp
         src/app/main.cpp
+        src/app/provider_windows.cpp
         src/app/surface.cpp
         src/platform/autostart.cpp
         src/platform/badge_dots.cpp
@@ -225,6 +227,7 @@ if(WIN32)
         src/platform/tap_hook.cpp
         src/platform/tray_icon.cpp
         src/platform/watchdog.cpp
+        src/platform/provider_window.cpp
         src/platform/window_name.cpp
         src/platform/wall_clock.cpp
         src/providers/media/app_activation.cpp

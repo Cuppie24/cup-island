@@ -49,7 +49,7 @@ void SettingsProvider::start(Host& host)
     host_ = &host;
     note_ = LogsNote::Ready;
     page_ = SettingsPage::List;
-    visible_ = false;
+    windowOpen_ = false;
     seeing_.clear();
     loadSeen(); // first: a first run is told by nothing saved yet, and the lines below save
     // Start with Windows is on until the user turns it off (decision 030):
@@ -116,28 +116,33 @@ void SettingsProvider::pickFade(FadeSpeed speed)
     publish();
 }
 
-void SettingsProvider::onCardShown(const std::string& activityId)
-{
-    if (!host_ || activityId != kPanelId) return;
-    visible_ = true;
-    publish(); // counts what's on it as being seen
-}
-
 void SettingsProvider::stop()
 {
     if (!host_) return;
     stopRecording();
     host_->wakeAt(std::nullopt);
+    if (windowOpen_) host_->closeWindow(kSettingsWindowId);
+    windowOpen_ = false;
     host_->removePanel(kPanelId);
     host_ = nullptr;
 }
 
 void SettingsProvider::onAction(const Action& action)
 {
-    if (!host_ || action.activityId != kPanelId) return;
+    if (!host_) return;
+    if (action.activityId == kPanelId && action.actionId == settings_action::kOpenWindow) return openWindow(); // the widget's tap
+    if (action.windowId != kSettingsWindowId) return;
     const std::string& id = action.actionId;
     const auto& themes = tokens().themes;
-    if (id == settings_action::kOpenThemes && !themes.empty()) open(SettingsPage::Themes);
+    if (id == kWindowPage) { // another page in the sidebar: it opens at its settings
+        sidebar_ = action.text;
+        stopRecording();
+        shortcutNote_.clear();
+        page_ = SettingsPage::List;
+        publish();
+    } else if (id == settings_action::kSetTabRow) {
+        placeTabRow(action.value < 0.5f); // the Segmented's index: 0 top, 1 bottom
+    } else if (id == settings_action::kOpenThemes && !themes.empty()) open(SettingsPage::Themes);
     else if (id == settings_action::kOpenDisplays && displays_.size() >= 2) open(SettingsPage::Displays);
     else if (id == settings_action::kOpenShortcuts) {
         page_ = SettingsPage::Shortcuts;
@@ -150,19 +155,13 @@ void SettingsProvider::onAction(const Action& action)
         // The page stays, like the tab row's: the next recolour shows the new speed.
         if (*at <= 2 && hooks_.setFadeSpeed) pickFade(*at == 0 ? FadeSpeed::Fast : *at == 2 ? FadeSpeed::Slow : FadeSpeed::Medium);
     }
-    else if (id == settings_action::kOpenTabRow) {
-        page_ = SettingsPage::TabRow;
-        publish();
-    } else if (auto at = choiceIndex(id, settings_action::kPickTabRow)) {
-        if (*at <= 1) placeTabRow(*at == 0); // the page stays: the card behind it shows where the row went
-    }
     else if (id == settings_action::kBack) {
         stopRecording();
         shortcutNote_.clear();
         page_ = SettingsPage::List;
         publish();
     } else if (auto at = choiceIndex(id, settings_action::kPickTheme)) {
-        // The page stays: the island, recoloured at once, is the preview, so
+        // The page stays: the island and this window, recoloured at once, are the preview, so
         // trying one theme after another is a click each (decision 030).
         if (*at < themes.size()) {
             pick(themes[*at].name);
@@ -220,17 +219,17 @@ void SettingsProvider::open(SettingsPage page)
 {
     page_ = page;
     publish();
-    // Scrolled to what's picked: the list may be longer than its window.
-    std::size_t row = 0;
-    if (page == SettingsPage::Themes) {
-        auto rows = themeListRows();
-        std::size_t picked = indexOf(theme_);
-        for (std::size_t i = 0; i < rows.size(); ++i)
-            if (rows[i].heading.empty() && rows[i].theme == picked) row = i;
-        host_->reveal(kPanelId, settings_action::kThemeList, row);
-    } else {
-        host_->reveal(kPanelId, settings_action::kDisplayList, view().display);
-    }
+}
+
+// From the widget's tap: the window opens on Appearance, or comes to the
+// front where the user left it (decision 090).
+void SettingsProvider::openWindow()
+{
+    bool wasOpen = windowOpen_;
+    WindowOpen result = host_->openWindow({ .id = kSettingsWindowId, .size = WindowSize::Large }, settingsWindow(view()));
+    windowOpen_ = result == WindowOpen::Opened || result == WindowOpen::Raised;
+    if (windowOpen_ && !wasOpen) sidebar_ = kAppearancePage;
+    publish(); // counts what's on it as being seen
 }
 
 void SettingsProvider::keysPressed(const std::optional<Chord>& chord)
@@ -285,12 +284,12 @@ void SettingsProvider::stopRecording()
     if (hooks_.captureKeys) hooks_.captureKeys(false);
 }
 
-// The card closed: next time it opens at the list of settings, not the page
-// it was left on, and a shortcut waiting for keys stops waiting.
-void SettingsProvider::onCardClosed(const std::string& activityId)
+// The window closed: next time it opens at its pages, not the page within
+// one it was left on, and a shortcut waiting for keys stops waiting.
+void SettingsProvider::onWindowClosed(const std::string& windowId)
 {
-    if (!host_ || activityId != kPanelId) return;
-    visible_ = false;
+    if (!host_ || windowId != kSettingsWindowId) return;
+    windowOpen_ = false;
     // What was shown this visit is seen now: next time it's not "New"
     // (decision 048). What wasn't shown (a page not opened) still is.
     bool newlySeen = false;
@@ -379,10 +378,13 @@ void SettingsProvider::pick(const std::string& theme)
 
 void SettingsProvider::publish()
 {
-    Panel panel = settingsPanel(view());
-    if (visible_) // on screen: what it shows of the announced settings is being seen
-        for (const std::string& id : shownSettings(panel, hooks_.announced)) seeing_.insert(id);
-    host_->publishPanel(std::move(panel));
+    SettingsView v = view();
+    host_->publishPanel(settingsPanel(v));
+    if (!windowOpen_) return;
+    WindowContent window = settingsWindow(v);
+    // On screen: what its page shows of the announced settings is being seen.
+    for (const std::string& id : shownSettings(window, sidebar_, hooks_.announced)) seeing_.insert(id);
+    host_->updateWindow(kSettingsWindowId, std::move(window));
 }
 
 } // namespace cup
