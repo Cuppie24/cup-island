@@ -239,6 +239,14 @@ struct Tokens {
     // black at the lift; the clearer opacities (not Plain) go over it.
     float glassDarkenScale = 0.35f;
     float glassDarkenLift = 0.08f;
+    // How much of the desktop's own brightness acrylic's even brightness
+    // replaces, as a share of glassLuminosityColor's opacity, at each
+    // Transparency pick (decision 100): it, more than the tint, sets how
+    // see-through the glass looks. 1 keeps the colour's opacity (0.96: barely
+    // any of the desktop's light and dark shows); lower lets more through.
+    float glassDenseLuminosity = 1.0f;
+    float glassLuminosity = 0.75f;
+    float glassClearLuminosity = 0.55f;
     // Glass with the cover's colours (decision 090): the island stays
     // Midnight, and the cover's colour glows up from its bottom edge.
     float glassGlowHeight = 40.0f;  // px: the glow's reach up from the bottom edge, the same on the pill and a tall card
@@ -502,6 +510,11 @@ Color islandFill(const Tokens& t, Color color, bool evenBlur = true);
 // ...the share it keeps of a colour's opacity: 1 when not glass. The island
 // over the glass applies it to a whole layer (decision 097).
 float glassShare(const Tokens& t, bool evenBlur = true);
+
+// The colour acrylic's even brightness takes its lightness from:
+// glassLuminosityColor, its opacity times the Transparency pick's share
+// (glassDense/-/ClearLuminosity, decision 100).
+Color glassLuminosityAt(const Tokens& t);
 
 // The glow's fade (decision 090): at `up` of its reach (0 the bottom edge, 1
 // its top), the share of its colour left: (1 - up)^glassGlowCurve. Steep at

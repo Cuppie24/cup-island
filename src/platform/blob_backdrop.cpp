@@ -190,7 +190,7 @@ void Blob::buildGlass()
     glassTried_ = true;
     if (!snapshot_) return; // no snapshot before 1903; glass is Windows 11's anyway
     luminosity_ = device_->createSurface({ 8, 8 }); // stretched over the glass: one colour everywhere
-    paintLuminosity(tokens().glassLuminosityColor);
+    paintLuminosity(glassLuminosityAt(tokens())); // at the Transparency pick's strength (decision 100)
     auto luminosity = compositor_.CreateSurfaceBrush(luminosity_);
     luminosity.Stretch(wuc::CompositionStretch::Fill);
     glassLuminosity_ = luminosity;
@@ -226,7 +226,7 @@ void Blob::applyGlass(Ms duration)
     fadeColor(rimBottom_, t.glass ? t.glassRimColor : clear(t.glassRimColor), duration);
 
     if (t.glass && !glass_ && !glassTried_) buildGlass();
-    if (glassLook_ == Look::Even && t.glassLuminosityColor != luminosityPainted_) paintLuminosity(t.glassLuminosityColor);
+    if (glassLook_ == Look::Even && glassLuminosityAt(t) != luminosityPainted_) paintLuminosity(glassLuminosityAt(t));
     // Darkened's range is baked into its effect: a new one from tokens.json
     // makes the brush again (decision 100).
     if (glass_ && glassLook_ == Look::Darkened && (t.glassDarkenScale != darkenBuilt_.scale || t.glassDarkenLift != darkenBuilt_.lift)) {

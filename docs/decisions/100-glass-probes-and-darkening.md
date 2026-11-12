@@ -42,6 +42,20 @@ our *nested* effects, whatever they are. Hence:
 - Two more probes for why nesting fails, in case it matters again: an
   inner effect with no settings, and one with no name.
 
+**The second run:** chained, Windows took it: `backdrop ready, at one
+brightness`, real acrylic. (The extra probes: an inner effect with no
+settings and one with no name are refused in the cut too: any nesting.)
+Text then read well, but the glass hardly showed the desktop, even at
+High: acrylic's brightness step replaced 96% of the desktop's own light
+and dark (`glassLuminosityColor`'s opacity), and the Transparency pick
+only moved the tint, which acrylic barely needs. So **the pick also sets
+the brightness step's strength**: `glassLuminosityAt` is the colour at
+its opacity times `glassDenseLuminosity` (1), `glassLuminosity` (0.75) or
+`glassClearLuminosity` (0.55). Over a white window that leaves Medium
+about 40% light (white text at roughly 5:1) and High about 55%: clearly
+see-through, still readable. The surface is repainted on a pick, not
+faded.
+
 **Consequences.** The next Windows run's `glass:` lines say which effects
 Windows takes, and so what to fix if the darkened blur is refused too.
 The two numbers are unitless (tested in `tests/tokens_tests.cpp`).

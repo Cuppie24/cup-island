@@ -30,6 +30,16 @@ float glassShare(const Tokens& t, bool evenBlur)
     return std::clamp(share, 0.0f, 1.0f);
 }
 
+Color glassLuminosityAt(const Tokens& t)
+{
+    float share = t.glassTransparency == Transparency::Low    ? t.glassDenseLuminosity
+                  : t.glassTransparency == Transparency::High ? t.glassClearLuminosity
+                                                              : t.glassLuminosity;
+    Color c = t.glassLuminosityColor;
+    c.a = static_cast<std::uint8_t>(std::lround(c.a * std::clamp(share, 0.0f, 1.0f)));
+    return c;
+}
+
 Color islandFill(const Tokens& t, Color color, bool evenBlur)
 {
     color.a = static_cast<std::uint8_t>(std::lround(color.a * glassShare(t, evenBlur)));
