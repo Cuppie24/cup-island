@@ -114,7 +114,12 @@ placed by core's `badgeCentres` as on the island: the first run showed
 Settings' Glass row without its dot) are a few shapes of its own. A window
 is built in the next queue turn (decision 012), so the click that opened
 it is answered at once (drawing every row first froze it), and shows once
-x
+the compositor has committed that drawing: shown at once but cloaked
+(`DWMWA_CLOAK`: composed, not seen), uncloaked when its commit batch
+(`GetCommitBatch`) completes, or `windowRevealLatest` after, whichever is
+first. Shown earlier, a window with no GDI surface flashed what was behind
+it; kept hidden instead of cloaked, it was never composed, the batch never
+completed, and Settings never appeared.
 A resize lays it out again inside `WM_SIZE`, so the drawing keeps up with
 the frame. Rows stretch with the window only below `windowPageMaxWidth`;
 there, each width change rebuilds a row's text (decision 083's caveat):
