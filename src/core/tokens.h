@@ -233,6 +233,12 @@ struct Tokens {
     float glassPlainOpacity = 0.45f;
     float glassClearPlainOpacity = 0.3f;
     Transparency glassTransparency = Transparency::Medium; // the user's pick: set by the app from Settings, not by tokens.json
+    // Where Windows refuses acrylic's even brightness, the blurred desktop is
+    // squeezed into a darker range instead (decision 100): each channel times
+    // glassDarkenScale, plus glassDarkenLift. White comes out at their sum,
+    // black at the lift; the clearer opacities (not Plain) go over it.
+    float glassDarkenScale = 0.35f;
+    float glassDarkenLift = 0.08f;
     // Glass with the cover's colours (decision 090): the island stays
     // Midnight, and the cover's colour glows up from its bottom edge.
     float glassGlowHeight = 40.0f;  // px: the glow's reach up from the bottom edge, the same on the pill and a tall card

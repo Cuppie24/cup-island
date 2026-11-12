@@ -176,7 +176,7 @@ void Blob::fadeFill(Ms duration)
         left.a = right.a = 0;
         fade(fill_, left, right, duration);
     } else {
-        bool even = glassEven_ || !glass_;
+        bool even = glassLook_ != Look::Plain || !glass_; // a kept brightness: the clearer opacities
         fade(fill_, islandFill(tokens(), left, even), islandFill(tokens(), right, even), duration);
     }
     fade(solid_, leftColor(highlighted_), rightColor(highlighted_), duration);

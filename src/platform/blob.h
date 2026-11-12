@@ -11,6 +11,7 @@
 #include "platform/badge_dots.h"
 #include "platform/toast_layer.h"
 #include "platform/element_visuals.h"
+#include "platform/glass.h"
 #include "platform/graphics_device.h"
 #include "platform/win.h"
 
@@ -119,7 +120,9 @@ private:
     // so the outline under it is the solid island again. The rim: a stroke
     // just inside the body's edge, see-through but for glass.
     wuc::SpriteVisual glass_{ nullptr };
-    bool glassEven_ = false; // its brightness evened out (glassLuminosityColor), not the plain blur
+    Look glassLook_ = Look::Plain; // how its brightness is kept in hand (glass.h)
+    Darken darkenBuilt_;           // ...Darkened with these (glassDarken*): made again when they change
+    wuc::CompositionBrush glassMask_{ nullptr }, glassLuminosity_{ nullptr };
     // The brightness colour, painted on a little surface: the one kind of
     // colour input Windows takes into the effect. Repainted (not faded) when it changes.
     wuc::CompositionDrawingSurface luminosity_{ nullptr };

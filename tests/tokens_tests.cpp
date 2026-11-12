@@ -217,6 +217,9 @@ void runTokensTests()
     expect(scaleTokens(solid, 2).glassGlowHeight == solid.glassGlowHeight * 2 * solid.islandScale &&
                scaleTokens(solid, 2).glassGlowCurve == solid.glassGlowCurve,
            "the glow's reach is a fixed length (decision 090), its curve unitless");
+    expect(scaleTokens(solid, 2).glassDarkenScale == solid.glassDarkenScale && scaleTokens(solid, 2).glassDarkenLift == solid.glassDarkenLift &&
+               solid.glassDarkenScale + solid.glassDarkenLift < 0.5f,
+           "the darkened glass's range is unitless, and white behind it comes out under half (decision 100)");
     // The glow's fade (decision 090): full at the edge, gone at the top, smooth.
     bool falling = true;
     for (int i = 1; i < kGlowStops; ++i) falling = falling && glowFade(solid, i / float(kGlowStops - 1)) < glowFade(solid, (i - 1) / float(kGlowStops - 1));

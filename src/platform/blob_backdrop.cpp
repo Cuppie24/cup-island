@@ -193,9 +193,12 @@ void Blob::buildGlass()
     paintLuminosity(tokens().glassLuminosityColor);
     auto luminosity = compositor_.CreateSurfaceBrush(luminosity_);
     luminosity.Stretch(wuc::CompositionStretch::Fill);
-    Glass made = maskedBackdrop(compositor_, compositor_.CreateSurfaceBrush(snapshot_), luminosity);
+    glassLuminosity_ = luminosity;
+    glassMask_ = compositor_.CreateSurfaceBrush(snapshot_);
+    darkenBuilt_ = { tokens().glassDarkenScale, tokens().glassDarkenLift };
+    Glass made = maskedBackdrop(compositor_, glassMask_, glassLuminosity_, darkenBuilt_);
     if (!made.brush) return; // logged: the island stays solid
-    glassEven_ = made.even;
+    glassLook_ = made.look;
     glass_ = compositor_.CreateSpriteVisual();
     glass_.Brush(made.brush);
     glass_.Opacity(0.0f);
@@ -223,7 +226,14 @@ void Blob::applyGlass(Ms duration)
     fadeColor(rimBottom_, t.glass ? t.glassRimColor : clear(t.glassRimColor), duration);
 
     if (t.glass && !glass_ && !glassTried_) buildGlass();
-    if (glassEven_ && t.glassLuminosityColor != luminosityPainted_) paintLuminosity(t.glassLuminosityColor);
+    if (glassLook_ == Look::Even && t.glassLuminosityColor != luminosityPainted_) paintLuminosity(t.glassLuminosityColor);
+    // Darkened's range is baked into its effect: a new one from tokens.json
+    // makes the brush again (decision 100).
+    if (glass_ && glassLook_ == Look::Darkened && (t.glassDarkenScale != darkenBuilt_.scale || t.glassDarkenLift != darkenBuilt_.lift)) {
+        darkenBuilt_ = { t.glassDarkenScale, t.glassDarkenLift };
+        Glass made = maskedBackdrop(compositor_, glassMask_, glassLuminosity_, darkenBuilt_);
+        if (made.brush && made.look == Look::Darkened) glass_.Brush(made.brush);
+    }
     if (glass_ && t.glass != glassShown_) {
         glassShown_ = t.glass;
         // On, it's there at once, under the twin's layer, still opaque, which
@@ -235,7 +245,7 @@ void Blob::applyGlass(Ms duration)
     // 097): seamless, since the layer is see-through as one, and with no
     // opaque fringe along the curves (the reason it was hidden before). A
     // Transparency pick fades it too. Solid, it's opaque under the body.
-    if (twin_) fadeTo(compositor_, twin_, glassShown_ ? glassShare(t, glassEven_) : 1.0f, duration);
+    if (twin_) fadeTo(compositor_, twin_, glassShown_ ? glassShare(t, glassLook_ != Look::Plain) : 1.0f, duration);
 }
 
 } // namespace cup::platform
