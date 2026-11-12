@@ -56,6 +56,14 @@ about 40% light (white text at roughly 5:1) and High about 55%: clearly
 see-through, still readable. The surface is repainted on a pick, not
 faded.
 
+On screen Medium and High were then too bright. Darker, rather than less
+see-through: the shares set how much of the desktop's light and dark
+shapes show (what makes them glass), the colour how dark the whole is.
+But the part of the desktop that shows can't be darkened by the colour,
+so the shares went up a little too: `glassLuminosityColor` 44 to 28 grey,
+`glassLuminosity` 0.85, `glassClearLuminosity` 0.7. Over a white window:
+Low about 14%, Medium 27%, High 40%.
+
 **Consequences.** The next Windows run's `glass:` lines say which effects
 Windows takes, and so what to fix if the darkened blur is refused too.
 The two numbers are unitless (tested in `tests/tokens_tests.cpp`).

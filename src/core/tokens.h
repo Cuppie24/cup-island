@@ -245,8 +245,8 @@ struct Tokens {
     // see-through the glass looks. 1 keeps the colour's opacity (0.96: barely
     // any of the desktop's light and dark shows); lower lets more through.
     float glassDenseLuminosity = 1.0f;
-    float glassLuminosity = 0.75f;
-    float glassClearLuminosity = 0.55f;
+    float glassLuminosity = 0.85f;
+    float glassClearLuminosity = 0.7f;
     // Glass with the cover's colours (decision 090): the island stays
     // Midnight, and the cover's colour glows up from its bottom edge.
     float glassGlowHeight = 40.0f;  // px: the glow's reach up from the bottom edge, the same on the pill and a tall card
@@ -430,7 +430,7 @@ struct Tokens {
     // Glass's brightness (decision 089): the blur takes this colour's
     // lightness, keeping the desktop's hue, this strongly (alpha), as Windows'
     // acrylic does; 0 alpha: the desktop's own brightness shows, lighter.
-    Color glassLuminosityColor{ 44, 44, 44, 245 };
+    Color glassLuminosityColor{ 28, 28, 28, 245 };
     Color pomodoroFocusColor{ 255, 99, 71 };       // accents (decision 010)
     Color pomodoroBreakColor{ 52, 199, 89 };
 
