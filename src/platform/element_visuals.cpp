@@ -274,7 +274,19 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
             sprite.Brush(createMarqueeBrush(compositor_, view.surface, visualSize, view.lead, width + t.marqueeGap));
         } else {
             view.surface = device_->createSurface(size);
-            sprite.Brush(compositor_.CreateSurfaceBrush(view.surface));
+            auto pixels = compositor_.CreateSurfaceBrush(view.surface);
+            auto* text = std::get_if<Text>(&placed.item);
+            if (auto ink = text ? singleInkOf(*text) : std::nullopt) {
+                // One colour: painted white, coloured by a brush through it, which fades (decision 102).
+                view.ink = compositor_.CreateColorBrush(toUiColor(*ink));
+                view.inkTarget = *ink;
+                auto masked = compositor_.CreateMaskBrush();
+                masked.Source(view.ink);
+                masked.Mask(pixels);
+                sprite.Brush(masked);
+            } else {
+                sprite.Brush(pixels);
+            }
         }
         view.visual = sprite;
         if (std::holds_alternative<Image>(placed.item)) view.picture = sprite;
@@ -329,9 +341,12 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     bool changed = !(view.placed.item == placed.item);
     auto pictureOf = [](const Item& item) { auto* image = std::get_if<Image>(&item); return image ? image->data : nullptr; };
     bool newPicture = view.picture && pictureOf(view.placed.item) != pictureOf(placed.item);
+    // A text that gains a second colour (bright digits, a detail) can't be one ink any more, or the reverse (decision 102).
+    auto oneInk = [](const Item& item) { auto* text = std::get_if<Text>(&item); return text && singleInkOf(*text).has_value(); };
+    bool reinked = std::holds_alternative<Text>(placed.item) && oneInk(view.placed.item) != oneInk(placed.item);
     bool relisted = view.placed.list.has_value() != placed.list.has_value() ||
                     (placed.list && (view.placed.list->id != placed.list->id || view.placed.activityId != placed.activityId));
-    if (resized || retyped || relisted || (changed && (swims(view.placed.item) || swims(placed.item)))) {
+    if (resized || retyped || relisted || reinked || (changed && (swims(view.placed.item) || swims(placed.item)))) {
         // A different kind of visual, a new size (tokens.json edits), another list or a new swimming string: rebuild it.
         if (auto parent = view.visual.Parent()) parent.Children().Remove(view.visual);
         // A to-do's text turning into its field (or back) swaps in place: a fade would flash it (decision 043).
@@ -374,6 +389,7 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
         fadeTo(compositor_, view.highlight, focusedField(placed.item) || placed.key == hovered_ ? 1.0f : 0.0f, tokens().hoverFadeDuration);
     if (view.surface && !newPicture) paint(view);
     syncFill(view, tokens().hoverFadeDuration); // a toggle switched on or off, a button enabled
+    if (view.ink) fadeInk(view, tokens().hoverFadeDuration); // another style: another colour
     // While scrubbing, the bar belongs to the pointer; endScrub() re-arms it.
     if (view.fill && !view.scrubbing) armProgress(compositor_, view.fill, std::get<Progress>(placed.item).timeline, placed.frame.width, now);
     // A Dial changes every second (its time); its ring is re-armed only when its timeline does.
@@ -401,7 +417,20 @@ void ElementVisuals::recolor(View& view)
     // 101). Text and glyphs are pixels in a surface: redrawn in their new
     // colours at once (a crossfade of two copies looked like one laid over the other).
     syncFill(view, recolorDuration(t));
+    if (view.ink) { // a one-colour text: its brush fades, its white pixels stay (decision 102)
+        fadeInk(view, recolorDuration(t));
+        return;
+    }
     if (view.surface) paint(view);
+}
+
+void ElementVisuals::fadeInk(View& view, Ms duration)
+{
+    auto* text = std::get_if<Text>(&view.placed.item);
+    std::optional<Color> ink = text ? singleInkOf(*text) : std::nullopt;
+    if (!ink || *ink == view.inkTarget) return; // unchanged: a fade under way carries on
+    view.inkTarget = *ink;
+    fadeColor(view.ink, *ink, duration);
 }
 
 void ElementVisuals::syncFill(View& view, Ms duration)
@@ -437,7 +466,7 @@ void ElementVisuals::paint(View& view)
     auto content = [&](ID2D1DeviceContext* dc) {
         if (auto* text = std::get_if<Text>(&item)) {
             if (view.marqueeWidth > 0) paintMarquee(dc, dw, *text, view.marqueeWidth, view.lead, t.marqueeGap, size.y);
-            else paintText(dc, dw, *text, size);
+            else paintText(dc, dw, *text, size, view.ink ? std::optional<Color>(Color{ 255, 255, 255 }) : std::nullopt);
         } else if (auto* icon = std::get_if<Icon>(&item)) {
             paintGlyph(dc, dw, icon->glyph, t.iconSize, pixelSize(size), icon->quiet ? t.buttonOffColor : t.iconColor); // the surface's whole pixels
         } else if (auto* button = std::get_if<Button>(&item)) {
