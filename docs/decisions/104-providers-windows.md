@@ -111,9 +111,35 @@ there, each width change rebuilds a row's text (decision 083's caveat):
 judged on Windows before anything wider ships. Tokens are the island's
 display's pixels (decision 017), so windows use that scale on every
 monitor, as the island does; per-monitor scale is left for both. Where a
-window was left is saved in `windows.txt`. Keys: Esc steps back or closes,
-Ctrl+W closes, Ctrl+Tab goes through the pages, Page Up/Down, Home and End
-scroll. Moving focus with the arrows in a window is not built yet.
+window was left is saved in `windows.txt`.
+
+**The keyboard** (`core/window_keys.h`), on the island's rules (decisions
+031, 033): the stops are the sidebar's pages, then the page's (the
+island's `focusables` over its items, so a row, a switch, Segments and a
+button work as on a card), then the footer's. The arrows move on the page
+as on a card; Left off its edge goes to the sidebar's picked page, Right
+back in; Up and Down go through the sidebar. Tab and Shift+Tab go round
+all of them, Home and End to the page's first and last. Enter and Space
+click what has focus (on Segments, the next option; on a page, show it).
+What gets focus scrolls into view, `windowPagePadding.y` clear of the
+pane's edges, and gets the island's focus ring (`focusRingColor`). The
+first key shows where focus is; a click hides the ring until the next key.
+A page opened by Enter (Settings' Theme) hands focus to its first stop.
+Esc steps back from a page within a page, else closes, as Ctrl+W does;
+Ctrl+Tab goes through the pages; Page Up/Down, Ctrl+Home and Ctrl+End
+scroll. Alt's keys are Windows' (Alt+Space, Alt+F4).
+
+**Glass for windows**, a switch on Settings' Glass page ("Settings and
+other windows, like the island", on until turned off): while the island
+is glass (Glass on, Windows' transparency effects on), providers' windows
+are too. Windows 11's own acrylic for top-level windows
+(`DWMWA_SYSTEMBACKDROP_TYPE`, transient window) behind the whole window,
+DWM's frame extended over it so it shows, and the window's background
+over it see-through by `islandFill` at the Transparency pick (the plain
+blur's opacities: Windows' acrylic evens out what's behind). Light themes
+get Windows' light frame and acrylic. Before Windows 11 22H2 Windows
+refuses the backdrop: logged, the window stays solid. No row on Windows 10,
+like Glass.
 
 **Settings moved into a window** (decisions 022, 030, 048). The widget on
 Home has no card: its tap (`Panel::tapAction`) opens the window, or brings
@@ -131,8 +157,7 @@ Recording a shortcut takes the next key pressed in Settings' window; a key
 on the island stops it. The old card's rows survive only as a test fixture
 for keyboard navigation over lists (`tests/list_card_fixture.h`).
 
-**Next.** Arrow-key focus in windows (decision 035's rules on a window's
-scene); Pomodoro's full view; plugins (PS §8 Tier 2) sending
+**Next.** Pomodoro's full view; plugins (PS §8 Tier 2) sending
 `WindowSpec`/`WindowContent` as JSON over the pipe, with a preview tool.
 
 **A plugin's own window**, for what the content model can't show, stays

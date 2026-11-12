@@ -6,6 +6,7 @@
 
 #include <dwmapi.h>
 
+#include <algorithm>
 #include <cmath>
 #include <exception>
 
@@ -16,6 +17,13 @@ constexpr wchar_t kClassName[] = L"CupIslandProviderWindow";
 
 // Windows 10 20H1+ and 11 read it; older builds refuse it, harmlessly (decision 015).
 constexpr DWORD kImmersiveDarkMode = 20;
+// Windows' own backdrop behind a top-level window (DWMWA_SYSTEMBACKDROP_TYPE):
+// Windows 11 22H2 and later. Older builds refuse it, and the window stays solid.
+constexpr DWORD kSystemBackdropType = 38;
+constexpr int kBackdropNone = 1, kBackdropAcrylic = 3; // DWMSBT_NONE, DWMSBT_TRANSIENTWINDOW
+
+// A pale island (a light theme): Windows' light frame and acrylic, else its dark ones.
+BOOL lightTheme() { const Color& c = tokens().islandColor; return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b > 128 ? TRUE : FALSE; }
 
 void registerClass(HINSTANCE instance, WNDPROC proc)
 {
@@ -107,7 +115,7 @@ bool ProviderWindow::create(HINSTANCE instance, wuc::Compositor const& composito
         logLine("a provider's window failed (0x%08lx)", GetLastError());
         return false;
     }
-    BOOL dark = TRUE;
+    BOOL dark = !lightTheme();
     DwmSetWindowAttribute(hwnd_, kImmersiveDarkMode, &dark, sizeof dark);
     MARGINS shadow{ 0, 0, 0, 1 }; // a sliver of frame kept: Windows' shadow and snap animations stay
     DwmExtendFrameIntoClientArea(hwnd_, &shadow);
@@ -130,6 +138,7 @@ bool ProviderWindow::create(HINSTANCE instance, wuc::Compositor const& composito
     rowHover_ = layer(compositor_, scroller_); // over the row's items: a faint tint, like the island's lit rows
     footerLayer_ = layer(compositor_, root_);
     chromeLayer_ = layer(compositor_, root_);
+    focusLayer_ = layer(compositor_, root_); // the keyboard's ring, over everything
     sidebar_.init(compositor_, device, sidebarLayer_);
     page_.init(compositor_, device, pageLayer_);
     footer_.init(compositor_, device, footerLayer_);
@@ -188,10 +197,55 @@ void ProviderWindow::raise()
 
 void ProviderWindow::minimize() { ShowWindow(hwnd_, SW_MINIMIZE); }
 
+void ProviderWindow::setFocusRing(std::optional<Rect> frame, float radius)
+{
+    focusLayer_.Children().RemoveAll();
+    if (!frame) return;
+    // Inside what has focus, as on the island (decision 033): half the line each side of a path inset by half its width.
+    float w = tokens().focusRingWidth;
+    Rect r{ frame->x + w / 2, frame->y + w / 2, std::max(0.0f, frame->width - w), std::max(0.0f, frame->height - w) };
+    auto geometry = compositor_.CreateRoundedRectangleGeometry();
+    geometry.Size({ r.width, r.height });
+    geometry.CornerRadius({ std::max(0.0f, radius - w / 2), std::max(0.0f, radius - w / 2) });
+    auto shape = compositor_.CreateSpriteShape(geometry);
+    shape.StrokeBrush(compositor_.CreateColorBrush(toUiColor(tokens().focusRingColor)));
+    shape.StrokeThickness(w);
+    auto ring = compositor_.CreateShapeVisual();
+    ring.Size({ r.width + w, r.height + w });
+    ring.Offset({ std::round(r.x), std::round(r.y), 0 });
+    ring.Shapes().Append(shape);
+    focusLayer_.Children().InsertAtTop(ring);
+}
+
+// Glass (decision 104): Windows' acrylic behind the whole window, our
+// background see-through over it as the island's is. Where Windows refuses
+// the backdrop (before 11 22H2), solid, as it was.
+void ProviderWindow::setGlass(bool on)
+{
+    int type = on ? kBackdropAcrylic : kBackdropNone;
+    bool took = SUCCEEDED(DwmSetWindowAttribute(hwnd_, kSystemBackdropType, &type, sizeof type));
+    if (on && !took) logLine("a provider's window: Windows has no backdrop for it (before Windows 11 22H2): solid");
+    glass_ = on && took;
+    MARGINS frame = glass_ ? MARGINS{ -1, -1, -1, -1 } : MARGINS{ 0, 0, 0, 1 }; // the backdrop shows only where DWM's frame is
+    DwmExtendFrameIntoClientArea(hwnd_, &frame);
+    paintBackground();
+}
+
+void ProviderWindow::paintBackground()
+{
+    const Tokens& t = tokens();
+    BOOL dark = !lightTheme();
+    DwmSetWindowAttribute(hwnd_, kImmersiveDarkMode, &dark, sizeof dark); // a theme change: the acrylic's light or dark too
+    // Over Windows' own acrylic, which evens out what's behind as the island's
+    // plain blur doesn't: the plain blur's opacities (glassPlainOpacity...), at the Transparency pick.
+    Color fill = glass_ ? islandFill(t, t.islandColor, false) : t.islandColor;
+    background_.Brush(compositor_.CreateColorBrush(toUiColor(fill)));
+}
+
 void ProviderWindow::refresh(bool coloursOnly)
 {
     for (ElementVisuals* v : { &sidebar_, &page_, &footer_, &chrome_ }) v->refresh(coloursOnly);
-    background_.Brush(compositor_.CreateColorBrush(toUiColor(tokens().islandColor)));
+    paintBackground();
     paneBackground_.Brush(compositor_.CreateColorBrush(toUiColor(tokens().windowPaneColor)));
     drawDecor();
 }

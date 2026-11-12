@@ -2,6 +2,7 @@
 
 #include "core/tokens.h"
 #include "core/tokens_json.h"
+#include "core/window_keys.h"
 #include "core/window_layout.h"
 #include "core/window_placement.h"
 #include "platform/displays.h"
@@ -30,6 +31,8 @@ struct Shown {
     WindowScene scene;
     std::optional<Vec2> pointer;
     std::optional<WindowHit> pressed; // what the button went down on
+    std::string focus;                // the keyboard's stop (window_keys.h): "" until a key is pressed, and after a click
+    bool keys = false;                // the keyboard is in use: a stop that goes (a page opened by Enter) hands focus to the page's first
 };
 
 WindowHooks g_hooks;
@@ -38,6 +41,7 @@ Places g_places;
 bool g_placesRead = false;
 bool g_syncQueued = false;
 std::optional<Tokens> g_drawnFor; // what the windows were drawn for: tells a recolour from a resize
+bool g_glass = false;              // windows as glass (setWindowsGlass)
 
 std::string placeKey(const WindowKey& key) { return key.providerId + "/" + key.windowId; }
 
@@ -78,6 +82,21 @@ void rememberPlace(const Shown& s)
     out << formatPlaces(g_places);
 }
 
+// The focus ring where the keyboard's stop is (decision 033), or none: no
+// stop, it went (its row or page changed), or a page's item scrolled out of
+// the pane by the wheel, where a ring would cover the title bar.
+void showFocus(Shown& s)
+{
+    auto f = findWindowFocus(s.scene, s.focus);
+    if (!f && s.keys) { // its page changed under it (Enter opened a page, Esc went back): the new page's first stop
+        f = pageEndFocus(s.scene, false);
+        if (f) s.focus = f->id;
+    }
+    if (!f) s.focus.clear();
+    bool shows = f && (!f->inPage || (f->frame.y >= s.scene.pane.y - 0.5f && f->frame.y + f->frame.height <= s.scene.pane.y + s.scene.pane.height + 0.5f));
+    s.window->setFocusRing(shows ? std::optional<Rect>(f->frame) : std::nullopt, f ? f->radius : 0);
+}
+
 // Lays it out at its size now and draws it: after any change, and in the
 // size message itself while it's resized, so the drawing keeps up.
 void relayout(Shown& s)
@@ -92,6 +111,7 @@ void relayout(Shown& s)
     s.scene = windowLayout(*w, s.window->clientSize(), s.scroll, now, g_hooks.measure);
     s.scroll = s.scene.scroll;
     s.window->draw(s.scene, now);
+    showFocus(s);
 }
 
 void showHover(Shown& s)
@@ -131,16 +151,44 @@ void act(const Shown& s, const WindowHit& hit)
     }
 }
 
-// Keys in a window (decision 104): Esc steps back from a page within a page,
-// else closes it, as Ctrl+W does; Ctrl+Tab goes through its pages; Page Up,
-// Page Down, Home and End scroll it.
+// The keyboard lands on `f`: scrolled into view, its ring drawn.
+void focusOn(Shown& s, const std::optional<WindowFocus>& f)
+{
+    if (!f) return;
+    s.keys = true;
+    s.focus = f->id;
+    s.scroll = scrollToShow(s.scene, *f);
+    relayout(s);
+    showHover(s);
+}
+
+// Keys in a window (decision 104), the island's own (decisions 031, 033):
+// the arrows move between the page's stops and the sidebar's pages, Tab and
+// Shift+Tab through all of them, Home and End to the page's first and last;
+// Enter and Space click what has focus. Esc steps back from a page within a
+// page, else closes it, as Ctrl+W does; Ctrl+Tab goes through its pages;
+// Page Up and Page Down, Ctrl+Home and Ctrl+End scroll it.
 void key(const WindowKey& id, WPARAM vk)
 {
     if (g_hooks.takeKey && g_hooks.takeKey(id, vk)) return;
     Shown* s = find(id);
     if (!s) return;
     ProviderRegistry& registry = *g_hooks.registry;
-    bool ctrl = GetKeyState(VK_CONTROL) < 0, shift = GetKeyState(VK_SHIFT) < 0;
+    bool ctrl = GetKeyState(VK_CONTROL) < 0, shift = GetKeyState(VK_SHIFT) < 0, alt = GetKeyState(VK_MENU) < 0;
+    if (alt) return; // Alt's keys are Windows' (Alt+Space, Alt+F4)
+    s->keys = true;
+    auto arrow = vk == VK_UP ? std::optional<Arrow>(Arrow::Up) : vk == VK_DOWN ? std::optional<Arrow>(Arrow::Down)
+               : vk == VK_LEFT ? std::optional<Arrow>(Arrow::Left) : vk == VK_RIGHT ? std::optional<Arrow>(Arrow::Right) : std::nullopt;
+    if (arrow && !ctrl) return focusOn(*s, moveWindowFocus(s->scene, s->focus, *arrow));
+    if (vk == VK_TAB && !ctrl) return focusOn(*s, stepWindowFocus(s->scene, s->focus, shift));
+    if ((vk == VK_HOME || vk == VK_END) && !ctrl) return focusOn(*s, pageEndFocus(s->scene, vk == VK_END));
+    if ((vk == VK_RETURN || vk == VK_SPACE) && !ctrl) {
+        auto f = findWindowFocus(s->scene, s->focus);
+        if (!f) return focusOn(*s, moveWindowFocus(s->scene, "", Arrow::Down)); // nothing focused: show where it is first
+        s->keys = true;
+        act(*s, activateFocus(s->scene, *f));
+        return;
+    }
     if (vk == VK_ESCAPE && !s->scene.backAction.empty()) registry.route({ id.providerId, "", s->scene.backAction, 0, "", id.windowId });
     else if (vk == VK_ESCAPE || (ctrl && vk == 'W')) registry.windowClosed(id);
     else if (ctrl && vk == VK_TAB && !s->scene.nav.empty()) {
@@ -148,7 +196,7 @@ void key(const WindowKey& id, WPARAM vk)
         for (std::size_t i = 0; i < n; ++i)
             if (s->scene.nav[i].picked) at = i;
         registry.windowPageShown(id, s->scene.nav[(at + (shift ? n - 1 : 1)) % n].page);
-    } else if (vk == VK_NEXT || vk == VK_PRIOR || vk == VK_HOME || vk == VK_END) {
+    } else if (vk == VK_NEXT || vk == VK_PRIOR || vk == VK_HOME || vk == VK_END) { // Home and End with Ctrl
         float page = s->scene.pane.height * 0.9f;
         s->scroll = vk == VK_HOME ? 0 : vk == VK_END ? s->scene.maxScroll : s->scroll + (vk == VK_NEXT ? page : -page);
         relayout(*s);
@@ -178,6 +226,11 @@ platform::ProviderWindowCallbacks callbacksFor(const WindowKey& id)
     c.onPressDown = [id](Vec2 p) {
         Shown* s = find(id);
         if (!s) return;
+        s->keys = false;
+        if (!s->focus.empty()) { // the pointer's turn: the ring goes until a key is pressed again
+            s->focus.clear();
+            showFocus(*s);
+        }
         WindowHit hit = windowHitTest(s->scene, p);
         if (hit.part == WindowPart::None || hit.part == WindowPart::Caption) return;
         s->pressed = hit;
@@ -232,6 +285,7 @@ void openWindowFor(const OpenWindow& w)
     Shown& s = *shown;
     s.raised = w.raised;
     g_shown[w.key] = std::move(shown); // before anything that sends messages finds it
+    s.window->setGlass(g_glass);
     relayout(s);
     s.window->show();
     if (w.spec.keepOnTop) platform::raiseIsland(); // the island stays over its windows
@@ -288,6 +342,13 @@ void refreshWindows()
         s->window->refresh(coloursOnly);
         relayout(*s);
     }
+}
+
+void setWindowsGlass(bool on)
+{
+    if (on == g_glass) return;
+    g_glass = on;
+    for (auto& [key, s] : g_shown) s->window->setGlass(on);
 }
 
 void closeAllWindows()

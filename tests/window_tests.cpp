@@ -4,6 +4,7 @@
 
 #include "core/segments.h"
 #include "core/tokens.h"
+#include "core/window_keys.h"
 #include "core/window_layout.h"
 #include "core/window_placement.h"
 #include "expect.h"
@@ -235,6 +236,61 @@ void layoutTests()
     expect(!alone.sidebar && alone.nav.empty() && alone.pane.x == 0 && alone.pane.width == 900, "window: one page, no sidebar");
 }
 
+// The keys in a window (decision 104): the island's rules on the page,
+// the sidebar beside it, Tab round all of it, scrolled into view.
+void keyTests()
+{
+    auto measure = [](const Text& text) { return 8.0f * static_cast<float>(text.value.size()); };
+    OpenWindow w = sample();
+    WindowScene s = windowLayout(w, { 900, 700 }, 0, Ms{ 0 }, measure);
+    auto all = windowFocusables(s);
+    expect(all.size() == 4 && all[0].id == "nav:one" && all[1].id == "nav:two" && all[2].inPage && all[3].inPage,
+           "keys: the sidebar's pages, then the page's stops (Theme's row, Tab row's options)");
+
+    auto first = moveWindowFocus(s, "", Arrow::Down);
+    expect(first && first->id == all[2].id, "keys: the first press lands on the page's first stop");
+    WindowHit theme = activateFocus(s, *first);
+    expect(theme.part == WindowPart::Content && theme.hit->action.actionId == "open" && theme.hit->action.windowId == "w",
+           "keys: Enter on a row does what a click on it does, from this window");
+    auto tabs = moveWindowFocus(s, first->id, Arrow::Down);
+    WindowHit picked = activateFocus(s, *tabs);
+    expect(tabs && tabs->id == all[3].id && picked.hit && picked.hit->action.actionId == "tabs:1", "keys: down to the options; Enter picks the next one");
+    expect(!moveWindowFocus(s, tabs->id, Arrow::Down), "keys: down from the last stop: nothing (no footer)");
+
+    auto side = moveWindowFocus(s, first->id, Arrow::Left);
+    expect(side && side->id == "nav:one", "keys: left from the page's edge: the sidebar, on the page shown");
+    auto below = moveWindowFocus(s, side->id, Arrow::Down);
+    expect(below && below->id == "nav:two" && !moveWindowFocus(s, below->id, Arrow::Down) && !moveWindowFocus(s, side->id, Arrow::Left),
+           "keys: up and down through the pages; nothing past them, nothing left of them");
+    WindowHit page = activateFocus(s, *below);
+    expect(page.part == WindowPart::Page && page.page == "two", "keys: Enter on a page shows it");
+    auto back = moveWindowFocus(s, side->id, Arrow::Right);
+    expect(back && back->id == first->id, "keys: right from the sidebar: into the page");
+    expect(moveWindowFocus(s, "gone", Arrow::Left)->id == "nav:one", "keys: nothing focused, left: the sidebar");
+
+    expect(stepWindowFocus(s, "", false)->id == "nav:one" && stepWindowFocus(s, all[3].id, false)->id == "nav:one" &&
+               stepWindowFocus(s, "nav:one", true)->id == all[3].id && stepWindowFocus(s, "nav:two", false)->id == all[2].id,
+           "tab: through the sidebar and the page, round at the ends; shift+tab back");
+
+    // A long page: End's stop is below what shows, and scrolling brings it in.
+    w.page = "two";
+    for (WindowSection& section : w.content.pages[1].sections)
+        for (Row& r : section.rows) r = Row{ .items = { Text{ "x" }, Button{ .glyph = Glyph::Edit, .actionId = "edit", .compact = true } }, .clickAnywhere = true };
+    WindowScene longPage = windowLayout(w, { 900, 500 }, 0, Ms{ 0 }, measure);
+    auto end = pageEndFocus(longPage, true);
+    float scroll = end ? scrollToShow(longPage, *end) : 0;
+    expect(end && end->pageFrame.y > longPage.pane.height && scroll > 0 && scroll <= longPage.maxScroll &&
+               end->pageFrame.y + end->pageFrame.height <= scroll + longPage.pane.height,
+           "end: the page's last stop, scrolled into view");
+    WindowScene scrolled = windowLayout(w, { 900, 500 }, scroll, Ms{ 0 }, measure);
+    auto again = findWindowFocus(scrolled, end->id);
+    expect(again && again->frame.y >= scrolled.pane.y && again->frame.y + again->frame.height <= scrolled.pane.y + scrolled.pane.height &&
+               scrollToShow(scrolled, *again) == scrolled.scroll,
+           "end: once scrolled, it shows inside the pane, and needs no more");
+    auto home = pageEndFocus(scrolled, false);
+    expect(home && home->id.rfind("el:", 0) == 0 && scrollToShow(scrolled, *home) == 0, "home: the first stop, back at the top");
+}
+
 } // namespace
 
 void runWindowTests()
@@ -242,6 +298,7 @@ void runWindowTests()
     placementTests();
     registryTests();
     layoutTests();
+    keyTests();
 }
 
 } // namespace cup::test

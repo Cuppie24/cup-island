@@ -43,7 +43,7 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 cover_palette.h + island_tint.h (the island in the playing cover's colours, decision 051; as glass, Midnight with a glow from below, decision 090),
                 tokens.h (+ tokens_json.h, json_reader.h), easing.h, motion.h (the morph's spring, fling, stagger, decision 080),
                 open_windows.h (providers' own windows: which are open, when one may open, decision 104) + window_content.h (what's in one)
-                + window_placement.h (where one opens) + window_layout.h (one laid out: title bar, sidebar, page; what a click means)
+                + window_placement.h (where one opens) + window_layout.h (one laid out: title bar, sidebar, page; what a click means) + window_keys.h (the keyboard in one)
                 menu.h (a row's context menu: when it opens, its keys, where it goes, decision 086)
                 groups.h (grouped rows: a quiet label, one background, a name over its description, decision 090)
                 keycaps.h (Keys drawn as key caps, decision 092), segments.h (a few options picked in place, decision 093)
@@ -254,7 +254,7 @@ over the file's, so `tokens()` is always what's on screen.
 | File search installed with the app, self-updating (decision 076, milestone 4): its own admin installer, carried by the app's; set up at the end of setup or at the app's first start; updates from GitHub through the service | rules tested; --install/--uninstall and the update request run under Wine; installers and a real update need a Windows run; the search panel not yet |
 | Search card (decisions 077, 079): apps, Settings pages, Control Panel, files; live field; Double Ctrl; launch history | rules tested; the hook, the shell folders, launching and the look need a Windows run |
 | Providers reach the service only through the host, by granted module (decision 078) | done; tested |
-| Providers' windows (decision 104, replacing 081's floating cards): the Host API, `WindowContent`, which are open, when one may open, placement, layout; Settings in a window | core, registry, layout and Settings tested; the Windows window compiles in CI, needs a Windows run (resizing above all). Arrow keys in windows not yet. Fluid layout (084) is proposed |
+| Providers' windows (decision 104, replacing 081's floating cards): the Host API, `WindowContent`, which are open, when one may open, placement, layout; Settings in a window | core, registry, layout and Settings tested; the Windows window compiles in CI, needs a Windows run (resizing above all). Keyboard navigation and glass for windows (decision 104) tested in core; the look needs a run. Fluid layout (084) is proposed |
 | Hover waits for a real pointer move after a card opens or a key is pressed (decision 087) | done; needs a Windows run |
 | Row context menus (decision 086): search's results (Open, Run as administrator, Reveal, Terminal, Copy, Copy path, Remove from history, App settings, Uninstall, Properties), each with a shortcut; right-click, Right or the › | rules tested; drawing, input and the Windows hooks compile in CI, need a Windows run |
 | Plugin pipe (PS §8 Tier 2) | not yet |

@@ -79,6 +79,8 @@ void SettingsProvider::start(Host& host)
     std::string level = trimmed(host_->load(kTransparencyKey));
     transparency_ = level == "low" ? Transparency::Low : level == "high" ? Transparency::High : Transparency::Medium;
     if (hooks_.setTransparency) hooks_.setTransparency(transparency_);
+    glassWindows_ = trimmed(host_->load(kGlassWindowsKey)) != "off"; // on until turned off: windows look like the island (decision 104)
+    if (hooks_.setGlassWindows) hooks_.setGlassWindows(glassWindows_);
     pick(known(trimmed(host_->load(kThemeKey))));
 }
 
@@ -96,7 +98,7 @@ void SettingsProvider::loadSeen()
     // setting is as new as the rest (none tagged), or an update from before
     // tags existed, which kept other settings (all announced ones are new).
     bool fresh = true;
-    for (const char* key : { kAutostartKey, kThemeKey, kDisplayKey, kShortcutsKey, kTabRowKey, kCoverColoursKey, kFadeKey, kGlassKey, kTransparencyKey })
+    for (const char* key : { kAutostartKey, kThemeKey, kDisplayKey, kShortcutsKey, kTabRowKey, kCoverColoursKey, kFadeKey, kGlassKey, kTransparencyKey, kGlassWindowsKey })
         if (!trimmed(host_->load(key)).empty()) fresh = false;
     if (!fresh) return;
     for (const SettingItem& s : hooks_.announced) seen_.insert(s.id);
@@ -220,6 +222,11 @@ void SettingsProvider::onAction(const Action& action)
         glass_ = !glass_;
         hooks_.setGlass(glass_);
         host_->save(kGlassKey, glass_ ? "on" : "off");
+        publish();
+    } else if (id == settings_action::kToggleGlassWindows && hooks_.setGlassWindows) {
+        glassWindows_ = !glassWindows_;
+        hooks_.setGlassWindows(glassWindows_); // this window changes at once: the preview
+        host_->save(kGlassWindowsKey, glassWindows_ ? "on" : "off");
         publish();
     } else if (id == settings_action::kInstallUpdate) {
         if (hooks_.installUpdate && offer_ && offer_->stage != UpdateStage::Installing) hooks_.installUpdate();
@@ -423,6 +430,7 @@ SettingsView SettingsProvider::view() const
     if (hooks_.setCoverColours) v.coverColours = coverColours_;
     if (hooks_.setGlass) v.glass = glass_;
     if (hooks_.setGlass && hooks_.setTransparency) v.transparency = transparency_; // on Glass' page
+    if (hooks_.setGlass && hooks_.setGlassWindows) v.glassWindows = glassWindows_;  // ...and this
     if (hooks_.setCoverColours && hooks_.setFadeSpeed) v.fadeSpeed = fadeSpeed_; // on Music colours' page
     return v;
 }

@@ -104,6 +104,7 @@ IslandState g_state;
 IslandTint g_tint; // the playing cover's colour on the island (decision 051)
 bool g_coverColours = false; // ...if Settings has it on (decisions 052, 055)
 bool g_glassPicked = false;  // Settings' Glass (decision 089): drawn only while Windows' transparency effects are on too
+bool g_glassWindowsPicked = false; // ...and Glass for windows (decision 104): providers' windows as glass too, while the island is
 PillRenderer g_renderer;
 HWND g_inputHwnd{};
 // The island's state and its Composition visuals belong to this thread. A
@@ -915,6 +916,7 @@ void applyGlass(const char* reason)
     bool transparency = transparencyOn();
     if (g_glassPicked && !transparency) logLine("glass: picked, but Windows' transparency effects are off: solid");
     if (app::setGlass(g_glassPicked && transparency)) tokensChanged(oldCanvas, reason);
+    app::setWindowsGlass(g_glassPicked && g_glassWindowsPicked && transparency); // decision 104
 }
 
 // The Settings card picked a theme: recolour everything (decision 022).
@@ -1087,6 +1089,12 @@ int main()
         .setTransparency = g_render.backdrop ? std::function<void(Transparency)>([](Transparency level) {
             Vec2 oldCanvas = tokens().canvas;
             if (app::setTransparency(level)) tokensChanged(oldCanvas, "glass transparency");
+        })
+                                             : nullptr,
+        // Providers' windows as glass too (decision 104): with the Glass row, so not on Windows 10 either.
+        .setGlassWindows = g_render.backdrop ? std::function<void(bool)>([](bool on) {
+            g_glassWindowsPicked = on;
+            applyGlass(on ? "glass windows on" : "glass windows off");
         })
                                              : nullptr,
     });

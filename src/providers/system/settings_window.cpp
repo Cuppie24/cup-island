@@ -178,6 +178,10 @@ void glassPage(WindowPage& page, const SettingsView& v)
                                                picked, P::kPickTransparency),
                                    "transparency", v));
     }
+    // Windows too (decision 104): Settings and providers' other windows, see-through like the island.
+    if (v.glassWindows)
+        rows.rows.push_back(marked(toggleRow("Glass for windows", *v.glassWindows, P::kToggleGlassWindows, "Settings and other windows, like the island"),
+                                   "glasswindows", v));
     page.sections.push_back(std::move(rows));
 }
 
@@ -227,6 +231,7 @@ std::vector<SettingItem> announcedSettings()
         { "fade", "musiccolours" },        // decision 053
         { "glass", "" },                   // decision 089
         { "transparency", "glass" },       // decision 096
+        { "glasswindows", "glass" },       // decision 104
     };
 }
 

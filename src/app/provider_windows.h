@@ -43,6 +43,10 @@ void syncWindows();
 // Tokens changed: recoloured (a theme, a cover) or rebuilt (tokens.json, display scale).
 void refreshWindows();
 
+// Glass (decision 104): Windows' acrylic behind every window, now and as
+// they open. The app decides: Settings' Glass windows, with the island's glass on.
+void setWindowsGlass(bool on);
+
 // Every window gone at once, places saved: the app is exiting.
 void closeAllWindows();
 

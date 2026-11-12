@@ -56,6 +56,8 @@ struct SettingsHooks {
     std::function<void(bool on)> setGlass;
     // How see-through the glass is (decision 096). Empty: no choice.
     std::function<void(Transparency)> setTransparency;
+    // Providers' windows (Settings' own) as glass too, while the island is (decision 104). Empty: no row.
+    std::function<void(bool on)> setGlassWindows;
     // What can be tagged "New" (decision 048): the shipped list, unless a test brings its own.
     std::vector<SettingItem> announced = announcedSettings();
 };
@@ -105,6 +107,7 @@ public:
     static constexpr const char* kFadeKey = "fade";           // "fast", "medium" or "slow" ("": medium, decision 053)
     static constexpr const char* kGlassKey = "glass";         // "on" or "off" ("": on, decision 089)
     static constexpr const char* kTransparencyKey = "transparency"; // "low", "medium" or "high" ("": medium, decision 096)
+    static constexpr const char* kGlassWindowsKey = "glasswindows"; // "on" or "off" ("": on, decision 104)
     static constexpr const char* kSeenKey = "seen";           // "seen1", then the announced settings seen, one id per line
 
 private:
@@ -143,6 +146,7 @@ private:
     FadeSpeed fadeSpeed_ = FadeSpeed::Medium;
     bool glass_ = true;
     Transparency transparency_ = Transparency::Medium;
+    bool glassWindows_ = true;
     std::set<std::string> seen_;     // announced settings seen in earlier visits (decision 048)
     std::set<std::string> seeing_;   // ...and shown during this one: seen once the window closes
     bool windowOpen_ = false;        // the window is on screen

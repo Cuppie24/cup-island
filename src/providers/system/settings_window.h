@@ -39,6 +39,7 @@ inline constexpr const char* kPickFade = "fade.pick:";                     // + 
 inline constexpr const char* kToggleGlass = "glass.toggle";                // decision 089
 inline constexpr const char* kOpenGlass = "glass.open";                    // decision 096
 inline constexpr const char* kPickTransparency = "transparency.pick:";     // + 0 low, 1 medium, 2 high
+inline constexpr const char* kToggleGlassWindows = "glasswindows.toggle";  // decision 104
 inline constexpr const char* kCopyLogs = "logs.copy";
 inline constexpr const char* kCentreIsland = "island.centre";
 inline constexpr const char* kCheckUpdates = "updates.check";
@@ -75,7 +76,7 @@ struct SettingItem {
 };
 
 // Every announced setting, oldest first: add a line when adding a setting.
-// Rows' ids: "theme", "glass" (and "transparency" on its page), "musiccolours" (and "covercolours", "fade" on its page), "display",
+// Rows' ids: "theme", "glass" (and "transparency", "glasswindows" on its page), "musiccolours" (and "covercolours", "fade" on its page), "display",
 // "tabrow", "centre", "autostart", "shortcuts", "logs", "updates".
 std::vector<SettingItem> announcedSettings();
 
@@ -98,6 +99,7 @@ struct SettingsView {
     std::optional<FadeSpeed> fadeSpeed;     // how fast colours fade (decision 053); nothing: no choice
     std::optional<bool> glass;              // the island as glass (decision 089); nothing: no row (Windows 10)
     std::optional<Transparency> transparency; // how see-through (decision 096); nothing: no choice
+    std::optional<bool> glassWindows;       // windows as glass too (decision 104); nothing: no row
     std::vector<SettingItem> announced;     // what can be new (announcedSettings)...
     std::set<std::string> unseen;           // ...and which of those haven't been seen yet: tagged "New"
 };

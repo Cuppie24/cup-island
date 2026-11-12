@@ -45,6 +45,11 @@ public:
     void raise();                                // to the front, with the keys; restored if minimized
     void minimize();
     void refresh(bool coloursOnly); // tokens changed: recoloured, or rebuilt on the next draw()
+    // The keyboard's focus ring (decision 033) around `frame` (window coordinates), or none.
+    void setFocusRing(std::optional<Rect> frame, float radius);
+    // Glass (decision 104): Windows 11's acrylic behind it, the window see-through over it; off, solid.
+    void setGlass(bool on);
+    bool glass() const { return glass_; }
     // What's under the pointer: an item's key, a sidebar entry, a lit row (page coordinates). ""/nullopt: nothing.
     void setHovered(const std::string& key, std::optional<std::size_t> nav, std::optional<Rect> row, float rowRadius);
     void press(const std::string& key);
@@ -60,6 +65,7 @@ private:
     void drawDecor();
     ElementVisuals& visualsFor(const std::string& key);
     void rememberNormal(); // its frame now, unless maximized or minimized
+    void paintBackground(); // islandColor, see-through as glass
 
     HWND hwnd_{};
     ProviderWindowCallbacks callbacks_;
@@ -76,7 +82,8 @@ private:
     wuc::SpriteVisual background_{ nullptr }, paneBackground_{ nullptr };
     wuc::ContainerVisual sidebarDecor_{ nullptr }, sidebarLayer_{ nullptr };
     wuc::ContainerVisual pane_{ nullptr }, scroller_{ nullptr }, pageLayer_{ nullptr }, rowHover_{ nullptr };
-    wuc::ContainerVisual footerLayer_{ nullptr }, chromeLayer_{ nullptr };
+    wuc::ContainerVisual footerLayer_{ nullptr }, chromeLayer_{ nullptr }, focusLayer_{ nullptr };
+    bool glass_ = false;
     ElementVisuals sidebar_, page_, footer_, chrome_;
 
     WindowScene scene_;

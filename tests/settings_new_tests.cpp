@@ -294,6 +294,36 @@ void glassTests()
     expect(applied.back() == true && h.store[SettingsProvider::kGlassKey] == "on", "glass: and back on");
     settings.stop();
 
+    // Glass for windows (decision 104): on the Glass page, on until turned off; its window changes at once.
+    PanelHost wh;
+    std::vector<bool> windows;
+    SettingsProvider glassy({ .setGlass = [](bool) {}, .setTransparency = [](Transparency) {}, .setGlassWindows = [&](bool on) { windows.push_back(on); } });
+    glassy.start(wh);
+    openWindow(glassy);
+    expect(windows == std::vector<bool>{ true } && !windowRow(wh, "Glass for windows"), "glass windows: on by default, the app told; not on Appearance");
+    glassy.onAction(fromWindow(P::kOpenGlass));
+    const Row* row = windowRow(wh, "Glass for windows");
+    expect(row && itemOf<Switch>(row)->on && row->clickAnywhere && detailOf(wh, "Glass for windows") == "Settings and other windows, like the island" &&
+               nameOf(pageOf(wh, kAppearancePage)->sections[0].rows.back()) == "Glass for windows",
+           "glass windows: a switch on the Glass page, after how see-through, saying what it covers");
+    glassy.onAction(fromWindow(P::kToggleGlassWindows));
+    expect(windows.back() == false && wh.store[SettingsProvider::kGlassWindowsKey] == "off" && !itemOf<Switch>(windowRow(wh, "Glass for windows"))->on,
+           "glass windows: a click turns it off, saved, the app told at once");
+    glassy.stop();
+    glassy.start(wh);
+    expect(windows.back() == false, "glass windows: off kept over a restart");
+    glassy.stop();
+    PanelHost tagged;
+    tagged.store[SettingsProvider::kAutostartKey] = "on"; // an update from before it: new
+    tagged.store[SettingsProvider::kSeenKey] = "seen1\nglass\ntransparency\n";
+    SettingsProvider updated({ .setGlass = [](bool) {}, .setTransparency = [](Transparency) {}, .setGlassWindows = [](bool) {} });
+    updated.start(tagged);
+    openWindow(updated);
+    expect(tagged.published.back().content.badge && itemOf<Button>(windowRow(tagged, "Glass"))->badge, "glass windows: new after an update: a dot on Glass' row");
+    updated.onAction(fromWindow(P::kOpenGlass));
+    expect(itemOf<Tag>(windowRow(tagged, "Glass for windows")), "glass windows: tagged New on its page");
+    updated.stop();
+
     PanelHost bare;
     SettingsProvider without({});
     without.start(bare);

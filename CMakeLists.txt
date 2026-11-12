@@ -58,6 +58,7 @@ add_library(cup_core STATIC
     src/core/text_wrap.cpp
     src/core/tokens.cpp
     src/core/tokens_json.cpp
+    src/core/window_keys.cpp
     src/core/window_layout.cpp
     src/core/window_placement.cpp
 )
