@@ -16,7 +16,8 @@ transparent Composition surfaces. Three problems showed up on screen:
   different sizes, not just different greys.
 - **Pixel snapping** (`element_visuals.cpp`, `Blob::place`). Element visuals sit
   at whole-pixel offsets and are exactly as big as their whole-pixel
-  surfaces, and the pill rests on a whole pixel.
+  surfaces, and the pill rests on a whole pixel. Every such edge goes
+  through `snapEdge`, places and sizes alike (decision 105).
   - Scaled lengths are fractional (12 × 0.85 = 10.2), and a surface stretched
     into a fractional box, or placed between pixels, is resampled, which blurs it.
   - The rounding happens before Blob's change check, so decision 008's
