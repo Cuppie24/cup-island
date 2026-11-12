@@ -193,6 +193,16 @@ void SettingsProvider::onAction(const Action& action)
             hooks_.captureKeys(true);
             publish();
         }
+    } else if (auto at = choiceIndex(id, settings_action::kResetShortcut)) {
+        if (*at < commands().size()) {
+            stopRecording();
+            shortcutNote_.clear();
+            rebind(commands()[*at].command, commands()[*at].standard);
+            publish();
+        }
+    } else if (id == settings_action::kResetShortcuts) {
+        resetAll();
+        publish();
     } else if (id == settings_action::kToggleAutostart && hooks_.startsWithWindows && hooks_.setStartsWithWindows) {
         bool on = !hooks_.startsWithWindows();
         hooks_.setStartsWithWindows(on);
@@ -260,21 +270,42 @@ void SettingsProvider::keysPressed(const std::optional<Chord>& chord)
     Command command = *recording_;
     stopRecording();
     shortcutNote_.clear();
-    Chord was = chordOf(shortcuts_, command);
-    if (chord && *chord != was) {
-        // Abort on any conflict: the old keys stay, and the note says why.
-        if (std::string problem = bindingProblem(shortcuts_, command, *chord); !problem.empty()) {
-            shortcutNote_ = problem;
-        } else if (hooks_.bindHotkey && !hooks_.bindHotkey(command, *chord)) {
-            hooks_.bindHotkey(command, was); // back to the old keys
-            shortcutNote_ = chordText(*chord) + " is taken by another app";
-        } else {
-            for (Binding& b : shortcuts_)
-                if (b.command == command) b.chord = *chord;
-            host_->save(kShortcutsKey, saveBindings(shortcuts_));
-        }
-    }
+    if (chord) rebind(command, *chord);
     publish();
+}
+
+void SettingsProvider::rebind(Command command, const Chord& chord)
+{
+    Chord was = chordOf(shortcuts_, command);
+    if (chord == was) return;
+    // Abort on any conflict: the old keys stay, and the note says why.
+    if (std::string problem = bindingProblem(shortcuts_, command, chord); !problem.empty()) {
+        shortcutNote_ = problem;
+    } else if (hooks_.bindHotkey && !hooks_.bindHotkey(command, chord)) {
+        hooks_.bindHotkey(command, was); // back to the old keys
+        shortcutNote_ = chordText(chord) + " is taken by another app";
+    } else {
+        for (Binding& b : shortcuts_)
+            if (b.command == command) b.chord = chord;
+        host_->save(kShortcutsKey, saveBindings(shortcuts_));
+    }
+}
+
+// All at once, not one by one (decision 103): swapped keys (Home on Ctrl+Alt+Q,
+// the activity on Ctrl+Q) would each clash with the other's on the way back.
+// The defaults never clash among themselves, so everything is let go and
+// registered afresh; one another app has stays the default, and the note says so.
+void SettingsProvider::resetAll()
+{
+    stopRecording();
+    shortcutNote_.clear();
+    Bindings defaults = defaultBindings();
+    if (shortcuts_ == defaults) return;
+    shortcuts_ = defaults;
+    host_->save(kShortcutsKey, saveBindings(shortcuts_));
+    if (!hotkeysActive_) return; // registered when the island shows again
+    if (hooks_.unbindHotkeys) hooks_.unbindHotkeys();
+    bindAll();
 }
 
 void SettingsProvider::bindAll()

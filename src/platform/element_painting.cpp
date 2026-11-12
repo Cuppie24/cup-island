@@ -100,6 +100,7 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::File: return L"\uE8A5";
     case Glyph::Folder: return L"\uE8B7";
     case Glyph::Refresh: return L"\uE72C"; // Check for updates (decision 091)
+    case Glyph::Reset: return L"\uE7A7"; // Undo: a shortcut back to its default (decision 103)
     case Glyph::Close: return L"\uE711"; // Cancel: a window's ✕ (decision 081)
     case Glyph::Centre: return L"\uE8E3"; // AlignCenter: back to the middle
     case Glyph::Minus: return L"\uE738";  // Remove
