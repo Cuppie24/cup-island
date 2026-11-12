@@ -238,6 +238,7 @@ if(WIN32)
         src/platform/tray_icon.cpp
         src/platform/watchdog.cpp
         src/platform/provider_window.cpp
+        src/platform/provider_window_messages.cpp
         src/platform/window_name.cpp
         src/platform/wall_clock.cpp
         src/providers/media/app_activation.cpp

@@ -1,5 +1,6 @@
 #include "core/window_layout.h"
 
+#include "core/badges.h"
 #include "core/groups.h"
 #include "core/slot_layout.h"
 #include "core/tokens.h"
@@ -101,6 +102,11 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
     Rect frame{ t.windowPagePadding.x, t.windowPagePadding.y, width, 0 };
     frame.height = slotHeight(rows, frame, source, measure);
     placeSlot({ "page", &rows, frame }, source, t.windowNavRadius, now, s.page, measure);
+    // A button's dot (a setting with something new inside, decision 048), where the island puts one.
+    Scene dots;
+    dots.size = { s.pane.width, frame.y + frame.height };
+    dots.elements = s.page;
+    s.badges = badgeCentres(dots);
     float y = frame.y + frame.height;
     float content = y + t.windowPagePadding.y;
     s.maxScroll = std::max(0.0f, content - s.pane.height);

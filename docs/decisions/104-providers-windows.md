@@ -104,7 +104,11 @@ core says so, the caption. No redirection bitmap: Composition draws all of
 it, on the island's Compositor (`createWindowTarget`), the items by the
 island's own `ElementVisuals` and painters (groups' backgrounds too:
 `GroupFill`), the page in a clipped container that scrolls by its offset;
-the sidebar's highlights and the lit row are a few shapes of its own.
+the sidebar's highlights, the lit row and buttons' dots (decision 038,
+placed by core's `badgeCentres` as on the island: the first run showed
+Settings' Glass row without its dot) are a few shapes of its own. A window
+shows at once in its colours, its content drawn in the next queue turn
+(decision 012): drawing every row first froze the click that opened it.
 A resize lays it out again inside `WM_SIZE`, so the drawing keeps up with
 the frame. Rows stretch with the window only below `windowPageMaxWidth`;
 there, each width change rebuilds a row's text (decision 083's caveat):
@@ -137,7 +141,11 @@ are too. Windows 11's own acrylic for top-level windows
 DWM's frame extended over it so it shows, and the window's background
 over it see-through by `islandFill` at the Transparency pick (the plain
 blur's opacities: Windows' acrylic evens out what's behind). Light themes
-get Windows' light frame and acrylic. Before Windows 11 22H2 Windows
+get Windows' light frame and acrylic. With DWM's frame over the whole
+window, Windows drew its own caption buttons in it, under ours (the first
+run showed both): as glass the window has no system menu (`WS_SYSMENU`),
+which is what Windows draws them for, and Alt+F4 is handled by the app;
+Alt+Space has no menu then. Before Windows 11 22H2 Windows
 refuses the backdrop: logged, the window stays solid. No row on Windows 10,
 like Glass.
 

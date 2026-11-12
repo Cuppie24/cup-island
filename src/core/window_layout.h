@@ -34,6 +34,7 @@ struct WindowScene {
     float navRadius = 0;
     Rect pane;                       // where the page shows: clipped to it, scrolled in it (window coordinates)
     std::vector<Placed> page;        // the page's items, page coordinates: the pane's top-left unscrolled
+    std::vector<Vec2> badges;        // dots on the page's buttons (Button::badge, decision 038), page coordinates: where badgeCentres puts them
     float scroll = 0;                // how far the page is scrolled, clamped
     float maxScroll = 0;
     std::vector<Placed> footer;      // WindowContent::footer, under the page (window coordinates)

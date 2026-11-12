@@ -81,7 +81,7 @@ private:
     wuc::ContainerVisual root_{ nullptr };
     wuc::SpriteVisual background_{ nullptr }, paneBackground_{ nullptr };
     wuc::ContainerVisual sidebarDecor_{ nullptr }, sidebarLayer_{ nullptr };
-    wuc::ContainerVisual pane_{ nullptr }, scroller_{ nullptr }, pageLayer_{ nullptr }, rowHover_{ nullptr };
+    wuc::ContainerVisual pane_{ nullptr }, scroller_{ nullptr }, pageLayer_{ nullptr }, pageDots_{ nullptr }, rowHover_{ nullptr };
     wuc::ContainerVisual footerLayer_{ nullptr }, chromeLayer_{ nullptr }, focusLayer_{ nullptr };
     bool glass_ = false;
     ElementVisuals sidebar_, page_, footer_, chrome_;

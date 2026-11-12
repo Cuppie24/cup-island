@@ -322,6 +322,16 @@ void glassTests()
     expect(tagged.published.back().content.badge && itemOf<Button>(windowRow(tagged, "Glass"))->badge, "glass windows: new after an update: a dot on Glass' row");
     updated.onAction(fromWindow(P::kOpenGlass));
     expect(itemOf<Tag>(windowRow(tagged, "Glass for windows")), "glass windows: tagged New on its page");
+    updated.onAction(fromWindow(P::kBack));
+    WindowScene laid = windowLayout(*findOpen(tagged), { 900, 700 }, 0, Ms{ 0 });
+    const Placed* chevron = nullptr;
+    for (const Placed& p : laid.page)
+        if (auto* b = std::get_if<Button>(&p.item); b && b->actionId == P::kOpenGlass) chevron = &p;
+    bool dotted = chevron && std::any_of(laid.badges.begin(), laid.badges.end(), [&](Vec2 c) {
+        return c.x >= chevron->frame.x && c.x <= chevron->frame.x + chevron->frame.width + tokens().badgeSize && c.y >= chevron->frame.y - tokens().badgeSize &&
+               c.y <= chevron->frame.y + chevron->frame.height;
+    });
+    expect(laid.badges.size() == 1 && dotted && laid.nav[0].badge, "glass windows: laid out, the dot on Glass' chevron, and on Appearance in the sidebar");
     updated.stop();
 
     PanelHost bare;

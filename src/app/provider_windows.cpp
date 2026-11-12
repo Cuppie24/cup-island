@@ -286,9 +286,17 @@ void openWindowFor(const OpenWindow& w)
     s.raised = w.raised;
     g_shown[w.key] = std::move(shown); // before anything that sends messages finds it
     s.window->setGlass(g_glass);
-    relayout(s);
+    // On screen at once, in its colours; its content drawn in the next queue
+    // turn (decision 012): building every row's text first held the window
+    // back, a freeze on the click that opened it.
     s.window->show();
     if (w.spec.keepOnTop) platform::raiseIsland(); // the island stays over its windows
+    WindowKey key = w.key;
+    auto draw = [key] {
+        if (Shown* shown = find(key)) relayout(*shown);
+    };
+    auto queue = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
+    if (!queue || !queue.TryEnqueue(winrt::Windows::System::DispatcherQueuePriority::Low, draw)) draw();
     platform::logLine("window opened: %s", placeKey(w.key).c_str());
 }
 
