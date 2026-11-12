@@ -126,8 +126,8 @@ bool ProviderWindow::create(HINSTANCE instance, wuc::Compositor const& composito
     pane_ = layer(compositor_, root_);
     pane_.Clip(compositor_.CreateInsetClip()); // the page shows only in the pane
     scroller_ = layer(compositor_, pane_);
-    pageDecor_ = layer(compositor_, scroller_);
     pageLayer_ = layer(compositor_, scroller_);
+    rowHover_ = layer(compositor_, scroller_); // over the row's items: a faint tint, like the island's lit rows
     footerLayer_ = layer(compositor_, root_);
     chromeLayer_ = layer(compositor_, root_);
     sidebar_.init(compositor_, device, sidebarLayer_);
@@ -155,9 +155,9 @@ void ProviderWindow::draw(const WindowScene& scene, Ms now)
     chrome_.apply(scene.chrome, now);
 }
 
-// The shapes behind the items: the picked page's highlight (and the hovered
-// one's), the sidebar's dots, each group's panel and the lines between rows.
-// Rebuilt whole: a handful of shapes, and nothing about them animates.
+// The shapes around the items: the picked page's highlight (and the hovered
+// one's), the sidebar's dots, and the lit row. Groups' backgrounds are items
+// (GroupFill), drawn with the rest. Rebuilt whole: a handful of shapes.
 void ProviderWindow::drawDecor()
 {
     const Tokens& t = tokens();
@@ -169,9 +169,9 @@ void ProviderWindow::drawDecor()
         if (n.badge) sidebarDecor_.Children().InsertAtTop(dot(compositor_, { n.frame.x + n.frame.width - 12, n.frame.y + n.frame.height / 2 },
                                                               t.badgeSize / 2, t.badgeColor));
     }
-    pageDecor_.Children().RemoveAll();
-    for (const Rect& g : scene_.groups) pageDecor_.Children().InsertAtTop(roundedRect(compositor_, g, scene_.groupRadius, t.tileColor));
-    for (const Rect& d : scene_.dividers) pageDecor_.Children().InsertAtTop(colourRect(compositor_, d, t.hoverColor));
+    // The row under the pointer, lit over its group's background (a grouped row's listRow).
+    rowHover_.Children().RemoveAll();
+    if (hoveredRow_) rowHover_.Children().InsertAtTop(roundedRect(compositor_, *hoveredRow_, hoveredRowRadius_, t.hoverColor));
 }
 
 void ProviderWindow::show()
@@ -204,11 +204,13 @@ ElementVisuals& ProviderWindow::visualsFor(const std::string& key)
     return page_;
 }
 
-void ProviderWindow::setHovered(const std::string& key, std::optional<std::size_t> nav)
+void ProviderWindow::setHovered(const std::string& key, std::optional<std::size_t> nav, std::optional<Rect> row, float rowRadius)
 {
     for (ElementVisuals* v : { &sidebar_, &page_, &footer_, &chrome_ }) v->setHovered(v == &visualsFor(key) ? key : std::string());
-    if (nav != hoveredNav_) {
+    if (nav != hoveredNav_ || row != hoveredRow_) {
         hoveredNav_ = nav;
+        hoveredRow_ = row;
+        hoveredRowRadius_ = rowRadius;
         drawDecor();
     }
 }

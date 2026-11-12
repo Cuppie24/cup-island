@@ -74,6 +74,11 @@ void SettingsProvider::start(Host& host)
     std::string fade = trimmed(host_->load(kFadeKey));
     fadeSpeed_ = fade == "fast" ? FadeSpeed::Fast : fade == "slow" ? FadeSpeed::Slow : FadeSpeed::Medium;
     if (hooks_.setFadeSpeed) hooks_.setFadeSpeed(fadeSpeed_);
+    glass_ = trimmed(host_->load(kGlassKey)) != "off"; // on until turned off, after an update too (decision 089)
+    if (hooks_.setGlass) hooks_.setGlass(glass_);
+    std::string level = trimmed(host_->load(kTransparencyKey));
+    transparency_ = level == "low" ? Transparency::Low : level == "high" ? Transparency::High : Transparency::Medium;
+    if (hooks_.setTransparency) hooks_.setTransparency(transparency_);
     pick(known(trimmed(host_->load(kThemeKey))));
 }
 
@@ -91,7 +96,7 @@ void SettingsProvider::loadSeen()
     // setting is as new as the rest (none tagged), or an update from before
     // tags existed, which kept other settings (all announced ones are new).
     bool fresh = true;
-    for (const char* key : { kAutostartKey, kThemeKey, kDisplayKey, kShortcutsKey, kTabRowKey, kCoverColoursKey, kFadeKey })
+    for (const char* key : { kAutostartKey, kThemeKey, kDisplayKey, kShortcutsKey, kTabRowKey, kCoverColoursKey, kFadeKey, kGlassKey, kTransparencyKey })
         if (!trimmed(host_->load(key)).empty()) fresh = false;
     if (!fresh) return;
     for (const SettingItem& s : hooks_.announced) seen_.insert(s.id);
@@ -113,6 +118,14 @@ void SettingsProvider::pickFade(FadeSpeed speed)
     fadeSpeed_ = speed;
     host_->save(kFadeKey, speed == FadeSpeed::Fast ? "fast" : speed == FadeSpeed::Slow ? "slow" : "medium");
     if (hooks_.setFadeSpeed) hooks_.setFadeSpeed(speed);
+    publish();
+}
+
+void SettingsProvider::pickTransparency(Transparency level)
+{
+    transparency_ = level;
+    host_->save(kTransparencyKey, level == Transparency::Low ? "low" : level == Transparency::High ? "high" : "medium");
+    if (hooks_.setTransparency) hooks_.setTransparency(level);
     publish();
 }
 
@@ -140,8 +153,6 @@ void SettingsProvider::onAction(const Action& action)
         shortcutNote_.clear();
         page_ = SettingsPage::List;
         publish();
-    } else if (id == settings_action::kSetTabRow) {
-        placeTabRow(action.value < 0.5f); // the Segmented's index: 0 top, 1 bottom
     } else if (id == settings_action::kOpenThemes && !themes.empty()) open(SettingsPage::Themes);
     else if (id == settings_action::kOpenDisplays && displays_.size() >= 2) open(SettingsPage::Displays);
     else if (id == settings_action::kOpenShortcuts) {
@@ -151,9 +162,18 @@ void SettingsProvider::onAction(const Action& action)
     else if (id == settings_action::kOpenMusicColours && hooks_.setCoverColours) {
         page_ = SettingsPage::MusicColours;
         publish();
+    } else if (id == settings_action::kOpenGlass && hooks_.setGlass) {
+        page_ = SettingsPage::Glass;
+        publish();
+    } else if (auto at = choiceIndex(id, settings_action::kPickTransparency)) {
+        // The page stays: the island, faded to it at once, is the preview.
+        if (*at <= 2 && hooks_.setTransparency) pickTransparency(*at == 0 ? Transparency::Low : *at == 2 ? Transparency::High : Transparency::Medium);
     } else if (auto at = choiceIndex(id, settings_action::kPickFade)) {
-        // The page stays, like the tab row's: the next recolour shows the new speed.
+        // The page stays: the next recolour shows the new speed.
         if (*at <= 2 && hooks_.setFadeSpeed) pickFade(*at == 0 ? FadeSpeed::Fast : *at == 2 ? FadeSpeed::Slow : FadeSpeed::Medium);
+    }
+    else if (auto at = choiceIndex(id, settings_action::kPickTabRow)) {
+        if (*at <= 1) placeTabRow(*at == 0); // picked in place (decision 093): the island shows where the row went
     }
     else if (id == settings_action::kBack) {
         stopRecording();
@@ -176,6 +196,16 @@ void SettingsProvider::onAction(const Action& action)
             hooks_.captureKeys(true);
             publish();
         }
+    } else if (auto at = choiceIndex(id, settings_action::kResetShortcut)) {
+        if (*at < commands().size()) {
+            stopRecording();
+            shortcutNote_.clear();
+            rebind(commands()[*at].command, commands()[*at].standard);
+            publish();
+        }
+    } else if (id == settings_action::kResetShortcuts) {
+        resetAll();
+        publish();
     } else if (id == settings_action::kToggleAutostart && hooks_.startsWithWindows && hooks_.setStartsWithWindows) {
         bool on = !hooks_.startsWithWindows();
         hooks_.setStartsWithWindows(on);
@@ -185,6 +215,11 @@ void SettingsProvider::onAction(const Action& action)
         coverColours_ = !coverColours_;
         hooks_.setCoverColours(coverColours_);
         host_->save(kCoverColoursKey, coverColours_ ? "on" : "off");
+        publish();
+    } else if (id == settings_action::kToggleGlass && hooks_.setGlass) {
+        glass_ = !glass_;
+        hooks_.setGlass(glass_);
+        host_->save(kGlassKey, glass_ ? "on" : "off");
         publish();
     } else if (id == settings_action::kInstallUpdate) {
         if (hooks_.installUpdate && offer_ && offer_->stage != UpdateStage::Installing) hooks_.installUpdate();
@@ -222,7 +257,7 @@ void SettingsProvider::open(SettingsPage page)
 }
 
 // From the widget's tap: the window opens on Appearance, or comes to the
-// front where the user left it (decision 090).
+// front where the user left it (decision 104).
 void SettingsProvider::openWindow()
 {
     bool wasOpen = windowOpen_;
@@ -238,21 +273,42 @@ void SettingsProvider::keysPressed(const std::optional<Chord>& chord)
     Command command = *recording_;
     stopRecording();
     shortcutNote_.clear();
-    Chord was = chordOf(shortcuts_, command);
-    if (chord && *chord != was) {
-        // Abort on any conflict: the old keys stay, and the note says why.
-        if (std::string problem = bindingProblem(shortcuts_, command, *chord); !problem.empty()) {
-            shortcutNote_ = problem;
-        } else if (hooks_.bindHotkey && !hooks_.bindHotkey(command, *chord)) {
-            hooks_.bindHotkey(command, was); // back to the old keys
-            shortcutNote_ = chordText(*chord) + " is taken by another app";
-        } else {
-            for (Binding& b : shortcuts_)
-                if (b.command == command) b.chord = *chord;
-            host_->save(kShortcutsKey, saveBindings(shortcuts_));
-        }
-    }
+    if (chord) rebind(command, *chord);
     publish();
+}
+
+void SettingsProvider::rebind(Command command, const Chord& chord)
+{
+    Chord was = chordOf(shortcuts_, command);
+    if (chord == was) return;
+    // Abort on any conflict: the old keys stay, and the note says why.
+    if (std::string problem = bindingProblem(shortcuts_, command, chord); !problem.empty()) {
+        shortcutNote_ = problem;
+    } else if (hooks_.bindHotkey && !hooks_.bindHotkey(command, chord)) {
+        hooks_.bindHotkey(command, was); // back to the old keys
+        shortcutNote_ = chordText(chord) + " is taken by another app";
+    } else {
+        for (Binding& b : shortcuts_)
+            if (b.command == command) b.chord = chord;
+        host_->save(kShortcutsKey, saveBindings(shortcuts_));
+    }
+}
+
+// All at once, not one by one (decision 103): swapped keys (Home on Ctrl+Alt+Q,
+// the activity on Ctrl+Q) would each clash with the other's on the way back.
+// The defaults never clash among themselves, so everything is let go and
+// registered afresh; one another app has stays the default, and the note says so.
+void SettingsProvider::resetAll()
+{
+    stopRecording();
+    shortcutNote_.clear();
+    Bindings defaults = defaultBindings();
+    if (shortcuts_ == defaults) return;
+    shortcuts_ = defaults;
+    host_->save(kShortcutsKey, saveBindings(shortcuts_));
+    if (!hotkeysActive_) return; // registered when the island shows again
+    if (hooks_.unbindHotkeys) hooks_.unbindHotkeys();
+    bindAll();
 }
 
 void SettingsProvider::bindAll()
@@ -365,6 +421,8 @@ SettingsView SettingsProvider::view() const
     }
     if (hooks_.startsWithWindows) v.startsWithWindows = hooks_.startsWithWindows();
     if (hooks_.setCoverColours) v.coverColours = coverColours_;
+    if (hooks_.setGlass) v.glass = glass_;
+    if (hooks_.setGlass && hooks_.setTransparency) v.transparency = transparency_; // on Glass' page
     if (hooks_.setCoverColours && hooks_.setFadeSpeed) v.fadeSpeed = fadeSpeed_; // on Music colours' page
     return v;
 }

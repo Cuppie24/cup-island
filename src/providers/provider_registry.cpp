@@ -177,7 +177,7 @@ void ProviderRegistry::route(const Action& action)
 {
     Entry* e = find(action.providerId);
     if (!e || !e->running) return;
-    // A click from a window closed meanwhile goes nowhere (decision 090).
+    // A click from a window closed meanwhile goes nowhere (decision 104).
     if (!action.windowId.empty() && !findWindow(windows_, { action.providerId, action.windowId })) return;
     userActed(windows_, action.providerId, clock_()); // it may open a window now
     e->provider->onAction(action);

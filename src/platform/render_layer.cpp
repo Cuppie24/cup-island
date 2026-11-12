@@ -1,5 +1,7 @@
 #include "platform/render_layer.h"
 
+#include "platform/glass.h"
+
 #include <algorithm>
 
 namespace cup::platform {
@@ -73,6 +75,7 @@ RenderLayer createRenderLayer(HINSTANCE instance, Vec2 canvas, Rect monitor)
         layer.left, layer.top, layer.width, static_cast<int>(canvas.y),
         nullptr, nullptr, instance, nullptr);
     if (!layer.hwnd) return layer;
+    layer.backdrop = allowBackdrop(layer.hwnd); // glass (decision 089): false on Windows 10
 
     layer.compositor = wuc::Compositor();
     layer.target = createWindowTarget(layer.compositor, layer.hwnd);

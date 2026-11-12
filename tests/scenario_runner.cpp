@@ -23,7 +23,7 @@
 //            pin                                                                     (Expanded's pin, decision 046)
 //            acted <provider>  open-window <provider> <id> [page=<page>]  update-window <provider> <id> [pages=<a,b>]
 //            close-window <provider> <id>  pick-page <provider> <id> <page>  stop-provider <provider>
-//                                                                    (providers' windows, decision 090: open-window's pages are
+//                                                                    (providers' windows, decision 104: open-window's pages are
 //                                                                     a, b, c; update-window's are pages=, default a)
 //            tabrow top|bottom                                                       (Settings' Tab row, decision 048)
 //            ask <card>  close-dialog                                               (a provider's dialog, decision 020)
@@ -105,7 +105,7 @@ std::optional<std::string> option(const std::string& word, const std::string& ke
 struct Runner {
     std::string where; // "file:line" of the current step, for messages
     IslandState state;
-    Windows windows; // beside the island, as the registry keeps them (decision 090)
+    Windows windows; // beside the island, as the registry keeps them (decision 104)
     std::string opened = "none";
     Ms now{ 0 };
 

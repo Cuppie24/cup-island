@@ -1,4 +1,4 @@
-// Settings (decisions 022, 023, 030, 090): a widget that opens the Settings
+// Settings (decisions 022, 023, 030, 104): a widget that opens the Settings
 // window; its pages, the theme and display pages within Appearance, Copy
 // logs, Centre island, Start with Windows, updates. The shortcuts page:
 // shortcut_settings_tests.cpp; Tab row, Music colours and "New":
@@ -52,7 +52,7 @@ void widgetAndThemes()
     settings.start(sh);
     const Panel& widget = sh.published.back();
     expect(widget.id == SettingsProvider::kPanelId && widget.tapAction == P::kOpenWindow && !hasCard(widget.content) && !sh.window,
-           "settings: a widget whose tap opens the window; no card of its own (decision 090)");
+           "settings: a widget whose tap opens the window; no card of its own (decision 104)");
     expect(leadGlyph(widget) == Glyph::Settings && textAt(widget, 0, 0) == "Settings" && widget.content.tile.size() == 1 &&
            std::get<Text>(widget.content.tile[0].items[0]).style == TextStyle::Title,
            "settings: the gear in the side square, its name bold like the other widgets' (decision 073)");
@@ -135,7 +135,7 @@ void widgetAndThemes()
 
 void updatesAndVersion()
 {
-    // Check for updates (decision 036): a row on Updates that checks and says what it found.
+    // The one updates row (decisions 036, 091): it checks, and says what it found under its name.
     PanelHost uh;
     std::function<void(CheckOutcome, const std::string&)> pending;
     int checks = 0;
@@ -146,9 +146,10 @@ void updatesAndVersion()
     s.start(uh);
     s.onAction({ "system.settings", SettingsProvider::kPanelId, P::kOpenWindow, 0 });
     auto said = [&] { return detailOf(uh, "Check for updates"); };
-    expect(windowRow(uh, "Check for updates") && windowRow(uh, "Check for updates")->clickAnywhere && said() == "0.4.0" &&
+    const Row* check = windowRow(uh, "Check for updates");
+    expect(check && check->clickAnywhere && said() == "Version 0.4.0" && itemOf<Button>(check)->glyph == Glyph::Refresh &&
            pageOf(uh, kUpdatesPage)->sections[0].rows.size() == 1,
-           "updates: a row that says the running version until a check (decision 037)");
+           "updates: one row on Updates, the running version under it until a check, a refresh glyph");
     auto press = [&] { s.onAction(fromWindow(P::kCheckUpdates)); };
     press();
     expect(checks == 1 && said() == "Checking…" && !itemOf<Button>(windowRow(uh, "Check for updates"))->enabled, "updates: checking");
@@ -164,21 +165,21 @@ void updatesAndVersion()
     expect(said() == "Couldn't check", "updates: offline");
     s.onWindowClosed(kSettingsWindowId);
     s.onAction({ "system.settings", SettingsProvider::kPanelId, P::kOpenWindow, 0 });
-    expect(said() == "0.4.0", "updates: reopened, the row starts fresh");
+    expect(said() == "Version 0.4.0", "updates: reopened, the row starts fresh");
     s.stop();
 
-    // Update and restart (decision 037): under Check for updates while an update is offered.
+    // Update and restart (decisions 037, 091): an offer turns the same row into it.
     PanelHost ih;
     int installs = 0;
-    SettingsProvider offered({ .checkForUpdates = [](auto) {}, .installUpdate = [&] { ++installs; } });
+    SettingsProvider offered({ .version = "0.5.0", .checkForUpdates = [](auto) {}, .installUpdate = [&] { ++installs; } });
     offered.start(ih);
     offered.onAction({ "system.settings", SettingsProvider::kPanelId, P::kOpenWindow, 0 });
-    expect(!windowRow(ih, "Update and restart"), "install: nothing offered, no row");
+    expect(windowRow(ih, "Check for updates") && !windowRow(ih, "Update and restart"), "install: nothing offered, the row checks");
     offered.updateStatusChanged(UpdateStatus{ .version = "0.5.1" });
     const Row* install = windowRow(ih, "Update and restart");
-    expect(install && detailOf(ih, "Update and restart") == "0.5.1" && install->clickAnywhere && itemOf<Button>(install)->enabled &&
-           nameOf(pageOf(ih, kUpdatesPage)->sections[0].rows[1]) == "Update and restart",
-           "install: an offer puts Update and restart under Check for updates");
+    expect(install && !windowRow(ih, "Check for updates") && detailOf(ih, "Update and restart") == "0.5.0 → 0.5.1" && install->clickAnywhere &&
+           itemOf<Button>(install)->glyph == Glyph::Download && itemOf<Button>(install)->enabled && pageOf(ih, kUpdatesPage)->sections[0].rows.size() == 1,
+           "install: an offer turns the same row into Update and restart, both versions under it");
     expect(!ih.published.back().content.badge && !itemOf<Button>(install)->badge, "install: no dot in Settings: the Update widget has it (decision 038)");
     offered.onAction(fromWindow(P::kInstallUpdate));
     expect(installs == 1, "install: a click installs it");
@@ -189,7 +190,7 @@ void updatesAndVersion()
     offered.updateStatusChanged(UpdateStatus{ .version = "0.5.1", .stage = UpdateStage::Failed, .problem = "Couldn't download" });
     expect(detailOf(ih, "Try the update again") == "Couldn't download", "install: a failure says why, and offers again");
     offered.updateStatusChanged(std::nullopt);
-    expect(!windowRow(ih, "Try the update again"), "install: withdrawn, the row goes");
+    expect(windowRow(ih, "Check for updates") && !windowRow(ih, "Try the update again"), "install: withdrawn, the row checks again");
     offered.stop();
 
     // No way to check: no row, but the version still shows (decision 036).
@@ -269,7 +270,7 @@ void startupAndDisplays()
 }
 
 // End to end through the registry: the widget's tap is the user acting on
-// Settings, so its window may open (decision 090); closing it resets it.
+// Settings, so its window may open (decision 104); closing it resets it.
 void throughTheRegistry()
 {
     IslandState st;

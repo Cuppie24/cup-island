@@ -8,6 +8,7 @@
 #include "platform/element_art.h"
 #include "platform/graphics_device.h"
 #include "platform/list_viewports.h"
+#include "platform/segments_parts.h"
 #include "platform/switch_parts.h"
 
 #include <map>
@@ -43,6 +44,14 @@ private:
     struct View {
         Placed placed;
         wuc::Visual visual{ nullptr };
+        // A button's glyph sprite, and the filled circle under it (a primary
+        // button, a toggle that's on): a shape whose colour fades (decision 101).
+        wuc::SpriteVisual glyphHost{ nullptr };
+        wuc::CompositionColorBrush buttonFill{ nullptr };
+        // A one-colour text's colour: it's painted white and shown through
+        // this brush, so a recolour fades it like a shape (decision 102).
+        wuc::CompositionColorBrush ink{ nullptr };
+        Color inkTarget{ 0, 0, 0, 0 };
         float lead = 0; // the visual starts this far left of the frame (knob overhang, marquee fade)
         wuc::CompositionDrawingSurface surface{ nullptr };          // text, icon, button glyph, image
         float marqueeWidth = 0;                                     // > 0: swimming text, one copy's width
@@ -50,6 +59,8 @@ private:
         ArtParts art;                                               // clickable art: hover dim + "open" glyph
         wuc::CompositionDrawingSurface glyphSurface{ nullptr };     // that glyph
         wuc::SpriteVisual picture{ nullptr };                       // an Image's: a new picture fades in over it
+        wuc::CompositionDrawingSurface shadowShape{ nullptr };      // raised art: its rounded shape, the shadow's mask (decision 094)
+        wuc::DropShadow shadow{ nullptr };                          // ...and the shadow, its colour faded on a recolour
         wuc::CompositionRoundedRectangleGeometry fill{ nullptr };   // progress bar
         wuc::CompositionEllipseGeometry arc{ nullptr };             // progress ring
         wuc::CompositionSpriteShape knob{ nullptr };                // progress
@@ -59,6 +70,7 @@ private:
         // Shape colours, kept so a recolour fades them (decision 051); null when unused.
         wuc::CompositionColorBrush track{ nullptr }, accent{ nullptr }, knobBrush{ nullptr }, hover{ nullptr };
         SwitchParts toggle; // a Switch's track and knob (decision 053)
+        SegmentsParts segments; // Segments' track, sliding pill and labels (decision 093)
         bool lit = false;   // a secondary button under the pointer: drawn at full strength (decision 064)
         bool grey = false;  // drawn muted now: an inactive tab's, its tab not hovered (decision 072)
     };
@@ -69,6 +81,8 @@ private:
     bool update(View& view, const Placed& placed, Ms now); // true = rebuilt
     void paint(View& view);
     void recolor(View& view); // fades its shapes to the current colours and redraws its pixels
+    void syncFill(View& view, Ms duration); // a button's filled circle to its colour now: made, or faded
+    void fadeInk(View& view, Ms duration);  // a one-colour text's brush to its colour now (decision 102)
     void animateBars(View& view);
     void showHover(const std::string& key, bool on);
     bool greyNow(const Placed& placed) const;

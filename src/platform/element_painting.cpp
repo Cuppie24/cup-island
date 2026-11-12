@@ -1,8 +1,11 @@
 #include "platform/element_painting.h"
 
 #include "core/item_metrics.h"
+#include "core/keycaps.h"
+#include "core/segments.h"
 #include "core/text_edit.h"
 #include "core/tokens.h"
+#include "platform/figures.h"
 #include "platform/text_format.h"
 
 #include <d2d1effects.h>
@@ -96,6 +99,8 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Search: return L"\uE721"; // search (decision 079); in MDL2 Assets and Fluent Icons alike
     case Glyph::File: return L"\uE8A5";
     case Glyph::Folder: return L"\uE8B7";
+    case Glyph::Refresh: return L"\uE72C"; // Check for updates (decision 091)
+    case Glyph::Reset: return L"\uE7A7"; // Undo: a shortcut back to its default (decision 103)
     case Glyph::Close: return L"\uE711"; // Cancel: a close ✕
     case Glyph::Centre: return L"\uE8E3"; // AlignCenter: back to the middle
     case Glyph::Minus: return L"\uE738";  // Remove
@@ -103,7 +108,7 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Pin: return L"\uE718";
     case Glyph::Pinned: return L"\uE840"; // Pinned, the outline with its needle; paintGlyph fills it (PinnedFill under it)
     case Glyph::Chart: return L"\uE9D2"; // AreaChart: the statistics (decision 066)
-    case Glyph::Palette: return L"\uE790"; // Color: a window's Appearance page (decision 090)
+    case Glyph::Palette: return L"\uE790"; // Color: a window's Appearance page (decision 104)
     case Glyph::Sliders: return L"\uE9E9"; // Equalizer: its General page
     case Glyph::Fire: return L"\U0001F525"; // not in the icon fonts: Segoe UI Emoji's, in colour (paintGlyph)
     }
@@ -190,13 +195,16 @@ TextLook lookOf(TextStyle style)
     case TextStyle::Caption:
     case TextStyle::Digits: return { t.captionFontSize, t.captionTextColor, t.captionFontWeight };
     case TextStyle::Display: return { t.displayFontSize, t.titleTextColor, t.displayFontWeight };
-    case TextStyle::Heading: return { t.headingFontSize, t.titleTextColor, t.headingFontWeight };
+    case TextStyle::Heading: return { t.headingFontSize, t.captionTextColor, t.headingFontWeight }; // quiet: decision 090
     case TextStyle::Result: return { t.resultFontSize, t.bodyTextColor, t.bodyFontWeight };
     case TextStyle::ResultDetail: return { t.resultDetailFontSize, t.captionTextColor, t.captionFontWeight };
     case TextStyle::PageTitle: return { t.pageTitleFontSize, t.titleTextColor, t.pageTitleFontWeight };
     }
     return { t.bodyFontSize, t.bodyTextColor, t.bodyFontWeight };
 }
+
+// Times, drawn with tabular figures so they don't jitter as they tick (decision 094).
+bool figures(TextStyle style) { return style == TextStyle::Digits || style == TextStyle::Display; }
 
 winrt::com_ptr<IDWriteTextFormat> formatOf(IDWriteFactory* dw, const Text& text)
 {
@@ -217,8 +225,18 @@ winrt::com_ptr<IDWriteTextLayout> wrappedLayout(IDWriteFactory* dw, const Text& 
     return layout;
 }
 
+void paintLine(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, D2D1_RECT_F rect, std::optional<Color> ink = std::nullopt); // below
+
 } // namespace
 
+
+void paintGroupFill(ID2D1DeviceContext* dc, const GroupFill& fill, Vec2 size, float radius)
+{
+    // A square end reaches a radius past the surface, which cuts it off: one
+    // rounded rect gives any mix of rounded and square ends (decision 090).
+    float top = fill.roundTop ? 0 : -radius, bottom = fill.roundBottom ? size.y : size.y + radius;
+    dc->FillRoundedRectangle(D2D1_ROUNDED_RECT{ D2D1::RectF(0, top, size.x, bottom), radius, radius }, brushOf(dc, tokens().tileColor).get());
+}
 
 void paintDivider(ID2D1DeviceContext* dc, Vec2 size)
 {
@@ -231,7 +249,7 @@ void paintDial(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Dial& dial, Vec
     Text label{ .value = dial.label, .style = TextStyle::Caption, .centred = true };
     float timeHeight = lineHeight(TextStyle::Display), labelHeight = dial.label.empty() ? 0 : lineHeight(TextStyle::Caption);
     float top = (size.y - timeHeight - labelHeight) / 2;
-    drawString(dc, formatOf(dw, time).get(), widen(time.value), D2D1::RectF(0, top, size.x, top + timeHeight), lookOf(time.style).color);
+    paintLine(dc, dw, time, D2D1::RectF(0, top, size.x, top + timeHeight)); // tabular figures: it ticks (decision 094)
     if (labelHeight > 0)
         drawString(dc, formatOf(dw, label).get(), widen(label.value), D2D1::RectF(0, top + timeHeight, size.x, top + timeHeight + labelHeight),
                    lookOf(label.style).color);
@@ -263,16 +281,23 @@ std::wstring elidedStart(IDWriteFactory* dw, IDWriteTextFormat* f, const std::ws
 
 // One line of `text` in `rect`, as Text asks: struck, wrapped, with bright
 // digits or bright ranges, or plain.
-void paintLine(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, D2D1_RECT_F rect)
+void paintLine(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, D2D1_RECT_F rect, std::optional<Color> ink)
 {
-    Color color = lookOf(text.style).color;
-    if (!text.struck && text.wrapped.empty() && !text.brightDigits && text.bright.empty()) {
+    Color color = ink.value_or(lookOf(text.style).color);
+    if (!figures(text.style) && !text.struck && text.wrapped.empty() && !text.brightDigits && text.bright.empty()) {
         drawString(dc, formatOf(dw, text).get(), widen(text.value), rect, color);
         return;
     }
-    // Wrapped, struck through (a solved to-do), with bright digits (decision 068)
-    // or a search's matched parts (decision 079): a layout carries each run's look.
+    // Wrapped, struck through (a solved to-do), with bright digits (decision 068),
+    // a search's matched parts (decision 079) or tabular figures (decision 094):
+    // a layout carries each run's look.
     auto layout = wrappedLayout(dw, text, rect.right - rect.left, rect.bottom - rect.top);
+    float nudge = 0;
+    if (figures(text.style)) {
+        useTabularFigures(dw, layout.get(), static_cast<UINT32>(widen(text.wrapped.empty() ? text.value : text.wrapped).size()));
+        // A time's digits on the middle of its line, where the bar beside it is drawn.
+        if (text.style == TextStyle::Digits && text.wrapped.empty()) nudge = figureNudge(dw, layout.get());
+    }
     if (text.struck) layout->SetStrikethrough(TRUE, DWRITE_TEXT_RANGE{ 0, static_cast<UINT32>(widen(text.value).size()) });
     auto bright = brushOf(dc, tokens().titleTextColor); // kept alive until drawn
     if (text.brightDigits) {
@@ -294,16 +319,24 @@ void paintLine(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, D2D
         layout->SetDrawingEffect(bright.get(), range);
         layout->SetFontWeight(static_cast<DWRITE_FONT_WEIGHT>(std::lround(heavier)), range);
     }
-    dc->DrawTextLayout(D2D1::Point2F(rect.left, rect.top), layout.get(), brushOf(dc, color).get(),
+    dc->DrawTextLayout(D2D1::Point2F(rect.left, rect.top + nudge), layout.get(), brushOf(dc, color).get(),
                        D2D1_DRAW_TEXT_OPTIONS_CLIP | D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
 }
 
 } // namespace
 
-void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec2 size)
+std::optional<Color> singleInkOf(const Text& text)
+{
+    if (text.brightDigits || !text.bright.empty() || !text.detail.empty()) return std::nullopt;
+    for (unsigned char c : text.value)
+        if (c >= 0xF0) return std::nullopt; // a 4-byte character: likely an emoji, drawn in its own colours (decision 064)
+    return lookOf(text.style).color;
+}
+
+void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec2 size, std::optional<Color> ink)
 {
     if (text.detail.empty()) {
-        paintLine(dc, dw, text, D2D1::RectF(0, 0, size.x, size.y));
+        paintLine(dc, dw, text, D2D1::RectF(0, 0, size.x, size.y), ink);
         return;
     }
     // Two lines (decision 079): the text, then its detail in caption style,
@@ -314,7 +347,9 @@ void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec
     paintLine(dc, dw, text, D2D1::RectF(0, top, size.x, top + first));
     Text detail{ .value = text.detail, .style = under, .alignEnd = text.alignEnd };
     auto f = formatOf(dw, detail);
-    drawString(dc, f.get(), elidedStart(dw, f.get(), widen(text.detail), size.x), D2D1::RectF(0, top + first, size.x, top + first + second),
+    // A path loses its start; a description its end, as any text does (decision 090).
+    std::wstring shown = text.detailTrimsEnd ? widen(text.detail) : elidedStart(dw, f.get(), widen(text.detail), size.x);
+    drawString(dc, f.get(), shown, D2D1::RectF(0, top + first, size.x, top + first + second),
                lookOf(under).color);
 }
 
@@ -324,14 +359,9 @@ void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& l
     drawString(dc, formatOf(dw, text).get(), widen(label), size, color);
 }
 
-void paintPrimaryButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size, bool lit)
+void paintPrimaryButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size, std::optional<Color> ink)
 {
-    const Tokens& t = tokens();
-    float r = std::min(size.x, size.y) / 2;
-    Color fill = button.enabled ? t.buttonColor : t.buttonDisabledColor;
-    if (lit && button.enabled) fill.a = static_cast<std::uint8_t>(std::lround(fill.a * std::clamp(t.primaryHoverOpacity, 0.0f, 1.0f)));
-    dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(size.x / 2, size.y / 2), r, r), brushOf(dc, fill).get());
-    paintGlyph(dc, dw, button.glyph, t.primaryGlyphSize, size, t.islandColor, /* precise */ true); // centred on its circle
+    paintGlyph(dc, dw, button.glyph, primaryGlyphOf(button), size, ink.value_or(tokens().islandColor), /* precise */ true); // centred on its circle
 }
 
 void paintRoundButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size)
@@ -357,19 +387,54 @@ float measureText(IDWriteFactory* dw, const Text& text)
     winrt::com_ptr<IDWriteTextLayout> layout;
     winrt::check_hresult(dw->CreateTextLayout(value.c_str(), static_cast<UINT32>(value.size()), formatOf(dw, text).get(),
                                               100000.0f, 1000.0f, layout.put()));
+    if (figures(text.style)) useTabularFigures(dw, layout.get(), static_cast<UINT32>(value.size())); // measured as drawn
     DWRITE_TEXT_METRICS metrics{};
     winrt::check_hresult(layout->GetMetrics(&metrics));
     return std::ceil(metrics.widthIncludingTrailingWhitespace);
 }
 
-void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, float width, float lead, float gap, float height)
+void paintSegmentLabels(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Segments& segments, Vec2 size, const Color& color)
+{
+    // Each in its option's frame, core's (segments.h), so the labels sit where clicks land and the pill goes.
+    Rect whole{ 0, 0, size.x, size.y };
+    for (std::size_t i = 0; i < segments.options.size(); ++i) {
+        Rect f = segmentFrame(segments, whole, i);
+        Text text = segmentText(segments, i);
+        drawString(dc, formatOf(dw, text).get(), widen(text.value), D2D1::RectF(f.x, f.y, f.x + f.width, f.y + f.height), color);
+    }
+}
+
+void paintKeys(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Keys& keys, Vec2 size)
+{
+    // Cap by cap, as core sized them (keycaps.h), with the same font's widths.
+    const Tokens& t = tokens();
+    MeasureText measure = [dw](const Text& text) { return measureText(dw, text); };
+    float h = std::min(t.keyCapHeight, size.y), top = std::round((size.y - h) / 2), x = 0;
+    float r = std::min(t.keyCapRadius, h / 2);
+    for (const KeyPart& part : keyParts(keys.text)) {
+        float w = keyPartWidth(part, measure);
+        Text text = keyPartText(part);
+        D2D1_RECT_F box = D2D1::RectF(x, top, x + w, top + h);
+        if (part.cap) {
+            // Over the group's fill, its colour again: a shade apart in every theme; edged like a swatch.
+            D2D1_ROUNDED_RECT cap{ D2D1::RectF(x + 0.5f, top + 0.5f, x + w - 0.5f, top + h - 0.5f), r, r };
+            dc->FillRoundedRectangle(cap, brushOf(dc, t.tileColor).get());
+            dc->DrawRoundedRectangle(cap, brushOf(dc, t.trackColor).get(), 1.0f);
+        }
+        drawString(dc, formatOf(dw, text).get(), widen(part.label), box, part.cap ? t.bodyTextColor : t.captionTextColor);
+        x += w + t.keyCapGap;
+    }
+}
+
+void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, float width, float lead, float gap, float height,
+                  std::optional<Color> ink)
 {
     Text start = text;
     start.alignEnd = false;
     start.centred = false;
     auto f = formatOf(dw, start);
     std::wstring value = widen(text.value);
-    Color color = lookOf(text.style).color;
+    Color color = ink.value_or(lookOf(text.style).color);
     // A pixel of slack, so rounding never trips the "…" trimming.
     for (float x : { lead, lead + width + gap }) drawString(dc, f.get(), value, D2D1::RectF(x, 0, x + width + 1, height), color);
 }
@@ -407,13 +472,6 @@ void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float f
     dc->DrawTextLayout(at, glyphLayout.get(), brush.get(), options);
 }
 
-void paintToggleDot(ID2D1DeviceContext* dc, Vec2 size, float glyphSize)
-{
-    auto brush = brushOf(dc, tokens().buttonColor);
-    float r = std::max(1.0f, glyphSize / 10), y = std::min(size.y / 2 + glyphSize / 2 + 2 * r + 1, size.y - r);
-    dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(size.x / 2, y), r, r), brush.get());
-}
-
 void paintSteps(ID2D1DeviceContext* dc, const Steps& steps, Vec2 size, const Color& accent)
 {
     const Tokens& t = tokens();
@@ -444,28 +502,6 @@ void paintTag(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Tag& tag, Vec2 s
     float fontSize = std::min(t.captionFontSize, size.y * 0.75f);
     auto f = format(dw, textFamily(dw, fontSize), fontSize, t.titleFontWeight, DWRITE_TEXT_ALIGNMENT_CENTER);
     drawString(dc, f.get(), widen(tag.text), size, t.tagTextColor);
-}
-
-void paintSegmented(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Segmented& segmented, Vec2 size)
-{
-    const Tokens& t = tokens();
-    if (segmented.options.empty()) return;
-    float r = size.y / 2;
-    // The track in the window's own colour, sunk into its group (decision 090).
-    dc->FillRoundedRectangle(D2D1_ROUNDED_RECT{ D2D1::RectF(0, 0, size.x, size.y), r, r }, brushOf(dc, t.islandColor).get());
-    float share = size.x / static_cast<float>(segmented.options.size()), inset = t.segmentedInset;
-    auto f = format(dw, textFamily(dw, t.bodyFontSize), t.bodyFontSize, t.bodyFontWeight, DWRITE_TEXT_ALIGNMENT_CENTER);
-    for (std::size_t i = 0; i < segmented.options.size(); ++i) {
-        D2D1_RECT_F cell = D2D1::RectF(share * static_cast<float>(i), 0, share * static_cast<float>(i + 1), size.y);
-        bool picked = i == segmented.picked;
-        if (picked) { // filled like a switch's knob, its label in the track's colour
-            float ri = r - inset;
-            dc->FillRoundedRectangle(D2D1_ROUNDED_RECT{ D2D1::RectF(cell.left + inset, inset, cell.right - inset, size.y - inset), ri, ri },
-                                     brushOf(dc, t.knobColor).get());
-        }
-        Color color = !segmented.enabled ? t.buttonDisabledColor : picked ? t.islandColor : t.bodyTextColor;
-        drawString(dc, f.get(), widen(segmented.options[i]), cell, color);
-    }
 }
 
 void paintPicture(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float side)

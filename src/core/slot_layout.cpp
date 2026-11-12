@@ -58,6 +58,7 @@ Rect clipped(Rect r, Rect clip)
 // Rounded content (art, button hover shapes, text fields) only.
 float radiusFor(const Item& item, Rect frame, float nestedRadius)
 {
+    if (std::holds_alternative<Segments>(item)) return frame.height / 2; // a pill: its focus ring too (decision 093)
     if (!std::holds_alternative<Image>(item) && !std::holds_alternative<Button>(item) && !std::holds_alternative<TextInput>(item)) return 0;
     if (auto* b = std::get_if<Button>(&item); b && (b->primary || b->round || (b->secondary && b->label.empty())))
         return std::min(frame.width, frame.height) / 2; // circles: their hover and press follow the circle (decisions 066, 067)
@@ -65,8 +66,21 @@ float radiusFor(const Item& item, Rect frame, float nestedRadius)
 }
 
 
-// A list item's extra height: room above and below its content (Row::listItem).
-float listPadding(const Row& row) { return row.listItem ? 2 * tokens().listItemPadding : 0; }
+// A list item's extra height: room above and below its content (Row::listItem),
+// more in a group (Row::grouped, decision 090).
+float listPadding(const Row& row)
+{
+    return row.grouped ? 2 * tokens().groupItemPadding : row.listItem ? 2 * tokens().listItemPadding : 0;
+}
+
+// Whether row r's group goes on into the next row (decision 090): both
+// grouped, in the same list (or none), and the next not set apart.
+bool groupGoesOn(const Slot& rows, std::size_t r)
+{
+    if (r + 1 >= rows.size()) return false;
+    const Row &a = rows[r], &b = rows[r + 1];
+    return a.grouped && b.grouped && a.list == b.list && !b.section && !b.apart;
+}
 
 // Room above a group's first row (Row::section, decision 037). A list's
 // row set apart has it above the list's window instead (planRows), so it
@@ -94,6 +108,9 @@ RowSizes rowSizes(const Slot& rows, Rect frame, const MeasureText& measure)
         float h = 0;
         for (const auto* items : { &r.items, &r.leading, &r.trailing })
             for (const Item& item : *items) h = std::max(h, heightOf(item, frame, ringSide, measure));
+        // A group's rows are one height whatever they end in: a switch or no control
+        // is shorter than a compact button, and its row looked squashed (decision 090).
+        if (r.grouped) h = std::max(h, tokens().smallButtonSize);
         sizes.ringSides.push_back(ringSide);
         sizes.heights.push_back(h + listPadding(r) + sectionGap(r));
     }
@@ -138,6 +155,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
     // `spans`: the first pass's spans, for rows that match a neighbour's width.
     auto placeRows = [&](std::vector<Placed>& target, const std::vector<Rect>* spans) {
         std::vector<Rect> contentSpans;
+        std::vector<Placed> fills; // groups' backgrounds: after every row, out of their spans and click areas
         for (size_t r = 0; r < rows.size(); ++r) {
             const Row& row = rows[r];
             float y = contentTop + plan.rows[r].y;
@@ -153,7 +171,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 area = { area.x + (area.width - w) / 2, area.y, w, area.height };
             }
             Rect background = area; // a list item's hover background spans the row; its content sits inside
-            if (row.listItem || row.inset) {
+            if (row.listItem || row.inset || row.grouped) {
                 // What's at an edge sits listItemTextInset in, clear of the background's
                 // rounded end (decision 030), and in line with the headings and names of
                 // the rows around it: text, a theme's swatch. A button there (a to-do's
@@ -209,16 +227,18 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 }
                 // In a list item, rounded content nests in the row's background, not the
                 // card's corner: its radius is the row's less the inset (decision 006).
-                float rowRadius = std::min(nestedRadius, rowHeight / 2);
+                float rowRadius = std::min(row.grouped ? t.groupRadius : nestedRadius, rowHeight / 2);
                 placed.cornerRadius = radiusFor(placed.item, placed.frame, row.listItem ? std::max(0.0f, rowRadius - t.listItemInset) : nestedRadius);
                 placed.accent = source.content ? source.content->accent : std::nullopt;
                 placed.list = list;
                 if (row.listItem) {
-                    placed.listRow = Rect{ background.x, y, background.width, rowHeight };
+                    float above = row.grouped ? sectionGap(row) : 0; // a group's lit row is its piece of the background
+                    placed.listRow = Rect{ background.x, y + above, background.width, rowHeight - above };
                     placed.listRowRadius = rowRadius;
                 }
                 placed.providerId = source.providerId;
                 placed.activityId = source.activityId;
+                placed.raised = slot.raised && std::holds_alternative<Image>(item);
                 if (auto* label = std::get_if<TimeLabel>(&item)) placed.ticking = label->timeline;
                 if (auto* dial = std::get_if<Dial>(&item)) placed.ticking = dial->timeline; // its time changes too
                 target.push_back(std::move(placed));
@@ -231,7 +251,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 if (auto* text = std::get_if<Text>(&item); text && !text->wrap) {
                     Text sized = *text; // Text::sizedAs: as wide as its sample, so a changing value keeps its column
                     if (!text->sizedAs.empty()) sized.value = text->sizedAs;
-                    return (measure ? measure(sized) : estimateTextWidth(sized)) + 1;
+                    return textWidth(sized, measure) + 1;
                 }
                 return std::nullopt;
             };
@@ -290,7 +310,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                     std::vector<bool> yields;
                     for (const Item& item : row.items)
                         if (auto* text = std::get_if<Text>(&item); text && !widthOf(item)) {
-                            textWidths.push_back((measure ? measure(*text) : estimateTextWidth(*text)) + 1); // +1: rounding never trips the "…"
+                            textWidths.push_back(textWidth(*text, measure) + 1); // +1: rounding never trips the "…"
                             natural += textWidths.back();
                             yields.push_back(text->yields);
                             if (text->yields) yielding += textWidths.back();
@@ -335,6 +355,26 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
             };
             placeEdge(row.trailing, row.items.size(), area.x + area.width - trailingWidth + gap);
             placeEdge(row.leading, row.items.size() + row.trailing.size(), area.x);
+            // Its piece of its group's background (decision 090): from under its
+            // gap down to the next row's top (the row spacing too), so the pieces
+            // meet with no seam. Behind its content (the renderer puts it at the
+            // bottom), never clicked. Its height from the row's own, never from two
+            // scrolled tops: their difference moved by a float's rounding as the
+            // list scrolled, which rebuilt the piece, and it flickered (decision 071).
+            if (row.grouped) {
+                bool joinsAbove = r > 0 && groupGoesOn(rows, r - 1), joinsBelow = groupGoesOn(rows, r);
+                float above = sectionGap(row);
+                float height = rowHeight - above + (joinsBelow ? t.rowSpacing : 0);
+                Placed fill;
+                fill.key = slot.name + "/" + rowName + "/group";
+                fill.item = GroupFill{ .roundTop = !joinsAbove, .roundBottom = !joinsBelow };
+                fill.frame = { background.x, y + above, background.width, std::max(0.0f, height) };
+                fill.cornerRadius = std::min(t.groupRadius, fill.frame.width / 2);
+                fill.list = list;
+                fill.providerId = source.providerId;
+                fill.activityId = source.activityId;
+                fills.push_back(std::move(fill));
+            }
             Rect content{};
             if (target.size() > first) {
                 float left = target[first].frame.x, right = left;
@@ -395,6 +435,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                     }
                 }
         }
+        for (Placed& fill : fills) target.push_back(std::move(fill));
         return contentSpans;
     };
 

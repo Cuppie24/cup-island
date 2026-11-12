@@ -14,7 +14,7 @@ OpenWindow* find(Windows& w, const WindowKey& key)
     return nullptr;
 }
 
-// Decision 090: a provider shows a window only right after the user acted
+// Decision 104: a provider shows a window only right after the user acted
 // on it, so no window (and no focus) is taken by surprise, from a built-in
 // or a plugin alike (PS §9: providers can't take keyboard focus).
 bool mayOpen(const Windows& w, const std::string& providerId, Ms now)

@@ -1,5 +1,6 @@
 #include "providers/system/settings_window.h"
 
+#include "core/groups.h"
 #include "core/shortcuts.h"
 #include "core/tokens.h"
 
@@ -10,58 +11,59 @@ namespace {
 
 namespace P = settings_action;
 
-// A setting with choices (decision 030): its name, what it's set to under
-// it, and a chevron: a click anywhere on the row opens its choices.
+// A setting with choices (decision 030): its name, what it's set to under it
+// (decision 090), and a chevron: the whole row opens its choices.
 Row settingRow(const char* name, const std::string& value, const char* openAction)
 {
-    return Row{ .items = { Text{ .value = name, .detail = value }, Button{ .glyph = Glyph::ChevronRight, .actionId = openAction, .compact = true } },
-                .clickAnywhere = true };
-}
-
-// A row that does one thing when clicked: its name, and a glyph for what it does.
-Row actionRow(const std::string& name, Glyph glyph, const char* action, const std::string& detail = "")
-{
-    return Row{ .items = { Text{ .value = name, .detail = detail }, Button{ .glyph = glyph, .actionId = action, .compact = true } },
-                .clickAnywhere = true };
-}
-
-// An on/off setting: its name and a switch (decision 053); a click anywhere on the row flips it.
-Row toggleRow(const char* name, bool on, const char* actionId, const std::string& detail = "")
-{
-    return Row{ .items = { Text{ .value = name, .detail = detail }, Switch{ .on = on, .actionId = actionId } }, .clickAnywhere = true };
+    return groupItem(itemText(name, value), { Button{ .glyph = Glyph::ChevronRight, .actionId = openAction, .compact = true } });
 }
 
 // One choice: its name, and a tick on the one picked. The whole row picks it.
 // A theme's starts with a swatch of it: its island, and its accent in the middle.
 Row choiceRow(const std::string& name, bool picked, std::string action, const Theme* theme = nullptr)
 {
-    Row r{ .items = { Text{ name }, Button{ .glyph = picked ? Glyph::Checked : Glyph::Unchecked, .actionId = std::move(action), .compact = true } },
-           .clickAnywhere = true };
+    Row r = groupItem(itemText(name), { Button{ .glyph = picked ? Glyph::Checked : Glyph::Unchecked, .actionId = std::move(action), .compact = true } });
     if (theme) r.items.insert(r.items.begin(), Swatch{ .fill = theme->island, .mark = theme->accent });
     return r;
 }
 
-// "Check for updates" (decision 036): the whole row checks; under it, what
-// the last check found, and until then the running version.
-Row updateRow(const UpdateNote& note, const std::string& running)
+// The one updates row (decisions 036, 091). Nothing offered: "Check for
+// updates", and under it what the last check found, until then the running
+// version. An update offered (by any check): "Update and restart", the
+// running and offered versions under it: the same install as Home's Update card.
+Row updateRow(const UpdateNote& note, const std::string& running, const std::optional<UpdateStatus>& offer)
 {
-    std::string said = note.checking ? "Checking…" : !note.found ? running : *note.found == CheckOutcome::UpToDate ? "Up to date"
+    if (offer) {
+        bool installing = offer->stage == UpdateStage::Installing;
+        std::string versions = running.empty() ? offer->version : running + " → " + offer->version;
+        std::string said = installing ? "Installing…" : offer->stage == UpdateStage::Failed ? offer->problem : versions;
+        return groupItem(itemText(offer->stage == UpdateStage::Failed ? "Try the update again" : "Update and restart", said),
+                         { Button{ .glyph = Glyph::Download, .actionId = P::kInstallUpdate, .enabled = !installing, .compact = true } });
+    }
+    std::string said = note.checking ? "Checking…" : !note.found ? (running.empty() ? "" : "Version " + running) : *note.found == CheckOutcome::UpToDate ? "Up to date"
                      : *note.found == CheckOutcome::Available ? note.version + " available"
                      : *note.found == CheckOutcome::Failed    ? "Couldn't check"
                                                               : "Not in dev builds";
-    return Row{ .items = { Text{ .value = "Check for updates", .detail = said },
-                           Button{ .glyph = Glyph::Download, .actionId = P::kCheckUpdates, .enabled = !note.checking, .compact = true } },
-                .clickAnywhere = true };
+    return groupItem(itemText("Check for updates", said),
+                     { Button{ .glyph = Glyph::Refresh, .actionId = P::kCheckUpdates, .enabled = !note.checking, .compact = true } });
 }
 
-// "Update and restart" (decision 037), while an update is offered.
-Row installRow(const UpdateStatus& offer)
+// A row that does one thing when clicked: its name, and a glyph for what it does.
+Row actionRow(const std::string& name, Glyph glyph, const char* action, std::string description = "")
 {
-    bool installing = offer.stage == UpdateStage::Installing;
-    std::string said = installing ? "Installing…" : offer.stage == UpdateStage::Failed ? offer.problem : offer.version;
-    return Row{ .items = { Text{ .value = offer.stage == UpdateStage::Failed ? "Try the update again" : "Update and restart", .detail = said },
-                           Button{ .glyph = Glyph::Download, .actionId = P::kInstallUpdate, .enabled = !installing, .compact = true } },
-                .clickAnywhere = true };
+    return groupItem(itemText(name, std::move(description)), { Button{ .glyph = glyph, .actionId = action, .compact = true } });
+}
+
+// An on/off setting: its name and a switch (decision 053); a click anywhere on the row flips it.
+Row toggleRow(const char* name, bool on, const char* actionId, std::string description = "")
+{
+    return groupItem(itemText(name, std::move(description)), { Switch{ .on = on, .actionId = actionId } });
+}
+
+// A few options picked in place (decision 093).
+Row segmentsRow(const char* name, const char* description, std::vector<std::string> options, std::size_t picked, const char* action)
+{
+    return groupItem(itemText(name, description), { Segments{ .options = std::move(options), .picked = picked, .actionId = action } });
 }
 
 // Marks an announced setting's row (decision 048): its id, a "New" tag after
@@ -88,6 +90,7 @@ Row marked(Row r, const std::string& id, const SettingsView& v)
 }
 
 const char* fadeName(FadeSpeed speed) { return speed == FadeSpeed::Fast ? "Fast" : speed == FadeSpeed::Slow ? "Slow" : "Medium"; }
+const char* transparencyName(Transparency level) { return level == Transparency::Low ? "Low" : level == Transparency::High ? "High" : "Medium"; }
 
 // --- The sidebar's pages ------------------------------------------------------
 
@@ -96,13 +99,13 @@ WindowPage appearancePage(const SettingsView& v)
     WindowPage page{ .id = kAppearancePage, .title = "Appearance", .subtitle = "How the island looks and where it sits.", .glyph = Glyph::Palette };
     std::vector<Row> look;
     if (!tokens().themes.empty()) look.push_back(marked(settingRow("Theme", v.theme, P::kOpenThemes), "theme", v));
+    if (v.glass) look.push_back(marked(settingRow("Glass", *v.glass ? "On" : "Off", P::kOpenGlass), "glass", v)); // decisions 089, 096
     if (v.coverColours) look.push_back(marked(settingRow("Music colours", *v.coverColours ? "On" : "Off", P::kOpenMusicColours), "musiccolours", v));
     if (!v.displays.empty()) look.push_back(marked(settingRow("Display", v.displays[v.display], P::kOpenDisplays), "display", v));
     if (!look.empty()) page.sections.push_back({ .rows = std::move(look) });
-    // Where the tab row goes (decision 048): two choices side by side, picked at once.
-    Row tabs{ .items = { Text{ .value = "Tab row", .detail = "Home and pin buttons" },
-                         Segmented{ .options = { "Top", "Bottom" }, .picked = v.tabsOnTop ? 0u : 1u, .actionId = P::kSetTabRow } } };
-    page.sections.push_back({ .rows = { marked(tabs, "tabrow", v), marked(actionRow("Centre island", Glyph::Centre, P::kCentreIsland), "centre", v) } });
+    // Picked in place (decision 093): two options don't need a page.
+    page.sections.push_back({ .rows = { marked(segmentsRow("Tab row", "Home and pin buttons", { "Top", "Bottom" }, v.tabsOnTop ? 0u : 1u, P::kPickTabRow), "tabrow", v),
+                                        marked(actionRow("Centre island", Glyph::Centre, P::kCentreIsland), "centre", v) } });
     return page;
 }
 
@@ -121,13 +124,9 @@ WindowPage generalPage(const SettingsView& v)
 WindowPage updatesPage(const SettingsView& v)
 {
     WindowPage page{ .id = kUpdatesPage, .title = "Updates", .subtitle = "Which version this is, and newer ones.", .glyph = Glyph::Download };
-    std::vector<Row> rows;
-    if (v.update) rows.push_back(marked(updateRow(*v.update, v.version), "updates", v));
-    if (v.update && v.offer) rows.push_back(installRow(*v.offer));
-    // Which build this is: what a bug report needs (decision 036). With a
-    // Check for updates row, that row says it.
-    if (!v.update && !v.version.empty()) rows.push_back(row({ Text{ .value = "Version", .detail = "Cup Island " + v.version } }));
-    if (!rows.empty()) page.sections.push_back({ .rows = std::move(rows) });
+    // With no way to check, which build this is still shows: what a bug report needs (decision 036).
+    if (v.update) page.sections.push_back({ .rows = { marked(updateRow(*v.update, v.version, v.offer), "updates", v) } });
+    else if (!v.version.empty()) page.sections.push_back({ .rows = { groupItem(itemText("Version", "Cup Island " + v.version)) } });
     return page;
 }
 
@@ -152,19 +151,34 @@ void themesPage(WindowPage& page, const SettingsView& v)
     }
 }
 
-// The island in the music's colours (decisions 052, 053): on or off, and how fast colours fade.
+// The island in the music's colours (decisions 052, 053): on or off, and how
+// fast colours fade from one cover (or theme) to the next, picked in place.
 void musicColoursPage(WindowPage& page, const SettingsView& v)
 {
-    if (v.coverColours)
-        page.sections.push_back({ .rows = { marked(toggleRow("Colours from music", *v.coverColours, P::kToggleCoverColours,
-                                                             "The island in the playing cover's colours"), "covercolours", v) } });
-    if (!v.fadeSpeed) return;
-    WindowSection fade{ .title = "Colour fade" };
-    int i = 0;
-    for (FadeSpeed speed : { FadeSpeed::Fast, FadeSpeed::Medium, FadeSpeed::Slow })
-        fade.rows.push_back(choiceRow(fadeName(speed), speed == *v.fadeSpeed, P::kPickFade + std::to_string(i++)));
-    if (v.unseen.count("fade")) fade.title += " · New";
-    page.sections.push_back(std::move(fade));
+    WindowSection rows;
+    if (v.coverColours) rows.rows.push_back(marked(toggleRow("Colours from music", *v.coverColours, P::kToggleCoverColours), "covercolours", v));
+    if (v.fadeSpeed) {
+        std::size_t picked = *v.fadeSpeed == FadeSpeed::Fast ? 0 : *v.fadeSpeed == FadeSpeed::Slow ? 2 : 1;
+        rows.rows.push_back(marked(segmentsRow("Colour fade", "From one cover to the next",
+                                               { fadeName(FadeSpeed::Fast), fadeName(FadeSpeed::Medium), fadeName(FadeSpeed::Slow) }, picked, P::kPickFade),
+                                   "fade", v));
+    }
+    page.sections.push_back(std::move(rows));
+}
+
+// The island as glass (decisions 089, 096): on or off, and how see-through.
+void glassPage(WindowPage& page, const SettingsView& v)
+{
+    WindowSection rows;
+    if (v.glass) rows.rows.push_back(toggleRow("Glass effect", *v.glass, P::kToggleGlass));
+    if (v.transparency) {
+        std::size_t picked = *v.transparency == Transparency::Low ? 0 : *v.transparency == Transparency::High ? 2 : 1;
+        rows.rows.push_back(marked(segmentsRow("Transparency", "How much shows through",
+                                               { transparencyName(Transparency::Low), transparencyName(Transparency::Medium), transparencyName(Transparency::High) },
+                                               picked, P::kPickTransparency),
+                                   "transparency", v));
+    }
+    page.sections.push_back(std::move(rows));
 }
 
 void displaysPage(WindowPage& page, const SettingsView& v)
@@ -175,21 +189,30 @@ void displaysPage(WindowPage& page, const SettingsView& v)
 }
 
 // The shortcuts (decision 032): the system-wide ones, each a row that takes
-// new keys when clicked, then the fixed keys on the island.
+// new keys when clicked and goes back to its default (decision 103), then the
+// fixed keys on the island. Keys as key caps (decision 092).
 void shortcutsPage(WindowPage& page, const SettingsView& v)
 {
-    WindowSection anywhere{ .title = "Anywhere" };
+    auto keyRow = [](const std::string& does, Item keys, std::vector<Item> end) {
+        end.insert(end.begin(), std::move(keys));
+        return groupItem(itemText(does), std::move(end));
+    };
+    WindowSection anywhere{ .title = "Anywhere" }, island{ .title = "On the island" };
     const auto& all = commands();
+    bool anyChanged = false;
     for (std::size_t i = 0; i < all.size(); ++i) {
-        bool waiting = v.recording == all[i].command;
-        std::string keys = waiting ? "Press keys…" : chordText(chordOf(v.shortcuts, all[i].command));
-        anywhere.rows.push_back(Row{ .items = { Text{ .value = all[i].does, .detail = keys },
-                                                Button{ .glyph = Glyph::Edit, .actionId = P::kEditShortcut + std::to_string(i), .compact = true } },
-                                     .clickAnywhere = true });
+        Item keys = v.recording == all[i].command ? Item{ Text{ .value = "Press keys…", .style = TextStyle::Caption, .alignEnd = true } }
+                                                  : Item{ Keys{ chordText(chordOf(v.shortcuts, all[i].command)) } };
+        bool changed = chordOf(v.shortcuts, all[i].command) != all[i].standard; // dimmed while the keys are the default
+        anyChanged = anyChanged || changed;
+        anywhere.rows.push_back(keyRow(all[i].does, std::move(keys),
+                                       { Button{ .glyph = Glyph::Reset, .actionId = P::kResetShortcut + std::to_string(i), .enabled = changed, .compact = true },
+                                         Button{ .glyph = Glyph::Edit, .actionId = P::kEditShortcut + std::to_string(i), .compact = true } }));
     }
+    anywhere.rows.push_back(groupItem(itemText("Reset all to defaults"),
+                                      { Button{ .glyph = Glyph::Reset, .actionId = P::kResetShortcuts, .enabled = anyChanged, .compact = true } }));
+    for (const FixedKey& k : fixedKeys()) island.rows.push_back(keyRow(k.does, Keys{ k.keys }, {})); // nothing to click, nothing lit
     page.sections.push_back(std::move(anywhere));
-    WindowSection island{ .title = "On the island" };
-    for (const FixedKey& k : fixedKeys()) island.rows.push_back(row({ Text{ .value = k.does, .detail = k.keys } }));
     page.sections.push_back(std::move(island));
 }
 
@@ -202,6 +225,8 @@ std::vector<SettingItem> announcedSettings()
         { "covercolours", "musiccolours" }, // decision 052; on Music colours' page since 053
         { "musiccolours", "" },            // decision 053
         { "fade", "musiccolours" },        // decision 053
+        { "glass", "" },                   // decision 089
+        { "transparency", "glass" },       // decision 096
     };
 }
 
@@ -215,14 +240,11 @@ std::string pageOfSetting(const std::string& id)
 std::vector<std::string> shownSettings(const WindowContent& window, const std::string& page, const std::vector<SettingItem>& announced)
 {
     std::vector<std::string> shown;
-    for (const WindowPage& p : window.pages) {
-        if (p.id != page) continue;
-        for (const WindowSection& section : p.sections) {
-            for (const Row& r : section.rows)
-                if (std::any_of(announced.begin(), announced.end(), [&](const SettingItem& s) { return s.id == r.id; })) shown.push_back(r.id);
-            if (section.title.rfind("Colour fade", 0) == 0) shown.push_back("fade"); // a heading, not a row
-        }
-    }
+    for (const WindowPage& p : window.pages)
+        if (p.id == page)
+            for (const WindowSection& section : p.sections)
+                for (const Row& r : section.rows)
+                    if (std::any_of(announced.begin(), announced.end(), [&](const SettingItem& s) { return s.id == r.id; })) shown.push_back(r.id);
     return shown;
 }
 
@@ -243,7 +265,7 @@ std::vector<ThemeListRow> themeListRows()
 }
 
 // The widget: a gear, like Windows' own Settings. A tap opens the window;
-// it has no card of its own (decision 090).
+// it has no card of its own (decision 104).
 Panel settingsPanel(const SettingsView& view)
 {
     Content content{
@@ -266,6 +288,7 @@ WindowContent settingsWindow(const SettingsView& v)
     switch (v.page) {
     case SettingsPage::Themes: appearance = within(appearance, "Theme", "The island's colours. Dark ones, then light ones."), themesPage(appearance, v); break;
     case SettingsPage::MusicColours: appearance = within(appearance, "Music colours", ""), musicColoursPage(appearance, v); break;
+    case SettingsPage::Glass: appearance = within(appearance, "Glass", ""), glassPage(appearance, v); break;
     case SettingsPage::Displays: appearance = within(appearance, "Display", "The monitor the island is on."), displaysPage(appearance, v); break;
     case SettingsPage::Shortcuts: general = within(general, "Keyboard shortcuts", v.shortcutNote), shortcutsPage(general, v); break;
     case SettingsPage::List: break;

@@ -1,8 +1,9 @@
 #pragma once
-// A provider's window laid out (decision 090): its title bar, a sidebar of
-// pages, and the shown page's title and groups of rows, in the island's own
-// Placed items so the same painters draw them. Pure, like layout(): the
-// platform draws a WindowScene and asks windowHitTest what a click means.
+// A provider's window laid out (decision 104): its title bar, a sidebar of
+// pages, and the shown page's title and groups of rows (core/groups.h,
+// decision 090), in the island's own Placed items so the same painters draw
+// them. Pure, like layout(): the platform draws a WindowScene and asks
+// windowHitTest what a click means.
 
 #include "core/hit_test.h"
 #include "core/layout.h"
@@ -33,9 +34,6 @@ struct WindowScene {
     float navRadius = 0;
     Rect pane;                       // where the page shows: clipped to it, scrolled in it (window coordinates)
     std::vector<Placed> page;        // the page's items, page coordinates: the pane's top-left unscrolled
-    std::vector<Rect> groups;        // each section's panel, page coordinates
-    std::vector<Rect> dividers;      // a line between rows in a panel, page coordinates
-    float groupRadius = 0;
     float scroll = 0;                // how far the page is scrolled, clamped
     float maxScroll = 0;
     std::vector<Placed> footer;      // WindowContent::footer, under the page (window coordinates)

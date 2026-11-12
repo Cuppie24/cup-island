@@ -98,14 +98,18 @@ void showHover(Shown& s)
 {
     std::string key;
     std::optional<std::size_t> nav;
+    std::optional<Rect> row;
+    float radius = 0;
     if (s.pointer) {
         WindowHit hit = windowHitTest(s.scene, *s.pointer);
         if (hit.hit) key = hit.hit->key;
         if (hit.part == WindowPart::Page)
             for (std::size_t i = 0; i < s.scene.nav.size(); ++i)
                 if (s.scene.nav[i].page == hit.page) nav = i;
+        for (const Placed& p : s.scene.page) // a clickable row lights as a whole, as on the island (decision 090)
+            if (p.key == key && p.listRow) row = p.listRow, radius = p.listRowRadius;
     }
-    s.window->setHovered(key, nav);
+    s.window->setHovered(key, nav, row, radius);
 }
 
 Shown* find(const WindowKey& key)
@@ -127,7 +131,7 @@ void act(const Shown& s, const WindowHit& hit)
     }
 }
 
-// Keys in a window (decision 090): Esc steps back from a page within a page,
+// Keys in a window (decision 104): Esc steps back from a page within a page,
 // else closes it, as Ctrl+W does; Ctrl+Tab goes through its pages; Page Up,
 // Page Down, Home and End scroll it.
 void key(const WindowKey& id, WPARAM vk)
@@ -193,7 +197,7 @@ platform::ProviderWindowCallbacks callbacksFor(const WindowKey& id)
     c.onWheel = [id](Vec2, float notches) {
         Shown* s = find(id);
         if (!s) return;
-        s->scroll -= notches * 3 * tokens().windowRowHeight / 2;
+        s->scroll -= notches * 3 * tokens().smallButtonSize; // three small rows a notch
         relayout(*s);
         showHover(*s);
     };

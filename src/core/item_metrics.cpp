@@ -1,5 +1,7 @@
 #include "core/item_metrics.h"
 
+#include "core/keycaps.h"
+#include "core/segments.h"
 #include "core/slot_layout.h"
 #include "core/tokens.h"
 
@@ -31,24 +33,26 @@ std::string widestDigits(std::string s, TextStyle style, const MeasureText& meas
 
 float lineHeight(TextStyle style) { return std::ceil(fontSize(style) * 1.3f); }
 
-float segmentWidth(const Segmented& segmented, const MeasureText& measure)
-{
-    float widest = 0;
-    for (const std::string& option : segmented.options) {
-        Text label{ option, TextStyle::Body };
-        widest = std::max(widest, measure ? measure(label) : estimateTextWidth(label));
-    }
-    return std::ceil(widest + 2 * tokens().segmentedPadding);
-}
-
-std::optional<std::size_t> segmentAt(const Segmented& segmented, Rect frame, float x)
-{
-    if (segmented.options.empty() || frame.width <= 0 || x < frame.x || x >= frame.x + frame.width) return std::nullopt;
-    auto n = segmented.options.size();
-    return std::min(n - 1, static_cast<std::size_t>((x - frame.x) / (frame.width / static_cast<float>(n))));
-}
 
 TextStyle detailStyleOf(TextStyle style) { return style == TextStyle::Result ? TextStyle::ResultDetail : TextStyle::Caption; }
+
+float textWidth(const Text& text, const MeasureText& measure)
+{
+    auto widthOf = [&](const Text& t) { return measure ? measure(t) : estimateTextWidth(t); };
+    float w = widthOf(text);
+    if (!text.detail.empty()) w = std::max(w, widthOf(Text{ .value = text.detail, .style = detailStyleOf(text.style) }));
+    return w;
+}
+
+float primarySize(const Button& button)
+{
+    return button.compact ? tokens().compactPrimaryButtonSize : tokens().primaryButtonSize;
+}
+
+float primaryGlyphOf(const Button& button)
+{
+    return button.compact ? tokens().compactPrimaryGlyphSize : tokens().primaryGlyphSize;
+}
 
 bool isRing(const Item& item)
 {
@@ -80,11 +84,12 @@ float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& m
     if (std::holds_alternative<Steps>(item)) return t.stepDotSize;
     if (std::holds_alternative<Swatch>(item)) return t.swatchSize;
     if (std::holds_alternative<Switch>(item)) return t.switchSize.y;
-    if (std::holds_alternative<Segmented>(item)) return t.segmentedHeight;
     if (std::holds_alternative<Tag>(item)) return t.tagHeight;
-    if (auto* button = std::get_if<Button>(&item)) return button->primary ? t.primaryButtonSize : button->compact ? t.smallButtonSize : t.buttonSize;
+    if (auto* button = std::get_if<Button>(&item)) return button->primary ? primarySize(*button) : button->compact ? t.smallButtonSize : t.buttonSize;
     if (auto* input = std::get_if<TextInput>(&item)) return input->large ? t.searchInputHeight : t.inputHeight;
     if (std::holds_alternative<Divider>(item)) return t.dividerThickness;
+    if (std::holds_alternative<Keys>(item)) return t.keyCapHeight;
+    if (std::holds_alternative<Segments>(item)) return t.segmentHeight;
     // Seekable bars get a taller row to be easy to click; a bar nobody clicks is just its line.
     if (auto* bar = std::get_if<Progress>(&item)) return bar->seekable ? t.progressHitHeight : t.progressHeight;
     if (auto* label = std::get_if<TimeLabel>(&item)) return lineHeight(label->style);
@@ -105,13 +110,14 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
     }
     if (std::holds_alternative<Swatch>(item)) return t.swatchSize;
     if (std::holds_alternative<Switch>(item)) return t.switchSize.x;
-    if (auto* seg = std::get_if<Segmented>(&item)) return segmentWidth(*seg, measure) * static_cast<float>(seg->options.size());
+    if (auto* keys = std::get_if<Keys>(&item)) return keysWidth(*keys, measure);
+    if (auto* segments = std::get_if<Segments>(&item)) return segmentsWidth(*segments, measure);
     if (auto* tag = std::get_if<Tag>(&item)) {
         Text text{ tag->text, TextStyle::Caption };
         return (measure ? measure(text) : estimateTextWidth(text)) + 2 * t.tagPadding;
     }
     if (auto* button = std::get_if<Button>(&item)) {
-        if (button->primary) return t.primaryButtonSize;
+        if (button->primary) return primarySize(*button);
         if (button->round) return t.buttonSize;
         if (button->label.empty()) return button->compact ? t.smallButtonSize : t.buttonSize;
         Text text{ button->label, button->quiet ? TextStyle::Caption : TextStyle::Body };

@@ -36,7 +36,6 @@ void MediaPresenter::end()
 {
     if (last_) host_.endActivity(kActivityId);
     last_.reset();
-    pausedSince_.reset();
     if (std::exchange(goneSince_, std::nullopt)) host_.wakeAt(std::nullopt);
 }
 
@@ -59,20 +58,14 @@ void MediaPresenter::show(const std::optional<MediaSnapshot>& snapshot)
         next.media.timeline = last_->media.timeline;
     if (last_ && *last_ == next) return; // nothing new
 
-    // Paused media lingers, then ends by itself (core expiry). The clock starts
-    // at the first paused snapshot; later ones (seeks, art) don't extend it.
-    if (next.media.timeline.playing) pausedSince_.reset();
-    else if (!pausedSince_) pausedSince_ = now;
-
     // Alert only for a new track in the same app: not on startup, not when
     // an app appears, not when switching apps with the source button.
     bool newTrack = last_ && last_->sessionKey == next.sessionKey && !sameTrack(last_->media, next.media) &&
                     !next.media.title.empty();
 
     Content content = nowPlayingContent(next.media);
-    Activity activity{ .id = kActivityId, .relevance = 0.6f, .content = content };
-    if (pausedSince_) activity.expiresAt = *pausedSince_ + tokens().mediaPausedLinger;
-    host_.startActivity(activity);
+    // No expiry, paused or not: it stays as long as Windows has the session (decision 099).
+    host_.startActivity({ .id = kActivityId, .relevance = 0.6f, .content = content });
     if (newTrack) host_.postAlert({ .activityId = kActivityId, .content = content, .coalesceKey = "track" });
     // The track shows before its cover is read (decision 056): its alert, if
     // still up or queued, gets the cover too.

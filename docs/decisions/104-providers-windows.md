@@ -1,4 +1,4 @@
-# 090: Providers get windows of their own, drawn by the host
+# 104: Providers get windows of their own, drawn by the host
 
 Status: Accepted. Built: the core, the Host API, the registry, the layout
 (`core/window_layout.h`), the Windows window (`platform/provider_window`,
@@ -86,18 +86,15 @@ per page (its glyph and name), the shown one lit (`tabSelectedColor`), a
 dot on one with something new. The page beside it: its title
 (`TextStyle::PageTitle`), a back arrow before it on a page within a page
 (`WindowPage::backAction`, which Esc sends too), a line under it
-(`subtitle`), then each section as a panel of rows (`tileColor`,
-`windowGroupRadius`) with a line between them, a row at least
-`windowRowHeight` tall, no wider than `windowPageMaxWidth`. The page scrolls
-as a whole; Row::list's own scrolling isn't used in a window. A click is
+(`subtitle`), then each section as a group of rows (`addGroup`, decision
+090: its label, its rows on one background), all one slot laid out as a
+card's, no wider than `windowPageMaxWidth`. The page scrolls as a whole;
+Row::list's own scrolling isn't used in a window. A click is
 `windowHitTest`'s: the title bar's empty part drags, a sidebar entry picks
 its page, an item acts with `Action::windowId` set.
 - Colours follow the theme, light ones too: the sidebar is `islandColor`,
-  the page over it `windowPaneColor` (a faint white), groups `tileColor`,
-  lines `hoverColor`. Nothing in a window is a colour of its own.
-- **`Segmented`** (content.h): a few choices side by side in a pill, the
-  picked one filled (`knobColor` on `islandColor`). Equal segments; a click
-  sends `Action{actionId, value = index}`. An Item, so cards can use it too.
+  the page over it `windowPaneColor` (a faint white), groups `tileColor`
+  as on a card, a lit row `hoverColor`. Nothing else is a window's own.
 
 **On Windows.** An ordinary top-level window (`WS_OVERLAPPEDWINDOW`):
 taskbar, Alt-Tab, snapping, maximize; topmost only with `keepOnTop`. Its
@@ -105,8 +102,9 @@ whole area is ours (`WM_NCCALCSIZE`), with a sliver of DWM frame kept so
 Windows' shadow stays; `WM_NCHITTEST` gives the resize edges and, where
 core says so, the caption. No redirection bitmap: Composition draws all of
 it, on the island's Compositor (`createWindowTarget`), the items by the
-island's own `ElementVisuals` and painters, panels and lines as shapes
-under them, the page in a clipped container that scrolls by its offset.
+island's own `ElementVisuals` and painters (groups' backgrounds too:
+`GroupFill`), the page in a clipped container that scrolls by its offset;
+the sidebar's highlights and the lit row are a few shapes of its own.
 A resize lays it out again inside `WM_SIZE`, so the drawing keeps up with
 the frame. Rows stretch with the window only below `windowPageMaxWidth`;
 there, each width change rebuilds a row's text (decision 083's caveat):
@@ -119,11 +117,13 @@ scroll. Moving focus with the arrows in a window is not built yet.
 
 **Settings moved into a window** (decisions 022, 030, 048). The widget on
 Home has no card: its tap (`Panel::tapAction`) opens the window, or brings
-it forward. Pages: Appearance (Theme, Music colours, Display; Tab row as a
-`Segmented`, Centre island), General (Start with Windows, Keyboard
-shortcuts, Copy logs), Updates (Check for updates, Update and restart, the
-version). A setting's value is under its name (`Text::detail`). Its choices
-(themes, displays, music colours, shortcuts) are a page within its page,
+it forward. Pages: Appearance (Theme, Glass, Music colours, Display; Tab
+row picked in place with `Segments`, decision 093; Centre island), General
+(Start with Windows, Keyboard shortcuts, Copy logs), Updates (the one
+updates row, decision 091, or the version). The rows are the grouped rows
+Settings' card had (decision 090). Its choices (themes, glass, displays,
+music colours, shortcuts with their key caps and resets, decisions 092,
+103) are a page within its page,
 with a back arrow; picking another page in the sidebar leaves it. "New"
 (decision 048): a tag on the row, a dot on its parent's row and on its page
 in the sidebar; seen once the window closes after its page was shown.

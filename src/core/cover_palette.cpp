@@ -78,6 +78,22 @@ Color fromLch(double lightness, double chroma, double hue, std::uint8_t alpha)
     return { channel(rgb[0]), channel(rgb[1]), channel(rgb[2]), alpha };
 }
 
+// The lightness at which `hue` is most vivid in sRGB (the gamut's cusp):
+// blue's is dark, yellow's near white (decision 098).
+double cuspLightness(double hue)
+{
+    double best = 0, bestChroma = 0;
+    for (int i = 0; i <= 100; ++i) {
+        double l = i / 100.0, low = 0, high = 0.5;
+        for (int j = 0; j < 16; ++j) {
+            double mid = (low + high) / 2;
+            (inGamut({ l, mid, hue }) ? low : high) = mid;
+        }
+        if (low > bestChroma) best = l, bestChroma = low;
+    }
+    return best;
+}
+
 // Light or dark the way Settings files themes (tokens_json.cpp): by the island.
 bool isLight(Color island) { return 0.2126f * island.r + 0.7152f * island.g + 0.0722f * island.b > 127.5f; }
 
@@ -201,6 +217,31 @@ std::vector<ThemeColor> coverColors(const CoverTint& tint, const Tokens& themed)
     for (const Role& role : kInk) add(role, ink);
     for (const Role& role : kAccent) add(role, accent);
     for (const Role& role : kFaint) add(role, light ? ink : accent);
+    return out;
+}
+
+std::vector<ThemeColor> glassCoverColors(const CoverTint& tint, const Tokens& themed, const Tokens& midnight)
+{
+    std::vector<ThemeColor> out = coverColors(tint, themed);
+    // The island itself stays neutral, so any cover's colour fades into it.
+    for (ThemeColor& c : out) {
+        if (c.token == "islandColor" || c.token == "islandSecondColor") c.color = midnight.islandColor;
+        if (c.token == "islandHighlightColor") c.color = midnight.islandHighlightColor;
+    }
+    // The glow: the cover's main hue, as vivid as its accent, dark enough
+    // under white text.
+    double vivid = std::clamp(static_cast<double>(tint.vividness), 0.0, 1.0);
+    double chroma = themed.coverAccentChroma.x + (themed.coverAccentChroma.y - themed.coverAccentChroma.x) * vivid;
+    double alpha = std::clamp(themed.glassGlowOpacity, 0.0f, 1.0f) * 255;
+    // Lighter for a hue only vivid when light (decision 098): at coverDarkGlow
+    // yellow is olive and cyan murky; a hue peaking at or below
+    // coverGlowLiftCusp.x (red, purple, blue) keeps it, one at .y or above
+    // gets coverDarkGlowLifted.
+    double hue = toLch(tint.main).h;
+    double span = std::max(static_cast<double>(themed.coverGlowLiftCusp.y - themed.coverGlowLiftCusp.x), 1e-6);
+    double lift = std::clamp((cuspLightness(hue) - themed.coverGlowLiftCusp.x) / span, 0.0, 1.0);
+    double lightness = themed.coverDarkGlow + (std::max(themed.coverDarkGlowLifted, themed.coverDarkGlow) - themed.coverDarkGlow) * lift;
+    out.push_back({ "islandGlowColor", fromLch(lightness, chroma, hue, static_cast<std::uint8_t>(std::lround(alpha))) });
     return out;
 }
 

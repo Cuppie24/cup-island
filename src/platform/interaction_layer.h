@@ -40,6 +40,7 @@ struct InteractionCallbacks {
     std::function<void()> onShowRequested; // the app was launched again (single_instance.h)
     std::function<void()> onDisplaysChanged; // a monitor was plugged, unplugged, resized or rearranged
     std::function<void()> onAnimationSettingChanged; // Windows' "Animation effects" was turned on or off (decision 080)
+    std::function<void()> onColourSettingChanged;    // Personalisation's colours changed: maybe "Transparency effects" (decision 089)
 };
 
 // Creates the window over the pill's initial bounds and starts the

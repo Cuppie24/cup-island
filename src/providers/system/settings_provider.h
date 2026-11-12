@@ -1,7 +1,7 @@
 #pragma once
-// Settings (decisions 022, 030, 090): a widget on Home that opens the
-// Settings window, and what the window's actions do. The
-// app theme, colours from music (decision 052), the display (decision 023), Start with Windows, the keyboard
+// Settings (decisions 022, 030, 104): a widget on Home that opens the
+// Settings window, and what the window's actions do. The app theme, colours
+// from music (decision 052), glass (decision 089), the display (decision 023), Start with Windows, the keyboard
 // shortcuts (decisions 031, 032), Copy logs and Centre island (decision 026).
 // Picks are kept in the host's store (decision 028); recolouring, moving the
 // island, the Run key, hotkeys and the clipboard are the app's (handed in),
@@ -52,6 +52,10 @@ struct SettingsHooks {
     std::function<void(bool on)> setCoverColours;
     // How fast colours fade, cover to cover and theme to theme (decision 053). Empty: no choice.
     std::function<void(FadeSpeed)> setFadeSpeed;
+    // The island as glass, or solid (decision 089). Empty: no row (Windows 10 can't blur behind it).
+    std::function<void(bool on)> setGlass;
+    // How see-through the glass is (decision 096). Empty: no choice.
+    std::function<void(Transparency)> setTransparency;
     // What can be tagged "New" (decision 048): the shipped list, unless a test brings its own.
     std::vector<SettingItem> announced = announcedSettings();
 };
@@ -68,7 +72,7 @@ public:
     void onWindowClosed(const std::string& windowId) override; // reopened, it starts at its pages; what was seen stays seen
 
     // The update offer changed (UpdateProvider::onStatus): one found, its
-    // install under way or failed, or none. Settings shows it under "Check for updates".
+    // install under way or failed, or none. Settings' "Check for updates" row turns into it (decision 091).
     void updateStatusChanged(const std::optional<UpdateStatus>& offer);
 
     // tokens.json was reloaded: its themes may have changed (one renamed, removed).
@@ -99,6 +103,8 @@ public:
     static constexpr const char* kTabRowKey = "tabrow";       // "top" or "bottom" ("": top)
     static constexpr const char* kCoverColoursKey = "covercolours"; // "on" or "off" ("": on, decision 052)
     static constexpr const char* kFadeKey = "fade";           // "fast", "medium" or "slow" ("": medium, decision 053)
+    static constexpr const char* kGlassKey = "glass";         // "on" or "off" ("": on, decision 089)
+    static constexpr const char* kTransparencyKey = "transparency"; // "low", "medium" or "high" ("": medium, decision 096)
     static constexpr const char* kSeenKey = "seen";           // "seen1", then the announced settings seen, one id per line
 
 private:
@@ -110,10 +116,13 @@ private:
     SettingsView view() const;
     void publish();
     void stopRecording();
+    void rebind(Command command, const Chord& chord); // to `chord` unless it conflicts; the note says why
+    void resetAll();                                  // every command to its default (decision 103)
     void bindAll(); // registers every shortcut; one another app has stays, the page says so
     void loadSeen();  // what's been seen; a first run has seen everything (nothing is new on a fresh install)
     void placeTabRow(bool top);
     void pickFade(FadeSpeed speed);
+    void pickTransparency(Transparency level);
 
     SettingsHooks hooks_;
     Host* host_ = nullptr;
@@ -132,6 +141,8 @@ private:
     bool tabsOnTop_ = true;
     bool coverColours_ = true;
     FadeSpeed fadeSpeed_ = FadeSpeed::Medium;
+    bool glass_ = true;
+    Transparency transparency_ = Transparency::Medium;
     std::set<std::string> seen_;     // announced settings seen in earlier visits (decision 048)
     std::set<std::string> seeing_;   // ...and shown during this one: seen once the window closes
     bool windowOpen_ = false;        // the window is on screen

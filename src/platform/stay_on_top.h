@@ -16,7 +16,7 @@ namespace cup::platform {
 void stayOnTop(std::vector<HWND> windows);
 
 // Puts the island back on top now: after one of our windows kept on top
-// (WindowSpec::keepOnTop) was raised, which must stay under it (decision 090).
+// (WindowSpec::keepOnTop) was raised, which must stay under it (decision 104).
 void raiseIsland();
 
 } // namespace cup::platform

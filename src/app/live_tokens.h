@@ -47,4 +47,12 @@ bool setFadeSpeed(FadeSpeed speed);
 // (tokens().reducedMotion), kept over every reload. Returns true if tokens changed.
 bool setReducedMotion(bool reduced);
 
+// Glass (decision 089): the island drawn as glass (tokens().glass) unless
+// the theme is light, kept over every reload. Returns true if tokens changed.
+bool setGlass(bool on);
+
+// How see-through the glass is (decision 096): the Settings pick, kept over
+// every reload like the theme. Returns true if tokens changed.
+bool setTransparency(Transparency level);
+
 } // namespace cup::app

@@ -1,6 +1,6 @@
 # 083: Floating cards are drawn in a fixed canvas
 
-Status: Superseded by 090: floating cards were dropped for ordinary windows,
+Status: Superseded by 104: floating cards were dropped for ordinary windows,
 so there is no canvas to draw them in. Its lesson stands: a window drawn
 with Composition must not show its own moves and resizes as jumps.
 

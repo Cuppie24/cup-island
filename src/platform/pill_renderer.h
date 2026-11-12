@@ -24,7 +24,7 @@ namespace cup::platform {
 class PillRenderer {
 public:
     void build(wuc::Compositor const& compositor, wuc::ContainerVisual const& root, const Scene& initial);
-    GraphicsDevice& device() { return device_; } // shared with providers' windows, on the same Compositor (decision 090)
+    GraphicsDevice& device() { return device_; } // shared with providers' windows, on the same Compositor (decision 104)
     // Starts the morph now, along `motion` (decision 080); content follows in a
     // queued call, so building it doesn't hold back the frame the morph starts on (decision 012).
     void apply(const Scene& scene, const SceneMotion& motion);

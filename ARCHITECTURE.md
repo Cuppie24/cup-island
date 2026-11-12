@@ -40,13 +40,16 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 keyboard.h (arrow, Tab and digit focus, decisions 031, 033) + shortcuts.h (the shortcut table, decision 031)
                 + double_tap.h (Double Ctrl, decision 079),
                 badges.h (where notification dots go, decision 038),
-                cover_palette.h + island_tint.h (the island in the playing cover's colours, decision 051),
+                cover_palette.h + island_tint.h (the island in the playing cover's colours, decision 051; as glass, Midnight with a glow from below, decision 090),
                 tokens.h (+ tokens_json.h, json_reader.h), easing.h, motion.h (the morph's spring, fling, stagger, decision 080),
-                open_windows.h (providers' own windows: which are open, when one may open, decision 090) + window_content.h (what's in one)
+                open_windows.h (providers' own windows: which are open, when one may open, decision 104) + window_content.h (what's in one)
                 + window_placement.h (where one opens) + window_layout.h (one laid out: title bar, sidebar, page; what a click means)
                 menu.h (a row's context menu: when it opens, its keys, where it goes, decision 086)
+                groups.h (grouped rows: a quiet label, one background, a name over its description, decision 090)
+                keycaps.h (Keys drawn as key caps, decision 092), segments.h (a few options picked in place, decision 093)
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
-                pill + Split bubble, and the liquid_bridge between them), provider_window (a provider's window, decision 090), element_visuals (one visual
+                pill + Split bubble, and the liquid_bridge between them;
+                blob_backdrop: what's under a blob, its shadow and glass, decision 089), glass (Windows 11's blurred backdrop, decision 089), provider_window (a provider's window, decision 104), figures (tabular digits centred on their line, decision 094), element_visuals (one visual
                 per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts) + tap_hook (double-tap shortcuts, decision 079), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules and the media widget, SMTC provider for real Windows media),
@@ -60,7 +63,7 @@ src/service/    CupIslandIndex.exe, the file index service (Windows, decision 07
                 drive (scan or snapshot, then the journal), PipeServer (folder checks as each client), SelfUpdate
                 (its own installer from GitHub, decision 076), --install/--stop/--uninstall for its installer;
                 index_client, the pipe's client, shared by cupindex.exe (its terminal tool) and the app
-src/app/        main.cpp: wiring only; surface.h: the island as a surface, its scene, renderer and pointer; provider_windows.cpp: providers' windows on screen (decision 090); live_tokens.cpp: tokens.json load/reload; keyboard_input.cpp: keyboard focus,
+src/app/        main.cpp: wiring only; surface.h: the island as a surface, its scene, renderer and pointer; provider_windows.cpp: providers' windows on screen (decision 104); live_tokens.cpp: tokens.json load/reload; keyboard_input.cpp: keyboard focus,
                 Enter/Space, system-wide shortcuts and recording new keys (decisions 031, 032); menu_input.cpp: a row's menu under the pointer and keys (decision 086)
 assets/         tokens.json: the live-tunable sizes, timings and curves; the app icon (cup_island.rc/.ico)
 installer/      Inno Setup script for the Windows installer (decision 011); its version comes from build.ps1
@@ -126,7 +129,7 @@ A provider never starts or reaches a process itself (decision 078): Cup
 Island's service is called through `Host::callService("<module>.<method>")`,
 only for modules the registry granted it (`ProviderRegistry::grant`), and
 carried by ServiceHost.
-A provider can also have **windows** of its own (decision 090): Settings, a
+A provider can also have **windows** of its own (decision 104): Settings, a
 timer's full view. It describes one as pages of sections of the same rows
 (`core/window_content.h`) and calls `Host::openWindow` / `updateWindow` /
 `closeWindow`; the host draws it as an ordinary window and sends its clicks
@@ -217,7 +220,7 @@ over the file's, so `tokens()` is always what's on screen.
 - **State rules → `tests/scenarios/*.scenario`.** One line per step, with the
   expected mode after it. Readable as a spec and runnable anywhere. The
   format is documented at the top of `tests/scenario_runner.cpp`.
-- **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing), `list_card_tests.cpp` (Settings' List card), `badge_tests.cpp` (notification dots),
+- **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing), `list_card_tests.cpp` (Settings' List card), `group_tests.cpp` (grouped rows), `badge_tests.cpp` (notification dots),
   `home_tests.cpp` (tiles, Home tab, idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop), `pomodoro_stats_tests.cpp` (statistics, days off),
   `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install), `window_tests.cpp` (where a window opens; the registry between providers and their windows).**
@@ -245,13 +248,13 @@ over the file's, so `tokens()` is always what's on screen.
 | Real input for drag (OLE drop target) | not yet; the D key simulates it |
 | Provider API (PS §7 Tier 1), registry, demo music player | done, tested |
 | Switching activities (decision 007): bubble click, drag-to-swap, Expanded tabs, sticky pick | done; rules tested, tab visuals need Windows |
-| Real media provider (SMTC, TR §6): art, controls, seek, multi-app switch, paused linger | done; rules tested, WinRT part needs Windows |
+| Real media provider (SMTC, TR §6): art, controls, seek, multi-app switch, paused media stays (decision 099) | done; rules tested, WinRT part needs Windows |
 | File index logic (decision 075): USN records, the index, journal changes, queries, snapshots, pipe protocol | done, tested |
 | File index service + cupindex (decision 075, milestone 3) | runs on a real PC: both drives indexed, searches answered as the user |
 | File search installed with the app, self-updating (decision 076, milestone 4): its own admin installer, carried by the app's; set up at the end of setup or at the app's first start; updates from GitHub through the service | rules tested; --install/--uninstall and the update request run under Wine; installers and a real update need a Windows run; the search panel not yet |
 | Search card (decisions 077, 079): apps, Settings pages, Control Panel, files; live field; Double Ctrl; launch history | rules tested; the hook, the shell folders, launching and the look need a Windows run |
 | Providers reach the service only through the host, by granted module (decision 078) | done; tested |
-| Providers' windows (decision 090, replacing 081's floating cards): the Host API, `WindowContent`, which are open, when one may open, placement, layout, `Segmented`; Settings in a window | core, registry, layout and Settings tested; the Windows window compiles in CI, needs a Windows run (resizing above all). Arrow keys in windows not yet. Fluid layout (084) is proposed |
+| Providers' windows (decision 104, replacing 081's floating cards): the Host API, `WindowContent`, which are open, when one may open, placement, layout; Settings in a window | core, registry, layout and Settings tested; the Windows window compiles in CI, needs a Windows run (resizing above all). Arrow keys in windows not yet. Fluid layout (084) is proposed |
 | Hover waits for a real pointer move after a card opens or a key is pressed (decision 087) | done; needs a Windows run |
 | Row context menus (decision 086): search's results (Open, Run as administrator, Reveal, Terminal, Copy, Copy path, Remove from history, App settings, Uninstall, Properties), each with a shortcut; right-click, Right or the › | rules tested; drawing, input and the Windows hooks compile in CI, need a Windows run |
 | Plugin pipe (PS §8 Tier 2) | not yet |
@@ -278,4 +281,5 @@ over the file's, so `tokens()` is always what's on screen.
 | Settings: Update and restart under Check for updates, every action a list row, headings that stand out (decision 037) | done; rules tested, visuals need Windows |
 | Notification badges: a dot on a widget, tab or button with something new; Settings' widget and its Update row when an update waits (decision 038) | done; placement tested, drawing needs Windows |
 | An update offer survives a restart (decision 039); Bluetooth removed (decision 042) | rules tested |
+| Grouped rows (decision 090): a quiet label over rows on one background, each a name over its description; every Settings page uses them. One updates row that turns into Update and restart (decision 091). Key caps on the shortcuts page (decision 092). Segments: Tab row and Colour fade picked in place (decision 093) | done; layout tested, the look needs a Windows run |
 | Mandatory releases: the Release workflow's checkbox; installed by itself at the next start, with an alert, 3 tries at most (decision 041) | rules tested; the workflow's first mandatory run confirms it |

@@ -14,7 +14,7 @@ struct Display {
     std::string name;   // its friendly name ("DELL U2720Q"); identical models get " (2)"
     bool primary = false;
     Rect bounds;        // the whole monitor (rcMonitor), in screen pixels
-    Rect workArea;      // ...less the taskbar (rcWork): where providers' windows go (decision 090)
+    Rect workArea;      // ...less the taskbar (rcWork): where providers' windows go (decision 104)
     float scale = 1.0f; // its scaling, DPI / 96: 1.5 at 150%
 };
 

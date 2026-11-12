@@ -1,5 +1,6 @@
 #include "core/window_layout.h"
 
+#include "core/groups.h"
 #include "core/slot_layout.h"
 #include "core/tokens.h"
 
@@ -13,29 +14,6 @@ const WindowPage* shownPage(const OpenWindow& w)
     for (const WindowPage& p : w.content.pages)
         if (p.id == w.page) return &p;
     return w.content.pages.empty() ? nullptr : &w.content.pages.front();
-}
-
-// Lays out rows one by one at the top of `frame`, each at least `least` tall,
-// into `out`; returns where each row starts and ends (its band).
-struct Band {
-    float top = 0, bottom = 0;
-};
-std::vector<Band> stackRows(const std::string& name, const std::vector<Row>& rows, Rect frame, float least, const Source& source,
-                            Ms now, const MeasureText& measure, std::vector<Placed>& out)
-{
-    std::vector<Band> bands;
-    float y = frame.y;
-    for (std::size_t i = 0; i < rows.size(); ++i) {
-        Slot one{ rows[i] };
-        one[0].list.clear(); // the page scrolls as a whole (window_content.h)
-        one[0].visibleRows = 0;
-        Rect at{ frame.x, y, frame.width, 0 };
-        at.height = std::max(least, slotHeight(one, at, source, measure));
-        placeSlot({ name + std::to_string(i), &one, at }, source, tokens().windowNavRadius, now, out, measure);
-        bands.push_back({ y, y + at.height });
-        y += at.height;
-    }
-    return bands;
 }
 
 Placed placedButton(const std::string& key, Glyph glyph, const char* action, Rect frame, const OpenWindow& w)
@@ -59,7 +37,6 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
     s.providerId = w.key.providerId;
     s.windowId = w.key.windowId;
     s.navRadius = t.windowNavRadius;
-    s.groupRadius = t.windowGroupRadius;
     Source source{ .providerId = w.key.providerId };
 
     // The title bar: our own, so it's the window's colour; Windows' buttons drawn by us at its right.
@@ -92,7 +69,7 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
     float bottom = size.y;
     if (!w.content.footer.empty()) {
         Rect area{ left + t.windowPagePadding.x, 0, std::max(0.0f, size.x - left - 2 * t.windowPagePadding.x), 0 };
-        float height = slotHeight(w.content.footer, area, source, measure) + 2 * t.windowRowPadding;
+        float height = slotHeight(w.content.footer, area, source, measure) + 2 * t.groupItemPadding;
         bottom = std::max(bar, size.y - height);
         s.footerBar = Rect{ left, bottom, size.x - left, size.y - bottom };
         area.y = bottom;
@@ -102,43 +79,29 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
     s.pane = { left, bar, std::max(0.0f, size.x - left), std::max(0.0f, bottom - bar) };
 
     // The page: its title (a back arrow before it on a page within a page), a
-    // line under it, then each section's heading and panel of rows.
+    // line under it, then each section as a group of rows (core/groups.h): one
+    // slot, laid out like a List card's, from the top.
     const WindowPage* page = shownPage(w);
     if (!page) return s;
     s.backAction = page->backAction;
-    float x = t.windowPagePadding.x;
-    float width = std::max(0.0f, std::min(t.windowPageMaxWidth, s.pane.width - 2 * t.windowPagePadding.x));
-    float y = t.windowPagePadding.y;
+    Slot rows;
     Row title{ .items = { Text{ .value = page->title, .style = TextStyle::PageTitle } } };
     if (!page->backAction.empty()) title.leading = { Button{ .glyph = Glyph::ChevronLeft, .actionId = page->backAction, .compact = true } };
-    y = stackRows("title", { title }, { x, y, width, 0 }, 0, source, now, measure, s.page).back().bottom;
-    if (!page->subtitle.empty()) {
-        y += t.windowSubtitleGap;
-        y = stackRows("subtitle", { row({ Text{ .value = page->subtitle, .style = TextStyle::Caption } }) }, { x, y, width, 0 }, 0, source,
-                      now, measure, s.page)
-                .back()
-                .bottom;
-    }
-    y += t.windowHeaderGap;
-    for (std::size_t i = 0; i < page->sections.size(); ++i) {
-        const WindowSection& section = page->sections[i];
-        std::string name = "s" + std::to_string(i);
-        if (i > 0) y += t.windowSectionGap;
-        if (!section.title.empty()) {
-            Row heading = row({ Text{ .value = section.title, .style = TextStyle::Heading } });
-            y = stackRows(name + "h", { heading }, { x + t.windowRowPadding, y, width - 2 * t.windowRowPadding, 0 }, 0, source, now, measure,
-                          s.page)
-                    .back()
-                    .bottom +
-                t.windowSubtitleGap;
+    rows.push_back(title);
+    if (!page->subtitle.empty()) rows.push_back(row({ Text{ .value = page->subtitle, .style = TextStyle::Caption } }));
+    for (const WindowSection& section : page->sections) {
+        std::vector<Row> group = section.rows;
+        for (Row& r : group) {
+            r.list.clear(); // the page scrolls as a whole (window_content.h)
+            r.visibleRows = 0;
         }
-        if (section.rows.empty()) continue;
-        Rect inside{ x + t.windowRowPadding, y, std::max(0.0f, width - 2 * t.windowRowPadding), 0 };
-        std::vector<Band> bands = stackRows(name + "r", section.rows, inside, t.windowRowHeight, source, now, measure, s.page);
-        s.groups.push_back({ x, y, width, bands.back().bottom - y });
-        for (std::size_t r = 1; r < bands.size(); ++r) s.dividers.push_back({ x, bands[r].top, width, 1 });
-        y = bands.back().bottom;
+        addGroup(rows, section.title, std::move(group));
     }
+    float width = std::max(0.0f, std::min(t.windowPageMaxWidth, s.pane.width - 2 * t.windowPagePadding.x));
+    Rect frame{ t.windowPagePadding.x, t.windowPagePadding.y, width, 0 };
+    frame.height = slotHeight(rows, frame, source, measure);
+    placeSlot({ "page", &rows, frame }, source, t.windowNavRadius, now, s.page, measure);
+    float y = frame.y + frame.height;
     float content = y + t.windowPagePadding.y;
     s.maxScroll = std::max(0.0f, content - s.pane.height);
     s.scroll = std::clamp(scroll, 0.0f, s.maxScroll);

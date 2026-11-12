@@ -1,5 +1,5 @@
 #pragma once
-// The Settings window (decisions 030, 032, 090): built from a SettingsView by
+// The Settings window (decisions 030, 032, 104): built from a SettingsView by
 // one pure function. Pages in a sidebar (Appearance, General, Updates) of
 // grouped settings; a setting with choices (themes, displays, music colours)
 // or the keyboard shortcuts opens a page within its page, with a back arrow.
@@ -21,19 +21,24 @@ namespace cup {
 
 // What the window's buttons send. A choice's action is its prefix and its index in the page's list.
 namespace settings_action {
-inline constexpr const char* kOpenWindow = "settings.window"; // the widget's tap: opens the window (decision 090)
-inline constexpr const char* kSetTabRow = "tabrow.set";       // the Segmented: value 0 top, 1 bottom
+inline constexpr const char* kOpenWindow = "settings.window"; // the widget's tap: opens the window (decision 104)
 inline constexpr const char* kOpenThemes = "theme.open";
 inline constexpr const char* kOpenDisplays = "display.open";
 inline constexpr const char* kOpenShortcuts = "shortcuts.open";
+inline constexpr const char* kPickTabRow = "tabrow.pick:";     // + 0 (top) or 1 (bottom): its row's Segments (decision 093)
 inline constexpr const char* kBack = "settings.back";
 inline constexpr const char* kPickTheme = "theme.pick:";       // + its index in tokens().themes
 inline constexpr const char* kPickDisplay = "display.pick:";   // + its index in SettingsView::displays
 inline constexpr const char* kEditShortcut = "shortcut.edit:"; // + its index in commands()
+inline constexpr const char* kResetShortcut = "shortcut.reset:"; // + its index in commands(): back to its default (decision 103)
+inline constexpr const char* kResetShortcuts = "shortcuts.reset"; // every command back to its default (decision 103)
 inline constexpr const char* kToggleAutostart = "autostart.toggle";
 inline constexpr const char* kToggleCoverColours = "covercolours.toggle"; // decision 052
 inline constexpr const char* kOpenMusicColours = "musiccolours.open";      // decision 053
 inline constexpr const char* kPickFade = "fade.pick:";                     // + 0 fast, 1 medium, 2 slow
+inline constexpr const char* kToggleGlass = "glass.toggle";                // decision 089
+inline constexpr const char* kOpenGlass = "glass.open";                    // decision 096
+inline constexpr const char* kPickTransparency = "transparency.pick:";     // + 0 low, 1 medium, 2 high
 inline constexpr const char* kCopyLogs = "logs.copy";
 inline constexpr const char* kCentreIsland = "island.centre";
 inline constexpr const char* kCheckUpdates = "updates.check";
@@ -58,8 +63,8 @@ struct UpdateNote {
 };
 
 // A page within a sidebar page: none (its settings), or one setting's
-// choices. Themes, Displays and MusicColours are within Appearance, Shortcuts within General.
-enum class SettingsPage { List, Themes, Displays, Shortcuts, MusicColours };
+// choices. Themes, Displays, MusicColours and Glass are within Appearance, Shortcuts within General.
+enum class SettingsPage { List, Themes, Displays, Shortcuts, MusicColours, Glass };
 
 // A setting added after people already had the app (decision 048): shown
 // with a "New" tag until it's been seen, and a dot on its parent's row while
@@ -70,7 +75,7 @@ struct SettingItem {
 };
 
 // Every announced setting, oldest first: add a line when adding a setting.
-// Rows' ids: "theme", "musiccolours" (and "covercolours", "fade" on its page), "display",
+// Rows' ids: "theme", "glass" (and "transparency" on its page), "musiccolours" (and "covercolours", "fade" on its page), "display",
 // "tabrow", "centre", "autostart", "shortcuts", "logs", "updates".
 std::vector<SettingItem> announcedSettings();
 
@@ -87,10 +92,12 @@ struct SettingsView {
     std::string shortcutNote;               // under the shortcuts: "Press the new keys…", or why one wasn't changed
     std::string version;                    // the running build's; empty: no line for it
     std::optional<UpdateNote> update;       // nothing: the app can't check, no row
-    std::optional<UpdateStatus> offer;      // an update offered (by any check): an "Update and restart" row
+    std::optional<UpdateStatus> offer;      // an update offered (by any check): the updates row says "Update and restart" (decision 091)
     bool tabsOnTop = true;                  // the tab row's place (decision 048)
     std::optional<bool> coverColours;       // the island in the playing cover's colours (decision 052); nothing: no row
     std::optional<FadeSpeed> fadeSpeed;     // how fast colours fade (decision 053); nothing: no choice
+    std::optional<bool> glass;              // the island as glass (decision 089); nothing: no row (Windows 10)
+    std::optional<Transparency> transparency; // how see-through (decision 096); nothing: no choice
     std::vector<SettingItem> announced;     // what can be new (announcedSettings)...
     std::set<std::string> unseen;           // ...and which of those haven't been seen yet: tagged "New"
 };
@@ -100,7 +107,7 @@ std::vector<std::string> shownSettings(const WindowContent& window, const std::s
 
 // The widget: a tap opens the window (Panel::tapAction), a dot while something's new in it.
 Panel settingsPanel(const SettingsView& view);
-// The window (decision 090).
+// The window (decision 104).
 WindowContent settingsWindow(const SettingsView& view);
 // The sidebar page a setting's row is on, by its id ("theme" -> appearance).
 std::string pageOfSetting(const std::string& id);

@@ -1,6 +1,6 @@
 # 081: A card can float apart from the island
 
-Status: Superseded by 090 (providers' own windows, drawn by the host). Its
+Status: Superseded by 104 (providers' own windows, drawn by the host). Its
 placement (where one opens, remembered per window and screen) lives on as
 `core/window_placement.h`; the rest was removed. Kept for why floating
 cards didn't work.

@@ -43,6 +43,9 @@ struct Theme {
 // How fast colours fade (decision 053): the user's pick in Settings.
 enum class FadeSpeed { Fast, Medium, Slow };
 
+// How see-through the glass is (decision 096): the user's pick in Settings.
+enum class Transparency { Low, Medium, High };
+
 struct Tokens {
     // Render layer: as wide as the island's monitor, so the island can move
     // along its top edge (decision 026), and this tall (TR §5, §9.1). The
@@ -86,7 +89,7 @@ struct Tokens {
     float resultIconSize = 32;           // a search result's icon (Button::picture)
     float resultFontSize = 17;           // TextStyle::Result: a search result's name
     float resultDetailFontSize = 14;     // TextStyle::ResultDetail: where it is, under it
-    // Windows (decision 090): a provider's own window, apart from the island.
+    // Windows (decision 104): a provider's own window, apart from the island.
     // Its provider picks a size class; the user resizes it and it's remembered.
     Vec2 windowSmallSize{ 420, 360 };
     Vec2 windowMediumSize{ 640, 480 };
@@ -94,7 +97,7 @@ struct Tokens {
     Vec2 windowMinSize{ 320, 240 };   // no smaller, by its frame or the provider's ask
     float windowIslandGap = 16;       // WindowStart::NearIsland: this far under the pill
     float windowCascade = 28;         // opening where another one already is: this far right and down from it
-    // Inside a window (decision 090): an ordinary window's chrome, a sidebar of pages, groups of rows.
+    // Inside a window (decision 104): an ordinary window's chrome, a sidebar of pages, groups of rows.
     Vec2 windowPagePadding{ 48, 32 }; // a page's content from the pane's left and top
     float windowTitleBarHeight = 36; // our own title bar: it drags the window; minimize and close at its right
     float windowChromeButtonWidth = 46; // each of those, the bar's height tall, as Windows draws its own
@@ -103,14 +106,8 @@ struct Tokens {
     float windowSidebarHeader = 56; // the window's title, over the pages
     float windowNavHeight = 38; // a page's entry in the sidebar
     float windowPageMaxWidth = 600; // a page's content no wider: rows of settings don't need a wide screen
-    float windowSubtitleGap = 6; // the page's title to the line under it
-    float windowHeaderGap = 26; // the page's title (and subtitle) to its first group
-    float windowSectionGap = 22; // between groups
-    float windowRowHeight = 56; // a row in a group, at least: a name with its value under it
-    float windowRowPadding = 16; // a row's content from its group's sides
-    float windowGroupRadius = 10; // a group's corners
     float windowNavRadius = 8; // the picked page's highlight
-    float expandedArtSize = 68; // expanded leading square: as tall as title + artist + caption beside it
+    float expandedArtSize = 88; // expanded leading square: the cover, bigger than the text beside it (decision 094)
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;
     float itemSpacing = 8;
@@ -119,15 +116,15 @@ struct Tokens {
     float bodyFontSize = 15;
     float captionFontSize = 13; // the smallest text: ~11 px on screen at 100% after islandScale
     float displayFontSize = 48; // TextStyle::Display: a timer as the card's centre
-    float headingFontSize = 14; // TextStyle::Heading: a group's name, a little over caption size
-    float pageTitleFontSize = 24; // TextStyle::PageTitle: a window page's name (decision 090)
+    float headingFontSize = 14; // TextStyle::Heading: a group's label, in the caption colour, a little over caption size (decision 090)
+    float pageTitleFontSize = 24; // TextStyle::PageTitle: a window page's name (decision 104)
     // Font weights, 100..900 (400 regular, 600 semibold; decision 024). Segoe UI Variable
     // (Windows 11) takes any value in between; other fonts use the nearest weight they have.
     float titleFontWeight = 700;   // bold: Segoe UI Variable's heaviest
     float bodyFontWeight = 600;    // semibold: text on the island reads heavier than on a page (decision 024)
     float captionFontWeight = 600;
     float displayFontWeight = 300; // big and still the lightest, like a clock face
-    float headingFontWeight = 700; // a heading stands out from the rows under it: bold, and the title colour
+    float headingFontWeight = 600; // a group's label is quiet: its group's background sets it apart (decision 090)
     float pageTitleFontWeight = 700;
     // Darkens antialiased text strokes (DirectWrite's grayscale enhanced
     // contrast): 0 = none, 1 = Windows' usual, higher = bolder-looking edges.
@@ -137,6 +134,8 @@ struct Tokens {
     float buttonSize = 36;
     float primaryButtonSize = 56;  // Button::primary: the card's main action, a filled circle (decision 064)
     float primaryGlyphSize = 22;
+    float compactPrimaryButtonSize = 48; // a compact primary: the main action in a row of controls (media's ▶, decision 094)
+    float compactPrimaryGlyphSize = 20;
     float playGlyphNudge = 0.08f;  // a primary ▶ moved right by this share of its width: a triangle's optical centre (decision 071)
     Vec2 toastPadding{ 14, 6 };    // a toast: room around its text and button inside its pill (decision 071)
     // A row's menu (decision 086): drawn in islandColor, its lit item in buttonHoverColor, its lines in trackColor.
@@ -158,6 +157,15 @@ struct Tokens {
     float listItemPadding = 6;    // Row::listItem: above and below its content; = listItemInset, so a checkbox's corners nest in the row's (decision 006)
     float listItemInset = 6;      // Row::listItem: its content in from the hover background's edges
     float sectionGap = 12;        // Row::section: space above a group's heading (decision 037)
+    float groupItemPadding = 9;   // Row::grouped: above and below each row's content, in place of listItemPadding (decision 090)
+    float groupRadius = 12;       // ...the group's background's corners (its colour: tileColor)
+    float keyCapHeight = 24;      // Keys: a key cap's height; a one-character cap is at least this wide (decision 092)
+    float keyCapPadding = 7;      // ...its label's room on each side
+    float keyCapGap = 4;          // ...between caps, and around the words between them
+    float segmentHeight = 30;     // Segments: the track's height (decision 093)
+    float segmentInset = 3;       // ...the picked pill in from the track's edge
+    float segmentPadding = 12;    // ...an option's room on each side of its label
+    float keyCapRadius = 6;       // ...its corners (fill: tileColor over the group's; edge: trackColor)
     float listItemTextInset = 14; // ...where the edge item is text: clear of the background's rounded end (decision 030)
     float editInset = 6;          // editable Text is drawn this far in from its stretch, which its field fills when edited (decision 043)
     float buttonLabelPadding = 10; // a text button: its label plus this on each side        // hover circle; the click area also takes in half the gaps around it
@@ -174,10 +182,6 @@ struct Tokens {
     float badgeInset = 7;         // ...at least this far in from a widget's or tab's edges (its corner's rounding sets it, decision 038)
     float swatchSize = 24;        // Swatch: a colour sample (a theme on Settings' list, decision 030)
     Vec2 switchSize{ 36, 20 };    // Switch: an on/off setting's track (decision 053); the knob is its height, inset
-    // Segmented (decision 090): a pill of equal segments, the picked one filled.
-    float segmentedHeight = 36;
-    float segmentedPadding = 18;  // a segment's label from its ends
-    float segmentedInset = 3;     // the picked segment's fill inside the track
     float switchKnobInset = 3;    // ...the knob this far inside the track
     float tagHeight = 18;         // Tag: "New" beside a setting not seen yet (decision 048)
     float tagPadding = 7;         // ...its text this far in from the pill's ends
@@ -207,7 +211,7 @@ struct Tokens {
 
     // Moving the island along the top edge (decision 026): press and hold to
     // lift it, drag sideways, let go. Snap distances are from where it's let go.
-    Ms liftHold{ 400 };           // a press held this long without moving lifts the island
+    Ms liftHold{ 200 };           // a press held this long without moving lifts the island
     float liftDrop = 6;           // lifted, it floats this far below the screen edge
     float centreSnap = 48;        // let go this close to the screen's centre: back to dead centre
     float edgeSnap = 24;          // ...this close to a side edge: flush with it (never less than flareRadius)
@@ -215,6 +219,47 @@ struct Tokens {
     // The island's shadow, under the pill and the bubble (decision 018); colour in shadowColor.
     float shadowBlur = 16;
     Vec2 shadowOffset{ 0, 4 };    // down: the island hangs from the top edge
+    // Under the expanded card's cover (decision 094), colour in artShadowColor: it sits on the card, not in it.
+    float artShadowBlur = 12;
+    Vec2 artShadowOffset{ 0, 3 };
+
+    // Glass (decision 089): the blurred desktop behind the island, at one
+    // brightness (glassLuminosityColor) like Windows' own acrylic, the island's
+    // colours over it, and a light rim inside its edge, brightest along the
+    // bottom. Windows 11 and dark islands only; colours in glassLuminosityColor,
+    // glassRimColor, glassShadowColor.
+    bool glass = false;           // drawn as glass now (withGlass): set by the app, not tokens.json
+    // How strong the island's colours are over the blur, 1 solid, 0 none
+    // (acrylic's tint opacity), at each Transparency pick (decision 096):
+    // Low is dense, Medium as written, High clear. Over the plain blur, where
+    // Windows won't even out its brightness, it needs more (Plain).
+    float glassDenseOpacity = 0.3f;
+    float glassOpacity = 0.1f;
+    float glassClearOpacity = 0.04f;
+    float glassDensePlainOpacity = 0.75f;
+    float glassPlainOpacity = 0.45f;
+    float glassClearPlainOpacity = 0.3f;
+    Transparency glassTransparency = Transparency::Medium; // the user's pick: set by the app from Settings, not by tokens.json
+    // Where Windows refuses acrylic's even brightness, the blurred desktop is
+    // squeezed into a darker range instead (decision 100): each channel times
+    // glassDarkenScale, plus glassDarkenLift. White comes out at their sum,
+    // black at the lift; the clearer opacities (not Plain) go over it.
+    float glassDarkenScale = 0.35f;
+    float glassDarkenLift = 0.08f;
+    // How much of the desktop's own brightness acrylic's even brightness
+    // replaces, as a share of glassLuminosityColor's opacity, at each
+    // Transparency pick (decision 100): it, more than the tint, sets how
+    // see-through the glass looks. 1 keeps the colour's opacity (0.96: barely
+    // any of the desktop's light and dark shows); lower lets more through.
+    float glassDenseLuminosity = 1.0f;
+    float glassLuminosity = 0.85f;
+    float glassClearLuminosity = 0.7f;
+    // Glass with the cover's colours (decision 090): the island stays
+    // Midnight, and the cover's colour glows up from its bottom edge.
+    float glassGlowHeight = 40.0f;  // px: the glow's reach up from the bottom edge, the same on the pill and a tall card
+    float glassGlowOpacity = 0.8f;  // how strong the glow is along the bottom edge
+    float glassGlowCurve = 2.5f;    // how it fades up its reach (glowFade): higher hugs the edge more; past 1, it melts away at the top
+    float glassRimWidth = 1;      // the rim's width, inside the edge
 
     // Expanded's tabs: one per activity along the top of the card (decisions 007, 047).
     float tabHeight = 36;
@@ -294,7 +339,7 @@ struct Tokens {
     Ms toastSlideDuration{ 260 }; // ...and slides up from below the card's edge, fading in, and back down, over this
     Ms menuOpenDuration{ 140 };   // a row's menu grows and fades in from where it opens, over this (decision 086); it goes at once
     // A provider may open a window, or bring one to the front, only this
-    // soon after the user acted on it (decision 090): nothing pops up by itself.
+    // soon after the user acted on it (decision 104): nothing pops up by itself.
     Ms windowOpenGrace{ 3000 };
     std::size_t windowsPerProvider = 4; // open at once; past it, opening another is refused
 
@@ -302,8 +347,6 @@ struct Tokens {
     Ms heldAlertMaxAge{ 30000 };
     std::size_t alertQueueCapacity = 5;
 
-    // Media (PS §10): a paused track stays on the island this long, then ends.
-    Ms mediaPausedLinger{ 300000 };
     // After any app starts/stops playing, ask Windows again this much later:
     // its "current session" can switch slightly after the playback event.
     Ms mediaSessionRecheck{ 300 };
@@ -348,6 +391,11 @@ struct Tokens {
     float coverFullChroma = 0.2f;        // a cover's main colour this vivid (chroma) or more counts as fully vivid
     float coverSecondShare = 0.3f;       // a second hue needs this share of the main one's weight to make a gradient
     float coverInkChroma = 0.03f;        // ...text and icons: barely, so they read as white or ink
+    float coverDarkGlow = 0.45f;         // glass (decision 090): the glow's lightness; its chroma is the accent's
+    // ...lighter for a hue whose most vivid lightness (its cusp) is high (decision 098):
+    // from coverDarkGlow at a cusp of .x (red, purple, blue stay) to coverDarkGlowLifted at .y and up (yellow, green, cyan).
+    Vec2 coverGlowLiftCusp{ 0.64f, 0.74f };
+    float coverDarkGlowLifted = 0.56f;
 
     // Colours: every colour the island draws. tokens.json writes [r, g, b] or
     // [r, g, b, alpha], channels 0..255 and alpha 0..1, like CSS rgba().
@@ -356,6 +404,9 @@ struct Tokens {
     // The island's right end: a gradient from islandColor (decision 054). Not
     // in tokens.json: islandColor's, unless a two-colour cover sets it.
     Color islandSecondColor{ 0, 0, 0 };
+    // The glow along the island's bottom edge (decision 090): glass with the
+    // cover's colours. Not in tokens.json: none (clear) unless a cover sets it.
+    Color islandGlowColor{ 0, 0, 0, 0 };
     Color titleTextColor{ 255, 255, 255 };
     Color bodyTextColor{ 255, 255, 255, 179 };
     Color captionTextColor{ 255, 255, 255, 140 }; // also Digits
@@ -374,7 +425,7 @@ struct Tokens {
     Color tabSelectedColor{ 255, 255, 255, 41 };
     Color hoverColor{ 255, 255, 255, 20 };         // a tab or tile under the pointer
     Color tileColor{ 255, 255, 255, 20 };          // Home's tile backgrounds, always shown (tabs have none, decision 072); a window's groups
-    Color windowPaneColor{ 255, 255, 255, 8 };     // a window's page pane, over islandColor (its sidebar's): a shade lighter (decision 090)
+    Color windowPaneColor{ 255, 255, 255, 8 };     // a window's page pane, over islandColor (its sidebar's): a shade lighter (decision 104)
     Color focusRingColor{ 255, 255, 255, 153 };    // around what the keyboard has focus on (decision 033): a theme's accent
     Color inputColor{ 255, 255, 255, 26 };         // a text field's background (decision 016)
     Color placeholderTextColor{ 255, 255, 255, 128 }; // "Add a to-do…": like body text, a little dimmer
@@ -384,6 +435,13 @@ struct Tokens {
     Color badgeColor{ 255, 69, 58 };               // a notification dot (decision 038): the red every OS uses for "new"
     Color imagePlaceholderColor{ 255, 255, 255, 31 }; // art that hasn't arrived
     Color shadowColor{ 0, 0, 0, 115 };             // under the island in every mode; its alpha is the shadow's strength
+    Color artShadowColor{ 0, 0, 0, 102 };          // under the expanded card's cover (decision 094)
+    Color glassShadowColor{ 0, 0, 0, 51 };         // ...as glass (decision 089): fainter, since it also shows through the island
+    Color glassRimColor{ 255, 255, 255, 46 };      // glass's rim (decision 089), at its brightest along the bottom
+    // Glass's brightness (decision 089): the blur takes this colour's
+    // lightness, keeping the desktop's hue, this strongly (alpha), as Windows'
+    // acrylic does; 0 alpha: the desktop's own brightness shows, lighter.
+    Color glassLuminosityColor{ 28, 28, 28, 245 };
     Color pomodoroFocusColor{ 255, 99, 71 };       // accents (decision 010)
     Color pomodoroBreakColor{ 52, 199, 89 };
 
@@ -453,6 +511,37 @@ struct Tokens {
 
 // The colour fade's duration at the picked speed (recolorFast/Medium/Slow).
 Ms recolorDuration(const Tokens& t);
+
+// The island's fill as drawn (decision 089): `color`, or as glass, see-through
+// by glassOpacity; by glassPlainOpacity over the plain blur (`evenBlur`
+// false: Windows refused to even out its brightness); the Dense or Clear
+// ones at a Low or High Transparency pick (decision 096). The pill, the
+// bubble and the neck between them all use it.
+Color islandFill(const Tokens& t, Color color, bool evenBlur = true);
+// ...the share it keeps of a colour's opacity: 1 when not glass. The island
+// over the glass applies it to a whole layer (decision 097).
+float glassShare(const Tokens& t, bool evenBlur = true);
+
+// The colour acrylic's even brightness takes its lightness from:
+// glassLuminosityColor, its opacity times the Transparency pick's share
+// (glassDense/-/ClearLuminosity, decision 100).
+Color glassLuminosityAt(const Tokens& t);
+
+// The glow's fade (decision 090): at `up` of its reach (0 the bottom edge, 1
+// its top), the share of its colour left: (1 - up)^glassGlowCurve. Steep at
+// the edge, so the colour hugs it; flat at the top, so it melts into the card
+// with no line. Drawn as kGlowStops gradient stops sampling it, evenly.
+float glowFade(const Tokens& t, float up);
+constexpr int kGlowStops = 9;
+
+// A pale colour: perceived brightness past half. A theme whose island is pale
+// is a light theme (decision 030).
+bool pale(Color color);
+
+// `t` as glass if the user picked it (decision 089), except on a pale island
+// (a light theme, or its cover tint): glass there turns its dark text grey on
+// whatever the desktop shows.
+Tokens withGlass(Tokens t, bool picked);
 
 // The active tokens: defaults until the app applies a loaded tokens.json.
 const Tokens& tokens();

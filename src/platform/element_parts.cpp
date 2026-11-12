@@ -1,5 +1,8 @@
 #include "platform/element_parts.h"
 
+#include "platform/effects.h"
+#include "platform/log.h"
+
 #include <algorithm>
 #include <cstdint>
 #include <iterator>
@@ -312,13 +315,14 @@ ButtonParts createButton(Compositor const& c, Vec2 frame, float cornerRadius, Co
     parts.visual = c.CreateContainerVisual();
     parts.visual.Children().InsertAtTop(parts.highlight);
     parts.visual.Children().InsertAtTop(glyphVisual);
+    parts.glyph = glyphVisual;
     return parts;
 }
 
 // --- Swimming text -----------------------------------------------------------
 
-CompositionBrush createMarqueeBrush(Compositor const& c, CompositionDrawingSurface const& surface, Vec2 visualSize,
-                                    float fadeWidth, float travel)
+MarqueeBrush createMarqueeBrush(Compositor const& c, CompositionDrawingSurface const& surface, Vec2 visualSize, float fadeWidth,
+                                float travel, CompositionColorBrush const& ink)
 {
     const Tokens& t = tokens();
     auto text = c.CreateSurfaceBrush(surface);
@@ -347,10 +351,31 @@ CompositionBrush createMarqueeBrush(Compositor const& c, CompositionDrawingSurfa
     for (auto [offset, alpha] : stops)
         mask.ColorStops().Append(c.CreateColorGradientStop(offset, winrt::Windows::UI::Color{ alpha, 255, 255, 255 }));
 
+    if (ink) {
+        // Each layer source-in the ones before: the edges' alpha, the text's
+        // in it, the colour in both. One effect, nothing nested (decision 100).
+        static bool refused = false;
+        if (!refused) {
+            try {
+                using wuc::CompositionEffectSourceParameter;
+                auto effect = composite(L"Swim", D2D1_COMPOSITE_MODE_SOURCE_IN,
+                                        { CompositionEffectSourceParameter(L"Edges"), CompositionEffectSourceParameter(L"Text"),
+                                          CompositionEffectSourceParameter(L"Ink") });
+                auto brush = c.CreateEffectFactory(effect).CreateBrush();
+                brush.SetSourceParameter(L"Edges", mask);
+                brush.SetSourceParameter(L"Text", text);
+                brush.SetSourceParameter(L"Ink", ink);
+                return { brush, true };
+            } catch (winrt::hresult_error const& e) {
+                refused = true;
+                logLine("swimming text: its colour can't fade (0x%08lx): redrawn at once", static_cast<unsigned long>(e.code()));
+            }
+        }
+    }
     auto brush = c.CreateMaskBrush();
     brush.Source(text);
     brush.Mask(mask);
-    return brush;
+    return { brush, false };
 }
 
 } // namespace cup::platform

@@ -26,6 +26,7 @@ void runStoreTests();
 void runKeyboardTests();
 void runBadgeTests();
 void runListCardTests();
+void runGroupTests();
 void runSettingsTests();
 void runSettingsNewTests();
 void runShortcutSettingsTests();
@@ -65,6 +66,7 @@ int main(int argc, char** argv)
     runKeyboardTests();
     runBadgeTests();
     runListCardTests();
+    runGroupTests();
     runSettingsTests();
     runSettingsNewTests();
     runShortcutSettingsTests();

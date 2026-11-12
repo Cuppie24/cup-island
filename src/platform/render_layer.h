@@ -15,6 +15,7 @@ struct RenderLayer {
     wuc::Compositor compositor{ nullptr };
     wuc::Desktop::DesktopWindowTarget target{ nullptr };
     wuc::ContainerVisual root{ nullptr };
+    bool backdrop = false; // its visuals can show the desktop behind, blurred: glass (decision 089), Windows 11
 };
 
 // Windows.UI.Composition needs a DispatcherQueue on the thread that creates
@@ -26,7 +27,7 @@ winrt::Windows::System::DispatcherQueueController createDispatcherQueueForCurren
 RenderLayer createRenderLayer(HINSTANCE instance, Vec2 canvas, Rect monitor);
 
 // A Composition target for `window` on `compositor`: the render layer's, and
-// each provider window's (decision 090), all on the island's one Compositor.
+// each provider window's (decision 104), all on the island's one Compositor.
 wuc::Desktop::DesktopWindowTarget createWindowTarget(wuc::Compositor const& compositor, HWND window);
 
 // A new canvas size or another monitor: resized to span its top again.

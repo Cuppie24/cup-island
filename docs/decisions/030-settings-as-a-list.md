@@ -1,7 +1,7 @@
 # 030: Settings is a list, with a page of choices per setting
 
 Status: Accepted (supersedes 022's and 023's ‹ › arrows). The card is now a
-window (decision 090): its pages within pages and choices stay as described here.
+window (decision 104): its pages within pages and choices stay as described here.
 
 **Context.** The Settings card picked the theme and the display with ‹ name ›
 arrows. With eleven-plus themes that's a lot of clicking to find one, and

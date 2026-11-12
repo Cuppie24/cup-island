@@ -1,5 +1,5 @@
 #pragma once
-// Providers' own windows (decision 090): which are open, whose, in what
+// Providers' own windows (decision 104): which are open, whose, in what
 // order, and when a provider may open one. Not the island's state: windows
 // aren't ranked, timed out or hidden with it, so they live beside
 // IslandState, owned by the ProviderRegistry. Pure.

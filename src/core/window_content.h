@@ -1,5 +1,5 @@
 #pragma once
-// What a provider puts in a window of its own (decision 090): pages of
+// What a provider puts in a window of its own (decision 104): pages of
 // sections of the island's own rows. Providers describe; the host lays out,
 // draws, scrolls, edits text and moves the keys, as it does for cards
 // (decisions 004, 014). Pure data.

@@ -170,6 +170,78 @@ void runTokensTests()
     Tokens other = speeds;
     other.fadeSpeed = FadeSpeed::Fast;
     expect(onlyColorsDiffer(speeds, other), "a new speed rebuilds nothing");
+
+    // Glass (decision 089): the island's colours see-through by glassOpacity,
+    // and only while it's on. Turning it on or off only fades the fill.
+    Tokens solid{};
+    Color island{ 24, 9, 42 };
+    expect(islandFill(solid, island) == island, "glass off: the island's colour as it is");
+    Tokens glass = solid;
+    glass.glass = true;
+    glass.glassOpacity = 0.6f;
+    expect(islandFill(glass, island) == Color{ 24, 9, 42, 153 }, "glass on: the same colour, glassOpacity strong");
+    expect(islandFill(glass, Color{ 0, 0, 0, 128 }).a == 77, "glass on: a colour already see-through, more so");
+    glass.glassPlainOpacity = 0.8f;
+    expect(islandFill(glass, island, false) == Color{ 24, 9, 42, 204 }, "glass over the plain blur: glassPlainOpacity, stronger");
+    expect(islandFill(solid, island, false) == island, "glass off: the plain blur changes nothing");
+    glass.glassTransparency = Transparency::High;
+    glass.glassClearOpacity = 0.2f;
+    glass.glassClearPlainOpacity = 0.4f;
+    expect(islandFill(glass, island) == Color{ 24, 9, 42, 51 } && islandFill(glass, island, false) == Color{ 24, 9, 42, 102 },
+           "glass, Transparency High: the clear opacities (decision 096)");
+    glass.glassTransparency = Transparency::Low;
+    glass.glassDenseOpacity = 0.9f;
+    glass.glassDensePlainOpacity = 1.0f;
+    expect(islandFill(glass, island) == Color{ 24, 9, 42, 230 } && islandFill(glass, island, false) == island,
+           "glass, Transparency Low: the dense ones");
+    expect(glassShare(glass) == 0.9f && glassShare(glass, false) == 1.0f && glassShare(solid) == 1.0f,
+           "the share of opacity glass keeps, for a whole layer (decision 097): 1 when solid");
+    expect(onlyColorsDiffer(glass, [&] { Tokens t = glass; t.glassTransparency = Transparency::Medium; return t; }()),
+           "a new Transparency pick rebuilds nothing: the fill fades");
+    glass.glassTransparency = Transparency::Medium;
+    glass.glassOpacity = 2;
+    expect(islandFill(glass, island) == island, "glass on: an opacity past 1 is solid, not an overflow");
+    expect(onlyColorsDiffer(solid, glass) == false && onlyColorsDiffer(solid, Tokens{ .glass = true }),
+           "glass on or off rebuilds nothing; a new glassOpacity does");
+    // Glass is for dark islands only: a light theme, or a cover tinting a
+    // light theme's island, stays solid even with it picked.
+    TokensParse themed = parseTokens(R"({ "themes": { "Midnight": {}, "Paper": { "islandColor": [246, 246, 248] } } })");
+    expect(withGlass(withTheme(themed.tokens, "Midnight"), true).glass, "glass: on for a dark theme when picked");
+    expect(!withGlass(withTheme(themed.tokens, "Midnight"), false).glass, "glass: off when not picked");
+    expect(!withGlass(withTheme(themed.tokens, "Paper"), true).glass, "glass: never on a light theme");
+    expect(!withGlass(withGlass(solid, true), false).glass, "glass: picked off again, off");
+    expect(pale({ 246, 246, 248 }) && !pale({ 0, 0, 0 }) && !pale({ 24, 9, 42 }) && themed.tokens.themes[1].light,
+           "glass: 'light' is the same test Settings' theme list uses");
+    expect(scaleTokens(glass, 2).glassOpacity == glass.glassOpacity && scaleTokens(glass, 2).glassPlainOpacity == glass.glassPlainOpacity && scaleTokens(glass, 2).glassClearPlainOpacity == glass.glassClearPlainOpacity && scaleTokens(solid, 2).glassRimWidth == solid.glassRimWidth * 2 * solid.islandScale,
+           "glassOpacity is a share, glassRimWidth a length");
+    expect(scaleTokens(solid, 2).glassGlowHeight == solid.glassGlowHeight * 2 * solid.islandScale &&
+               scaleTokens(solid, 2).glassGlowCurve == solid.glassGlowCurve,
+           "the glow's reach is a fixed length (decision 090), its curve unitless");
+    expect(scaleTokens(solid, 2).glassDarkenScale == solid.glassDarkenScale && scaleTokens(solid, 2).glassDarkenLift == solid.glassDarkenLift &&
+               solid.glassDarkenScale + solid.glassDarkenLift < 0.5f,
+           "the darkened glass's range is unitless, and white behind it comes out under half (decision 100)");
+    // Acrylic's even brightness at each Transparency pick (decision 100):
+    // its colour's opacity times the pick's share, clearer as the pick goes up.
+    Tokens lum = solid;
+    lum.glassLuminosityColor = { 44, 44, 44, 200 };
+    lum.glassDenseLuminosity = 1.0f;
+    lum.glassLuminosity = 0.5f;
+    lum.glassClearLuminosity = 0.25f;
+    lum.glassTransparency = Transparency::Low;
+    Color dense = glassLuminosityAt(lum);
+    lum.glassTransparency = Transparency::Medium;
+    Color medium = glassLuminosityAt(lum);
+    lum.glassTransparency = Transparency::High;
+    Color clear = glassLuminosityAt(lum);
+    expect(dense == Color{ 44, 44, 44, 200 } && medium == Color{ 44, 44, 44, 100 } && clear == Color{ 44, 44, 44, 50 },
+           "acrylic's brightness step: the colour's opacity times each pick's share");
+    expect(scaleTokens(lum, 2).glassLuminosity == lum.glassLuminosity, "its shares are unitless");
+    // The glow's fade (decision 090): full at the edge, gone at the top, smooth.
+    bool falling = true;
+    for (int i = 1; i < kGlowStops; ++i) falling = falling && glowFade(solid, i / float(kGlowStops - 1)) < glowFade(solid, (i - 1) / float(kGlowStops - 1));
+    expect(glowFade(solid, 0) == 1 && glowFade(solid, 1) == 0 && falling, "the glow fades from full at the edge to nothing at its top");
+    expect(glowFade(solid, 0.5f) < 0.25f, "the glow hugs the edge: under a quarter halfway up");
+    expect(glowFade(solid, 1.0f - 1.0f / (kGlowStops - 1)) < 0.01f, "the glow melts away at its top: no line where it ends");
 }
 
 } // namespace cup::test

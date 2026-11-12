@@ -1,5 +1,5 @@
 #pragma once
-// A provider's window on Windows (decision 090): one ordinary top-level
+// A provider's window on Windows (decision 104): one ordinary top-level
 // window (taskbar, Alt-Tab, snapping, behind other apps unless kept on top)
 // whose whole area is ours: our own title bar and buttons, drawn with
 // Composition on the island's Compositor by the island's element painters.
@@ -45,7 +45,8 @@ public:
     void raise();                                // to the front, with the keys; restored if minimized
     void minimize();
     void refresh(bool coloursOnly); // tokens changed: recoloured, or rebuilt on the next draw()
-    void setHovered(const std::string& key, std::optional<std::size_t> nav); // "" / nullopt: nothing
+    // What's under the pointer: an item's key, a sidebar entry, a lit row (page coordinates). ""/nullopt: nothing.
+    void setHovered(const std::string& key, std::optional<std::size_t> nav, std::optional<Rect> row, float rowRadius);
     void press(const std::string& key);
     void release(const std::string& key);
 
@@ -74,12 +75,14 @@ private:
     wuc::ContainerVisual root_{ nullptr };
     wuc::SpriteVisual background_{ nullptr }, paneBackground_{ nullptr };
     wuc::ContainerVisual sidebarDecor_{ nullptr }, sidebarLayer_{ nullptr };
-    wuc::ContainerVisual pane_{ nullptr }, scroller_{ nullptr }, pageDecor_{ nullptr }, pageLayer_{ nullptr };
+    wuc::ContainerVisual pane_{ nullptr }, scroller_{ nullptr }, pageLayer_{ nullptr }, rowHover_{ nullptr };
     wuc::ContainerVisual footerLayer_{ nullptr }, chromeLayer_{ nullptr };
     ElementVisuals sidebar_, page_, footer_, chrome_;
 
     WindowScene scene_;
     std::optional<std::size_t> hoveredNav_;
+    std::optional<Rect> hoveredRow_;
+    float hoveredRowRadius_ = 0;
 };
 
 } // namespace cup::platform

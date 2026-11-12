@@ -1,11 +1,14 @@
-// Settings' Tab row (decisions 048, 090), Music colours (decisions 052, 053),
+// Settings' Tab row (decisions 048, 104), Music colours (decisions 052, 053),
 // and "New" on settings not seen yet: a tag on the row, a dot on its parent's
 // while it's on a page not opened, a dot on its page in the sidebar, and seen
 // only once the window closes after showing it.
 
 #include "expect.h"
 #include "panel_host.h"
+#include "core/hit_test.h"
+#include "core/keyboard.h"
 #include "core/layout.h"
+#include "core/segments.h"
 #include "core/tokens.h"
 #include "core/window_layout.h"
 #include "providers/system/settings_provider.h"
@@ -24,6 +27,14 @@ Action fromWindow(const std::string& actionId, float value = 0, const std::strin
 }
 
 void openWindow(SettingsProvider& s) { s.onAction({ "system.settings", SettingsProvider::kPanelId, P::kOpenWindow, 0 }); }
+
+// The host's window as the registry would keep it, on the page the user is on.
+std::optional<OpenWindow> g_open;
+const OpenWindow* findOpen(const PanelHost& h, const std::string& page = kAppearancePage)
+{
+    g_open = OpenWindow{ .key = { "system.settings", kSettingsWindowId }, .content = *h.window, .page = page };
+    return &*g_open;
+}
 
 bool tagged(const Row* r)
 {
@@ -50,13 +61,44 @@ void tabRowTests()
     s.start(h);
     expect(placed == std::vector<bool>{ false }, "tab row: the saved place is applied at start");
     openWindow(s);
-    const Segmented* choice = itemOf<Segmented>(windowRow(h, "Tab row"));
-    expect(choice && choice->options == std::vector<std::string>{ "Top", "Bottom" } && choice->picked == 1 && choice->actionId == P::kSetTabRow &&
+    const Segments* choice = itemOf<Segments>(windowRow(h, "Tab row"));
+    expect(choice && choice->options == std::vector<std::string>{ "Top", "Bottom" } && choice->picked == 1 && choice->actionId == P::kPickTabRow &&
            detailOf(h, "Tab row") == "Home and pin buttons",
-           "tab row: a row with Top and Bottom side by side (decision 090), Bottom picked");
-    s.onAction(fromWindow(P::kSetTabRow, 0));
-    expect(placed.back() && h.store[SettingsProvider::kTabRowKey] == "top" && itemOf<Segmented>(windowRow(h, "Tab row"))->picked == 0,
+           "tab row: a row with Top and Bottom side by side (decision 104), Bottom picked");
+    s.onAction(fromWindow(std::string(P::kPickTabRow) + "0"));
+    expect(placed.back() && h.store[SettingsProvider::kTabRowKey] == "top" && itemOf<Segments>(windowRow(h, "Tab row"))->picked == 0,
            "tab row: Top picked, applied and kept");
+
+    // Laid out in the window: the options side by side; a click on one picks it.
+    {
+        WindowScene scene = windowLayout(*findOpen(h), { 900, 700 }, 0, Ms{ 0 });
+        const Placed* control = nullptr;
+        for (const Placed& e : scene.page)
+            if (std::holds_alternative<Segments>(e.item)) control = &e;
+        Rect bottom = control ? segmentFrame(*itemOf<Segments>(windowRow(h, "Tab row")), control->frame, 1) : Rect{};
+        WindowHit hit = windowHitTest(scene, { scene.pane.x + bottom.x + bottom.width / 2, scene.pane.y + bottom.y + bottom.height / 2 - scene.scroll });
+        expect(control && control->frame.height == tokens().segmentHeight && hit.hit && hit.hit->action.actionId == std::string(P::kPickTabRow) + "1" &&
+                   hit.hit->action.windowId == kSettingsWindowId,
+               "segments: in the window, a click on an option sends its pick");
+    }
+    // ...and on a card: Enter on the control picks the next one (decision 093).
+    {
+        Panel card{ .id = "seg", .content = { .label = "seg", .card = CardLayout::List,
+                                             .expandedCenter = { row({ Text{ "Tab row" }, Segments{ .options = { "Top", "Bottom" }, .actionId = P::kPickTabRow } }) },
+                                             .tile = { row({ Text{ "seg" } }) } },
+                    .providerId = "p" };
+        IslandState st;
+        st = reduce(st, PanelPublished{ card }, Ms{ 0 });
+        st = reduce(st, HomeOpened{}, Ms{ 0 });
+        st = reduce(st, TileClicked{ "seg" }, Ms{ 0 });
+        Scene scene = layout(st, Ms{ 0 });
+        const Placed* control = nullptr;
+        for (const Placed& e : scene.elements)
+            if (std::holds_alternative<Segments>(e.item)) control = &e;
+        auto f = control ? findFocusable(scene, "el:" + control->key) : std::nullopt;
+        auto pressed = f ? hitTest(scene, f->point) : std::nullopt;
+        expect(pressed && pressed->action.actionId == std::string(P::kPickTabRow) + "1", "segments: Enter on Top picks the next one, Bottom");
+    }
 
     // The core side: the strip along the bottom, the content where it is without one.
     IslandState top, bottom;
@@ -188,14 +230,14 @@ void coverColoursTests()
     const WindowPage* page = pageOf(h, kAppearancePage);
     expect(page->title == "Music colours" && page->backAction == P::kBack && !itemOf<Switch>(windowRow(h, "Colours from music"))->on,
            "music colours: its page, the switch off");
-    expect(page->sections.size() == 2 && page->sections[1].title == "Colour fade" && itemOf<Button>(windowRow(h, "Medium"))->glyph == Glyph::Checked &&
-           windowRow(h, "Fast") && windowRow(h, "Slow"),
-           "music colours: the fade's three speeds under their heading, medium picked");
+    const Segments* fade = itemOf<Segments>(windowRow(h, "Colour fade"));
+    expect(page->sections.size() == 1 && fade && fade->options == std::vector<std::string>{ "Fast", "Medium", "Slow" } && fade->picked == 1,
+           "music colours: the fade's three speeds side by side (decision 093), medium picked");
     settings.onAction(fromWindow(P::kToggleCoverColours));
     expect(applied.back() && h.store[SettingsProvider::kCoverColoursKey] == "on" && itemOf<Switch>(windowRow(h, "Colours from music"))->on,
            "music colours: a click switches it on, saved, the page stays");
     settings.onAction(fromWindow(std::string(P::kPickFade) + "2"));
-    expect(speeds.back() == FadeSpeed::Slow && h.store[SettingsProvider::kFadeKey] == "slow" && itemOf<Button>(windowRow(h, "Slow"))->glyph == Glyph::Checked,
+    expect(speeds.back() == FadeSpeed::Slow && h.store[SettingsProvider::kFadeKey] == "slow" && itemOf<Segments>(windowRow(h, "Colour fade"))->picked == 2,
            "music colours: slow picked, saved, ticked");
     settings.onAction(fromWindow(P::kBack));
     expect(detailOf(h, "Music colours") == "On", "music colours: Appearance says on");
@@ -215,12 +257,61 @@ void coverColoursTests()
     without.stop();
 }
 
+// Glass (decisions 089, 096): a row on the list opening its page, with a
+// switch that's on until turned off (after an update too) and how
+// see-through, medium by default; only where the app can draw it (Windows
+// 11): no hook, no row.
+void glassTests()
+{
+    PanelHost h;
+    std::vector<bool> applied;
+    std::vector<Transparency> levels;
+    SettingsProvider settings({ .setGlass = [&](bool on) { applied.push_back(on); },
+                                .setTransparency = [&](Transparency t) { levels.push_back(t); } });
+    settings.start(h);
+    openWindow(settings);
+    expect(applied == std::vector<bool>{ true } && levels == std::vector<Transparency>{ Transparency::Medium } &&
+               h.store[SettingsProvider::kGlassKey].empty() && detailOf(h, "Glass") == "On" && !windowRow(h, "Glass effect"),
+           "glass: on and medium by default (nothing saved, as after an update), the app told; one row on Appearance");
+    settings.onAction(fromWindow(P::kOpenGlass));
+    auto level = [&] { return *itemOf<Segments>(windowRow(h, "Transparency")); };
+    expect(pageOf(h, kAppearancePage)->title == "Glass" && itemOf<Switch>(windowRow(h, "Glass effect"))->on &&
+               level().options == std::vector<std::string>{ "Low", "Medium", "High" } && level().picked == 1,
+           "glass: its page within Appearance, the switch on, three levels side by side, medium picked");
+    settings.onAction(fromWindow(std::string(P::kPickTransparency) + "2"));
+    expect(levels.back() == Transparency::High && h.store[SettingsProvider::kTransparencyKey] == "high" && level().picked == 2,
+           "glass: high picked, saved, the page stays");
+    settings.onAction(fromWindow(P::kToggleGlass));
+    expect(applied.back() == false && h.store[SettingsProvider::kGlassKey] == "off" && !itemOf<Switch>(windowRow(h, "Glass effect"))->on,
+           "glass: a click turns it off, saved");
+    settings.onAction(fromWindow(P::kBack));
+    expect(detailOf(h, "Glass") == "Off", "glass: Appearance says off");
+    settings.stop();
+    settings.start(h);
+    expect(applied.back() == false && levels.back() == Transparency::High, "glass: off and high kept over a restart");
+    openWindow(settings);
+    settings.onAction(fromWindow(P::kToggleGlass));
+    expect(applied.back() == true && h.store[SettingsProvider::kGlassKey] == "on", "glass: and back on");
+    settings.stop();
+
+    PanelHost bare;
+    SettingsProvider without({});
+    without.start(bare);
+    openWindow(without);
+    without.onAction(fromWindow(P::kToggleGlass));
+    without.onAction(fromWindow(std::string(P::kPickTransparency) + "0"));
+    expect(!windowRow(bare, "Glass") && bare.store[SettingsProvider::kGlassKey].empty() && bare.store[SettingsProvider::kTransparencyKey].empty(),
+           "glass: no hook (Windows 10), no row, and its actions do nothing");
+    without.stop();
+}
+
 } // namespace
 
 void runSettingsNewTests()
 {
     tabRowTests();
     coverColoursTests();
+    glassTests();
     newTagTests();
     tagLayout();
 }

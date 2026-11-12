@@ -1,6 +1,6 @@
 #pragma once
 // A Host that records what a panel provider publishes and saves, and
-// helpers to read a published widget and card, or its window (decision 090).
+// helpers to read a published widget and card, or its window (decision 104).
 // For the system widgets' tests.
 
 #include "core/provider.h"
@@ -35,7 +35,7 @@ struct PanelHost : Host {
     void save(const std::string& key, const std::string& text) override { store[key] = text; ++saves[key]; }
     Ms wallClock() const override { return clock; }
 
-    // Its window (decision 090): the last content sent while it's open.
+    // Its window (decision 104): the last content sent while it's open.
     std::optional<WindowContent> window;
     std::optional<WindowSpec> windowSpec;
     WindowOpen openWindow(const WindowSpec& spec, WindowContent content) override
@@ -116,11 +116,12 @@ inline std::string cardText(const Panel& p, std::size_t row)
     return "?";
 }
 
-// A card row's `item`th item's text.
+// A card row's `item`th item's text (or its key caps' text).
 inline std::string cardItem(const Panel& p, std::size_t row, std::size_t item)
 {
     const Slot& card = p.content.expandedCenter;
     if (row >= card.size() || item >= card[row].items.size()) return "?";
+    if (auto* keys = std::get_if<Keys>(&card[row].items[item])) return keys->text; // key caps (decision 092)
     auto* text = std::get_if<Text>(&card[row].items[item]);
     return text ? text->value : "?";
 }
@@ -142,10 +143,11 @@ inline const Row* rowNamed(const Panel& p, const std::string& name)
     return nullptr;
 }
 
-// That row's value (its second item's text), "?" if there's none.
+// That row's value: the description under its name (decision 090), else its second item's text; "?" if there's none.
 inline std::string valueOf(const Panel& p, const std::string& name)
 {
     const Row* r = rowNamed(p, name);
+    if (r && !std::get<Text>(r->items[0]).detail.empty()) return std::get<Text>(r->items[0]).detail;
     if (!r || r->items.size() < 2) return "?";
     auto* text = std::get_if<Text>(&r->items[1]);
     return text ? text->value : "?";

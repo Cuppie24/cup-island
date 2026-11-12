@@ -1,7 +1,8 @@
-// Settings' Keyboard shortcuts page (decisions 031, 032, 090): what it lists,
+// Settings' Keyboard shortcuts page (decisions 031, 032, 104): what it lists,
 // recording new keys, aborting on any conflict, and letting the keys go
 // while a fullscreen app hides the island.
 
+#include "core/layout.h"
 #include "expect.h"
 #include "panel_host.h"
 #include "core/shortcuts.h"
@@ -12,6 +13,15 @@ namespace cup::test {
 namespace {
 
 Action fromWindow(const std::string& actionId) { return { "system.settings", "", actionId, 0, "", kSettingsWindowId }; }
+
+// A key's row's keys: its key caps (decision 092), or the note there while it waits ("Press keys…").
+std::string keysIn(const Row* r)
+{
+    if (auto* keys = itemOf<Keys>(r)) return keys->text;
+    for (std::size_t i = 1; r && i < r->items.size(); ++i)
+        if (auto* text = std::get_if<Text>(&r->items[i])) return text->value;
+    return "?";
+}
 
 // The shortcuts page's rows, in order (both sections), and the page.
 std::vector<Row> keyRows(const PanelHost& h)
@@ -42,11 +52,11 @@ void runShortcutSettingsTests()
     std::vector<Row> keys = keyRows(sh);
     expect(page->title == "Keyboard shortcuts" && page->backAction == settings_action::kBack && page->sections.size() == 2 &&
            page->sections[0].title == "Anywhere" && page->sections[1].title == "On the island" &&
-           keys.size() == commands().size() + fixedKeys().size(),
-           "shortcuts: a page within General, the system-wide ones, then the island's");
-    expect(nameOf(keys[0]) == "Open Home" && detailOf(sh, "Open Home") == "Ctrl+Q" && detailOf(sh, "Open the activity") == "Ctrl+Alt+Q" &&
-           detailOf(sh, "Search apps and files") == "Double Ctrl" && windowRow(sh, "Move between items"),
-           "shortcuts: each one's keys under what they do");
+           keys.size() == commands().size() + 1 + fixedKeys().size() && nameOf(keys[commands().size()]) == "Reset all to defaults",
+           "shortcuts: a page within General, the system-wide ones and a reset for all, then the island's");
+    expect(nameOf(keys[0]) == "Open Home" && keysIn(windowRow(sh, "Open Home")) == "Ctrl+Q" && keysIn(windowRow(sh, "Open the activity")) == "Ctrl+Alt+Q" &&
+           keysIn(windowRow(sh, "Search apps and files")) == "Double Ctrl" && itemOf<Keys>(windowRow(sh, "Move between items")),
+           "shortcuts: each one's keys as key caps at its end (decision 092)");
     expect(keys[0].clickAnywhere && !itemOf<Button>(windowRow(sh, "Move between items")), "shortcuts: the editable ones are clicked; the fixed keys only say");
     press(settings_action::kBack);
 
@@ -69,7 +79,7 @@ void runShortcutSettingsTests()
     expect(chordText(registered[Command::OpenHome]) == "Ctrl+Q", "keys: the default (Ctrl+Q) registered at start");
     editor.onAction({ "system.settings", SettingsProvider::kPanelId, settings_action::kOpenWindow, 0 });
     auto pressKeys = [&](const std::string& actionId) { editor.onAction(fromWindow(actionId)); };
-    auto keysOf = [&] { return detailOf(sh, "Open Home"); };
+    auto keysOf = [&] { return keysIn(windowRow(sh, "Open Home")); };
     auto noteOf = [&] { return pageOf(sh, kGeneralPage)->subtitle; }; // under the page's title, always in view
     pressKeys(settings_action::kOpenShortcuts);
     pressKeys(std::string(settings_action::kEditShortcut) + "0");
@@ -100,6 +110,34 @@ void runShortcutSettingsTests()
     expect(chordText(registered[Command::OpenHome]) == "Ctrl+Alt+J", "keys: the saved ones registered after a restart");
     editor.onAction({ "system.settings", SettingsProvider::kPanelId, settings_action::kOpenWindow, 0 });
     pressKeys(settings_action::kOpenShortcuts);
+
+    // Reset (decision 103): one command back to its default, or all of them.
+    auto resetOf = [&](const char* does) { return std::get<Button>(windowRow(sh, does)->items[2]); };
+    expect(resetOf("Open Home").enabled && resetOf("Open Home").glyph == Glyph::Reset && !resetOf("Open the activity").enabled &&
+               itemOf<Button>(windowRow(sh, "Reset all to defaults"))->enabled,
+           "reset: lit on the changed row and for all, dimmed on the default one");
+    pressKeys(std::string(settings_action::kResetShortcut) + "0");
+    expect(keysOf() == "Ctrl+Q" && chordText(registered[Command::OpenHome]) == "Ctrl+Q" && savedKeys == "home=Ctrl+Q\nactivity=Ctrl+Alt+Q\nsearch=Double Ctrl\n" &&
+               !resetOf("Open Home").enabled, "reset: one row back to its default, registered and saved");
+    // Swapped keys: reset one at a time, each clashes with the other's; reset all puts both back.
+    pressKeys(std::string(settings_action::kEditShortcut) + "0");
+    editor.keysPressed(Chord{ .key = 'J', .ctrl = true, .alt = true });
+    pressKeys(std::string(settings_action::kEditShortcut) + "1");
+    editor.keysPressed(Chord{ .key = 'Q', .ctrl = true });
+    pressKeys(std::string(settings_action::kEditShortcut) + "0");
+    editor.keysPressed(Chord{ .key = 'Q', .ctrl = true, .alt = true });
+    expect(keysOf() == "Ctrl+Alt+Q" && keysIn(windowRow(sh, "Open the activity")) == "Ctrl+Q", "reset: (the keys swapped)");
+    pressKeys(std::string(settings_action::kResetShortcut) + "0");
+    expect(keysOf() == "Ctrl+Alt+Q" && noteOf() == "Ctrl+Q is already Open the activity", "reset: a row whose default another command has aborts, saying why");
+    pressKeys(std::string(settings_action::kEditShortcut) + "0");
+    pressKeys(settings_action::kResetShortcuts);
+    expect(!capturing && keysOf() == "Ctrl+Q" && keysIn(windowRow(sh, "Open the activity")) == "Ctrl+Alt+Q" &&
+               chordText(registered[Command::OpenHome]) == "Ctrl+Q" && chordText(registered[Command::OpenActivity]) == "Ctrl+Alt+Q" &&
+               savedKeys == "home=Ctrl+Q\nactivity=Ctrl+Alt+Q\nsearch=Double Ctrl\n" && noteOf().empty(),
+           "reset all: every command back to its default, registered and saved, recording stopped");
+    pressKeys(std::string(settings_action::kEditShortcut) + "0");
+    editor.keysPressed(Chord{ .key = 'J', .ctrl = true, .alt = true });
+    pressKeys(settings_action::kBack);
 
     // A fullscreen app hides the island: the keys are let go, so that app gets them; back after.
     pressKeys(std::string(settings_action::kEditShortcut) + "0");

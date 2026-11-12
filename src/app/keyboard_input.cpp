@@ -147,7 +147,7 @@ bool recordKey(WPARAM key, bool inSettings)
         g_capturing = false;
         return false;
     }
-    // Pressed in Settings' window: the new keys (decision 090). Anywhere else, or Esc: it stops waiting.
+    // Pressed in Settings' window: the new keys (decision 104). Anywhere else, or Esc: it stops waiting.
     if (!inSettings || key == VK_ESCAPE) g_hooks.settings->keysPressed(std::nullopt);
     else if (auto chord = platform::chordPressed(key)) g_hooks.settings->keysPressed(chord);
     return true;

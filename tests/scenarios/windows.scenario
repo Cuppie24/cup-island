@@ -1,4 +1,4 @@
-# Providers' own windows (decision 090): kept beside the island's state, not in it.
+# Providers' own windows (decision 104): kept beside the island's state, not in it.
 # Only just after the user acted on the provider; several per provider, up to a limit.
 
 scenario: a window opens only just after the user acted on its provider

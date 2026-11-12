@@ -1,7 +1,7 @@
 #pragma once
 // Owns the providers and connects them to the island: gives each one a Host
 // that stamps its id on everything it posts, and routes clicked actions back.
-// Also keeps their windows (decision 090), which aren't the island's state.
+// Also keeps their windows (decision 104), which aren't the island's state.
 
 #include "core/provider.h"
 
@@ -55,7 +55,7 @@ public:
     // Ctrl+W on an activity's card: asks its provider to close it (Provider::onCloseRequested).
     void closeRequested(const ShownCard& card);
 
-    // Providers' windows (decision 090): what's open, for the app to show.
+    // Providers' windows (decision 104): what's open, for the app to show.
     // `changed` runs after anything in it changes (opened, raised, new
     // content, a page, closed), never during a provider's own call returning.
     const Windows& windows() const { return windows_; }

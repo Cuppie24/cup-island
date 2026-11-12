@@ -23,7 +23,7 @@ struct Hit {
 // for the rest of it, never what's under it. Over a row's open menu
 // (decision 086): nothing; menuItemAt (core/menu.h) says which item.
 std::optional<Hit> hitTest(const Scene& scene, Vec2 point);
-// The same test over any elements (a window's page, decision 090), in their coordinates.
+// The same test over any elements (a window's page, decision 104), in their coordinates.
 std::optional<Hit> hitIn(const std::vector<Placed>& elements, Vec2 point);
 
 // Where along a progress bar `x` (pill coordinates) points, 0..1. Clamped, so

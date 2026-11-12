@@ -42,6 +42,7 @@
 #include "platform/hotkeys.h"
 #include "platform/wall_clock.h"
 #include "platform/fullscreen_watcher.h"
+#include "platform/glass.h"
 #include "platform/log.h"
 #include "platform/interaction_layer.h"
 #include "platform/pill_renderer.h"
@@ -102,6 +103,7 @@ const auto g_startTime = std::chrono::steady_clock::now();
 IslandState g_state;
 IslandTint g_tint; // the playing cover's colour on the island (decision 051)
 bool g_coverColours = false; // ...if Settings has it on (decisions 052, 055)
+bool g_glassPicked = false;  // Settings' Glass (decision 089): drawn only while Windows' transparency effects are on too
 PillRenderer g_renderer;
 HWND g_inputHwnd{};
 // The island's state and its Composition visuals belong to this thread. A
@@ -118,7 +120,7 @@ SettingsProvider* g_settings = nullptr; // owned by g_providers; told when token
 UpdateProvider* g_update = nullptr;     // owned by g_providers; Settings' "Check for updates" asks it
 
 // The island as a surface: its scene, its renderer, the pointer on it.
-// Providers' windows (decision 090) take their own input, in their own windows.
+// Providers' windows (decision 104) take their own input, in their own windows.
 app::Surface g_island;
 PointerTrack g_drag; // the pointer's speed while the island or bubble is carried: a fling when let go (decision 080)
 
@@ -851,7 +853,7 @@ void tokensChanged(Vec2 oldCanvas, const char* reason)
 {
     if (tokens().canvas != oldCanvas) positionLayers();
     g_renderer.refreshAnimations(); // also drops content visuals, so they're redrawn at the new sizes
-    app::refreshWindows();          // providers' windows too: a theme recolours them (decision 090)
+    app::refreshWindows();          // providers' windows too: a theme recolours them (decision 104)
     dispatch(Tick{}, reason);
 }
 
@@ -903,6 +905,16 @@ void setCoverColours(bool on)
     Vec2 oldCanvas = tokens().canvas;
     if (app::setTint(g_tint.shown)) tokensChanged(oldCanvas, "cover colours");
     else dispatch(Tick{}, "cover colours");
+}
+
+// Glass (decision 089): the user's pick, as long as Windows' "Transparency
+// effects" are on; off, the island is solid, like Windows' own surfaces.
+void applyGlass(const char* reason)
+{
+    Vec2 oldCanvas = tokens().canvas;
+    bool transparency = transparencyOn();
+    if (g_glassPicked && !transparency) logLine("glass: picked, but Windows' transparency effects are off: solid");
+    if (app::setGlass(g_glassPicked && transparency)) tokensChanged(oldCanvas, reason);
 }
 
 // The Settings card picked a theme: recolour everything (decision 022).
@@ -986,6 +998,7 @@ int main()
         Vec2 oldCanvas = tokens().canvas;
         if (app::setReducedMotion(animationsOff())) tokensChanged(oldCanvas, "animation setting");
     };
+    callbacks.onColourSettingChanged = [] { applyGlass("transparency setting"); };
     callbacks.onShowRequested = [] {
         logLine("launched again: opening Home");
         dispatch(HomeOpened{}, "launched again");
@@ -1016,7 +1029,7 @@ int main()
         .wallClock = wallClock,
         .utcOffset = platform::utcOffset,
     });
-    // Providers' own windows (decision 090): on the island's Compositor, drawn
+    // Providers' own windows (decision 104): on the island's Compositor, drawn
     // by its renderer's device, following the registry's list of open ones.
     app::setWindowHooks({
         .instance = instance,
@@ -1064,6 +1077,18 @@ int main()
         .placeTabRow = [](bool top) { dispatch(TabRowPlaced{ top }, top ? "tab row on top" : "tab row at the bottom"); }, // decision 048
         .setCoverColours = setCoverColours, // decision 052
         .setFadeSpeed = [](FadeSpeed speed) { app::setFadeSpeed(speed); }, // decision 053: read when a fade starts
+        // Glass (decision 089): only where Windows can blur behind the island (11); no row on 10.
+        .setGlass = g_render.backdrop ? std::function<void(bool)>([](bool on) {
+            g_glassPicked = on;
+            applyGlass(on ? "glass on" : "glass off");
+        })
+                                      : nullptr,
+        // How see-through (decision 096): with the Glass row, so not on Windows 10 either.
+        .setTransparency = g_render.backdrop ? std::function<void(Transparency)>([](Transparency level) {
+            Vec2 oldCanvas = tokens().canvas;
+            if (app::setTransparency(level)) tokensChanged(oldCanvas, "glass transparency");
+        })
+                                             : nullptr,
     });
     g_settings = settings.get();
     g_settings->setHotkeysActive(!g_state.hidden); // started under a fullscreen app: none until it's gone

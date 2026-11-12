@@ -1,6 +1,6 @@
 #include "core/hit_test.h"
 
-#include "core/item_metrics.h"
+#include "core/segments.h"
 
 #include <algorithm>
 #include <string>
@@ -13,14 +13,11 @@ std::optional<Hit> hitIn(const std::vector<Placed>& elements, Vec2 point)
         if (!p.hitFrame.contains(point)) continue;
         if (auto* button = std::get_if<Button>(&p.item); button && button->enabled)
             return Hit{ { p.providerId, p.activityId, button->actionId, 0 }, p.key };
+        if (auto* segments = std::get_if<Segments>(&p.item); segments && segments->enabled) // the option under it (decision 093)
+            if (auto option = segmentAt(*segments, p.frame, point.x))
+                return Hit{ { p.providerId, p.activityId, segmentAction(*segments, *option), 0 }, p.key };
         if (auto* toggle = std::get_if<Switch>(&p.item); toggle && toggle->enabled)
             return Hit{ { p.providerId, p.activityId, toggle->actionId, 0 }, p.key };
-        if (auto* seg = std::get_if<Segmented>(&p.item); seg && seg->enabled) { // the segment under it (decision 090)
-            float x = std::clamp(point.x, p.frame.x, p.frame.x + p.frame.width - 0.01f); // its hit frame's margins: the end segment
-            auto at = segmentAt(*seg, p.frame, x);
-            if (!at) continue;
-            return Hit{ { p.providerId, p.activityId, seg->actionId, static_cast<float>(*at) }, p.key };
-        }
         if (auto* image = std::get_if<Image>(&p.item); image && !image->actionId.empty())
             return Hit{ { p.providerId, p.activityId, image->actionId, 0 }, p.key };
         if (auto* input = std::get_if<TextInput>(&p.item)) // the app focuses it (InputFocused), nothing is sent yet

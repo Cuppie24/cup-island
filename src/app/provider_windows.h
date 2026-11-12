@@ -1,5 +1,5 @@
 #pragma once
-// Providers' windows on screen (decision 090): one platform window for each
+// Providers' windows on screen (decision 104): one platform window for each
 // window the registry has open, laid out by core (windowLayout) and kept in
 // step after every change; where each was left, remembered. What a click,
 // a key or the wheel means is core's (windowHitTest) and the registry's.

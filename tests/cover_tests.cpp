@@ -30,6 +30,18 @@ double contrast(Color fg, Color bg)
     return (std::max(l1, l2) + 0.05) / (std::min(l1, l2) + 0.05);
 }
 
+// Covers' main colours around the wheel: red, orange, yellow, green, cyan, light blue, blue, purple, magenta.
+const Color kHues[] = { { 220, 30, 40 }, { 240, 130, 20 }, { 240, 210, 20 }, { 40, 200, 60 }, { 40, 200, 220 },
+                        { 90, 170, 240 }, { 30, 60, 220 }, { 130, 40, 200 }, { 210, 40, 190 } };
+
+// Glass at its brightest (decision 089): its luminosity layer over a white desktop.
+Color glassLuminosityOverWhite(const Tokens& t)
+{
+    Color l = t.glassLuminosityColor;
+    auto over = [&](std::uint8_t c) { return static_cast<std::uint8_t>(std::lround((c * l.a + 255.0 * (255 - l.a)) / 255.0)); };
+    return { over(l.r), over(l.g), over(l.b) };
+}
+
 // A 10x10 cover: `share` of its pixels (the first ones) in `main`, the rest in `rest`.
 ImageData cover(Color main, Color rest, double share)
 {
@@ -134,6 +146,57 @@ void paletteTests()
     auto duo = coverColors({ .main = { 220, 30, 40 }, .second = Color{ 30, 60, 220 }, .vividness = 1 }, midnight);
     expect(strongest(tokenColor(duo, "islandSecondColor")) == 2 && strongest(tokenColor(duo, "islandColor")) == 0,
            "two colours: the island runs from red to blue");
+    expect(withColors(midnight, duo).islandGlowColor.a == 0, "solid: no glow");
+
+    // Glass (decision 090): a Midnight island, one colour, the cover's main
+    // hue glowing from the bottom; text and accents still the cover's.
+    for (const Theme& theme : parsed.tokens.themes) {
+        if (theme.light) continue; // light themes have no glass
+        Tokens themed = withTheme(parsed.tokens, theme.name);
+        CoverTint tint{ .main = { 220, 30, 40 }, .second = Color{ 30, 60, 220 }, .vividness = 1 };
+        auto glass = glassCoverColors(tint, themed, parsed.tokens);
+        auto solidColours = coverColors(tint, themed);
+        Tokens tinted = withColors(themed, glass);
+        Color glow = tinted.islandGlowColor;
+        expect(tinted.islandColor == parsed.tokens.islandColor && tinted.islandSecondColor == parsed.tokens.islandColor &&
+                   tinted.islandHighlightColor == parsed.tokens.islandHighlightColor,
+               "glass: a Midnight island, one colour, under " + theme.name);
+        expect(strongest(glow) == 0 && glow.a == static_cast<std::uint8_t>(std::lround(parsed.tokens.glassGlowOpacity * 255)),
+               "glass: the glow is the cover's main colour, glassGlowOpacity strong: " + theme.name);
+        expect(tokenColor(glass, "liveColor") == tokenColor(solidColours, "liveColor") &&
+                   tokenColor(glass, "titleTextColor") == tokenColor(solidColours, "titleTextColor"),
+               "glass: the accent and text still follow the cover: " + theme.name);
+        // Every hue (decision 098): text reads over the glow at its strongest
+        // (its alpha, at the bottom edge) over glass at its brightest (the
+        // luminosity layer over a white desktop).
+        Color backdrop = glassLuminosityOverWhite(parsed.tokens);
+        for (Color main : kHues) {
+            CoverTint one{ .main = main, .vividness = 1 };
+            Tokens over = withColors(themed, glassCoverColors(one, themed, parsed.tokens));
+            Color under = over.islandGlowColor;
+            auto blend = [&](std::uint8_t f, std::uint8_t b) { return static_cast<std::uint8_t>(std::lround((f * under.a + b * (255 - under.a)) / 255.0)); };
+            Color seen{ blend(under.r, backdrop.r), blend(under.g, backdrop.g), blend(under.b, backdrop.b) };
+            expect(contrast(over.titleTextColor, seen) >= 4.5 && contrast(over.captionTextColor, seen) >= 2,
+                   "glass: text reads over the glow: " + theme.name + " " + std::to_string(main.r) + "," + std::to_string(main.g) + "," + std::to_string(main.b));
+        }
+    }
+
+    // A hue only vivid when light glows lighter (decision 098): yellow,
+    // green and cyan; red, purple and blue keep coverDarkGlow.
+    auto glowOf = [&](Color main) {
+        return withColors(parsed.tokens, glassCoverColors({ .main = main, .vividness = 1 }, parsed.tokens, parsed.tokens)).islandGlowColor;
+    };
+    auto lightness = [](Color c) { return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b; };
+    Tokens unlifted = parsed.tokens;
+    unlifted.coverDarkGlowLifted = unlifted.coverDarkGlow;
+    auto plainGlowOf = [&](Color main) {
+        return withColors(unlifted, glassCoverColors({ .main = main, .vividness = 1 }, unlifted, unlifted)).islandGlowColor;
+    };
+    for (Color dark : { Color{ 220, 30, 40 }, Color{ 130, 40, 200 }, Color{ 30, 60, 220 } })
+        expect(glowOf(dark) == plainGlowOf(dark), "glass: red, purple and blue glow at coverDarkGlow");
+    for (Color light : { Color{ 240, 210, 20 }, Color{ 40, 200, 60 }, Color{ 40, 200, 220 }, Color{ 120, 70, 30 } })
+        expect(lightness(glowOf(light)) > lightness(plainGlowOf(light)) + 20, "glass: yellow, green, cyan and brown glow lighter");
+    expect(Tokens{}.islandGlowColor.a == 0, "no cover: no glow");
 }
 
 void tintTests()

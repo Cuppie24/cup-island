@@ -4,8 +4,6 @@
 #include "platform/element_parts.h"
 #include "platform/spring_motion.h"
 
-#include <winrt/Windows.Foundation.Metadata.h>
-
 #include <cmath>
 #include <algorithm>
 #include <string>
@@ -20,36 +18,39 @@ using namespace winrt::Windows::UI::Composition;
 // without app code running per frame (blob_shape.h).
 constexpr auto bind = bindToBlob;
 
-// Background: only the bottom corners are rounded (a notch hanging from the
-// screen edge). The geometry has one radius for all corners, so it's made a
-// radius taller and shifted up; ShapeVisual clips the top corners away.
-// Radius = half the height, capped by maxCornerRadius: the same curve as core
-// pillCornerRadius(), which content radii are nested in. Dragged off the edge
-// (Attached 0) the top corners round too: the square bubble becomes a circle
-// (decision 025). Built on `target`, whose Size is the body's.
-void addBackground(Compositor const& c, ShapeVisual const& target, CompositionPropertySet const& shape, CompositionBrush const& fill)
-{
-    auto background = c.CreateRoundedRectangleGeometry();
-    bind(c, background, L"CornerRadius",
-        L"Vector2(Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius), Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))",
-        target, shape);
-    bind(c, background, L"Offset", L"Vector2(0, -shape.Attached * Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))", target, shape);
-    bind(c, background, L"Size",
-        L"Vector2(pill.Size.X, pill.Size.Y + shape.Attached * Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius))", target, shape);
-    auto backgroundShape = c.CreateSpriteShape(background);
-    backgroundShape.FillBrush(fill);
-    target.Shapes().Append(backgroundShape);
-}
-
 // The fill's two ends: the highlight's colour (a drop target, decision 007) on both, or the island's.
 Color leftColor(bool highlighted) { return highlighted ? tokens().islandHighlightColor : tokens().islandColor; }
 Color rightColor(bool highlighted) { return highlighted ? tokens().islandHighlightColor : tokens().islandSecondColor; }
+
+ShapeFill makeFill(Compositor const& c, Color left, Color right)
+{
+    ShapeFill f;
+    f.leftEar = c.CreateColorBrush(toUiColor(left));
+    f.rightEar = c.CreateColorBrush(toUiColor(right));
+    f.left = c.CreateColorGradientStop(0.0f, toUiColor(left));
+    f.right = c.CreateColorGradientStop(1.0f, toUiColor(right));
+    f.gradient = c.CreateLinearGradientBrush(); // relative to the background's bounds: its left edge to its right
+    f.gradient.StartPoint({ 0.0f, 0.5f });
+    f.gradient.EndPoint({ 1.0f, 0.5f });
+    f.gradient.ColorStops().Append(f.left);
+    f.gradient.ColorStops().Append(f.right);
+    return f;
+}
+
+void fade(ShapeFill& f, Color left, Color right, Ms duration)
+{
+    fadeColor(f.left, left, duration);
+    fadeColor(f.leftEar, left, duration);
+    fadeColor(f.right, right, duration);
+    fadeColor(f.rightEar, right, duration);
+}
 
 } // namespace
 
 void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::ContainerVisual const& parent, Vec2 size, Vec2 offset)
 {
     compositor_ = c;
+    device_ = &device;
     size_ = size;
     offset_ = offset;
 
@@ -69,19 +70,18 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     shape_.InsertScalar(L"Flare", 1.0f);    // ...and flared into it (decision 025)
     shape_.InsertScalar(L"LeftEar", 1.0f);  // per side: 0 when flush with the screen's edge (decision 026)
     shape_.InsertScalar(L"RightEar", 1.0f);
+    shape_.InsertScalar(L"Overlap", 1.0f);  // ears reach this far into the body: 0 as glass (blob_shape.cpp)
+    shape_.InsertScalar(L"RimInset", 0.0f); // half the glass rim's width (decision 089)
+    shape_.InsertScalar(L"GlowHeight", tokens().glassGlowHeight); // the glow's reach (decision 090)
     bind(c, body_, L"CenterPoint", L"Vector3(pill.Size.X / 2, 0, 0)", body_, shape_);
 
-    leftFill_ = c.CreateColorBrush(toUiColor(leftColor(false)));
-    rightFill_ = c.CreateColorBrush(toUiColor(rightColor(false)));
-    leftStop_ = c.CreateColorGradientStop(0.0f, toUiColor(leftColor(false)));
-    rightStop_ = c.CreateColorGradientStop(1.0f, toUiColor(rightColor(false)));
-    gradient_ = c.CreateLinearGradientBrush(); // relative to the background's bounds: its left edge to its right
-    gradient_.StartPoint({ 0.0f, 0.5f });
-    gradient_.EndPoint({ 1.0f, 0.5f });
-    gradient_.ColorStops().Append(leftStop_);
-    gradient_.ColorStops().Append(rightStop_);
-    addBackground(c, body_, shape_, gradient_);
-    addEars(c, body_, shape_, leftFill_, rightFill_); // the flared top corners (decision 025)
+    const Tokens& t = tokens();
+    fill_ = makeFill(c, islandFill(t, leftColor(false)), islandFill(t, rightColor(false)));
+    solid_ = makeFill(c, leftColor(false), rightColor(false));
+    auto background = addBackground(c, body_, shape_, fill_.gradient);
+    buildGlow(c, background); // over the fill: the cover's colour from the bottom edge (decision 090)
+    buildRim(c);              // over both; the ears and content over it
+    addEars(c, body_, shape_, fill_.leftEar, fill_.rightEar); // the flared top corners (decision 025)
 
     // Content lives in a container clipped to the shape's live size, so new
     // content fading in during a grow morph never shows outside it.
@@ -101,56 +101,6 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     refreshAnimations(false);
 }
 
-void Blob::buildShadow(Compositor const& c, ContainerVisual const& parent)
-{
-    // CreateVisualSurface is Windows 10 1903+; on 1809 the island just has no
-    // shadow (decision 015: newer APIs only behind runtime checks).
-    using winrt::Windows::Foundation::Metadata::ApiInformation;
-    if (!ApiInformation::IsMethodPresent(L"Windows.UI.Composition.Compositor", L"CreateVisualSurface")) return;
-
-    // The snapshot is of an outline-only twin of the body: the same background
-    // and ears, no content. Snapshotting the body itself re-rendered and
-    // re-blurred the shadow on every frame of anything animating inside it
-    // (the equalizer, a swimming title, the progress bar): all the time music
-    // played, which was enough GPU load to make audio stutter. The twin only
-    // changes when the shape does (morph, press, drag). It sits right under
-    // the body with the same fill and transform, so it's never seen.
-    outline_ = c.CreateShapeVisual();
-    bind(c, outline_, L"Size", L"pill.Size", body_, shape_);
-    bind(c, outline_, L"Offset", L"pill.Offset", body_, shape_);
-    bind(c, outline_, L"CenterPoint", L"pill.CenterPoint", body_, shape_);
-    bind(c, outline_, L"Scale", L"pill.Scale", body_, shape_);
-    addBackground(c, outline_, shape_, gradient_);
-    addEars(c, outline_, shape_, leftFill_, rightFill_);
-
-    auto snapshot = c.CreateVisualSurface(); // live: re-rendered as the outline changes, on the compositor
-    snapshot.SourceVisual(outline_);
-    // As wide as the body plus its ears (decision 025), so the shadow follows their curve.
-    bind(c, snapshot, L"SourceOffset", L"Vector2(-" + kEarSize + L", 0)", body_, shape_);
-    bind(c, snapshot, L"SourceSize", L"Vector2(pill.Size.X + 2 * " + kEarSize + L", pill.Size.Y)", body_, shape_);
-    shadow_ = c.CreateDropShadow();
-    shadow_.Mask(c.CreateSurfaceBrush(snapshot)); // the body's alpha: its rounded shape, not its rectangle
-    applyShadow();
-
-    caster_ = c.CreateSpriteVisual(); // no brush: only its shadow shows
-    bind(c, caster_, L"Size", L"Vector2(pill.Size.X + 2 * " + kEarSize + L", pill.Size.Y)", body_, shape_);
-    bind(c, caster_, L"Offset", L"pill.Offset - Vector3(" + kEarSize + L", 0, 0)", body_, shape_);
-    bind(c, caster_, L"CenterPoint", L"pill.CenterPoint + Vector3(" + kEarSize + L", 0, 0)", body_, shape_);
-    bind(c, caster_, L"Scale", L"pill.Scale", body_, shape_);
-    caster_.Shadow(shadow_);
-    parent.Children().InsertAtTop(caster_);
-    parent.Children().InsertAtTop(outline_); // above the shadow, below the body (inserted next)
-}
-
-void Blob::applyShadow()
-{
-    if (!shadow_) return;
-    const Tokens& t = tokens();
-    shadow_.Color(toUiColor(t.shadowColor));
-    shadow_.BlurRadius(t.shadowBlur);
-    shadow_.Offset(toFloat3(t.shadowOffset));
-}
-
 void Blob::refreshAnimations(bool coloursOnly)
 {
     const Tokens& t = tokens();
@@ -163,11 +113,15 @@ void Blob::refreshAnimations(bool coloursOnly)
     }
     shape_.InsertScalar(L"MaxRadius", t.maxCornerRadius);
     shape_.InsertScalar(L"FlareRadius", t.flareRadius);
+    shape_.InsertScalar(L"GlowHeight", t.glassGlowHeight);
 
     // Colours are tokens too, and every one fades, so a cover's colours or a
-    // new theme ease in (decision 051): the fill, the shadow, the marks.
-    if (gradient_) fadeFill(recolorDuration(t));
-    if (shadow_) fadeColor(shadow_, t.shadowColor);
+    // new theme ease in (decision 051): the fill, the shadow, the marks. Glass
+    // on or off fades the same way (decision 089).
+    applyGlass(recolorDuration(t)); // first: whether the blur is evened out sets the fill's strength
+    fadeFill(recolorDuration(t));
+    fadeGlow(recolorDuration(t));
+    if (shadow_) fadeColor(shadow_, t.glass ? t.glassShadowColor : t.shadowColor);
     for (Mark* mark : { &selectedTab_, &pinnedTab_ })
         if (mark->brush) fadeColor(mark->brush, t.tabSelectedColor);
     if (hovered_.brush) fadeColor(hovered_.brush, t.hoverColor);
@@ -214,10 +168,18 @@ void Blob::setHighlighted(bool on)
 void Blob::fadeFill(Ms duration)
 {
     Color left = leftColor(highlighted_), right = rightColor(highlighted_);
-    fadeColor(leftStop_, left, duration);
-    fadeColor(leftFill_, left, duration);
-    fadeColor(rightStop_, right, duration);
-    fadeColor(rightFill_, right, duration);
+    // Over the glass, the twin's layer is the tint and the body's fill is
+    // clear: the two fills met in a seam at the ears, light whenever the
+    // island sat between pixels (decision 097). Without the glass (none
+    // made), see-through as glass was, over the opaque twin (decision 089).
+    if (glassShown_) {
+        left.a = right.a = 0;
+        fade(fill_, left, right, duration);
+    } else {
+        bool even = glassLook_ != Look::Plain || !glass_; // a kept brightness: the clearer opacities
+        fade(fill_, islandFill(tokens(), left, even), islandFill(tokens(), right, even), duration);
+    }
+    fade(solid_, leftColor(highlighted_), rightColor(highlighted_), duration);
 }
 
 void Blob::setSelectedTab(std::optional<Rect> tab, float cornerRadius) { showMark(selectedTab_, tab, cornerRadius, tokens().tabSelectedColor, true); }

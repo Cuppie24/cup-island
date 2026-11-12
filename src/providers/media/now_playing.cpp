@@ -40,16 +40,20 @@ Content nowPlayingContent(const NowPlaying& m)
 
     if (m.timeline.duration > Ms{ 0 })
         c.expandedBottom.push_back(row({ TimeLabel{ m.timeline }, Progress{ m.timeline, m.canSeek }, TimeLabel{ m.timeline, true } }));
+    // Three weights (decision 094): ▶/⏸ the filled circle, the skips bright,
+    // shuffle and repeat quiet until on or pointed at.
     Row controls = row({ Button{ Glyph::Previous, act::kPrevious, m.canPrevious },
-                         Button{ playing ? Glyph::Pause : Glyph::Play, act::kPlayPause, m.canPlayPause },
+                         Button{ .glyph = playing ? Glyph::Pause : Glyph::Play, .actionId = act::kPlayPause,
+                                 .enabled = m.canPlayPause, .compact = true, .primary = true },
                          Button{ Glyph::Next, act::kNext, m.canNext } },
                        Align::Center);
     controls.loose = true; // big, well-separated targets
     // Shuffle and repeat take the bottom corners; only shown when the app supports them.
-    if (m.canShuffle) controls.leading.push_back(Button{ Glyph::Shuffle, act::kShuffle, true, m.shuffle });
+    if (m.canShuffle)
+        controls.leading.push_back(Button{ .glyph = Glyph::Shuffle, .actionId = act::kShuffle, .on = m.shuffle, .secondary = true });
     if (m.canRepeat)
-        controls.trailing.push_back(Button{ m.repeat == Repeat::One ? Glyph::RepeatOne : Glyph::Repeat, act::kRepeat, true,
-                                            m.repeat != Repeat::Off });
+        controls.trailing.push_back(Button{ .glyph = m.repeat == Repeat::One ? Glyph::RepeatOne : Glyph::Repeat, .actionId = act::kRepeat,
+                                            .on = m.repeat != Repeat::Off, .secondary = true });
     c.expandedBottom.push_back(controls);
     return c;
 }
