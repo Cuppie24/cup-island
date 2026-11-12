@@ -193,12 +193,11 @@ void ProviderWindow::drawDecor()
 
 void ProviderWindow::drawThenShow(const std::function<void()>& draw, std::function<void()> shown)
 {
-    // A Commit batch completes once everything changed while it was open is
-    // committed to the compositor (Windows 10 1511+, decision 015): the
-    // window's first frame is its own, not whatever was behind it.
-    auto batch = compositor_.CreateScopedBatch(wuc::CompositionBatchTypes::Commit);
+    // The commit batch of what `draw` changed (Compositor::GetCommitBatch,
+    // Windows 10 1511+, decision 015) completes once that is committed to the
+    // compositor: the window's first frame is its own, not what was behind it.
     draw();
-    batch.End();
+    auto batch = compositor_.GetCommitBatch(wuc::CompositionBatchTypes::None);
     HWND hwnd = hwnd_;
     batch.Completed([hwnd, shown = std::move(shown)](auto&&, auto&&) {
         if (!IsWindow(hwnd)) return; // closed meanwhile
