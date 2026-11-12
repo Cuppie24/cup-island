@@ -98,9 +98,9 @@ IGraphicsEffect composite(winrt::hstring const& name, UINT32 mode, IGraphicsEffe
     return makeEffect(name, CLSID_D2D1Composite, { destination, source }, { PropertyValue::CreateUInt32(mode) });
 }
 
-IGraphicsEffect blend(UINT32 mode, IGraphicsEffectSource const& destination, IGraphicsEffectSource const& source)
+IGraphicsEffect blend(UINT32 mode, IGraphicsEffectSource const& destination, IGraphicsEffectSource const& source, winrt::hstring const& name = L"Even")
 {
-    return makeEffect(L"Even", CLSID_D2D1Blend, { destination, source }, { PropertyValue::CreateUInt32(mode) });
+    return makeEffect(name, CLSID_D2D1Blend, { destination, source }, { PropertyValue::CreateUInt32(mode) });
 }
 
 // Every colour channel scaled by `scale` and lifted by `lift`, alpha kept:
@@ -151,6 +151,11 @@ void probeOnce(wuc::Compositor const& compositor)
     // No properties at all: is it how a setting is passed?
     probe(compositor, "an effect with no settings (luminance to alpha)", makeEffect(L"Plain", CLSID_D2D1LuminanceToAlpha, { backdrop }, {}));
     probe(compositor, "the colour matrix alone", darken(backdrop, 0.35f, 0.08f));
+    // The first run's answers: every effect alone yes, nested no. Why nesting:
+    // an inner effect with no settings (is it its settings?), and one with no
+    // name (is it the name?).
+    probe(compositor, "a no-settings effect in the cut", cut(makeEffect(L"Plain", CLSID_D2D1LuminanceToAlpha, { backdrop }, {})));
+    probe(compositor, "an unnamed blend in the cut", cut(blend(D2D1_BLEND_MODE_MULTIPLY, backdrop, luminosity, L"")));
 }
 
 } // namespace
@@ -173,21 +178,28 @@ Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush co
                      Darken darkening)
 {
     probeOnce(compositor);
+    using wuc::CompositionEffectBrush;
     const char* step = "";
-    // Each step named, so a refusal in the log says which one Windows turned down.
-    auto make = [&](IGraphicsEffect const& effect, bool usesLuminosity) {
-        step = "factory";
-        auto factory = compositor.CreateEffectFactory(effect);
-        step = "brush";
-        auto brush = factory.CreateBrush();
-        step = "mask";
-        brush.SetSourceParameter(L"Mask", mask);
+    // Windows takes every effect alone but none inside another (the probes,
+    // decision 100). So the brightness step is a brush of its own, over the
+    // backdrop, and the cut takes that whole brush as its input ("Inner"):
+    // two brushes chained, no effect nested. Each step named, so a refusal in
+    // the log says which one Windows turned down.
+    auto chained = [&](IGraphicsEffect const& inner, bool usesLuminosity) {
+        step = "inner factory";
+        CompositionEffectBrush innerBrush = compositor.CreateEffectFactory(inner).CreateBrush();
         step = "backdrop";
-        brush.SetSourceParameter(L"Backdrop", compositor.CreateHostBackdropBrush()); // already blurred by Windows
+        innerBrush.SetSourceParameter(L"Backdrop", compositor.CreateHostBackdropBrush()); // already blurred by Windows
         if (usesLuminosity) {
             step = "luminosity";
-            brush.SetSourceParameter(L"Luminosity", luminosity);
+            innerBrush.SetSourceParameter(L"Luminosity", luminosity);
         }
+        step = "factory";
+        CompositionEffectBrush brush = compositor.CreateEffectFactory(cut(CompositionEffectSourceParameter(L"Inner"))).CreateBrush();
+        step = "mask";
+        brush.SetSourceParameter(L"Mask", mask);
+        step = "inner";
+        brush.SetSourceParameter(L"Inner", innerBrush);
         return brush;
     };
     // The backdrop at the luminosity colour's lightness, keeping its own hue:
@@ -195,9 +207,9 @@ Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush co
     // Luminosity blend modes are swapped against their names, so "Colour" is
     // the one that takes the top layer's lightness, as WinUI notes and uses.
     try {
-        auto brush = make(cut(blend(D2D1_BLEND_MODE_COLOR, CompositionEffectSourceParameter(L"Backdrop"),
-                                    CompositionEffectSourceParameter(L"Luminosity"))),
-                          true);
+        auto brush = chained(blend(D2D1_BLEND_MODE_COLOR, CompositionEffectSourceParameter(L"Backdrop"),
+                                   CompositionEffectSourceParameter(L"Luminosity")),
+                             true);
         logLine("glass: backdrop ready, at one brightness");
         return { brush, Look::Even };
     } catch (winrt::hresult_error const& e) {
@@ -206,14 +218,19 @@ Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush co
     // Refused: the backdrop's brightness squeezed into a darker range
     // instead, so a white window behind isn't a white island (decision 100).
     try {
-        auto brush = make(cut(darken(CompositionEffectSourceParameter(L"Backdrop"), darkening.scale, darkening.lift)), false);
+        auto brush = chained(darken(CompositionEffectSourceParameter(L"Backdrop"), darkening.scale, darkening.lift), false);
         logLine("glass: backdrop ready, darkened");
         return { brush, Look::Darkened };
     } catch (winrt::hresult_error const& e) {
         logLine("glass: no darkening (%s: 0x%08lx)", step, static_cast<unsigned long>(e.code()));
     }
     try {
-        auto brush = make(cut(CompositionEffectSourceParameter(L"Backdrop")), false);
+        step = "factory";
+        CompositionEffectBrush brush = compositor.CreateEffectFactory(cut(CompositionEffectSourceParameter(L"Backdrop"))).CreateBrush();
+        step = "mask";
+        brush.SetSourceParameter(L"Mask", mask);
+        step = "backdrop";
+        brush.SetSourceParameter(L"Backdrop", compositor.CreateHostBackdropBrush());
         logLine("glass: backdrop ready, plain blur");
         return { brush, Look::Plain };
     } catch (winrt::hresult_error const& e) {

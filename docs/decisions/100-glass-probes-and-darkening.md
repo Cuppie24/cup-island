@@ -30,6 +30,18 @@ themselves (nesting, how a setting is passed) than in the effects.
 - One effect type (`Effect` in platform/glass.cpp) now describes every
   effect: its inputs in order and its properties by Direct2D's index.
 
+**What the first run said:** every effect alone, yes (a Multiply blend,
+the acrylic blend, an effect with no settings, the colour matrix); a
+composite nested inside the cut, no (`0x80070057`). So Windows refuses
+our *nested* effects, whatever they are. Hence:
+- **Chained brushes, not nested effects.** The brightness step (blend or
+  darkening) is an effect brush of its own over the backdrop, and the
+  cut's brush takes that whole brush as its input ("Inner"). Each effect
+  alone is one Windows took. The log names the step if this is refused
+  too (`inner factory`, `inner`…).
+- Two more probes for why nesting fails, in case it matters again: an
+  inner effect with no settings, and one with no name.
+
 **Consequences.** The next Windows run's `glass:` lines say which effects
 Windows takes, and so what to fix if the darkened blur is refused too.
 The two numbers are unitless (tested in `tests/tokens_tests.cpp`).
