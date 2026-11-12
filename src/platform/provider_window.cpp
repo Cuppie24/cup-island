@@ -155,7 +155,7 @@ void ProviderWindow::draw(const WindowScene& scene, Ms now)
     paneBackground_.Size({ scene.pane.width, scene.size.y - scene.pane.y });
     paneBackground_.Offset({ scene.pane.x, scene.pane.y, 0 });
     pane_.Size({ scene.pane.width, scene.pane.height });
-    pane_.Offset({ scene.pane.x, scene.pane.y, 0 });
+    pane_.Offset({ std::round(scene.pane.x), std::round(scene.pane.y), 0 }); // on whole pixels, or every item in it is resampled (blurred)
     scroller_.Offset({ 0, -std::round(scene.scroll), 0 }); // the page moves as a whole: scrolling redraws nothing
     drawDecor();
     sidebar_.apply(scene.sidebarItems, now);

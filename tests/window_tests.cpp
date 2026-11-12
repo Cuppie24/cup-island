@@ -229,6 +229,18 @@ void layoutTests()
     WindowScene top = windowLayout(w, size, -50, Ms{ 0 }, measure);
     expect(top.scroll == 0, "scroll: never above the top");
 
+    // At a display scale like 125%, tokens are fractional: the pane still starts on a whole pixel.
+    {
+        Tokens saved = tokens(), scaled = saved;
+        scaled.windowSidebarWidth = 237.5f;
+        scaled.windowTitleBarHeight = 45.6f;
+        setTokens(scaled);
+        WindowScene sharp = windowLayout(sample(), { 1001, 701 }, 0, Ms{ 0 }, measure);
+        expect(sharp.pane.x == std::round(sharp.pane.x) && sharp.pane.y == std::round(sharp.pane.y) && sharp.titleBar.height == std::round(sharp.titleBar.height),
+               "window: the pane on whole pixels at a fractional scale, so its items aren't resampled");
+        setTokens(saved);
+    }
+
     // One page: no sidebar, the page across the window.
     OpenWindow single = sample();
     single.content.pages.pop_back();

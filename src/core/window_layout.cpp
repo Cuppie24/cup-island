@@ -6,6 +6,7 @@
 #include "core/tokens.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace cup {
 namespace {
@@ -41,7 +42,9 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
     Source source{ .providerId = w.key.providerId };
 
     // The title bar: our own, so it's the window's colour; Windows' buttons drawn by us at its right.
-    float bar = t.windowTitleBarHeight, button = t.windowChromeButtonWidth;
+    // Whole pixels for the areas' edges: tokens are scaled by the display's
+    // scale (decision 017), and a pane at 237.5 px blurred every item in it.
+    float bar = std::round(t.windowTitleBarHeight), button = std::round(t.windowChromeButtonWidth);
     s.titleBar = { 0, 0, size.x, bar };
     s.chrome.push_back(placedButton("chrome/min/0", Glyph::Minus, kWindowMinimize, { size.x - 2 * button, 0, button, bar }, w));
     s.chrome.push_back(placedButton("chrome/close/0", Glyph::Close, kWindowClose, { size.x - button, 0, button, bar }, w));
@@ -49,7 +52,7 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
     // The sidebar, with several pages: the window's title over an entry per page.
     float left = 0;
     if (w.content.pages.size() > 1) {
-        left = std::min(t.windowSidebarWidth, size.x / 2);
+        left = std::round(std::min(t.windowSidebarWidth, size.x / 2));
         s.sidebar = Rect{ 0, bar, left, std::max(0.0f, size.y - bar) };
         float inset = t.windowSidebarInset;
         Slot header{ row({ Text{ .value = w.content.title, .style = TextStyle::Title } }) };
@@ -71,7 +74,7 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
     if (!w.content.footer.empty()) {
         Rect area{ left + t.windowPagePadding.x, 0, std::max(0.0f, size.x - left - 2 * t.windowPagePadding.x), 0 };
         float height = slotHeight(w.content.footer, area, source, measure) + 2 * t.groupItemPadding;
-        bottom = std::max(bar, size.y - height);
+        bottom = std::round(std::max(bar, size.y - height));
         s.footerBar = Rect{ left, bottom, size.x - left, size.y - bottom };
         area.y = bottom;
         area.height = height;
