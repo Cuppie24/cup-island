@@ -355,9 +355,9 @@ void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& l
     drawString(dc, formatOf(dw, text).get(), widen(label), size, color);
 }
 
-void paintPrimaryButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size)
+void paintPrimaryButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size, std::optional<Color> ink)
 {
-    paintGlyph(dc, dw, button.glyph, primaryGlyphOf(button), size, tokens().islandColor, /* precise */ true); // centred on its circle
+    paintGlyph(dc, dw, button.glyph, primaryGlyphOf(button), size, ink.value_or(tokens().islandColor), /* precise */ true); // centred on its circle
 }
 
 void paintRoundButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size)
@@ -422,14 +422,15 @@ void paintKeys(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Keys& keys, Vec
     }
 }
 
-void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, float width, float lead, float gap, float height)
+void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, float width, float lead, float gap, float height,
+                  std::optional<Color> ink)
 {
     Text start = text;
     start.alignEnd = false;
     start.centred = false;
     auto f = formatOf(dw, start);
     std::wstring value = widen(text.value);
-    Color color = lookOf(text.style).color;
+    Color color = ink.value_or(lookOf(text.style).color);
     // A pixel of slack, so rounding never trips the "…" trimming.
     for (float x : { lead, lead + width + gap }) drawString(dc, f.get(), value, D2D1::RectF(x, 0, x + width + 1, height), color);
 }

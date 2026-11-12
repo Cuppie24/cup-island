@@ -75,7 +75,15 @@ ButtonParts createButton(wuc::Compositor const& c, Vec2 frame, float cornerRadiu
 
 // Swimming text: shows `surface` (see paintMarquee) through soft-edged mask,
 // pausing at the start, then scrolling `travel` pixels left, forever.
-wuc::CompositionBrush createMarqueeBrush(wuc::Compositor const& c, wuc::CompositionDrawingSurface const& surface,
-                                         Vec2 visualSize, float fadeWidth, float travel);
+// `ink`: the text is painted white and takes this brush's colour, which
+// fades (decision 102): one effect over the edges, the text and the colour,
+// since Windows takes no mask in a mask. `inked` false: Windows refused it,
+// the text keeps its own colour (logged once).
+struct MarqueeBrush {
+    wuc::CompositionBrush brush{ nullptr };
+    bool inked = false;
+};
+MarqueeBrush createMarqueeBrush(wuc::Compositor const& c, wuc::CompositionDrawingSurface const& surface, Vec2 visualSize,
+                                float fadeWidth, float travel, wuc::CompositionColorBrush const& ink = nullptr);
 
 } // namespace cup::platform

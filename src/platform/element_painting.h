@@ -20,7 +20,8 @@ std::optional<Color> singleInkOf(const Text& text);
 float measureText(IDWriteFactory* dw, const Text& text);
 // Swimming text: the string twice, `gap` apart, starting at x = `lead`, so
 // scrolling one copy's width plus the gap loops seamlessly.
-void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, float width, float lead, float gap, float height);
+void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, float width, float lead, float gap, float height,
+                  std::optional<Color> ink = std::nullopt);
 // `precise`: exactly centred on its ink, unsnapped, a ▶ optically nudged (a primary button's glyph, decision 071).
 void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float fontSize, Vec2 size, const Color& color,
                 bool precise = false);
@@ -42,7 +43,7 @@ void paintDivider(ID2D1DeviceContext* dc, Vec2 size);
 void paintDial(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Dial& dial, Vec2 size);
 // Button::primary: its glyph in the island's colour (decision 064), over its
 // filled circle, which is a shape whose colour fades (ElementVisuals, decision 101).
-void paintPrimaryButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size);
+void paintPrimaryButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size, std::optional<Color> ink = std::nullopt);
 // Button::round: its circle (a Switch's colours: the theme's live colour when on, its track's when off) and label.
 void paintRoundButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size);
 // Where in `text` (a byte offset) a click at `at` (from its frame's top left) lands:

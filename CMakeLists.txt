@@ -212,6 +212,7 @@ if(WIN32)
         src/platform/element_painting.cpp
         src/platform/field_painting.cpp
         src/platform/figures.cpp
+        src/platform/effects.cpp
         src/platform/element_parts.cpp
         src/platform/element_visuals.cpp
         src/platform/switch_parts.cpp

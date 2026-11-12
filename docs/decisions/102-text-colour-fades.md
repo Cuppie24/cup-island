@@ -1,4 +1,4 @@
-# 102: One-colour text is painted white and coloured by a fading brush
+# 102: One-colour text and icons are painted white and coloured by a fading brush
 
 Status: Accepted; built, not yet run on Windows (extends 101)
 
@@ -15,9 +15,21 @@ stay. A change of style (another colour) fades over `hoverFadeDuration`.
 
 Not one colour, so still redrawn at once: bright digits or bright parts
 (decisions 068, 079), a detail line in caption colour (079), and an emoji,
-which has its own colours (064; any 4-byte character counts). Swimming
-text keeps its marquee brush and is redrawn at once too. A text that
+which has its own colours (064; any 4-byte character counts). A text that
 gains or loses a second colour is rebuilt.
+
+**Then icons and swimming text too.** The same for an icon (not the 🔥
+emoji) and a button's glyph or label (`inkOf`: as paint() draws it; not a
+round button, two colours, or a result's picture, or a label with an
+emoji): white pixels, a brush's colour. A secondary button's grey-to-full
+on hover now fades too. Swimming text already shows its pixels through a
+mask brush (its soft edges), and Windows takes no mask brush inside
+another, nor (decision 100) an effect inside another: so it's one
+Composite effect, source-in over three layers (the edges' gradient, the
+scrolling text, the colour). If Windows refuses that, it's logged once and
+swimming text keeps its own colour, redrawn at once. The effect
+description (`Effect`) moved from glass.cpp to platform/effects so both
+use it.
 
 **Consequences.** One mask brush per one-colour text, no extra surface.
 Needs a Windows run: a new cover's text colours fading with the island.
