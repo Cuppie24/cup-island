@@ -48,6 +48,10 @@ private:
         // button, a toggle that's on): a shape whose colour fades (decision 101).
         wuc::SpriteVisual glyphHost{ nullptr };
         wuc::CompositionColorBrush buttonFill{ nullptr };
+        // A one-colour text's colour: it's painted white and shown through
+        // this brush, so a recolour fades it like a shape (decision 102).
+        wuc::CompositionColorBrush ink{ nullptr };
+        Color inkTarget{ 0, 0, 0, 0 };
         float lead = 0; // the visual starts this far left of the frame (knob overhang, marquee fade)
         wuc::CompositionDrawingSurface surface{ nullptr };          // text, icon, button glyph, image
         float marqueeWidth = 0;                                     // > 0: swimming text, one copy's width
@@ -78,6 +82,7 @@ private:
     void paint(View& view);
     void recolor(View& view); // fades its shapes to the current colours and redraws its pixels
     void syncFill(View& view, Ms duration); // a button's filled circle to its colour now: made, or faded
+    void fadeInk(View& view, Ms duration);  // a one-colour text's brush to its colour now (decision 102)
     void animateBars(View& view);
     void showHover(const std::string& key, bool on);
     bool greyNow(const Placed& placed) const;

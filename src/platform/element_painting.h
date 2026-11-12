@@ -6,10 +6,16 @@
 #include "platform/graphics_device.h"
 
 #include <functional>
+#include <optional>
 
 namespace cup::platform {
 
-void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec2 size);
+// `ink`: drawn in it instead of its style's colour (white, for a text
+// coloured by a fading brush through it, decision 102).
+void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec2 size, std::optional<Color> ink = std::nullopt);
+// The one colour `text` is drawn in, if it's one (decision 102): not with
+// bright digits or parts, a detail line under it, or an emoji (its own colours).
+std::optional<Color> singleInkOf(const Text& text);
 // Width of `text` on a single line, untrimmed: decides whether marquee text has to swim.
 float measureText(IDWriteFactory* dw, const Text& text);
 // Swimming text: the string twice, `gap` apart, starting at x = `lead`, so

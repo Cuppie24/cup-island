@@ -221,7 +221,7 @@ winrt::com_ptr<IDWriteTextLayout> wrappedLayout(IDWriteFactory* dw, const Text& 
     return layout;
 }
 
-void paintLine(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, D2D1_RECT_F rect); // below
+void paintLine(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, D2D1_RECT_F rect, std::optional<Color> ink = std::nullopt); // below
 
 } // namespace
 
@@ -277,9 +277,9 @@ std::wstring elidedStart(IDWriteFactory* dw, IDWriteTextFormat* f, const std::ws
 
 // One line of `text` in `rect`, as Text asks: struck, wrapped, with bright
 // digits or bright ranges, or plain.
-void paintLine(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, D2D1_RECT_F rect)
+void paintLine(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, D2D1_RECT_F rect, std::optional<Color> ink)
 {
-    Color color = lookOf(text.style).color;
+    Color color = ink.value_or(lookOf(text.style).color);
     if (!figures(text.style) && !text.struck && text.wrapped.empty() && !text.brightDigits && text.bright.empty()) {
         drawString(dc, formatOf(dw, text).get(), widen(text.value), rect, color);
         return;
@@ -321,10 +321,18 @@ void paintLine(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, D2D
 
 } // namespace
 
-void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec2 size)
+std::optional<Color> singleInkOf(const Text& text)
+{
+    if (text.brightDigits || !text.bright.empty() || !text.detail.empty()) return std::nullopt;
+    for (unsigned char c : text.value)
+        if (c >= 0xF0) return std::nullopt; // a 4-byte character: likely an emoji, drawn in its own colours (decision 064)
+    return lookOf(text.style).color;
+}
+
+void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec2 size, std::optional<Color> ink)
 {
     if (text.detail.empty()) {
-        paintLine(dc, dw, text, D2D1::RectF(0, 0, size.x, size.y));
+        paintLine(dc, dw, text, D2D1::RectF(0, 0, size.x, size.y), ink);
         return;
     }
     // Two lines (decision 079): the text, then its detail in caption style,
