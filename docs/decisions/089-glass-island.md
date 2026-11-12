@@ -1,6 +1,6 @@
 # 089: Glass, on Windows 11
 
-Status: Accepted; the switch moved to a Glass page with three transparency levels by 096; its tint drawn by the outline twin's layer, over it, by 097
+Status: Accepted; the switch moved to a Glass page with three transparency levels by 096; its tint drawn by the outline twin's layer, over it, by 097; a darkened blur where acrylic is refused, and probes, by 100
 
 **Context.** People asked for a "glass" island: the desktop behind it showing
 through, blurred, like Windows 11's own surfaces. TR §5 already said a blur

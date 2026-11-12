@@ -10,7 +10,9 @@
 #include <winrt/Windows.Graphics.Effects.h>
 #include <winrt/Windows.UI.ViewManagement.h>
 
+#include <array>
 #include <cwchar>
+#include <vector>
 
 namespace cup::platform {
 namespace {
@@ -19,15 +21,14 @@ namespace abi = ABI::Windows::Graphics::Effects;
 using winrt::Windows::Graphics::Effects::IGraphicsEffect;
 using winrt::Windows::Graphics::Effects::IGraphicsEffectSource;
 
-// A Direct2D effect with two inputs and a mode, described the way
-// Composition reads effects (what Win2D's CompositeEffect and BlendEffect
-// do, without Win2D). Input 0 is the destination (Win2D's Background), 1 the
-// source (Foreground).
-struct TwoInputEffect : winrt::implements<TwoInputEffect, IGraphicsEffect, abi::IGraphicsEffectD2D1Interop> {
+// A Direct2D effect, described the way Composition reads effects (what
+// Win2D's effect classes do, without Win2D): its id, its inputs in order
+// (for two, 0 is the destination, Win2D's Background, and 1 the source), and
+// its properties by Direct2D's index, boxed as Composition expects them.
+struct Effect : winrt::implements<Effect, IGraphicsEffect, abi::IGraphicsEffectD2D1Interop> {
     GUID id{};
-    UINT modeIndex = 0; // the effect's mode property
-    UINT32 mode = 0;
-    IGraphicsEffectSource destination, source;
+    std::vector<IGraphicsEffectSource> sources;
+    std::vector<winrt::Windows::Foundation::IInspectable> properties;
     winrt::hstring name;
 
     winrt::hstring Name() { return name; }
@@ -40,21 +41,22 @@ struct TwoInputEffect : winrt::implements<TwoInputEffect, IGraphicsEffect, abi::
     }
     IFACEMETHODIMP GetNamedPropertyMapping(LPCWSTR property, UINT* index, abi::GRAPHICS_EFFECT_PROPERTY_MAPPING* mapping) override
     {
-        if (std::wcscmp(property, L"Mode") != 0) return E_INVALIDARG; // nothing here is animated by name
-        *index = modeIndex;
+        // Composite's and Blend's mode, as before; nothing here is animated by name.
+        if (std::wcscmp(property, L"Mode") != 0 || properties.empty()) return E_INVALIDARG;
+        *index = 0;
         *mapping = abi::GRAPHICS_EFFECT_PROPERTY_MAPPING_DIRECT;
         return S_OK;
     }
     IFACEMETHODIMP GetPropertyCount(UINT* count) override
     {
-        *count = 1;
+        *count = static_cast<UINT>(properties.size());
         return S_OK;
     }
     IFACEMETHODIMP GetProperty(UINT index, ABI::Windows::Foundation::IPropertyValue** value) override
     {
-        if (index != modeIndex) return E_INVALIDARG;
+        if (index >= properties.size()) return E_INVALIDARG;
         try { // nothing may throw back into the compositor
-            *value = winrt::Windows::Foundation::PropertyValue::CreateUInt32(mode).as<ABI::Windows::Foundation::IPropertyValue>().detach();
+            *value = properties[index].as<ABI::Windows::Foundation::IPropertyValue>().detach();
             return S_OK;
         } catch (...) {
             return winrt::to_hresult();
@@ -62,9 +64,9 @@ struct TwoInputEffect : winrt::implements<TwoInputEffect, IGraphicsEffect, abi::
     }
     IFACEMETHODIMP GetSource(UINT index, abi::IGraphicsEffectSource** result) override
     {
-        if (index > 1) return E_INVALIDARG;
+        if (index >= sources.size()) return E_INVALIDARG;
         try {
-            *result = (index == 0 ? destination : source).as<abi::IGraphicsEffectSource>().detach();
+            *result = sources[index].as<abi::IGraphicsEffectSource>().detach();
             return S_OK;
         } catch (...) {
             return winrt::to_hresult();
@@ -72,22 +74,88 @@ struct TwoInputEffect : winrt::implements<TwoInputEffect, IGraphicsEffect, abi::
     }
     IFACEMETHODIMP GetSourceCount(UINT* count) override
     {
-        *count = 2;
+        *count = static_cast<UINT>(sources.size());
         return S_OK;
     }
 };
 
-IGraphicsEffect twoInputs(winrt::hstring const& name, GUID id, UINT modeIndex, UINT32 mode, IGraphicsEffectSource const& destination,
-                          IGraphicsEffectSource const& source)
+IGraphicsEffect makeEffect(winrt::hstring const& name, GUID id, std::vector<IGraphicsEffectSource> sources,
+                           std::vector<winrt::Windows::Foundation::IInspectable> properties)
 {
-    auto effect = winrt::make_self<TwoInputEffect>();
+    auto effect = winrt::make_self<Effect>();
     effect->name = name; // every effect named: Composition finds animated properties by "Name.Property"
     effect->id = id;
-    effect->modeIndex = modeIndex;
-    effect->mode = mode;
-    effect->destination = destination;
-    effect->source = source;
+    effect->sources = std::move(sources);
+    effect->properties = std::move(properties);
     return effect.as<IGraphicsEffect>();
+}
+
+using winrt::Windows::Foundation::PropertyValue;
+using wuc::CompositionEffectSourceParameter;
+
+IGraphicsEffect composite(winrt::hstring const& name, UINT32 mode, IGraphicsEffectSource const& destination, IGraphicsEffectSource const& source)
+{
+    return makeEffect(name, CLSID_D2D1Composite, { destination, source }, { PropertyValue::CreateUInt32(mode) });
+}
+
+IGraphicsEffect blend(UINT32 mode, IGraphicsEffectSource const& destination, IGraphicsEffectSource const& source, winrt::hstring const& name = L"Even")
+{
+    return makeEffect(name, CLSID_D2D1Blend, { destination, source }, { PropertyValue::CreateUInt32(mode) });
+}
+
+// Every colour channel scaled by `scale` and lifted by `lift`, alpha kept:
+// the whole range squeezed into [lift, scale + lift] (decision 100).
+IGraphicsEffect darken(IGraphicsEffectSource const& source, float scale, float lift)
+{
+    // Direct2D's 5x4 matrix, row-major: rows are the input red, green, blue,
+    // alpha and a constant 1; columns the output red, green, blue, alpha.
+    std::array<float, 20> m{};
+    m[0 * 4 + 0] = m[1 * 4 + 1] = m[2 * 4 + 2] = scale;
+    m[3 * 4 + 3] = 1;
+    m[4 * 4 + 0] = m[4 * 4 + 1] = m[4 * 4 + 2] = lift;
+    return makeEffect(L"Darken", CLSID_D2D1ColorMatrix, { source },
+                      { PropertyValue::CreateSingleArray(winrt::array_view<float const>(m.data(), m.data() + m.size())),
+                        PropertyValue::CreateUInt32(D2D1_COLORMATRIX_ALPHA_MODE_PREMULTIPLIED), PropertyValue::CreateBoolean(false) });
+}
+
+// Cut to the island's shape: source-in keeps `inner` where the mask has alpha.
+IGraphicsEffect cut(IGraphicsEffectSource const& inner)
+{
+    return composite(L"Glass", D2D1_COMPOSITE_MODE_SOURCE_IN, CompositionEffectSourceParameter(L"Mask"), inner);
+}
+
+// Whether Windows takes an effect at all, logged once (decision 100): each
+// tests one guess about why it refuses every effect but the cut.
+void probe(wuc::Compositor const& compositor, const char* what, IGraphicsEffect const& effect)
+{
+    try {
+        compositor.CreateEffectFactory(effect);
+        logLine("glass: probe: %s: yes", what);
+    } catch (winrt::hresult_error const& e) {
+        logLine("glass: probe: %s: no (0x%08lx)", what, static_cast<unsigned long>(e.code()));
+    }
+}
+
+void probeOnce(wuc::Compositor const& compositor)
+{
+    static bool probed = false;
+    if (probed) return;
+    probed = true;
+    auto backdrop = CompositionEffectSourceParameter(L"Backdrop");
+    auto luminosity = CompositionEffectSourceParameter(L"Luminosity");
+    // Nested: is it putting one effect in another? The cut works alone.
+    probe(compositor, "a composite in the cut (nesting)", cut(composite(L"Over", D2D1_COMPOSITE_MODE_SOURCE_OVER, backdrop, luminosity)));
+    // Alone: is it the blend, or the blend inside the cut?
+    probe(compositor, "a Multiply blend alone", blend(D2D1_BLEND_MODE_MULTIPLY, backdrop, luminosity));
+    probe(compositor, "the acrylic blend alone", blend(D2D1_BLEND_MODE_COLOR, backdrop, luminosity));
+    // No properties at all: is it how a setting is passed?
+    probe(compositor, "an effect with no settings (luminance to alpha)", makeEffect(L"Plain", CLSID_D2D1LuminanceToAlpha, { backdrop }, {}));
+    probe(compositor, "the colour matrix alone", darken(backdrop, 0.35f, 0.08f));
+    // The first run's answers: every effect alone yes, nested no. Why nesting:
+    // an inner effect with no settings (is it its settings?), and one with no
+    // name (is it the name?).
+    probe(compositor, "a no-settings effect in the cut", cut(makeEffect(L"Plain", CLSID_D2D1LuminanceToAlpha, { backdrop }, {})));
+    probe(compositor, "an unnamed blend in the cut", cut(blend(D2D1_BLEND_MODE_MULTIPLY, backdrop, luminosity, L"")));
 }
 
 } // namespace
@@ -106,61 +174,65 @@ bool allowBackdrop(HWND window)
     return SUCCEEDED(result);
 }
 
-Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush const& mask, wuc::CompositionBrush const& luminosity)
+Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush const& mask, wuc::CompositionBrush const& luminosity,
+                     Darken darkening)
 {
-    using wuc::CompositionEffectSourceParameter;
-    // Cut to the island's shape: source-in keeps `inner` where the mask has alpha.
-    auto cut = [](IGraphicsEffectSource const& inner) {
-        return twoInputs(L"Glass", CLSID_D2D1Composite, D2D1_COMPOSITE_PROP_MODE, D2D1_COMPOSITE_MODE_SOURCE_IN,
-                         CompositionEffectSourceParameter(L"Mask"), inner);
+    probeOnce(compositor);
+    using wuc::CompositionEffectBrush;
+    const char* step = "";
+    // Windows takes every effect alone but none inside another (the probes,
+    // decision 100). So the brightness step is a brush of its own, over the
+    // backdrop, and the cut takes that whole brush as its input ("Inner"):
+    // two brushes chained, no effect nested. Each step named, so a refusal in
+    // the log says which one Windows turned down.
+    auto chained = [&](IGraphicsEffect const& inner, bool usesLuminosity) {
+        step = "inner factory";
+        CompositionEffectBrush innerBrush = compositor.CreateEffectFactory(inner).CreateBrush();
+        step = "backdrop";
+        innerBrush.SetSourceParameter(L"Backdrop", compositor.CreateHostBackdropBrush()); // already blurred by Windows
+        if (usesLuminosity) {
+            step = "luminosity";
+            innerBrush.SetSourceParameter(L"Luminosity", luminosity);
+        }
+        step = "factory";
+        CompositionEffectBrush brush = compositor.CreateEffectFactory(cut(CompositionEffectSourceParameter(L"Inner"))).CreateBrush();
+        step = "mask";
+        brush.SetSourceParameter(L"Mask", mask);
+        step = "inner";
+        brush.SetSourceParameter(L"Inner", innerBrush);
+        return brush;
     };
     // The backdrop at the luminosity colour's lightness, keeping its own hue:
     // Windows' acrylic recipe (WinUI's AcrylicBrush). Direct2D's Colour and
     // Luminosity blend modes are swapped against their names, so "Colour" is
     // the one that takes the top layer's lightness, as WinUI notes and uses.
-    auto evenOut = [](UINT32 mode) {
-        return twoInputs(L"Even", CLSID_D2D1Blend, D2D1_BLEND_PROP_MODE, mode, CompositionEffectSourceParameter(L"Backdrop"),
-                         CompositionEffectSourceParameter(L"Luminosity"));
-    };
-    const char* step = "";
-    // Each step named, so a refusal in the log says which one Windows turned down.
-    auto make = [&](IGraphicsEffect const& effect, bool even) {
-        step = "factory";
-        auto factory = compositor.CreateEffectFactory(effect);
-        step = "brush";
-        auto brush = factory.CreateBrush();
-        step = "mask";
-        brush.SetSourceParameter(L"Mask", mask);
-        step = "backdrop";
-        brush.SetSourceParameter(L"Backdrop", compositor.CreateHostBackdropBrush()); // already blurred by Windows
-        if (even) {
-            step = "luminosity";
-            brush.SetSourceParameter(L"Luminosity", luminosity);
-        }
-        return brush;
-    };
     try {
-        auto brush = make(cut(evenOut(D2D1_BLEND_MODE_COLOR)), true);
+        auto brush = chained(blend(D2D1_BLEND_MODE_COLOR, CompositionEffectSourceParameter(L"Backdrop"),
+                                   CompositionEffectSourceParameter(L"Luminosity")),
+                             true);
         logLine("glass: backdrop ready, at one brightness");
-        return { brush, true };
+        return { brush, Look::Even };
     } catch (winrt::hresult_error const& e) {
         logLine("glass: no even brightness (%s: 0x%08lx)", step, static_cast<unsigned long>(e.code()));
     }
-    // Refused: whether Windows takes a blend at all, asked once. Only logged.
-    static bool probed = false;
-    if (!probed) {
-        probed = true;
-        try {
-            compositor.CreateEffectFactory(cut(evenOut(D2D1_BLEND_MODE_MULTIPLY)));
-            logLine("glass: probe: Windows accepts a Multiply blend");
-        } catch (winrt::hresult_error const& e) {
-            logLine("glass: probe: Windows refuses a Multiply blend too (0x%08lx)", static_cast<unsigned long>(e.code()));
-        }
+    // Refused: the backdrop's brightness squeezed into a darker range
+    // instead, so a white window behind isn't a white island (decision 100).
+    try {
+        auto brush = chained(darken(CompositionEffectSourceParameter(L"Backdrop"), darkening.scale, darkening.lift), false);
+        logLine("glass: backdrop ready, darkened");
+        return { brush, Look::Darkened };
+    } catch (winrt::hresult_error const& e) {
+        logLine("glass: no darkening (%s: 0x%08lx)", step, static_cast<unsigned long>(e.code()));
     }
     try {
-        auto brush = make(cut(CompositionEffectSourceParameter(L"Backdrop")), false);
+        step = "factory";
+        CompositionEffectBrush brush = compositor.CreateEffectFactory(cut(CompositionEffectSourceParameter(L"Backdrop"))).CreateBrush();
+        step = "mask";
+        brush.SetSourceParameter(L"Mask", mask);
+        step = "backdrop";
+        brush.SetSourceParameter(L"Backdrop", compositor.CreateHostBackdropBrush());
         logLine("glass: backdrop ready, plain blur");
-        return { brush, false };
+        return { brush, Look::Plain };
     } catch (winrt::hresult_error const& e) {
         logLine("glass: no backdrop brush (%s: 0x%08lx): the island stays solid", step, static_cast<unsigned long>(e.code()));
         return {};

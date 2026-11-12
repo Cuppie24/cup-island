@@ -217,6 +217,25 @@ void runTokensTests()
     expect(scaleTokens(solid, 2).glassGlowHeight == solid.glassGlowHeight * 2 * solid.islandScale &&
                scaleTokens(solid, 2).glassGlowCurve == solid.glassGlowCurve,
            "the glow's reach is a fixed length (decision 090), its curve unitless");
+    expect(scaleTokens(solid, 2).glassDarkenScale == solid.glassDarkenScale && scaleTokens(solid, 2).glassDarkenLift == solid.glassDarkenLift &&
+               solid.glassDarkenScale + solid.glassDarkenLift < 0.5f,
+           "the darkened glass's range is unitless, and white behind it comes out under half (decision 100)");
+    // Acrylic's even brightness at each Transparency pick (decision 100):
+    // its colour's opacity times the pick's share, clearer as the pick goes up.
+    Tokens lum = solid;
+    lum.glassLuminosityColor = { 44, 44, 44, 200 };
+    lum.glassDenseLuminosity = 1.0f;
+    lum.glassLuminosity = 0.5f;
+    lum.glassClearLuminosity = 0.25f;
+    lum.glassTransparency = Transparency::Low;
+    Color dense = glassLuminosityAt(lum);
+    lum.glassTransparency = Transparency::Medium;
+    Color medium = glassLuminosityAt(lum);
+    lum.glassTransparency = Transparency::High;
+    Color clear = glassLuminosityAt(lum);
+    expect(dense == Color{ 44, 44, 44, 200 } && medium == Color{ 44, 44, 44, 100 } && clear == Color{ 44, 44, 44, 50 },
+           "acrylic's brightness step: the colour's opacity times each pick's share");
+    expect(scaleTokens(lum, 2).glassLuminosity == lum.glassLuminosity, "its shares are unitless");
     // The glow's fade (decision 090): full at the edge, gone at the top, smooth.
     bool falling = true;
     for (int i = 1; i < kGlowStops; ++i) falling = falling && glowFade(solid, i / float(kGlowStops - 1)) < glowFade(solid, (i - 1) / float(kGlowStops - 1));
