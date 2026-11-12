@@ -204,7 +204,7 @@ struct Tokens {
 
     // Moving the island along the top edge (decision 026): press and hold to
     // lift it, drag sideways, let go. Snap distances are from where it's let go.
-    Ms liftHold{ 250 };           // a press held this long without moving lifts the island
+    Ms liftHold{ 200 };           // a press held this long without moving lifts the island
     float liftDrop = 6;           // lifted, it floats this far below the screen edge
     float centreSnap = 48;        // let go this close to the screen's centre: back to dead centre
     float edgeSnap = 24;          // ...this close to a side edge: flush with it (never less than flareRadius)

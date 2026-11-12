@@ -1,11 +1,11 @@
 # Lifting the island and moving it along the top edge (decision 026).
-# Default tokens: liftHold 250 ms, idle pill 160 wide, compact 260,
+# Default tokens: liftHold 200 ms, idle pill 160 wide, compact 260,
 # centreSnap 48, edgeSnap 24. A 1000-wide screen: its centre is x = 500.
 
 scenario: holding the pill still lifts it, and it lands where it's let go
 screen 1000
 hold
-wait 249                            -> Idle lifted=no
+wait 199                            -> Idle lifted=no
 wait 1                              -> Idle lifted=yes
 move -200                           -> lifted=yes               # follows the pointer sideways
 let-go                              -> Idle lifted=no spot=free
