@@ -111,7 +111,7 @@ void Blob::refreshAnimations(bool coloursOnly)
         shadow_.BlurRadius(t.shadowBlur);
         shadow_.Offset(toFloat3(t.shadowOffset));
     }
-    shape_.InsertScalar(L"MaxRadius", detachedRadius_.value_or(t.maxCornerRadius)); // a floating card's are a window's
+    shape_.InsertScalar(L"MaxRadius", t.maxCornerRadius);
     shape_.InsertScalar(L"FlareRadius", t.flareRadius);
     shape_.InsertScalar(L"GlowHeight", t.glassGlowHeight);
 

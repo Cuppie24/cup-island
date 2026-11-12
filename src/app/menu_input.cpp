@@ -58,7 +58,6 @@ void menuRightClick(Vec2 point)
 
 bool openMenuByKeys()
 {
-    if (!state().focusedFloatId.empty()) return false; // a floating card's menu isn't drawn yet
     std::string row = litRow();
     if (row.empty()) return false;
     dispatch(MenuOpened{ scene().activityId, row, std::nullopt }, "menu key");
@@ -97,7 +96,6 @@ void menuPointerMoved(Vec2 point)
 
 bool menuKey(WPARAM vk)
 {
-    if (!state().focusedFloatId.empty()) return false;
     bool ctrl = GetKeyState(VK_CONTROL) < 0, shift = GetKeyState(VK_SHIFT) < 0, alt = GetKeyState(VK_MENU) < 0;
     // An item's shortcut, on the lit row (the menu's own row while it's open).
     const Menu* m = open();

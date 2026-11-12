@@ -15,8 +15,8 @@ namespace cup::platform {
 // Logs what was covering the island, the first time each culprit shows up.
 void stayOnTop(std::vector<HWND> windows);
 
-// Puts the island back on top now: after a floating card was raised, which
-// must stay under it (decision 081).
+// Puts the island back on top now: after one of our windows kept on top
+// (WindowSpec::keepOnTop) was raised, which must stay under it (decision 104).
 void raiseIsland();
 
 } // namespace cup::platform

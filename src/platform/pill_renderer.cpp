@@ -26,36 +26,11 @@ void PillRenderer::build(wuc::Compositor const& c, wuc::ContainerVisual const& r
     apply(initial, {});
 }
 
-void PillRenderer::buildFloating(wuc::Compositor const& c, wuc::ContainerVisual const& root, const Scene& initial)
-{
-    queue_ = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
-    floating_ = true;
-    compositor_ = c;
-    root_ = root;
-    device_.create(c);
-    applied_ = tokens();
-    pill_.build(c, device_, root, initial.size, initial.offset);
-    pill_.detach(tokens().floatCornerRadius);
-    apply(initial, {});
-}
-
-void PillRenderer::appear()
-{
-    // The flow brought its shape here (decision 081): only the card fades in.
-    root_.Opacity(0.0f);
-    fadeTo(compositor_, root_, 1.0f, tokens().contentFadeDuration);
-}
-
 void PillRenderer::refreshAnimations()
 {
     bool coloursOnly = onlyColorsDiffer(applied_, tokens());
     applied_ = tokens();
     pill_.refreshAnimations(coloursOnly);
-    if (floating_) {
-        pill_.detach(tokens().floatCornerRadius); // a reload may have changed it
-        measured_.clear();
-        return; // no bubble, no bridge
-    }
     bubble_.refreshAnimations(coloursOnly);
     bridge_.refreshAnimations();
     menu_.refresh(coloursOnly);
@@ -101,10 +76,6 @@ void PillRenderer::apply(const Scene& scene, const SceneMotion& motion)
     // morph; let go, it glides to where it lands, snapping. Placed first, so
     // the glide knows where that is.
     pill_.place(scene.size, scene.offset, motion.morph);
-    if (floating_) {
-        applyFloating(scene);
-        return;
-    }
     pill_.lift(scene.lifted ? std::optional<float>(scene.offset.x + scene.size.x / 2) : std::nullopt, motion.fling);
     if (motion.pulse) pill_.pulse();
     if (motion.reveal > Ms{ 0 }) revealAt_ = std::chrono::steady_clock::now() + motion.reveal;
@@ -158,36 +129,12 @@ void PillRenderer::apply(const Scene& scene, const SceneMotion& motion)
         run(); // queue shutting down: do it now
 }
 
-void PillRenderer::applyFloating(const Scene& scene)
-{
-    // As the island's card, less what only the island has: tabs, tiles, the
-    // bubble, ears (decision 081). Content in a queued call, as there (decision 012).
-    bool listRows = std::any_of(scene.elements.begin(), scene.elements.end(), [](const Placed& p) { return p.listRow.has_value(); });
-    if (!listRows) pill_.setHovered(std::nullopt, 0);
-    pill_.setBadges(scene.badges);
-    bool queued = pendingContent_.has_value();
-    pendingContent_ = scene;
-    auto run = [this] {
-        try {
-            applyContent();
-        } catch (winrt::hresult_error const& e) {
-            logLine("WinRT error building a floating card's content: 0x%08x %ls", static_cast<unsigned int>(e.code()), e.message().c_str());
-        }
-    };
-    if (!queued && !queue_.TryEnqueue(winrt::Windows::System::DispatcherQueuePriority::Low, run)) run();
-}
-
 void PillRenderer::applyContent()
 {
     if (!pendingContent_) return;
     Scene scene = *std::exchange(pendingContent_, std::nullopt);
     auto start = std::chrono::steady_clock::now();
     Ms reveal = std::max(Ms{ 0 }, std::chrono::duration_cast<Ms>(revealAt_ - start)); // what's left of it after the queue
-    if (floating_) { // one shape: no bubble (decision 081)
-        pill_.setContent(scene.elements, scene.now, reveal);
-        pill_.setToast(scene.toast, scene.now);
-        return;
-    }
     pill_.setContent(scene.elements, scene.now, reveal);
     pill_.setToast(scene.toast, scene.now); // floating over it (decision 071)
     bubble_.setContent(scene.bubble ? scene.bubble->elements : std::vector<Placed>{}, scene.now, reveal);

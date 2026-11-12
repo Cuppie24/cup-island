@@ -83,6 +83,23 @@ public:
         else registry_.memory_[providerId_ + "/" + key] = text;
     }
 
+    WindowOpen openWindow(const WindowSpec& spec, WindowContent content) override
+    {
+        WindowOpen result = cup::openWindow(registry_.windows_, providerId_, spec, std::move(content), registry_.clock_());
+        if (result == WindowOpen::Opened || result == WindowOpen::Raised) registry_.windowsChanged();
+        return result;
+    }
+
+    void updateWindow(const std::string& windowId, WindowContent content) override
+    {
+        if (cup::updateWindow(registry_.windows_, { providerId_, windowId }, std::move(content))) registry_.windowsChanged();
+    }
+
+    void closeWindow(const std::string& windowId) override
+    {
+        if (cup::closeWindow(registry_.windows_, { providerId_, windowId })) registry_.windowsChanged();
+    }
+
     Ms wallClock() const override { return registry_.store_.wallClock ? registry_.store_.wallClock() : registry_.clock_(); }
 
     void callService(const std::string& method, const std::string& params, std::function<void(ServiceReply)> done) override
@@ -146,6 +163,7 @@ void ProviderRegistry::stop(const std::string& providerId)
         e->running = false;
         e->wake.reset();
         e->provider->stop();
+        if (!closeProviderWindows(windows_, providerId).empty()) windowsChanged(); // its windows go with it
     }
 }
 
@@ -157,7 +175,12 @@ bool ProviderRegistry::isRunning(const std::string& providerId) const
 
 void ProviderRegistry::route(const Action& action)
 {
-    if (Entry* e = find(action.providerId); e && e->running) e->provider->onAction(action);
+    Entry* e = find(action.providerId);
+    if (!e || !e->running) return;
+    // A click from a window closed meanwhile goes nowhere (decision 104).
+    if (!action.windowId.empty() && !findWindow(windows_, { action.providerId, action.windowId })) return;
+    userActed(windows_, action.providerId, clock_()); // it may open a window now
+    e->provider->onAction(action);
 }
 
 void ProviderRegistry::cardClosed(const ShownCard& card)
@@ -167,7 +190,24 @@ void ProviderRegistry::cardClosed(const ShownCard& card)
 
 void ProviderRegistry::cardShown(const ShownCard& card)
 {
-    if (Entry* e = find(card.providerId); e && e->running) e->provider->onCardShown(card.activityId);
+    Entry* e = find(card.providerId);
+    if (!e || !e->running) return;
+    userActed(windows_, card.providerId, clock_()); // the user opened its card
+    e->provider->onCardShown(card.activityId);
+}
+
+void ProviderRegistry::windowClosed(const WindowKey& key)
+{
+    if (!closeWindow(windows_, key)) return;
+    windowsChanged();
+    if (Entry* e = find(key.providerId); e && e->running) e->provider->onWindowClosed(key.windowId);
+}
+
+void ProviderRegistry::windowPageShown(const WindowKey& key, const std::string& pageId)
+{
+    if (!showPage(windows_, key, pageId)) return;
+    windowsChanged();
+    route({ key.providerId, {}, kWindowPage, 0, pageId, key.windowId });
 }
 
 void ProviderRegistry::closeRequested(const ShownCard& card)

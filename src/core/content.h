@@ -22,12 +22,14 @@ using Ms = std::chrono::milliseconds;
 // Built-in icons; the renderer maps them to font glyphs.
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
                    Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre,
-                   Minus, Plus, Pin, Pinned, Fire, Chart, ChevronDown, Search, File, Folder, Close, Refresh, Reset };
+                   Minus, Plus, Pin, Pinned, Fire, Chart, ChevronDown, Search, File, Folder, Close, Refresh, Reset,
+                   Palette, Sliders };
 
 // Display: a big number, the card's centre (a timer). Heading: a group's label over its rows (Settings'
 // "General", "Dark"): small and quiet, since the group's background already sets it apart (decision 090).
 // Result and ResultDetail: a search result's name and the line under it (decision 079).
-enum class TextStyle { Title, Body, Caption, Digits, Display, Heading, Result, ResultDetail };
+// PageTitle: a window page's name, over its groups (decision 104).
+enum class TextStyle { Title, Body, Caption, Digits, Display, Heading, Result, ResultDetail, PageTitle };
 
 // sRGB plus opacity. As an activity's accent (decision 010) it tints only
 // live data: progress fills (bar and ring), the current step, waveform bars.
@@ -297,24 +299,6 @@ enum class RowSpan { Slot, MatchAbove, MatchBelow };
 //            results (decision 079).
 enum class CardLayout { Standard, Centred, List, Search };
 
-// A card that floats apart from the island instead of growing it (decision
-// 081). The provider says what kind; the host owns every size (tokens.json),
-// the look (the island's) and the motion.
-enum class FloatWidth { Narrow, Medium, Wide }; // floatNarrowWidth, floatMediumWidth, floatWideWidth
-enum class FloatStart { NearIsland, Centre };   // where it first opens; after that, where the user left it
-struct FloatSpec {
-    FloatWidth width = FloatWidth::Medium; // as tall as its content needs, up to floatMaxHeight
-    bool resizable = false;                // its edges resize it, between minSize and maxSize
-    // Its limits, in the tokens' sizes (a provider passes its own tokens):
-    // none, floatMinSize and no more than the screen.
-    std::optional<Vec2> minSize, maxSize;
-    FloatStart start = FloatStart::NearIsland;
-    // Esc sends it back into the pill, once the card has no step back
-    // (Content::backAction). False: Esc only steps back; the ✕ or the pill send it back.
-    bool escCloses = true;
-    bool operator==(const FloatSpec&) const = default;
-};
-
 // One entry of a row's menu (decision 086). The provider says what's in it;
 // the host opens it (a right-click, Right, the row's ›), places it, draws it
 // and moves through it with the keys. Chosen, `actionId` goes to the row's
@@ -469,9 +453,6 @@ struct Content {
     // ...and the page starts at the top instead of centred: a page that
     // scrolls (a fill list, Row::visibleRows < 0) rather than one that fits.
     bool pageAtTop = false;
-    // Its card floats apart from the island, which keeps showing the pill
-    // (decision 081). None: the island expands.
-    std::optional<FloatSpec> floating;
     // Its card is wideCardWidth wide, not every card's expandedSize (decision
     // 085): room for what it shows side by side (the timer). Its pages too.
     bool wideCard = false;

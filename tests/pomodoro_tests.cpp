@@ -4,9 +4,9 @@
 #include "core/dialog.h"
 #include "core/hit_test.h"
 #include "core/item_metrics.h"
+#include "core/card_overlays.h"
 #include "core/layout.h"
 #include "core/tokens.h"
-#include "card_scene.h"
 #include "expect.h"
 #include "providers/pomodoro/pomodoro_provider.h"
 #include "providers/provider_registry.h"
@@ -26,7 +26,7 @@ struct Island {
     {
     }
 
-    Scene scene() const { return cardScene(state, now); }
+    Scene scene() const { return layout(state, now); }
     void send(const Event& e) { state = reduce(state, e, now); }
 
     // Click the button with this key, like the app does.
@@ -155,15 +155,14 @@ void planTests()
     const Placed* title = find(stats, "expandedCenter/0/0");
     expect(title && std::abs(title->frame.x + title->frame.width / 2 - stats.size.x / 2) < 0.51f, "its title centred on the card, back arrow or not");
     for (const Placed& p : stats.elements)
-        if (p.key.rfind("tab/", 0) != 0 && p.key.rfind("float/", 0) != 0) expect(p.frame.y + p.frame.height <= stats.size.y - t.expandedPadding + 0.01f, "fits the statistics: " + p.key);
+        if (p.key.rfind("tab/", 0) != 0) expect(p.frame.y + p.frame.height <= stats.size.y - t.expandedPadding + 0.01f, "fits the statistics: " + p.key);
     // Decision 070: the page keeps the timer card's size, its content centred in it, its back arrow at the card's
     // edge, its tables narrower than the card, each group apart.
     expect(stats.size.y == card.size.y, "the statistics keep the timer card's height");
     float top = stats.size.y, bottom = 0;
     for (const Placed& p : stats.elements)
-        if (p.key.rfind("tab/", 0) != 0 && p.key.rfind("float/", 0) != 0) top = std::min(top, p.frame.y), bottom = std::max(bottom, p.frame.y + p.frame.height);
-    // Under the tab row on the island, under the title bar floating (decision 081).
-    float above = top - (card.tabs ? card.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap : card.titleBar.height), below = stats.size.y - bottom;
+        if (p.key.rfind("tab/", 0) != 0) top = std::min(top, p.frame.y), bottom = std::max(bottom, p.frame.y + p.frame.height);
+    float above = top - (card.tabs ? card.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap : 0.0f), below = stats.size.y - bottom;
     expect(card.tabs || std::abs(above - below) < 1.0f, "its content centred vertically");
     const Placed* arrow = find(stats, "expandedCenter/0/1");
     const Placed* cell = find(stats, "expandedCenter/2/0");
@@ -181,7 +180,7 @@ void planTests()
     const Placed* pageTitleText = find(page, "expandedCenter/0/0");
     const Placed* focusName = find(page, "expandedCenter/1/0");
     expect(pageTitleText && focusName && focusName->frame.y - (pageTitleText->frame.y + pageTitleText->frame.height) >= t.groupGap &&
-           pageTitleText->frame.y < (page.tabs ? page.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap : page.titleBar.height) + t.expandedPadding + t.buttonSize,
+           pageTitleText->frame.y < (page.tabs ? page.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap : 0.0f) + t.expandedPadding + t.buttonSize,
            "from the top, room under the title");
     expect(focusName->list && focusName->list->id == pomodoro_action::kSettingsList &&
            focusName->list->viewport.y + focusName->list->viewport.height <= page.size.y - t.expandedPadding + 0.01f,
@@ -210,14 +209,14 @@ void planTests()
            sun->frame.x > mon->frame.x && std::abs((mon->frame.x + sun->frame.x + sun->frame.width) / 2 - page.size.x / 2) < 0.51f,
            "the days: seven circles in one centred row");
     for (const Placed& p : page.elements)
-        if (p.key.rfind("tab/", 0) != 0 && p.key.rfind("float/", 0) != 0) expect(p.frame.y + p.frame.height <= page.size.y - t.expandedPadding + 0.01f, "fits the page: " + p.key);
+        if (p.key.rfind("tab/", 0) != 0) expect(p.frame.y + p.frame.height <= page.size.y - t.expandedPadding + 0.01f, "fits the page: " + p.key);
 
     island.press("expandedCenter/1/3");
     island.press("expandedCenter/1/3");
     island.press("expandedCenter/2/1");
     Scene after = island.scene();
     expect(textAt(after, "expandedCenter/1/2") == "35 min" && textAt(after, "expandedCenter/2/2") == "4 min", "each click a step");
-    auto shown = focusedCard(island.state); // Esc, as the app does: the card's backAction first (decision 033)
+    auto shown = shownCard(island.state); // Esc, as the app does: the card's backAction first (decision 033)
     expect(shown && backAction(island.state) == pomodoro_action::kBack, "Esc on the page: back");
     island.registry.route({ shown->providerId, shown->activityId, backAction(island.state), 0 });
     Scene back = island.scene();
@@ -348,7 +347,7 @@ void runPomodoroTests()
     float contentTop = card.tabs ? card.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap : t.expandedPadding;
     for (const Placed& p : card.elements) {
         expect(!std::holds_alternative<Progress>(p.item), "no bar or loose ring in the card, the dial has it: " + p.key);
-        if (p.key.rfind("tab/", 0) != 0 && p.key.rfind("float/", 0) != 0)
+        if (p.key.rfind("tab/", 0) != 0)
             expect(p.frame.y >= contentTop - 0.01f && p.frame.y + p.frame.height <= card.size.y - t.expandedPadding + 0.01f, "fits the card: " + p.key);
     }
     expect(card.size.y <= t.canvas.y, "and the card fits the canvas");

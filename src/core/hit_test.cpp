@@ -7,8 +7,6 @@
 
 namespace cup {
 
-namespace {
-
 std::optional<Hit> hitIn(const std::vector<Placed>& elements, Vec2 point)
 {
     for (const Placed& p : elements) {
@@ -31,8 +29,6 @@ std::optional<Hit> hitIn(const std::vector<Placed>& elements, Vec2 point)
     }
     return std::nullopt;
 }
-
-} // namespace
 
 std::optional<Hit> hitTest(const Scene& scene, Vec2 point)
 {

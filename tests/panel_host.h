@@ -1,6 +1,7 @@
 #pragma once
 // A Host that records what a panel provider publishes and saves, and
-// helpers to read a published widget and card. For the system widgets' tests.
+// helpers to read a published widget and card, or its window (decision 104).
+// For the system widgets' tests.
 
 #include "core/provider.h"
 
@@ -33,7 +34,70 @@ struct PanelHost : Host {
     std::string load(const std::string& key) const override { auto it = store.find(key); return it == store.end() ? "" : it->second; }
     void save(const std::string& key, const std::string& text) override { store[key] = text; ++saves[key]; }
     Ms wallClock() const override { return clock; }
+
+    // Its window (decision 104): the last content sent while it's open.
+    std::optional<WindowContent> window;
+    std::optional<WindowSpec> windowSpec;
+    WindowOpen openWindow(const WindowSpec& spec, WindowContent content) override
+    {
+        WindowOpen result = window ? WindowOpen::Raised : WindowOpen::Opened;
+        window = std::move(content);
+        windowSpec = spec;
+        return result;
+    }
+    void updateWindow(const std::string&, WindowContent content) override
+    {
+        if (window) window = std::move(content);
+    }
+    void closeWindow(const std::string&) override { window.reset(); }
 };
+
+// A window's page by id, or nullptr.
+inline const WindowPage* pageOf(const PanelHost& h, const std::string& id)
+{
+    if (!h.window) return nullptr;
+    for (const WindowPage& p : h.window->pages)
+        if (p.id == id) return &p;
+    return nullptr;
+}
+
+// A row's name: its first Text's value.
+inline std::string nameOf(const Row& r)
+{
+    for (const Item& item : r.items)
+        if (auto* text = std::get_if<Text>(&item)) return text->value;
+    return "";
+}
+
+// The window's row with this name, on any page, or nullptr.
+inline const Row* windowRow(const PanelHost& h, const std::string& name)
+{
+    if (!h.window) return nullptr;
+    for (const WindowPage& p : h.window->pages)
+        for (const WindowSection& s : p.sections)
+            for (const Row& r : s.rows)
+                if (nameOf(r) == name) return &r;
+    return nullptr;
+}
+
+// What that row says under its name (its Text's detail), "?" if there's no row.
+inline std::string detailOf(const PanelHost& h, const std::string& name)
+{
+    const Row* r = windowRow(h, name);
+    if (!r) return "?";
+    for (const Item& item : r->items)
+        if (auto* text = std::get_if<Text>(&item)) return text->detail;
+    return "?";
+}
+
+// That row's item of type T (its switch, its button), or nullptr.
+template <typename T> const T* itemOf(const Row* r)
+{
+    if (!r) return nullptr;
+    for (const Item& item : r->items)
+        if (auto* x = std::get_if<T>(&item)) return x;
+    return nullptr;
+}
 
 inline std::string textAt(const Panel& p, std::size_t row, std::size_t item)
 {

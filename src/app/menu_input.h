@@ -3,7 +3,6 @@
 // and the items' shortcuts. What it does is core's (core/menu: when it opens
 // and closes, which item is lit, where it goes); this turns input into those
 // events and sends a chosen item's action, like the keyboard (keyboard_input).
-// The island's card only: a floating card's menu isn't drawn yet.
 
 #include "core/island.h"
 #include "core/layout.h"

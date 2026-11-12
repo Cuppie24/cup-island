@@ -31,7 +31,7 @@ add_library(cup_core STATIC
     src/core/double_tap.cpp
     src/core/toast.cpp
     src/core/easing.cpp
-    src/core/floating.cpp
+    src/core/open_windows.cpp
     src/core/fullscreen.cpp
     src/core/hit_test.cpp
     src/core/home.cpp
@@ -58,8 +58,9 @@ add_library(cup_core STATIC
     src/core/text_wrap.cpp
     src/core/tokens.cpp
     src/core/tokens_json.cpp
-    src/core/float_layout.cpp
-    src/core/float_placement.cpp
+    src/core/window_keys.cpp
+    src/core/window_layout.cpp
+    src/core/window_placement.cpp
 )
 target_include_directories(cup_core PUBLIC src)
 
@@ -76,7 +77,7 @@ add_library(cup_providers STATIC
     src/providers/pomodoro/pomodoro_session.cpp
     src/providers/pomodoro/pomodoro_stats.cpp
     src/providers/pomodoro/todo_list.cpp
-    src/providers/system/settings_card.cpp
+    src/providers/system/settings_window.cpp
     src/providers/system/settings_provider.cpp
     src/providers/system/system_panels.cpp
     src/providers/file_store.cpp
@@ -145,7 +146,7 @@ if(CUP_BUILD_TESTS)
         tests/system_tests.cpp
         tests/todo_tests.cpp
         tests/tokens_tests.cpp
-        tests/float_tests.cpp
+        tests/window_tests.cpp
     )
     target_link_libraries(cup_tests PRIVATE cup_providers cup_indexer)
     target_compile_definitions(cup_tests PRIVATE
@@ -192,11 +193,11 @@ if(WIN32)
 
     add_executable(CupIsland
         assets/cup_island.rc
-        src/app/floating_cards.cpp
         src/app/keyboard_input.cpp
         src/app/menu_input.cpp
         src/app/live_tokens.cpp
         src/app/main.cpp
+        src/app/provider_windows.cpp
         src/app/surface.cpp
         src/platform/autostart.cpp
         src/platform/badge_dots.cpp
@@ -219,8 +220,6 @@ if(WIN32)
         src/platform/segments_parts.cpp
         src/platform/list_viewports.cpp
         src/platform/file_watcher.cpp
-        src/platform/float_flow.cpp
-        src/platform/float_window.cpp
         src/platform/foreground.cpp
         src/platform/fullscreen_watcher.cpp
         src/platform/glass.cpp
@@ -238,6 +237,8 @@ if(WIN32)
         src/platform/tap_hook.cpp
         src/platform/tray_icon.cpp
         src/platform/watchdog.cpp
+        src/platform/provider_window.cpp
+        src/platform/provider_window_messages.cpp
         src/platform/window_name.cpp
         src/platform/wall_clock.cpp
         src/providers/media/app_activation.cpp

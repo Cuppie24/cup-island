@@ -3,7 +3,6 @@
 
 #include "core/layout.h"
 #include "core/tokens.h"
-#include "card_scene.h"
 #include "expect.h"
 #include "providers/pomodoro/pomodoro_provider.h"
 #include "providers/provider_registry.h"
@@ -270,7 +269,7 @@ void layoutTests()
         state = reduce(state, PanelPublished{ panel }, Ms{ 0 });
         state = reduce(state, PillClicked{}, Ms{ 0 });
         state = reduce(state, TileClicked{ PomodoroProvider::kPanelId }, Ms{ 0 });
-        return cardScene(state, Ms{ 0 });
+        return layout(state, Ms{ 0 });
     };
     Scene card = shown(pomodoroPanel({}, defaultPlan(), { .daysInARow = 12 }));
     auto at = [](const Scene& scene, const std::string& key) -> const Placed* {
@@ -300,7 +299,7 @@ void layoutTests()
     }
     Scene paged = shown(tall);
     const Placed* firstRow = at(paged, "expandedCenter/1/0");
-    float contentTop = paged.tabs ? paged.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap : paged.titleBar.height + t.expandedPadding; // floating: under its title bar
+    float contentTop = paged.tabs ? paged.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap : t.expandedPadding;
     expect(paged.size.y == timerCard.size.y, "a page: the card's height, not its own");
     expect(firstRow && firstRow->list && firstRow->list->max > 0 &&
            std::abs(firstRow->list->viewport.y + firstRow->list->viewport.height - (paged.size.y - t.expandedPadding)) < 0.51f &&

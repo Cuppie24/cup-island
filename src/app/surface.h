@@ -1,7 +1,7 @@
 #pragma once
-// A surface (decision 081): one thing on screen the user points at and types
-// into, the island or a floating card. Its scene, the renderer drawing it,
-// its interaction window, and the pointer on it. Input handlers are told the
+// A surface: one thing on screen the user points at and types into, the
+// island. Its scene, the renderer drawing it, its interaction window, and
+// the pointer on it. Input handlers are told the
 // surface their window belongs to; what a click means stays core's (hitTest).
 
 #include "core/layout.h"
@@ -41,19 +41,16 @@ struct Pointer {
 };
 
 struct Surface {
-    std::string cardId;                      // a floating card's; "" = the island
     Scene scene;                             // as last laid out
     platform::PillRenderer* renderer = nullptr;
     HWND input{};                            // its interaction window: clicks, keys, focus
     Pointer pointer;
-    bool island() const { return cardId.empty(); }
 };
 
-// Pointer callbacks get render-layer points (the island's) or window points
-// (a floating card's); content works in the shape's own coordinates.
+// Pointer callbacks get render-layer points; content works in the shape's own coordinates.
 Vec2 toLocal(const Surface& s, Vec2 point);
-bool onShape(const Surface& s, Vec2 point);  // on the pill, or the floating card
-bool onBubble(const Surface& s, Vec2 point); // on the Split bubble (the island's only)
+bool onShape(const Surface& s, Vec2 point);  // on the pill
+bool onBubble(const Surface& s, Vec2 point); // on the Split bubble
 
 // The element with this key, in the scene or its floating toast (decision 071).
 const Placed* findElement(const Surface& s, const std::string& key);

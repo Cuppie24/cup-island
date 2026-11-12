@@ -89,19 +89,24 @@ struct Tokens {
     float resultIconSize = 32;           // a search result's icon (Button::picture)
     float resultFontSize = 17;           // TextStyle::Result: a search result's name
     float resultDetailFontSize = 14;     // TextStyle::ResultDetail: where it is, under it
-    // Floating cards (decision 081): a card apart from the island, in its look.
-    // Its provider picks a width; it's as tall as its content, up to floatMaxHeight.
-    float floatNarrowWidth = 360;
-    float floatMediumWidth = 480;
-    float floatWideWidth = 640;
-    float floatMaxHeight = 640;
-    Vec2 floatMinSize{ 320, 160 };  // a resizable one stops here
-    float floatIslandGap = 16;      // FloatStart::NearIsland: this far under the pill
-    float floatCascade = 28;        // opening where another one already is: this far right and down from it
-    float floatCloseSize = 28;      // the ✕ at the right end of its title bar
-    float floatTitleBarHeight = 34; // a strip along its top holding the ✕, like a window's title bar; it drags the card too
-    float floatCornerRadius = 8;    // a window's corners, as Windows 11 rounds them: not the island's
-    float floatResizeBorder = 6;    // a resizable card's edges: this wide a band inside them resizes it
+    // Windows (decision 104): a provider's own window, apart from the island.
+    // Its provider picks a size class; the user resizes it and it's remembered.
+    Vec2 windowSmallSize{ 420, 360 };
+    Vec2 windowMediumSize{ 640, 480 };
+    Vec2 windowLargeSize{ 880, 620 };
+    Vec2 windowMinSize{ 320, 240 };   // no smaller, by its frame or the provider's ask
+    float windowIslandGap = 16;       // WindowStart::NearIsland: this far under the pill
+    float windowCascade = 28;         // opening where another one already is: this far right and down from it
+    // Inside a window (decision 104): an ordinary window's chrome, a sidebar of pages, groups of rows.
+    Vec2 windowPagePadding{ 48, 32 }; // a page's content from the pane's left and top
+    float windowTitleBarHeight = 36; // our own title bar: it drags the window; minimize and close at its right
+    float windowChromeButtonWidth = 46; // each of those, the bar's height tall, as Windows draws its own
+    float windowSidebarWidth = 190; // the pages, with the window's title over them (only with several pages)
+    float windowSidebarInset = 14; // the sidebar's items from its edges
+    float windowSidebarHeader = 56; // the window's title, over the pages
+    float windowNavHeight = 38; // a page's entry in the sidebar
+    float windowPageMaxWidth = 600; // a page's content no wider: rows of settings don't need a wide screen
+    float windowNavRadius = 8; // the picked page's highlight
     float expandedArtSize = 88; // expanded leading square: the cover, bigger than the text beside it (decision 094)
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;
@@ -112,6 +117,7 @@ struct Tokens {
     float captionFontSize = 13; // the smallest text: ~11 px on screen at 100% after islandScale
     float displayFontSize = 48; // TextStyle::Display: a timer as the card's centre
     float headingFontSize = 14; // TextStyle::Heading: a group's label, in the caption colour, a little over caption size (decision 090)
+    float pageTitleFontSize = 24; // TextStyle::PageTitle: a window page's name (decision 104)
     // Font weights, 100..900 (400 regular, 600 semibold; decision 024). Segoe UI Variable
     // (Windows 11) takes any value in between; other fonts use the nearest weight they have.
     float titleFontWeight = 700;   // bold: Segoe UI Variable's heaviest
@@ -119,6 +125,7 @@ struct Tokens {
     float captionFontWeight = 600;
     float displayFontWeight = 300; // big and still the lightest, like a clock face
     float headingFontWeight = 600; // a group's label is quiet: its group's background sets it apart (decision 090)
+    float pageTitleFontWeight = 700;
     // Darkens antialiased text strokes (DirectWrite's grayscale enhanced
     // contrast): 0 = none, 1 = Windows' usual, higher = bolder-looking edges.
     float textContrast = 1.5f;
@@ -331,7 +338,11 @@ struct Tokens {
     Ms toastDuration{ 5000 }; // a toast at a card's bottom goes after this (decision 071)
     Ms toastSlideDuration{ 260 }; // ...and slides up from below the card's edge, fading in, and back down, over this
     Ms menuOpenDuration{ 140 };   // a row's menu grows and fades in from where it opens, over this (decision 086); it goes at once
-    Ms floatHandOff{ 34 }; // a floating card's flow (decision 081): its layer stays this long after the card's window shows, so nothing blinks
+    // A provider may open a window, or bring one to the front, only this
+    // soon after the user acted on it (decision 104): nothing pops up by itself.
+    Ms windowOpenGrace{ 3000 };
+    std::size_t windowsPerProvider = 4; // open at once; past it, opening another is refused
+    Ms windowRevealLatest{ 250 }; // a new window shows once its first frame is drawn, or this long after it was asked to, whichever is first
 
     Ms expandedIdleTimeout{ 8000 };
     Ms heldAlertMaxAge{ 30000 };
@@ -414,7 +425,8 @@ struct Tokens {
     Color stepTodoColor{ 255, 255, 255, 51 };
     Color tabSelectedColor{ 255, 255, 255, 41 };
     Color hoverColor{ 255, 255, 255, 20 };         // a tab or tile under the pointer
-    Color tileColor{ 255, 255, 255, 20 };          // Home's tile backgrounds, always shown (tabs have none, decision 072)
+    Color tileColor{ 255, 255, 255, 20 };          // Home's tile backgrounds, always shown (tabs have none, decision 072); a window's groups
+    Color windowPaneColor{ 255, 255, 255, 8 };     // a window's page pane, over islandColor (its sidebar's): a shade lighter (decision 104)
     Color focusRingColor{ 255, 255, 255, 153 };    // around what the keyboard has focus on (decision 033): a theme's accent
     Color inputColor{ 255, 255, 255, 26 };         // a text field's background (decision 016)
     Color placeholderTextColor{ 255, 255, 255, 128 }; // "Add a to-do…": like body text, a little dimmer

@@ -1,6 +1,8 @@
 # 083: Floating cards are drawn in a fixed canvas
 
-Status: Proposed (supersedes decision 081's first Windows drawing)
+Status: Superseded by 104: floating cards were dropped for ordinary windows,
+so there is no canvas to draw them in. Its lesson stands: a window drawn
+with Composition must not show its own moves and resizes as jumps.
 
 **Context.** Decision 081's first Windows version gave every floating card
 a window pair of its own: a render window that moves and resizes with the

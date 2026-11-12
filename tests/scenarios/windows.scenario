@@ -1,0 +1,88 @@
+# Providers' own windows (decision 104): kept beside the island's state, not in it.
+# Only just after the user acted on the provider; several per provider, up to a limit.
+
+scenario: a window opens only just after the user acted on its provider
+open-window timer full              -> opened=notnow windows=none     # nothing pops up by itself
+acted timer
+open-window timer full              -> opened=opened windows=timer/full front=timer/full page=timer/full:a
+close-window timer full             -> windows=none
+wait 3001
+open-window timer full              -> opened=notnow windows=none     # too long after: windowOpenGrace
+
+scenario: the user's action is the provider's own
+acted media
+open-window timer full              -> opened=notnow windows=none
+acted timer
+open-window timer full              -> opened=opened
+
+scenario: opening an open window raises it, with its new content, and keeps its page
+acted timer
+open-window timer full
+open-window timer stats             -> windows=timer/full,timer/stats front=timer/stats
+pick-page timer full b              -> page=timer/full:b
+open-window timer full              -> opened=raised windows=timer/full,timer/stats front=timer/full page=timer/full:b
+open-window timer full page=c       -> page=timer/full:c          # asked for a page: that one
+
+scenario: raising needs the user too
+acted timer
+open-window timer full
+open-window timer stats             -> front=timer/stats
+wait 5000
+open-window timer full              -> opened=notnow front=timer/stats
+
+scenario: new content keeps the user where they are, unless their page went
+acted timer
+open-window timer full page=b
+update-window timer full pages=a,b  -> page=timer/full:b
+update-window timer full pages=a,c  -> page=timer/full:a          # its page went: the first
+wait 60000
+update-window timer full pages=a    -> windows=timer/full         # no user needed: nothing comes forward
+update-window timer gone            -> windows=timer/full         # not open: nothing
+
+scenario: a page that doesn't exist isn't picked
+acted timer
+open-window timer full
+pick-page timer full z              -> page=timer/full:a
+pick-page timer other a             -> windows=timer/full
+
+scenario: an unknown page asked for opens the first
+acted timer
+open-window timer full page=z       -> page=timer/full:a
+
+scenario: one id per provider; two providers may use the same id
+acted timer
+acted notes
+open-window timer main
+open-window notes main              -> windows=timer/main,notes/main front=notes/main
+close-window timer main             -> windows=notes/main
+
+scenario: a provider has at most windowsPerProvider open
+acted pad
+open-window pad a
+open-window pad b
+open-window pad c
+open-window pad d                   -> opened=opened
+open-window pad e                   -> opened=toomany windows=pad/a,pad/b,pad/c,pad/d
+open-window pad a                   -> opened=raised              # an open one still comes forward
+acted other
+open-window other a                 -> opened=opened              # the limit is per provider
+
+scenario: a bad id is refused
+acted timer
+open-window timer ../../x           -> opened=badid windows=none
+open-window timer a/b               -> opened=badid
+
+scenario: a provider stopping takes its windows, and its last action, with it
+acted timer
+acted notes
+open-window timer full
+open-window notes main
+stop-provider timer                 -> windows=notes/main
+open-window timer full              -> opened=notnow              # started again: the user acts first
+
+scenario: windows don't change the island
+start timer
+acted timer
+open-window timer full              -> Compact windows=timer/full expanded=none
+click                               -> Expanded expanded=timer
+esc                                 -> Compact windows=timer/full # Esc on the island is the island's

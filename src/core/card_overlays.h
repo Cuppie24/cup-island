@@ -13,11 +13,17 @@ namespace cup {
 void focusInput(IslandState& state, const InputFocused& e, Ms now); // only on the shown card, not under a dialog
 void submitText(IslandState& state, Ms now); // the field empties and keeps focus
 void showDialog(IslandState& state, const DialogShown& e, Ms now); // only over a card on screen; typing on it stops
-// A floating card's dialog and toast are its own (decision 081): shown over
-// the card wherever it is, and answered on the card that has the keys.
 void showToast(IslandState& state, const ToastShown& e, Ms now);
 void closeDialog(IslandState& state);
 void closeToast(IslandState& state);
+
+// The question, note and menu over a card: the island's, while that card is
+// the one shown. nullptr: it isn't on screen.
+CardOverlays* overlaysOf(IslandState& state, const std::string& cardId);
+const CardOverlays* overlaysOf(const IslandState& state, const std::string& cardId);
+bool cardOnScreen(const IslandState& state, const std::string& cardId);
+// The question over the shown card: what Esc and the dialog's buttons answer. nullptr: none.
+const Dialog* shownDialog(const IslandState& state);
 
 // After every event: a draft, dialog or list drag whose card isn't the one shown any more is dropped.
 // A field's unsent text is kept (IslandState::keptText, decision 050), but not

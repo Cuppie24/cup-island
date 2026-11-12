@@ -33,6 +33,7 @@ std::string widestDigits(std::string s, TextStyle style, const MeasureText& meas
 
 float lineHeight(TextStyle style) { return std::ceil(fontSize(style) * 1.3f); }
 
+
 TextStyle detailStyleOf(TextStyle style) { return style == TextStyle::Result ? TextStyle::ResultDetail : TextStyle::Caption; }
 
 float textWidth(const Text& text, const MeasureText& measure)
@@ -144,6 +145,7 @@ float fontSize(TextStyle style)
     case TextStyle::Heading: return t.headingFontSize;
     case TextStyle::Result: return t.resultFontSize;
     case TextStyle::ResultDetail: return t.resultDetailFontSize;
+    case TextStyle::PageTitle: return t.pageTitleFontSize;
     }
     return t.bodyFontSize;
 }

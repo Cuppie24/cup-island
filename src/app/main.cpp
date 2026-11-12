@@ -20,16 +20,14 @@
 // Quit any time from the tray icon's right-click menu (Exit). Everything is logged to
 // %LOCALAPPDATA%\CupIsland\logs (platform/log.h); Debug builds also show it in a console.
 
-#include "app/floating_cards.h"
 #include "app/keyboard_input.h"
 #include "app/menu_input.h"
+#include "app/provider_windows.h"
 #include "core/menu.h"
 #include "app/live_tokens.h"
 #include "app/surface.h"
 #include "core/card_overlays.h"
 #include "core/dialog.h"
-#include "core/float_layout.h"
-#include "core/floating.h"
 #include "core/hit_test.h"
 #include "core/island.h"
 #include "core/island_tint.h"
@@ -106,6 +104,7 @@ IslandState g_state;
 IslandTint g_tint; // the playing cover's colour on the island (decision 051)
 bool g_coverColours = false; // ...if Settings has it on (decisions 052, 055)
 bool g_glassPicked = false;  // Settings' Glass (decision 089): drawn only while Windows' transparency effects are on too
+bool g_glassWindowsPicked = false; // ...and Glass for windows (decision 104): providers' windows as glass too, while the island is
 PillRenderer g_renderer;
 HWND g_inputHwnd{};
 // The island's state and its Composition visuals belong to this thread. A
@@ -121,17 +120,9 @@ std::unique_ptr<ProviderRegistry> g_providers;
 SettingsProvider* g_settings = nullptr; // owned by g_providers; told when tokens.json reloads
 UpdateProvider* g_update = nullptr;     // owned by g_providers; Settings' "Check for updates" asks it
 
-// The island as a surface (decision 081): its scene, its renderer, the
-// pointer on it. Floating cards will be surfaces of their own.
+// The island as a surface: its scene, its renderer, the pointer on it.
+// Providers' windows (decision 104) take their own input, in their own windows.
 app::Surface g_island;
-
-// The surface with the keys: what the keyboard moves around and types into.
-// The focused floating card's (decision 081), else the island's.
-app::Surface& keysSurface()
-{
-    if (app::Surface* card = app::floatSurface(g_state.focusedFloatId)) return *card;
-    return g_island;
-}
 PointerTrack g_drag; // the pointer's speed while the island or bubble is carried: a fling when let go (decision 080)
 
 Ms now()
@@ -188,7 +179,7 @@ bool hasActivity(const std::string& id)
 // The keyboard's focus, on the surface that has the keys only.
 std::optional<cup::Focusable> keyFocusOn(const app::Surface& s)
 {
-    return &s == &keysSurface() ? app::keyFocus() : std::nullopt;
+    return &s == &g_island ? app::keyFocus() : std::nullopt;
 }
 
 // Where hover feedback comes from: the keyboard's focus while it leads (decision 031), else the pointer,
@@ -220,8 +211,7 @@ void updateHover(app::Surface& s)
     auto cursorHit = s.pointer.at && !s.pointer.scrub ? hitTest(s.scene, *s.pointer.at) : std::nullopt;
     const Placed* under = cursorHit ? findElement(s, cursorHit->key) : nullptr;
     bool text = !s.pointer.selecting.empty() || (under && std::holds_alternative<TextInput>(under->item));
-    if (s.island()) setTextCursor(text);
-    else app::setFloatTextCursor(s, text);
+    setTextCursor(text);
     s.renderer->setHoveredRow(at ? rowAt(s.scene, *at) : std::string()); // reveals a to-do's delete button, the plan's − and + (decision 063)
 
     // Tabs light up as a whole, except the active one, which is already marked (decision 007).
@@ -237,7 +227,7 @@ void updateHover(app::Surface& s)
     if (tab) s.renderer->setAreaHovered(tab->frame, s.scene.tabs->radius);
     else if (tile) s.renderer->setAreaHovered(tile->frame, s.scene.tileRadius);
     else if (item && item->listRow) s.renderer->setAreaHovered(item->listRow, item->listRowRadius);
-    else if (auto lit = &s == &keysSurface() && escapeCloses(g_state) && !app::keyFocus() ? defaultRow(s.scene) : std::nullopt)
+    else if (auto lit = &s == &g_island && escapeCloses(g_state) && !app::keyFocus() ? defaultRow(s.scene) : std::nullopt)
         s.renderer->setAreaHovered(lit->frame, lit->radius); // typing in search: the row Enter opens (decision 079)
     else s.renderer->setAreaHovered(std::nullopt, 0);
 
@@ -272,7 +262,7 @@ void dispatch(const Event& event, const char* reason)
     Ms t = now();
     Spot spot = g_state.spot;
     bool wasHidden = g_state.hidden;
-    std::vector<ShownCard> wasCards = shownCards(g_state); // the island's and every window's (decision 081)
+    std::optional<ShownCard> wasCard = shownCard(g_state);
     std::optional<Draft> wasDraft = g_state.draft;
     g_state = reduce(g_state, event, t);
     Scene next = layout(g_state, t, [](const Text& text) { return g_renderer.measure(text); });
@@ -293,13 +283,8 @@ void dispatch(const Event& event, const char* reason)
     g_island.scene = next;
     if (lifted) onLifted();
     if (g_state.spot != spot) saveSpot();
-    app::syncFloats(g_state, t); // the floating cards: opened, redrawn, sent back (decision 081)
-    if (shownCards(g_state) != wasCards) { // a card opened or switched under the pointer (decision 087)
-        pointerStill(g_island);
-        app::forEachFloat(pointerStill);
-    }
+    if (shownCard(g_state) != wasCard) pointerStill(g_island); // a card opened or switched under the pointer (decision 087)
     updateHover(g_island);
-    app::forEachFloat([](app::Surface& card) { updateHover(card); });
 
     // The island in the playing cover's colours, or the theme's (decision 051).
     IslandTint tint = nextTint(g_tint, g_coverColours ? wantedTint(g_state) : WantedTint{}, t);
@@ -308,7 +293,6 @@ void dispatch(const Event& event, const char* reason)
 
     // One timer for everything time-based: core deadlines, ticking labels and provider wake-ups.
     auto deadline = earliest(earliest(nextDeadline(g_state), sceneDeadline(g_island.scene)), tintDeadline(g_tint));
-    app::forEachFloat([&deadline](app::Surface& card) { deadline = earliest(deadline, sceneDeadline(card.scene)); });
     if (g_providers) deadline = earliest(deadline, g_providers->nextWake());
     setTimer(TimerId::Deadline, deadline ? std::optional<Ms>(std::max(*deadline - t, Ms{ 0 })) : std::nullopt);
 
@@ -319,7 +303,7 @@ void dispatch(const Event& event, const char* reason)
     }
 
     // A live field's edit goes to its provider at once (search, decision 079).
-    if (auto change = liveChange(wasDraft, g_state.draft, keysSurface().scene); change && g_providers) { // the draft is on the card with the keys
+    if (auto change = liveChange(wasDraft, g_state.draft, g_island.scene); change && g_providers) {
         app::dropKeyFocus(); // new words, new rows: nothing stays highlighted
         g_providers->route(*change);
     }
@@ -329,10 +313,10 @@ void dispatch(const Event& event, const char* reason)
     if (g_state.hidden != wasHidden && g_settings) g_settings->setHotkeysActive(!g_state.hidden);
     // A card went: its provider may reset it (Settings opens at its list again).
     // ...and one came: what's on it is seen now (Settings' "New" tags, decision 048).
-    if (!g_providers) return;
-    CardChanges cards = cardChanges(wasCards, shownCards(g_state));
-    for (const ShownCard& card : cards.closed) g_providers->cardClosed(card);
-    for (const ShownCard& card : cards.shown) g_providers->cardShown(card);
+    std::optional<ShownCard> nowCard = shownCard(g_state);
+    if (nowCard == wasCard || !g_providers) return;
+    if (wasCard) g_providers->cardClosed(*wasCard);
+    if (nowCard) g_providers->cardShown(*nowCard);
 }
 
 void toggleProvider(const char* id)
@@ -359,7 +343,7 @@ void toggleTimer()
 // button sends the provider its action, then closes it.
 void answerDialog(bool confirmed)
 {
-    const Dialog* over = focusedDialog(g_state); // the island's card's, or the focused window's (decision 081)
+    const Dialog* over = shownDialog(g_state);
     if (!over) return;
     Dialog asked = *over;
     dispatch(DialogClosed{}, confirmed ? "dialog confirmed" : "dialog cancelled");
@@ -371,10 +355,6 @@ void act(const Action& action)
 {
     if (action.actionId == kDialogConfirm || action.actionId == kDialogCancel) { // host-owned names: never a provider's
         answerDialog(action.actionId == kDialogConfirm);
-        return;
-    }
-    if (action.actionId == kCloseFloat) { // a floating card's ✕ (decision 081)
-        dispatch(FloatClosed{ action.activityId }, "card's close");
         return;
     }
     g_providers->route(action);
@@ -453,9 +433,9 @@ void dropListRow(app::Surface& s, bool commit)
 void onPressDown(app::Surface& s, Vec2 canvasPoint)
 {
     s.pointer.still = false; // pressed: the pointer is in use (decision 087)
-    if (s.island() && app::menuPress(toLocal(s, canvasPoint))) return; // an open menu takes the press (decision 086)
+    if (app::menuPress(toLocal(s, canvasPoint))) return; // an open menu takes the press (decision 086)
     g_drag = trackPointer({}, canvasPoint, now(), tokens());
-    if (s.island() && !onBubble(s, canvasPoint)) {
+    if (!onBubble(s, canvasPoint)) {
         // Held still, the island lifts (decision 026). Core ignores it where
         // it can't (Expanded), and then the press is only what it always was.
         dispatch(IslandPressed{}, "press");
@@ -504,9 +484,6 @@ void onPressDown(app::Surface& s, Vec2 canvasPoint)
             s.pointer.listPress = *element;
             s.pointer.listPressY = point.y;
         }
-    } else if (!s.island()) {
-        app::startMoving(s); // a floating card's empty space drags it (decision 081)
-        return;
     } else if (pressSquashes(g_state)) { // not where an empty click does nothing (decision 071)
         s.renderer->pressDown(false);
     }
@@ -521,7 +498,7 @@ void onPointerMoved(app::Surface& s, Vec2 canvasPoint, bool inside)
     bool moved = s.pointer.lastMove != canvasPoint;
     s.pointer.lastMove = canvasPoint;
     if (moved) s.pointer.still = false;
-    if (s.island() && moved) app::menuPointerMoved(toLocal(s, canvasPoint)); // lights the menu's item under it (decision 086)
+    if (moved) app::menuPointerMoved(toLocal(s, canvasPoint)); // lights the menu's item under it (decision 086)
     if (s.pointer.islandPress || s.pointer.bubblePress) g_drag = trackPointer(g_drag, canvasPoint, now(), tokens());
     if (s.pointer.islandPress) {
         Vec2 start = *s.pointer.islandPress;
@@ -606,7 +583,7 @@ void clickElement(app::Surface& s, const Hit& hit, std::optional<Vec2> at = std:
 
 void onPressRelease(app::Surface& s, Vec2 canvasPoint, Release how)
 {
-    if (s.island() && app::menuRelease(toLocal(s, canvasPoint))) { // ...and its release (decision 086)
+    if (app::menuRelease(toLocal(s, canvasPoint))) { // ...and its release (decision 086)
         updateHover(s);
         return;
     }
@@ -661,7 +638,6 @@ void onPressRelease(app::Surface& s, Vec2 canvasPoint, Release how)
         if (hit && hit->key == key) clickElement(s, *hit, s.pointer.textPress);
         return;
     }
-    if (!s.island()) return; // a floating card's empty space only drags it (decision 081)
     s.renderer->pressRelease(false);
     if (how == Release::Inside && onShape(s, canvasPoint) && !hitTest(s.scene, point)) dispatch(PillClicked{}, "click");
 }
@@ -729,14 +705,14 @@ void onChar(wchar_t c)
 void onKey(WPARAM key)
 {
     app::clearCharSwallow();
-    pointerStill(keysSurface()); // typing changes what's under the pointer (search's results): it waits for a move (decision 087)
-    if (app::recordKey(key)) return; // Settings is recording a shortcut's new keys (decision 032)
+    pointerStill(g_island); // typing changes what's under the pointer (search's results): it waits for a move (decision 087)
+    if (app::recordKey(key, false)) return; // a key on the island while Settings records a shortcut: it stops waiting (decision 032)
     bool ctrl = GetKeyState(VK_CONTROL) < 0, alt = GetKeyState(VK_MENU) < 0;
     // A dialog: Esc cancels it, the card stays (decision 020). The arrows,
     // Tab and Enter move between its buttons and press one (decision 033);
     // the first press shows focus on Cancel, so a stray Enter answers nothing.
     // No Ctrl or Alt keys: switching tabs or closing would leave it hanging.
-    if (focusedDialog(g_state)) {
+    if (shownDialog(g_state)) {
         if (key == VK_ESCAPE) answerDialog(false);
         else if (!ctrl && !alt) app::navigationKey(key);
         return;
@@ -775,7 +751,7 @@ void onKey(WPARAM key)
         case VK_DOWN: { // a line up or down in wrapped text (decision 045); from the first or last line, its start or end
             if (escapeCloses(g_state) && app::fieldCardKey(key)) break; // a card that is its field: through its rows (decision 079)
             const Placed* field = nullptr;
-            app::Surface& keys = keysSurface();
+            app::Surface& keys = g_island;
             for (const Placed& p : keys.scene.elements)
                 if (auto* input = std::get_if<TextInput>(&p.item); input && input->focused) field = &p;
             auto at = field ? keys.renderer->caretOnLine(*field, key == VK_UP ? -1 : 1) : std::nullopt;
@@ -795,9 +771,9 @@ void onKey(WPARAM key)
         // One step back, never out of the app: quitting is the tray's Exit. A
         // card's own page goes back to its list, a card opened from Home back
         // to Home, anything else closes (decision 033).
-        if (mode(g_state) != Mode::Expanded && !focusedFloat(g_state)) return; // a floating card has the keys (decision 081)
+        if (mode(g_state) != Mode::Expanded) return;
         std::string back = backAction(g_state);
-        if (auto card = focusedCard(g_state); card && !back.empty()) act({ card->providerId, card->activityId, back });
+        if (auto card = shownCard(g_state); card && !back.empty()) act({ card->providerId, card->activityId, back });
         else dispatch(EscapePressed{}, "esc");
         return;
     }
@@ -807,7 +783,7 @@ void onKey(WPARAM key)
     // no activity to close.
     if (ctrl && key == 'W') {
         auto card = shownActivity(g_state);
-        if ((mode(g_state) == Mode::Expanded || focusedFloat(g_state)) && card) {
+        if (mode(g_state) == Mode::Expanded && card) {
             g_providers->closeRequested(*card);
             dispatch(PointerMoved{}, "close request"); // busy here: keep the card open for an answer
         }
@@ -878,6 +854,7 @@ void tokensChanged(Vec2 oldCanvas, const char* reason)
 {
     if (tokens().canvas != oldCanvas) positionLayers();
     g_renderer.refreshAnimations(); // also drops content visuals, so they're redrawn at the new sizes
+    app::refreshWindows();          // providers' windows too: a theme recolours them (decision 104)
     dispatch(Tick{}, reason);
 }
 
@@ -939,6 +916,7 @@ void applyGlass(const char* reason)
     bool transparency = transparencyOn();
     if (g_glassPicked && !transparency) logLine("glass: picked, but Windows' transparency effects are off: solid");
     if (app::setGlass(g_glassPicked && transparency)) tokensChanged(oldCanvas, reason);
+    app::setWindowsGlass(g_glassPicked && g_glassWindowsPicked && transparency); // decision 104
 }
 
 // The Settings card picked a theme: recolour everything (decision 022).
@@ -1035,32 +1013,6 @@ int main()
         return 1;
     }
     g_island.input = g_inputHwnd;
-    // Floating cards (decision 081): their windows on the island's Compositor,
-    // their input through the same handlers, with their own surfaces.
-    app::setFloatHooks({
-        .instance = instance,
-        .compositor = render.compositor,
-        .device = &g_renderer.device(),
-        .dispatch = dispatch,
-        .measure = [](const Text& text) { return g_renderer.measure(text); },
-        .pill = [] {
-            const Scene& pill = g_island.scene;
-            return Rect{ g_render.left + pill.offset.x, g_render.top + pill.offset.y, pill.size.x, pill.size.y };
-        },
-        .islandScreen = [] { return displayFor(g_displayId).id; },
-        .scale = [] { return displayFor(g_displayId).scale * tokens().islandScale; },
-        .placesFile = dataFile(L"floats.txt"),
-        .pressDown = onPressDown,
-        .pressRelease = onPressRelease,
-        .pointerMoved = onPointerMoved,
-        .pointerLeft = [](app::Surface& card) {
-            card.pointer.at.reset();
-            updateHover(card);
-        },
-        .wheel = onWheel,
-        .keyDown = onKey,
-        .character = onChar,
-    });
     createTrayIcon(instance, [] {
         logLine("exit from the tray");
         DestroyWindow(g_inputHwnd); // ends the message loop
@@ -1079,6 +1031,25 @@ int main()
         .wallClock = wallClock,
         .utcOffset = platform::utcOffset,
     });
+    // Providers' own windows (decision 104): on the island's Compositor, drawn
+    // by its renderer's device, following the registry's list of open ones.
+    app::setWindowHooks({
+        .instance = instance,
+        .compositor = render.compositor,
+        .device = &g_renderer.device(),
+        .registry = g_providers.get(),
+        .now = now,
+        .measure = [](const Text& text) { return g_renderer.measure(text); },
+        .pill = [] {
+            const Scene& pill = g_island.scene;
+            return Rect{ static_cast<float>(g_render.left) + pill.offset.x, static_cast<float>(g_render.top) + pill.offset.y, pill.size.x, pill.size.y };
+        },
+        .islandScreen = [] { return displayFor(g_displayId).id; },
+        .placesFile = dataFile(L"windows.txt"),
+        // Settings recording a shortcut takes the next key pressed in its window (decision 032).
+        .takeKey = [](const WindowKey& window, WPARAM key) { return window.providerId == "system.settings" && app::recordKey(key, true); },
+    });
+    g_providers->onWindowsChanged(app::syncWindows);
     g_providers->add(std::make_unique<SmtcMediaProvider>(postToUi));
     g_providers->add(std::make_unique<DemoMediaProvider>()); // M key
     g_providers->add(std::make_unique<ThemeProvider>(postToUi));
@@ -1120,17 +1091,23 @@ int main()
             if (app::setTransparency(level)) tokensChanged(oldCanvas, "glass transparency");
         })
                                              : nullptr,
+        // Providers' windows as glass too (decision 104): with the Glass row, so not on Windows 10 either.
+        .setGlassWindows = g_render.backdrop ? std::function<void(bool)>([](bool on) {
+            g_glassWindowsPicked = on;
+            applyGlass(on ? "glass windows on" : "glass windows off");
+        })
+                                             : nullptr,
     });
     g_settings = settings.get();
     g_settings->setHotkeysActive(!g_state.hidden); // started under a fullscreen app: none until it's gone
     app::setKeyboardHooks({
         .state = []() -> const IslandState& { return g_state; },
-        .scene = []() -> const Scene& { return keysSurface().scene; },
+        .scene = []() -> const Scene& { return g_island.scene; },
         .dispatch = dispatch,
         .clickTab = clickTab,
         .clickTile = clickTile,
         .clickElement = [](const Hit& hit) {
-            app::Surface& s = keysSurface();
+            app::Surface& s = g_island;
             s.renderer->pressElement(hit.key); // the same squash a click gives
             s.renderer->releaseElement(hit.key);
             clickElement(s, hit);
@@ -1236,7 +1213,7 @@ int main()
     }).detach();
 
     removeTrayIcon();
-    app::closeAllFloats(); // their windows, before the render layer and the Compositor go
+    app::closeAllWindows(); // providers' windows, places saved, before the Compositor goes
     // Stops Double Ctrl's keyboard-hook thread (tap_hook): left running, its
     // std::thread was still joinable when statics were destroyed, and every
     // exit ended in std::terminate (a crash dump on each update).

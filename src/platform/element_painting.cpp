@@ -101,13 +101,15 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Folder: return L"\uE8B7";
     case Glyph::Refresh: return L"\uE72C"; // Check for updates (decision 091)
     case Glyph::Reset: return L"\uE7A7"; // Undo: a shortcut back to its default (decision 103)
-    case Glyph::Close: return L"\uE711"; // Cancel: a window's ✕ (decision 081)
+    case Glyph::Close: return L"\uE711"; // Cancel: a close ✕
     case Glyph::Centre: return L"\uE8E3"; // AlignCenter: back to the middle
     case Glyph::Minus: return L"\uE738";  // Remove
     case Glyph::Plus: return L"\uE710";   // Add
     case Glyph::Pin: return L"\uE718";
     case Glyph::Pinned: return L"\uE840"; // Pinned, the outline with its needle; paintGlyph fills it (PinnedFill under it)
     case Glyph::Chart: return L"\uE9D2"; // AreaChart: the statistics (decision 066)
+    case Glyph::Palette: return L"\uE790"; // Color: a window's Appearance page (decision 104)
+    case Glyph::Sliders: return L"\uE9E9"; // Equalizer: its General page
     case Glyph::Fire: return L"\U0001F525"; // not in the icon fonts: Segoe UI Emoji's, in colour (paintGlyph)
     }
     return L"?";
@@ -196,6 +198,7 @@ TextLook lookOf(TextStyle style)
     case TextStyle::Heading: return { t.headingFontSize, t.captionTextColor, t.headingFontWeight }; // quiet: decision 090
     case TextStyle::Result: return { t.resultFontSize, t.bodyTextColor, t.bodyFontWeight };
     case TextStyle::ResultDetail: return { t.resultDetailFontSize, t.captionTextColor, t.captionFontWeight };
+    case TextStyle::PageTitle: return { t.pageTitleFontSize, t.titleTextColor, t.pageTitleFontWeight };
     }
     return { t.bodyFontSize, t.bodyTextColor, t.bodyFontWeight };
 }

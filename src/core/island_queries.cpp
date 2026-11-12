@@ -41,33 +41,23 @@ const Content* cardContent(const IslandState& s, const std::string& id)
     return nullptr;
 }
 
-std::optional<ShownCard> focusedCard(const IslandState& s)
-{
-    if (!s.focusedFloatId.empty()) {
-        for (const FloatingCard& w : s.floats)
-            if (w.activityId == s.focusedFloatId) return ShownCard{ w.providerId, w.activityId };
-        return std::nullopt; // gone: settle() clears it
-    }
-    return shownCard(s);
-}
-
 std::optional<ShownCard> shownActivity(const IslandState& s)
 {
-    auto card = focusedCard(s);
+    auto card = shownCard(s);
     if (!card || !findActivity(s, card->activityId)) return std::nullopt;
     return card;
 }
 
 std::string backAction(const IslandState& s)
 {
-    auto card = focusedCard(s);
+    auto card = shownCard(s);
     const Content* c = card ? cardContent(s, card->activityId) : nullptr;
     return c ? c->backAction : "";
 }
 
 bool escapeCloses(const IslandState& s)
 {
-    auto card = focusedCard(s);
+    auto card = shownCard(s);
     const Content* c = card ? cardContent(s, card->activityId) : nullptr;
     return c && !c->fieldFirst.empty();
 }

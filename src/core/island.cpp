@@ -2,7 +2,6 @@
 
 #include "core/alert_queue.h"
 #include "core/card_overlays.h"
-#include "core/floating.h"
 #include "core/lift.h"
 #include "core/lists.h"
 #include "core/menu.h"
@@ -46,30 +45,12 @@ void collapse(IslandState& s)
     s.stayOpen = false; // a pin lasts while it's open (decision 046)
 }
 
-// Shows a card. One that floats (decision 081) opens floating, or comes to
-// the front of the others, and the island goes back to its pill, unless it's
-// pinned open (decision 046). False: the card floats, it isn't on the island.
-bool expand(IslandState& s, const std::string& id, Ms now)
+void expand(IslandState& s, const std::string& id, Ms now)
 {
-    if (opensFloating(s, id) && openFloat(s, id)) {
-        if (!s.stayOpen) collapse(s);
-        return false;
-    }
     s.expandedId = id;
     s.homeOpen = false;
     s.cardFromHome = false; // opened some other way; TileClicked sets it after
-    s.focusedFloatId.clear(); // the island has the keys
     s.lastPointerAt = now;
-    return true;
-}
-
-// The pill, the bubble and the activity shortcut toggle a floating card:
-// open, or back into the pill (decision 081). Other ways to a card (a tab,
-// a widget, an alert) only bring it to the front.
-void toggle(IslandState& s, const std::string& id, Ms now)
-{
-    if (floatFor(s, id)) closeFloat(s, id);
-    else expand(s, id, now);
 }
 
 void openHome(IslandState& s, Ms now)
@@ -77,12 +58,11 @@ void openHome(IslandState& s, Ms now)
     s.expandedId.clear();
     s.homeOpen = true;
     s.cardFromHome = false;
-    s.focusedFloatId.clear();
     s.lastPointerAt = now;
 }
 
-// Unsent text in a field on the island's card: Expanded doesn't time out under it (decision 016).
-bool typing(const IslandState& s) { return s.draft && !s.draft->text.empty() && s.focusedFloatId.empty(); }
+// Unsent text in a field: Expanded doesn't time out under it (decision 016).
+bool typing(const IslandState& s) { return s.draft && !s.draft->text.empty(); }
 
 // Busy on the island's card: typing, or a row's menu open (decision 086). It doesn't time out under them.
 bool busy(const IslandState& s) { return typing(s) || s.card.menu.has_value(); }
@@ -122,7 +102,6 @@ void settle(IslandState& s, Ms now)
         if (timedOut || !expandedViewExists(s)) collapse(s);
     }
     if (s.card.toast && now >= s.card.toast->until) s.card.toast.reset(); // a toast goes by itself (decision 071)
-    settleFloats(s, now); // a floating card goes with its card (decision 081)
     dropStaleOverlays(s); // a draft, dialog or toast goes with its card
     dropStaleMenu(s);     // ...and a row's menu, or when its row changed (decision 086)
     focusFieldFirst(s);   // ...and a card that is its field has it at once (decision 079)
@@ -152,7 +131,7 @@ void onClick(IslandState& s, Ms now)
     }
     case Mode::Compact:
     case Mode::Split:
-        toggle(s, s.activities.front().id, now);
+        expand(s, s.activities.front().id, now);
         break;
     case Mode::Expanded:
         // Home stays: it's where things are started from (decision 009). Cards
@@ -210,15 +189,9 @@ void handle(IslandState& s, const StayOpenToggled&, Ms now)
     s.lastPointerAt = now; // unpinned: the idle timeout starts over from here
 }
 // Esc steps back one level (decision 033): a card opened from a Home widget
-// goes back to Home; anything else closes. On a floating card, it sends it
-// back into the pill, unless its provider said not to (FloatSpec::escCloses, decision 081).
+// goes back to Home; anything else closes.
 void handle(IslandState& s, const EscapePressed&, Ms now)
 {
-    if (const FloatingCard* f = focusedFloat(s)) {
-        const Content* c = cardContent(s, f->activityId);
-        if (!c || !c->floating || c->floating->escCloses) closeFloat(s, f->activityId);
-        return;
-    }
     if (s.cardFromHome && !s.homeOpen && !s.panels.empty()) openHome(s, now);
     else collapse(s);
 }
@@ -247,7 +220,7 @@ void handle(IslandState&, const Tick&, Ms) {} // settle() does the work
 
 void handle(IslandState& s, const BubbleClicked&, Ms now)
 {
-    if (mode(s) == Mode::Split) toggle(s, s.activities[1].id, now);
+    if (mode(s) == Mode::Split) expand(s, s.activities[1].id, now);
     else onClick(s, now); // no bubble on screen (e.g. an alert covers it): an ordinary click
 }
 
@@ -314,7 +287,6 @@ void handle(IslandState& s, const HomeOpened&, Ms now)
 // it closes all the way, like a launch from the Start menu.
 void handle(IslandState& s, const CardCloseRequested& e, Ms)
 {
-    closeFloat(s, e.id); // a floating card has no pin: it goes back (decision 081)
     if (s.expandedId == e.id && !s.homeOpen && !s.stayOpen) collapse(s);
 }
 
@@ -326,7 +298,7 @@ void handle(IslandState& s, const ActivityOpened&, Ms now)
     if (s.activities.empty()) return;
     const std::string& top = s.activities.front().id;
     if (!s.homeOpen && s.expandedId == top) collapse(s);
-    else toggle(s, top, now); // floating: open, or back into the pill (decision 081)
+    else expand(s, top, now);
 }
 
 // A running panel opens like its tab (and becomes the pick); a dormant one shows its card.
@@ -335,10 +307,12 @@ void handle(IslandState& s, const TileClicked& e, Ms now)
     bool fromHome = s.homeOpen;
     if (findActivity(s, e.id)) {
         handle(s, ActivityPromoted{ e.id }, now);
-        if (expand(s, e.id, now)) s.cardFromHome = fromHome;
+        expand(s, e.id, now);
+        s.cardFromHome = fromHome;
     } else if (const Panel* p = findPanel(s, e.id); p && p->tapAction.empty() && hasCard(p->content)) {
         // Static widgets have no card; a toggle's tap goes to its provider.
-        if (expand(s, e.id, now)) s.cardFromHome = fromHome;
+        expand(s, e.id, now);
+        s.cardFromHome = fromHome;
     }
 }
 
@@ -374,7 +348,7 @@ void handle(IslandState& s, const AllSelected&, Ms now) { if (Draft* d = busyDra
 void handle(IslandState& s, const InputSubmitted&, Ms now) { submitText(s, now); }
 void handle(IslandState& s, const InputCancelled&, Ms) { dropDraft(s); } // Esc: stop typing; the text waits (decision 050)
 void handle(IslandState& s, const DialogShown& e, Ms now) { showDialog(s, e, now); }
-void handle(IslandState& s, const DialogClosed&, Ms) { closeDialog(s); } // a floating card's goes to its own (decision 081)
+void handle(IslandState& s, const DialogClosed&, Ms) { closeDialog(s); }
 void handle(IslandState& s, const ToastShown& e, Ms now) { showToast(s, e, now); }
 void handle(IslandState& s, const ToastClosed&, Ms) { closeToast(s); }
 void handle(IslandState& s, const ListScrolled& e, Ms now) // lists.h, decision 029
@@ -389,12 +363,6 @@ void handle(IslandState& s, const ListRevealed& e, Ms) { revealListRow(s, e); }
 void handle(IslandState& s, const ListDragStarted& e, Ms now) { startListDrag(s, e, now); }
 void handle(IslandState& s, const ListDragMoved& e, Ms now) { moveListDrag(s, e, now); }
 void handle(IslandState& s, const ListDragEnded&, Ms) { s.listDrag.reset(); }
-
-// --- Floating cards (floating.h, decision 081) ------------------------------
-
-void handle(IslandState& s, const FloatFocused& e, Ms) { focusFloat(s, e.id); }
-void handle(IslandState& s, const FloatClosed& e, Ms) { closeFloat(s, e.id); }
-void handle(IslandState& s, const FloatResized& e, Ms) { resizeFloat(s, e.id, e.size); }
 
 void handle(IslandState& s, const ClockSynced& e, Ms now) { s.clock = WallClock{ e.timeOfDay - now, e.hour24 }; }
 
@@ -448,8 +416,6 @@ std::optional<Ms> nextDeadline(const IslandState& s)
     if (isExpanded(s) && !busy(s) && !s.stayOpen && !shownCardIgnoresIdle(s)) consider(s.lastPointerAt + tokens().expandedIdleTimeout);
     for (const auto& a : s.alertQueue) consider(a.postedAt + tokens().heldAlertMaxAge + Ms{ 1 });
     if (s.card.toast) consider(s.card.toast->until);
-    for (const FloatingCard& f : s.floats)
-        if (f.overlays.toast) consider(f.overlays.toast->until);
     if (auto lift = liftDeadline(s)) consider(*lift);
     return next;
 }

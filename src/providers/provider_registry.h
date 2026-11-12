@@ -1,6 +1,7 @@
 #pragma once
 // Owns the providers and connects them to the island: gives each one a Host
 // that stamps its id on everything it posts, and routes clicked actions back.
+// Also keeps their windows (decision 104), which aren't the island's state.
 
 #include "core/provider.h"
 
@@ -54,6 +55,16 @@ public:
     // Ctrl+W on an activity's card: asks its provider to close it (Provider::onCloseRequested).
     void closeRequested(const ShownCard& card);
 
+    // Providers' windows (decision 104): what's open, for the app to show.
+    // `changed` runs after anything in it changes (opened, raised, new
+    // content, a page, closed), never during a provider's own call returning.
+    const Windows& windows() const { return windows_; }
+    void onWindowsChanged(std::function<void()> changed) { windowsChanged_ = std::move(changed); }
+    // The user closed one (✕, Alt+F4, Esc): gone, and its provider told (onWindowClosed).
+    void windowClosed(const WindowKey& key);
+    // The user picked a page: shown, and its provider told (Action{kWindowPage, text = page}).
+    void windowPageShown(const WindowKey& key, const std::string& pageId);
+
     // Wake-ups providers asked for (Host::wakeAt): the earliest, for the app's
     // one timer, and calling onWake() on every provider whose time has come.
     std::optional<Ms> nextWake() const;
@@ -77,6 +88,12 @@ private:
     ServiceCaller serviceCaller_;
     std::map<std::string, std::vector<std::string>> grants_; // provider -> modules
     std::vector<Entry> entries_;
+    Windows windows_;
+    std::function<void()> windowsChanged_;
+    void windowsChanged() const
+    {
+        if (windowsChanged_) windowsChanged_();
+    }
 };
 
 } // namespace cup
