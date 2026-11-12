@@ -115,6 +115,8 @@ private:
     SettingsView view() const;
     void publish();
     void stopRecording();
+    void rebind(Command command, const Chord& chord); // to `chord` unless it conflicts; the note says why
+    void resetAll();                                  // every command to its default (decision 103)
     void bindAll(); // registers every shortcut; one another app has stays, the page says so
     void loadSeen();  // what's been seen; a first run has seen everything (nothing is new on a fresh install)
     void placeTabRow(bool top);

@@ -226,11 +226,19 @@ Slot shortcutsPage(const SettingsView& v)
     };
     std::vector<Row> anywhere, island;
     const auto& all = commands();
+    bool anyChanged = false;
     for (std::size_t i = 0; i < all.size(); ++i) {
         Item keys = v.recording == all[i].command ? Item{ Text{ .value = "Press keys…", .style = TextStyle::Caption, .alignEnd = true } }
                                                   : Item{ Keys{ chordText(chordOf(v.shortcuts, all[i].command)) } };
-        anywhere.push_back(keyRow(all[i].does, std::move(keys), { Button{ .glyph = Glyph::Edit, .actionId = P::kEditShortcut + std::to_string(i), .compact = true } }));
+        // Reset (decision 103): on every row, so the rows line up; dimmed while the keys are the default.
+        bool changed = chordOf(v.shortcuts, all[i].command) != all[i].standard;
+        anyChanged = anyChanged || changed;
+        anywhere.push_back(keyRow(all[i].does, std::move(keys),
+                                  { Button{ .glyph = Glyph::Reset, .actionId = P::kResetShortcut + std::to_string(i), .enabled = changed, .compact = true },
+                                    Button{ .glyph = Glyph::Edit, .actionId = P::kEditShortcut + std::to_string(i), .compact = true } }));
     }
+    anywhere.push_back(groupItem(itemText("Reset all to defaults"),
+                                 { Button{ .glyph = Glyph::Reset, .actionId = P::kResetShortcuts, .enabled = anyChanged, .compact = true } }));
     for (const FixedKey& k : fixedKeys()) island.push_back(keyRow(k.does, Keys{ k.keys }, {})); // nothing to click, nothing lit
     addGroup(card, "Anywhere", std::move(anywhere), P::kShortcutList);
     addGroup(card, "On the island", std::move(island), P::kShortcutList);
