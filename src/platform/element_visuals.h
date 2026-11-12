@@ -44,6 +44,9 @@ private:
     struct View {
         Placed placed;
         wuc::Visual visual{ nullptr };
+        // The sprite showing `surface`, where a recolour crossfades it to its
+        // new pixels (text, icons, buttons); null where it's redrawn at once.
+        wuc::SpriteVisual surfaceHost{ nullptr };
         float lead = 0; // the visual starts this far left of the frame (knob overhang, marquee fade)
         wuc::CompositionDrawingSurface surface{ nullptr };          // text, icon, button glyph, image
         float marqueeWidth = 0;                                     // > 0: swimming text, one copy's width

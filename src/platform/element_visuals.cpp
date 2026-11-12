@@ -200,6 +200,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         middle.Brush(compositor_.CreateSurfaceBrush(view.surface));
         middle.Size(toFloat2(size));
         parts.visual.Children().InsertAtTop(middle);
+        view.surfaceHost = middle;
     } else if (isRing(placed.item)) {
         RingParts parts = createRing(compositor_, size, accent);
         view.visual = parts.visual;
@@ -230,6 +231,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         view.visual = parts.visual;
         view.hover = parts.hover;
         view.highlight = placed.litByRow || (button && button->primary) ? nullptr : parts.highlight; // lit by its row, or by its fill: stays hidden
+        view.surfaceHost = parts.glyph;
     } else if (clickableArt(placed.item)) {
         view.surface = device_->createSurface(size);
         view.glyphSurface = device_->createSurface(size);
@@ -251,6 +253,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         } else {
             view.surface = device_->createSurface(size);
             sprite.Brush(compositor_.CreateSurfaceBrush(view.surface));
+            if (!std::holds_alternative<Image>(placed.item)) view.surfaceHost = sprite; // a picture's pixels don't change with colours
         }
         view.visual = sprite;
         if (std::holds_alternative<Image>(placed.item)) view.picture = sprite;
@@ -372,8 +375,19 @@ void ElementVisuals::recolor(View& view)
         fadeColor(view.toggle.knobBrush, switchKnobColor(on));
     }
     if (view.segments.pill) recolorSegments(view.segments, std::get<Segments>(view.placed.item));
-    // Text and icons are pixels in a surface: redrawn in their new colours at once.
-    if (view.surface) paint(view);
+    // Text, icons and buttons are pixels in a surface: painted again in their
+    // new colours on a fresh one, which the old fades off over, as long as the
+    // shapes take (decision 101). The play button's filled circle changed
+    // colour at once with every cover. Swimming text and pictures: redrawn.
+    if (!view.surface) return;
+    if (view.surfaceHost) {
+        auto size = view.surface.Size();
+        view.surface = device_->createSurface({ size.Width, size.Height });
+        paint(view);
+        fadeInSurface(view.surfaceHost, view.surface, recolorDuration(t));
+    } else {
+        paint(view);
+    }
 }
 
 void ElementVisuals::paint(View& view)

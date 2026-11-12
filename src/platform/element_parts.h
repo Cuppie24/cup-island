@@ -67,6 +67,7 @@ struct ButtonParts {
     wuc::ContainerVisual visual{ nullptr };
     wuc::ShapeVisual highlight{ nullptr };
     wuc::CompositionColorBrush hover{ nullptr };
+    wuc::SpriteVisual glyph{ nullptr }; // shows the painted surface: crossfaded on a recolour
 };
 // `hover`: the shape's colour (buttonHoverColor; a text field uses inputColor).
 ButtonParts createButton(wuc::Compositor const& c, Vec2 frame, float cornerRadius, wuc::CompositionDrawingSurface const& glyph,
