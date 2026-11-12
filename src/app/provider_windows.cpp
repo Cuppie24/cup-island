@@ -286,14 +286,17 @@ void openWindowFor(const OpenWindow& w)
     s.raised = w.raised;
     g_shown[w.key] = std::move(shown); // before anything that sends messages finds it
     s.window->setGlass(g_glass);
-    // On screen at once, in its colours; its content drawn in the next queue
-    // turn (decision 012): building every row's text first held the window
-    // back, a freeze on the click that opened it.
-    s.window->show();
-    if (w.spec.keepOnTop) platform::raiseIsland(); // the island stays over its windows
+    // Drawn in the next queue turn (decision 012), so the click that opened it
+    // is answered at once: building every row's text first froze it. Shown
+    // once that's committed: shown first, it flashed what was behind it.
     WindowKey key = w.key;
-    auto draw = [key] {
-        if (Shown* shown = find(key)) relayout(*shown);
+    bool onTop = w.spec.keepOnTop;
+    auto draw = [key, onTop] {
+        Shown* shown = find(key);
+        if (!shown) return;
+        shown->window->drawThenShow([shown] { relayout(*shown); }, [onTop] {
+            if (onTop) platform::raiseIsland(); // the island stays over its windows
+        });
     };
     auto queue = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
     if (!queue || !queue.TryEnqueue(winrt::Windows::System::DispatcherQueuePriority::Low, draw)) draw();

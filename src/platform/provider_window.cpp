@@ -191,10 +191,21 @@ void ProviderWindow::drawDecor()
     if (hoveredRow_) rowHover_.Children().InsertAtTop(roundedRect(compositor_, *hoveredRow_, hoveredRowRadius_, t.hoverColor));
 }
 
-void ProviderWindow::show()
+void ProviderWindow::drawThenShow(const std::function<void()>& draw, std::function<void()> shown)
 {
-    ShowWindow(hwnd_, SW_SHOW);
-    SetForegroundWindow(hwnd_);
+    // A Commit batch completes once everything changed while it was open is
+    // committed to the compositor (Windows 10 1511+, decision 015): the
+    // window's first frame is its own, not whatever was behind it.
+    auto batch = compositor_.CreateScopedBatch(wuc::CompositionBatchTypes::Commit);
+    draw();
+    batch.End();
+    HWND hwnd = hwnd_;
+    batch.Completed([hwnd, shown = std::move(shown)](auto&&, auto&&) {
+        if (!IsWindow(hwnd)) return; // closed meanwhile
+        ShowWindow(hwnd, SW_SHOW);
+        SetForegroundWindow(hwnd);
+        if (shown) shown();
+    });
 }
 
 void ProviderWindow::raise()

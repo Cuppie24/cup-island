@@ -112,8 +112,10 @@ island's own `ElementVisuals` and painters (groups' backgrounds too:
 the sidebar's highlights, the lit row and buttons' dots (decision 038,
 placed by core's `badgeCentres` as on the island: the first run showed
 Settings' Glass row without its dot) are a few shapes of its own. A window
-shows at once in its colours, its content drawn in the next queue turn
-(decision 012): drawing every row first froze the click that opened it.
+is built in the next queue turn (decision 012), so the click that opened
+it is answered at once (drawing every row first froze it), and shows once
+the compositor has committed that drawing (a Commit scoped batch): shown
+earlier, a window with no GDI surface flashed what was behind it.
 A resize lays it out again inside `WM_SIZE`, so the drawing keeps up with
 the frame. Rows stretch with the window only below `windowPageMaxWidth`;
 there, each width change rebuilds a row's text (decision 083's caveat):

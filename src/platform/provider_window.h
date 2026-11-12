@@ -42,7 +42,11 @@ public:
     bool create(HINSTANCE instance, wuc::Compositor const& compositor, GraphicsDevice& device, Rect frame, Vec2 minSize,
                 bool keepOnTop, bool resizable, bool maximizable, ProviderWindowCallbacks callbacks);
     void draw(const WindowScene& scene, Ms now); // its backgrounds and items, at once
-    void show();                                 // the first time, and with the keys
+    // The first time: `draw` builds its content, and the window shows, with
+    // the keys, once the compositor has committed what it drew. Shown before
+    // that, a window with no GDI surface showed what was behind it for a frame.
+    // `shown`: after it shows (the island raised over a window kept on top).
+    void drawThenShow(const std::function<void()>& draw, std::function<void()> shown = {});
     void raise();                                // to the front, with the keys; restored if minimized
     void minimize();
     void refresh(bool coloursOnly); // tokens changed: recoloured, or rebuilt on the next draw()
