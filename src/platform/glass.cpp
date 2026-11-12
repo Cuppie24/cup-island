@@ -22,7 +22,9 @@ using winrt::Windows::Graphics::Effects::IGraphicsEffectSource;
 using winrt::Windows::Foundation::PropertyValue;
 using wuc::CompositionEffectSourceParameter;
 
-IGraphicsEffect composite(winrt::hstring const& name, UINT32 mode, IGraphicsEffectSource const& destination, IGraphicsEffectSource const& source)
+// Two layers composited (platform/effects' composite): a name of its own,
+// as one inside this namespace would hide that one from the call.
+IGraphicsEffect twoLayers(winrt::hstring const& name, UINT32 mode, IGraphicsEffectSource const& destination, IGraphicsEffectSource const& source)
 {
     return composite(name, mode, std::vector<IGraphicsEffectSource>{ destination, source });
 }
@@ -50,7 +52,7 @@ IGraphicsEffect darken(IGraphicsEffectSource const& source, float scale, float l
 // Cut to the island's shape: source-in keeps `inner` where the mask has alpha.
 IGraphicsEffect cut(IGraphicsEffectSource const& inner)
 {
-    return composite(L"Glass", D2D1_COMPOSITE_MODE_SOURCE_IN, CompositionEffectSourceParameter(L"Mask"), inner);
+    return twoLayers(L"Glass", D2D1_COMPOSITE_MODE_SOURCE_IN, CompositionEffectSourceParameter(L"Mask"), inner);
 }
 
 // Whether Windows takes an effect at all, logged once (decision 100): each
@@ -73,7 +75,7 @@ void probeOnce(wuc::Compositor const& compositor)
     auto backdrop = CompositionEffectSourceParameter(L"Backdrop");
     auto luminosity = CompositionEffectSourceParameter(L"Luminosity");
     // Nested: is it putting one effect in another? The cut works alone.
-    probe(compositor, "a composite in the cut (nesting)", cut(composite(L"Over", D2D1_COMPOSITE_MODE_SOURCE_OVER, backdrop, luminosity)));
+    probe(compositor, "a composite in the cut (nesting)", cut(twoLayers(L"Over", D2D1_COMPOSITE_MODE_SOURCE_OVER, backdrop, luminosity)));
     // Alone: is it the blend, or the blend inside the cut?
     probe(compositor, "a Multiply blend alone", blend(D2D1_BLEND_MODE_MULTIPLY, backdrop, luminosity));
     probe(compositor, "the acrylic blend alone", blend(D2D1_BLEND_MODE_COLOR, backdrop, luminosity));
