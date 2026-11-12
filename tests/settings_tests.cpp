@@ -62,6 +62,7 @@ void widgetAndThemes()
     expect(sh.window && sh.window->title == "Settings" && sh.window->pages.size() == 3 && sh.window->pages[0].id == kAppearancePage &&
            sh.window->pages[1].id == kGeneralPage && sh.window->pages[2].id == kUpdatesPage && sh.windowSpec->id == kSettingsWindowId,
            "window: opened by the tap, with Appearance, General and Updates in its sidebar");
+    expect(!sh.windowSpec->resizable && !sh.windowSpec->maximizable, "window: one size, never maximized: a page of rows reads best as it is");
     const WindowPage* look = pageOf(sh, kAppearancePage);
     expect(look->title == "Appearance" && !look->subtitle.empty() && look->glyph == Glyph::Palette && look->backAction.empty() &&
            look->sections.size() == 2, "window: Appearance, a line about it, and two groups");

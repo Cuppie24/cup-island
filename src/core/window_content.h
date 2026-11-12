@@ -25,7 +25,12 @@ struct WindowSpec {
     std::string id; // letters, digits, '-', '_', '.'; unique within the provider
     WindowSize size = WindowSize::Medium;
     WindowStart start = WindowStart::Centre;
-    bool resizable = true;  // its frame resizes it, down to windowMinSize
+    bool resizable = true;  // its frame resizes it, down to windowMinSize; false: one size, and Windows doesn't snap it
+    // Windows may make it as big as the screen: a double click on its title
+    // bar, dragging it to the screen's top, Win+Up; a double click on its top
+    // or bottom edge, as tall as the screen. False: none of them. A provider
+    // whose page reads best at one size says so (Settings).
+    bool maximizable = true;
     // Above other apps, like the island (a timer kept in view). Off: an
     // ordinary window, behind whatever the user clicks next.
     bool keepOnTop = false;

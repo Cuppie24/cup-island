@@ -141,6 +141,14 @@ LRESULT ProviderWindow::handle(UINT message, WPARAM wParam, LPARAM lParam)
         }
         call(callbacks_.onKeyDown, wParam);
         break;
+    case WM_NCLBUTTONDBLCLK:
+        // Not maximizable (WindowSpec): a double click on the title bar doesn't
+        // maximize it, nor one on its top or bottom edge stretch it to the screen's height.
+        if (!maximizable_ && (wParam == HTCAPTION || wParam == HTTOP || wParam == HTBOTTOM)) return 0;
+        break;
+    case WM_SYSCOMMAND:
+        if (!maximizable_ && ((wParam & 0xFFF0) == SC_MAXIMIZE)) return 0; // Win+Up, the system menu
+        break;
     case WM_CLOSE:
         call(callbacks_.onCloseRequested); // the app closes it, through its provider's registry
         return 0;

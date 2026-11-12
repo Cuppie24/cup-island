@@ -278,7 +278,7 @@ void openWindowFor(const OpenWindow& w)
     shown->key = w.key;
     shown->window = std::make_unique<platform::ProviderWindow>();
     if (!shown->window->create(g_hooks.instance, g_hooks.compositor, *g_hooks.device, frame, tokens().windowMinSize, w.spec.keepOnTop,
-                               w.spec.resizable, callbacksFor(w.key))) {
+                               w.spec.resizable, w.spec.maximizable, callbacksFor(w.key))) {
         g_hooks.registry->windowClosed(w.key); // logged; closed for its provider, not tried again and again
         return;
     }

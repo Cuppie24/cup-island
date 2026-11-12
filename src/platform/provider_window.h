@@ -38,8 +38,9 @@ public:
     ~ProviderWindow();
 
     // A window at `frame` (screen px), hidden until show(). False: logged, nothing made.
+    // `resizable` and `maximizable` as the provider asked (WindowSpec).
     bool create(HINSTANCE instance, wuc::Compositor const& compositor, GraphicsDevice& device, Rect frame, Vec2 minSize,
-                bool keepOnTop, bool resizable, ProviderWindowCallbacks callbacks);
+                bool keepOnTop, bool resizable, bool maximizable, ProviderWindowCallbacks callbacks);
     void draw(const WindowScene& scene, Ms now); // its backgrounds and items, at once
     void show();                                 // the first time, and with the keys
     void raise();                                // to the front, with the keys; restored if minimized
@@ -71,6 +72,7 @@ private:
     ProviderWindowCallbacks callbacks_;
     Vec2 minSize_;
     bool resizable_ = true;
+    bool maximizable_ = true;
     bool pressed_ = false;
     bool trackingLeave_ = false;
     Rect normal_;

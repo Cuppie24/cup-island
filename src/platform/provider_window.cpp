@@ -94,18 +94,23 @@ ProviderWindow::~ProviderWindow()
 }
 
 bool ProviderWindow::create(HINSTANCE instance, wuc::Compositor const& compositor, GraphicsDevice& device, Rect frame, Vec2 minSize,
-                            bool keepOnTop, bool resizable, ProviderWindowCallbacks callbacks)
+                            bool keepOnTop, bool resizable, bool maximizable, ProviderWindowCallbacks callbacks)
 {
     callbacks_ = std::move(callbacks);
     minSize_ = minSize;
     resizable_ = resizable;
+    maximizable_ = maximizable && resizable;
     compositor_ = compositor;
     device_ = &device;
     registerClass(instance, proc);
     // An ordinary window, its whole area ours (WM_NCCALCSIZE): no GDI surface
     // under the Composition content, so nothing white flashes as it opens or resizes.
+    // Not resizable: no sizing frame, so Windows doesn't snap it either.
+    // Not maximizable: no maximize box, so dragging it to the screen's top doesn't (WM_SYSCOMMAND and
+    // the edges' double clicks are refused in provider_window_messages.cpp).
     DWORD style = WS_OVERLAPPEDWINDOW;
-    if (!resizable) style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX);
+    if (!resizable) style &= ~WS_THICKFRAME;
+    if (!maximizable_) style &= ~WS_MAXIMIZEBOX;
     DWORD exStyle = WS_EX_NOREDIRECTIONBITMAP | (keepOnTop ? WS_EX_TOPMOST : 0);
     hwnd_ = CreateWindowExW(exStyle, kClassName, L"", style, static_cast<int>(std::lround(frame.x)), static_cast<int>(std::lround(frame.y)),
                             static_cast<int>(std::lround(frame.width)), static_cast<int>(std::lround(frame.height)), nullptr, nullptr, instance, this);

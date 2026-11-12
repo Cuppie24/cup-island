@@ -42,7 +42,12 @@ back. Windows share the *platform* around the island, not the island.
 - **How it's asked for** (`WindowSpec`): an id (the provider's own name,
   one window per id), a size class (`windowSmallSize` … `windowLargeSize`;
   the host owns sizes, decision 014), `Centre` or `NearIsland`,
-  `resizable`, `keepOnTop` (a timer kept in view), and a page to show.
+  `resizable`, `maximizable`, `keepOnTop` (a timer kept in view), and a
+  page to show. Not resizable: one size, no sizing frame, so Windows doesn't
+  snap it. Not maximizable: no maximize box (so dragging it to the screen's
+  top doesn't), and a double click on its title bar or its top or bottom
+  edge, Win+Up and the system menu's Maximize are refused. Settings is
+  neither: a page of rows reads best at one size.
 - **The Host API** (`core/provider.h`):
   `openWindow(spec, content) → WindowOpen` opens it, or replaces an open
   one's content and raises it; `updateWindow(id, content)` changes it

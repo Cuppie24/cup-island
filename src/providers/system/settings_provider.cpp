@@ -268,7 +268,8 @@ void SettingsProvider::open(SettingsPage page)
 void SettingsProvider::openWindow()
 {
     bool wasOpen = windowOpen_;
-    WindowOpen result = host_->openWindow({ .id = kSettingsWindowId, .size = WindowSize::Large }, settingsWindow(view()));
+    WindowOpen result = host_->openWindow({ .id = kSettingsWindowId, .size = WindowSize::Large, .resizable = false, .maximizable = false }, // a page of rows: one size
+                                          settingsWindow(view()));
     windowOpen_ = result == WindowOpen::Opened || result == WindowOpen::Raised;
     if (windowOpen_ && !wasOpen) sidebar_ = kAppearancePage;
     publish(); // counts what's on it as being seen
