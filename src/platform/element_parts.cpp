@@ -312,6 +312,7 @@ ButtonParts createButton(Compositor const& c, Vec2 frame, float cornerRadius, Co
     parts.visual = c.CreateContainerVisual();
     parts.visual.Children().InsertAtTop(parts.highlight);
     parts.visual.Children().InsertAtTop(glyphVisual);
+    parts.glyph = glyphVisual;
     return parts;
 }
 
