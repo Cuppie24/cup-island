@@ -60,6 +60,7 @@ add_library(cup_core STATIC
     src/core/tokens_json.cpp
     src/core/window_keys.cpp
     src/core/window_layout.cpp
+    src/core/window_fields.cpp
     src/core/window_placement.cpp
 )
 target_include_directories(cup_core PUBLIC src)
@@ -147,6 +148,7 @@ if(CUP_BUILD_TESTS)
         tests/todo_tests.cpp
         tests/tokens_tests.cpp
         tests/window_tests.cpp
+        tests/window_field_tests.cpp
     )
     target_link_libraries(cup_tests PRIVATE cup_providers cup_indexer)
     target_compile_definitions(cup_tests PRIVATE
@@ -198,6 +200,7 @@ if(WIN32)
         src/app/live_tokens.cpp
         src/app/main.cpp
         src/app/provider_windows.cpp
+        src/app/window_typing.cpp
         src/app/surface.cpp
         src/platform/autostart.cpp
         src/platform/badge_dots.cpp

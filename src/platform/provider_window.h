@@ -24,6 +24,7 @@ struct ProviderWindowCallbacks {
     std::function<void(Vec2 point, bool inside)> onPressRelease; // inside: let go over the window
     std::function<void(Vec2 point, float notches)> onWheel;      // positive: away from the user
     std::function<void(WPARAM key)> onKeyDown;
+    std::function<void(wchar_t character)> onChar; // typed text (WM_CHAR), for a focused field (decision 105)
     std::function<void()> onCloseRequested;  // Alt+F4, the taskbar's Close: the app decides
     std::function<void(Vec2 size)> onResized; // the client area's new size: lay it out again now
     std::function<void()> onMoved;           // the user let go after moving or resizing it
@@ -61,6 +62,9 @@ public:
     bool glass() const { return glass_; }
     // What's under the pointer: an item's key, a sidebar entry, a lit row (page coordinates). ""/nullopt: nothing.
     void setHovered(const std::string& key, std::optional<std::size_t> nav, std::optional<Rect> row, float rowRadius);
+    // Where a click at `point` (page coordinates) puts the caret in `field`
+    // (a TextInput, or a Text edited in place), as a byte offset (decision 105).
+    std::size_t caretAt(const Placed& field, Vec2 point) const;
     void press(const std::string& key);
     void release(const std::string& key);
 

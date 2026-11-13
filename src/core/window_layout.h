@@ -15,6 +15,8 @@
 
 namespace cup {
 
+struct WindowTyping; // window_fields.h
+
 // A page's entry in the sidebar.
 struct NavEntry {
     Rect frame;        // window coordinates: lit when picked or under the pointer
@@ -44,7 +46,10 @@ struct WindowScene {
 };
 
 // Lays out `window` at `size`, its page scrolled by `scroll` (clamped).
-WindowScene windowLayout(const OpenWindow& window, Vec2 size, float scroll, Ms now, const MeasureText& measure = {});
+// `typing`: its fields, filled from what's being typed and what was left in
+// them (decision 105), as layout() fills a card's.
+WindowScene windowLayout(const OpenWindow& window, Vec2 size, float scroll, Ms now, const MeasureText& measure = {},
+                         const WindowTyping* typing = nullptr);
 
 // The host's own buttons in the title bar.
 inline constexpr const char* kWindowMinimize = "window.minimize";

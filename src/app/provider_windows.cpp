@@ -1,5 +1,7 @@
 #include "app/provider_windows.h"
 
+#include "app/window_typing.h"
+
 #include "core/tokens.h"
 #include "core/tokens_json.h"
 #include "core/window_keys.h"
@@ -35,6 +37,8 @@ struct Shown {
     std::optional<WindowHit> pressed; // what the button went down on
     std::string focus;                // the keyboard's stop (window_keys.h): "" until a key is pressed, and after a click
     bool keys = false;                // the keyboard is in use: a stop that goes (a page opened by Enter) hands focus to the page's first
+    WindowTyping typing;              // its fields: the one with the keys, the text left in others (decision 105)
+    FieldClicks clicks;
 };
 
 WindowHooks g_hooks;
@@ -123,7 +127,9 @@ void relayout(Shown& s)
         s.scroll = 0;
     }
     Ms now = g_hooks.now();
-    s.scene = windowLayout(*w, s.window->clientSize(), s.scroll, now, g_hooks.measure);
+    s.scene = windowLayout(*w, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing);
+    if (dropGoneField(s.typing, s.scene)) // the field with the keys went: laid out without it
+        s.scene = windowLayout(*w, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing);
     s.scroll = s.scene.scroll;
     s.window->draw(s.scene, now);
     showFocus(s);
@@ -173,6 +179,7 @@ void focusOn(Shown& s, const std::optional<WindowFocus>& f)
     s.keys = true;
     s.focus = f->id;
     s.scroll = scrollToShow(s.scene, *f);
+    keysOn(s.typing, s.scene, f->id, *g_hooks.registry); // a field landed on gets the keys (decision 105)
     relayout(s);
     showHover(s);
 }
@@ -192,6 +199,12 @@ void key(const WindowKey& id, WPARAM vk)
     bool ctrl = GetKeyState(VK_CONTROL) < 0, shift = GetKeyState(VK_SHIFT) < 0, alt = GetKeyState(VK_MENU) < 0;
     if (alt) return; // Alt's keys are Windows' (Alt+Space, Alt+F4)
     s->keys = true;
+    // A field with the keys takes a text box's (decision 105); the rest go on to the window.
+    switch (typingKey(s->typing, s->scene, s->window->hwnd(), vk, registry)) {
+    case Typed::Changed: relayout(*s); return;
+    case Typed::Taken: return;
+    case Typed::PassOn: break;
+    }
     auto arrow = vk == VK_UP ? std::optional<Arrow>(Arrow::Up) : vk == VK_DOWN ? std::optional<Arrow>(Arrow::Down)
                : vk == VK_LEFT ? std::optional<Arrow>(Arrow::Left) : vk == VK_RIGHT ? std::optional<Arrow>(Arrow::Right) : std::nullopt;
     if (arrow && !ctrl) return focusOn(*s, moveWindowFocus(s->scene, s->focus, *arrow));
@@ -201,6 +214,11 @@ void key(const WindowKey& id, WPARAM vk)
         auto f = findWindowFocus(s->scene, s->focus);
         if (!f) return focusOn(*s, moveWindowFocus(s->scene, "", Arrow::Down)); // nothing focused: show where it is first
         s->keys = true;
+        if (f->id.rfind("el:", 0) == 0 && isField(s->scene, f->id.substr(3))) { // a field: it gets the keys, nothing is sent
+            keysOn(s->typing, s->scene, f->id, registry);
+            relayout(*s);
+            return;
+        }
         act(*s, activateFocus(s->scene, *f));
         return;
     }
@@ -229,6 +247,7 @@ platform::ProviderWindowCallbacks callbacksFor(const WindowKey& id)
     c.onPointerMoved = [id](Vec2 p) {
         if (Shown* s = find(id)) {
             s->pointer = p;
+            if (dragInField(s->typing, s->clicks, s->scene, *s->window, p)) relayout(*s); // selecting by dragging (decision 043)
             showHover(*s);
         }
     };
@@ -246,6 +265,12 @@ platform::ProviderWindowCallbacks callbacksFor(const WindowKey& id)
             s->focus.clear();
             showFocus(*s);
         }
+        bool hadKeys = s->typing.draft.has_value();
+        if (pressField(s->typing, s->clicks, s->scene, *s->window, p, g_hooks.now(), *g_hooks.registry)) { // a field: the caret goes there (decision 105)
+            relayout(*s);
+            return;
+        }
+        if (hadKeys) relayout(*s); // a field let go of the keys
         WindowHit hit = windowHitTest(s->scene, p);
         if (hit.part == WindowPart::None || hit.part == WindowPart::Caption) return;
         s->pressed = hit;
@@ -253,6 +278,7 @@ platform::ProviderWindowCallbacks callbacksFor(const WindowKey& id)
     };
     c.onPressRelease = [id](Vec2 p, bool inside) {
         Shown* s = find(id);
+        if (s) s->clicks.selecting.clear(); // a drag selecting in a field ends
         if (!s || !s->pressed) return;
         WindowHit was = *std::exchange(s->pressed, std::nullopt);
         if (was.hit) s->window->release(was.hit->key);
@@ -270,6 +296,9 @@ platform::ProviderWindowCallbacks callbacksFor(const WindowKey& id)
         showHover(*s);
     };
     c.onKeyDown = [id](WPARAM vk) { key(id, vk); };
+    c.onChar = [id](wchar_t ch) {
+        if (Shown* s = find(id); s && typingChar(s->typing, s->scene, ch, *g_hooks.registry)) relayout(*s);
+    };
     c.onCloseRequested = [id] { g_hooks.registry->windowClosed(id); };
     c.onResized = [id](Vec2) {
         if (Shown* s = find(id)) {

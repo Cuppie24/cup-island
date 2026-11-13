@@ -44,6 +44,7 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 tokens.h (+ tokens_json.h, json_reader.h), easing.h, motion.h (the morph's spring, fling, stagger, decision 080),
                 open_windows.h (providers' own windows: which are open, when one may open, decision 104) + window_content.h (what's in one)
                 + window_placement.h (where one opens) + window_layout.h (one laid out: title bar, sidebar, page; what a click means) + window_keys.h (the keyboard in one)
+                + window_fields.h (typing in one's fields, decision 105)
                 menu.h (a row's context menu: when it opens, its keys, where it goes, decision 086)
                 groups.h (grouped rows: a quiet label, one background, a name over its description, decision 090)
                 keycaps.h (Keys drawn as key caps, decision 092), segments.h (a few options picked in place, decision 093)
@@ -63,7 +64,7 @@ src/service/    CupIslandIndex.exe, the file index service (Windows, decision 07
                 drive (scan or snapshot, then the journal), PipeServer (folder checks as each client), SelfUpdate
                 (its own installer from GitHub, decision 076), --install/--stop/--uninstall for its installer;
                 index_client, the pipe's client, shared by cupindex.exe (its terminal tool) and the app
-src/app/        main.cpp: wiring only; surface.h: the island as a surface, its scene, renderer and pointer; provider_windows.cpp: providers' windows on screen (decision 104); live_tokens.cpp: tokens.json load/reload; keyboard_input.cpp: keyboard focus,
+src/app/        main.cpp: wiring only; surface.h: the island as a surface, its scene, renderer and pointer; provider_windows.cpp: providers' windows on screen (decision 104), window_typing.cpp: typing in them (decision 105); live_tokens.cpp: tokens.json load/reload; keyboard_input.cpp: keyboard focus,
                 Enter/Space, system-wide shortcuts and recording new keys (decisions 031, 032); menu_input.cpp: a row's menu under the pointer and keys (decision 086)
 assets/         tokens.json: the live-tunable sizes, timings and curves; the app icon (cup_island.rc/.ico)
 installer/      Inno Setup script for the Windows installer (decision 011); its version comes from build.ps1
@@ -133,7 +134,7 @@ A provider can also have **windows** of its own (decision 104): Settings, a
 timer's full view. It describes one as pages of sections of the same rows
 (`core/window_content.h`) and calls `Host::openWindow` / `updateWindow` /
 `closeWindow`; the host draws it as an ordinary window and sends its clicks
-to `onAction` with `Action::windowId` set. Windows aren't the island's state:
+to `onAction` with `Action::windowId` set. Its fields type as a card's do (decision 105). Windows aren't the island's state:
 the registry keeps them (`core/open_windows.h`). A window opens only just
 after the user acted on its provider, so nothing pops up or takes the keys by itself.
 Lists (`Row::list`, decision 029) are scrolled, reordered and edited by the
@@ -223,7 +224,7 @@ over the file's, so `tokens()` is always what's on screen.
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing), `list_card_tests.cpp` (Settings' List card), `group_tests.cpp` (grouped rows), `badge_tests.cpp` (notification dots),
   `home_tests.cpp` (tiles, Home tab, idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop), `pomodoro_stats_tests.cpp` (statistics, days off),
-  `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install), `window_tests.cpp` (where a window opens; the registry between providers and their windows).**
+  `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install), `window_tests.cpp` (where a window opens; the registry between providers and their windows), `window_field_tests.cpp` (typing in a window, decision 105).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
 
@@ -255,6 +256,7 @@ over the file's, so `tokens()` is always what's on screen.
 | Search card (decisions 077, 079): apps, Settings pages, Control Panel, files; live field; Double Ctrl; launch history | rules tested; the hook, the shell folders, launching and the look need a Windows run |
 | Providers reach the service only through the host, by granted module (decision 078) | done; tested |
 | Providers' windows (decision 104, replacing 081's floating cards): the Host API, `WindowContent`, which are open, when one may open, placement, layout; Settings in a window | core, registry, layout and Settings tested; the Windows window compiles in CI, needs a Windows run (resizing above all). Keyboard navigation and glass for windows (decision 104) tested in core; the look needs a run. Fluid layout (084) is proposed |
+| Text fields in windows (decision 105): focus, typing, Enter, live fields, edit in place, kept text, clipboard | core tested; the Windows side compiles in CI, needs a run |
 | Hover waits for a real pointer move after a card opens or a key is pressed (decision 087) | done; needs a Windows run |
 | Row context menus (decision 086): search's results (Open, Run as administrator, Reveal, Terminal, Copy, Copy path, Remove from history, App settings, Uninstall, Properties), each with a shortcut; right-click, Right or the › | rules tested; drawing, input and the Windows hooks compile in CI, need a Windows run |
 | Plugin pipe (PS §8 Tier 2) | not yet |
