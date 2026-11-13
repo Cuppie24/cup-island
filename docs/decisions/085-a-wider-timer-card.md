@@ -1,6 +1,6 @@
 # 085: The timer's card is wider
 
-Status: Accepted (amends 047)
+Status: Accepted (amends 047). Amended by 106: the timer's card is media's size again, its rest in a window; `wideCard` stays for any card that needs it.
 
 **Context.** Every card is `expandedSize` wide (decision 047), so the
 island keeps its width when tabs switch. Pomodoro's card holds the most:

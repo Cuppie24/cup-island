@@ -1,5 +1,6 @@
-// Pomodoro's to-do list (decision 015): the pure list, and the whole loop
-// (typing into the card's field, paste, checkboxes, clear) through the registry.
+// The to-do list (decision 016): the pure list, and the whole loop on a
+// card (typing into its field, paste, checkboxes, clear) through the registry,
+// on a card of to-dos (todo_card_fixture.h). Pomodoro's, in its window: pomodoro_window_tests.
 
 #include "core/dialog.h"
 #include "core/hit_test.h"
@@ -12,7 +13,8 @@
 #include "core/tokens.h"
 #include "core/tokens_json.h"
 #include "expect.h"
-#include "providers/pomodoro/pomodoro_provider.h"
+#include "providers/pomodoro/todo_list.h"
+#include "todo_card_fixture.h"
 #include "providers/provider_registry.h"
 
 #include <algorithm>
@@ -92,9 +94,9 @@ void wrapTests()
     list.add("A much longer task that will never fit on a single line of the card, however wide it is made");
     for (int i = 0; i < 6; ++i) list.add("Filler " + std::to_string(i));
     IslandState state;
-    state = reduce(state, PanelPublished{ pomodoroPanel(list) }, Ms{ 0 });
+    state = reduce(state, PanelPublished{ fixture::todoPanel(list) }, Ms{ 0 });
     state = reduce(state, PillClicked{}, Ms{ 0 });
-    state = reduce(state, TileClicked{ PomodoroProvider::kPanelId }, Ms{ 0 });
+    state = reduce(state, TileClicked{ fixture::kTodoCard }, Ms{ 0 });
     Scene card = layout(state, Ms{ 0 });
     auto named = [&](const Scene& sc, const std::string& start) {
         return firstOf(sc, [&](const Placed& p) { auto* x = std::get_if<Text>(&p.item); return x && x->value.rfind(start, 0) == 0; });
@@ -119,7 +121,7 @@ void wrapTests()
         IslandState drag = state;
         std::size_t from = longText->list->row;
         float grab = longText->frame.y + longText->frame.height / 2;
-        drag = reduce(drag, ListDragStarted{ PomodoroProvider::kPanelId, todo_action::kList, from, grab }, Ms{ 0 });
+        drag = reduce(drag, ListDragStarted{ fixture::kTodoCard, todo_action::kList, from, grab }, Ms{ 0 });
         drag = reduce(drag, ListDragMoved{ grab - 1000 }, Ms{ 0 });
         auto carried = [](const Scene& sc) -> const Placed* {
             return firstOf(sc, [](const Placed& p) { return p.list && p.list->dragged; });
@@ -133,7 +135,7 @@ void wrapTests()
 
     // Edited, the field wraps the same way and grows as it's typed into.
     const Text& text = std::get<Text>(longText->item);
-    state = reduce(state, InputFocused{ "pomodoro", PomodoroProvider::kPanelId, text.editAction, text.value, true, std::nullopt,
+    state = reduce(state, InputFocused{ fixture::kTodoProvider, fixture::kTodoCard, text.editAction, text.value, true, std::nullopt,
                                         text.editMaxLength }, Ms{ 0 });
     Scene editing = layout(state, Ms{ 0 });
     const Placed* field = firstOf(editing, [&](const Placed& p) { return p.key == longText->key; });
@@ -148,31 +150,31 @@ void wrapTests()
     expect(charCount(state.draft->text) == t.todoMaxLength, "and stops at todoMaxLength characters");
     expect(layout(state, Ms{ 0 }).size.y <= t.canvas.y, "the card still fits");
 
-    // The timer's card is wider than Home (decision 085): it grows to both sides from the island's centre.
+    // A wide card is wider than Home (decision 085): it grows to both sides from the island's centre.
     IslandState wide;
     wide = reduce(wide, ScreenResized{ 1920 }, Ms{ 0 });
-    wide = reduce(wide, PanelPublished{ pomodoroPanel(list) }, Ms{ 0 });
+    wide = reduce(wide, PanelPublished{ fixture::todoPanel(list) }, Ms{ 0 });
     wide = reduce(wide, PillClicked{}, Ms{ 0 });
     Scene home = layout(wide, Ms{ 0 });
-    wide = reduce(wide, TileClicked{ PomodoroProvider::kPanelId }, Ms{ 0 });
-    Scene pomodoro = layout(wide, Ms{ 0 });
-    expect(home.size.x == tokens().expandedSize.x && pomodoro.size.x == tokens().wideCardWidth && pomodoro.size.x > home.size.x,
-           "the timer's card wider than Home, which keeps every card's width (decisions 047, 085)");
-    expect(std::abs((pomodoro.offset.x + pomodoro.size.x / 2) - (home.offset.x + home.size.x / 2)) < 0.01f &&
-           std::abs(pomodoro.offset.x + pomodoro.size.x / 2 - 960) < 0.01f, "centred where Home was: grown to both sides");
+    wide = reduce(wide, TileClicked{ fixture::kTodoCard }, Ms{ 0 });
+    Scene wideCard = layout(wide, Ms{ 0 });
+    expect(home.size.x == tokens().expandedSize.x && wideCard.size.x == tokens().wideCardWidth && wideCard.size.x > home.size.x,
+           "a wide card is wider than Home, which keeps every card's width (decisions 047, 085)");
+    expect(std::abs((wideCard.offset.x + wideCard.size.x / 2) - (home.offset.x + home.size.x / 2)) < 0.01f &&
+           std::abs(wideCard.offset.x + wideCard.size.x / 2 - 960) < 0.01f, "centred where Home was: grown to both sides");
 }
 
 // The add field's unsent text survives its card closing (decision 050): shown in the field, unfocused.
 void keptTextTests()
 {
     IslandState state;
-    state = reduce(state, PanelPublished{ pomodoroPanel() }, Ms{ 0 });
+    state = reduce(state, PanelPublished{ fixture::todoPanel() }, Ms{ 0 });
     state = reduce(state, PillClicked{}, Ms{ 0 });
-    state = reduce(state, TileClicked{ PomodoroProvider::kPanelId }, Ms{ 0 });
-    state = reduce(state, InputFocused{ "pomodoro", PomodoroProvider::kPanelId, todo_action::kAdd }, Ms{ 0 });
+    state = reduce(state, TileClicked{ fixture::kTodoCard }, Ms{ 0 });
+    state = reduce(state, InputFocused{ fixture::kTodoProvider, fixture::kTodoCard, todo_action::kAdd }, Ms{ 0 });
     state = reduce(state, TextTyped{ "Water plants" }, Ms{ 0 });
     state = reduce(state, EscapePressed{}, Ms{ 0 }); // the card goes back to Home
-    state = reduce(state, TileClicked{ PomodoroProvider::kPanelId }, Ms{ 0 });
+    state = reduce(state, TileClicked{ fixture::kTodoCard }, Ms{ 0 });
     Scene card = layout(state, Ms{ 0 });
     const Placed* field = firstOf(card, [](const Placed& p) { return std::holds_alternative<TextInput>(p.item); });
     expect(field && !std::get<TextInput>(field->item).focused && std::get<TextInput>(field->item).value == "Water plants",
@@ -242,19 +244,19 @@ void runTodoTests()
     std::string clipboard = "Email Anna\nBook flights\n";
     IslandState state;
     Ms now{ 0 };
-    // The store (decision 028): the list under Pomodoro's "todos".
+    // The store (decision 028): the list under the provider's "todos".
     ProviderRegistry::Store store{
-        .load = [&](const std::string& provider, const std::string& key) { return provider == "pomodoro" && key == "todos" ? saved : ""; },
-        .save = [&](const std::string& provider, const std::string& key, const std::string& text) { if (provider == "pomodoro" && key == "todos") saved = text; },
+        .load = [&](const std::string& provider, const std::string& key) { return provider == fixture::kTodoProvider && key == "todos" ? saved : ""; },
+        .save = [&](const std::string& provider, const std::string& key, const std::string& text) { if (provider == fixture::kTodoProvider && key == "todos") saved = text; },
     };
     ProviderRegistry registry{ [&](const Event& e, const char*) { state = reduce(state, e, now); }, [&] { return now; }, store };
-    registry.add(std::make_unique<PomodoroProvider>());
-    registry.start("pomodoro");
+    registry.add(std::make_unique<fixture::TodoCardProvider>());
+    registry.start(fixture::kTodoProvider);
     auto send = [&](const Event& e) { state = reduce(state, e, now); };
     send(PillClicked{});
-    send(TileClicked{ PomodoroProvider::kPanelId });
+    send(TileClicked{ fixture::kTodoCard });
     Scene card = layout(state, now);
-    expect(card.activityId == PomodoroProvider::kPanelId, "the dormant card is open");
+    expect(card.activityId == fixture::kTodoCard, "the dormant card is open");
     const Placed* field = firstOf(card, [](const Placed& p) { return std::holds_alternative<TextInput>(p.item); });
     expect(field && std::get<TextInput>(field->item).placeholder == "Add a to-do…" && !std::get<TextInput>(field->item).focused,
            "the dormant card has the field");
@@ -265,7 +267,7 @@ void runTodoTests()
         return firstOf(sc, [&](const Placed& p) { auto* t = std::get_if<Text>(&p.item); return t && t->value == value; });
     };
     expect(!named(card, "Old done") && named(card, "Done · 1"), "the solved one hidden under \"Done · 1\"");
-    registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kShowDone, 0 }); // the Done row clicked
+    registry.route({ fixture::kTodoProvider, fixture::kTodoCard, todo_action::kShowDone, 0 }); // the Done row clicked
     Scene opened = layout(state, now);
     const Placed* oldDone = named(opened, "Old done");
     expect(oldDone && std::get<Text>(oldDone->item).struck, "opened: solved ones show, struck through");
@@ -315,7 +317,7 @@ void runTodoTests()
     expect(state.draft && state.draft->text.empty(), "the field stays focused for the next one");
 
     // Ctrl+V in the field: the app sends the clipboard as the field's action; every line a to-do.
-    registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kAdd, 0, clipboard });
+    registry.route({ fixture::kTodoProvider, fixture::kTodoCard, todo_action::kAdd, 0, clipboard });
     expect(saved.find("Email Anna") != std::string::npos && saved.find("Book flights") != std::string::npos, "paste adds each line");
 
     // The to-dos are one list the host scrolls (decision 029): open ones first,
@@ -356,7 +358,7 @@ void runTodoTests()
     expect(listAt(full, { window.x + 5, window.y + 5 }) && !listAt(full, { field->frame.x + 5, field->frame.y + 5 }), "the wheel works over the list only");
 
     // The wheel: the app sends how far, from what's shown, up to the max.
-    std::string key = listKey(PomodoroProvider::kPanelId, todo_action::kList);
+    std::string key = listKey(fixture::kTodoCard, todo_action::kList);
     auto wheel = [&](float delta) {
         Scene shown = layout(state, now);
         // Over the list where it is now: the card fits its rows, so it can move as they go.
@@ -385,7 +387,7 @@ void runTodoTests()
     auto onBin = hitTest(top, { bin->frame.x + bin->frame.width / 2, bin->frame.y + bin->frame.height / 2 });
     expect(onBin && onBin->action.actionId.rfind(todo_action::kDelete, 0) == 0, "the delete button gets its clicks, not the row's tick");
     registry.route(onBin->action);
-    expect(saved.find("Old done") == std::string::npos && !dialogOver(state, PomodoroProvider::kPanelId), "deleted at once, no question");
+    expect(saved.find("Old done") == std::string::npos && !dialogOver(state, fixture::kTodoCard), "deleted at once, no question");
 
     // ...with a toast to undo it (decision 071): floating over the card's bottom, the card's rows not moved; Undo puts it back.
     Scene toasted = layout(state, now);
@@ -416,16 +418,16 @@ void runTodoTests()
         setTokens(saved);
     }
     IslandState noToast = state;
-    overlaysOf(noToast, PomodoroProvider::kPanelId)->toast.reset();
+    overlaysOf(noToast, fixture::kTodoCard)->toast.reset();
     Scene without = layout(noToast, now); // the same card without its toast: nothing else differs
     expect(without.size.y == toasted.size.y && without.elements.size() == toasted.elements.size() &&
            without.elements.back().frame == toasted.elements.back().frame, "the card's rows don't move for it");
     auto onUndo = hitTest(toasted, { undo->frame.x + undo->frame.width / 2, undo->frame.y + undo->frame.height / 2 });
     auto onPill = hitTest(toasted, { t.frame.x + 2, t.frame.y + t.frame.height / 2 });
     expect(onUndo && onUndo->action.actionId == todo_action::kUndoDelete && !onPill, "its Undo takes a click; the rest of it, nothing under it");
-    registry.route({ "pomodoro", PomodoroProvider::kPanelId, std::get<Button>(undo->item).actionId, 0 });
+    registry.route({ fixture::kTodoProvider, fixture::kTodoCard, std::get<Button>(undo->item).actionId, 0 });
     send(ToastClosed{}); // the app: its action was clicked
-    expect(saved.find("[x] Old done") != std::string::npos && !overlaysOf(state, PomodoroProvider::kPanelId)->toast, "undone: back, and the toast goes");
+    expect(saved.find("[x] Old done") != std::string::npos && !overlaysOf(state, fixture::kTodoCard)->toast, "undone: back, and the toast goes");
     registry.route(onBin->action); // deleted again, for the rest of the test
     send(ToastClosed{});
     expect(saved.find("Old done") == std::string::npos, "deleted again");
@@ -439,9 +441,9 @@ void runTodoTests()
     auto onTask = hitTest(editable, { bin->frame.x - tokens().itemSpacing, mum->frame.y + mum->frame.height / 2 });
     expect(onTask && onTask->key == mum->key, "past the end of its text, a click still edits it");
     const std::string editId = onTask->action.actionId;
-    const Text* edited = editedText(editable, PomodoroProvider::kPanelId, editId);
+    const Text* edited = editedText(editable, fixture::kTodoCard, editId);
     expect(edited && edited->value == "Call mum" && editId.rfind(todo_action::kEdit, 0) == 0, "it edits the row's text");
-    send(InputFocused{ "pomodoro", PomodoroProvider::kPanelId, editId, edited->value, /* editing */ true });
+    send(InputFocused{ fixture::kTodoProvider, fixture::kTodoCard, editId, edited->value, /* editing */ true });
     send(TextErased{});
     send(TextErased{});
     send(TextErased{});
@@ -466,7 +468,7 @@ void runTodoTests()
     registry.route({ state.draft->providerId, state.draft->activityId, state.draft->actionId, 0, state.draft->text }); // Enter
     send(InputSubmitted{});
     expect(saved.find("[ ] Call dad") != std::string::npos && !state.draft, "Enter renames it, and the edit is over");
-    send(InputFocused{ "pomodoro", PomodoroProvider::kPanelId, editId, "Call dad", true });
+    send(InputFocused{ fixture::kTodoProvider, fixture::kTodoCard, editId, "Call dad", true });
     send(TextTyped{ " now" });
     send(InputCancelled{});
     expect(saved.find("Call dad now") == std::string::npos && !state.draft, "Esc leaves it as it was");
@@ -476,7 +478,7 @@ void runTodoTests()
     Scene before = layout(state, now);
     const Placed* openOne = textNamed(before, "Old open");
     float grab = openOne->frame.y;
-    send(ListDragStarted{ PomodoroProvider::kPanelId, todo_action::kList, openOne->list->row, grab });
+    send(ListDragStarted{ fixture::kTodoCard, todo_action::kList, openOne->list->row, grab });
     send(ListDragMoved{ grab + 2.6f * step });
     Scene dragging = layout(state, now);
     const Placed* carried = firstOf(dragging, [&](const Placed& p) { return p.key == openOne->key; });
@@ -499,7 +501,7 @@ void runTodoTests()
     expect(saved.find("[ ] Email Anna\n[ ] Old open\n") != std::string::npos, "and saved in that order");
 
     // Adding one keeps it in view, even if the list is longer than the window.
-    registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kAdd, 0, "x\ny\nz" });
+    registry.route({ fixture::kTodoProvider, fixture::kTodoCard, todo_action::kAdd, 0, "x\ny\nz" });
     Scene revealed = layout(state, now);
     const Placed* z = textNamed(revealed, "z");
     expect(z && z->frame.y >= window.y - 0.01f && z->frame.y + z->frame.height <= window.y + window.height + 0.01f && state.scrolls[key].reveal,
@@ -512,7 +514,7 @@ void runTodoTests()
     Scene atTop = layout(state, now);
     const Placed* firstBox = boxesOf(atTop)[0];
     float hold = firstBox->frame.y;
-    send(ListDragStarted{ PomodoroProvider::kPanelId, todo_action::kList, firstBox->list->row, hold, firstBox->list->offset });
+    send(ListDragStarted{ fixture::kTodoCard, todo_action::kList, firstBox->list->row, hold, firstBox->list->offset });
     wheel(step);
     Scene scrolledUnder = layout(state, now);
     const Placed* held = firstOf(scrolledUnder, [&](const Placed& p) { return p.key == firstBox->key; });
@@ -523,24 +525,24 @@ void runTodoTests()
     // A solved one can't be carried up among the open ones (sortGroup).
     Scene beforeTick = layout(state, now);
     const Placed* zBox = boxesOf(beforeTick).back(); // "z", the last open one
-    registry.route({ "pomodoro", PomodoroProvider::kPanelId, std::get<Button>(zBox->item).actionId, 0 });
+    registry.route({ fixture::kTodoProvider, fixture::kTodoCard, std::get<Button>(zBox->item).actionId, 0 });
     Scene grouped = layout(state, now);
     const Placed* solved = textNamed(grouped, "z");
     expect(solved && std::get<Text>(solved->item).struck && solved->list->row == 7, "ticked: it's the solved group's first, under the Done row");
-    send(ListDragStarted{ PomodoroProvider::kPanelId, todo_action::kList, solved->list->row, solved->frame.y });
+    send(ListDragStarted{ fixture::kTodoCard, todo_action::kList, solved->list->row, solved->frame.y });
     send(ListDragMoved{ solved->frame.y - 10 * step });
     Scene carriedUp = layout(state, now);
     const Placed* liftedZ = textNamed(carriedUp, "z");
     expect(liftedZ && liftedZ->list->dropAt == 7, "it stays below the open ones and the Done row");
     send(ListDragEnded{});
-    registry.route({ "pomodoro", PomodoroProvider::kPanelId, std::get<Button>(zBox->item).actionId, 0 }); // open again
+    registry.route({ fixture::kTodoProvider, fixture::kTodoCard, std::get<Button>(zBox->item).actionId, 0 }); // open again
 
     // Clear solved / Clear all ask first, in the host's dialog over the card.
-    registry.route({ "pomodoro", PomodoroProvider::kPanelId, std::string(todo_action::kToggle) + "2", 0 }); // "Old open" done
+    registry.route({ fixture::kTodoProvider, fixture::kTodoCard, std::string(todo_action::kToggle) + "2", 0 }); // "Old open" done
     Vec2 cardSize = layout(state, now).size;
-    registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kClearDone, 0 });
-    expect(dialogOver(state, PomodoroProvider::kPanelId) && dialogOver(state, PomodoroProvider::kPanelId)->title == "Clear solved tasks?" && dialogOver(state, PomodoroProvider::kPanelId)->message == "1 task will be removed." &&
-           dialogOver(state, PomodoroProvider::kPanelId)->providerId == "pomodoro" && dialogOver(state, PomodoroProvider::kPanelId)->destructive, "Clear solved asks");
+    registry.route({ fixture::kTodoProvider, fixture::kTodoCard, todo_action::kClearDone, 0 });
+    expect(dialogOver(state, fixture::kTodoCard) && dialogOver(state, fixture::kTodoCard)->title == "Clear solved tasks?" && dialogOver(state, fixture::kTodoCard)->message == "1 task will be removed." &&
+           dialogOver(state, fixture::kTodoCard)->providerId == fixture::kTodoProvider && dialogOver(state, fixture::kTodoCard)->destructive, "Clear solved asks");
     expect(saved.find("Old open") != std::string::npos, "nothing cleared yet");
     Scene asking = layout(state, now);
     const Placed* confirm = firstOf(asking, [](const Placed& p) { auto* b = std::get_if<Button>(&p.item); return b && b->actionId == kDialogConfirm; });
@@ -550,43 +552,45 @@ void runTodoTests()
     auto onConfirm = hitTest(asking, { confirm->frame.x + confirm->frame.width / 2, confirm->frame.y + confirm->frame.height / 2 });
     expect(onConfirm && onConfirm->action.actionId == kDialogConfirm, "the confirm button is the host's (the app answers it)");
     // Confirm: the app sends the dialog's action, then closes it.
-    Dialog asked = *dialogOver(state, PomodoroProvider::kPanelId);
+    Dialog asked = *dialogOver(state, fixture::kTodoCard);
     registry.route({ asked.providerId, asked.activityId, asked.confirmAction, 0 });
     send(DialogClosed{});
-    expect(saved.find("Old open") == std::string::npos && !dialogOver(state, PomodoroProvider::kPanelId), "confirmed: solved ones cleared");
-    registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kClearAll, 0 });
-    expect(dialogOver(state, PomodoroProvider::kPanelId) && dialogOver(state, PomodoroProvider::kPanelId)->confirmAction == todo_action::kClearAllConfirmed, "Clear all asks too");
+    expect(saved.find("Old open") == std::string::npos && !dialogOver(state, fixture::kTodoCard), "confirmed: solved ones cleared");
+    registry.route({ fixture::kTodoProvider, fixture::kTodoCard, todo_action::kClearAll, 0 });
+    expect(dialogOver(state, fixture::kTodoCard) && dialogOver(state, fixture::kTodoCard)->confirmAction == todo_action::kClearAllConfirmed, "Clear all asks too");
     send(EscapePressed{});
-    expect(!dialogOver(state, PomodoroProvider::kPanelId) && !saved.empty(), "Esc (closing the card) dismisses it: nothing cleared");
+    expect(!dialogOver(state, fixture::kTodoCard) && !saved.empty(), "Esc (closing the card) dismisses it: nothing cleared");
     send(PillClicked{});
-    send(TileClicked{ PomodoroProvider::kPanelId });
-    registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kClearAll, 0 });
-    registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kClearAllConfirmed, 0 });
+    send(TileClicked{ fixture::kTodoCard });
+    registry.route({ fixture::kTodoProvider, fixture::kTodoCard, todo_action::kClearAll, 0 });
+    registry.route({ fixture::kTodoProvider, fixture::kTodoCard, todo_action::kClearAllConfirmed, 0 });
     send(DialogClosed{});
     expect(saved.empty(), "confirmed: all cleared");
     Scene empty = layout(state, now);
     expect(!firstOf(empty, [](const Placed& p) { auto* b = std::get_if<Button>(&p.item); return b && b->label.rfind("Clear", 0) == 0; }),
            "nothing to clear: no clear buttons");
 
-    // Starting keeps the list on the running card.
-    registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kAdd, 0, "Focus task" });
-    registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kStart, 0 });
+    // Live (an activity's card), it keeps the list.
+    registry.route({ fixture::kTodoProvider, fixture::kTodoCard, todo_action::kAdd, 0, "Focus task" });
+    registry.route({ fixture::kTodoProvider, fixture::kTodoCard, fixture::kGoLive, 0 });
     Scene running = layout(state, now);
     expect(firstOf(running, [](const Placed& p) { auto* t = std::get_if<Text>(&p.item); return t && t->value == "Focus task"; }),
-           "the running card shows the list too");
+           "the activity's card shows the list too");
 
-    // The tallest card: running, a full list, what's out of it, the clear row, and a tab strip.
-    registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kAdd, 0, "a\nb\nc\nd\ne\nf" });
-    registry.route({ "pomodoro", PomodoroProvider::kPanelId, std::string(todo_action::kToggle) + "1", 0 });
+    // The tallest card: live, a full list, what's out of it, the clear row, and a tab strip.
+    registry.route({ fixture::kTodoProvider, fixture::kTodoCard, todo_action::kAdd, 0, "a\nb\nc\nd\ne\nf" });
+    registry.route({ fixture::kTodoProvider, fixture::kTodoCard, std::string(todo_action::kToggle) + "1", 0 });
     send(ActivityStarted{ { .id = "media", .content = { .label = "Song" } } });
-    send(ActivitySwitched{ PomodoroProvider::kPanelId });
+    send(ActivitySwitched{ fixture::kTodoCard });
     Scene tallest = layout(state, now);
     expect(tallest.tabs && tallest.size.y <= tokens().canvas.y, "the tallest card fits the canvas");
     float strip = tallest.tabs->tabs[0].frame.y + tokens().tabHeight;
-    for (const Placed& p : tallest.elements)
-        if (p.key.rfind("tab/", 0) != 0)
-            expect(p.frame.y >= strip + tokens().slotGap - 0.01f && p.frame.y + p.frame.height <= tallest.size.y - tokens().expandedPadding + 0.01f,
-                   "under the strip, inside the card: " + p.key);
+    for (const Placed& p : tallest.elements) {
+        if (p.key.rfind("tab/", 0) == 0) continue;
+        Rect r = p.list ? p.list->viewport : p.frame; // a list's rows scroll past its window, which clips them
+        expect(r.y >= strip + tokens().slotGap - 0.01f && r.y + r.height <= tallest.size.y - tokens().expandedPadding + 0.01f,
+               "under the strip, inside the card: " + p.key);
+    }
 }
 
 } // namespace cup::test

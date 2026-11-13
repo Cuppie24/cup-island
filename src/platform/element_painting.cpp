@@ -110,6 +110,7 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Chart: return L"\uE9D2"; // AreaChart: the statistics (decision 066)
     case Glyph::Palette: return L"\uE790"; // Color: a window's Appearance page (decision 104)
     case Glyph::Sliders: return L"\uE9E9"; // Equalizer: its General page
+    case Glyph::Expand: return L"\uE740"; // FullScreen: a card opening its window (Pomodoro, decision 106)
     case Glyph::Fire: return L"\U0001F525"; // not in the icon fonts: Segoe UI Emoji's, in colour (paintGlyph)
     }
     return L"?";

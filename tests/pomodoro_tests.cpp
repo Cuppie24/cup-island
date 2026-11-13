@@ -6,8 +6,12 @@
 #include "core/item_metrics.h"
 #include "core/card_overlays.h"
 #include "core/layout.h"
+#include "core/tabs.h"
 #include "core/tokens.h"
+#include "core/window_fields.h"
+#include "core/window_layout.h"
 #include "expect.h"
+#include "providers/media/now_playing.h"
 #include "providers/pomodoro/pomodoro_provider.h"
 #include "providers/provider_registry.h"
 
@@ -54,12 +58,32 @@ struct Island {
     const Activity* focus() const { return findActivity(state, PomodoroProvider::kPanelId); }
 
     const Dialog* dialog() const { return dialogOver(state, PomodoroProvider::kPanelId); } // over its card
+
+    // Its window (decision 106), and a click in it.
+    const OpenWindow* window() const { return findWindow(registry.windows(), { "pomodoro", PomodoroProvider::kWindowId }); }
+    void inWindow(const std::string& actionId) { registry.route({ "pomodoro", "", actionId, 0, "", PomodoroProvider::kWindowId }); }
+    WindowScene windowScene() const { return windowLayout(*window(), { 1000, 2000 }, 0, now); }
 };
 
 const std::string kTile = std::string("tile/") + PomodoroProvider::kPanelId;
-const std::string kStart = "expandedCenter/2/0"; // ▶, under the dormant card's corners and dial
-const std::string kPause = "expandedCenter/4/1"; // the running card's controls: under the dots, above the to-dos; ⏸ in the middle
-const std::string kStop = "expandedCenter/4/0";
+const std::string kStart = "expandedBottom/1/0"; // ▶, under the bar (decision 106)
+const std::string kPause = "expandedBottom/1/1"; // the running card's controls: stop, ⏸, skip
+const std::string kStop = "expandedBottom/1/0";
+const std::string kExpand = "expandedTrailing/0/0"; // the window, from the top-right corner
+
+const Placed* textIn(const WindowScene& scene, const std::string& value)
+{
+    for (const Placed& p : scene.page)
+        if (auto* text = std::get_if<Text>(&p.item); text && text->value == value) return &p;
+    return nullptr;
+}
+
+const Placed* buttonIn(const WindowScene& scene, const std::string& actionId)
+{
+    for (const Placed& p : scene.page)
+        if (auto* button = std::get_if<Button>(&p.item); button && button->actionId == actionId) return &p;
+    return nullptr;
+}
 
 const Placed* find(const Scene& scene, const std::string& key)
 {
@@ -76,24 +100,63 @@ bool noButtonsOn(const Scene& home)
     return true;
 }
 
-// Setting focus and break lengths before starting (decision 044).
-void planTests()
+// The cards (decision 106): laid out like media's and as big, the ring where
+// the cover goes, the time beside it, a bar and the controls under them,
+// the expand button in the corner; nothing else.
+void cardTests()
 {
     const Tokens& t = tokens();
-    PomodoroPlan plan = defaultPlan();
-    expect(plan.focus == t.pomodoroFocus && plan.rest == t.pomodoroBreak, "plan: tokens.json's lengths by default");
-    expect(adjustPlan(plan, true, 1).focus == t.pomodoroFocus + t.pomodoroFocusStep && adjustPlan(plan, false, -1).rest == t.pomodoroBreak - t.pomodoroBreakStep,
-           "plan: a step longer or shorter");
-    PomodoroPlan shortest = adjustPlan(plan, true, -1000), longest = adjustPlan(plan, false, 1000);
-    expect(shortest.focus == t.pomodoroFocusStep && longest.rest == t.pomodoroBreakMax, "plan: kept between one step and the max");
-    expect(!canAdjust(shortest, true, -1) && canAdjust(shortest, true, 1) && !canAdjust(longest, false, 1), "plan: − and + dim at the limits");
-    PomodoroPlan set{ Ms{ 40 * 60000 }, Ms{ 7 * 60000 } };
-    expect(loadPlan(savePlan(set)) == set, "plan: saved and loaded");
-    expect(loadPlan("") == plan && loadPlan("garbage") == plan, "plan: unreadable is the default");
-    expect(loadPlan("plan1 99999999999 0").focus == t.pomodoroFocusMax && loadPlan("plan1 99999999999 0").rest == t.pomodoroBreakStep,
-           "plan: out of range is clamped");
+    Island island;
+    island.registry.add(std::make_unique<PomodoroProvider>());
+    island.registry.start("pomodoro");
+    island.send(PillClicked{});
+    island.send(TileClicked{ PomodoroProvider::kPanelId });
+    Scene dormant = island.scene();
+    const Placed* ring = find(dormant, "expandedLeading/0/0");
+    const Placed* time = find(dormant, "expandedCenter/0/0");
+    const Placed* start = find(dormant, kStart);
+    const Placed* expand = find(dormant, kExpand);
+    expect(dormant.size.x == t.expandedSize.x, "as wide as every card: no wider timer card any more (decision 106 over 085)");
+    expect(ring && std::get<Progress>(ring->item).shape == ProgressShape::Ring && ring->frame.width == t.expandedArtSize,
+           "the ring where media's cover goes");
+    expect(time && std::get<Text>(time->item).value == "25:00" && std::get<Text>(time->item).style == TextStyle::Display, "the planned time, big");
+    expect(start && std::get<Button>(start->item).primary && std::get<Button>(start->item).actionId == pomodoro_action::kStart, "▶ under them");
+    expect(expand && std::get<Button>(expand->item).glyph == Glyph::Expand && std::get<Button>(expand->item).actionId == pomodoro_action::kOpenWindow,
+           "the expand button in the top-right corner");
+    for (const Placed& p : dormant.elements)
+        expect(!std::holds_alternative<TextInput>(p.item) && !std::holds_alternative<Steps>(p.item) && !std::holds_alternative<Dial>(p.item),
+               "no to-dos, dots or dial on the card: the window has them: " + p.key);
 
-    // The dormant card (decisions 063, 064): the focus time, "Focus" under it, ▶, today; the plan on the settings page.
+    // Running, it's media's size exactly, with or without a tab strip.
+    island.press(kStart);
+    Scene running = island.scene();
+    IslandState media;
+    NowPlaying song{ .title = "Song", .artist = "Artist", .timeline = { .duration = Ms{ 200000 }, .playing = true } };
+    media = reduce(media, ActivityStarted{ { .id = "media", .content = nowPlayingContent(song) } }, Ms{ 0 });
+    media = reduce(media, PillClicked{}, Ms{ 0 });
+    Scene mediaCard = layout(media, Ms{ 0 });
+    float strip = running.tabs ? tabStripSpace(island.state) : 0; // Home's tab row over it, while the panel is there
+    expect(running.size.x == mediaCard.size.x && running.size.y - strip == mediaCard.size.y && !mediaCard.tabs,
+           "the running card is the media card's size (" + std::to_string(int(mediaCard.size.x)) + " x " + std::to_string(int(mediaCard.size.y)) + ")");
+    expect(dormant.size.y - (dormant.tabs ? tabStripSpace(island.state) : 0) == mediaCard.size.y, "the dormant one too");
+    const Placed* stop = find(running, kStop);
+    const Placed* pause = find(running, kPause);
+    const Placed* skip = find(running, "expandedBottom/1/2");
+    expect(stop && pause && skip && std::get<Button>(stop->item).glyph == Glyph::Stop && std::get<Button>(pause->item).primary &&
+           std::get<Button>(skip->item).glyph == Glyph::Next && stop->frame.x < pause->frame.x && pause->frame.x < skip->frame.x,
+           "stop, ⏸ (the filled circle) and skip, like media's previous, play and next");
+    const Placed* what = find(running, "expandedCenter/1/0");
+    expect(what && std::get<Text>(what->item).value == "Focus · round 1 of " + std::to_string(t.pomodoroRounds), "the phase and round under the time");
+    for (const Placed& p : running.elements)
+        expect(p.frame.y + p.frame.height <= running.size.y - t.expandedPadding + 0.01f, "fits the card: " + p.key);
+    island.registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kStopConfirmed, 0 });
+}
+
+// The window (decision 106): the expand button opens it, or brings it
+// forward; its pages have what the card leaves out.
+void windowTests()
+{
+    const Tokens& t = tokens();
     std::string saved;
     ProviderRegistry::Store store{
         .load = [&](const std::string&, const std::string& key) { return key == PomodoroProvider::kPlanKey ? saved : ""; },
@@ -104,135 +167,128 @@ void planTests()
     island.registry.start("pomodoro");
     island.send(PillClicked{});
     island.send(TileClicked{ PomodoroProvider::kPanelId });
-    Scene card = island.scene();
-    expect(card.size.x == t.wideCardWidth, "the timer's card is wider than other cards (decision 085)");
-    auto textAt = [&](const Scene& sc, const std::string& key) {
-        const Placed* p = find(sc, key);
-        return p && std::holds_alternative<Text>(p->item) ? std::get<Text>(p->item).value : std::string();
-    };
-    const Placed* big = find(card, "expandedCenter/1/0"); // the dial, under the corners' row
-    const Placed* start = find(card, kStart);
-    const Placed* today = find(card, "expandedCenter/3/0");
-    expect(big && std::holds_alternative<Dial>(big->item) && std::get<Dial>(big->item).shown == "25:00" && std::get<Dial>(big->item).label == "Focus" &&
-           big->frame.width == big->frame.height && std::abs(big->frame.x + big->frame.width / 2 - card.size.x / 2) < 0.51f,
-           "the focus time in its ring, \"Focus\" under it, centred");
-    // No measure: the tests' text estimate, as their layout uses.
-    expect(big->frame.width == dialDiameter(std::get<Dial>(big->item), {}) && big->frame.width > 2 * t.dialInset + lineHeight(TextStyle::Display),
-           "the ring sized from its digits");
-    const Placed* mode = big;
-    expect(start && std::get<Button>(start->item).primary && start->frame.width == t.primaryButtonSize &&
-           std::abs(start->frame.x + start->frame.width / 2 - card.size.x / 2) < 0.51f, "▶: the one primary button, centred");
-    const Text& todayText = std::get<Text>(today->item);
-    expect(todayText.value == "0 cycles · 0 min" && todayText.style == TextStyle::Caption && todayText.brightDigits &&
-           std::abs(today->frame.x + today->frame.width / 2 - card.size.x / 2) < 0.51f,
-           "today: one quiet centred text, its numbers bright, its spaces the font's (decision 068)");
-    expect(start->frame.y - (mode->frame.y + mode->frame.height) >= t.groupGap && today->frame.y - (start->frame.y + start->frame.height) >= t.groupGap,
-           "a group's room above ▶ and above today (decision 066)");
-    expect(card.size.y <= t.canvas.y, "the card fits the canvas");
-    // A ring of one size: sized for the plan's longest phase, so a 5:00 break keeps a 25:00 focus's ring.
-    PomodoroPlan usual = defaultPlan();
-    Dial focusDial{ .timeline = { .duration = usual.focus }, .sizedFor = std::max({ usual.focus, usual.rest, t.pomodoroLongBreak }) };
-    Dial breakDial = focusDial;
-    breakDial.timeline.duration = usual.rest;
-    expect(dialDiameter(breakDial, {}) == dialDiameter(focusDial, {}), "a break's ring as big as focus's");
-    expect(dialDiameter(Dial{ .timeline = { .duration = Ms{ 60000 } } }, {}) == dialDiameter(Dial{ .timeline = { .duration = Ms{ 3000000 } } }, {}),
-           "under an hour, one size: never fewer than two digits a side");
-    // The statistics and the gear in the top-right corner, grey until pointed at; the days in a row in the top-left one.
-    const Placed* chart = find(card, "expandedCenter/0/0"); // the corners' row: trailing, then leading
-    const Placed* gear = find(card, "expandedCenter/0/1");
-    const Placed* days = find(card, "expandedCenter/0/2");
-    expect(chart && std::get<Button>(chart->item).glyph == Glyph::Chart && std::get<Button>(chart->item).secondary &&
-           std::get<Button>(chart->item).actionId == pomodoro_action::kOpenStats,
-           "a grey statistics button, beside the gear");
-    expect(gear && std::get<Button>(gear->item).glyph == Glyph::Settings && std::get<Button>(gear->item).secondary && gear->frame.x > chart->frame.x &&
-           gear->frame.x + gear->frame.width > card.size.x - t.expandedPadding - 1 && gear->frame.y + gear->frame.height <= big->frame.y,
-           "a grey gear in the top-right corner, a row of its own above the dial (decision 069)");
-    expect(!hitTest(card, { gear->frame.x + gear->frame.width / 2, gear->frame.y + gear->frame.height + 30 }),
-           "its click zone is its own row's, not down the dial's side");
-    expect(!days, "no days in a row yet: nothing in the top-left corner (decision 070)");
-    expect(island.press("expandedCenter/0/0") && textAt(island.scene(), "expandedCenter/0/0") == "Statistics", "the chart opens the statistics");
-    Scene stats = island.scene();
-    const Placed* title = find(stats, "expandedCenter/0/0");
-    expect(title && std::abs(title->frame.x + title->frame.width / 2 - stats.size.x / 2) < 0.51f, "its title centred on the card, back arrow or not");
-    for (const Placed& p : stats.elements)
-        if (p.key.rfind("tab/", 0) != 0) expect(p.frame.y + p.frame.height <= stats.size.y - t.expandedPadding + 0.01f, "fits the statistics: " + p.key);
-    // Decision 070: the page keeps the timer card's size, its content centred in it, its back arrow at the card's
-    // edge, its tables narrower than the card, each group apart.
-    expect(stats.size.y == card.size.y, "the statistics keep the timer card's height");
-    float top = stats.size.y, bottom = 0;
-    for (const Placed& p : stats.elements)
-        if (p.key.rfind("tab/", 0) != 0) top = std::min(top, p.frame.y), bottom = std::max(bottom, p.frame.y + p.frame.height);
-    float above = top - (card.tabs ? card.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap : 0.0f), below = stats.size.y - bottom;
-    expect(card.tabs || std::abs(above - below) < 1.0f, "its content centred vertically");
-    const Placed* arrow = find(stats, "expandedCenter/0/1");
-    const Placed* cell = find(stats, "expandedCenter/2/0");
-    expect(arrow && std::get<Button>(arrow->item).glyph == Glyph::ChevronLeft && arrow->frame.x < t.expandedPadding + 1 &&
-           cell && cell->frame.x > arrow->frame.x + arrow->frame.width, "the back arrow at the card's left edge, the table narrower");
-    const Placed* todayLabel = find(stats, "expandedCenter/1/0");
-    expect(todayLabel && title && todayLabel->frame.y - (title->frame.y + title->frame.height) >= t.groupGap, "room between the title and today");
-    island.registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kBack, 0 });
+    expect(!island.window(), "no window until asked");
+    expect(island.press(kExpand) && island.window(), "the expand button opens the window");
+    const OpenWindow& w = *island.window();
+    expect(w.spec.size == WindowSize::Large && !w.spec.resizable && !w.spec.maximizable, "one size, like Settings' window");
+    expect(w.content.pages.size() == 3 && w.page == kPomodoroTimerPage && w.content.pages[1].id == kPomodoroStatsPage &&
+           w.content.pages[2].id == kPomodoroSettingsPage, "three pages, the timer first");
+    std::uint64_t raised = w.raised;
+    island.press(kExpand);
+    expect(island.registry.windows().open.size() == 1 && island.window()->raised != raised, "again: the same window, brought forward");
 
-    // The settings page: the plan first (Focus  − 25 min +), then the days off.
-    expect(island.press("expandedCenter/0/1"), "the gear opens the settings page");
-    Scene page = island.scene();
-    expect(textAt(page, "expandedCenter/0/0") == "Timer settings" && page.size.y <= t.canvas.y, "the page fits the canvas");
-    expect(page.size.y == card.size.y, "the settings keep the timer card's height (decision 070)");
-    const Placed* pageTitleText = find(page, "expandedCenter/0/0");
-    const Placed* focusName = find(page, "expandedCenter/1/0");
-    expect(pageTitleText && focusName && focusName->frame.y - (pageTitleText->frame.y + pageTitleText->frame.height) >= t.groupGap &&
-           pageTitleText->frame.y < (page.tabs ? page.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap : 0.0f) + t.expandedPadding + t.buttonSize,
-           "from the top, room under the title");
-    expect(focusName->list && focusName->list->id == pomodoro_action::kSettingsList &&
-           focusName->list->viewport.y + focusName->list->viewport.height <= page.size.y - t.expandedPadding + 0.01f,
-           "the rest one list, within the card (it scrolls when there's more: pomodoro_stats_tests)");
-    expect(textAt(page, "expandedCenter/1/0") == "Focus" && textAt(page, "expandedCenter/1/2") == "25 min", "a Focus row with its length");
-    expect(textAt(page, "expandedCenter/2/0") == "Break" && textAt(page, "expandedCenter/2/2") == "5 min", "a Break row with its length");
-    const Placed* minus = find(page, "expandedCenter/1/1");
-    const Placed* value = find(page, "expandedCenter/1/2");
-    const Placed* plus = find(page, "expandedCenter/1/3");
-    expect(minus && plus && std::get<Button>(minus->item).glyph == Glyph::Minus && std::get<Button>(plus->item).glyph == Glyph::Plus &&
-           std::get<Button>(minus->item).secondary && !std::get<Button>(minus->item).revealOnHover, "− and + around the length, grey, always there");
-    expect(minus->frame.width == t.buttonSize && plus->frame.width == t.buttonSize, "full-size buttons, easy to hit");
-    expect(minus->frame.x + minus->frame.width <= value->frame.x && value->frame.x + value->frame.width <= plus->frame.x,
-           "−, the length, +, side by side");
-    const Placed* breakValue = find(page, "expandedCenter/2/2");
-    expect(breakValue && breakValue->frame.x == value->frame.x && breakValue->frame.width == value->frame.width &&
-           find(page, "expandedCenter/2/1")->frame.x == minus->frame.x, "both rows line up: 5 min and 25 min in one column");
-    // Hovering anywhere along a row, not just on an item, counts as on it (Row's hover band, decision 063).
-    const Placed* name = find(page, "expandedCenter/1/0");
-    float between = (name->frame.x + name->frame.width + minus->frame.x) / 2;
-    expect(rowAt(page, { between, minus->frame.y + minus->frame.height / 2 }) == "expandedCenter/1", "the row under the pointer, between its items");
-    expect(rowAt(page, { -5, minus->frame.y }).empty(), "off the card: no row");
-    const Placed* mon = find(page, "expandedCenter/4/0");
-    const Placed* sun = find(page, "expandedCenter/4/6");
-    expect(mon && sun && mon->frame.width == t.buttonSize && mon->frame.height == t.buttonSize && sun->frame.y == mon->frame.y &&
-           sun->frame.x > mon->frame.x && std::abs((mon->frame.x + sun->frame.x + sun->frame.width) / 2 - page.size.x / 2) < 0.51f,
-           "the days: seven circles in one centred row");
-    for (const Placed& p : page.elements)
-        if (p.key.rfind("tab/", 0) != 0) expect(p.frame.y + p.frame.height <= page.size.y - t.expandedPadding + 0.01f, "fits the page: " + p.key);
+    // The timer page: the dial, the plan in words, ▶, today, the to-dos with their field.
+    WindowScene timer = island.windowScene();
+    const Placed* dial = nullptr;
+    for (const Placed& p : timer.page)
+        if (std::holds_alternative<Dial>(p.item)) dial = &p;
+    expect(dial && std::get<Dial>(dial->item).shown == "25:00" && std::get<Dial>(dial->item).label == "Focus", "the dial, the planned focus in it");
+    expect(textIn(timer, "Focus · " + std::to_string(t.pomodoroRounds) + " rounds of 25 min") && textIn(timer, "0 cycles") &&
+           textIn(timer, "Today") && textIn(timer, "To-dos"), "the plan in words, today, the to-dos' label");
+    const Placed* field = nullptr;
+    for (const Placed& p : timer.page)
+        if (auto* input = std::get_if<TextInput>(&p.item); input && input->actionId == todo_action::kAdd) field = &p;
+    expect(field != nullptr, "the to-do field, in the window");
 
-    island.press("expandedCenter/1/3");
-    island.press("expandedCenter/1/3");
-    island.press("expandedCenter/2/1");
-    Scene after = island.scene();
-    expect(textAt(after, "expandedCenter/1/2") == "35 min" && textAt(after, "expandedCenter/2/2") == "4 min", "each click a step");
-    auto shown = shownCard(island.state); // Esc, as the app does: the card's backAction first (decision 033)
-    expect(shown && backAction(island.state) == pomodoro_action::kBack, "Esc on the page: back");
-    island.registry.route({ shown->providerId, shown->activityId, backAction(island.state), 0 });
-    Scene back = island.scene();
-    const Placed* dialAfter = find(back, "expandedCenter/1/0");
-    expect(cardOnScreen(island.state, PomodoroProvider::kPanelId) && dialAfter && std::get<Dial>(dialAfter->item).shown == "35:00",
-           "back to the timer; the big time follows focus");
+    // ▶ in the window starts it; the card on the island follows.
+    island.inWindow(pomodoro_action::kStart);
+    expect(island.focus() && island.window(), "started from the window");
+    timer = island.windowScene();
+    const Steps* steps = nullptr;
+    for (const Placed& p : timer.page)
+        if (auto* s = std::get_if<Steps>(&p.item)) steps = s;
+    expect(steps && *steps == Steps{ phaseCount(), 0 } && textIn(timer, "0 of " + std::to_string(phaseCount()) + " done"),
+           "running: a dot per phase, and how many are done");
+    expect(buttonIn(timer, pomodoro_action::kStop) && buttonIn(timer, pomodoro_action::kPause) && buttonIn(timer, pomodoro_action::kSkip),
+           "its controls");
+
+    // Stop asks in place (a window has no dialogs over it): Cancel keeps it, Stop ends it.
+    island.inWindow(pomodoro_action::kStop);
+    timer = island.windowScene();
+    expect(island.focus() && !island.dialog() && textIn(timer, "Stop the session?") && buttonIn(timer, pomodoro_action::kStopConfirmed) &&
+           buttonIn(timer, pomodoro_action::kCancel) && !buttonIn(timer, pomodoro_action::kPause), "stop asks first, in the window, in the controls' place");
+    island.inWindow(pomodoro_action::kCancel);
+    expect(island.focus() && buttonIn(island.windowScene(), pomodoro_action::kPause), "cancelled: still running, the controls back");
+    island.inWindow(pomodoro_action::kStop);
+    island.registry.windowPageShown({ "pomodoro", PomodoroProvider::kWindowId }, kPomodoroStatsPage);
+    island.registry.windowPageShown({ "pomodoro", PomodoroProvider::kWindowId }, kPomodoroTimerPage);
+    expect(!textIn(island.windowScene(), "Stop the session?"), "another page: the question goes unanswered");
+    island.inWindow(pomodoro_action::kStop);
+    island.inWindow(pomodoro_action::kStopConfirmed);
+    expect(!island.focus() && buttonIn(island.windowScene(), pomodoro_action::kStart), "confirmed: stopped, the window dormant");
+    // On the card, stop still asks with the island's dialog (decision 020).
+    island.press(kStart);
+    island.press(kStop);
+    expect(island.dialog() && island.dialog()->title == "Stop the session?", "the card's stop: a dialog over the card");
+    island.registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kStopConfirmed, 0 });
+    island.send(DialogClosed{});
+
+    // The to-dos, typed into the window's field (decision 105): Enter adds one; a delete has its Undo in place; clearing asks in place.
+    WindowTyping typing;
+    WindowScene page = island.windowScene();
+    std::string fieldKey;
+    for (const Placed& p : page.page)
+        if (auto* input = std::get_if<TextInput>(&p.item); input && input->actionId == todo_action::kAdd) fieldKey = p.key;
+    focusField(typing, page, fieldKey, std::nullopt);
+    typeText(typing, page, "Write the report");
+    FieldOutcome enter = fieldKey.empty() ? FieldOutcome{} : cup::fieldKey(typing, page, FieldKey::Enter, false, false);
+    expect(enter.send && enter.send->windowId == PomodoroProvider::kWindowId, "Enter in the window's field sends the to-do");
+    if (enter.send) island.registry.route(*enter.send);
+    page = island.windowScene();
+    expect(textIn(page, "Write the report") != nullptr, "added: it's in the window's list");
+    std::string id = std::to_string(1);
+    island.inWindow(std::string(todo_action::kDelete) + id);
+    page = island.windowScene();
+    expect(!textIn(page, "Write the report") && textIn(page, "To-do deleted") && buttonIn(page, todo_action::kUndoDelete), "deleted, with an Undo row");
+    island.inWindow(todo_action::kUndoDelete);
+    page = island.windowScene();
+    expect(textIn(page, "Write the report") && !textIn(page, "To-do deleted"), "undone: back, the row gone");
+    island.inWindow(todo_action::kClearAll);
+    page = island.windowScene();
+    expect(!island.dialog() && textIn(page, "Clear all tasks?") && buttonIn(page, todo_action::kClearAllConfirmed), "clear all asks in place");
+    island.inWindow(todo_action::kClearAllConfirmed);
+    page = island.windowScene();
+    expect(!textIn(page, "Write the report") && !textIn(page, "Clear all tasks?"), "confirmed: cleared, the question gone");
+
+    // The settings page: the plan (Focus  − 25 min +), then the days off.
+    island.registry.windowPageShown({ "pomodoro", PomodoroProvider::kWindowId }, kPomodoroSettingsPage);
+    WindowScene settings = island.windowScene();
+    expect(textIn(settings, "Focus") && textIn(settings, "25 min") && textIn(settings, "5 min") && textIn(settings, "Days off"), "the plan and the days off");
+    const Placed* minus = buttonIn(settings, pomodoro_action::kFocusLess);
+    const Placed* plus = buttonIn(settings, pomodoro_action::kFocusMore);
+    expect(minus && plus && std::get<Button>(minus->item).glyph == Glyph::Minus && std::get<Button>(minus->item).secondary &&
+           minus->frame.x < plus->frame.x && minus->frame.y == plus->frame.y, "− and + around the length, grey");
+    const Placed* mon = buttonIn(settings, std::string(pomodoro_action::kToggleDayOff) + "0");
+    const Placed* sun = buttonIn(settings, std::string(pomodoro_action::kToggleDayOff) + "6");
+    expect(mon && sun && mon->frame.y == sun->frame.y && std::get<Button>(mon->item).round, "the days: seven circles in one row");
+    island.inWindow(pomodoro_action::kFocusMore);
+    island.inWindow(pomodoro_action::kFocusMore);
+    island.inWindow(pomodoro_action::kBreakLess);
+    settings = island.windowScene();
+    expect(textIn(settings, "35 min") && textIn(settings, "4 min"), "each click a step");
+    Scene onIsland = island.scene();
+    const Placed* card = find(onIsland, "expandedCenter/0/0");
+    expect(card && std::get<Text>(card->item).value == "35:00", "the card's time follows");
     expect(loadPlan(saved).focus == Ms{ 35 * 60000 } && loadPlan(saved).rest == Ms{ 4 * 60000 }, "kept in the store");
+    island.inWindow(std::string(pomodoro_action::kToggleDayOff) + "6");
+    expect(std::get<Button>(buttonIn(island.windowScene(), std::string(pomodoro_action::kToggleDayOff) + "6")->item).on == true, "Sunday off");
     expect(island.press(kStart) && island.registry.nextWake() == Ms{ 35 * 60000 }, "started: focus lasts the planned time");
+    expect(!std::get<Button>(buttonIn(island.windowScene(), pomodoro_action::kFocusMore)->item).enabled, "while it runs, the plan is dimmed");
     island.wake();
     expect(island.focus() && island.focus()->content.label == "Break" && island.registry.nextWake() == island.now + Ms{ 4 * 60000 },
            "and the break too");
     island.registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kStopConfirmed, 0 });
+
+    // The user closes it: gone; the expand button opens it again on its timer page.
+    island.registry.windowClosed({ "pomodoro", PomodoroProvider::kWindowId });
+    expect(!island.window(), "closed");
     island.send(HomeOpened{});
-    island.send(TileClicked{ PomodoroProvider::kPanelId }); // the break's alert had closed it
-    expect(!island.focus() && island.press(kStart) && island.registry.nextWake() == island.now + Ms{ 35 * 60000 },
-           "the next session uses the same lengths");
+    island.send(TileClicked{ PomodoroProvider::kPanelId });
+    expect(island.press(kExpand) && island.window(), "opened again");
+
+    // Stopping the provider closes it.
+    island.registry.stop("pomodoro");
+    expect(!island.window(), "stopping the provider closes its window");
 
     // Restarted: the plan is back.
     Island again(store);
@@ -246,7 +302,8 @@ void planTests()
 
 void runPomodoroTests()
 {
-    planTests();
+    cardTests();
+    windowTests();
     const Tokens& t = tokens();
     Island island;
     island.registry.add(std::make_unique<PomodoroProvider>());
@@ -274,6 +331,7 @@ void runPomodoroTests()
     expect(island.focus() && island.focus()->content.label == "Focus", "start: a focus phase is live");
     expect(island.registry.nextWake() == Ms{ t.pomodoroFocus }, "wakes when focus ends");
     expect(island.state.expandedId == PomodoroProvider::kPanelId, "the live card shows");
+    expect(island.press(kExpand) && island.window(), "its window, for the rest");
     island.send(PillClicked{});
     expect(island.state.expandedId == PomodoroProvider::kPanelId, "running card: a click between its controls keeps it open");
     expect(reduce(island.state, Tick{}, island.now + t.expandedIdleTimeout * 2).expandedId == PomodoroProvider::kPanelId,
@@ -307,50 +365,25 @@ void runPomodoroTests()
     Color focusRed = *island.focus()->content.accent;
     expect(ring && ring->accent == focusRed, "the ring takes the phase's accent");
 
-    // Expanded: how many phases have passed.
+    // How many phases have passed: in the window (decision 106).
     auto stepsShown = [&] {
-        island.send(PillClicked{});
-        Scene card = island.scene();
-        island.send(EscapePressed{});
-        for (const Placed& p : card.elements)
-            if (auto* steps = std::get_if<Steps>(&p.item)) return *steps;
+        if (const OpenWindow* w = island.window())
+            for (const WindowSection& section : w->content.pages[0].sections)
+                for (const Row& r : section.rows)
+                    for (const Item& item : r.items)
+                        if (auto* steps = std::get_if<Steps>(&item)) return *steps;
         return Steps{ -1, -1 };
     };
-    expect(stepsShown() == Steps{ static_cast<int>(2 * t.pomodoroRounds), 0 }, "card: a dot per phase, none done yet");
+    expect(stepsShown() == Steps{ static_cast<int>(2 * t.pomodoroRounds), 0 }, "the window: a dot per phase, none done yet");
 
-    // The card: centred, the dial (the time left in a ring filling with the phase), the dots, then the controls.
+    // The card: the time left, ticking, beside the ring filling with the phase.
     island.send(PillClicked{});
     Scene card = island.scene();
     island.send(EscapePressed{});
-    auto at = [&](const std::string& key) -> const Placed* {
-        for (const Placed& p : card.elements)
-            if (p.key == key) return &p;
-        return nullptr;
-    };
-    const Placed* bigTimer = at("expandedCenter/1/0");
-    const Placed* dots = at("expandedCenter/2/0");
-    const Placed* caption = at("expandedCenter/3/0");
-    const Placed* pauseButton = at(kPause);
-    const Placed* field = nullptr;
-    for (const Placed& p : card.elements)
-        if (std::holds_alternative<TextInput>(p.item)) field = &p;
-    expect(bigTimer && std::holds_alternative<Dial>(bigTimer->item) && std::get<Dial>(bigTimer->item).label == "Focus" &&
-           std::get<Dial>(bigTimer->item).shown == "25:00" && bigTimer->ticking, "card: the dial, the phase in it, ticking");
-    expect(dots && dots->frame.y >= bigTimer->frame.y + bigTimer->frame.height, "the dots under it");
-    expect(pauseButton && std::holds_alternative<Button>(pauseButton->item) && caption &&
-           pauseButton->frame.y > caption->frame.y + caption->frame.height - 1, "the controls below the dots and what they mean");
-    expect(pauseButton && field && field->frame.y > pauseButton->frame.y + pauseButton->frame.height - 1, "and above the to-dos");
-    expect(std::abs(bigTimer->frame.x + bigTimer->frame.width / 2 - card.size.x / 2) < 0.51f, "the countdown centred");
-    expect(dots && std::abs(dots->frame.x + dots->frame.width / 2 - card.size.x / 2) < 0.51f && dots->frame.y > bigTimer->frame.y,
-           "the dots centred, below");
-    // The card grows to fit its rows (the to-do list); content stays under the tab strip, if any (decision 047).
-    float contentTop = card.tabs ? card.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap : t.expandedPadding;
-    for (const Placed& p : card.elements) {
-        expect(!std::holds_alternative<Progress>(p.item), "no bar or loose ring in the card, the dial has it: " + p.key);
-        if (p.key.rfind("tab/", 0) != 0)
-            expect(p.frame.y >= contentTop - 0.01f && p.frame.y + p.frame.height <= card.size.y - t.expandedPadding + 0.01f, "fits the card: " + p.key);
-    }
-    expect(card.size.y <= t.canvas.y, "and the card fits the canvas");
+    const Placed* bigTimer = find(card, "expandedCenter/0/0");
+    const Placed* cardRing = find(card, "expandedLeading/0/0");
+    expect(bigTimer && std::get<Text>(bigTimer->item).value == "25:00" && bigTimer->ticking, "card: the time left, ticking");
+    expect(cardRing && cardRing->accent == focusRed && cardRing->frame.x < bigTimer->frame.x, "the ring beside it, in the phase's colour");
 
     // A phase ends: alert, next phase.
     island.send(EscapePressed{});

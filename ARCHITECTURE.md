@@ -54,7 +54,7 @@ src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interacti
                 per content item), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts) + tap_hook (double-tap shortcuts, decision 079), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules and the media widget, SMTC provider for real Windows media),
-                pomodoro/ (the first panel), search/ (the search card: apps, Settings, files; decisions 077, 079), service_host (Cup Island's service: setup, updates and providers' calls, decisions 076, 078), system/ (Home's theme and Settings widgets:
+                pomodoro/ (the first panel: a timer card, the rest in its window, decision 106), search/ (the search card: apps, Settings, files; decisions 077, 079), service_host (Cup Island's service: setup, updates and providers' calls, decisions 076, 078), system/ (Home's theme and Settings widgets:
                 app themes, display, Start with Windows, Copy logs), update/ (updates from GitHub
                 Releases: versions and offers, pure; github.cpp fetches and installs, decision 036)
 src/indexer/    the file index's logic (decision 075), pure: USN records from raw bytes, the index by MFT record,
@@ -147,7 +147,7 @@ core (`core/text_edit`, decision 043). A live field (`TextInput::changeAction`,
 decision 079) reports every edit, not just Enter; a card that is its field
 (`Content::fieldFirst`) has it focused whenever it's shown, and closes with
 one Esc. A provider may close its own card when it's done (`Host::closeCard`).
-`providers/pomodoro/` is the reference panel.
+`providers/pomodoro/` is the reference panel, and the reference for a card with a window of its own (decision 106).
 
 Providers decide *what* goes where (items, rows, order, alignment, which
 card preset and text style); the host decides *how it looks* (every size,
@@ -224,7 +224,7 @@ over the file's, so `tokens()` is always what's on screen.
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing), `list_card_tests.cpp` (Settings' List card), `group_tests.cpp` (grouped rows), `badge_tests.cpp` (notification dots),
   `home_tests.cpp` (tiles, Home tab, idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop), `pomodoro_stats_tests.cpp` (statistics, days off),
-  `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install), `window_tests.cpp` (where a window opens; the registry between providers and their windows), `window_field_tests.cpp` (typing in a window, decision 105).**
+  `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end, on a fixture card: `todo_card_fixture.h`), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install), `window_tests.cpp` (where a window opens; the registry between providers and their windows), `window_field_tests.cpp` (typing in a window, decision 105).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
 
@@ -267,6 +267,7 @@ over the file's, so `tokens()` is always what's on screen.
 | Widgets: one per provider, information only, media always on Home (decision 019) | done; rules tested, visuals need Windows |
 | Theme toggle widget | presenter tested; the Windows reader needs Windows |
 | Pomodoro (first panel): focus rounds, breaks, pause/skip/stop, ring, phase dots | done, tested |
+| Pomodoro's window (decision 106): the card a timer at media's size with an expand button; the timer, today, to-dos, statistics and settings in a window, questions asked in place | core and provider tested; the window on Windows needs a run |
 | Progress ring, Steps, accent colour (decision 010) | done; rules tested, drawing needs Windows |
 | Text input (typing, paste) and Pomodoro's to-do list (decision 016) | done; rules tested, typing and drawing need Windows |
 | Release: no-console exe, static C++ runtime, tray icon with Exit, Inno Setup installer (decision 011) | done; needs a Windows build to verify |
