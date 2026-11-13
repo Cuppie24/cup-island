@@ -346,7 +346,7 @@ void glassTests()
     without.stop();
 }
 
-// The theme page in its window at the app's real scale (islandScale 0.85):
+// The theme page in its window at the app's real scale (islandScale 0.85, decision 105):
 // Lagoon's piece of the Dark group ended at 243.5, Ember's began at
 // 243.49998, and whole pixels apart they overlapped: a line across the group.
 void groupPiecesMeet()

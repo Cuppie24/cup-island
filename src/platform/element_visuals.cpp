@@ -16,10 +16,10 @@ namespace {
 
 // Pixel snapping (decision 024): sizes up to whole pixels, positions to the nearest one.
 Vec2 pixelSize(Vec2 size) { return { std::ceil(size.x), std::ceil(size.y) }; }
-// Snapped as sizeOf's edges are (snapEdge): rounded straight here while the
-// size was snapped there, an edge at 243.49998 put the visual at 243 and
-// sized it from 244, a pixel short: a dark gap under a group's row, a light
-// overlap above it.
+// Snapped as sizeOf's edges are (snapEdge, decision 105): rounded straight
+// here while the size was snapped there, an edge at 243.49998 put the
+// visual at 243 and sized it from 244, a pixel short: a dark gap under a
+// group's row, a light overlap above it.
 wfn::float3 pixelOffset(float x, float y) { return { snapEdge(x), snapEdge(y), 0.0f }; }
 
 // Its size in whole pixels, from both of its edges rounded, as its offset is

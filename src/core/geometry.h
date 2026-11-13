@@ -22,11 +22,13 @@ struct Rect {
 
 // On whole pixels, each edge to the nearest: what's drawn there (a button,
 // the row behind it) keeps its centre, and things snapped alike line up (decision 071).
-// An edge to its whole pixel. First to the nearest 1/64 px: two edges meant
-// to meet but computed two ways (one row's top plus its height, the next
-// row's top) differ by float noise, 243.49998 against 243.5 at
-// islandScale's fractions, and rounded straight to different pixels: two
-// pieces of a group's background overlapped by one, a line across it.
+// An edge to its whole pixel (decision 105). First to the nearest 1/64 px:
+// two edges meant to meet but computed two ways (one row's top plus its
+// height, the next row's top) differ by float noise, 243.49998 against
+// 243.5 at islandScale's fractions, and rounded straight to different
+// pixels: two pieces of a group's background overlapped by one, a line
+// across it. Every edge put on a whole pixel goes through this, places
+// and sizes alike, never std::round on its own.
 inline float snapEdge(float v) { return std::round(std::round(v * 64.0f) / 64.0f); }
 
 inline Rect snapToPixels(Rect r)
