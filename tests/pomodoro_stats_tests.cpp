@@ -3,6 +3,7 @@
 
 #include "core/layout.h"
 #include "core/tokens.h"
+#include "core/window_layout.h"
 #include "expect.h"
 #include "providers/pomodoro/pomodoro_provider.h"
 #include "providers/provider_registry.h"
@@ -111,6 +112,7 @@ struct Timer {
     {
         registry.add(std::make_unique<PomodoroProvider>(debug));
         registry.start("pomodoro");
+        act(pomodoro_action::kOpenWindow); // its window, where today and the statistics are (decision 106)
     }
 
     void record(const Event& e)
@@ -142,60 +144,81 @@ struct Timer {
     }
     PomodoroStats stats() { return loadStats(store[PomodoroProvider::kStatsKey]); }
     PomodoroDay today() { return countsOf(stats(), localDay(wall, Ms{ 0 })); }
-    // The card's rows' first texts, top to bottom.
-    std::vector<std::string> card(const Content& c)
+    // Its window (decision 106), open from the start.
+    void inWindow(const std::string& action) { registry.route({ "pomodoro", "", action, 0, "", PomodoroProvider::kWindowId }); }
+    const WindowPage* page(const char* id)
     {
-        std::vector<std::string> texts;
-        for (const Row& r : c.expandedCenter)
-            texts.push_back(!r.items.empty() && std::holds_alternative<Text>(r.items[0]) ? std::get<Text>(r.items[0]).value : "");
-        return texts;
+        const OpenWindow* w = findWindow(registry.windows(), { "pomodoro", PomodoroProvider::kWindowId });
+        if (!w) return nullptr;
+        for (const WindowPage& p : w->content.pages)
+            if (p.id == id) return &p;
+        return nullptr;
     }
-    // Items as words: texts, "[Record]" for a tag, "fire" for the icon.
+    // Items as words: texts (a name, " · " and its description), "[Record]" for a tag, "fire" for the icon.
     static std::string words(const std::vector<Item>& items)
     {
         std::string out;
-        for (const Item& item : items) {
+        auto add = [&](const std::string& word) {
+            if (word.empty()) return;
             if (!out.empty()) out += " ";
-            if (auto* text = std::get_if<Text>(&item)) out += text->value;
-            if (auto* tag = std::get_if<Tag>(&item)) out += "[" + tag->text + "]";
-            if (auto* icon = std::get_if<Icon>(&item)) out += icon->glyph == Glyph::Fire ? "fire" : "icon";
-            if (auto* button = std::get_if<Button>(&item)) out += button->label;
+            out += word;
+        };
+        for (const Item& item : items) {
+            if (auto* text = std::get_if<Text>(&item)) add(text->value + (text->detail.empty() ? "" : " · " + text->detail));
+            if (auto* tag = std::get_if<Tag>(&item)) add("[" + tag->text + "]");
+            if (auto* icon = std::get_if<Icon>(&item)) add(icon->glyph == Glyph::Fire ? "fire" : "icon");
+            if (auto* button = std::get_if<Button>(&item)) add(button->label);
         }
         return out;
     }
-    // Today's line under ▶ as words: quiet texts, centred as one (Row::hug).
+    // A page as lines: each section's title, then its rows as words.
+    std::vector<std::string> lines(const char* id)
+    {
+        std::vector<std::string> out;
+        if (const WindowPage* p = page(id))
+            for (const WindowSection& section : p->sections) {
+                if (!section.title.empty()) out.push_back(section.title);
+                for (const Row& r : section.rows) out.push_back(words(r.items));
+            }
+        return out;
+    }
+    const WindowSection* section(const char* pageId, const std::string& title)
+    {
+        if (const WindowPage* p = page(pageId))
+            for (const WindowSection& s : p->sections)
+                if (s.title == title) return &s;
+        return nullptr;
+    }
+    // The timer page's Today: cycles and focus time, then days in a row (a fire after it from three on).
     std::string line()
     {
-        for (const Row& r : panels.back().content.expandedCenter)
-            if (r.hug) return words(r.items);
-        return "";
+        const WindowSection* today = section(kPomodoroTimerPage, "Today");
+        return today && !today->rows.empty() ? words(today->rows[0].items) : "";
     }
-    // The top-left corner: days in a row.
-    std::string corner() { return words(panels.back().content.expandedCenter[0].leading); } // the corners' row
-    // The statistics page's rows, opened from the card and closed again.
-    std::vector<std::string> statsPage()
+    std::string corner()
     {
-        act(pomodoro_action::kOpenStats);
-        std::vector<std::string> rows;
-        for (const Row& r : panels.back().content.expandedCenter) rows.push_back(words(r.items));
-        act(pomodoro_action::kBack);
-        return rows;
+        const WindowSection* today = section(kPomodoroTimerPage, "Today");
+        if (!today || today->rows.size() < 2) return "";
+        std::string fire = words(today->rows[1].trailing);
+        return (fire.empty() ? "" : fire + " ") + words(today->rows[1].items);
     }
+    std::vector<std::string> statsPage() { return lines(kPomodoroStatsPage); }
     // The statistics page's table rows as words: today's values, what they are (or "[Record]"), the records.
-    std::string today3() { return statsPage()[2]; }
-    std::string todayCaptions() { return statsPage()[3]; }
-    std::string records() { return statsPage()[6]; }
+    std::string today3() { return statsPage()[1]; }
+    std::string todayCaptions() { return statsPage()[2]; }
+    std::string records() { return statsPage()[4]; }
 };
 
 void providerTests()
 {
     const Tokens& t = tokens();
     Timer timer;
-    expect(timer.line() == "0 cycles · 0 min" && timer.corner().empty(), "a first run: today's values, no days in a row shown");
+    expect(timer.line() == "0 cycles · 0 min of focus" && timer.corner().empty(), "a first run: today's values, no days in a row shown");
     auto first = timer.statsPage();
-    expect(first.size() == 9 && first[8] == "Reset statistics" && first[0] == "Statistics" && first[1] == "Today" && first[2] == "0 0m 0" &&
-           first[3] == "cycles focus time days in a row" && first[4].empty() && first[5] == "🏆 Personal records" && first[6] == "0 0m 0 days" &&
-           first[7] == "most cycles best focus day best streak", "the statistics page: today, a line, the records (each a value over its caption), then Reset");
+    expect(first.size() == 7 && first[0] == "Today" && first[1] == "0 0m 0" && first[2] == "cycles focus time days in a row" &&
+           first[3] == "🏆 Personal records" && first[4] == "0 0m 0 days" && first[5] == "most cycles best focus day best streak" &&
+           first[6] == "Reset statistics · Every day before today is cleared.",
+           "the statistics page: today, the records (each a value over its caption), then Reset");
 
     timer.session();
     PomodoroDay day = timer.today();
@@ -204,7 +227,7 @@ void providerTests()
     expect(day.focus == static_cast<long long>(t.pomodoroRounds) * t.pomodoroFocus, "and the focus time");
     expect(!timer.alerts.empty() && timer.alerts.back().content.label == "Session done" &&
            std::get<Text>(timer.alerts.back().content.alertCenter[1].items[0]).value == "1 finished today", "the last alert says how many today");
-    expect(timer.line() == "1 cycle · 1 h 40 min" && timer.corner() == "1 day in a row", "the card: today's values, the run in the corner");
+    expect(timer.line() == "1 cycle · 1 h 40 min of focus" && timer.corner() == "1 day in a row", "today: its values, the run");
     expect(timer.today3() == "1 1h 40m 1" && timer.todayCaptions() == "[Record] [Record] [Record]" && timer.records() == "1 1h 40m 1 day",
            "the page: records tagged, and the new records below");
 
@@ -233,15 +256,12 @@ void providerTests()
     timer.act(toggle);
     expect(timer.today().todosDone == 0, "unticked: taken back");
 
-    // The next day: today starts over; the card follows once it's shown again.
+    // The next day: today starts over; the window follows once the card is shown again.
     timer.pass(Ms{ kDay });
     timer.registry.cardShown({ "pomodoro", PomodoroProvider::kPanelId });
-    expect(timer.line() == "0 cycles · 0 min" && timer.corner() == "1 day in a row", "a new day: none today yet, the run still on");
+    expect(timer.line() == "0 cycles · 0 min of focus" && timer.corner() == "1 day in a row", "a new day: none today yet, the run still on");
     expect(timer.today3().rfind("0 0m", 0) == 0 && timer.records().rfind("2 ", 0) == 0 && timer.todayCaptions() == "cycles focus time [Record]",
            "yesterday's 2 is the best; the run of 1 is still a record");
-    std::size_t published = timer.panels.size();
-    timer.registry.cardShown({ "pomodoro", PomodoroProvider::kPanelId });
-    expect(timer.panels.size() == published, "shown again the same day: nothing to change");
     timer.session();
     expect(timer.corner() == "2 days in a row" && timer.today3().rfind("1 ", 0) == 0 && timer.todayCaptions() == "cycles focus time [Record]",
            "two days in a row: a record; 1 today isn't");
@@ -250,7 +270,7 @@ void providerTests()
     timer.pass(Ms{ 2 * kDay });
     timer.registry.cardShown({ "pomodoro", PomodoroProvider::kPanelId });
     expect(timer.corner().empty() && timer.today3() == "0 0m 0" && timer.records().find("2 days") != std::string::npos,
-           "a day missed: nothing in the corner, best 2");
+           "a day missed: no run shown, best 2");
     for (int day = 0; day < 3; ++day) {
         timer.session();
         if (day < 2) timer.pass(Ms{ kDay });
@@ -259,35 +279,39 @@ void providerTests()
            "three days: a fire, and a record");
 }
 
-// The card as laid out: the corner's count beside the big time, which stays
-// centred on the card; the statistics page narrower than the card.
+// The statistics as laid out in the window: tables of equal columns, each value over its caption.
+// And a page within a card keeps the card's height (Content::sizedLike, decision 070).
 void layoutTests()
 {
     const Tokens& t = tokens();
+    Timer timer;
+    timer.registry.windowPageShown({ "pomodoro", PomodoroProvider::kWindowId }, kPomodoroStatsPage);
+    WindowScene page = windowLayout(*findWindow(timer.registry.windows(), { "pomodoro", PomodoroProvider::kWindowId }), { 1000, 900 }, 0, Ms{ 0 });
+    std::vector<const Placed*> values, captions;
+    for (const Placed& p : page.page)
+        if (auto* text = std::get_if<Text>(&p.item)) {
+            if (text->value == "0" || text->value == "0m") values.push_back(&p);
+            if (text->value == "cycles" || text->value == "focus time") captions.push_back(&p);
+        }
+    expect(values.size() >= 3 && captions.size() == 2 && std::abs(values[0]->frame.width - values[1]->frame.width) < 0.01f &&
+           captions[0]->frame.x == values[0]->frame.x && captions[1]->frame.x == values[1]->frame.x && captions[0]->frame.y > values[0]->frame.y,
+           "equal columns: each value over its caption");
+
     auto shown = [](const Panel& panel) {
         IslandState state;
         state = reduce(state, PanelPublished{ panel }, Ms{ 0 });
         state = reduce(state, PillClicked{}, Ms{ 0 });
-        state = reduce(state, TileClicked{ PomodoroProvider::kPanelId }, Ms{ 0 });
+        state = reduce(state, TileClicked{ panel.id }, Ms{ 0 });
         return layout(state, Ms{ 0 });
     };
-    Scene card = shown(pomodoroPanel({}, defaultPlan(), { .daysInARow = 12 }));
     auto at = [](const Scene& scene, const std::string& key) -> const Placed* {
         for (const Placed& p : scene.elements)
             if (p.key == key) return &p;
         return nullptr;
     };
-    const Placed* big = at(card, "expandedCenter/1/0"); // the dial, under the corners' row
-    const Placed* fire = at(card, "expandedCenter/0/2"); // the corners: trailing (the chart, the gear), then leading
-    const Placed* days = at(card, "expandedCenter/0/3");
-    expect(fire && days && std::get<Icon>(fire->item).glyph == Glyph::Fire && std::get<Text>(days->item).value == "12 days in a row" &&
-           fire->frame.x < days->frame.x && fire->frame.x < t.expandedPadding + 1, "the fire, then the count, in the top-left corner");
-    expect(big && days && days->frame.y + days->frame.height <= big->frame.y && days->frame.width > 20, "the count at its width, above the dial");
-    expect(big && std::abs(big->frame.x + big->frame.width / 2 - card.size.x / 2) < 0.51f, "the dial centred on the card");
-
-    // A page keeps its card's height (Content::sizedLike) and, from the top, scrolls what doesn't fit (decision 070).
-    Panel tall = pomodoroPanel();
-    Scene timerCard = shown(tall);
+    Panel tall{ .id = "tall", .content = { .label = "Tall", .card = CardLayout::Centred, .tile = { row({ Text{ "Tall" } }) } } };
+    for (int i = 0; i < 6; ++i) tall.content.expandedCenter.push_back(row({ Text{ "line " + std::to_string(i), TextStyle::Title } }));
+    Scene main = shown(tall);
     tall.content.sizedLike = tall.content.expandedCenter;
     tall.content.pageAtTop = true;
     tall.content.expandedCenter = { row({ Text{ "Title" } }) };
@@ -300,27 +324,10 @@ void layoutTests()
     Scene paged = shown(tall);
     const Placed* firstRow = at(paged, "expandedCenter/1/0");
     float contentTop = paged.tabs ? paged.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap : t.expandedPadding;
-    expect(paged.size.y == timerCard.size.y, "a page: the card's height, not its own");
+    expect(paged.size.y == main.size.y, "a page: the card's height, not its own");
     expect(firstRow && firstRow->list && firstRow->list->max > 0 &&
            std::abs(firstRow->list->viewport.y + firstRow->list->viewport.height - (paged.size.y - t.expandedPadding)) < 0.51f &&
            at(paged, "expandedCenter/0/0")->frame.y < contentTop + 1, "from the top, its list filling the rest, scrolling");
-
-    Panel stats = pomodoroPanel();
-    stats.content = withStatsPage(stats.content, { .finishedToday = 2, .bestDay = 4 });
-    Scene page = shown(stats);
-    const Placed* first = at(page, "expandedCenter/2/0");
-    const Placed* third = at(page, "expandedCenter/2/2");
-    const Placed* firstCaption = at(page, "expandedCenter/3/0");
-    const Placed* thirdCaption = at(page, "expandedCenter/3/2");
-    const Placed* line = at(page, "expandedCenter/4/0");
-    expect(first && third && third->frame.x + third->frame.width - first->frame.x <= t.narrowRowWidth + 0.01f &&
-           std::abs((first->frame.x + third->frame.x + third->frame.width) / 2 - page.size.x / 2) < 1.0f,
-           "the statistics: a table narrowRowWidth wide, in the middle");
-    expect(first && third && firstCaption && thirdCaption && std::abs(first->frame.width - third->frame.width) < 0.01f &&
-           firstCaption->frame.x == first->frame.x && thirdCaption->frame.x == third->frame.x && firstCaption->frame.y > first->frame.y,
-           "equal columns: each value over its caption");
-    expect(line && std::holds_alternative<Divider>(line->item) && line->frame.height == t.dividerThickness &&
-           std::abs(line->frame.width - (third->frame.x + third->frame.width - first->frame.x)) < 0.01f, "a line across under today");
 }
 
 // Reset statistics (decision 071): asks first; confirmed, every day but today goes.
@@ -339,26 +346,36 @@ void resetTests()
     PomodoroStats left = timer.stats();
     expect(left.days.size() == 1 && left.days[0].day == localDay(timer.wall, Ms{ 0 }) && left.days[0].finished == 2,
            "confirmed: only today stays, its count whole");
-    expect(timer.statsPage()[6] == "2 3h 20m 1 day", "the records start over from today");
+    expect(timer.records() == "2 3h 20m 1 day", "the records start over from today");
+
+    // In the window it asks in place: Cancel keeps everything, Reset clears.
+    timer.pass(Ms{ kDay });
+    timer.session();
+    timer.inWindow(pomodoro_action::kResetStats);
+    auto asking = timer.statsPage();
+    expect(timer.asked.size() == 1 && asking.back() == "Cancel Reset" && asking[asking.size() - 3] == "Reset statistics?", "the window asks in place");
+    timer.inWindow(pomodoro_action::kCancel);
+    expect(timer.stats().days.size() == 2 && timer.statsPage().back().rfind("Reset statistics", 0) == 0, "cancelled: nothing cleared");
+    timer.inWindow(pomodoro_action::kResetStats);
+    timer.inWindow(pomodoro_action::kResetStatsConfirmed);
+    expect(timer.stats().days.size() == 1 && timer.statsPage().back().rfind("Reset statistics", 0) == 0, "confirmed: cleared, the question gone");
 }
 
 // Debug builds: the settings page's row steps through made-up histories, never saved.
 void fakeStatsTests()
 {
     Timer plain;
-    plain.act(pomodoro_action::kOpenSettings);
-    expect(plain.card(plain.panels.back().content).back() != "Fake statistics", "Release: no debug row");
-    std::size_t published = plain.panels.size();
-    plain.act(pomodoro_action::kFakeStats);
-    expect(plain.panels.size() == published, "and its action does nothing");
+    expect(plain.lines(kPomodoroSettingsPage).back() != "Debug" && !plain.section(kPomodoroSettingsPage, "Debug"), "Release: no debug row");
+    std::string before = plain.store[PomodoroProvider::kStatsKey];
+    auto shown = plain.statsPage();
+    plain.inWindow(pomodoro_action::kFakeStats);
+    expect(plain.statsPage() == shown, "and its action does nothing");
 
     Timer timer(/* debug */ true);
     timer.session();
     std::string real = timer.store[PomodoroProvider::kStatsKey];
-    timer.act(pomodoro_action::kOpenSettings);
-    expect(timer.card(timer.panels.back().content).back() == "Fake statistics", "Debug: a Fake statistics row");
-    timer.act(pomodoro_action::kFakeStats);
-    timer.act(pomodoro_action::kBack);
+    expect(timer.lines(kPomodoroSettingsPage).back() == "Fake statistics · Real", "Debug: a Fake statistics row");
+    timer.inWindow(pomodoro_action::kFakeStats);
     expect(timer.corner() == "fire 3 days in a row" && timer.today3() == "2 3h 20m 🔥 3" && timer.todayCaptions() == "cycles focus time days in a row" &&
            timer.records() == "4 6h 40m 5 days", "fake 1: records to beat, a fire");
     timer.act(pomodoro_action::kFakeStats);
@@ -367,48 +384,34 @@ void fakeStatsTests()
     timer.session();
     expect(timer.store[PomodoroProvider::kStatsKey] == real, "made up: never saved");
     timer.act(pomodoro_action::kFakeStats);
-    expect(timer.line() == "1 cycle · 1 h 40 min", "the third click: the real statistics again");
+    expect(timer.line() == "1 cycle · 1 h 40 min of focus", "the third click: the real statistics again");
 }
 
+// The timer's settings, a page of its window (decisions 061, 106): the plan, then the days off.
 void settingsPageTests()
 {
     Timer timer;
-    const Content& dormant = timer.panels.back().content;
-    const Row& top = dormant.expandedCenter[0];
-    expect(top.trailing.size() == 2 && std::get<Button>(top.trailing[0]).actionId == pomodoro_action::kOpenStats &&
-           std::get<Button>(top.trailing[1]).glyph == Glyph::Settings && std::get<Button>(top.trailing[1]).actionId == pomodoro_action::kOpenSettings,
-           "the statistics, then the gear, in the card's top-right corner");
+    const Row& top = timer.panels.back().content.expandedTrailing[0];
+    expect(top.items.size() == 1 && std::get<Button>(top.items[0]).actionId == pomodoro_action::kOpenWindow,
+           "the card's corner: only the expand button");
+    auto texts = timer.lines(kPomodoroSettingsPage);
+    const WindowSection* off = timer.section(kPomodoroSettingsPage, "Days off");
+    expect(texts.size() == 6 && texts[0] == "Plan" && texts[1].rfind("Focus", 0) == 0 && texts[2].rfind("Break", 0) == 0 && texts[3] == "Days off" &&
+           off && off->rows[0].items.size() == 7, "the page: the plan, then one row of seven round days");
+    auto day = [&](std::size_t i) { return std::get<Button>(timer.section(kPomodoroSettingsPage, "Days off")->rows[0].items[i]); };
+    expect(day(0).label == "Mo" && day(6).label == "Su" && day(0).round && day(0).on == false, "Monday first, none off");
 
-    timer.act(pomodoro_action::kOpenSettings);
-    Content page = timer.panels.back().content;
-    auto texts = timer.card(page);
-    const Row& days = page.expandedCenter[4];
-    auto day = [&](const Row& r, std::size_t i) { return std::get<Button>(r.items[i]); };
-    expect(texts.size() == 6 && texts[0] == "Timer settings" && texts[1] == "Focus" && texts[2] == "Break" && texts[3] == "Days off" && days.items.size() == 7 &&
-           day(days, 0).label == "Mo" && day(days, 6).label == "Su" && day(days, 0).round && day(days, 0).on == false,
-           "the page: a title, the plan, then one row of seven round days, Monday first, none off");
-    expect(page.backAction == pomodoro_action::kBack && std::get<Button>(page.expandedCenter[0].leading[0]).actionId == pomodoro_action::kBack,
-           "a back arrow; Esc goes back too");
-    expect(!page.tile.empty(), "the widget stays as it was");
-
-    timer.act(std::string(pomodoro_action::kToggleDayOff) + "5");
-    page = timer.panels.back().content;
-    expect(day(page.expandedCenter[4], 5).on == true && day(page.expandedCenter[4], 4).on == false, "Saturday off: lit");
+    timer.inWindow(std::string(pomodoro_action::kToggleDayOff) + "5");
+    expect(day(5).on == true && day(4).on == false, "Saturday off: lit");
     expect(loadDaysOff(timer.store[PomodoroProvider::kDaysOffKey])[5], "kept in the store");
-    timer.act(std::string(pomodoro_action::kToggleDayOff) + "9");
-    expect(timer.panels.back().content == page, "no such day: nothing changes");
+    auto before = timer.lines(kPomodoroSettingsPage);
+    timer.inWindow(std::string(pomodoro_action::kToggleDayOff) + "9");
+    expect(timer.lines(kPomodoroSettingsPage) == before, "no such day: nothing changes");
 
-    timer.act(pomodoro_action::kBack);
-    const Row& timerRow = timer.panels.back().content.expandedCenter[1]; // under the corners
-    expect(!timerRow.items.empty() && std::holds_alternative<Dial>(timerRow.items[0]), "back: the timer");
-
-    // Running: the gear opens the same page over the session; closing the card leaves it.
+    // Running: the plan says it waits; the − and + are dimmed.
     timer.act(pomodoro_action::kStart);
-    timer.act(pomodoro_action::kOpenSettings);
-    expect(timer.card(timer.live.back().content)[0] == "Timer settings" && !timer.live.back().content.compactCenter.empty(),
-           "running: the page on the card, compact as it was");
-    timer.registry.cardClosed({ "pomodoro", PomodoroProvider::kPanelId });
-    expect(timer.card(timer.live.back().content)[0] != "Timer settings", "closed: it opens on the timer next time");
+    const WindowSection* plan = timer.page(kPomodoroSettingsPage) ? &timer.page(kPomodoroSettingsPage)->sections[0] : nullptr;
+    expect(plan && plan->title.rfind("Plan · ", 0) == 0 && !std::get<Button>(plan->rows[0].trailing[0]).enabled, "running: the plan dimmed, and says why");
 }
 
 } // namespace

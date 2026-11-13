@@ -74,6 +74,7 @@ add_library(cup_providers STATIC
     src/providers/media/session_choice.cpp
     src/providers/media/tab_match.cpp
     src/providers/pomodoro/pomodoro_card.cpp
+    src/providers/pomodoro/pomodoro_window.cpp
     src/providers/pomodoro/pomodoro_provider.cpp
     src/providers/pomodoro/pomodoro_session.cpp
     src/providers/pomodoro/pomodoro_stats.cpp

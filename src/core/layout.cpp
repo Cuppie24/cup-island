@@ -180,7 +180,7 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     if (scene.mode == Mode::Expanded && source.content && source.content->card == CardLayout::Search)
         scene.size.x = std::min(tokens().searchCardWidth, tokens().canvas.x); // search: wider (decision 079)
     else if (scene.mode == Mode::Expanded && source.content && source.content->wideCard)
-        scene.size.x = std::min(tokens().wideCardWidth, tokens().canvas.x); // the timer: wider (decision 085)
+        scene.size.x = std::min(tokens().wideCardWidth, tokens().canvas.x); // a card that asks: wider (decision 085)
     if (scene.mode == Mode::Expanded && source.content && stacked(*source.content)) {
         scene.size.y = centredCardHeight(source, scene.size, tokens().canvas.y - tabSpace, measureText);
     } else if (scene.mode == Mode::Expanded && source.content) {
