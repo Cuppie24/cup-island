@@ -1,8 +1,10 @@
 // A provider's window's messages (decision 104): its frame (ours, all of
-// it), the pointer, keys and closing, each reported to the app. Split out of
+// it), the pointer, keys, typed text (decision 105) and closing, each reported to the app. Split out of
 // provider_window.cpp, which draws it.
 
 #include "platform/provider_window.h"
+#include "platform/element_painting.h"
+#include "platform/field_painting.h"
 #include "platform/log.h"
 
 #include <dwmapi.h>
@@ -136,6 +138,9 @@ LRESULT ProviderWindow::handle(UINT message, WPARAM wParam, LPARAM lParam)
     case WM_KEYDOWN:
         call(callbacks_.onKeyDown, wParam);
         return 0;
+    case WM_CHAR:
+        call(callbacks_.onChar, static_cast<wchar_t>(wParam));
+        return 0;
     case WM_SYSKEYDOWN:
         if (wParam == VK_F4) { // Alt+F4: closed by the app, as glass leaves no system menu to send it
             call(callbacks_.onCloseRequested);
@@ -165,6 +170,16 @@ LRESULT ProviderWindow::handle(UINT message, WPARAM wParam, LPARAM lParam)
         break;
     }
     return DefWindowProcW(hwnd_, message, wParam, lParam);
+}
+
+std::size_t ProviderWindow::caretAt(const Placed& field, Vec2 point) const
+{
+    if (!device_ || !device_->dwrite()) return 0;
+    Vec2 size{ field.frame.width, field.frame.height };
+    Vec2 local{ point.x - field.frame.x, point.y - field.frame.y }; // drawn from the frame's corner, as on the island
+    if (auto* input = std::get_if<TextInput>(&field.item)) return platform::caretAt(device_->dwrite(), *input, size, local);
+    if (auto* text = std::get_if<Text>(&field.item)) return platform::caretAt(device_->dwrite(), *text, size, local);
+    return 0;
 }
 
 } // namespace cup::platform

@@ -4,6 +4,7 @@
 #include "core/groups.h"
 #include "core/slot_layout.h"
 #include "core/tokens.h"
+#include "core/window_fields.h"
 
 #include <algorithm>
 #include <cmath>
@@ -30,7 +31,7 @@ Placed placedButton(const std::string& key, Glyph glyph, const char* action, Rec
 
 } // namespace
 
-WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, const MeasureText& measure)
+WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, const MeasureText& measure, const WindowTyping* typing)
 {
     const Tokens& t = tokens();
     WindowScene s;
@@ -87,6 +88,12 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
     // slot, laid out like a List card's, from the top.
     const WindowPage* page = shownPage(w);
     if (!page) return s;
+    // Its fields, as a card's (decision 105): a draft names the window as its card.
+    Source fields{ .providerId = w.key.providerId, .activityId = w.key.windowId };
+    if (typing) {
+        fields.draft = typing->draft ? &*typing->draft : nullptr;
+        fields.keptText = &typing->kept;
+    }
     s.backAction = page->backAction;
     Slot rows;
     Row title{ .items = { Text{ .value = page->title, .style = TextStyle::PageTitle } } };
@@ -103,8 +110,8 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
     }
     float width = std::max(0.0f, std::min(t.windowPageMaxWidth, s.pane.width - 2 * t.windowPagePadding.x));
     Rect frame{ t.windowPagePadding.x, t.windowPagePadding.y, width, 0 };
-    frame.height = slotHeight(rows, frame, source, measure);
-    placeSlot({ "page", &rows, frame }, source, t.windowNavRadius, now, s.page, measure);
+    frame.height = slotHeight(rows, frame, fields, measure);
+    placeSlot({ "page", &rows, frame }, fields, t.windowNavRadius, now, s.page, measure);
     // A button's dot (a setting with something new inside, decision 048), where the island puts one.
     Scene dots;
     dots.size = { s.pane.width, frame.y + frame.height };

@@ -40,6 +40,7 @@ void runServiceHostTests();
 void runDoubleTapTests();
 void runSearchTests();
 void runWindowTests();
+void runWindowFieldTests();
 void runMenuTests();
 int runScenarioFile(const std::filesystem::path& file); // returns scenarios run
 }
@@ -80,6 +81,7 @@ int main(int argc, char** argv)
     runDoubleTapTests();
     runSearchTests();
     runWindowTests();
+    runWindowFieldTests();
     runMenuTests();
 
     fs::path dir = argc > 1 ? fs::path(argv[1]) : fs::path(CUP_SCENARIO_DIR);
