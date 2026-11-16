@@ -37,10 +37,11 @@ void animate(wuc::Compositor const& c, wuc::SpriteVisual const& visual, bool sho
     Ms duration = atLeast1(t.reducedMotion ? t.hoverFadeDuration : t.collapseGlowDuration);
     auto ease = c.CreateCubicBezierEasingFunction(toFloat2(t.morphEase.c1), toFloat2(t.morphEase.c2));
     float spread = std::clamp(t.collapseGlowSpread, 0.0f, 1.0f);
-    wfn::float3 small{ spread, spread, 1.0f }, full{ 1.0f, 1.0f, 1.0f };
+    // (Not named `small`: the Windows SDK's rpcndr.h has `#define small char`.)
+    wfn::float3 sliver{ spread, spread, 1.0f }, whole{ 1.0f, 1.0f, 1.0f };
     if (!t.reducedMotion) {
         auto scale = c.CreateVector3KeyFrameAnimation();
-        scale.InsertKeyFrame(1.0f, shown ? full : small, ease); // from wherever it is: a quick in-and-out carries on smoothly
+        scale.InsertKeyFrame(1.0f, shown ? whole : sliver, ease); // from wherever it is: a quick in-and-out carries on smoothly
         scale.Duration(duration);
         visual.StartAnimation(L"Scale", scale);
     }
