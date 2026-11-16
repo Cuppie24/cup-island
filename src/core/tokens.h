@@ -113,7 +113,7 @@ struct Tokens {
     // WindowPage::cards (decision 117): one width, so a resize moves cards and never repaints them.
     float windowCardWidth = 340;
     float windowCardGap = 16; // between cards, across and down
-    float expandedArtSize = 120; // expanded leading square: the cover, filling the card's shared height with its controls (decisions 094, 107)
+    float expandedArtSize = 108; // expanded leading square: the cover, filling the card's shared height with its controls (decisions 094, 107, 119)
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;
     float itemSpacing = 8;
@@ -122,10 +122,10 @@ struct Tokens {
     float bodyFontSize = 15;
     float captionFontSize = 13; // the smallest text: ~11 px on screen at 100% after islandScale
     float displayFontSize = 48; // TextStyle::Display: a timer in a dial (decision 065)
-    float tileTitleFontSize = 19; // TextStyle::TileTitle: a Home widget's first line, a little under a card's (decision 114)
-    float cardTitleFontSize = 22; // TextStyle::CardTitle: a card's main line beside its cover (media's song, decision 107)
-    float heroFontSize = 64;    // TextStyle::Hero: the one big number a card is about (Pomodoro's time, decision 107)
-    float heroLineHeight = 60;  // ...its line: digits only, no descenders, so tighter than other text's
+    float tileTitleFontSize = 17; // TextStyle::TileTitle: a Home widget's first line, a little under a card's (decision 114)
+    float cardTitleFontSize = 20; // TextStyle::CardTitle: a card's main line beside its cover (media's song, decision 107)
+    float heroFontSize = 56;    // TextStyle::Hero: the one big number a card is about (Pomodoro's time, decision 107)
+    float heroLineHeight = 52;  // ...its line: digits only, no descenders, so tighter than other text's
     float headingFontSize = 15; // TextStyle::Heading: a group's label, in the caption colour, a little over caption size (decision 090)
     float pageTitleFontSize = 26; // TextStyle::PageTitle: a window page's name (decisions 104, 112)
     // A window's own step of the ramp (decision 112): a little over the island's lists, under a card's.
@@ -152,10 +152,10 @@ struct Tokens {
     float inputFontSize = 15;   // a TextInput's text and placeholder: noticeable even when it isn't focused
     float iconSize = 18;
     float buttonSize = 36;
-    float primaryButtonSize = 56;  // Button::primary: the card's main action, a filled circle (decision 064)
+    float primaryButtonSize = 50;  // Button::primary: the card's main action, a filled circle (decision 064)
     float primaryGlyphSize = 22;
-    float compactPrimaryButtonSize = 48; // a compact primary: the main action in a row of controls (media's ▶, decision 094)
-    float compactPrimaryGlyphSize = 20;
+    float compactPrimaryButtonSize = 44; // a compact primary: the main action in a row of controls (media's ▶, decision 094)
+    float compactPrimaryGlyphSize = 18;
     float playGlyphNudge = 0.08f;  // a primary ▶ moved right by this share of its width: a triangle's optical centre (decision 071)
     Vec2 toastPadding{ 14, 6 };    // a toast: room around its text and button inside its pill (decision 071)
     // A row's menu (decision 086): drawn in islandColor, its lit item in buttonHoverColor, its lines in trackColor.
@@ -190,8 +190,8 @@ struct Tokens {
     float editInset = 6;          // editable Text is drawn this far in from its stretch, which its field fills when edited (decision 043)
     float buttonLabelPadding = 10; // a text button: its label plus this on each side        // hover circle; the click area also takes in half the gaps around it
     float buttonGlyphSize = 16;
-    float largeButtonSize = 44;      // Button::large: a card's main controls beside its ▶ (media's skips, decision 107)
-    float largeButtonGlyphSize = 22;
+    float largeButtonSize = 40;      // Button::large: a card's main controls beside its ▶ (media's skips, decision 107)
+    float largeButtonGlyphSize = 20;
     float buttonPressScale = 0.85f;
     float progressHeight = 4;
     float progressHitHeight = 16; // taller than drawn, so it's easy to click
@@ -200,8 +200,8 @@ struct Tokens {
     float ringThickness = 3;      // progress ring stroke (decision 010)
     float stepDotSize = 9;        // Steps: one dot per step; a pill step's height
     float stepDotGap = 8;
-    float stepShortWidth = 16;    // StepLength::Short: a pill a little longer than a dot (the long break, decision 107)
-    float stepLongWidth = 34;     // StepLength::Long: a long pill (a focus)
+    float stepShortWidth = 14;    // StepLength::Short: a pill a little longer than a dot (the long break, decision 107)
+    float stepLongWidth = 30;     // StepLength::Long: a long pill (a focus)
     float stepHaloWidth = 3;      // the current step's ring of its accent, faint, around it
     float stepHaloOpacity = 0.35f;
     float badgeSize = 8;          // a notification dot (decision 038)
@@ -302,10 +302,10 @@ struct Tokens {
 
     // Home: a grid of panel tiles in the Expanded card (decision 009).
     std::size_t homeColumns = 4;  // columns' worth per Home row; a widget takes one, or two (Panel::wide); rows stretch to full width
-    float tileHeight = 68;        // fits a TileTitle and a Body line inside tilePadding (decisions 111, 114)
+    float tileHeight = 64;        // fits a TileTitle and a Body line inside tilePadding (decisions 111, 114)
     float tileGap = 10;
-    float tilePadding = 9;        // inside a tile, on every side
-    float tileIconSize = 22;      // a widget's leading icon (Icon::large, decisions 111, 114)
+    float tilePadding = 8;        // inside a tile, on every side
+    float tileIconSize = 20;      // a widget's leading icon (Icon::large, decisions 111, 114)
     float focusRingWidth = 2;     // the keyboard's focus ring (decision 033), drawn inside what has focus
 
     // Smaller transitions: the ears and corners folding, a lift sinking, a

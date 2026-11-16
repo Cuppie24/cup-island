@@ -116,7 +116,8 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
     }
     case Mode::Expanded: {
         if (stacked(c)) return { { "expandedCenter", &c.expandedCenter, stackFrame(c, size) } };
-        float art = t.expandedArtSize, y = p, centerX = p + art + t.slotGap, bottomY = y + art + t.slotGap;
+        // The bottom slot starts right under the art: its rows spread in what's left (decision 119).
+        float art = t.expandedArtSize, y = p, centerX = p + art + t.slotGap, bottomY = y + art;
         float corner = t.buttonSize, cornerX = size.x - p - corner;
         float centerRight = c.expandedTrailing.empty() ? size.x - p : cornerX - t.slotGap;
         return { { "expandedLeading", &c.expandedLeading, { p, y, art, art }, false, true },
