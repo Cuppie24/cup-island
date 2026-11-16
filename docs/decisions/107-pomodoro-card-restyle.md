@@ -54,15 +54,19 @@ ones, and the time's digits rolling as they change.
 motion would distract. A stagger between rolling digits: the minute and
 second rolling together reads as one tick.
 
-- **One height for the cards and Home**: `expandedSize.y` is 203, exactly
-  what media's card needs, and every card and Home is at least that, so
-  switching tabs between them doesn't resize the island. The timer card is
-  packed to fit it: the time's line is `heroLineHeight` (60: digits, no
-  descenders), the header's buttons and ▶/⏸ are compact (media's sizes),
-  and its rows have no group gaps. A test pins media's card to
-  `expandedSize.y` and the timer and Home to media's. Home still grows when
-  its widgets need more than two rows.
+- **One height for the cards and Home**: `expandedSize.y` is 248, room for
+  the timer card with its groups apart, and every card, Home and Settings'
+  list card (`listCardMinHeight` 240) is at least that, so switching tabs
+  doesn't resize the island. 203 (media's own need) was tried first and
+  read too short. The timer's line is `heroLineHeight` (60: digits, no
+  descenders); its header's buttons and ▶/⏸ are compact (media's sizes).
+  A Standard card's bottom rows sit at the card's bottom
+  (`SlotFrame::atBottom`): media's bar and controls keep the side margin
+  under them, the extra room goes between the cover and the bar. A test pins
+  media's card, the timer and Home to `expandedSize.y`. Home still grows
+  when its widgets need more than three rows.
 
-**Consequences.** Changing media's rows (or the tokens they use) means
-changing `expandedSize.y` with them; the test says so. The roll is Composition-only and can't be checked in a
+**Consequences.** A card whose rows need more than `expandedSize.y` grows
+and resizes the island on a tab switch again; the tests catch it for media
+and the timer. The roll is Composition-only and can't be checked in a
 Linux session (decision 008).

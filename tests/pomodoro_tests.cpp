@@ -166,7 +166,7 @@ void cardTests()
     media = reduce(media, PillClicked{}, Ms{ 0 });
     float mediaHeight = layout(media, Ms{ 0 }).size.y;
     auto cardHeight = [&](const Scene& s) { return s.size.y - (s.tabs ? tabStripSpace(island.state) : 0); };
-    expect(cardHeight(running) == mediaHeight && cardHeight(dormant) == mediaHeight,
+    expect(cardHeight(running) == mediaHeight && cardHeight(dormant) == mediaHeight && mediaHeight == t.expandedSize.y,
            "dormant and running, the media card's height (" + std::to_string(int(mediaHeight)) + ")");
     island.send(HomeOpened{});
     expect(cardHeight(island.scene()) == mediaHeight, "and Home's");

@@ -45,8 +45,8 @@ void runListCardTests()
     expect(chevron && chevron->frame.x + chevron->frame.width == listCard.size.x - listSide - t.listItemInset, "a button there keeps the usual inset");
     expect(swatch && swatch->frame.x == name->frame.x && swatch->frame.width == t.swatchSize,
            "a swatch: a square of swatchSize, in line with the names (only a button keeps the smaller inset)");
-    expect(listCard.size.y >= t.listCardMinHeight && listCard.size.y > t.expandedSize.y,
-           "a List card is roomier than an activity's: listCardMinHeight at least");
+    expect(listCard.size.y >= t.listCardMinHeight && listCard.size.y >= t.expandedSize.y,
+           "a List card: listCardMinHeight at least, and no shorter than every card (decision 107)");
     expect(name->listRow->y >= t.expandedPadding + t.listCardVerticalInset, "its rows sit listCardVerticalInset further in from the top");
 
     // A name and its value: the name keeps its own width, the value gets the

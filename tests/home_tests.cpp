@@ -84,10 +84,10 @@ void runHomeTests()
 
     // Nothing is hidden: Home grows to fit every row, up to the canvas.
     IslandState many;
-    for (int i = 0; i < 12; ++i) many = reduce(many, PanelPublished{ panel("p" + std::to_string(i)) }, Ms{ 0 });
+    for (int i = 0; i < 16; ++i) many = reduce(many, PanelPublished{ panel("p" + std::to_string(i)) }, Ms{ 0 });
     Scene full = layout(reduce(many, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    expect(full.tiles.size() == 12, "every widget shows");
-    expect(full.size.y == 3 * (t.tileHeight + gap) - gap + 2 * p + stripSpace && full.size.y <= t.canvas.y, "the card grows to fit three rows");
+    expect(full.tiles.size() == 16, "every widget shows");
+    expect(full.size.y == 4 * (t.tileHeight + gap) - gap + 2 * p + stripSpace && full.size.y <= t.canvas.y, "the card grows to fit four rows");
     for (const Tile& tile : full.tiles)
         expect(tile.frame.y + tile.frame.height <= full.size.y - p + 0.01f, "tile inside the card: " + tile.id);
 

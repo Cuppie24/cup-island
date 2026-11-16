@@ -62,9 +62,9 @@ struct Tokens {
     Vec2 idleSize{ 160, 28 };
     Vec2 compactSize{ 260, 32 };
     Vec2 alertSize{ 320, 64 };
-    // Every card and Home: the width a to-do's text needs (decisions 043, 047); the height media's card
-    // needs (its cover, bar and controls), so switching tabs never resizes the island (decision 107).
-    Vec2 expandedSize{ 480, 203 };
+    // Every card and Home: the width a to-do's text needs (decisions 043, 047); one height for all,
+    // room for the tallest (the timer's), so switching tabs never resizes the island (decision 107).
+    Vec2 expandedSize{ 480, 248 };
     Vec2 receptiveSize{ 380, 84 };
     Vec2 hiddenSize{ 160, 0 };
     float maxCornerRadius = 34; // bottom corners: half the height, capped, so big shapes aren't blobs

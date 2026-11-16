@@ -15,8 +15,8 @@ namespace act = pomodoro_action;
 // name and the round, with statistics, settings and the window at the
 // right; the time left, big and heavy, centred; the session's phases as
 // steps under it; then the controls, ▶/⏸ the filled circle between stop and
-// skip. Stacked and centred: the time is what it's about. Packed to fit
-// the media card's height, so switching tabs doesn't resize the island.
+// skip. Stacked and centred: the time is what it's about. It fits the
+// height every card and Home share, so switching tabs doesn't resize the island.
 Content timerCard(Content c, const Timeline& timeline, const Steps& steps, const std::string& name, const std::string& detail,
                   std::vector<Item> controls)
 {
@@ -28,8 +28,8 @@ Content timerCard(Content c, const Timeline& timeline, const Steps& steps, const
                               Button{ .glyph = Glyph::Settings, .actionId = act::kOpenSettings, .compact = true, .secondary = true },
                               Button{ .glyph = Glyph::Expand, .actionId = act::kOpenWindow, .compact = true, .secondary = true } } };
     Row time = row({ TimeLabel{ .timeline = timeline, .countdown = true, .style = TextStyle::Hero } }, Align::Center);
-    Row phases{ .items = { steps }, .align = Align::Center };
-    Row buttons{ .items = std::move(controls), .align = Align::Center, .loose = true }; // well-separated targets
+    Row phases{ .items = { steps }, .align = Align::Center, .apart = true };
+    Row buttons{ .items = std::move(controls), .align = Align::Center, .loose = true, .apart = true }; // well-separated targets
     c.expandedCenter = { header, time, phases, buttons };
     return c;
 }

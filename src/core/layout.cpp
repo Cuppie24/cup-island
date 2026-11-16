@@ -122,7 +122,7 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
         return { { "expandedLeading", &c.expandedLeading, { p, y, art, art }, false, true },
                  { "expandedCenter", &c.expandedCenter, { centerX, y, centerRight - centerX, art } },
                  { "expandedTrailing", &c.expandedTrailing, { cornerX, y, corner, corner } },
-                 { "expandedBottom", &c.expandedBottom, { p, bottomY, size.x - 2 * p, size.y - bottomY - p } } };
+                 { "expandedBottom", &c.expandedBottom, { p, bottomY, size.x - 2 * p, size.y - bottomY - p }, false, false, true } };
     }
     default:
         return {};

@@ -87,9 +87,8 @@ void runProviderTests()
     // Decision 094: play is the hero, a filled circle; the card grows to fit it under a bigger cover.
     const Button* hero = island.button(playPause);
     expect(hero && hero->primary && hero->compact, "play is the card's primary action, sized for a row of controls");
-    // Every card and Home share Expanded's height, set to what media's card needs (decision 107):
-    // changing media's rows means changing expandedSize too, or tabs resize the island again.
-    expect(card.size.y == tk.expandedSize.y, "the media card is exactly Expanded's height");
+    // Every card and Home share Expanded's height (decision 107): media's rows fit it, or tabs resize the island again.
+    expect(card.size.y == tk.expandedSize.y, "the media card is Expanded's height");
     for (const Placed& p : card.elements)
         if (p.key == "expandedLeading/0/0")
             expect(p.raised && p.frame.width == tk.expandedArtSize, "the cover is raised (a shadow under it), at its full size");
