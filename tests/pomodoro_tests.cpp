@@ -15,6 +15,7 @@
 #include "providers/pomodoro/pomodoro_provider.h"
 #include "providers/provider_registry.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace cup::test {
