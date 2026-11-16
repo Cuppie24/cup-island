@@ -118,6 +118,8 @@ void showFocus(Shown& s)
 
 // Lays it out at its size now and draws it: after any change, and in the
 // size message itself while it's resized, so the drawing keeps up.
+void showHover(Shown& s);
+
 void relayout(Shown& s)
 {
     const OpenWindow* w = findWindow(g_hooks.registry->windows(), s.key);
@@ -137,6 +139,7 @@ void relayout(Shown& s)
     // Its own timer (decision 121): the next second of a time on its page, or its toast's end.
     std::optional<Ms> next = windowDeadline(s.scene);
     s.window->armTick(next ? std::optional<Ms>(std::max(*next - now, Ms{ 1 })) : std::nullopt);
+    showHover(s); // what's lit follows the new layout: a row under the pointer, a focused field's (decision 122)
 }
 
 void showHover(Shown& s)
@@ -157,6 +160,11 @@ void showHover(Shown& s)
         for (const Placed& p : s.scene.page)
             if (p.listRow && !pageRow.empty() && p.key.rfind(pageRow + "/", 0) == 0) row = p.listRow, radius = p.listRowRadius;
     }
+    // A field lit by its row (decision 122) keeps its row lit while it has the keys: you see where you type.
+    if (!row)
+        for (const Placed& p : s.scene.page)
+            if (auto* field = std::get_if<TextInput>(&p.item); field && field->focused && p.litByRow && p.listRow)
+                row = p.listRow, radius = p.listRowRadius;
     s.window->setHovered(key, nav, row, radius, pageRow);
 }
 

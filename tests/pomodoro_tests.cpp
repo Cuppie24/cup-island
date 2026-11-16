@@ -233,6 +233,11 @@ void windowTests()
     for (const Placed& p : timer.page)
         if (auto* input = std::get_if<TextInput>(&p.item); input && input->actionId == inGroup(1, todo_action::kAdd)) field = &p;
     expect(field && std::get<TextInput>(field->item).placeholder == "Add task", "each group's Add task field");
+    const Placed* addIcon = nullptr;
+    for (const Placed& p : timer.page)
+        if (auto* icon = std::get_if<Icon>(&p.item); icon && icon->glyph == Glyph::Plus && p.key.rfind("card.group-1/", 0) == 0) addIcon = &p;
+    expect(field && addIcon && field->litByRow && field->listRow && field->hitFrame.x <= addIcon->frame.x && field->hitFrame.width >= field->listRow->width - 0.5f,
+           "Add task: one background, the row's; the whole row, its + too, clicks into it (decision 122)");
 
     // ▶ in the window starts it; the card on the island follows.
     island.inWindow(pomodoro_action::kStart);

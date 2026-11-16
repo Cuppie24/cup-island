@@ -40,3 +40,9 @@ every background in a group must nest in the one around it.
 - **No pin in the page row.** `IslandState::stayOpen` and its event stay
   (scenarios), but nothing on screen sets it: it was the pin's alone, and it
   resets whenever the island collapses, so it can't be left on.
+
+**Addendum (decision 122's number, kept here).** "Add task" showed two
+backgrounds: its row's, lit, and the field's own box inside it. A field in a
+list item is now lit by its row (`Placed::litByRow`): no box of its own, its
+click area the whole row (the + too), and its row stays lit while it has the
+keys. A Text edited in place keeps its box: it shows what's being changed.

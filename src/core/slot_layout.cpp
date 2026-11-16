@@ -454,6 +454,15 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                         target[i].litByRow = row.listItem; // the lit row says it's clickable; a box inside it would double it
                     }
             }
+            // A field in a list item (a window card's "Add task", decision 122): the row's background is
+            // its only one, and the whole row, its + included, clicks into it. Not one being edited in
+            // place: that keeps its box, to show where the text is being changed.
+            if (row.listItem)
+                for (std::size_t i = first; i < target.size(); ++i)
+                    if (auto* field = std::get_if<TextInput>(&target[i].item); field && !field->inPlace) {
+                        target[i].litByRow = true;
+                        target[i].hitFrame = { background.x, y, background.width, rowHeight };
+                    }
             // Otherwise a list item's first and last items reach its edges: a
             // to-do's checkbox takes clicks from the row's very start (decision 043).
             else if (row.listItem && !placed.empty()) {
