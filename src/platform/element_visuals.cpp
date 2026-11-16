@@ -76,7 +76,7 @@ std::optional<Color> inkOf(const Item& item, bool lit)
     if (auto* text = std::get_if<Text>(&item)) return singleInkOf(*text);
     if (auto* icon = std::get_if<Icon>(&item)) {
         if (icon->glyph == Glyph::Fire) return std::nullopt;
-        return icon->quiet ? t.buttonOffColor : t.iconColor;
+        return icon->disabled ? t.buttonDisabledColor : icon->quiet ? t.buttonOffColor : t.iconColor;
     }
     auto* button = std::get_if<Button>(&item);
     if (!button) return std::nullopt;
@@ -553,7 +553,7 @@ void ElementVisuals::paint(View& view)
             if (view.marqueeWidth > 0) paintMarquee(dc, dw, *text, view.marqueeWidth, view.lead, t.marqueeGap, size.y, white);
             else paintText(dc, dw, *text, size, white);
         } else if (auto* icon = std::get_if<Icon>(&item)) {
-            Color color = icon->quiet ? t.buttonOffColor : t.iconColor;
+            Color color = icon->disabled ? t.buttonDisabledColor : icon->quiet ? t.buttonOffColor : t.iconColor;
             paintGlyph(dc, dw, icon->glyph, icon->large ? t.tileIconSize : t.iconSize, pixelSize(size), white.value_or(color)); // the surface's whole pixels
         } else if (auto* button = std::get_if<Button>(&item)) {
             Color color = white.value_or(buttonColorOf(*button, view.lit));

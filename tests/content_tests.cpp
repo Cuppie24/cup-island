@@ -291,6 +291,21 @@ void runContentTests()
     Vec2 onNext{ strip.next->frame.x + 3, strip.next->frame.y + 3 };
     expect(tabAt(strip, onNext) && tabAt(strip, onNext)->id == kNextTab, "...and an arrow");
     expect(!tabAt(strip, { 1, 1 }), "outside the strip: no tab");
+    // One page, shown (Home's widgets make the row): the arrows stay, dim, with nothing to click (decision 118).
+    IslandState one;
+    one = reduce(one, PanelPublished{ { .id = "widget", .content = { .label = "Widget" } } }, Ms{ 0 });
+    one = reduce(one, ActivityStarted{ { .id = "media", .content = { .label = "Song" } } }, Ms{ 0 });
+    Scene single = layout(reduce(one, PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    const Placed* prev = find(single, "tab/previous/lead");
+    const Placed* next = find(single, "tab/next/lead");
+    expect(single.tabs && single.tabs->tabs.size() == 1 && prev && next && std::get<Icon>(prev->item).disabled &&
+               std::get<Icon>(next->item).disabled && !prev->muted,
+           "one page: ‹ and › shown, disabled");
+    expect(!single.tabs->previous && !single.tabs->next && !tabAt(*single.tabs, { prev->frame.x + 3, prev->frame.y + 3 }),
+           "...nothing to click, hover or focus");
+    float arrowsLeft = prev->frame.x, arrowsRight = next->frame.x + next->frame.width;
+    expect(std::abs(arrowsLeft - (single.size.x - arrowsRight)) < 1, "the dot and its arrows centred, as with more pages");
+    expect(!std::get<Icon>(find(opened, "tab/previous/lead")->item).disabled, "several pages: live arrows");
     Scene mediaCard = layout(reduce(reduce(three, PillClicked{}, Ms{ 0 }), ActivitySwitched{ "media" }, Ms{ 0 }), Ms{ 0 });
     const Placed* mediaArt = find(mediaCard, "expandedLeading/0/0");
     float stripSpace = rowSpace;
