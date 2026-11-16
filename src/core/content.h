@@ -193,6 +193,10 @@ struct TimeLabel {
     bool remaining = false;
     bool countdown = false;
     TextStyle style = TextStyle::Digits; // a countdown that is the main thing shown can be Body or Title
+    // Digits: as wide as the longest time its timeline can show, not the
+    // shared column (timeLabelWidth), so it sits close to the bar beside it
+    // (media, decision 107). Larger styles always are.
+    bool fitted = false;
     bool operator==(const TimeLabel&) const = default;
 };
 struct Waveform { bool active = false; bool operator==(const Waveform&) const = default; };              // "now playing" bars; still dots when inactive
@@ -375,6 +379,10 @@ struct Row {
     // one line (with Align::Center): a few short statistics (decision 061).
     // Too wide for the slot: laid out as usual.
     bool hug = false;
+    // Its `leading` and `trailing` sit right beside its centred items, the
+    // row's gap away, instead of at its edges: media's shuffle and repeat
+    // with the other controls (decision 107). The items stay centred.
+    bool edgesBeside = false;
     // Columns: its items share the row's width equally, each centred in its
     // share. Rows of the same count line up: a table, value rows over caption
     // rows (Pomodoro's statistics, decision 064).

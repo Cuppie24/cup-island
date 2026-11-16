@@ -357,8 +357,18 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                     x += w + t.itemSpacing;
                 }
             };
-            placeEdge(row.trailing, row.items.size(), area.x + area.width - trailingWidth + gap);
-            placeEdge(row.leading, row.items.size() + row.trailing.size(), area.x);
+            float trailingX = area.x + area.width - trailingWidth + gap, leadingX = area.x;
+            if (row.edgesBeside && target.size() > first) { // Row::edgesBeside: hugging the items' span, not the row's edges
+                float spanLeft = target[first].frame.x, spanRight = spanLeft;
+                for (std::size_t i = first; i < target.size(); ++i) {
+                    spanLeft = std::min(spanLeft, target[i].frame.x);
+                    spanRight = std::max(spanRight, target[i].frame.x + target[i].frame.width);
+                }
+                trailingX = spanRight + gap;
+                leadingX = spanLeft - leadingWidth;
+            }
+            placeEdge(row.trailing, row.items.size(), trailingX);
+            placeEdge(row.leading, row.items.size() + row.trailing.size(), leadingX);
             // Its piece of its group's background (decision 090): from under its
             // gap down to the next row's top (the row spacing too), so the pieces
             // meet with no seam. Behind its content (the renderer puts it at the

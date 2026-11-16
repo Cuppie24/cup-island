@@ -142,7 +142,7 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
         return (measure ? measure(text) : estimateTextWidth(text)) + 2 * t.buttonLabelPadding;
     }
     if (auto* label = std::get_if<TimeLabel>(&item)) {
-        if (label->style == TextStyle::Digits) return t.timeLabelWidth; // a column, so rows of labels line up
+        if (label->style == TextStyle::Digits && !label->fitted) return t.timeLabelWidth; // a column, so rows of labels line up
         std::string widest = widestDigits(formatDuration(label->timeline.duration), label->style, measure);
         if (label->remaining && !label->countdown) widest = "-" + widest;
         Text text{ widest, label->style };

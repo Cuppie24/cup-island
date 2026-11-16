@@ -108,8 +108,24 @@ void runProviderTests()
     expect(progress && !progress->timeline.playing && progress->timeline.position == Ms{ 5000 },
            "pause freezes the timeline where it was");
 
-    // Shuffle (leading edge) and repeat (trailing edge) are toggles that light up.
+    // Shuffle (leading) and repeat (trailing) are toggles that light up, beside the
+    // skips, the row's loose gap away, not in the corners (decision 107).
     const std::string repeat = "expandedBottom/1/3", shuffle = "expandedBottom/1/4";
+    {
+        Scene controls = island.scene();
+        auto at = [&](const std::string& key) {
+            for (const Placed& p : controls.elements)
+                if (p.key == key) return p.frame;
+            return Rect{};
+        };
+        Rect prev = at("expandedBottom/1/0"), next = at("expandedBottom/1/2"), sh = at(shuffle), re = at(repeat), bar = at("expandedBottom/0/1");
+        expect(std::abs(sh.x + sh.width + tk.looseItemSpacing - prev.x) < 0.01f && std::abs(next.x + next.width + tk.looseItemSpacing - re.x) < 0.01f,
+               "shuffle and repeat right beside previous and next");
+        expect(std::abs(sh.x - (controls.size.x - re.x - re.width)) < 0.01f, "the whole group centred");
+        Rect elapsed = at("expandedBottom/0/0"), left = at("expandedBottom/0/2");
+        expect(elapsed.width < tk.timeLabelWidth && left.width < tk.timeLabelWidth && elapsed.x + elapsed.width + tk.itemSpacing == bar.x,
+               "the times as wide as they get, close to the bar: no fixed column");
+    }
     expect(island.button(shuffle) && island.button(shuffle)->glyph == Glyph::Shuffle && island.button(shuffle)->on == false,
            "shuffle shows, off");
     expect(island.button(shuffle)->secondary && island.button(repeat)->secondary, "shuffle and repeat are quiet until on (decision 094)");

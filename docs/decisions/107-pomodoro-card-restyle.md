@@ -48,6 +48,11 @@ ones, and the time's digits rolling as they change.
   the pill's (`Text::marquee`) rather than ending in "…", ▶/⏸ the full primary circle,
   previous and next `Button::large` (44, a 22 px glyph). They need all but
   a few pixels of the shared height; a test holds it to that.
+  Shuffle and repeat sit right beside previous and next, the loose gap
+  away (`Row::edgesBeside`), not in the bottom corners: one group, ▶ still
+  centred, whichever of the two an app offers. The times beside the bar are
+  as wide as the track's longest time (`TimeLabel::fitted`), not the shared
+  56 px column, so they sit close to the bar and the bar is longer.
 - **Big text is drawn as outlines** (`GraphicsDevice::draw(..., bigText)`):
   Hero and Display text and a Dial's time use `DWRITE_RENDERING_MODE_OUTLINE`
   with no extra contrast. Decision 024's NATURAL mode smooths only
