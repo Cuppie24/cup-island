@@ -21,7 +21,7 @@ inline constexpr const char* kPomodoroSettingsPage = "settings";
 inline constexpr const char* kPomodoroUndo = "undo"; // the delete toast's Undo: the last deleted task or group back
 
 // A question asked in the window, waiting for its answer.
-enum class PomodoroQuestion { None, Stop, ResetStats };
+enum class PomodoroQuestion { None, ResetStats }; // stop asks with the host's question over the window (decision 126)
 
 struct PomodoroWindowView {
     std::optional<PomodoroSession> session; // none: dormant

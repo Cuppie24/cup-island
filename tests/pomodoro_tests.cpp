@@ -250,20 +250,20 @@ void windowTests()
     expect(buttonIn(timer, pomodoro_action::kStop) && buttonIn(timer, pomodoro_action::kPause) && buttonIn(timer, pomodoro_action::kSkip) &&
            std::get<Button>(buttonIn(timer, pomodoro_action::kStop)->item).enabled, "running: its controls");
 
-    // Stop asks in place (a window has no dialogs over it): Cancel keeps it, Stop ends it.
+    // Stop asks with the host's question over the window (decision 126): Cancel keeps it, Stop ends it.
     island.inWindow(pomodoro_action::kStop);
+    const OpenWindow* stopping = island.window();
     timer = island.windowScene();
-    expect(island.focus() && !island.dialog() && textIn(timer, "Stop the session?") && buttonIn(timer, pomodoro_action::kStopConfirmed) &&
-           buttonIn(timer, pomodoro_action::kCancel) && !buttonIn(timer, pomodoro_action::kPause), "stop asks first, in the window, in the controls' place");
-    island.inWindow(pomodoro_action::kCancel);
-    expect(island.focus() && buttonIn(island.windowScene(), pomodoro_action::kPause), "cancelled: still running, the controls back");
+    expect(island.focus() && !island.dialog() && stopping->dialog && stopping->dialog->title == "Stop the session?" &&
+               stopping->dialog->confirmAction == pomodoro_action::kStopConfirmed && stopping->dialog->destructive && timer.dialog &&
+               buttonIn(timer, pomodoro_action::kPause),
+           "stop asks first, in a question over the window; the controls stay under it");
+    island.inWindow(kDialogCancel);
+    expect(island.focus() && !island.window()->dialog, "cancelled: still running");
     island.inWindow(pomodoro_action::kStop);
-    island.registry.windowPageShown({ "pomodoro", PomodoroProvider::kWindowId }, kPomodoroStatsPage);
-    island.registry.windowPageShown({ "pomodoro", PomodoroProvider::kWindowId }, kPomodoroTimerPage);
-    expect(!textIn(island.windowScene(), "Stop the session?"), "another page: the question goes unanswered");
-    island.inWindow(pomodoro_action::kStop);
-    island.inWindow(pomodoro_action::kStopConfirmed);
-    expect(!island.focus() && buttonIn(island.windowScene(), pomodoro_action::kStart), "confirmed: stopped, the window dormant");
+    island.inWindow(kDialogConfirm);
+    expect(!island.focus() && !island.window()->dialog && buttonIn(island.windowScene(), pomodoro_action::kStart),
+           "confirmed: stopped, the window dormant");
     // On the card, stop still asks with the island's dialog (decision 020).
     island.press(kStart);
     island.press(kStop);

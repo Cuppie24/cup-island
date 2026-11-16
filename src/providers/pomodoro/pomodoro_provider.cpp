@@ -137,8 +137,14 @@ void PomodoroProvider::onAction(const Action& action)
     } else if (id == act::kSkip && session_) {
         advance(/* skipped */ true);
     } else if (id == act::kStop && session_) {
-        if (fromWindow) ask(PomodoroQuestion::Stop); // asked in place: the window has no dialogs
-        else host_->ask(stopQuestion(*session_)); // a misclick shouldn't lose the session (decision 020)
+        // A misclick shouldn't lose the session (decision 020): asked over the card, or over the
+        // window with the host's question there (decision 126), as deleting a group is.
+        Dialog question = stopQuestion(*session_);
+        if (fromWindow) {
+            question.activityId.clear();
+            question.windowId = kWindowId;
+        }
+        host_->ask(question);
     } else if (id == act::kStopConfirmed && session_) {
         PomodoroDay& day = today(); // canceled; the focus spent still counts
         if (session_->phase == Phase::Focus) day.focus += session_->timeline.positionAt(now);
