@@ -28,6 +28,11 @@ public:
     // mediaSessionGoneGrace first (decision 074): some apps (Yandex Music)
     // drop their session for a moment on every track change.
     void show(const std::optional<MediaSnapshot>& snapshot);
+    // Only the playback of what's shown changed (play/pause, the timeline,
+    // shuffle, repeat, which controls work): `playback`'s fields go over the
+    // last snapshot's, title and cover kept. Nothing if another session (or
+    // none) is shown: the full read brings that (decision 116).
+    void showPlayback(const std::string& sessionKey, const NowPlaying& playback);
     void onWake(); // the grace is over: end what's shown, unless a session came back
 
     static constexpr const char* kActivityId = "media.nowPlaying"; // also the widget's panel (decision 009)

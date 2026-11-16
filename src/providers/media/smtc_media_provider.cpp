@@ -58,7 +58,7 @@ void SmtcMediaProvider::stop()
     loggedTrack_.clear();
     propertiesDirty_ = artRecheckQueued_ = false;
     readFailures_ = 0;
-    loading_ = reloadWanted_ = false;
+    loading_ = reloadWanted_ = stuckCheckQueued_ = false;
     shownPlaying_.reset();
     presenter_->stop();
     presenter_.reset();
@@ -104,8 +104,33 @@ void SmtcMediaProvider::watchAllSessions()
 void SmtcMediaProvider::onPlaybackChanged()
 {
     platform::logLine("media: playback changed"); // play/pause from any app: should show on the island at once
+    showPlaybackNow();
     pickSession();
     recheckSoon(alive_);
+}
+
+void SmtcMediaProvider::onTimelineChanged()
+{
+    showPlaybackNow();
+    refresh();
+}
+
+// Play/pause, the bar, shuffle and repeat read synchronously and shown at
+// once, over the last full read (decision 116). The properties' read can take
+// seconds (Spotify); a pause doesn't wait for it. The full read still follows.
+void SmtcMediaProvider::showPlaybackNow()
+{
+    if (!session_ || !presenter_) return;
+    try {
+        NowPlaying playback = readPlayback(session_.GetPlaybackInfo(), session_.GetTimelineProperties(), host_->now());
+        if (shownPlaying_ != playback.timeline.playing) {
+            if (shownPlaying_) platform::logLine("media: %s (from the playback event)", playback.timeline.playing ? "playing" : "paused");
+            shownPlaying_ = playback.timeline.playing;
+        }
+        presenter_->showPlayback(winrt::to_string(session_.SourceAppUserModelId()), playback);
+    } catch (winrt::hresult_error const&) {
+        // Mid-switch or closing: the full read handles it (and retries).
+    }
 }
 
 winrt::fire_and_forget SmtcMediaProvider::recheckSoon(std::shared_ptr<bool> alive)
@@ -157,7 +182,7 @@ void SmtcMediaProvider::pickSession()
         if (session_) {
             // (Playback changes are watched for every session in watchAllSessions.)
             propertiesChanged_ = session_.MediaPropertiesChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::onPropertiesChanged));
-            timelineChanged_ = session_.TimelinePropertiesChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::refresh));
+            timelineChanged_ = session_.TimelinePropertiesChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::onTimelineChanged));
             platform::logLine("media: showing %s", appName(session_.SourceAppUserModelId()).c_str());
         }
         propertiesDirty_ = true; // another session: read its picture fresh
@@ -169,8 +194,15 @@ void SmtcMediaProvider::refresh()
 {
     if (loading_ && host_->now() - loadStarted_ < tokens().mediaReadStuck) {
         reloadWanted_ = true;
+        // If this read hangs, read again when it counts as stuck, not at the
+        // next event, which can be 10 s away (decision 116).
+        if (!stuckCheckQueued_) {
+            stuckCheckQueued_ = true;
+            refreshLater(loadStarted_ + tokens().mediaReadStuck - host_->now() + Ms{ 1 }, false, alive_);
+        }
         return;
     }
+    stuckCheckQueued_ = false;
     if (loading_) platform::logLine("media: a read is stuck, reading again");
     load(alive_);
 }

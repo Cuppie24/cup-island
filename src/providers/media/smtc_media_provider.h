@@ -44,6 +44,8 @@ private:
     winrt::fire_and_forget connect(std::shared_ptr<bool> alive);
     void onSessionsChanged();
     void onPlaybackChanged(); // any app started/paused/stopped
+    void onTimelineChanged(); // the shown session's position or state
+    void showPlaybackNow();   // its playback read synchronously and shown, ahead of the full read (decision 116)
     void watchAllSessions();
     winrt::fire_and_forget recheckSoon(std::shared_ptr<bool> alive);
     void pickSession();   // which session to show: manual choice, else Windows' current one
@@ -90,6 +92,7 @@ private:
     bool loading_ = false;
     Ms loadStarted_{};  // a read older than mediaReadStuck doesn't hold the next back
     bool reloadWanted_ = false;
+    bool stuckCheckQueued_ = false; // a re-read queued for when the read in flight counts as stuck (decision 116)
     std::optional<bool> shownPlaying_; // logged when it changes, to time pauses
 
     std::string loggedTrack_; // the last track logged: a recolour's wait starts with its line
