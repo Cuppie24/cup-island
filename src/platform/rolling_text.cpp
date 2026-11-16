@@ -21,7 +21,7 @@ bool paintCell(GraphicsDevice& device, const RollingText& rolling, const Rolling
         auto draw = [&](ID2D1DeviceContext* target) { paintCharacter(target, device.dwrite(), rolling.text, cell.value, rolling.lead, height); };
         if (rolling.grey) paintGrey(dc, draw); // a muted tab's (decision 072)
         else draw(dc);
-    });
+    }, /* bigText */ true);
 }
 
 // A character's sprite at its place: its surface reaches `lead` past its

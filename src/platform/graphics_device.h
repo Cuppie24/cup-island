@@ -21,7 +21,9 @@ public:
     // Clears the surface to transparent, then lets `paint` draw at (0, 0).
     // Returns false if the GPU was lost: the device is rebuilt, and the
     // caller should redraw every surface (they all lost their pixels).
-    bool draw(wuc::CompositionDrawingSurface const& surface, const std::function<void(ID2D1DeviceContext*)>& paint);
+    // `bigText`: its text is big (a timer), drawn as smooth outlines rather
+    // than with small text's crisp horizontal-only smoothing (decision 107).
+    bool draw(wuc::CompositionDrawingSurface const& surface, const std::function<void(ID2D1DeviceContext*)>& paint, bool bigText = false);
 
     IDWriteFactory* dwrite() const { return dwrite_.get(); }
 
@@ -31,6 +33,7 @@ private:
     winrt::com_ptr<ID2D1Factory1> d2dFactory_;
     winrt::com_ptr<IDWriteFactory> dwrite_;
     winrt::com_ptr<IDWriteRenderingParams> textParams_; // crisp, fuller small text (decision 024)
+    winrt::com_ptr<IDWriteRenderingParams> outlineParams_; // big text, smoothed both ways (decision 107)
     float textParamsContrast_ = -1;                     // the textContrast token they were built for
     void updateTextParams();                            // rebuilds them when textContrast changed
     wuc::CompositionGraphicsDevice device_{ nullptr };

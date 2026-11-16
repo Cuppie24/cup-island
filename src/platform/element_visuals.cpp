@@ -582,10 +582,13 @@ void ElementVisuals::paint(View& view)
             paintSwatch(dc, *swatch, size);
         }
     };
+    // A timer's big digits are drawn as smooth outlines (decision 107): a Dial's, a Display or Hero text.
+    auto* text = std::get_if<Text>(&item);
+    bool bigText = std::holds_alternative<Dial>(item) || (text && (text->style == TextStyle::Display || text->style == TextStyle::Hero));
     bool drawn = device_->draw(view.surface, [&](ID2D1DeviceContext* dc) {
         if (view.grey) paintGrey(dc, content); // a muted tab's (decision 072)
         else content(dc);
-    });
+    }, bigText);
     if (auto* segments = std::get_if<Segments>(&item); drawn && segments && view.segments.picked) // the labels inside the pill
         drawn = device_->draw(view.segments.picked, [&](ID2D1DeviceContext* dc) { paintSegmentLabels(dc, dw, *segments, size, t.islandColor); });
     if (drawn && view.shadowShape) // the shadow's mask: opaque where the art is, its corners too

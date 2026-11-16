@@ -43,6 +43,13 @@ ones, and the time's digits rolling as they change.
   bleeds into a rolling one; the visual reaches `rollingLead` past the frame
   on each side for a heavy glyph's overhang.
 
+- **Big text is drawn as outlines** (`GraphicsDevice::draw(..., bigText)`):
+  Hero and Display text and a Dial's time use `DWRITE_RENDERING_MODE_OUTLINE`
+  with no extra contrast. Decision 024's NATURAL mode smooths only
+  horizontally and snaps to pixel rows, right for captions; on 64 px heavy
+  digits it stair-stepped their round tops and bottoms and flattened them,
+  so they looked cropped (seen on the first run).
+
 **Not taken.** Rolling every TimeLabel: small times tick beside bars, where
 motion would distract. A stagger between rolling digits: the minute and
 second rolling together reads as one tick.
