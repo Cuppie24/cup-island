@@ -72,7 +72,7 @@ Row captionsRow(std::initializer_list<std::pair<const char*, bool>> captions)
 // The header (decision 117): the time left, big, then stop, ▶/⏸ and skip;
 // at the right, the phase and round over nothing else but the session's
 // steps. Dormant: the planned focus, ▶, and stop and skip dimmed, so
-// nothing moves when it starts. Stop asks in place of the controls.
+// nothing moves when it starts. Stop asks with the host's question over the window (decision 126).
 std::vector<Row> timerHeader(const PomodoroWindowView& v)
 {
     const PomodoroSession* s = v.session ? &*v.session : nullptr;
@@ -80,13 +80,6 @@ std::vector<Row> timerHeader(const PomodoroWindowView& v)
     TimeLabel time{ .timeline = timeline, .countdown = true, .style = TextStyle::Hero };
     // Only the phase: Focus, Break, Long break (decision 122). The steps beside it say where in the session.
     std::string where = s ? phaseName(s->phase) : phaseName(PomodoroPhase::Focus);
-    if (s && v.question == PomodoroQuestion::Stop) {
-        Dialog q = stopQuestion(*s);
-        return { Row{ .items = { time },
-                      .trailing = { Text{ q.title, TextStyle::Title }, Button{ .actionId = act::kCancel, .label = "Cancel", .compact = true },
-                                    Button{ .actionId = act::kStopConfirmed, .label = q.confirmLabel, .compact = true, .destructive = true } } },
-                 Row{ .items = { Text{ .value = q.message, .style = TextStyle::Caption, .alignEnd = true, .wrap = true } } } };
-    }
     bool playing = s && s->timeline.playing;
     Button stop{ .glyph = Glyph::Stop, .actionId = act::kStop, .enabled = s != nullptr, .secondary = true };
     Button main{ .glyph = playing ? Glyph::Pause : Glyph::Play, .actionId = s ? act::kPause : act::kStart, .primary = true };
@@ -198,7 +191,6 @@ WindowPage settingsPage(const PomodoroWindowView& v)
 const char* confirmActionOf(PomodoroQuestion question)
 {
     switch (question) {
-    case PomodoroQuestion::Stop: return act::kStopConfirmed;
     case PomodoroQuestion::ResetStats: return act::kResetStatsConfirmed;
     case PomodoroQuestion::None: break;
     }
