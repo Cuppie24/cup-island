@@ -75,17 +75,17 @@ struct Tab {
 
 // The strip's buttons' ids (decisions 046, 109): not activities'.
 inline constexpr const char* kPinTab = "#pin";
-inline constexpr const char* kHomeTab = "#home";         // Home's button at the left edge: opens Home, like Home's dot
+inline constexpr const char* kHomeTab = "#home";         // Home's button at the left edge: opens Home, the one way there (decision 115)
 inline constexpr const char* kPreviousTab = "#previous"; // ‹ beside the dots: the page before, round the strip
 inline constexpr const char* kNextTab = "#next";         // › beside the dots: the page after
 // A panel's button right of the pin (Panel::rowButton, decision 113): this, then the panel's id.
 inline constexpr const char* kPanelButtonTab = "#panel/";
 
-// Expanded's page row (decision 109): no tabs drawn, a dot per page (Home
-// first, then activities) with a short line for the shown one, an arrow on
+// Expanded's page row (decision 109): no tabs drawn, a dot per activity
+// (none for Home, decision 115) with a short line for the shown one, an arrow on
 // each side of the dots; Home's button at the left edge, the pin at the right.
 struct TabStrip {
-    std::vector<Tab> tabs;  // the dots: Home, then activities in start order: stable, so a click doesn't reorder them
+    std::vector<Tab> tabs;  // the dots: activities in start order (Home has none, decision 115): stable, so a click doesn't reorder them
     std::optional<std::size_t> active; // the dot of what's shown (drawn as a line); none for a dormant panel's card
     float radius = 0;       // the buttons' highlight corners, nested in the card's
     std::optional<Tab> home;             // Home's button at the left edge (decision 009); with panels

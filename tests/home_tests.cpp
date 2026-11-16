@@ -56,7 +56,8 @@ void runHomeTests()
     float stripSpace = t.tabRowInset + t.tabHeight + t.tabRowGap - t.expandedPadding;
     expect(home.mode == Mode::Expanded && home.size.x == t.expandedSize.x && home.size.y == t.expandedSize.y + stripSpace,
            "one row: Home keeps Expanded's card size, plus its strip");
-    expect(home.tabs && home.tabs->tabs.size() == 1 && home.tabs->pin, "only Home: its button, active, and the pin");
+    expect(home.tabs && home.tabs->tabs.empty() && home.tabs->home && home.tabs->pin && !home.tabs->previous,
+           "only Home: its button and the pin; no dots, no arrows (decision 115)");
     expect(home.label == "Home" && home.activityId.empty(), "Home is no activity's card");
     float p = t.expandedPadding, gap = t.tileGap, unit = (home.size.x - 2 * p - 2 * gap) / 4;
     expect(home.tiles.size() == 3, "a b(wide) c: one full row");
@@ -134,13 +135,14 @@ void runHomeTests()
     expect(runningLabel && std::get<Text>(runningLabel->item).value == "running", "running: the activity's tile");
     expect(liveScene.tiles[0].frame.x == a.frame.x, "the tile stays where it was");
 
-    // The page row (decision 109): Home's dot first, then activities', centred with
-    // ‹ and › beside them; Home's own button apart at the top left.
+    // The page row (decision 109): the activities' dots, centred with ‹ and ›
+    // beside them; Home has no dot, only its button apart at the top left (decision 115).
     IslandState tabbed = reduce(running, ActivityStarted{ { .id = "media", .content = { .label = "Song" } } }, Ms{ 0 });
     tabbed = reduce(tabbed, HomeOpened{}, Ms{ 0 });
     Scene strip = layout(tabbed, Ms{ 0 });
-    expect(strip.tabs && strip.tabs->tabs.size() == 3 && strip.tabs->tabs[0].id.empty() && strip.tabs->active == 0,
-           "Home's dot first, and the shown one on Home");
+    expect(strip.tabs && strip.tabs->tabs.size() == 2 && strip.tabs->tabs[0].id == "a" && !strip.tabs->active,
+           "a dot per activity, none of them Home's: on Home, none is shown");
+    expect(strip.tabs->previous && strip.tabs->next, "the arrows: from Home to the activities");
     expect(strip.tabs->home && strip.tabs->home->id == kHomeTab, "and Home's button");
     const Tab& homeButton = *strip.tabs->home;
     expect(homeButton.frame == Rect{ p, t.tabRowInset, t.homeButtonWidth, t.tabHeight }, "Home: a button at the top left (decisions 047, 109)");
@@ -168,12 +170,12 @@ void runHomeTests()
     expect(!homeIcon->muted && find(card, "tab/home/lead")->muted && find(media, "tab/home/lead")->muted,
            "Home's button in colour only on Home: grey on a card, a dormant one's too (decision 072)");
     Scene single = layout(reduce(reduce(s, ActivityStarted{ { .id = "solo" } }, Ms{ 0 }), PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    expect(single.tabs && single.tabs->tabs.size() == 2, "one activity plus panels: Home and its tab");
+    expect(single.tabs && single.tabs->tabs.size() == 1 && single.tabs->home, "one activity plus panels: its dot and Home's button");
     Scene bare = layout(reduce(s, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    expect(bare.tabs && bare.tabs->tabs.size() == 1 && bare.tabs->pin, "Home with nothing running: Home's button and the pin");
+    expect(bare.tabs && bare.tabs->tabs.empty() && bare.tabs->home && bare.tabs->pin, "Home with nothing running: Home's button and the pin");
     Scene dormant = layout(reduce(reduce(s, PillClicked{}, Ms{ 0 }), TileClicked{ "a" }, Ms{ 0 }), Ms{ 0 });
-    expect(dormant.tabs && dormant.tabs->tabs.size() == 1 && dormant.tabs->tabs[0].id.empty(),
-           "a dormant card with nothing running: just the way back Home");
+    expect(dormant.tabs && dormant.tabs->tabs.empty() && dormant.tabs->home && !dormant.tabs->previous,
+           "a dormant card with nothing running: just Home's button, the way back");
 
     // A panel's page-row button (decision 113): Settings' gear right of the pin, in the corner; not a widget.
     Panel gear{ .id = "gear", .content = { .label = "Settings", .badge = true }, .providerId = "sys", .tapAction = "open", .rowButton = Glyph::Settings };

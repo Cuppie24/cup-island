@@ -1,7 +1,7 @@
 #pragma once
 // Expanded's page row (decisions 007, 109): along the top of the card
-// (decision 047), a dot per page (Home first, then activities in start
-// order), the shown one a short line, with ‹ and › beside the dots, the
+// (decision 047), a dot per activity in start order (Home has none: its
+// button is the way there, decision 115), the shown one a short line, with ‹ and › beside the dots, the
 // three centred together. No tabs drawn: the card says what it is. With
 // panels, Home's button sits apart at the left edge (decision 009); the pin
 // mirrors it at the right (decision 046), panels' buttons beyond it in the

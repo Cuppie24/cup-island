@@ -7,9 +7,9 @@
 namespace cup {
 namespace {
 
-// Somewhere else to go: another activity, or Home (with panels) from any
-// card. And Home itself, even with nothing running: the strip carries the pin
-// that keeps it open (decision 046).
+// Somewhere else to go: another activity, or Home (with panels, by its
+// button) from any card. And Home itself, even with nothing running: the
+// strip carries the pin that keeps it open (decision 046).
 bool hasTabs(const IslandState& s)
 {
     if (mode(s) != Mode::Expanded) return false;
@@ -102,21 +102,20 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     strip.pinned = s.stayOpen;
     placeGlyph("pin", kPinTab, s.stayOpen ? Glyph::Pinned : Glyph::Pin, pin, !s.stayOpen, elements);
 
-    // The pages: Home, then activities; the shown one is a line, the rest dots (decision 109).
+    // The pages: the activities; the shown one is a line, the rest dots (decision 109).
+    // Home isn't one: its button at the left is the way there (decision 115).
     std::optional<std::string> shown;
-    if (s.homeOpen) shown = "";
-    else if (findActivity(s, s.expandedId)) shown = s.expandedId;
+    if (!s.homeOpen && findActivity(s, s.expandedId)) shown = s.expandedId;
     std::vector<std::pair<std::string, bool>> pages; // id, badge
-    if (hasWidgets(s)) pages.push_back({ "", homeBadged(s) });
     for (const Activity* a : started) pages.push_back({ a->id, a->content.badge });
     float dot = t.tabDotSize, gap = t.tabDotGap;
     auto widthOf = [&](const std::string& id) { return id == shown ? std::max(t.tabLineWidth, dot) : dot; };
     float dotsWidth = 0;
     for (const auto& page : pages) dotsWidth += widthOf(page.first);
-    dotsWidth += gap * static_cast<float>(pages.size() - 1);
+    if (!pages.empty()) dotsWidth += gap * static_cast<float>(pages.size() - 1);
     // The arrows beside the dots, the three centred as one group. Only with
-    // somewhere to go: another page, or any page from a dormant panel's card.
-    bool arrows = pages.size() > 1 || !shown;
+    // somewhere to go: another page, or any page from Home or a dormant panel's card.
+    bool arrows = pages.size() > 1 || (!pages.empty() && !shown);
     float arrow = arrows ? t.tabArrowSize : 0, arrowGap = arrows ? t.tabArrowGap : 0;
     float x = (cardSize.x - dotsWidth - 2 * (arrow + arrowGap)) / 2;
     if (arrows) {
@@ -135,7 +134,7 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
         strip.tabs.push_back({ frame, { x - gap / 2, top, w + gap, bottom - top }, id, badge, lit, lit.height / 2 }); // easy to hit: the row's height
         x += w + gap;
     }
-    x += arrowGap - gap;
+    if (!pages.empty()) x += arrowGap - gap;
     if (arrows) {
         Rect frame{ x, y + (h - arrow) / 2, arrow, arrow };
         strip.next = button(kNextTab, frame, arrowGap / 2, 0);
