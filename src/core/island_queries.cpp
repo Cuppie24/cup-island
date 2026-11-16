@@ -39,7 +39,8 @@ std::optional<ShownCard> shownCard(const IslandState& s)
 bool isNew(const IslandState& s, const Panel& p)
 {
     bool opens = p.tapAction.empty() && hasCard(p.content); // a toggle or a static widget has no card to open
-    return p.announce && opens && std::find(s.seenPanels.begin(), s.seenPanels.end(), p.id) == s.seenPanels.end();
+    auto seen = s.seenPanels.find(p.id);
+    return p.announce > 0 && opens && (seen == s.seenPanels.end() || seen->second < p.announce);
 }
 
 const Content* cardContent(const IslandState& s, const std::string& id)

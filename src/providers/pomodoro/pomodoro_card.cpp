@@ -129,7 +129,7 @@ Panel pomodoroPanel(const PomodoroPlan& plan)
     content = timerCard(std::move(content), { .duration = plan.focus }, phaseSteps(0), "Focus", std::to_string(t.pomodoroRounds) + " rounds",
                         { Button{ .glyph = Glyph::Play, .actionId = act::kStart, .compact = true, .primary = true } });
     // New (decision 110): the host shows "New" on its widget until its card is first opened.
-    return { .id = kPomodoroPanelId, .content = content, .wide = true, .announce = true };
+    return { .id = kPomodoroPanelId, .content = content, .wide = true, .announce = 1 }; // raise it to announce it again
 }
 
 // Compact: the countdown centred, the ring filling on the right; no phase

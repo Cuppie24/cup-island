@@ -219,9 +219,9 @@ void runHomeTests()
 
     // "New" (decision 110): drawn on an announced widget's first line until its card is opened.
     Panel fresh = panel("fresh");
-    fresh.announce = true;
+    fresh.announce = 1;
     Panel still = panel("still"); // no card to open: never New
-    still.announce = true;
+    still.announce = 1;
     still.content.expandedCenter.clear();
     IslandState news = withPanels({ fresh, still });
     auto tagOn = [](const Scene& scene, const std::string& tile) {
@@ -238,7 +238,13 @@ void runHomeTests()
     news = reduce(reduce(news, PillClicked{}, Ms{ 0 }), TileClicked{ "fresh" }, Ms{ 0 });
     news = reduce(reduce(news, EscapePressed{}, Ms{ 0 }), HomeOpened{}, Ms{ 0 });
     expect(!tagOn(layout(news, Ms{ 0 }), "fresh"), "its card opened once: no more New");
-    expect(news.seenPanels == std::vector<std::string>{ "fresh" }, "and the host remembers it (the app saves seenPanels)");
+    expect(news.seenPanels == std::map<std::string, int>{ { "fresh", 1 } }, "and the host remembers it (the app saves seenPanels)");
+    // The provider announces it again (a feature added to it): New again, until opened again.
+    fresh.announce = 2;
+    news = reduce(news, PanelPublished{ fresh }, Ms{ 0 });
+    expect(tagOn(layout(news, Ms{ 0 }), "fresh") != nullptr, "announced again: New again");
+    news = reduce(reduce(news, TileClicked{ "fresh" }, Ms{ 0 }), HomeOpened{}, Ms{ 0 });
+    expect(!tagOn(layout(news, Ms{ 0 }), "fresh") && news.seenPanels["fresh"] == 2, "...until its card is opened again");
 }
 
 } // namespace cup::test

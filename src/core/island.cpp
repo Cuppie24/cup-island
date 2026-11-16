@@ -47,8 +47,11 @@ void collapse(IslandState& s)
 
 void expand(IslandState& s, const std::string& id, Ms now)
 {
-    // A panel's card opened: seen, for good (decision 110). Its activity's id is the panel's.
-    if (findPanel(s, id) && std::find(s.seenPanels.begin(), s.seenPanels.end(), id) == s.seenPanels.end()) s.seenPanels.push_back(id);
+    // An announced panel's card opened: this announcement seen (decision 110). Its activity's id is the panel's.
+    if (const Panel* p = findPanel(s, id); p && p->announce > 0) {
+        int& seen = s.seenPanels[id];
+        seen = std::max(seen, p->announce);
+    }
     s.expandedId = id;
     s.homeOpen = false;
     s.cardFromHome = false; // opened some other way; TileClicked sets it after
@@ -310,8 +313,11 @@ void handle(IslandState& s, const ActivityOpened&, Ms now)
 // A running panel opens like its tab (and becomes the pick); a dormant one shows its card.
 void handle(IslandState& s, const PanelsSeen& e, Ms)
 {
-    for (const std::string& id : e.ids)
-        if (!id.empty() && std::find(s.seenPanels.begin(), s.seenPanels.end(), id) == s.seenPanels.end()) s.seenPanels.push_back(id);
+    for (const auto& [id, announce] : e.seen) {
+        if (id.empty()) continue;
+        int& seen = s.seenPanels[id];
+        seen = std::max(seen, announce);
+    }
 }
 
 void handle(IslandState& s, const TileClicked& e, Ms now)

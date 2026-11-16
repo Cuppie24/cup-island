@@ -18,3 +18,11 @@ scenario: what the app saved: seen before, so not New
 seen focus
 panel focus new                     -> new=none
 panel notes new                     -> new=notes
+
+scenario: the provider announces it again: New again, until opened again
+seen focus
+panel focus new                     -> new=none
+panel focus new2                    -> new=focus             # a higher number: a new announcement
+tile focus                          -> new=none
+esc
+seen focus:1                        -> new=none              # an older saved entry doesn't bring it back

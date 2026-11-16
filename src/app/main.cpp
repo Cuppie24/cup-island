@@ -251,13 +251,13 @@ std::optional<Ms> earliest(std::optional<Ms> a, std::optional<Ms> b)
 
 void saveSpot();
 
-// The panels whose card has been opened, ever (decision 110): in the store
-// under the island's own name, one id a line, so an announced widget's "New"
-// stays gone after a restart.
+// Each announced panel's announcement last opened (decision 110): in the
+// store under the island's own name, "<id> <n>" a line, so a widget's "New"
+// stays gone after a restart until its provider announces it again.
 constexpr const char* kIslandStore = "island";
 constexpr const char* kSeenPanelsKey = "seenPanels";
-std::vector<std::string> loadSeenPanels();
-void saveSeenPanels(const std::vector<std::string>& ids);
+std::map<std::string, int> loadSeenPanels();
+void saveSeenPanels(const std::map<std::string, int>& seen);
 void onLifted();
 void tokensChanged(Vec2 oldCanvas, const char* reason);
 
@@ -275,9 +275,9 @@ void dispatch(const Event& event, const char* reason)
     bool wasHidden = g_state.hidden;
     std::optional<ShownCard> wasCard = shownCard(g_state);
     std::optional<Draft> wasDraft = g_state.draft;
-    std::size_t wasSeen = g_state.seenPanels.size(); // it only grows
+    std::map<std::string, int> wasSeen = g_state.seenPanels; // a few entries: cheap to compare
     g_state = reduce(g_state, event, t);
-    if (g_state.seenPanels.size() != wasSeen) saveSeenPanels(g_state.seenPanels);
+    if (g_state.seenPanels != wasSeen) saveSeenPanels(g_state.seenPanels);
     Scene next = layout(g_state, t, [](const Text& text) { return g_renderer.measure(text); });
 
     if (next.mode != g_island.scene.mode) {
@@ -859,19 +859,25 @@ void onLifted()
 }
 
 // Where the island rests on this monitor, kept for the next start (decision 026).
-std::vector<std::string> loadSeenPanels()
+std::map<std::string, int> loadSeenPanels()
 {
-    std::vector<std::string> ids;
+    std::map<std::string, int> seen;
     std::istringstream lines(store().load(kIslandStore, kSeenPanelsKey));
-    for (std::string id; std::getline(lines, id);)
-        if (!id.empty()) ids.push_back(id);
-    return ids;
+    for (std::string line; std::getline(lines, line);) {
+        std::istringstream fields(line);
+        std::string id;
+        int announce = 1; // a bare id: the first announcement
+        if (!(fields >> id)) continue;
+        fields >> announce;
+        seen[id] = std::max(announce, 1);
+    }
+    return seen;
 }
 
-void saveSeenPanels(const std::vector<std::string>& ids)
+void saveSeenPanels(const std::map<std::string, int>& seen)
 {
     std::string text;
-    for (const std::string& id : ids) text += id + "\n";
+    for (const auto& [id, announce] : seen) text += id + " " + std::to_string(announce) + "\n";
     store().save(kIslandStore, kSeenPanelsKey, text);
 }
 

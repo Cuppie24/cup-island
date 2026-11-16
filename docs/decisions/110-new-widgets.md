@@ -10,24 +10,27 @@ decision 019), but tracking what's been seen was each provider's own work
 opened" is the same for every widget: the host's job.
 
 **Decision.**
-- **The provider announces, the host does the rest.** `Panel::announce`:
-  this widget is worth announcing. Not every widget the host hasn't seen
+- **The provider announces, the host does the rest.** `Panel::announce`, a
+  number: 0, not announced; 1, this widget is worth announcing; raised
+  later (2, 3...) to announce it again, when a feature is added to it: the
+  provider decides (the user's ask). Not every widget the host hasn't seen
   opened: on the first run with this, every widget (theme, display,
   settings) would have said New at once, which says nothing.
-- **Seen = its card opened, ever** (`IslandState::seenPanels`): whenever a
-  panel's card is expanded (its tile, its running activity's card, a page
-  dot, a shortcut), its id goes in, once. `isNew`: announced, it has a card
-  to open (not a toggle's tap or a static widget: nothing to open, so it
-  would say New for ever), and not seen.
+- **Seen = its card opened since this announcement**
+  (`IslandState::seenPanels`, id → the highest announcement opened):
+  whenever an announced panel's card is expanded (its tile, its running
+  activity's card, a page dot, a shortcut), its announce is recorded.
+  `isNew`: announced, it has a card to open (not a toggle's tap or a static
+  widget: nothing to open, so it would say New for ever), and its announce
+  is higher than the one recorded.
 - **Drawn by Home**: a `Tag{ "New" }` after the text of the widget's first
   line, as on a new setting (decision 048).
-- **Kept by the app**: in the store under `island/seenPanels`, one id a
-  line, loaded (`PanelsSeen`) before the providers publish their widgets,
+- **Kept by the app**: in the store under `island/seenPanels`, `<id> <n>`
+  a line (a bare id reads as 1), loaded (`PanelsSeen`) before the providers publish their widgets,
   so a widget never flashes New after a restart; saved when the list grows.
 
 **Not taken.** A provider keeping its own "seen" key (the first version):
 the same logic in every provider that wants it.
 
-**Consequences.** Pomodoro's panel announces itself. A provider that wants
-to announce a widget again (a new feature in it) needs a new panel id, or a
-way to clear its entry, which there isn't yet.
+**Consequences.** Pomodoro's panel announces itself (1). Announcing a
+widget again is a one-number change in its provider.

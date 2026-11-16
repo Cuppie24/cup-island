@@ -10,8 +10,8 @@
 //            drag-leave  drop  hide  show  wait <ms>  top-click (the expanded top band, decision 108)
 //            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel
 //            panel <id> [static|keep|awake|field|menu|menu=changed|new]  unpanel <id>  home  tile <id>  (static: a widget with no card;
-//                                                                     new: announced, "New" until its card opens, decision 110;
-//            seen <id>...  (the app's saved list of panels opened, decision 110)
+//                                                                     new / new2: announced (1 or 2), "New" until its card opens, decision 110;
+//            seen <id>[:<n>]...  (the app's saved announcements opened, decision 110; n defaults to 1)
 //                                                                     field: a card that is its field "go", decision 079;
 //                                                                     menu: field, then rows 1 and 2 with menus Open, Run (dim), Reveal;
 //                                                                     menu=changed: the same rows, other items;
@@ -197,7 +197,7 @@ struct Runner {
             if (arg(2) != "static") p.content.expandedCenter = { row({ Text{ arg(1) } }) };
             p.content.keepOpen = arg(2) == "keep" || arg(2) == "awake";
             p.content.noIdleTimeout = arg(2) == "awake";
-            p.announce = arg(2) == "new";
+            p.announce = arg(2) == "new" ? 1 : arg(2) == "new2" ? 2 : 0;
             if (arg(2) == "field" || arg(2).rfind("menu", 0) == 0) {
                 p.content.expandedCenter = { row({ TextInput{ .actionId = "go" } }) };
                 p.content.fieldFirst = "go";
@@ -211,7 +211,14 @@ struct Runner {
             apply(PanelPublished{ p });
         }
         else if (cmd == "unpanel") apply(PanelRemoved{ arg(1) });
-        else if (cmd == "seen") apply(PanelsSeen{ std::vector<std::string>(w.begin() + 1, w.end()) });
+        else if (cmd == "seen") {
+            PanelsSeen seen;
+            for (std::size_t i = 1; i < w.size(); ++i) {
+                std::size_t colon = w[i].find(':');
+                seen.seen[w[i].substr(0, colon)] = colon == std::string::npos ? 1 : std::stoi(w[i].substr(colon + 1));
+            }
+            apply(seen);
+        }
         else if (cmd == "home") apply(HomeOpened{});
         else if (cmd == "open-activity") apply(ActivityOpened{});
         else if (cmd == "tile") apply(TileClicked{ arg(1) });
