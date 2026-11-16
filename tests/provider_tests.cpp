@@ -88,6 +88,8 @@ void runProviderTests()
     // Decision 094: play is the hero, a filled circle; the card grows to fit it under a bigger cover.
     const Button* hero = island.button(playPause);
     expect(hero && hero->primary && !hero->compact, "play is the card's primary action, the full circle (decision 107)");
+    const Text& song = std::get<Text>(island.state.activities.front().content.expandedCenter[0].items[0]);
+    expect(song.style == TextStyle::CardTitle && song.marquee, "the song's title: big, and swims when too long, like the pill's");
     // Every card and Home share Expanded's height (decision 107): media's rows fit it, or tabs resize the island again.
     expect(card.size.y == tk.expandedSize.y, "the media card is Expanded's height");
     // ...and its parts fill it (decision 107): the cover, its rows and controls need all but a few pixels of it.

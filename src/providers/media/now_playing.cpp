@@ -9,7 +9,8 @@ Content nowPlayingContent(const NowPlaying& m)
     namespace act = media_action;
     bool playing = m.timeline.playing;
     Image art{ m.art };
-    Text title{ m.title, TextStyle::CardTitle }; // big and heavy beside the cover (decision 107)
+    // Big and heavy beside the cover; too long, it swims like the pill's title instead of ending in "…" (decision 107).
+    Text title{ .value = m.title, .style = TextStyle::CardTitle, .marquee = true };
     Text artist{ m.artist, TextStyle::Body };
 
     Content c;

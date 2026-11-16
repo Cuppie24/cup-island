@@ -70,9 +70,7 @@ const std::string kTile = std::string("tile/") + PomodoroProvider::kPanelId;
 const std::string kStart = "expandedCenter/3/0"; // ▶, under the steps
 const std::string kPause = "expandedCenter/3/1"; // the running card's controls: stop, ⏸, skip
 const std::string kStop = "expandedCenter/3/0";
-const std::string kStats = "expandedCenter/0/0";  // the header's right end: statistics, settings, the window
-const std::string kGear = "expandedCenter/0/1";
-const std::string kExpand = "expandedCenter/0/2";
+const std::string kExpand = "expandedCenter/0/0"; // the header's right end: the window (its pages have statistics and settings)
 const std::string kTime = "expandedCenter/1/0";
 
 const Placed* textIn(const WindowScene& scene, const std::string& value)
@@ -119,19 +117,18 @@ void cardTests()
     const Placed* time = find(dormant, kTime);
     const Placed* start = find(dormant, kStart);
     const Placed* expand = find(dormant, kExpand);
-    const Placed* stats = find(dormant, kStats);
-    const Placed* gear = find(dormant, kGear);
     expect(dormant.size.x == t.expandedSize.x, "as wide as every card: no wider timer card any more (decision 106 over 085)");
     expect(time && std::get<Text>(time->item).value == "25:00" && std::get<Text>(time->item).style == TextStyle::Hero, "the planned time, big and heavy");
     expect(time && std::abs(time->frame.x + time->frame.width / 2 - dormant.size.x / 2) < 1, "centred");
     expect(start && std::get<Button>(start->item).primary && std::get<Button>(start->item).actionId == pomodoro_action::kStart, "▶ under it");
     expect(expand && std::get<Button>(expand->item).glyph == Glyph::Expand && std::get<Button>(expand->item).actionId == pomodoro_action::kOpenWindow,
            "the expand button at the header's right end");
-    expect(stats && gear && std::get<Button>(stats->item).actionId == pomodoro_action::kOpenStats &&
-           std::get<Button>(gear->item).actionId == pomodoro_action::kOpenSettings && stats->frame.x < gear->frame.x && gear->frame.x < expand->frame.x &&
-           stats->frame.y == expand->frame.y, "statistics and settings before it");
-    const Placed* name = find(dormant, "expandedCenter/0/4");
-    const Placed* dot = find(dormant, "expandedCenter/0/3");
+    expect(std::none_of(dormant.elements.begin(), dormant.elements.end(), [](const Placed& p) {
+               auto* b = std::get_if<Button>(&p.item);
+               return p.key.rfind("expandedCenter/", 0) == 0 && b && (b->glyph == Glyph::Chart || b->glyph == Glyph::Settings);
+           }), "no statistics or settings buttons on the island: the window has them");
+    const Placed* name = find(dormant, "expandedCenter/0/2");
+    const Placed* dot = find(dormant, "expandedCenter/0/1");
     expect(dot && name && std::get<Text>(name->item).value == "Focus" && dot->frame.x < name->frame.x && name->frame.y < time->frame.y,
            "the phase's dot and name over the time, at the left");
     for (const Placed& p : dormant.elements)
@@ -154,7 +151,7 @@ void cardTests()
     expect(stop && pause && skip && std::get<Button>(stop->item).glyph == Glyph::Stop && std::get<Button>(pause->item).primary &&
            std::get<Button>(skip->item).glyph == Glyph::Next && stop->frame.x < pause->frame.x && pause->frame.x < skip->frame.x &&
            steps->frame.y < pause->frame.y, "stop, ⏸ (the filled circle) and skip, under the steps");
-    const Placed* round = find(running, "expandedCenter/0/5");
+    const Placed* round = find(running, "expandedCenter/0/3");
     expect(round && std::get<Text>(round->item).value == "round 1 of " + std::to_string(t.pomodoroRounds), "the round beside the phase");
     for (const Placed& p : running.elements)
         expect(p.frame.y + p.frame.height <= running.size.y - t.expandedPadding + 0.01f, "fits the card: " + p.key);
@@ -172,9 +169,6 @@ void cardTests()
     expect(cardHeight(island.scene()) == mediaHeight, "and Home's");
     island.send(TileClicked{ PomodoroProvider::kPanelId });
 
-    // The chart and the gear open the window on their pages.
-    expect(island.press(kGear) && island.window() && island.window()->page == kPomodoroSettingsPage, "the gear: settings");
-    expect(island.press(kStats) && island.window()->page == kPomodoroStatsPage, "the chart: statistics");
     island.registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kStopConfirmed, 0 });
 }
 

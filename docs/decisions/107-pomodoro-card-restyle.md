@@ -14,9 +14,8 @@ ones, and the time's digits rolling as they change.
   - *Header*: the phase's dot in its colour (a one-step `Steps`), its name
     (Title), the round in caption ("round 1 of 4", "paused · round 1 of 4",
     "last one" on the long break, "4 rounds" while dormant); at the right,
-    statistics (`kOpenStats`), settings (`kOpenSettings`) and the window
-    (`kOpenWindow`), secondary buttons. The first two open the window on
-    their page (`WindowSpec::page`).
+    the window's button (`kOpenWindow`). Statistics and settings buttons
+    were tried there and taken out at the user's ask: they're the window's pages.
   - *The time left*, `TextStyle::Hero`: `heroFontSize` (64) at
     `heroFontWeight` (800), centred. Its separators (":") in the caption
     colour, its digits in the title colour. Display (the window's dial)
@@ -45,7 +44,8 @@ ones, and the time's digits rolling as they change.
 
 - **Media's card fills the height** (asked for after the first try left a
   band of empty space): the cover is 120 (`expandedArtSize`), the song's
-  title `TextStyle::CardTitle` (22 px at 800), ▶/⏸ the full primary circle,
+  title `TextStyle::CardTitle` (22 px at 800), swimming when too long like
+  the pill's (`Text::marquee`) rather than ending in "…", ▶/⏸ the full primary circle,
   previous and next `Button::large` (44, a 22 px glyph). They need all but
   a few pixels of the shared height; a test holds it to that.
 - **Big text is drawn as outlines** (`GraphicsDevice::draw(..., bigText)`):

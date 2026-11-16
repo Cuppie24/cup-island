@@ -12,8 +12,8 @@ using Phase = PomodoroPhase;
 namespace act = pomodoro_action;
 
 // The card (decision 107): a header, the phase's dot in its colour, its
-// name and the round, with statistics, settings and the window at the
-// right; the time left, big and heavy, centred; the session's phases as
+// name and the round, the window's button at the right (statistics and
+// settings are its pages); the time left, big and heavy, centred; the session's phases as
 // steps under it; then the controls, ▶/⏸ the filled circle between stop and
 // skip. Stacked and centred: the time is what it's about. It fits the
 // height every card and Home share, so switching tabs doesn't resize the island.
@@ -24,9 +24,7 @@ Content timerCard(Content c, const Timeline& timeline, const Steps& steps, const
     c.keepOpen = true;      // a click between the controls doesn't close it (Content::keepOpen)
     c.noIdleTimeout = true; // nor does being left alone: a timer kept in view (decision 062)
     Row header{ .leading = { Steps{ .count = 1 }, Text{ name, TextStyle::Title }, Text{ detail, TextStyle::Caption } },
-                .trailing = { Button{ .glyph = Glyph::Chart, .actionId = act::kOpenStats, .compact = true, .secondary = true },
-                              Button{ .glyph = Glyph::Settings, .actionId = act::kOpenSettings, .compact = true, .secondary = true },
-                              Button{ .glyph = Glyph::Expand, .actionId = act::kOpenWindow, .compact = true, .secondary = true } } };
+                .trailing = { Button{ .glyph = Glyph::Expand, .actionId = act::kOpenWindow, .compact = true, .secondary = true } } };
     Row time = row({ TimeLabel{ .timeline = timeline, .countdown = true, .style = TextStyle::Hero } }, Align::Center);
     Row phases{ .items = { steps }, .align = Align::Center, .apart = true };
     Row buttons{ .items = std::move(controls), .align = Align::Center, .loose = true, .apart = true }; // well-separated targets

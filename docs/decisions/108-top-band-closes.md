@@ -20,7 +20,10 @@ island, where it hangs from the screen's edge.
 - **It glows under the pointer** (`platform/top_glow`): a gradient down
   from the top edge, `collapseGlowHeight` (28) tall, the theme's text colour
   at `collapseGlowOpacity` (0.12) fading to clear: light on a dark island, a
-  shade on a light one. Nothing under the band lights up meanwhile.
+  shade on a light one. Nothing under the band lights up meanwhile. It
+  spreads in from the top edge's middle (`collapseGlowSpread` of its size)
+  to its full size as it fades in, over `collapseGlowDuration` (280 ms),
+  and shrinks back as it fades out; with reduced motion it only fades.
 
 **Not taken.** A visible handle or bar: the glow shows the band only when
 it's about to be used, and the island stays clean otherwise. The whole

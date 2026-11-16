@@ -355,6 +355,10 @@ struct Tokens {
     // closes it; under the pointer, a soft glow fades down from the top edge.
     float collapseZoneHeight = 12;
     float collapseGlowHeight = 28;
+    // It spreads in from the top edge's middle (this share of its width, a sliver
+    // tall) to its full size as it fades in, over collapseGlowDuration; it fades out shrinking back.
+    float collapseGlowSpread = 0.3f;
+    Ms collapseGlowDuration{ 280 };
     float collapseGlowOpacity = 0.12f; // the theme's text colour, this strong at the edge: a light glow on a dark island, a shade on a light one
     Ms toastDuration{ 5000 }; // a toast at a card's bottom goes after this (decision 071)
     Ms toastSlideDuration{ 260 }; // ...and slides up from below the card's edge, fading in, and back down, over this

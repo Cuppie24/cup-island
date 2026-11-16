@@ -2,7 +2,9 @@
 // The expanded island's top band, lit (decision 108): a soft glow fading down
 // from the top edge while the pointer is on the band, where a click closes
 // the island. The theme's text colour at collapseGlowOpacity, so it's a light
-// glow on a dark island and a shade on a light one. Under the content.
+// glow on a dark island and a shade on a light one. Under the content. It
+// spreads in from the top edge's middle as it fades in (collapseGlowSpread,
+// collapseGlowDuration) and shrinks back as it fades out.
 
 #include "core/geometry.h"
 #include "platform/win.h"

@@ -129,8 +129,6 @@ void PomodoroProvider::onAction(const Action& action)
     if (!host_ || (action.activityId != kPanelId && !fromWindow)) return;
     const std::string& id = action.actionId;
     if (id == act::kOpenWindow) return openWindow();
-    if (id == act::kOpenStats) return openWindow(kPomodoroStatsPage);
-    if (id == act::kOpenSettings) return openWindow(kPomodoroSettingsPage);
     if (id == kWindowPage) return ask(PomodoroQuestion::None); // another page: a question there goes unanswered
     if (id == act::kCancel) return ask(PomodoroQuestion::None);
     if (todoAction(action, fromWindow)) return;
@@ -290,12 +288,11 @@ void PomodoroProvider::showWindow()
 
 // The card's expand button (decision 106): the window opens on the timer, or
 // comes to the front where the user left it, like Settings' (decision 104).
-// Its chart and gear (decision 107): on that page, open or not.
-void PomodoroProvider::openWindow(const std::string& page)
+void PomodoroProvider::openWindow()
 {
     PomodoroWindowView view{ .session = session_, .todos = &todos_, .plan = plan_, .glance = glance(), .daysOff = daysOff_, .fake = fakeRow() };
     bool wasOpen = windowOpen_;
-    WindowOpen result = host_->openWindow({ .id = kWindowId, .size = WindowSize::Large, .resizable = false, .maximizable = false, .page = page },
+    WindowOpen result = host_->openWindow({ .id = kWindowId, .size = WindowSize::Large, .resizable = false, .maximizable = false },
                                           pomodoroWindow(view));
     windowOpen_ = result == WindowOpen::Opened || result == WindowOpen::Raised;
     if (windowOpen_ && !wasOpen) {
