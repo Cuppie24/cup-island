@@ -250,6 +250,14 @@ std::optional<Ms> earliest(std::optional<Ms> a, std::optional<Ms> b)
 }
 
 void saveSpot();
+
+// The panels whose card has been opened, ever (decision 110): in the store
+// under the island's own name, one id a line, so an announced widget's "New"
+// stays gone after a restart.
+constexpr const char* kIslandStore = "island";
+constexpr const char* kSeenPanelsKey = "seenPanels";
+std::vector<std::string> loadSeenPanels();
+void saveSeenPanels(const std::vector<std::string>& ids);
 void onLifted();
 void tokensChanged(Vec2 oldCanvas, const char* reason);
 
@@ -267,7 +275,9 @@ void dispatch(const Event& event, const char* reason)
     bool wasHidden = g_state.hidden;
     std::optional<ShownCard> wasCard = shownCard(g_state);
     std::optional<Draft> wasDraft = g_state.draft;
+    std::size_t wasSeen = g_state.seenPanels.size(); // it only grows
     g_state = reduce(g_state, event, t);
+    if (g_state.seenPanels.size() != wasSeen) saveSeenPanels(g_state.seenPanels);
     Scene next = layout(g_state, t, [](const Text& text) { return g_renderer.measure(text); });
 
     if (next.mode != g_island.scene.mode) {
@@ -849,6 +859,22 @@ void onLifted()
 }
 
 // Where the island rests on this monitor, kept for the next start (decision 026).
+std::vector<std::string> loadSeenPanels()
+{
+    std::vector<std::string> ids;
+    std::istringstream lines(store().load(kIslandStore, kSeenPanelsKey));
+    for (std::string id; std::getline(lines, id);)
+        if (!id.empty()) ids.push_back(id);
+    return ids;
+}
+
+void saveSeenPanels(const std::vector<std::string>& ids)
+{
+    std::string text;
+    for (const std::string& id : ids) text += id + "\n";
+    store().save(kIslandStore, kSeenPanelsKey, text);
+}
+
 void saveSpot()
 {
     auto it = g_spots.find(g_displayId);
@@ -988,6 +1014,7 @@ int main()
     g_spots = parseSpots(readTextFile(g_spotsFile));
     g_state = reduce(g_state, ScreenResized{ static_cast<float>(render.width) }, now());
     g_state = reduce(g_state, SpotRestored{ savedSpot(g_displayId) }, now());
+    g_state = reduce(g_state, PanelsSeen{ loadSeenPanels() }, now()); // before the providers publish their widgets (decision 110)
     g_island.scene = layout(g_state, now());
     g_island.renderer = &g_renderer;
     g_renderer.build(render.compositor, render.root, g_island.scene);

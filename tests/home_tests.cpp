@@ -216,6 +216,29 @@ void runHomeTests()
     Scene countdown = layout(counting, Ms{ 1 });
     const Placed* left = find(countdown, "expandedBottom/0/0");
     expect(left && std::get<Text>(left->item).value == "24:59" && std::get<Text>(left->item).centred, "countdown: 24:59, no minus, centred");
+
+    // "New" (decision 110): drawn on an announced widget's first line until its card is opened.
+    Panel fresh = panel("fresh");
+    fresh.announce = true;
+    Panel still = panel("still"); // no card to open: never New
+    still.announce = true;
+    still.content.expandedCenter.clear();
+    IslandState news = withPanels({ fresh, still });
+    auto tagOn = [](const Scene& scene, const std::string& tile) {
+        for (const Placed& p : scene.elements)
+            if (auto* tag = std::get_if<Tag>(&p.item); tag && tag->text == "New" && p.key.rfind("tile/" + tile + "/", 0) == 0) return &p;
+        return static_cast<const Placed*>(nullptr);
+    };
+    Scene unseen = layout(reduce(news, PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    const Placed* tag = tagOn(unseen, "fresh");
+    const Placed* name = find(unseen, "tile/fresh/0/0");
+    expect(tag && name && tag->frame.x > name->frame.x && std::abs(tag->frame.y + tag->frame.height / 2 - (name->frame.y + name->frame.height / 2)) < 1,
+           "an announced widget: New on its first line, after its text");
+    expect(!tagOn(unseen, "still"), "announced but with no card: nothing to open, so never New");
+    news = reduce(reduce(news, PillClicked{}, Ms{ 0 }), TileClicked{ "fresh" }, Ms{ 0 });
+    news = reduce(reduce(news, EscapePressed{}, Ms{ 0 }), HomeOpened{}, Ms{ 0 });
+    expect(!tagOn(layout(news, Ms{ 0 }), "fresh"), "its card opened once: no more New");
+    expect(news.seenPanels == std::vector<std::string>{ "fresh" }, "and the host remembers it (the app saves seenPanels)");
 }
 
 } // namespace cup::test

@@ -47,6 +47,8 @@ void collapse(IslandState& s)
 
 void expand(IslandState& s, const std::string& id, Ms now)
 {
+    // A panel's card opened: seen, for good (decision 110). Its activity's id is the panel's.
+    if (findPanel(s, id) && std::find(s.seenPanels.begin(), s.seenPanels.end(), id) == s.seenPanels.end()) s.seenPanels.push_back(id);
     s.expandedId = id;
     s.homeOpen = false;
     s.cardFromHome = false; // opened some other way; TileClicked sets it after
@@ -306,6 +308,12 @@ void handle(IslandState& s, const ActivityOpened&, Ms now)
 }
 
 // A running panel opens like its tab (and becomes the pick); a dormant one shows its card.
+void handle(IslandState& s, const PanelsSeen& e, Ms)
+{
+    for (const std::string& id : e.ids)
+        if (!id.empty() && std::find(s.seenPanels.begin(), s.seenPanels.end(), id) == s.seenPanels.end()) s.seenPanels.push_back(id);
+}
+
 void handle(IslandState& s, const TileClicked& e, Ms now)
 {
     bool fromHome = s.homeOpen;

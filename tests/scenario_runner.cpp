@@ -9,7 +9,9 @@
 //            click  outside  esc  pointer  drag-enter  drag-rejected
 //            drag-leave  drop  hide  show  wait <ms>  top-click (the expanded top band, decision 108)
 //            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel
-//            panel <id> [static|keep|awake|field|menu|menu=changed]  unpanel <id>  home  tile <id>  (static: a widget with no card;
+//            panel <id> [static|keep|awake|field|menu|menu=changed|new]  unpanel <id>  home  tile <id>  (static: a widget with no card;
+//                                                                     new: announced, "New" until its card opens, decision 110;
+//            seen <id>...  (the app's saved list of panels opened, decision 110)
 //                                                                     field: a card that is its field "go", decision 079;
 //                                                                     menu: field, then rows 1 and 2 with menus Open, Run (dim), Reveal;
 //                                                                     menu=changed: the same rows, other items;
@@ -40,7 +42,7 @@
 //                     caret=<byte offset>  selected=<text>|none  (_ for a space)
 //                     lifted=yes|no  spot=centre|left|right|free  stay=yes|no  tabs=top|bottom
 //                     scroll=<card>/<list>:<offset>[+reveal]  carried=<row>|none  squash=yes|no (a press on empty space, decision 071)
-//                     toast=<card>|none
+//                     toast=<card>|none  new=<panel>,<panel>|none (widgets saying "New", decision 110)
 //                     menu=<card>/<row>|none  lit=<item>|none   (the island's open menu, and its lit item)
 //                     windows=<provider/id,...>|none  front=<provider/id>|none  page=<provider/id>:<page>  opened=<result>
 //                     (opened: what the last open-window got: opened, raised, notnow, toomany, badid)
@@ -195,6 +197,7 @@ struct Runner {
             if (arg(2) != "static") p.content.expandedCenter = { row({ Text{ arg(1) } }) };
             p.content.keepOpen = arg(2) == "keep" || arg(2) == "awake";
             p.content.noIdleTimeout = arg(2) == "awake";
+            p.announce = arg(2) == "new";
             if (arg(2) == "field" || arg(2).rfind("menu", 0) == 0) {
                 p.content.expandedCenter = { row({ TextInput{ .actionId = "go" } }) };
                 p.content.fieldFirst = "go";
@@ -208,6 +211,7 @@ struct Runner {
             apply(PanelPublished{ p });
         }
         else if (cmd == "unpanel") apply(PanelRemoved{ arg(1) });
+        else if (cmd == "seen") apply(PanelsSeen{ std::vector<std::string>(w.begin() + 1, w.end()) });
         else if (cmd == "home") apply(HomeOpened{});
         else if (cmd == "open-activity") apply(ActivityOpened{});
         else if (cmd == "tile") apply(TileClicked{ arg(1) });
@@ -364,6 +368,12 @@ struct Runner {
             } else if (auto v = option(word, "tabs")) {
                 std::string got = state.tabsOnTop ? "top" : "bottom";
                 if (got != *v) fail("tabs=" + *v + ", got " + got);
+            } else if (auto v = option(word, "new")) {
+                std::string got;
+                for (const Panel& p : state.panels)
+                    if (isNew(state, p)) got += (got.empty() ? "" : ",") + p.id;
+                if (got.empty()) got = "none";
+                if (got != *v) fail("new=" + *v + ", got " + got);
             } else if (auto v = option(word, "stay")) {
                 std::string got = state.stayOpen ? "yes" : "no";
                 if (got != *v) fail("stay=" + *v + ", got " + got);

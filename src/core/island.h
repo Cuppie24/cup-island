@@ -47,6 +47,10 @@ struct Panel {
     // The tile's primary tap action (PS §7.2): a click on the tile sends this
     // to the provider instead of opening a card. For a quick toggle (theme).
     std::string tapAction;
+    // New (decision 110): its widget says "New" until its card is first opened,
+    // ever (IslandState::seenPanels, which the app keeps). The provider says
+    // which widgets are worth announcing; the host tracks and draws it.
+    bool announce = false;
     bool operator==(const Panel&) const = default;
 };
 
@@ -178,6 +182,7 @@ struct HomeOpened {};                   // Home tab (decision 009)
 struct ActivityOpened {};               // its shortcut (decision 050): the pill's activity's card; again on it, closes
 struct CardCloseRequested { std::string id; }; // its provider is done with it (Host::closeCard, decision 079): closes if shown
 struct TileClicked { std::string id; }; // a Home tile, not on a button: open its card
+struct PanelsSeen { std::vector<std::string> ids; }; // the app's saved seenPanels, at start (decision 110)
 struct InputFocused {    // a TextInput was clicked, or an edit button (then `text` is what's edited)
     std::string providerId, activityId, actionId;
     std::string text;      // the draft starts with this
@@ -229,7 +234,7 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            InputFocused, TextTyped, TextErased, CaretMoved, CaretPlaced, WordSelected, AllSelected,
                            InputSubmitted, InputCancelled,
                            DialogShown, DialogClosed, ToastShown, ToastClosed, MenuOpened, MenuLit, MenuClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,
-                           ListDragEnded, StayOpenToggled, TabRowPlaced>;
+                           ListDragEnded, StayOpenToggled, TabRowPlaced, PanelsSeen>;
 
 // --- State --------------------------------------------------------------
 struct WallClock {
@@ -269,6 +274,9 @@ struct IslandState {
     // outside the island or on a card's empty space doesn't close it. Esc
     // and the card going away still do; closing unpins it.
     bool stayOpen = false;
+    // Panels whose card has been opened, ever (decision 110): an announced one's
+    // widget stops saying "New". The app saves it and gives it back (PanelsSeen).
+    std::vector<std::string> seenPanels;
     bool tabsOnTop = true; // the tab row along the card's top (decision 047), or its bottom: the user's pick (decision 048)
     std::uint64_t nextStartOrder = 1;
 };
@@ -299,6 +307,10 @@ struct ShownCard {
     bool operator==(const ShownCard&) const = default;
 };
 std::optional<ShownCard> shownCard(const IslandState& state);
+
+// Its widget says "New" (decision 110): announced, it opens a card, and that
+// card hasn't been opened yet.
+bool isNew(const IslandState& state, const Panel& panel);
 
 // The shown card, if it's a live activity's (not Home, not a dormant
 // panel's): what Ctrl+W asks to close (decision 034).
