@@ -20,14 +20,15 @@ TextStyle windowStyle(TextStyle style)
     }
 }
 
-// A section's title row: its Heading (edited in place when it says so), what
-// goes beside it, and what goes at its end.
+// A section's title row: its Heading (edited in place when it says so)
+// taking the row's spare width, so a long name isn't cut off and its field
+// has room; at its end what goes beside it (a count), then the rest (a delete).
 Row titleRow(const WindowSection& section)
 {
     Row r{ .items = { Text{ .value = section.title, .style = TextStyle::Heading, .editAction = section.titleEdit,
                             .editMaxLength = section.titleMaxLength } },
-           .trailing = section.titleTrailing };
-    for (const Item& item : section.titleItems) r.items.push_back(item);
+           .trailing = section.titleItems };
+    for (const Item& item : section.titleTrailing) r.trailing.push_back(item);
     return r;
 }
 
@@ -43,7 +44,9 @@ std::vector<Row> unlisted(std::vector<Row> rows)
     return rows;
 }
 
-// A card: its title inside it, on the same background as its rows (decision 117).
+// A card's rows (decision 120): its title, then its rows, each inset as a
+// list item's are; the card is one background around them (cardFill), not a
+// group of padded rows, so its rows sit as close as a list's.
 Slot cardSlot(const WindowSection& section)
 {
     Slot slot;
@@ -52,8 +55,31 @@ Slot cardSlot(const WindowSection& section)
         slot.back().id = "title"; // one card, one slot: its rows' ids stay unique
     }
     for (Row& r : unlisted(section.rows)) slot.push_back(std::move(r));
-    for (Row& r : slot) r.grouped = true;
+    // Each a list item (decisions 121, 122): lit as a whole under the pointer, from its first
+    // item (a +, a checkbox) to its last (a delete), listItemPadding round them on every side.
+    for (Row& r : slot) {
+        r.grouped = false;
+        r.listItem = true;
+    }
+    // Its name hugs its text, what's at its end right beside it, a gap apart; lit only that far (decision 123).
+    if (hasTitle(section)) {
+        slot.front().hug = true;
+        slot.front().edgesBeside = true;
+    }
     return windowStyled(std::move(slot));
+}
+
+// Its background: one rounded piece behind the whole card, never clicked.
+Placed cardFill(const std::string& name, Rect frame, const Source& source, bool dashed)
+{
+    Placed fill;
+    fill.key = name + "/fill";
+    fill.item = GroupFill{ .dashed = dashed };
+    fill.frame = frame;
+    fill.cornerRadius = std::min(tokens().windowCardRadius, frame.width / 2);
+    fill.providerId = source.providerId;
+    fill.activityId = source.activityId;
+    return fill;
 }
 
 std::string cardName(const WindowSection& section, std::size_t index)
@@ -70,6 +96,7 @@ Slot windowStyled(Slot slot)
             for (Item& item : *items) {
                 if (auto* text = std::get_if<Text>(&item)) text->style = windowStyle(text->style);
                 else if (auto* label = std::get_if<TimeLabel>(&item)) label->style = windowStyle(label->style);
+                else if (auto* field = std::get_if<TextInput>(&item)) field->style = windowStyle(field->style); // its text as the rows' (decision 125)
             }
     return slot;
 }
@@ -78,8 +105,9 @@ CardGrid cardGrid(float available)
 {
     const Tokens& t = tokens();
     available = std::max(0.0f, available);
-    int columns = std::max(1, static_cast<int>(std::floor((available + t.windowCardGap) / (t.windowCardWidth + t.windowCardGap))));
-    return { columns, std::floor(std::min(available, t.windowCardWidth)) };
+    int columns = std::max(1, static_cast<int>(std::floor((available + t.windowCardGap) / (t.windowCardMinWidth + t.windowCardGap))));
+    float width = (available - t.windowCardGap * static_cast<float>(columns - 1)) / static_cast<float>(columns);
+    return { columns, std::floor(width) };
 }
 
 std::vector<Rect> cardFrames(const CardGrid& grid, const std::vector<float>& heights, Vec2 topLeft)
@@ -90,9 +118,12 @@ std::vector<Rect> cardFrames(const CardGrid& grid, const std::vector<float>& hei
     for (std::size_t first = 0; first < heights.size(); first += static_cast<std::size_t>(grid.columns)) {
         std::size_t end = std::min(heights.size(), first + static_cast<std::size_t>(grid.columns));
         float tallest = 0;
+        // A row short of cards (two groups on a wide screen) sits in the middle, not at the left (decision 123).
+        float missing = static_cast<float>(first + static_cast<std::size_t>(grid.columns) - end);
+        float left = topLeft.x + missing * (grid.width + gap) / 2;
         for (std::size_t i = first; i < end; ++i) {
             // Whole pixels: a card at a fraction is resampled, and moved by one it's rebuilt (decision 090's seam).
-            float x = std::round(topLeft.x + static_cast<float>(i - first) * (grid.width + gap));
+            float x = std::round(left + static_cast<float>(i - first) * (grid.width + gap));
             frames.push_back({ x, std::round(y), grid.width, heights[i] });
             tallest = std::max(tallest, heights[i]);
         }
@@ -102,7 +133,7 @@ std::vector<Rect> cardFrames(const CardGrid& grid, const std::vector<float>& hei
 }
 
 float placePage(const WindowPage& page, float paneWidth, const Source& fields, Ms now, const MeasureText& measure, std::vector<Placed>& out,
-                std::optional<Rect>& rule)
+                std::optional<Rect>& rule, std::optional<Color> accent)
 {
     const Tokens& t = tokens();
     Vec2 pad = t.windowPagePadding;
@@ -116,7 +147,20 @@ float placePage(const WindowPage& page, float paneWidth, const Source& fields, M
         frame.height = slotHeight(header, frame, fields, measure);
         placeSlot({ "header", &header, frame }, fields, t.windowNavRadius, now, out, measure);
         y = std::round(y + frame.height + pad.y);
-        rule = Rect{ 0, y, paneWidth, 1 };
+        if (page.headerProgress) { // the line is the phase's bar, edge to edge (decision 122)
+            float h = t.windowHeaderBarHeight;
+            Placed bar;
+            bar.key = "header/progress";
+            bar.item = Progress{ .timeline = *page.headerProgress };
+            bar.frame = { 0, y, paneWidth, h };
+            bar.accent = accent;
+            bar.providerId = fields.providerId;
+            bar.activityId = fields.activityId;
+            out.push_back(std::move(bar));
+            y += h;
+        } else {
+            rule = Rect{ 0, y, paneWidth, 1 };
+        }
         y += pad.y;
     }
 
@@ -153,19 +197,26 @@ float placePage(const WindowPage& page, float paneWidth, const Source& fields, M
     }
     if (!page.cards) return y + pad.y;
 
-    // The cards, side by side as many as fit (decision 117).
+    // The cards, side by side as many as fit, filling the row (decisions 117, 120): each a
+    // background with its rows windowCardPadding inside it.
     CardGrid grid = cardGrid(available);
+    float inside = t.windowCardPadding;
     std::vector<Slot> cards;
     std::vector<float> heights;
     for (const WindowSection& section : page.sections) {
         cards.push_back(cardSlot(section));
-        heights.push_back(slotHeight(cards.back(), { 0, 0, grid.width, 0 }, fields, measure));
+        heights.push_back(slotHeight(cards.back(), { 0, 0, std::max(0.0f, grid.width - 2 * inside), 0 }, fields, measure) + 2 * inside);
     }
     std::vector<Rect> frames = cardFrames(grid, heights, { pad.x, y });
     float bottom = y;
     for (std::size_t i = 0; i < cards.size(); ++i) {
-        placeSlot({ cardName(page.sections[i], i), &cards[i], frames[i] }, fields, t.windowNavRadius, now, out, measure);
-        bottom = std::max(bottom, frames[i].y + frames[i].height);
+        std::string name = cardName(page.sections[i], i);
+        Rect f = frames[i];
+        out.push_back(cardFill(name, f, fields, page.sections[i].dashed)); // first: under its rows
+        Rect rows{ f.x + inside, f.y + inside, std::max(0.0f, f.width - 2 * inside), std::max(0.0f, f.height - 2 * inside) };
+        // Its rows' lit backgrounds nest in its corners: its radius less its padding (decision 121).
+        placeSlot({ name, &cards[i], rows }, fields, std::max(0.0f, t.windowCardRadius - inside), now, out, measure);
+        bottom = std::max(bottom, f.y + f.height);
     }
     return bottom + pad.y;
 }

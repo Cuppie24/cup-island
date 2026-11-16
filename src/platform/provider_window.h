@@ -9,6 +9,7 @@
 #include "core/window_layout.h"
 #include "platform/element_visuals.h"
 #include "platform/graphics_device.h"
+#include "platform/toast_layer.h"
 #include "platform/win.h"
 
 #include <functional>
@@ -29,6 +30,7 @@ struct ProviderWindowCallbacks {
     std::function<void(Vec2 size)> onResized; // the client area's new size: lay it out again now
     std::function<void()> onMoved;           // the user let go after moving or resizing it
     std::function<bool(Vec2 point)> isCaption; // the title bar's empty part: it drags the window
+    std::function<void()> onTick;            // armTick's time came: lay it out again (a time label, a toast's end)
 };
 
 class ProviderWindow {
@@ -52,6 +54,10 @@ public:
 
     static constexpr UINT kRevealMessage = WM_APP + 21; // posted after drawing its first frame: handled once that's committed
     static constexpr UINT_PTR kRevealTimer = 1;
+    static constexpr UINT_PTR kTickTimer = 2;
+    // Its own one-shot timer (decision 121): onTick after `delay`, replacing the one armed; none: disarmed.
+    // A window's time labels and toast keep time with it, not with the island's timer.
+    void armTick(std::optional<Ms> delay);
     void raise();                                // to the front, with the keys; restored if minimized
     void minimize();
     void toggleMaximized();      // the title bar's middle button: as big as the screen, or back (decision 117)
@@ -62,8 +68,10 @@ public:
     // Glass (decision 104): Windows 11's acrylic behind it, the window see-through over it; off, solid.
     void setGlass(bool on);
     bool glass() const { return glass_; }
-    // What's under the pointer: an item's key, a sidebar entry, a lit row (page coordinates). ""/nullopt: nothing.
-    void setHovered(const std::string& key, std::optional<std::size_t> nav, std::optional<Rect> row, float rowRadius);
+    // What's under the pointer: an item's key, a sidebar entry, a lit row (page coordinates), and the
+    // page's row (windowRowAt), whose buttons shown on hover appear (decision 120). ""/nullopt: nothing.
+    void setHovered(const std::string& key, std::optional<std::size_t> nav, std::optional<Rect> row, float rowRadius,
+                    const std::string& pageRow);
     // Where a click at `point` (page coordinates) puts the caret in `field`
     // (a TextInput, or a Text edited in place), as a byte offset (decision 105).
     std::size_t caretAt(const Placed& field, Vec2 point) const;
@@ -104,6 +112,10 @@ private:
     bool cloaked_ = false;
     std::function<void()> shown_;
     ElementVisuals sidebar_, page_, footer_, chrome_;
+    ToastLayer toast_; // over the pane, clipped to it (decision 121)
+    // A question (decision 122): its scrim and panel (rebuilt with each draw), its items over them.
+    wuc::ContainerVisual dialogDecor_{ nullptr }, dialogLayer_{ nullptr };
+    ElementVisuals dialog_;
 
     WindowScene scene_;
     std::wstring title_; // what Windows has as its title

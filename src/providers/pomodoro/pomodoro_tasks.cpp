@@ -48,12 +48,26 @@ bool PomodoroProvider::taskAction(const Action& action)
         changed();
         return true;
     }
-    // A group deleted at once, its tasks with it; Undo brings them back.
-    if (startsWith(id, task::kDeleteGroup)) {
+    // A group with tasks asks first, in a question over the window (decision 122); an empty one, or
+    // one confirmed, goes at once. An empty one's Undo is a toast; a confirmed one needs none.
+    bool confirmed = startsWith(id, task::kDeleteGroupConfirmed);
+    if (confirmed || startsWith(id, task::kDeleteGroup)) {
         std::uint64_t group = 0;
-        const char* first = id.c_str() + std::char_traits<char>::length(task::kDeleteGroup);
+        const char* first = id.c_str() + std::char_traits<char>::length(confirmed ? task::kDeleteGroupConfirmed : task::kDeleteGroup);
         std::from_chars(first, id.c_str() + id.size(), group);
-        if (auto gone = tasks_.removeGroup(group)) deleted_ = std::move(*gone);
+        const TaskGroup* g = tasks_.group(group);
+        if (!g) return true;
+        std::size_t count = g->tasks.items().size();
+        if (!confirmed && count > 0) {
+            std::string tasks = std::to_string(count) + (count == 1 ? " task goes" : " tasks go");
+            host_->ask({ .title = "Delete \u201C" + g->name + "\u201D?", .message = "Its " + tasks + " with it.", .confirmLabel = "Delete",
+                         .confirmAction = task::kDeleteGroupConfirmed + std::to_string(group), .destructive = true, .windowId = kWindowId });
+            return true;
+        }
+        if (auto gone = tasks_.removeGroup(group)) {
+            deleted_ = std::move(*gone);
+            if (!confirmed) offerUndo();
+        }
         changed();
         return true;
     }
@@ -64,8 +78,12 @@ bool PomodoroProvider::taskAction(const Action& action)
     if (target)
         if (const Todo* t = named(*tasks_.tasksOf(target->group), target->todoAction, todo::kDelete)) deleting = DeletedTask{ target->group, *t };
     if (!tasks_.apply(id, action.text, action.value)) return true;
-    if (deleting) deleted_ = *deleting;
-    else deleted_.reset(); // the next change: the Undo row goes
+    if (deleting) {
+        deleted_ = *deleting;
+        offerUndo();
+    } else {
+        deleted_.reset(); // the next change: there's nothing to undo any more
+    }
     if (target && startsWith(target->todoAction, todo::kToggle)) countTask(*target);
     changed();
     return true;
@@ -81,11 +99,13 @@ void PomodoroProvider::countTask(const TaskTarget& target)
     saveStats();
 }
 
-std::string PomodoroProvider::undoText() const
+// The host's toast over the window (decision 121), as a card's delete has (decision 071).
+void PomodoroProvider::offerUndo()
 {
-    if (!deleted_) return "";
-    if (std::holds_alternative<DeletedTask>(*deleted_)) return "Task deleted";
-    return "“" + std::get<RemovedGroup>(*deleted_).group.name + "” deleted";
+    if (!deleted_) return;
+    std::string text = std::holds_alternative<DeletedTask>(*deleted_) ? "Task deleted"
+                                                                      : "“" + std::get<RemovedGroup>(*deleted_).group.name + "” deleted";
+    host_->toast({ .text = text, .actionLabel = "Undo", .actionId = kPomodoroUndo, .windowId = kWindowId });
 }
 
 } // namespace cup

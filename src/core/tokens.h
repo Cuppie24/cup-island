@@ -102,7 +102,8 @@ struct Tokens {
     // Inside a window (decision 104): an ordinary window's chrome, a sidebar of pages, groups of rows.
     Vec2 windowPagePadding{ 48, 32 }; // a page's content from the pane's left and top
     float windowTitleBarHeight = 36; // our own title bar: it drags the window; minimize and close at its right
-    float windowChromeButtonWidth = 46; // each of those, the bar's height tall, as Windows draws its own
+    float windowChromeButtonWidth = 46;
+    float windowChromeGlyphSize = 10; // minimize, maximize, close: Windows' caption glyphs at Windows' size (decision 123) // each of those, the bar's height tall, as Windows draws its own
     float windowSidebarWidth = 200; // the pages, with the window's title over them (only with several pages)
     float windowSidebarInset = 14; // the sidebar's items from its edges
     float windowSidebarHeader = 60; // the window's title, over the pages
@@ -110,8 +111,14 @@ struct Tokens {
     float windowPageMaxWidth = 600; // a page's content no wider: rows of settings don't need a wide screen
     float windowNavRadius = 8; // the picked page's highlight
     float windowRailWidth = 64; // WindowContent::rail: the pages' glyphs alone, the title in the title bar (decision 117)
-    // WindowPage::cards (decision 117): one width, so a resize moves cards and never repaints them.
-    float windowCardWidth = 340;
+    // WindowPage::cards (decisions 117, 120): no narrower, sharing the row's width; rows windowCardPadding inside.
+    float windowCardMinWidth = 560;
+    float windowCardPadding = 8;
+    float windowHeaderBarHeight = 3; // WindowPage::headerProgress: the bar under a page's header (decision 122)
+    float dashedBorderWidth = 1.5f; // GroupFill::dashed: a card offering to add one (decision 122)
+    float windowCardRadius = 18;
+    float windowDialogWidth = 400;   // a window's question (decision 122): its panel, at most this wide
+    float windowDialogPadding = 20;  // ...its content this far in // its corners; its rows' backgrounds nest in them (radius less padding, decision 121)
     float windowCardGap = 16; // between cards, across and down
     float expandedArtSize = 108; // expanded leading square: the cover, filling the card's shared height with its controls (decisions 094, 107, 119)
     float slotGap = 10;         // between leading and center/bottom slots
@@ -173,6 +180,7 @@ struct Tokens {
     float primaryHoverOpacity = 0.8f; // Button::primary under the pointer: its fill this much as strong (decision 066)
     float smallButtonSize = 32;   // Button::compact: list rows (a to-do's checkbox)
     float revealGlyphSize = 14;   // Button::revealOnHover (a to-do's delete): a smaller glyph, the same button and hover shape
+    float iconFieldHeight = 26;   // TextInput::icon: a field that reads as a button ("+ Add task", decision 124)
     float inputHeight = 36;       // a TextInput: a little taller than the rows, easy to click into
     float listItemPadding = 6;    // Row::listItem: above and below its content; = listItemInset, so a checkbox's corners nest in the row's (decision 006)
     float listItemInset = 6;      // Row::listItem: its content in from the hover background's edges
@@ -477,6 +485,7 @@ struct Tokens {
     Color placeholderTextColor{ 255, 255, 255, 128 }; // "Add a to-do…": like body text, a little dimmer
     Color tagTextColor{ 255, 255, 255 };           // a Tag's text; its pill is badgeColor, like the dots it goes with (decision 048)
     Color selectionColor{ 10, 132, 255, 115 };     // selected text in a field (decision 043): readable on dark and light themes
+    Color windowScrimColor{ 0, 0, 0, 115 };       // under a window's question: the window dimmed (decision 122)
     Color dangerColor{ 255, 69, 58 };              // a destructive button's label: a dialog's "Clear all" (decision 020)
     Color badgeColor{ 255, 69, 58 };               // a notification dot (decision 038): the red every OS uses for "new"
     Color imagePlaceholderColor{ 255, 255, 255, 31 }; // art that hasn't arrived

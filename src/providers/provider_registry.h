@@ -64,6 +64,8 @@ public:
     void windowClosed(const WindowKey& key);
     // The user picked a page: shown, and its provider told (Action{kWindowPage, text = page}).
     void windowPageShown(const WindowKey& key, const std::string& pageId);
+    // Windows' toasts whose time is up go (decision 121): the windows' own timers call it.
+    void expireWindowToasts(Ms now);
 
     // Wake-ups providers asked for (Host::wakeAt): the earliest, for the app's
     // one timer, and calling onWake() on every provider whose time has come.

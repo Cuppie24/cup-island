@@ -42,7 +42,7 @@ Item resolve(const Item& item, Ms now, const Source& source)
         const Draft* d = source.draft;
         if (d && d->activityId == source.activityId && d->actionId == text->editAction)
             return TextInput{ .actionId = text->editAction, .value = d->text, .focused = true, .caret = d->caret, .anchor = d->anchor,
-                              .inPlace = true };
+                              .inPlace = true, .style = text->style };
     }
     return item;
 }
@@ -70,7 +70,8 @@ float radiusFor(const Item& item, Rect frame, float nestedRadius)
 // more in a group (Row::grouped, decision 090).
 float listPadding(const Row& row)
 {
-    return row.grouped ? 2 * tokens().groupItemPadding : row.listItem ? 2 * tokens().listItemPadding : 0;
+    const Tokens& t = tokens();
+    return row.grouped ? 2 * t.groupItemPadding : row.listItem ? 2 * t.listItemPadding : 0;
 }
 
 // Whether row r's group goes on into the next row (decision 090): both
@@ -143,7 +144,20 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
     if (hasMenus(*slot.slot)) buttoned = withMenuButtons(*slot.slot);
     const Slot& rows = buttoned.empty() ? *slot.slot : buttoned;
 
-    RowSizes sizes = rowSizes(rows, slot.frame, measure);
+    // A field that takes another shape focused (TextInput::focusedIcon, decision 125) is sized as it is now.
+    Slot focusedRows;
+    const Slot* sizing = &rows;
+    for (const Row& r : rows)
+        for (const Item& item : r.items)
+            if (auto* in = std::get_if<TextInput>(&item); in && in->focusedIcon && sizing == &rows) {
+                focusedRows = rows;
+                sizing = &focusedRows;
+            }
+    if (sizing == &focusedRows)
+        for (Row& r : focusedRows)
+            for (Item& item : r.items)
+                if (auto* in = std::get_if<TextInput>(&item); in && in->focusedIcon) in->focused = std::get<TextInput>(resolve(item, Ms{ 0 }, source)).focused;
+    RowSizes sizes = rowSizes(*sizing, slot.frame, measure);
     const std::vector<float> oneLine = sizes.heights; // a list's window counts rows of one line (decision 045)
     // Lists windowed, scrolled, a row dragged (decision 029); the rest stacked.
     ListState lists{ source.activityId, source.scrolls, source.listDrag };
@@ -200,7 +214,11 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 auto inset = [&](const std::vector<Item>& edge, const Item* outer) {
                     bool control = outer && (std::holds_alternative<Button>(*outer) || std::holds_alternative<TextInput>(*outer) ||
                                              std::holds_alternative<Switch>(*outer));
-                    return edge.empty() && outer && !control ? t.listItemTextInset : t.listItemInset;
+                    // Editable text is drawn editInset in from its frame already: its frame sits that much
+                    // closer, so its letters line up with the plain text of the rows around it.
+                    auto* text = outer ? std::get_if<Text>(outer) : nullptr;
+                    float textInset = text && !text->editAction.empty() ? t.listItemTextInset - t.editInset : t.listItemTextInset;
+                    return edge.empty() && outer && !control ? textInset : t.listItemInset;
                 };
                 float left = inset(row.leading, row.items.empty() ? nullptr : &row.items.front());
                 float right = inset(row.trailing, row.items.empty() ? nullptr : &row.items.back());
@@ -214,10 +232,11 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
             std::string rowName = row.id.empty() ? std::to_string(r) : row.id;
             size_t first = target.size();
             auto place = [&](const Item& item, size_t index, float x, float w) {
-                float h = heightOf(item, slot.frame, ringSide, measure);
                 Placed placed;
                 placed.key = slot.name + "/" + rowName + "/" + std::to_string(index);
                 placed.item = resolve(item, now, source);
+                // A field as it is now: focused, it may take another shape (TextInput::focusedIcon, decision 125).
+                float h = heightOf(std::holds_alternative<TextInput>(item) ? placed.item : item, slot.frame, ringSide, measure);
                 // Wrapping text (decision 045): its lines at the width it got (less its edit inset),
                 // and as tall as they are. The row grows to fit in the next pass.
                 if (auto* text = std::get_if<Text>(&item); text && text->wrap) {
@@ -226,8 +245,8 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                         shown->wrapped = wrapText(shown->value, shown->style, room, measure);
                         h = static_cast<float>(lineCount(shown->wrapped)) * lineHeight(shown->style);
                     } else if (auto* field = std::get_if<TextInput>(&placed.item)) {
-                        field->wrapped = wrapText(field->value, TextStyle::Body, room, measure); // the field's font
-                        h = static_cast<float>(lineCount(field->wrapped)) * lineHeight(TextStyle::Body);
+                        field->wrapped = wrapText(field->value, field->style, room, measure); // the field's font: the text's
+                        h = static_cast<float>(lineCount(field->wrapped)) * lineHeight(field->style);
                     }
                     wrapped[r] = std::max(wrapped[r], h);
                 }
@@ -236,7 +255,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 // Editable text owns its whole stretch, but is drawn editInset in from each side.
                 // Edited in place, the field fills that stretch (so its background keeps the row's
                 // gaps to the checkbox and delete button) and is as tall as the row's content, with
-                // the text where it was, centred in it (decision 043).
+                // the text where it was, centred in it (decision 043). It draws no box (decision 122).
                 if (auto* text = std::get_if<Text>(&item); text && !text->editAction.empty()) {
                     if (auto* field = std::get_if<TextInput>(&placed.item); field && field->inPlace) {
                         float tall = std::max(h, rowHeight - above - listPadding(row));
@@ -249,7 +268,9 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 // In a list item, rounded content nests in the row's background, not the
                 // card's corner: its radius is the row's less the inset (decision 006).
                 float rowRadius = std::min(row.grouped ? t.groupRadius : nestedRadius, rowHeight / 2);
-                placed.cornerRadius = radiusFor(placed.item, placed.frame, row.listItem ? std::max(0.0f, rowRadius - t.listItemInset) : nestedRadius);
+                // Nested by its nearest gap to the row's edge (decision 121).
+                float gap = std::min(t.listItemInset, listPadding(row) / 2);
+                placed.cornerRadius = radiusFor(placed.item, placed.frame, row.listItem ? std::max(0.0f, rowRadius - gap) : nestedRadius);
                 placed.accent = source.content ? source.content->accent : std::nullopt;
                 placed.list = list;
                 if (row.listItem) {
@@ -272,7 +293,10 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 if (auto* text = std::get_if<Text>(&item); text && !text->wrap) {
                     Text sized = *text; // Text::sizedAs: as wide as its sample, so a changing value keeps its column
                     if (!text->sizedAs.empty()) sized.value = text->sizedAs;
-                    return textWidth(sized, measure) + 1;
+                    // Editable text is drawn editInset in from each side of its frame: room for that too,
+                    // or a hugging one ("Tasks", a card's name) lost its end to a "…" (decision 124).
+                    float edit = text->editAction.empty() ? 0 : 2 * t.editInset;
+                    return textWidth(sized, measure) + 1 + edit;
                 }
                 return std::nullopt;
             };
@@ -447,6 +471,15 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                         target[i].litByRow = row.listItem; // the lit row says it's clickable; a box inside it would double it
                     }
             }
+            // A field in a list item (a window card's "Add task", decision 122): unfocused, the row's
+            // background is its only one, and the whole row clicks into it; focused, a field with its
+            // own box. Not one being edited in place: that keeps its box, showing what's changed.
+            if (row.listItem)
+                for (std::size_t i = first; i < target.size(); ++i)
+                    if (auto* field = std::get_if<TextInput>(&target[i].item); field && !field->inPlace) {
+                        target[i].litByRow = !field->focused || field->focusedIcon; // a row being written has no box either
+                        target[i].hitFrame = { background.x, y, background.width, rowHeight };
+                    }
             // Otherwise a list item's first and last items reach its edges: a
             // to-do's checkbox takes clicks from the row's very start (decision 043).
             else if (row.listItem && !placed.empty()) {
@@ -455,6 +488,20 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 float right = front.x + front.width;
                 front.x = std::min(front.x, background.x), front.width = right - front.x;
                 back.width = std::max(back.width, background.x + background.width - back.x);
+            }
+            // A hugging list item (a card's name and its delete, decision 123): lit, and pointed at,
+            // from the row's start to just past its last item, not across the whole row.
+            if (row.listItem && row.hug && target.size() > first) {
+                float right = background.x;
+                for (std::size_t i = first; i < target.size(); ++i) right = std::max(right, target[i].frame.x + target[i].frame.width);
+                Rect lit{ background.x, background.y, std::min(background.width, right + t.listItemInset - background.x), background.height };
+                for (std::size_t i = first; i < target.size(); ++i) {
+                    Placed& p = target[i];
+                    if (p.listRow) p.listRow->x = lit.x, p.listRow->width = lit.width;
+                    float end = std::min(p.hitFrame.x + p.hitFrame.width, lit.x + lit.width);
+                    p.hitFrame.x = std::max(p.hitFrame.x, lit.x);
+                    p.hitFrame.width = std::max(0.0f, end - p.hitFrame.x);
+                }
             }
             // In a list: only what's inside its window can be pointed at.
             if (list)

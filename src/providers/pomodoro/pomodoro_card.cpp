@@ -73,9 +73,9 @@ std::string sessionDetail(const PomodoroSession& s)
     return s.timeline.playing ? detail : "paused · " + detail;
 }
 
-Steps phaseSteps(int done)
+Steps phaseSteps(int done, bool running)
 {
-    Steps steps{ .count = phaseCount(), .done = done };
+    Steps steps{ .count = phaseCount(), .done = done, .lit = running };
     for (int i = 0; i < steps.count; ++i) // focus, break, ... focus, long break
         steps.lengths.push_back(i == steps.count - 1 ? StepLength::Short : i % 2 == 0 ? StepLength::Long : StepLength::Dot);
     return steps;
@@ -132,7 +132,7 @@ Panel pomodoroPanel(const PomodoroPlan& plan)
         .tileLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
         .tile = { row({ Text{ formatDuration(plan.focus), TextStyle::TileTitle } }), row({ Text{ rounds, TextStyle::Body } }) },
     };
-    content = timerCard(std::move(content), { .duration = plan.focus }, phaseSteps(0), "Focus", std::to_string(t.pomodoroRounds) + " rounds",
+    content = timerCard(std::move(content), { .duration = plan.focus }, phaseSteps(0, false), "Focus", std::to_string(t.pomodoroRounds) + " rounds",
                         { Button{ .glyph = Glyph::Play, .actionId = act::kStart, .compact = true, .primary = true } });
     // New (decision 110): the host shows "New" on its widget until its card is first opened.
     return { .id = kPomodoroPanelId, .content = content, .wide = true, .announce = 1 }; // raise it to announce it again
@@ -165,7 +165,7 @@ Content pomodoroContent(const PomodoroSession& s, const PomodoroPlan&)
         .tileLeading = { row({ ring }, Align::Center) },
         .tile = { row({ tileLeft }), row({ Text{ glance, TextStyle::Body } }) },
     };
-    return timerCard(std::move(content), s.timeline, phaseSteps(phasesDone(s)), name, detail, { stop, pause, skip });
+    return timerCard(std::move(content), s.timeline, phaseSteps(phasesDone(s), s.timeline.playing), name, detail, { stop, pause, skip });
 }
 
 } // namespace cup

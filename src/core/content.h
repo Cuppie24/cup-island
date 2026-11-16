@@ -23,7 +23,7 @@ using Ms = std::chrono::milliseconds;
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
                    Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre,
                    Minus, Plus, Pin, Pinned, Fire, Chart, ChevronDown, Search, File, Folder, Close, Refresh, Reset,
-                   Palette, Sliders, Expand, Maximize, Restore };
+                   Palette, Sliders, Expand, Maximize, Restore, Minimize, CloseWindow };
 
 // Display: a big number, the card's centre (a timer). Heading: a group's label over its rows (Settings'
 // "General", "Dark"): small and quiet, since the group's background already sets it apart (decision 090).
@@ -167,6 +167,14 @@ struct TextInput {
     bool focused = false;
     std::size_t caret = 0, anchor = 0; // byte offsets into `value`; equal: nothing selected
     bool inPlace = false;    // a Text being edited (Text::editAction): drawn like it, so it doesn't jump
+    TextStyle style = TextStyle::Body; // ...in its style's size: a window's text is a step up (decisions 112, 120)
+    // Before its placeholder while it's empty and not focused: a field that
+    // reads as a button ("+ Add task", decision 122). Focused, a plain field.
+    std::optional<Glyph> icon;
+    // ...or, focused, the row it will add, being written (decision 125): this
+    // glyph where a row's checkbox is, smallButtonSize square, its text where
+    // a row's text is, in `style`, with no box; a row's height.
+    std::optional<Glyph> focusedIcon;
     std::string wrapped;     // ...a wrapping one (Text::wrap): `value` broken into lines, like Text::wrapped
     // Set by the provider: at most this many characters (decision 045). 0: no limit.
     std::size_t maxLength = 0;
@@ -215,6 +223,9 @@ struct Steps {
     int count = 0;
     int done = 0;
     std::vector<StepLength> lengths; // per step; past its end (or empty): dots
+    // The current one in the accent with its ring. Off: like the ones to come,
+    // a timer not running (dormant or paused, decision 122).
+    bool lit = true;
     bool operator==(const Steps&) const = default;
 };
 
@@ -291,6 +302,9 @@ struct Segments {
 struct GroupFill {
     bool roundTop = true;
     bool roundBottom = true;
+    // No fill, a dashed outline in trackColor: a card that offers to make one
+    // ("New group"), quieter than the cards it adds to (decision 122).
+    bool dashed = false;
     bool operator==(const GroupFill&) const = default;
 };
 

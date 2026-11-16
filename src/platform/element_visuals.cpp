@@ -140,6 +140,9 @@ float glyphSizeOf(const Button& button)
 {
     const Tokens& t = tokens();
     if (button.revealOnHover) return t.revealGlyphSize;
+    // Windows' caption glyphs, at the size Windows draws its own (decision 123).
+    bool caption = button.glyph == Glyph::Minimize || button.glyph == Glyph::Maximize || button.glyph == Glyph::Restore || button.glyph == Glyph::CloseWindow;
+    if (caption) return t.windowChromeGlyphSize;
     if (button.large) return t.largeButtonGlyphSize; // a card's main controls (decision 107)
     return button.compact ? t.iconSize : t.buttonGlyphSize;
 }
@@ -304,7 +307,9 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         ButtonParts parts = createButton(compositor_, size, placed.cornerRadius, view.surface, hoverColorOf(placed));
         view.visual = parts.visual;
         view.hover = parts.hover;
-        view.highlight = placed.litByRow || (button && button->primary) ? nullptr : parts.highlight; // lit by its row, or by its fill: stays hidden
+        // Lit by its row, or by its fill: stays hidden. A text edited in place has none (decision 122): its selection shows it.
+        auto* input = std::get_if<TextInput>(&placed.item);
+        view.highlight = placed.litByRow || (button && button->primary) || (input && input->inPlace) ? nullptr : parts.highlight;
         view.glyphHost = parts.glyph;
         syncFill(view, Ms{ 0 }); // a primary's or a toggle's circle, under the glyph
         if (auto ink = inkOf(placed.item, false)) { // its glyph or label in one colour: painted white, coloured through (decision 102)
@@ -422,16 +427,21 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     bool newPicture = view.picture && pictureOf(view.placed.item) != pictureOf(placed.item);
     // A text that gains a second colour (bright digits, a detail) can't be one ink any more, or the reverse (decision 102).
     bool reinked = inkOf(view.placed.item, false).has_value() != inkOf(placed.item, false).has_value();
+    // Lit by its row or not (a field focused, decision 122): its own box comes or goes, so it's built anew.
+    bool relit = view.placed.litByRow != placed.litByRow;
     bool relisted = view.placed.list.has_value() != placed.list.has_value() ||
                     (placed.list && (view.placed.list->id != placed.list->id || view.placed.activityId != placed.activityId));
-    if (resized || retyped || relisted || reinked || resnapped || (changed && (swims(view.placed.item) || swims(placed.item)))) {
+    if (resized || retyped || relisted || reinked || resnapped || relit || (changed && (swims(view.placed.item) || swims(placed.item)))) {
         // A different kind of visual, a new size (tokens.json edits), another list or a new swimming string: rebuild it.
         if (auto parent = view.visual.Parent()) parent.Children().Remove(view.visual);
         // A to-do's text turning into its field (or back) swaps in place: a fade would flash it (decision 043).
         // Only its pixels' size changed (resnapped): the same thing, in place, with no fade either.
         auto editable = [](const Item& item) { return std::holds_alternative<Text>(item) || std::holds_alternative<TextInput>(item); };
+        // Only resized (a window being resized, decision 120): the same thing at its new size, in place;
+        // faded in anew on every frame of the drag, it flickered.
         bool inPlace = (retyped && editable(view.placed.item) && editable(placed.item)) ||
-                       (resnapped && !resized && !retyped && !relisted && !reinked && !changed);
+                       ((resnapped || resized) && !retyped && !relisted && !reinked && !changed) ||
+                       (relit && !retyped && !relisted); // a field clicked into: its box, in place
         view = create(placed, now, !inPlace);
         return true;
     }

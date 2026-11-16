@@ -145,6 +145,10 @@ bool ProviderWindow::create(HINSTANCE instance, wuc::Compositor const& composito
     pageDots_ = layer(compositor_, scroller_); // buttons' dots (decision 038), over them
     rowHover_ = layer(compositor_, scroller_); // over the row's items: a faint tint, like the island's lit rows
     footerLayer_ = layer(compositor_, root_);
+    toast_.build(compositor_, device, root_, footerLayer_); // over the page and footer, under the title bar's buttons
+    dialogDecor_ = layer(compositor_, root_); // a question over all of that (decision 122), still under the title bar's buttons
+    dialogLayer_ = layer(compositor_, root_);
+    dialog_.init(compositor_, device, dialogLayer_);
     chromeLayer_ = layer(compositor_, root_);
     focusLayer_ = layer(compositor_, root_); // the keyboard's ring, over everything
     background_.Size(toFloat2(clientSize())); // its colour from the start: it can show before its content is drawn
@@ -176,6 +180,16 @@ void ProviderWindow::draw(const WindowScene& scene, Ms now)
     page_.apply(scene.page, now);
     footer_.apply(scene.footer, now);
     chrome_.apply(scene.chrome, now);
+    toast_.frame().Offset({ std::round(scene.pane.x), std::round(scene.pane.y), 0 }); // pane coordinates; hidden under its bottom edge
+    toast_.frame().Size({ scene.pane.width, scene.pane.height });
+    toast_.show(scene.toast, now);
+    // A question (decision 122): the window dimmed under the title bar, a panel, its words and buttons.
+    dialogDecor_.Children().RemoveAll();
+    if (scene.dialog) {
+        dialogDecor_.Children().InsertAtTop(colourRect(compositor_, scene.dialog->scrim, tokens().windowScrimColor));
+        dialogDecor_.Children().InsertAtTop(roundedRect(compositor_, scene.dialog->panel, scene.dialog->radius, tokens().islandHighlightColor));
+    }
+    dialog_.apply(scene.dialog ? scene.dialog->elements : std::vector<Placed>{}, now);
 }
 
 // The shapes around the items: the picked page's highlight (and the hovered
@@ -245,6 +259,17 @@ void ProviderWindow::toggleMaximized()
 
 bool ProviderWindow::maximized() const { return hwnd_ && IsZoomed(hwnd_); }
 
+void ProviderWindow::armTick(std::optional<Ms> delay)
+{
+    if (!hwnd_) return;
+    if (!delay) {
+        KillTimer(hwnd_, kTickTimer);
+        return;
+    }
+    // At least a millisecond: USER_TIMER_MINIMUM rounds anything shorter up anyway.
+    SetTimer(hwnd_, kTickTimer, static_cast<UINT>(std::clamp<long long>(delay->count(), 1, 0x7FFFFFFF)), nullptr); // replaces it
+}
+
 void ProviderWindow::setFocusRing(std::optional<Rect> frame, float radius)
 {
     focusLayer_.Children().RemoveAll();
@@ -302,6 +327,8 @@ void ProviderWindow::paintBackground()
 void ProviderWindow::refresh(bool coloursOnly)
 {
     for (ElementVisuals* v : { &sidebar_, &page_, &footer_, &chrome_ }) v->refresh(coloursOnly);
+    toast_.refresh(coloursOnly);
+    dialog_.refresh(coloursOnly);
     paintBackground();
     paneBackground_.Brush(compositor_.CreateColorBrush(toUiColor(tokens().windowPaneColor)));
     headerRule_.Brush(compositor_.CreateColorBrush(toUiColor(tokens().trackColor)));
@@ -311,14 +338,18 @@ void ProviderWindow::refresh(bool coloursOnly)
 ElementVisuals& ProviderWindow::visualsFor(const std::string& key)
 {
     if (key.rfind("chrome/", 0) == 0) return chrome_;
+    if (key.rfind("toast/", 0) == 0) return toast_.elements();
+    if (key.rfind("dialog/", 0) == 0) return dialog_;
     if (key.rfind("footer/", 0) == 0) return footer_;
     if (key.rfind("side/", 0) == 0 || key.rfind("nav", 0) == 0) return sidebar_;
     return page_;
 }
 
-void ProviderWindow::setHovered(const std::string& key, std::optional<std::size_t> nav, std::optional<Rect> row, float rowRadius)
+void ProviderWindow::setHovered(const std::string& key, std::optional<std::size_t> nav, std::optional<Rect> row, float rowRadius,
+                                const std::string& pageRow)
 {
-    for (ElementVisuals* v : { &sidebar_, &page_, &footer_, &chrome_ }) v->setHovered(v == &visualsFor(key) ? key : std::string());
+    for (ElementVisuals* v : { &sidebar_, &page_, &footer_, &chrome_, &toast_.elements(), &dialog_ }) v->setHovered(v == &visualsFor(key) ? key : std::string());
+    page_.setHoveredRow(pageRow); // a task's delete shows while the pointer is on its row (decision 120)
     if (nav != hoveredNav_ || row != hoveredRow_) {
         hoveredNav_ = nav;
         hoveredRow_ = row;

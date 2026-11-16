@@ -12,10 +12,10 @@
 
 namespace cup {
 
-// Where the cards of a WindowPage::cards page go: as many windowCardWidth
-// columns as fit in `available`, windowCardGap apart. One width whatever the
-// window's, so a resize only moves cards (decision 117); narrower than one
-// card, the one column is as wide as there is.
+// Where the cards of a WindowPage::cards page go: as many columns as fit in
+// `available` at windowCardMinWidth or more, windowCardGap apart, sharing the
+// row's width (decision 120: fixed widths left them small and a gap at the
+// right); narrower than one card, the one column is as wide as there is.
 struct CardGrid {
     int columns = 1;
     float width = 0; // each card's
@@ -23,14 +23,15 @@ struct CardGrid {
 CardGrid cardGrid(float available);
 
 // Each card's frame, in order, row by row from `top` at `left`: a row as
-// tall as its tallest card. `heights`: each card's.
+// tall as its tallest card, one short of cards centred (decision 123). `heights`: each card's.
 std::vector<Rect> cardFrames(const CardGrid& grid, const std::vector<float>& heights, Vec2 topLeft);
 
 // The page's items in `out` (page coordinates: the pane's top-left
 // unscrolled), `paneWidth` wide. Returns how tall it is, padding included.
 // `rule`: the line under the header, if it has one.
+// `accent`: the window's, for a header's progress (WindowPage::headerProgress).
 float placePage(const WindowPage& page, float paneWidth, const Source& fields, Ms now, const MeasureText& measure, std::vector<Placed>& out,
-                std::optional<Rect>& rule);
+                std::optional<Rect>& rule, std::optional<Color> accent = std::nullopt);
 
 // A window's text a step up from the island's (decision 112): Title, Body
 // and Caption become their Window kin. Providers write the plain styles, so

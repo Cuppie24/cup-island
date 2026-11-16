@@ -79,6 +79,7 @@ std::optional<Action> focusField(WindowTyping& typing, const WindowScene& s, con
         d.text = text.value;
         d.editing = true;
         d.maxLength = text.editMaxLength;
+        caret.reset(); // starting an edit: all of it selected (decision 122), wherever it was clicked
     }
     std::optional<Action> was = blurField(typing, s);
     if (!d.editing) { // the text it was left with (decision 050)
@@ -86,6 +87,7 @@ std::optional<Action> focusField(WindowTyping& typing, const WindowScene& s, con
         if (kept != typing.kept.end()) d.text = std::move(kept->second), typing.kept.erase(kept);
     }
     placeCaret(d, caret.value_or(d.text.size()), false);
+    if (d.editing && !std::holds_alternative<TextInput>(p->item)) d.anchor = 0; // the whole text selected: typing replaces it
     typing.draft = std::move(d);
     return was;
 }

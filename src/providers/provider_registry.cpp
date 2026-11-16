@@ -1,5 +1,7 @@
 #include "providers/provider_registry.h"
 
+#include "core/dialog.h"
+
 #include <algorithm>
 
 #include "providers/file_store.h"
@@ -44,12 +46,22 @@ public:
     void ask(Dialog dialog) override
     {
         dialog.providerId = providerId_;
+        if (!dialog.windowId.empty()) { // a modal over its window, not a card (decision 122)
+            WindowKey key{ providerId_, dialog.windowId };
+            if (showWindowDialog(registry_.windows_, key, std::move(dialog))) registry_.windowsChanged();
+            return;
+        }
         registry_.dispatch_(DialogShown{ std::move(dialog) }, providerId_.c_str());
     }
 
     void toast(Toast toast) override
     {
         toast.providerId = providerId_;
+        if (!toast.windowId.empty()) { // over its window, not a card (decision 121)
+            WindowKey key{ providerId_, toast.windowId };
+            if (showWindowToast(registry_.windows_, key, std::move(toast), registry_.clock_())) registry_.windowsChanged();
+            return;
+        }
         registry_.dispatch_(ToastShown{ std::move(toast) }, providerId_.c_str());
     }
 
@@ -180,7 +192,26 @@ void ProviderRegistry::route(const Action& action)
     // A click from a window closed meanwhile goes nowhere (decision 104).
     if (!action.windowId.empty() && !findWindow(windows_, { action.providerId, action.windowId })) return;
     userActed(windows_, action.providerId, clock_()); // it may open a window now
+    // A window's question answered (decision 122): its buttons are the host's, so only the
+    // confirm button's action reaches the provider, as the island's dialog does (decision 020).
+    if (!action.windowId.empty() && (action.actionId == kDialogConfirm || action.actionId == kDialogCancel)) {
+        WindowKey key{ action.providerId, action.windowId };
+        auto confirmed = answerWindowDialog(windows_, key, action.actionId == kDialogConfirm);
+        windowsChanged();
+        if (!confirmed) return;
+        Action answer = action;
+        answer.actionId = *confirmed;
+        e->provider->onAction(answer);
+        return;
+    }
+    // A window's toast answered (its Undo): it goes, as a card's does (decision 121).
+    if (!action.windowId.empty() && answerWindowToast(windows_, { action.providerId, action.windowId }, action.actionId)) windowsChanged();
     e->provider->onAction(action);
+}
+
+void ProviderRegistry::expireWindowToasts(Ms now)
+{
+    if (cup::expireWindowToasts(windows_, now)) windowsChanged();
 }
 
 void ProviderRegistry::cardClosed(const ShownCard& card)

@@ -162,6 +162,10 @@ LRESULT ProviderWindow::handle(UINT message, WPARAM wParam, LPARAM lParam)
         return 0;
     case WM_TIMER:
         if (wParam == kRevealTimer) reveal();
+        if (wParam == kTickTimer) {
+            KillTimer(hwnd_, kTickTimer); // one-shot: the next layout arms the next
+            call(callbacks_.onTick);
+        }
         return 0;
     case WM_CLOSE:
         call(callbacks_.onCloseRequested); // the app closes it, through its provider's registry

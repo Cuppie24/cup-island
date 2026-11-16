@@ -84,7 +84,6 @@ void PillRenderer::apply(const Scene& scene, const SceneMotion& motion)
     pill_.setEars(!scene.flushLeft, !(scene.flushRight && !scene.bubble));
     pill_.setHighlighted(scene.dropTarget);
     const TabStrip* tabs = scene.tabs ? &*scene.tabs : nullptr;
-    pill_.setPinnedTab(tabs && tabs->pin && tabs->pinned ? std::optional<Rect>(tabs->pin->frame) : std::nullopt, tabs ? tabs->radius : 0);
     // The page row (decision 109): a faint dot per page, the shown one's line gliding to it.
     std::vector<Rect> dots;
     if (tabs)

@@ -66,11 +66,11 @@ std::vector<Focusable> focusables(const Scene& scene)
             if (scene.tabs->active == i) continue; // shown already: nothing to switch to
             found.push_back({ "tab:" + tab.id, tab.frame, centre(tab.hitFrame), std::nullopt, tab.id, tab.radius });
         }
-    // Home's button, the arrows and the pin (decisions 046, 109, 115): Enter or Space clicks them.
+    // Home's button and the arrows (decisions 109, 115): Enter or Space clicks them.
     if (scene.tabs)
-        for (const std::optional<Tab>* button : { &scene.tabs->home, &scene.tabs->previous, &scene.tabs->next, &scene.tabs->pin })
+        for (const std::optional<Tab>* button : { &scene.tabs->home, &scene.tabs->previous, &scene.tabs->next })
             if (*button) found.push_back({ "tab:" + (*button)->id, (*button)->frame, centre((*button)->hitFrame), std::nullopt, (*button)->id, (*button)->radius });
-    if (scene.tabs) // panels' buttons right of the pin (decision 113)
+    if (scene.tabs) // panels' buttons at the row's right end (decision 113)
         for (const Tab& button : scene.tabs->buttons)
             found.push_back({ "tab:" + button.id, button.frame, centre(button.hitFrame), std::nullopt, button.id, button.radius });
     // Reading order, but the tab row last: it sits on top (decision 047), and the

@@ -62,7 +62,7 @@ private:
     // The tasks (pomodoro_tasks.cpp): a group.* or tasks.* action, or the Undo. True if it was one.
     bool taskAction(const Action& action);
     void countTask(const TaskTarget& target);   // a task ticked or unticked: today's count
-    std::string undoText() const;               // the Undo row's words; "": no row
+    void offerUndo();                           // the host's toast with Undo over the window, for what was just deleted
     PomodoroDay& today();                       // today's statistics, to change (then saveStats)
     PomodoroGlance glance() const;              // today's, now
     void saveStats();
@@ -76,7 +76,7 @@ private:
     DaysOff daysOff_{};
     bool windowOpen_ = false;
     PomodoroQuestion question_ = PomodoroQuestion::None; // asked in the window, waiting
-    // The last task or group deleted, for its Undo row (decision 071); the next change drops it.
+    // The last task or group deleted, for its toast's Undo (decisions 071, 121); the next change drops it.
     struct DeletedTask {
         std::uint64_t group = 0;
         Todo task;

@@ -67,14 +67,13 @@ struct BubbleScene {
 struct Tab {
     Rect frame;     // pill coordinates: its dot (the shown one's line), or a button's square
     Rect hitFrame;  // clickable area: the frame, or more (up to the card's edge, half the gaps beside it)
-    std::string id; // the activity's id; empty = Home; kPinTab, kPreviousTab, kNextTab: the strip's buttons
+    std::string id; // the activity's id; empty = Home; kPreviousTab, kNextTab: the strip's arrows
     bool badge = false; // its activity's Content::badge (decision 038)
     Rect lit;           // what lights up under the pointer: a button's square, a soft circle round a dot
     float radius = 0;   // ...its corners
 };
 
 // The strip's buttons' ids (decisions 046, 109): not activities'.
-inline constexpr const char* kPinTab = "#pin";
 inline constexpr const char* kHomeTab = "#home";         // Home's button at the left edge: opens Home, the one way there (decision 115)
 inline constexpr const char* kPreviousTab = "#previous"; // ‹ beside the dots: the page before, round the strip
 inline constexpr const char* kNextTab = "#next";         // › beside the dots: the page after
@@ -90,11 +89,7 @@ struct TabStrip {
     float radius = 0;       // the buttons' highlight corners, nested in the card's
     std::optional<Tab> home;             // Home's button at the left edge (decision 009); with panels
     std::optional<Tab> previous, next;   // the arrows; with somewhere to go
-    std::vector<Tab> buttons;            // panels' buttons right of the pin, the first at the far right (decision 113)
-    // The pin at the right end, Home's mirror (decision 046): a click toggles
-    // IslandState::stayOpen (StayOpenToggled). Not a tab you switch to.
-    std::optional<Tab> pin;
-    bool pinned = false;    // ...on: lit like a selected button
+    std::vector<Tab> buttons;            // panels' buttons at the right end, the first at the far right (decision 113)
 };
 
 // A panel's widget on Home (decisions 009, 019). A click on it opens its

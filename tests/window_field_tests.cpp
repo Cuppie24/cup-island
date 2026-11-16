@@ -95,8 +95,11 @@ void runWindowFieldTests()
 
     // A text edited in place starts from its own text; done (Enter or a click away), its new text is sent.
     focusField(typing, s, name, std::size_t{ 2 });
-    expect(typing.draft && typing.draft->editing && typing.draft->text == "Milk" && typing.draft->caret == 2, "editing in place, caret where clicked");
+    expect(typing.draft && typing.draft->editing && typing.draft->text == "Milk" && typing.draft->anchor == 0 && typing.draft->caret == 4,
+           "editing in place: all of it selected, wherever it was clicked (decision 122)");
     s = scene();
+    focusField(typing, s, name, std::size_t{ 2 }); // a click in it now: the caret goes there
+    expect(typing.draft && typing.draft->caret == 2 && typing.draft->anchor == 2, "a click in the edit places the caret");
     const TextInput* editing = inputAt(s, name);
     expect(editing && editing->inPlace && editing->focused, "drawn as the text it edits");
     typeText(typing, s, "!");

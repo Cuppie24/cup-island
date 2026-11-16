@@ -10,6 +10,7 @@
 namespace cup {
 
 float lineHeight(TextStyle style); // a line of text in this style
+float fontSize(TextStyle style);   // its text's size, px (tokens)
 // The style of a Text::detail line under text in `style` (decision 079).
 TextStyle detailStyleOf(TextStyle style);
 bool isRing(const Item& item);

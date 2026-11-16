@@ -3,6 +3,8 @@
 #include "core/item_metrics.h"
 #include "core/text_edit.h"
 #include "core/tokens.h"
+#include "platform/element_painting.h"
+#include "platform/figures.h"
 #include "platform/text_format.h"
 
 #include <algorithm>
@@ -20,6 +22,8 @@ struct FieldLine {
     float inset = 0;   // the text area starts this far in from each side
     float room = 0;    // ...and is this wide
     float left = 0;    // where the text starts: the inset, less how far it's scrolled
+    float nudge = 0;   // down this far: one line on its capitals' middle, not its line box's (decision 122)
+    bool icon = false; // its icon shows before the placeholder (TextInput::icon): the placeholder after it
 };
 
 // Where a position is drawn: its x, and its line's top and height.
@@ -40,13 +44,17 @@ FieldLine lineOf(IDWriteFactory* dw, const TextInput& input, Vec2 size)
     const Tokens& t = tokens();
     FieldLine line;
     // Edited in place: the Text's own size and place, so nothing jumps when editing starts (decision 043).
-    float fontSize = input.inPlace ? t.bodyFontSize : input.large ? t.searchInputFontSize : t.inputFontSize; // large: search's (decision 079)
-    line.inset = input.inPlace ? t.editInset : t.buttonLabelPadding;
+    // In place, the edited text's size (a window's is a step up, decision 120); large: search's (decision 079).
+    // A row being written (TextInput::focusedIcon, decision 125): its text's size, where a row's text starts,
+    // after its checkbox's square, the gap and the edit inset a row's editable text has.
+    bool asRow = input.focused && input.focusedIcon;
+    float fontSize = input.inPlace || asRow ? cup::fontSize(input.style) : input.large ? t.searchInputFontSize : t.inputFontSize;
+    line.inset = input.inPlace ? t.editInset : asRow ? t.smallButtonSize + t.itemSpacing + t.editInset : t.buttonLabelPadding;
     line.room = std::max(0.0f, size.x - 2 * line.inset);
     bool empty = input.value.empty(), wrapped = !input.wrapped.empty();
     std::wstring value = widen(empty ? input.placeholder : wrapped ? input.wrapped : input.value);
     auto f = format(dw, textFamily(dw, fontSize), fontSize, t.bodyFontWeight, DWRITE_TEXT_ALIGNMENT_LEADING);
-    if (wrapped) setLineHeight(f.get(), lineHeight(TextStyle::Body)); // as tall as core laid it out (decision 045)
+    if (wrapped) setLineHeight(f.get(), lineHeight(input.inPlace ? input.style : TextStyle::Body)); // as tall as core laid it out (decision 045)
     winrt::check_hresult(dw->CreateTextLayout(value.c_str(), static_cast<UINT32>(value.size()), f.get(), 100000.0f, size.y, line.layout.put()));
     DWRITE_TEXT_METRICS metrics{};
     winrt::check_hresult(line.layout->GetMetrics(&metrics));
@@ -60,6 +68,9 @@ FieldLine lineOf(IDWriteFactory* dw, const TextInput& input, Vec2 size)
         scroll = std::clamp(caret - line.room, 0.0f, width - line.room);
     }
     line.left = line.inset - scroll;
+    line.icon = input.icon && !input.focused && empty;
+    if (line.icon) line.left += t.iconSize + t.itemSpacing;
+    if (!wrapped) line.nudge = figureNudge(dw, line.layout.get());
     return line;
 }
 
@@ -70,6 +81,14 @@ void paintInput(ID2D1DeviceContext* dc, IDWriteFactory* dw, const TextInput& inp
     const Tokens& t = tokens();
     FieldLine line = lineOf(dw, input, size);
     bool empty = input.value.empty();
+    // The row it adds, written (decision 125): its checkbox where a row's is, before the text's clip.
+    if (input.focused && input.focusedIcon) {
+        D2D1_MATRIX_3X2_F was{};
+        dc->GetTransform(&was);
+        dc->SetTransform(D2D1::Matrix3x2F::Translation(0, (size.y - t.smallButtonSize) / 2) * was);
+        paintGlyph(dc, dw, *input.focusedIcon, t.iconSize, { t.smallButtonSize, t.smallButtonSize }, t.buttonColor);
+        dc->SetTransform(was);
+    }
     // Scrolled text stops at the text area's edges (the caret may sit right on one).
     dc->PushAxisAlignedClip(D2D1::RectF(line.inset - kCaretWidth, 0, line.inset + line.room + kCaretWidth, size.y), D2D1_ANTIALIAS_MODE_ALIASED);
 
@@ -79,19 +98,26 @@ void paintInput(ID2D1DeviceContext* dc, IDWriteFactory* dw, const TextInput& inp
         UINT32 count = 0;
         line.layout->HitTestTextRange(from, to - from, line.left, 0, nullptr, 0, &count); // asks how many: one per line and run
         std::vector<DWRITE_HIT_TEST_METRICS> runs(count);
-        if (count > 0 && SUCCEEDED(line.layout->HitTestTextRange(from, to - from, line.left, 0, runs.data(), count, &count))) {
+        if (count > 0 && SUCCEEDED(line.layout->HitTestTextRange(from, to - from, line.left, line.nudge, runs.data(), count, &count))) {
             auto brush = brushOf(dc, t.selectionColor);
             for (const DWRITE_HIT_TEST_METRICS& run : runs)
                 dc->FillRectangle(D2D1::RectF(run.left, run.top, run.left + run.width, run.top + run.height), brush.get());
         }
     }
-    dc->DrawTextLayout(D2D1::Point2F(line.left, 0), line.layout.get(), brushOf(dc, empty ? t.placeholderTextColor : t.bodyTextColor).get(),
+    if (line.icon) { // "+ Add task": the glyph in the placeholder's colour, before it, on the field's middle
+        D2D1_MATRIX_3X2_F was{};
+        dc->GetTransform(&was);
+        dc->SetTransform(D2D1::Matrix3x2F::Translation(line.inset, (size.y - t.iconSize) / 2) * was);
+        paintGlyph(dc, dw, *input.icon, t.iconSize, { t.iconSize, t.iconSize }, t.placeholderTextColor);
+        dc->SetTransform(was);
+    }
+    dc->DrawTextLayout(D2D1::Point2F(line.left, line.nudge), line.layout.get(), brushOf(dc, empty ? t.placeholderTextColor : t.bodyTextColor).get(),
                        D2D1_DRAW_TEXT_OPTIONS_CLIP);
     if (input.focused) {
         // A still caret, on its line: no blinking, so an idle field costs nothing between keys (decision 016).
         Spot at = spotOf(line.layout.get(), empty ? 0 : utf16Index(input.value, input.caret));
         float x = empty ? line.inset : line.left + at.x;
-        dc->FillRectangle(D2D1::RectF(x, at.top, x + kCaretWidth, at.top + at.height), brushOf(dc, t.bodyTextColor).get());
+        dc->FillRectangle(D2D1::RectF(x, at.top + line.nudge, x + kCaretWidth, at.top + line.nudge + at.height), brushOf(dc, t.bodyTextColor).get());
     }
     dc->PopAxisAlignedClip();
 }
@@ -100,7 +126,7 @@ std::size_t caretAt(IDWriteFactory* dw, const TextInput& input, Vec2 size, Vec2 
 {
     if (input.value.empty()) return 0;
     FieldLine line = lineOf(dw, input, size);
-    return hitOffset(line.layout.get(), input.value, at.x - line.left, at.y);
+    return hitOffset(line.layout.get(), input.value, at.x - line.left, at.y - line.nudge);
 }
 
 std::optional<std::size_t> caretOnLine(IDWriteFactory* dw, const TextInput& input, Vec2 size, int direction)

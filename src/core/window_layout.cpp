@@ -3,6 +3,7 @@
 #include "core/badges.h"
 #include "core/groups.h"
 #include "core/slot_layout.h"
+#include "core/toast.h"
 #include "core/tokens.h"
 #include "core/window_fields.h"
 #include "core/window_page.h"
@@ -79,6 +80,7 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
     s.providerId = w.key.providerId;
     s.windowId = w.key.windowId;
     s.navRadius = t.windowNavRadius;
+    s.now = now;
     Source source{ .providerId = w.key.providerId };
 
     // The title bar: our own, so it's the window's colour; Windows' buttons drawn by us at its right.
@@ -88,18 +90,21 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
     s.titleBar = { 0, 0, size.x, bar };
     bool maximizes = w.spec.resizable && w.spec.maximizable;
     float buttons = maximizes ? 3 : 2;
-    s.chrome.push_back(placedButton("chrome/min/0", Glyph::Minus, kWindowMinimize, { size.x - buttons * button, 0, button, bar }, w));
+    s.chrome.push_back(placedButton("chrome/min/0", Glyph::Minimize, kWindowMinimize, { size.x - buttons * button, 0, button, bar }, w));
     if (maximizes)
         s.chrome.push_back(placedButton("chrome/max/0", maximized ? Glyph::Restore : Glyph::Maximize, kWindowMaximize,
                                         { size.x - 2 * button, 0, button, bar }, w));
-    s.chrome.push_back(placedButton("chrome/close/0", Glyph::Close, kWindowClose, { size.x - button, 0, button, bar }, w));
+    s.chrome.push_back(placedButton("chrome/close/0", Glyph::CloseWindow, kWindowClose, { size.x - button, 0, button, bar }, w));
 
     float left = w.content.pages.size() > 1 ? placeSidebar(s, w, bar, now, measure) : 0;
     // No sidebar header to name the window: its title in the bar, as Windows puts one.
     if (left == 0 || w.content.rail) {
         Slot title = windowStyled({ row({ Text{ .value = w.content.title, .style = TextStyle::Caption } }) });
-        placeSlot({ "chrome/title", &title, { t.windowSidebarInset + 4, 0, std::max(0.0f, size.x - buttons * button - 2 * t.windowSidebarInset), bar } },
-                  source, 0, now, s.chrome, measure);
+        // As wide as its text, not the bar: a resize then doesn't repaint it (decision 120).
+        float room = std::max(0.0f, size.x - buttons * button - 2 * t.windowSidebarInset);
+        const Text& text = std::get<Text>(title.front().items.front());
+        float width = measure ? std::min(room, std::ceil(measure(text)) + 2) : room;
+        placeSlot({ "chrome/title", &title, { t.windowSidebarInset + 4, 0, width, bar } }, source, 0, now, s.chrome, measure);
     }
 
     // The footer, pinned under the page.
@@ -125,7 +130,11 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
         fields.keptText = &typing->kept;
     }
     s.backAction = page->backAction;
-    float content = placePage(*page, s.pane.width, fields, now, measure, s.page, s.headerRule);
+    float content = placePage(*page, s.pane.width, fields, now, measure, s.page, s.headerRule, w.content.accent);
+    // The window's accent on its live data, as a card's on its own (decision 010): a step, a ring, a bar.
+    for (std::vector<Placed>* items : { &s.page, &s.footer })
+        for (Placed& p : *items)
+            if (!p.accent) p.accent = w.content.accent;
     // A button's dot (a setting with something new inside, decision 048), where the island puts one.
     Scene dots;
     dots.size = { s.pane.width, content };
@@ -133,10 +142,58 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
     s.badges = badgeCentres(dots);
     s.maxScroll = std::max(0.0f, content - s.pane.height);
     s.scroll = std::clamp(scroll, 0.0f, s.maxScroll);
+    // Its toast (decision 121): a pill at the page's bottom, the island's own (toast.h), over the page.
+    if (w.toast) {
+        s.toast = placeToast(*w.toast, fields, { s.pane.width, s.pane.height }, s.pane.height - t.windowPagePadding.y, now, measure);
+        s.toastUntil = w.toast->until;
+    }
+    // Its question (decision 122): over everything under the title bar, which stays usable.
+    if (w.dialog) s.dialog = placeWindowDialog(*w.dialog, size, bar, fields, now, measure);
     return s;
 }
 
 Vec2 toPage(const WindowScene& s, Vec2 point) { return { point.x - s.pane.x, point.y - s.pane.y + s.scroll }; }
+
+std::optional<Ms> windowDeadline(const WindowScene& s)
+{
+    Scene page;
+    page.size = { s.pane.width, s.pane.height };
+    page.elements = s.page;
+    page.now = s.now;
+    std::optional<Ms> next = sceneDeadline(page);
+    if (s.toastUntil && (!next || *s.toastUntil < *next)) next = s.toastUntil;
+    return next;
+}
+
+std::string windowRowAt(const WindowScene& s, Vec2 point)
+{
+    if (s.dialog) return {}; // under a question nothing is lit (decision 122)
+    if (s.toast && s.toast->frame.contains({ point.x - s.pane.x, point.y - s.pane.y })) return {}; // over the toast: no row under it
+    if (!s.pane.contains(point)) return {};
+    Vec2 at = toPage(s, point);
+    auto prefix = [](const std::string& key) { return key.substr(0, key.rfind('/')); };
+    auto slotOf = [](const std::string& key) { return key.substr(0, key.find('/')); };
+    auto isFill = [](const Placed& p) { return std::holds_alternative<GroupFill>(p.item); };
+    // A card's background (decision 120) says which card; a grouped row's piece is that row.
+    std::string card;
+    for (const Placed& p : s.page) {
+        if (!isFill(p) || !p.frame.contains(at)) continue;
+        if (p.key.size() > 5 && p.key.ends_with("/fill")) card = prefix(p.key);
+        else return prefix(p.key);
+    }
+    for (const Placed& p : s.page)
+        if (!isFill(p) && p.hitFrame.contains(at)) return prefix(p.key);
+    // Between its items: the band their click areas span, in this card if over one, and in no card
+    // if over none (the gap beside a card is no row of it, decision 122).
+    auto inCard = [](const std::string& slot) { return slot.rfind("card.", 0) == 0; };
+    for (const Placed& p : s.page) {
+        if (isFill(p) || at.y < p.hitFrame.y || at.y >= p.hitFrame.y + p.hitFrame.height) continue;
+        if (p.listRow && (at.x < p.listRow->x || at.x >= p.listRow->x + p.listRow->width)) continue; // a hugging row: its lit part only
+        std::string slot = slotOf(p.key);
+        if (card.empty() ? !inCard(slot) : slot == card) return prefix(p.key);
+    }
+    return {};
+}
 
 WindowHit windowHitTest(const WindowScene& s, Vec2 point)
 {
@@ -154,6 +211,17 @@ WindowHit windowHitTest(const WindowScene& s, Vec2 point)
         return { part, Hit{ {}, p.key }, {} };
     }
     if (s.titleBar.contains(point)) return { WindowPart::Caption };
+    if (s.dialog) { // a question: only its buttons take a click, nothing under it (decision 122)
+        auto hit = stamped(hitIn(s.dialog->elements, point));
+        return hit ? WindowHit{ WindowPart::Content, hit } : WindowHit{};
+    }
+    if (s.toast) { // over the page: its button first, the rest of its pill does nothing
+        Vec2 inPane{ point.x - s.pane.x, point.y - s.pane.y };
+        if (s.toast->frame.contains(inPane)) {
+            auto hit = stamped(hitIn(s.toast->elements, inPane));
+            return hit ? WindowHit{ WindowPart::Content, hit } : WindowHit{};
+        }
+    }
     for (const NavEntry& n : s.nav)
         if (n.frame.contains(point)) return { WindowPart::Page, std::nullopt, n.page };
     if (s.footerBar && s.footerBar->contains(point)) {

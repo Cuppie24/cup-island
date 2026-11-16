@@ -2,6 +2,7 @@
 
 #include "app/window_typing.h"
 
+#include "core/dialog.h"
 #include "core/tokens.h"
 #include "core/tokens_json.h"
 #include "core/window_keys.h"
@@ -118,6 +119,8 @@ void showFocus(Shown& s)
 
 // Lays it out at its size now and draws it: after any change, and in the
 // size message itself while it's resized, so the drawing keeps up.
+void showHover(Shown& s);
+
 void relayout(Shown& s)
 {
     const OpenWindow* w = findWindow(g_hooks.registry->windows(), s.key);
@@ -134,6 +137,10 @@ void relayout(Shown& s)
     s.scroll = s.scene.scroll;
     s.window->draw(s.scene, now);
     showFocus(s);
+    // Its own timer (decision 121): the next second of a time on its page, or its toast's end.
+    std::optional<Ms> next = windowDeadline(s.scene);
+    s.window->armTick(next ? std::optional<Ms>(std::max(*next - now, Ms{ 1 })) : std::nullopt);
+    showHover(s); // what's lit follows the new layout: a row under the pointer, a focused field's (decision 122)
 }
 
 void showHover(Shown& s)
@@ -142,16 +149,19 @@ void showHover(Shown& s)
     std::optional<std::size_t> nav;
     std::optional<Rect> row;
     float radius = 0;
+    std::string pageRow;
     if (s.pointer) {
+        pageRow = windowRowAt(s.scene, *s.pointer);
         WindowHit hit = windowHitTest(s.scene, *s.pointer);
         if (hit.hit) key = hit.hit->key;
         if (hit.part == WindowPart::Page)
             for (std::size_t i = 0; i < s.scene.nav.size(); ++i)
                 if (s.scene.nav[i].page == hit.page) nav = i;
-        for (const Placed& p : s.scene.page) // a clickable row lights as a whole, as on the island (decision 090)
-            if (p.key == key && p.listRow) row = p.listRow, radius = p.listRowRadius;
+        // A list item lights as a whole wherever the pointer is on it, between its items too (decisions 090, 121).
+        for (const Placed& p : s.scene.page)
+            if (p.listRow && !pageRow.empty() && p.key.rfind(pageRow + "/", 0) == 0) row = p.listRow, radius = p.listRowRadius;
     }
-    s.window->setHovered(key, nav, row, radius);
+    s.window->setHovered(key, nav, row, radius, pageRow);
 }
 
 Shown* find(const WindowKey& key)
@@ -200,6 +210,12 @@ void key(const WindowKey& id, WPARAM vk)
     ProviderRegistry& registry = *g_hooks.registry;
     bool ctrl = GetKeyState(VK_CONTROL) < 0, shift = GetKeyState(VK_SHIFT) < 0, alt = GetKeyState(VK_MENU) < 0;
     if (alt) return; // Alt's keys are Windows' (Alt+Space, Alt+F4)
+    // A question (decision 122) takes the keys: Esc cancels, Enter confirms, nothing reaches the page under it.
+    if (s->scene.dialog) {
+        if (vk == VK_ESCAPE || vk == VK_RETURN)
+            registry.route({ s->key.providerId, "", vk == VK_RETURN ? kDialogConfirm : kDialogCancel, 0, "", s->key.windowId });
+        return;
+    }
     s->keys = true;
     // A field with the keys takes a text box's (decision 105); the rest go on to the window.
     switch (typingKey(s->typing, s->scene, s->window->hwnd(), vk, registry)) {
@@ -310,6 +326,13 @@ platform::ProviderWindowCallbacks callbacksFor(const WindowKey& id)
     };
     c.onMoved = [id] {
         if (Shown* s = find(id)) rememberPlace(*s);
+    };
+    c.onTick = [id] {
+        g_hooks.registry->expireWindowToasts(g_hooks.now()); // a toast whose time is up: the windows sync after
+        if (Shown* s = find(id)) { // a time label's next second: drawn, and the next tick armed
+            relayout(*s);
+            showHover(*s);
+        }
     };
     return c;
 }

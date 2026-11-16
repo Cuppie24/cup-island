@@ -78,7 +78,8 @@ std::vector<Row> timerHeader(const PomodoroWindowView& v)
     const PomodoroSession* s = v.session ? &*v.session : nullptr;
     Timeline timeline = s ? s->timeline : Timeline{ .duration = v.plan.focus };
     TimeLabel time{ .timeline = timeline, .countdown = true, .style = TextStyle::Hero };
-    std::string where = s ? phaseName(s->phase) + " · " + sessionDetail(*s) : "Focus · round 1 of " + std::to_string(tokens().pomodoroRounds);
+    // Only the phase: Focus, Break, Long break (decision 122). The steps beside it say where in the session.
+    std::string where = s ? phaseName(s->phase) : phaseName(PomodoroPhase::Focus);
     if (s && v.question == PomodoroQuestion::Stop) {
         Dialog q = stopQuestion(*s);
         return { Row{ .items = { time },
@@ -90,13 +91,15 @@ std::vector<Row> timerHeader(const PomodoroWindowView& v)
     Button stop{ .glyph = Glyph::Stop, .actionId = act::kStop, .enabled = s != nullptr, .secondary = true };
     Button main{ .glyph = playing ? Glyph::Pause : Glyph::Play, .actionId = s ? act::kPause : act::kStart, .primary = true };
     Button skip{ .glyph = Glyph::Next, .actionId = act::kSkip, .enabled = s != nullptr, .secondary = true };
-    return { Row{ .items = { time, stop, main, skip },
+    // The phase and round take the row's spare width, set against its end, so the loose row's
+    // gap, not the edge's packed one, keeps them off the steps (decision 120).
+    return { Row{ .items = { time, stop, main, skip, Text{ .value = where, .style = TextStyle::Caption, .alignEnd = true } },
                   .loose = true, // big, well-separated targets
-                  .trailing = { Text{ where, TextStyle::Caption }, phaseSteps(s ? phasesDone(*s) : 0) } } };
+                  .trailing = { phaseSteps(s ? phasesDone(*s) : 0, playing) } } };
 }
 
-// A group's card (decision 117): its name, edited in place, and how many
-// are open beside it, its delete at the end on hover; "Add task", then its
+// A group's card (decisions 117, 121): its name, edited in place, its delete
+// at the end on hover; "Add task", then its
 // tasks: open ones first, then solved ones, struck (decision 071). A task's
 // box ticks it, a click on its text edits it, its delete shows on hover.
 WindowSection groupCard(const TaskGroup& g)
@@ -104,13 +107,13 @@ WindowSection groupCard(const TaskGroup& g)
     namespace task = task_action;
     std::string gid = std::to_string(g.id);
     const auto& items = g.tasks.items();
-    auto open = std::count_if(items.begin(), items.end(), [](const Todo& t) { return !t.done; });
     WindowSection card{ .title = g.name, .id = "group-" + gid, .titleEdit = task::kRenameGroup + gid,
                         .titleMaxLength = tokens().taskGroupNameMaxLength };
-    if (open > 0) card.titleItems = { Text{ std::to_string(open), TextStyle::Caption } };
     card.titleTrailing = { Button{ .glyph = Glyph::Delete, .actionId = task::kDeleteGroup + gid, .compact = true, .revealOnHover = true } };
-    card.rows.push_back(Row{ .items = { Icon{ Glyph::Plus, true },
-                                        TextInput{ .actionId = inGroup(g.id, todo::kAdd), .placeholder = "Add task", .maxLength = tokens().todoMaxLength } },
+    // "+ Add task" reads as a button; clicked, it's the task it adds, being written: an unticked
+    // box, its text where a task's is, a task row's height (decisions 122, 125).
+    card.rows.push_back(Row{ .items = { TextInput{ .actionId = inGroup(g.id, todo::kAdd), .placeholder = "Add task", .icon = Glyph::Plus,
+                                                   .focusedIcon = Glyph::Unchecked, .maxLength = tokens().todoMaxLength } },
                              .id = "add" });
     for (const Todo& t : items) {
         std::string id = std::to_string(t.id);
@@ -118,7 +121,8 @@ WindowSection groupCard(const TaskGroup& g)
         Text text{ .value = t.text, .style = t.done ? TextStyle::Caption : TextStyle::Body, .struck = t.done, .editAction = inGroup(g.id, todo::kEdit + id),
                    .editMaxLength = tokens().todoMaxLength, .wrap = true }; // long ones wrap (decision 045)
         Button remove{ .glyph = Glyph::Delete, .actionId = inGroup(g.id, todo::kDelete + id), .compact = true, .revealOnHover = true };
-        card.rows.push_back(Row{ .items = { box, text }, .trailing = { remove }, .id = "task-" + id, .listItem = true });
+        // No list item's padding: a card's tasks sit as close as a list's lines (decision 120); the delete still shows on hover.
+        card.rows.push_back(Row{ .items = { box, text }, .trailing = { remove }, .id = "task-" + id });
     }
     return card;
 }
@@ -126,14 +130,16 @@ WindowSection groupCard(const TaskGroup& g)
 WindowPage timerPage(const PomodoroWindowView& v)
 {
     WindowPage page{ .id = kPomodoroTimerPage, .title = "Timer", .glyph = Glyph::Timer, .titled = false, .header = timerHeader(v), .cards = true };
+    // Under the header, the phase's progress, edge to edge (decision 122); dormant, an empty bar.
+    page.headerProgress = v.session ? v.session->timeline : Timeline{ .duration = v.plan.focus };
     static const TaskBoard none;
     for (const TaskGroup& g : (v.tasks ? *v.tasks : none).groups()) page.sections.push_back(groupCard(g));
-    // After the groups, so none of them moves while it shows.
-    if (!v.undo.empty())
-        page.sections.push_back({ .rows = { groupItem(itemText(v.undo), { Button{ .actionId = kPomodoroUndo, .label = "Undo", .compact = true } }) },
-                                  .id = "undo" });
-    page.sections.push_back({ .rows = { groupItem(itemText("New group"), { Button{ .glyph = Glyph::Plus, .actionId = task_action::kNewGroup, .compact = true } }) },
-                              .id = "new" });
+    // Quiet (decision 122): a dashed outline, no fill; a caption's words; the whole row its button.
+    page.sections.push_back({ .rows = { Row{ .items = { Button{ .glyph = Glyph::Plus, .actionId = task_action::kNewGroup, .compact = true, .secondary = true },
+                                                      Text{ "New group", TextStyle::Caption } },
+                                           .clickAnywhere = true } },
+                              .id = "new",
+                              .dashed = true });
     return page;
 }
 
