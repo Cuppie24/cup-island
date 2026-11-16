@@ -24,6 +24,11 @@ NowPlaying readNowPlaying(wmc::GlobalSystemMediaTransportControlsSessionMediaPro
                           wmc::GlobalSystemMediaTransportControlsSessionPlaybackInfo const& playback,
                           wmc::GlobalSystemMediaTransportControlsSessionTimelineProperties const& timeline, Ms appNow);
 
+// Only what plays: controls, timeline, shuffle and repeat. Synchronous, so a
+// play/pause shows without waiting for the properties' read (decision 116).
+NowPlaying readPlayback(wmc::GlobalSystemMediaTransportControlsSessionPlaybackInfo const& playback,
+                        wmc::GlobalSystemMediaTransportControlsSessionTimelineProperties const& timeline, Ms appNow);
+
 // SMTC's repeat modes: None / List / Track.
 Repeat fromWindows(winrt::Windows::Media::MediaPlaybackAutoRepeatMode mode);
 winrt::Windows::Media::MediaPlaybackAutoRepeatMode toWindows(Repeat repeat);

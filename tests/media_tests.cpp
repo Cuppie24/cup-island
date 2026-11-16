@@ -57,6 +57,34 @@ void runMediaTests()
            "bubble (minimal) shows the equalizer bars while playing");
     expect(host.started[0].id == MediaPresenter::kActivityId && !host.started[0].expiresAt, "playing: no expiry");
 
+    // Playback only (decision 116): a pause shows at once, title and cover kept, ahead of the full read.
+    {
+        FakeHost quick;
+        MediaPresenter fast(quick);
+        MediaSnapshot shown = track("Spotify.exe", "One");
+        shown.media.art = std::make_shared<ImageData>();
+        fast.show(shown);
+        NowPlaying paused{ .timeline = { .duration = Ms{ 180000 }, .playing = false }, .canShuffle = true, .shuffle = true };
+        fast.showPlayback("Spotify.exe", paused);
+        expect(quick.started.size() == 2 && quick.alerts.empty(), "playback only: shown again, no alert");
+        const Content& c = quick.started.back().content;
+        expect(c.label == "One - Artist" && std::get<Image>(c.expandedLeading[0].items[0]).data, "playback only: the title and cover stay");
+        bool playShown = false;
+        for (const Row& r : c.expandedBottom)
+            for (const Item& item : r.items)
+                if (auto* b = std::get_if<Button>(&item); b && b->primary) playShown = b->glyph == Glyph::Play;
+        expect(playShown, "playback only: paused, ▶ at once");
+        fast.showPlayback("Spotify.exe", paused);
+        expect(quick.started.size() == 2, "playback only: the same again, nothing resent");
+        fast.showPlayback("Chrome", NowPlaying{});
+        expect(quick.started.size() == 2, "playback only: another app's, nothing (its full read shows it)");
+        MediaSnapshot full = shown;
+        full.media.timeline.playing = false;
+        full.media.canShuffle = full.media.shuffle = true;
+        fast.show(full);
+        expect(quick.started.size() == 2 && quick.alerts.empty(), "the full read after it, agreeing: nothing new, no alert");
+    }
+
     presenter.show(track("Spotify.exe", "One"));
     expect(host.started.size() == 1, "identical snapshot sends nothing");
 
@@ -186,6 +214,7 @@ void runMediaTests()
     expect(playing.tile[0].items[0] == Item{ Text{ .value = "Song", .style = TextStyle::TileTitle, .marquee = true } } &&
            playing.tile[0].trailing[0] == Item{ Waveform{ true } }, "the title swims, the bars beside it");
     expect(std::get<Text>(playing.tile[1].items[0]).value == "Band", "the artist under it");
+    expect(std::get<Text>(playing.alertCenter[0].items[0]).style == TextStyle::Title, "the alert's title is the dense Title, not the card's");
 
     // On Home: the activity's widget replaces the idle one in place, and back.
     IslandState s = reduce(IslandState{}, PanelPublished{ idlePanel }, Ms{ 0 });

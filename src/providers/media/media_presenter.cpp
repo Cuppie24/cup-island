@@ -75,6 +75,23 @@ void MediaPresenter::show(const std::optional<MediaSnapshot>& snapshot)
     last_ = next;
 }
 
+void MediaPresenter::showPlayback(const std::string& sessionKey, const NowPlaying& playback)
+{
+    if (!last_ || last_->sessionKey != sessionKey || goneSince_) return;
+    MediaSnapshot next = *last_;
+    NowPlaying& m = next.media;
+    m.timeline = playback.timeline;
+    m.canPrevious = playback.canPrevious;
+    m.canPlayPause = playback.canPlayPause;
+    m.canNext = playback.canNext;
+    m.canSeek = playback.canSeek;
+    m.canShuffle = playback.canShuffle;
+    m.shuffle = playback.shuffle;
+    m.canRepeat = playback.canRepeat;
+    m.repeat = playback.repeat;
+    show(next);
+}
+
 void MediaPresenter::onWake()
 {
     if (goneSince_ && host_.now() - *goneSince_ >= tokens().mediaSessionGoneGrace) end();

@@ -56,6 +56,8 @@ Lists hold many rows to scan, not one thing to glance at; on the island they
 keep the smaller scale: `Title` (17/700), `Body`, `Caption`, `buttonSize` 36,
 `compact` buttons in rows.
 - Search's results (`Result`, `ResultDetail`; decision 079).
+- Grouped rows, menus, dialogs (decisions 020, 086, 090).
+- Alerts (the banner that drops in): `Title` and `Body`, like every alert.
 - Menus, dialogs and toasts (decisions 020, 086).
 - Text inside a widget's rows: an inline icon stays `iconSize` (18), so the
   row is as tall as its text.

@@ -39,12 +39,18 @@ NowPlaying readNowPlaying(wmc::GlobalSystemMediaTransportControlsSessionMediaPro
                           wmc::GlobalSystemMediaTransportControlsSessionPlaybackInfo const& playback,
                           wmc::GlobalSystemMediaTransportControlsSessionTimelineProperties const& timeline, Ms appNow)
 {
-    NowPlaying m;
+    NowPlaying m = readPlayback(playback, timeline, appNow);
     m.title = winrt::to_string(properties.Title());
     m.artist = winrt::to_string(properties.Artist());
     m.trackNumber = properties.TrackNumber();
     m.trackCount = properties.AlbumTrackCount();
+    return m;
+}
 
+NowPlaying readPlayback(wmc::GlobalSystemMediaTransportControlsSessionPlaybackInfo const& playback,
+                        wmc::GlobalSystemMediaTransportControlsSessionTimelineProperties const& timeline, Ms appNow)
+{
+    NowPlaying m;
     auto controls = playback.Controls();
     m.canPrevious = controls.IsPreviousEnabled();
     m.canNext = controls.IsNextEnabled();
