@@ -14,8 +14,8 @@ side, and a shorter row.
   (`stepTodoColor`). The shown page is a line, `tabLineWidth` (18) long, in
   the theme's text colour. Picking another page, the line glides there and
   grows or shrinks to its new length (the settle curve, as the tab marker did).
-- **‹ and › right beside the dots**, `tabArrowSize` (24) square,
-  `tabArrowGap` (6) from them, the three centred on the card as one group
+- **‹ and › right beside the dots**, `tabArrowSize` (32) round,
+  `tabArrowGap` (4) from them, the three centred on the card as one group
   (the user's choice: beside the dots, not at the card's edges). They step
   to the page before or after, round the row (`previousTab`, `nextTab`, as
   Ctrl+Tab does). Shown when there's somewhere to go.
