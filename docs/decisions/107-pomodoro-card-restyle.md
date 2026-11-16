@@ -14,7 +14,8 @@ ones, and the time's digits rolling as they change.
   - *Header*: the phase's dot in its colour (a one-step `Steps`), its name
     (Title), the round in caption ("round 1 of 4", "paused · round 1 of 4",
     "last one" on the long break, "4 rounds" while dormant); at the right,
-    the window's button (`kOpenWindow`). Statistics and settings buttons
+    the window's button (`kOpenWindow`), hidden while the window isn't
+    finished (`kPomodoroWindowReady`, false for now: the user's ask). Statistics and settings buttons
     were tried there and taken out at the user's ask: they're the window's pages.
   - *The time left*, `TextStyle::Hero`: `heroFontSize` (64) at
     `heroFontWeight` (800), centred. Its separators (":") in the caption

@@ -47,6 +47,14 @@ struct Island {
         return false;
     }
 
+    // The card's expand action (decision 106), as its button would send it: the
+    // button is hidden while the window isn't ready (kPomodoroWindowReady).
+    bool openWindow()
+    {
+        registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kOpenWindow, 0 });
+        return true;
+    }
+
     // The app's timer: advance to the provider's wake-up and deliver it.
     void wake()
     {
@@ -70,7 +78,6 @@ const std::string kTile = std::string("tile/") + PomodoroProvider::kPanelId;
 const std::string kStart = "expandedCenter/3/0"; // ▶, under the steps
 const std::string kPause = "expandedCenter/3/1"; // the running card's controls: stop, ⏸, skip
 const std::string kStop = "expandedCenter/3/0";
-const std::string kExpand = "expandedCenter/0/0"; // the header's right end: the window (its pages have statistics and settings)
 const std::string kTime = "expandedCenter/1/0";
 
 const Placed* textIn(const WindowScene& scene, const std::string& value)
@@ -116,19 +123,20 @@ void cardTests()
     Scene dormant = island.scene();
     const Placed* time = find(dormant, kTime);
     const Placed* start = find(dormant, kStart);
-    const Placed* expand = find(dormant, kExpand);
     expect(dormant.size.x == t.expandedSize.x, "as wide as every card: no wider timer card any more (decision 106 over 085)");
     expect(time && std::get<Text>(time->item).value == "25:00" && std::get<Text>(time->item).style == TextStyle::Hero, "the planned time, big and heavy");
     expect(time && std::abs(time->frame.x + time->frame.width / 2 - dormant.size.x / 2) < 1, "centred");
     expect(start && std::get<Button>(start->item).primary && std::get<Button>(start->item).actionId == pomodoro_action::kStart, "▶ under it");
-    expect(expand && std::get<Button>(expand->item).glyph == Glyph::Expand && std::get<Button>(expand->item).actionId == pomodoro_action::kOpenWindow,
-           "the expand button at the header's right end");
+    expect(std::none_of(dormant.elements.begin(), dormant.elements.end(), [](const Placed& p) {
+               auto* b = std::get_if<Button>(&p.item);
+               return b && b->actionId == pomodoro_action::kOpenWindow;
+           }) == !kPomodoroWindowReady, "the window's button only once the window is ready");
     expect(std::none_of(dormant.elements.begin(), dormant.elements.end(), [](const Placed& p) {
                auto* b = std::get_if<Button>(&p.item);
                return p.key.rfind("expandedCenter/", 0) == 0 && b && (b->glyph == Glyph::Chart || b->glyph == Glyph::Settings);
            }), "no statistics or settings buttons on the island: the window has them");
-    const Placed* name = find(dormant, "expandedCenter/0/2");
-    const Placed* dot = find(dormant, "expandedCenter/0/1");
+    const Placed* name = find(dormant, "expandedCenter/0/1");
+    const Placed* dot = find(dormant, "expandedCenter/0/0");
     expect(dot && name && std::get<Text>(name->item).value == "Focus" && dot->frame.x < name->frame.x && name->frame.y < time->frame.y,
            "the phase's dot and name over the time, at the left");
     for (const Placed& p : dormant.elements)
@@ -151,7 +159,7 @@ void cardTests()
     expect(stop && pause && skip && std::get<Button>(stop->item).glyph == Glyph::Stop && std::get<Button>(pause->item).primary &&
            std::get<Button>(skip->item).glyph == Glyph::Next && stop->frame.x < pause->frame.x && pause->frame.x < skip->frame.x &&
            steps->frame.y < pause->frame.y, "stop, ⏸ (the filled circle) and skip, under the steps");
-    const Placed* round = find(running, "expandedCenter/0/3");
+    const Placed* round = find(running, "expandedCenter/0/2");
     expect(round && std::get<Text>(round->item).value == "round 1 of " + std::to_string(t.pomodoroRounds), "the round beside the phase");
     for (const Placed& p : running.elements)
         expect(p.frame.y + p.frame.height <= running.size.y - t.expandedPadding + 0.01f, "fits the card: " + p.key);
@@ -188,13 +196,13 @@ void windowTests()
     island.send(PillClicked{});
     island.send(TileClicked{ PomodoroProvider::kPanelId });
     expect(!island.window(), "no window until asked");
-    expect(island.press(kExpand) && island.window(), "the expand button opens the window");
+    expect(island.openWindow() && island.window(), "the expand button opens the window");
     const OpenWindow& w = *island.window();
     expect(w.spec.size == WindowSize::Large && !w.spec.resizable && !w.spec.maximizable, "one size, like Settings' window");
     expect(w.content.pages.size() == 3 && w.page == kPomodoroTimerPage && w.content.pages[1].id == kPomodoroStatsPage &&
            w.content.pages[2].id == kPomodoroSettingsPage, "three pages, the timer first");
     std::uint64_t raised = w.raised;
-    island.press(kExpand);
+    island.openWindow();
     expect(island.registry.windows().open.size() == 1 && island.window()->raised != raised, "again: the same window, brought forward");
 
     // The timer page: the dial, the plan in words, ▶, today, the to-dos with their field.
@@ -304,7 +312,7 @@ void windowTests()
     expect(!island.window(), "closed");
     island.send(HomeOpened{});
     island.send(TileClicked{ PomodoroProvider::kPanelId });
-    expect(island.press(kExpand) && island.window(), "opened again");
+    expect(island.openWindow() && island.window(), "opened again");
 
     // Stopping the provider closes it.
     island.registry.stop("pomodoro");
@@ -351,7 +359,7 @@ void runPomodoroTests()
     expect(island.focus() && island.focus()->content.label == "Focus", "start: a focus phase is live");
     expect(island.registry.nextWake() == Ms{ t.pomodoroFocus }, "wakes when focus ends");
     expect(island.state.expandedId == PomodoroProvider::kPanelId, "the live card shows");
-    expect(island.press(kExpand) && island.window(), "its window, for the rest");
+    expect(island.openWindow() && island.window(), "its window, for the rest");
     island.send(PillClicked{});
     expect(island.state.expandedId == PomodoroProvider::kPanelId, "running card: a click between its controls keeps it open");
     expect(reduce(island.state, Tick{}, island.now + t.expandedIdleTimeout * 2).expandedId == PomodoroProvider::kPanelId,

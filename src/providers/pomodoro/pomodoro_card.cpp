@@ -23,8 +23,9 @@ Content timerCard(Content c, const Timeline& timeline, const Steps& steps, const
     c.card = CardLayout::Centred;
     c.keepOpen = true;      // a click between the controls doesn't close it (Content::keepOpen)
     c.noIdleTimeout = true; // nor does being left alone: a timer kept in view (decision 062)
-    Row header{ .leading = { Steps{ .count = 1 }, Text{ name, TextStyle::Title }, Text{ detail, TextStyle::Caption } },
-                .trailing = { Button{ .glyph = Glyph::Expand, .actionId = act::kOpenWindow, .compact = true, .secondary = true } } };
+    Row header{ .leading = { Steps{ .count = 1 }, Text{ name, TextStyle::Title }, Text{ detail, TextStyle::Caption } } };
+    if (kPomodoroWindowReady) // hidden while the window isn't finished
+        header.trailing = { Button{ .glyph = Glyph::Expand, .actionId = act::kOpenWindow, .compact = true, .secondary = true } };
     Row time = row({ TimeLabel{ .timeline = timeline, .countdown = true, .style = TextStyle::Hero } }, Align::Center);
     Row phases{ .items = { steps }, .align = Align::Center, .apart = true };
     Row buttons{ .items = std::move(controls), .align = Align::Center, .loose = true, .apart = true }; // well-separated targets

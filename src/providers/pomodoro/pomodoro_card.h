@@ -14,6 +14,9 @@ namespace cup {
 
 inline constexpr const char* kPomodoroPanelId = "pomodoro.focus"; // the panel and its activity
 inline constexpr const char* kPomodoroWindowId = "timer";         // its window (decision 106)
+// The window isn't finished: until it is, the card has no button into it
+// (decision 107). Its action still opens it, for the tests and for turning it back on.
+inline constexpr bool kPomodoroWindowReady = false;
 
 namespace pomodoro_action {
 inline constexpr const char* kStart = "start";
