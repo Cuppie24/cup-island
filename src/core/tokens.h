@@ -109,7 +109,7 @@ struct Tokens {
     float windowNavHeight = 38; // a page's entry in the sidebar
     float windowPageMaxWidth = 600; // a page's content no wider: rows of settings don't need a wide screen
     float windowNavRadius = 8; // the picked page's highlight
-    float expandedArtSize = 120; // expanded leading square: the cover, filling the card's shared height with its controls (decisions 094, 107)
+    float expandedArtSize = 112; // expanded leading square: the cover, with its controls about filling the card's shared height (decisions 094, 107)
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;
     float itemSpacing = 8;
@@ -118,7 +118,7 @@ struct Tokens {
     float bodyFontSize = 15;
     float captionFontSize = 13; // the smallest text: ~11 px on screen at 100% after islandScale
     float displayFontSize = 48; // TextStyle::Display: a timer in a dial (decision 065)
-    float cardTitleFontSize = 22; // TextStyle::CardTitle: a card's main line beside its cover (media's song, decision 107)
+    float cardTitleFontSize = 19; // TextStyle::CardTitle: a card's main line beside its cover (media's song, decision 107)
     float heroFontSize = 64;    // TextStyle::Hero: the one big number a card is about (Pomodoro's time, decision 107)
     float heroLineHeight = 60;  // ...its line: digits only, no descenders, so tighter than other text's
     float headingFontSize = 14; // TextStyle::Heading: a group's label, in the caption colour, a little over caption size (decision 090)
@@ -129,7 +129,7 @@ struct Tokens {
     float bodyFontWeight = 600;    // semibold: text on the island reads heavier than on a page (decision 024)
     float captionFontWeight = 600;
     float displayFontWeight = 300; // big and still the lightest, like a clock face
-    float cardTitleFontWeight = 800;
+    float cardTitleFontWeight = 700;
     float heroFontWeight = 800;    // heavy: the card's timer reads from across the desk (decision 107)
     float headingFontWeight = 600; // a group's label is quiet: its group's background sets it apart (decision 090)
     float pageTitleFontWeight = 700;
@@ -177,8 +177,8 @@ struct Tokens {
     float editInset = 6;          // editable Text is drawn this far in from its stretch, which its field fills when edited (decision 043)
     float buttonLabelPadding = 10; // a text button: its label plus this on each side        // hover circle; the click area also takes in half the gaps around it
     float buttonGlyphSize = 16;
-    float largeButtonSize = 44;      // Button::large: a card's main controls beside its ▶ (media's skips, decision 107)
-    float largeButtonGlyphSize = 22;
+    float largeButtonSize = 40;      // Button::large: a card's main controls beside its ▶ (media's skips, decision 107)
+    float largeButtonGlyphSize = 20;
     float buttonPressScale = 0.85f;
     float progressHeight = 4;
     float progressHitHeight = 16; // taller than drawn, so it's easy to click

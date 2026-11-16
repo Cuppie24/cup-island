@@ -45,10 +45,10 @@ Content nowPlayingContent(const NowPlaying& m)
                                          TimeLabel{ .timeline = m.timeline, .remaining = true, .fitted = true } }));
     // Three weights (decision 094): ▶/⏸ the filled circle, the skips bright,
     // shuffle and repeat quiet until on or pointed at.
-    // Sized to fill the card's shared height (decision 107): the full ▶ circle, large skips.
+    // The compact ▶ circle and large skips: big enough to fill the card, not crowd it (decision 107).
     Row controls = row({ Button{ .glyph = Glyph::Previous, .actionId = act::kPrevious, .enabled = m.canPrevious, .large = true },
                          Button{ .glyph = playing ? Glyph::Pause : Glyph::Play, .actionId = act::kPlayPause,
-                                 .enabled = m.canPlayPause, .primary = true },
+                                 .enabled = m.canPlayPause, .compact = true, .primary = true },
                          Button{ .glyph = Glyph::Next, .actionId = act::kNext, .enabled = m.canNext, .large = true } },
                        Align::Center);
     controls.loose = true; // big, well-separated targets

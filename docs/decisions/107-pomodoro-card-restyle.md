@@ -44,11 +44,13 @@ ones, and the time's digits rolling as they change.
   on each side for a heavy glyph's overhang.
 
 - **Media's card fills the height** (asked for after the first try left a
-  band of empty space): the cover is 120 (`expandedArtSize`), the song's
-  title `TextStyle::CardTitle` (22 px at 800), swimming when too long like
-  the pill's (`Text::marquee`) rather than ending in "…", ▶/⏸ the full primary circle,
-  previous and next `Button::large` (44, a 22 px glyph). They need all but
-  a few pixels of the shared height; a test holds it to that.
+  band of empty space): the cover is 112 (`expandedArtSize`), the song's
+  title `TextStyle::CardTitle` (19 px at 700), swimming when too long like
+  the pill's (`Text::marquee`) rather than ending in "…", ▶/⏸ the compact
+  primary circle (48), previous and next `Button::large` (40, a 20 px
+  glyph). A first pass at 120, 22 px at 800, the full 56 circle and 44
+  read too big; at these sizes about 20 px of the shared height is left,
+  between the cover and the bar, and a test keeps it under 24.
   Shuffle and repeat sit right beside previous and next, the loose gap
   away (`Row::edgesBeside`), not in the bottom corners: one group, ▶ still
   centred, whichever of the two an app offers. The times beside the bar are
