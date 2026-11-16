@@ -12,33 +12,53 @@ a card or a Home widget, uses it unless a rule below says otherwise.
 
 | Piece | Use | Size |
 | --- | --- | --- |
-| A card's or widget's main line (a song, a time, a widget's name) | `TextStyle::CardTitle` | 22 px at 800 |
+| A card's main line (a song, a phase) | `TextStyle::CardTitle` | 22 px at 800 |
+| A Home widget's first line (a song, a time, its name) | `TextStyle::TileTitle` | 19 px at 700 (decision 114) |
 | The line under it (artist, phase and round, a widget's detail) | `TextStyle::Body` | 15 px at 600, `bodyTextColor` |
 | A third, quieter line (the app, "Track 3 of 12") | `TextStyle::Caption` | 13 px at 600 |
 | The one thing a card is about (the timer's time) | `TextStyle::Hero` | 64 px at 800 |
 | The card's one main action (▶/⏸) | `Button::primary` | 56 circle, 22 px glyph (48 and 20 `compact`, where a row is short) |
 | The controls beside it (previous/next, stop/skip) | `Button::large` | 44, 22 px glyph |
 | Less-used controls (shuffle, repeat, the window's button) | `Button::secondary` | 36 (32 `compact`) |
-| A widget's leading icon | set by Home (`Icon::large`) | `tileIconSize` 24 |
+| A widget's leading icon | set by Home (`Icon::large`) | `tileIconSize` 22 |
 
 Spacing:
 - A card's row of controls is `loose` (`looseItemSpacing` 24); groups of rows
   on a stacked card sit `apart` (`groupGap` 20). Spare height goes between
   groups, never as a band at the bottom (decision 107).
-- Home's widgets: `tileHeight` 74, `tileGap` 12, `tilePadding` 10, so a
-  CardTitle line and a Body line fit with room around them.
+- Home's widgets: `tileHeight` 68, `tileGap` 10, `tilePadding` 9, so a
+  TileTitle line and a Body line fit with room around them. A widget is a
+  little under its card: a glance at many, not one.
 - Every card and Home share `expandedSize.y` (248) so switching tabs doesn't
   resize the island; a test pins media, the timer and Home to it.
 
+## Standalone windows: a step up, under the cards (decision 112)
+
+Windows (Settings, the timer's) hold pages of rows to read at a desk, so
+they sit between the island's lists and its cards. Providers write the plain
+styles; the window's layout swaps in its own step, so nothing to remember.
+
+| Piece | On the island | In a window |
+| --- | --- | --- |
+| `Title` | 17 at 700 | `WindowTitle` 18 at 700 |
+| `Body` (a setting's name, a sidebar entry) | 15 at 600 | `WindowBody` 16 at 600 |
+| `Caption` (its value under it, a subtitle) | 13 at 600 | `WindowCaption` 14 at 600 |
+| A group's label (`Heading`) | | 15 at 600 |
+| A page's name (`PageTitle`) | | 26 at 800 |
+
+Room (window-only tokens): a grouped row 11 above and below its content
+(`groupItemPadding`), groups 16 apart (`sectionGap`), their corners 14; the
+sidebar 200 wide, entries 40 high; a switch 40 × 22, segments 32, key caps 26.
+
 ## Where the dense scale stays
 
-Lists and windows hold many rows to scan, not one thing to glance at; they
+Lists hold many rows to scan, not one thing to glance at; on the island they
 keep the smaller scale: `Title` (17/700), `Body`, `Caption`, `buttonSize` 36,
 `compact` buttons in rows.
-- Settings' list card and the windows' pages (decisions 030, 104).
 - Search's results (`Result`, `ResultDetail`; decision 079).
 - Grouped rows, menus, dialogs (decisions 020, 086, 090).
 - Alerts (the banner that drops in): `Title` and `Body`, like every alert.
+- Menus, dialogs and toasts (decisions 020, 086).
 - Text inside a widget's rows: an inline icon stays `iconSize` (18), so the
   row is as tall as its text.
 

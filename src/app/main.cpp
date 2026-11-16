@@ -565,7 +565,15 @@ void clickTab(const std::string& id)
         if (to) clickTab(*to);
         return;
     }
-    if (id == kHomeTab) return clickTab(""); // Home's button: as Home's dot
+    if (id == kHomeTab) return clickTab(""); // Home's button: the one way to Home (decision 115)
+    if (id.rfind(kPanelButtonTab, 0) == 0) { // a panel's button right of the pin (decision 113): its tap action, like its tile's
+        const Panel* panel = findPanel(g_state, id.substr(std::string(kPanelButtonTab).size()));
+        if (panel && !panel->tapAction.empty()) {
+            g_providers->route({ panel->providerId, panel->id, panel->tapAction, 0 });
+            dispatch(PointerMoved{}, "page row button"); // the user is busy here: keep the card open
+        }
+        return;
+    }
     if (id == kPinTab) dispatch(StayOpenToggled{}, g_state.stayOpen ? "unpin" : "pin"); // decision 046
     else dispatch(id.empty() ? Event{ HomeOpened{} } : Event{ ActivitySwitched{ id } }, "tab");
 }

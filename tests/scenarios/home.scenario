@@ -172,3 +172,9 @@ close-card search                   -> Idle                       # opened from 
 tile search
 pin                                 -> Expanded stay=yes
 close-card search                   -> Expanded expanded=search   # pinned: it stays (decision 046)
+
+scenario: a page-row button isn't a widget: alone, there's no Home to open (decision 113)
+panel settings button               -> Idle
+click                               -> Idle
+panel focus
+click                               -> Expanded expanded=home

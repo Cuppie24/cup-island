@@ -278,7 +278,7 @@ void SearchProvider::publish()
     Content c;
     c.label = "Search";
     c.tileLeading = { row({ Icon{ Glyph::Search } }, Align::Center) };
-    c.tile = { row({ Text{ "Search", TextStyle::CardTitle } }) };
+    c.tile = { row({ Text{ "Search", TextStyle::TileTitle } }) };
     // Wide, with a big field (CardLayout::Search, decision 079), which has
     // the keys at once and closes with one Esc (Content::fieldFirst). A near
     // miss between rows doesn't close it. As tall as its rows: the field

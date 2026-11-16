@@ -269,18 +269,16 @@ std::vector<ThemeListRow> themeListRows()
     return rows;
 }
 
-// The widget: a gear, like Windows' own Settings. A tap opens the window;
-// it has no card of its own (decision 104).
+// A gear, like Windows' own Settings, in the page row right of the pin
+// (decision 113), not a Home widget. A tap opens the window; it has no card
+// of its own (decision 104).
 Panel settingsPanel(const SettingsView& view)
 {
     Content content{
         .label = "Settings",
-        .badge = !view.unseen.empty(), // something new in it: a dot on its widget (decision 048)
-        // One line, the gear in the side square like the other widgets' icons, bold like their titles (decision 073).
-        .tileLeading = { row({ Icon{ Glyph::Settings } }, Align::Center) },
-        .tile = { row({ Text{ "Settings", TextStyle::CardTitle } }) },
+        .badge = !view.unseen.empty(), // something new in it: a dot on its button (decision 048)
     };
-    return { .id = kSettingsPanelId, .content = content, .tapAction = P::kOpenWindow };
+    return { .id = kSettingsPanelId, .content = content, .tapAction = P::kOpenWindow, .rowButton = Glyph::Settings };
 }
 
 WindowContent settingsWindow(const SettingsView& v)

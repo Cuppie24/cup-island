@@ -2,7 +2,7 @@
 // Home (decisions 009, 019): rows of widgets, one per panel, in the order
 // they were published; every row reaches across the card's full width. A running panel's widget shows its activity's tile,
 // so it stays in place and goes live. Widgets are on the card scale (decision 111):
-// a CardTitle line and a Body line, the leading icon tileIconSize.
+// a TileTitle line and a Body line, the leading icon tileIconSize (decision 114).
 
 #include "core/layout.h"
 

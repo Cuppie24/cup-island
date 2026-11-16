@@ -55,9 +55,7 @@ void runBadgeTests()
 
     // Home's button: only a widget flagged for it (an update), not any widget with a dot.
     auto homeDot = [&](const Scene& sc) {
-        for (const Tab& tab : sc.tabs->tabs)
-            if (tab.id.empty()) return tab.badge;
-        return false;
+        return sc.tabs->home && sc.tabs->home->badge; // Home has no dot (decision 115)
     };
     IslandState withHome = tabs;
     withHome = reduce(withHome, PanelPublished{ flagged }, Ms{ 0 });

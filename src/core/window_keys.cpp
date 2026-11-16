@@ -158,7 +158,8 @@ float scrollToShow(const WindowScene& w, const WindowFocus& focus)
     float top = focus.pageFrame.y - margin, bottom = focus.pageFrame.y + focus.pageFrame.height + margin;
     float scroll = w.scroll;
     if (bottom > scroll + w.pane.height) scroll = bottom - w.pane.height;
-    if (top < scroll) scroll = top;
+    // Near the top (the back arrow beside the page's title): all the way up, so the title shows with it.
+    if (top < scroll) scroll = top < margin ? 0.0f : top;
     return std::clamp(scroll, 0.0f, w.maxScroll);
 }
 
