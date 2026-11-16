@@ -285,6 +285,18 @@ void windowTests()
     page = island.windowScene();
     const Placed* task = textIn(page, "Write the report");
     expect(task && std::get<Text>(task->item).editAction == inGroup(1, std::string(todo_action::kEdit) + "1"), "added: in its group, edited in place");
+    // Clicked, "+ Add task" is the task it adds, being written (decision 125): a task row's height, a box, no field box.
+    WindowTyping writing;
+    focusField(writing, page, fieldKey, std::nullopt);
+    WindowScene written = windowLayout(*island.window(), { 1000, 2000 }, 0, island.now, {}, &writing);
+    const Placed *addField = nullptr, *box = buttonIn(written, inGroup(1, std::string(todo_action::kToggle) + "1"));
+    for (const Placed& p : written.page)
+        if (p.key == fieldKey) addField = &p;
+    const TextInput* shown = addField ? std::get_if<TextInput>(&addField->item) : nullptr;
+    expect(shown && shown->focused && shown->focusedIcon == Glyph::Unchecked && addField->litByRow && box &&
+               addField->frame.height == box->frame.height && addField->frame.x == box->frame.x && addField->listRow &&
+               std::abs(addField->listRow->height - box->listRow->height) < 0.01f,
+           "focused: '+ Add task' becomes a task row being written, its height, its box where a task's is");
     expect(textIn(page, "1") == nullptr, "no count beside the group's name (decision 121)");
     const Placed* remove = buttonIn(page, inGroup(1, std::string(todo_action::kDelete) + "1"));
     expect(remove && std::get<Button>(remove->item).revealOnHover, "its delete shows on hover");

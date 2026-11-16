@@ -171,6 +171,10 @@ struct TextInput {
     // Before its placeholder while it's empty and not focused: a field that
     // reads as a button ("+ Add task", decision 122). Focused, a plain field.
     std::optional<Glyph> icon;
+    // ...or, focused, the row it will add, being written (decision 125): this
+    // glyph where a row's checkbox is, smallButtonSize square, its text where
+    // a row's text is, in `style`, with no box; a row's height.
+    std::optional<Glyph> focusedIcon;
     std::string wrapped;     // ...a wrapping one (Text::wrap): `value` broken into lines, like Text::wrapped
     // Set by the provider: at most this many characters (decision 045). 0: no limit.
     std::size_t maxLength = 0;

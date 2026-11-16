@@ -96,6 +96,7 @@ Slot windowStyled(Slot slot)
             for (Item& item : *items) {
                 if (auto* text = std::get_if<Text>(&item)) text->style = windowStyle(text->style);
                 else if (auto* label = std::get_if<TimeLabel>(&item)) label->style = windowStyle(label->style);
+                else if (auto* field = std::get_if<TextInput>(&item)) field->style = windowStyle(field->style); // its text as the rows' (decision 125)
             }
     return slot;
 }

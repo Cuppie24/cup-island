@@ -24,3 +24,12 @@ Status: Accepted (amends 117, 120 to 122). Core tested; Windows needs a run.
 frame, and its natural width didn't count that. It does now, for any
 editable text laid out at its natural width. "+ Add task" is lower still:
 `iconFieldHeight` (26), its own token.
+
+**Addendum (decision 125's number, kept here).** Clicked, "+ Add task"
+becomes the task it adds, being written (`TextInput::focusedIcon`): an
+unticked box where a task's is (a `smallButtonSize` square), its text where
+a task's text starts and in the task's style, no box of its own, a task
+row's height. A row's heights now see which field is focused (`layRows`
+sizes a field with a focused shape as it is now, and places it at its
+resolved height). Enter adds it; the field stays focused, an empty row
+being written, for the next one.

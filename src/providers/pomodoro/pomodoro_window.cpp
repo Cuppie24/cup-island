@@ -110,9 +110,10 @@ WindowSection groupCard(const TaskGroup& g)
     WindowSection card{ .title = g.name, .id = "group-" + gid, .titleEdit = task::kRenameGroup + gid,
                         .titleMaxLength = tokens().taskGroupNameMaxLength };
     card.titleTrailing = { Button{ .glyph = Glyph::Delete, .actionId = task::kDeleteGroup + gid, .compact = true, .revealOnHover = true } };
-    // "+ Add task" reads as a button; clicked, it's a plain field, the + gone (decision 122).
+    // "+ Add task" reads as a button; clicked, it's the task it adds, being written: an unticked
+    // box, its text where a task's is, a task row's height (decisions 122, 125).
     card.rows.push_back(Row{ .items = { TextInput{ .actionId = inGroup(g.id, todo::kAdd), .placeholder = "Add task", .icon = Glyph::Plus,
-                                                   .maxLength = tokens().todoMaxLength } },
+                                                   .focusedIcon = Glyph::Unchecked, .maxLength = tokens().todoMaxLength } },
                              .id = "add" });
     for (const Todo& t : items) {
         std::string id = std::to_string(t.id);

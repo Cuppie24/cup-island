@@ -45,8 +45,11 @@ FieldLine lineOf(IDWriteFactory* dw, const TextInput& input, Vec2 size)
     FieldLine line;
     // Edited in place: the Text's own size and place, so nothing jumps when editing starts (decision 043).
     // In place, the edited text's size (a window's is a step up, decision 120); large: search's (decision 079).
-    float fontSize = input.inPlace ? cup::fontSize(input.style) : input.large ? t.searchInputFontSize : t.inputFontSize;
-    line.inset = input.inPlace ? t.editInset : t.buttonLabelPadding;
+    // A row being written (TextInput::focusedIcon, decision 125): its text's size, where a row's text starts,
+    // after its checkbox's square, the gap and the edit inset a row's editable text has.
+    bool asRow = input.focused && input.focusedIcon;
+    float fontSize = input.inPlace || asRow ? cup::fontSize(input.style) : input.large ? t.searchInputFontSize : t.inputFontSize;
+    line.inset = input.inPlace ? t.editInset : asRow ? t.smallButtonSize + t.itemSpacing + t.editInset : t.buttonLabelPadding;
     line.room = std::max(0.0f, size.x - 2 * line.inset);
     bool empty = input.value.empty(), wrapped = !input.wrapped.empty();
     std::wstring value = widen(empty ? input.placeholder : wrapped ? input.wrapped : input.value);
@@ -78,6 +81,14 @@ void paintInput(ID2D1DeviceContext* dc, IDWriteFactory* dw, const TextInput& inp
     const Tokens& t = tokens();
     FieldLine line = lineOf(dw, input, size);
     bool empty = input.value.empty();
+    // The row it adds, written (decision 125): its checkbox where a row's is, before the text's clip.
+    if (input.focused && input.focusedIcon) {
+        D2D1_MATRIX_3X2_F was{};
+        dc->GetTransform(&was);
+        dc->SetTransform(D2D1::Matrix3x2F::Translation(0, (size.y - t.smallButtonSize) / 2) * was);
+        paintGlyph(dc, dw, *input.focusedIcon, t.iconSize, { t.smallButtonSize, t.smallButtonSize }, t.buttonColor);
+        dc->SetTransform(was);
+    }
     // Scrolled text stops at the text area's edges (the caret may sit right on one).
     dc->PushAxisAlignedClip(D2D1::RectF(line.inset - kCaretWidth, 0, line.inset + line.room + kCaretWidth, size.y), D2D1_ANTIALIAS_MODE_ALIASED);
 

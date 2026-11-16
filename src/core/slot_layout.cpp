@@ -144,7 +144,20 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
     if (hasMenus(*slot.slot)) buttoned = withMenuButtons(*slot.slot);
     const Slot& rows = buttoned.empty() ? *slot.slot : buttoned;
 
-    RowSizes sizes = rowSizes(rows, slot.frame, measure);
+    // A field that takes another shape focused (TextInput::focusedIcon, decision 125) is sized as it is now.
+    Slot focusedRows;
+    const Slot* sizing = &rows;
+    for (const Row& r : rows)
+        for (const Item& item : r.items)
+            if (auto* in = std::get_if<TextInput>(&item); in && in->focusedIcon && sizing == &rows) {
+                focusedRows = rows;
+                sizing = &focusedRows;
+            }
+    if (sizing == &focusedRows)
+        for (Row& r : focusedRows)
+            for (Item& item : r.items)
+                if (auto* in = std::get_if<TextInput>(&item); in && in->focusedIcon) in->focused = std::get<TextInput>(resolve(item, Ms{ 0 }, source)).focused;
+    RowSizes sizes = rowSizes(*sizing, slot.frame, measure);
     const std::vector<float> oneLine = sizes.heights; // a list's window counts rows of one line (decision 045)
     // Lists windowed, scrolled, a row dragged (decision 029); the rest stacked.
     ListState lists{ source.activityId, source.scrolls, source.listDrag };
@@ -219,10 +232,11 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
             std::string rowName = row.id.empty() ? std::to_string(r) : row.id;
             size_t first = target.size();
             auto place = [&](const Item& item, size_t index, float x, float w) {
-                float h = heightOf(item, slot.frame, ringSide, measure);
                 Placed placed;
                 placed.key = slot.name + "/" + rowName + "/" + std::to_string(index);
                 placed.item = resolve(item, now, source);
+                // A field as it is now: focused, it may take another shape (TextInput::focusedIcon, decision 125).
+                float h = heightOf(std::holds_alternative<TextInput>(item) ? placed.item : item, slot.frame, ringSide, measure);
                 // Wrapping text (decision 045): its lines at the width it got (less its edit inset),
                 // and as tall as they are. The row grows to fit in the next pass.
                 if (auto* text = std::get_if<Text>(&item); text && text->wrap) {
@@ -463,7 +477,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
             if (row.listItem)
                 for (std::size_t i = first; i < target.size(); ++i)
                     if (auto* field = std::get_if<TextInput>(&target[i].item); field && !field->inPlace) {
-                        target[i].litByRow = !field->focused;
+                        target[i].litByRow = !field->focused || field->focusedIcon; // a row being written has no box either
                         target[i].hitFrame = { background.x, y, background.width, rowHeight };
                     }
             // Otherwise a list item's first and last items reach its edges: a
