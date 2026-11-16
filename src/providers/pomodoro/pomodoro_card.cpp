@@ -124,7 +124,7 @@ Panel pomodoroPanel(const PomodoroPlan& plan)
         .label = "Focus",
         .accent = accentOf(Phase::Focus),
         .tileLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
-        .tile = { row({ Text{ formatDuration(plan.focus), TextStyle::CardTitle } }), row({ Text{ rounds, TextStyle::Body } }) },
+        .tile = { row({ Text{ formatDuration(plan.focus), TextStyle::TileTitle } }), row({ Text{ rounds, TextStyle::Body } }) },
     };
     content = timerCard(std::move(content), { .duration = plan.focus }, phaseSteps(0), "Focus", std::to_string(t.pomodoroRounds) + " rounds",
                         { Button{ .glyph = Glyph::Play, .actionId = act::kStart, .compact = true, .primary = true } });
@@ -143,7 +143,7 @@ Content pomodoroContent(const PomodoroSession& s, const PomodoroPlan&)
     if (s.phase != Phase::LongBreak) glance += " · " + std::to_string(s.round) + "/" + std::to_string(tokens().pomodoroRounds);
     std::string detail = s.phase == Phase::LongBreak ? "last one" : roundsOf(static_cast<int>(s.round));
     if (!s.timeline.playing) detail = "paused · " + detail;
-    TimeLabel tileLeft{ .timeline = s.timeline, .countdown = true, .style = TextStyle::CardTitle }; // the card scale (decision 111)
+    TimeLabel tileLeft{ .timeline = s.timeline, .countdown = true, .style = TextStyle::TileTitle }; // a widget's first line (decision 114)
     TimeLabel compactLeft{ .timeline = s.timeline, .countdown = true, .style = TextStyle::Body };
     Progress ring{ .timeline = s.timeline, .shape = ProgressShape::Ring };
     Button stop{ .glyph = Glyph::Stop, .actionId = act::kStop, .large = true }; // media's skips' size (decision 111)

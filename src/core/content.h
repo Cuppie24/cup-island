@@ -34,7 +34,7 @@ enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Sour
 // Window*: Title, Body and Caption a step up in a standalone window (decision 112);
 // the window's layout swaps them in, providers write the plain three.
 enum class TextStyle { Title, Body, Caption, Digits, Display, Heading, Result, ResultDetail, PageTitle, Hero, CardTitle,
-                       WindowTitle, WindowBody, WindowCaption };
+                       WindowTitle, WindowBody, WindowCaption, TileTitle }; // TileTitle: a Home widget's first line (decision 114)
 
 // sRGB plus opacity. As an activity's accent (decision 010) it tints only
 // live data: progress fills (bar and ring), the current step, waveform bars.

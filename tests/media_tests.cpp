@@ -183,7 +183,7 @@ void runMediaTests()
     Content playing = nowPlayingContent({ .title = "Song", .artist = "Band", .art = std::make_shared<ImageData>(),
                                           .timeline = { .duration = Ms{ 1000 }, .playing = true } });
     expect(std::holds_alternative<Image>(playing.tileLeading[0].items[0]), "playing: the art on the left");
-    expect(playing.tile[0].items[0] == Item{ Text{ .value = "Song", .style = TextStyle::CardTitle, .marquee = true } } &&
+    expect(playing.tile[0].items[0] == Item{ Text{ .value = "Song", .style = TextStyle::TileTitle, .marquee = true } } &&
            playing.tile[0].trailing[0] == Item{ Waveform{ true } }, "the title swims, the bars beside it");
     expect(std::get<Text>(playing.tile[1].items[0]).value == "Band", "the artist under it");
 

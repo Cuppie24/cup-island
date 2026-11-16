@@ -176,6 +176,7 @@ float fontSize(TextStyle style)
     case TextStyle::WindowTitle: return t.windowTitleFontSize;
     case TextStyle::WindowBody: return t.windowBodyFontSize;
     case TextStyle::WindowCaption: return t.windowCaptionFontSize;
+    case TextStyle::TileTitle: return t.tileTitleFontSize;
     }
     return t.bodyFontSize;
 }

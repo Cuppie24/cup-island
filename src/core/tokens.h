@@ -118,6 +118,7 @@ struct Tokens {
     float bodyFontSize = 15;
     float captionFontSize = 13; // the smallest text: ~11 px on screen at 100% after islandScale
     float displayFontSize = 48; // TextStyle::Display: a timer in a dial (decision 065)
+    float tileTitleFontSize = 19; // TextStyle::TileTitle: a Home widget's first line, a little under a card's (decision 114)
     float cardTitleFontSize = 22; // TextStyle::CardTitle: a card's main line beside its cover (media's song, decision 107)
     float heroFontSize = 64;    // TextStyle::Hero: the one big number a card is about (Pomodoro's time, decision 107)
     float heroLineHeight = 60;  // ...its line: digits only, no descenders, so tighter than other text's
@@ -134,6 +135,7 @@ struct Tokens {
     float captionFontWeight = 600;
     float displayFontWeight = 300; // big and still the lightest, like a clock face
     float cardTitleFontWeight = 800;
+    float tileTitleFontWeight = 700;
     float heroFontWeight = 800;    // heavy: the card's timer reads from across the desk (decision 107)
     float headingFontWeight = 600; // a group's label is quiet: its group's background sets it apart (decision 090)
     float pageTitleFontWeight = 800; // heavier: the page's one name (decision 112)
@@ -296,10 +298,10 @@ struct Tokens {
 
     // Home: a grid of panel tiles in the Expanded card (decision 009).
     std::size_t homeColumns = 4;  // columns' worth per Home row; a widget takes one, or two (Panel::wide); rows stretch to full width
-    float tileHeight = 74;        // fits a CardTitle and a Body line inside tilePadding (decision 111)
-    float tileGap = 12;
-    float tilePadding = 10;       // inside a tile, on every side
-    float tileIconSize = 24;      // a widget's leading icon (Icon::large): the card scale (decision 111)
+    float tileHeight = 68;        // fits a TileTitle and a Body line inside tilePadding (decisions 111, 114)
+    float tileGap = 10;
+    float tilePadding = 9;        // inside a tile, on every side
+    float tileIconSize = 22;      // a widget's leading icon (Icon::large, decisions 111, 114)
     float focusRingWidth = 2;     // the keyboard's focus ring (decision 033), drawn inside what has focus
 
     // Smaller transitions: the ears and corners folding, a lift sinking, a
