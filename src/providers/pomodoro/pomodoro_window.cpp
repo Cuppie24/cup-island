@@ -15,14 +15,6 @@ namespace todo = todo_action;
 
 std::string minutes(Ms duration) { return std::to_string(duration.count() / 60000) + " min"; }
 
-// Time spent: "40 min", "1 h 05 min".
-std::string spent(Ms duration)
-{
-    long long all = duration.count() / 60000, hours = all / 60, mins = all % 60;
-    if (hours == 0) return minutes(duration);
-    return std::to_string(hours) + " h " + (mins < 10 ? "0" : "") + std::to_string(mins) + " min";
-}
-
 // "3h 20m": a statistic's value, short enough for a column (decision 064).
 std::string shortSpent(Ms duration)
 {
@@ -77,68 +69,71 @@ Row captionsRow(std::initializer_list<std::pair<const char*, bool>> captions)
     return r;
 }
 
-// The timer: the dial, the phase dots and how many are done, the controls,
-// or the stop question in their place (decisions 064, 065).
-WindowSection timerSection(const PomodoroWindowView& v)
+// The header (decision 117): the time left, big, then stop, ▶/⏸ and skip;
+// at the right, the phase and round over nothing else but the session's
+// steps. Dormant: the planned focus, ▶, and stop and skip dimmed, so
+// nothing moves when it starts. Stop asks in place of the controls.
+std::vector<Row> timerHeader(const PomodoroWindowView& v)
 {
-    WindowSection s;
-    if (!v.session) {
-        s.rows = { dialRow({ .duration = v.plan.focus }, "Focus", v.plan),
-                   caption("Focus · " + std::to_string(tokens().pomodoroRounds) + " rounds of " + minutes(v.plan.focus)),
-                   Row{ .items = { Button{ .glyph = Glyph::Play, .actionId = act::kStart, .primary = true } }, .align = Align::Center } };
-        return s;
+    const PomodoroSession* s = v.session ? &*v.session : nullptr;
+    Timeline timeline = s ? s->timeline : Timeline{ .duration = v.plan.focus };
+    TimeLabel time{ .timeline = timeline, .countdown = true, .style = TextStyle::Hero };
+    std::string where = s ? phaseName(s->phase) + " · " + sessionDetail(*s) : "Focus · round 1 of " + std::to_string(tokens().pomodoroRounds);
+    if (s && v.question == PomodoroQuestion::Stop) {
+        Dialog q = stopQuestion(*s);
+        return { Row{ .items = { time },
+                      .trailing = { Text{ q.title, TextStyle::Title }, Button{ .actionId = act::kCancel, .label = "Cancel", .compact = true },
+                                    Button{ .actionId = act::kStopConfirmed, .label = q.confirmLabel, .compact = true, .destructive = true } } },
+                 Row{ .items = { Text{ .value = q.message, .style = TextStyle::Caption, .alignEnd = true, .wrap = true } } } };
     }
-    const PomodoroSession& session = *v.session;
-    s.rows = { dialRow(session.timeline, phaseName(session.phase), v.plan),
-               Row{ .items = { phaseSteps(phasesDone(session)) }, .align = Align::Center },
-               caption(progressCaption(session)) };
-    if (v.question == PomodoroQuestion::Stop) {
-        Dialog q = stopQuestion(session);
-        for (Row& r : questionRows(q.title, q.message, q.confirmLabel, act::kStopConfirmed)) s.rows.push_back(std::move(r));
-        return s;
-    }
-    Button pause{ .glyph = session.timeline.playing ? Glyph::Pause : Glyph::Play, .actionId = act::kPause, .primary = true };
-    Button stop{ .glyph = Glyph::Stop, .actionId = act::kStop, .secondary = true };
-    Button skip{ .glyph = Glyph::Next, .actionId = act::kSkip, .secondary = true };
-    s.rows.push_back(Row{ .items = { stop, pause, skip }, .align = Align::Center, .loose = true });
-    return s;
+    bool playing = s && s->timeline.playing;
+    Button stop{ .glyph = Glyph::Stop, .actionId = act::kStop, .enabled = s != nullptr, .secondary = true };
+    Button main{ .glyph = playing ? Glyph::Pause : Glyph::Play, .actionId = s ? act::kPause : act::kStart, .primary = true };
+    Button skip{ .glyph = Glyph::Next, .actionId = act::kSkip, .enabled = s != nullptr, .secondary = true };
+    return { Row{ .items = { time, stop, main, skip },
+                  .loose = true, // big, well-separated targets
+                  .trailing = { Text{ where, TextStyle::Caption }, phaseSteps(s ? phasesDone(*s) : 0) } } };
 }
 
-// Today: cycles finished and focus time, the days in a row (a fire from three on).
-WindowSection todaySection(const PomodoroGlance& g)
+// A group's card (decision 117): its name, edited in place, and how many
+// are open beside it, its delete at the end on hover; "Add task", then its
+// tasks: open ones first, then solved ones, struck (decision 071). A task's
+// box ticks it, a click on its text edits it, its delete shows on hover.
+WindowSection groupCard(const TaskGroup& g)
 {
-    std::string cycles = std::to_string(g.finishedToday) + (g.finishedToday == 1 ? " cycle" : " cycles");
-    WindowSection s{ .title = "Today", .rows = { groupItem(itemText(cycles, spent(g.focusToday) + " of focus")) } };
-    if (g.daysInARow > 0)
-        s.rows.push_back(Row{ .items = { itemText(days(g.daysInARow) + " in a row") },
-                              .trailing = g.daysInARow >= 3 ? std::vector<Item>{ Icon{ Glyph::Fire } } : std::vector<Item>{} });
-    return s;
-}
-
-// The to-dos (decision 016): the field, the list, the Done row, the clear
-// buttons, or the clear question in their place; a deleted one's Undo first.
-WindowSection todoSection(const PomodoroWindowView& v)
-{
-    WindowSection s{ .title = "To-dos" };
-    if (v.undoDelete)
-        s.rows.push_back(groupItem(itemText("To-do deleted"), { Button{ .actionId = todo::kUndoDelete, .label = "Undo", .compact = true } }));
-    TodoList none;
-    Slot rows;
-    appendTodoRows(rows, v.todos ? *v.todos : none);
-    if (v.question == PomodoroQuestion::ClearDone || v.question == PomodoroQuestion::ClearAll) {
-        const char* id = v.question == PomodoroQuestion::ClearDone ? todo::kClearDone : todo::kClearAll;
-        Dialog q = clearQuestion(id, v.todos ? *v.todos : none, kPomodoroPanelId);
-        if (!rows.empty() && !rows.back().items.empty() && std::holds_alternative<Button>(rows.back().items.front())) rows.pop_back(); // the clear buttons
-        for (Row& r : questionRows(q.title, q.message, q.confirmLabel, confirmActionOf(v.question))) rows.push_back(std::move(r));
+    namespace task = task_action;
+    std::string gid = std::to_string(g.id);
+    const auto& items = g.tasks.items();
+    auto open = std::count_if(items.begin(), items.end(), [](const Todo& t) { return !t.done; });
+    WindowSection card{ .title = g.name, .id = "group-" + gid, .titleEdit = task::kRenameGroup + gid,
+                        .titleMaxLength = tokens().taskGroupNameMaxLength };
+    if (open > 0) card.titleItems = { Text{ std::to_string(open), TextStyle::Caption } };
+    card.titleTrailing = { Button{ .glyph = Glyph::Delete, .actionId = task::kDeleteGroup + gid, .compact = true, .revealOnHover = true } };
+    card.rows.push_back(Row{ .items = { Icon{ Glyph::Plus, true },
+                                        TextInput{ .actionId = inGroup(g.id, todo::kAdd), .placeholder = "Add task", .maxLength = tokens().todoMaxLength } },
+                             .id = "add" });
+    for (const Todo& t : items) {
+        std::string id = std::to_string(t.id);
+        Button box{ .glyph = t.done ? Glyph::Checked : Glyph::Unchecked, .actionId = inGroup(g.id, todo::kToggle + id), .compact = true };
+        Text text{ .value = t.text, .style = t.done ? TextStyle::Caption : TextStyle::Body, .struck = t.done, .editAction = inGroup(g.id, todo::kEdit + id),
+                   .editMaxLength = tokens().todoMaxLength, .wrap = true }; // long ones wrap (decision 045)
+        Button remove{ .glyph = Glyph::Delete, .actionId = inGroup(g.id, todo::kDelete + id), .compact = true, .revealOnHover = true };
+        card.rows.push_back(Row{ .items = { box, text }, .trailing = { remove }, .id = "task-" + id, .listItem = true });
     }
-    for (Row& r : rows) s.rows.push_back(std::move(r));
-    return s;
+    return card;
 }
 
 WindowPage timerPage(const PomodoroWindowView& v)
 {
-    WindowPage page{ .id = kPomodoroTimerPage, .title = "Timer", .glyph = Glyph::Timer };
-    page.sections = { timerSection(v), todaySection(v.glance), todoSection(v) };
+    WindowPage page{ .id = kPomodoroTimerPage, .title = "Timer", .glyph = Glyph::Timer, .titled = false, .header = timerHeader(v), .cards = true };
+    static const TaskBoard none;
+    for (const TaskGroup& g : (v.tasks ? *v.tasks : none).groups()) page.sections.push_back(groupCard(g));
+    // After the groups, so none of them moves while it shows.
+    if (!v.undo.empty())
+        page.sections.push_back({ .rows = { groupItem(itemText(v.undo), { Button{ .actionId = kPomodoroUndo, .label = "Undo", .compact = true } }) },
+                                  .id = "undo" });
+    page.sections.push_back({ .rows = { groupItem(itemText("New group"), { Button{ .glyph = Glyph::Plus, .actionId = task_action::kNewGroup, .compact = true } }) },
+                              .id = "new" });
     return page;
 }
 
@@ -175,7 +170,8 @@ WindowPage settingsPage(const PomodoroWindowView& v)
 {
     static const char* const kDayNames[] = { "Mo", "Tu", "We", "Th", "Fr", "Sa", "Su" };
     bool running = v.session.has_value();
-    WindowPage page{ .id = kPomodoroSettingsPage, .title = "Settings", .subtitle = "The plan, and the days that don't count.", .glyph = Glyph::Settings };
+    WindowPage page{ .id = kPomodoroSettingsPage, .title = "Settings", .subtitle = "The plan, and the days that don't count.", .glyph = Glyph::Settings,
+                     .atFoot = true };
     page.sections.push_back({ .title = running ? "Plan · while the timer runs, it stays as it is" : "Plan",
                               .rows = { planRow("Focus", v.plan.focus, true, v.plan, running), planRow("Break", v.plan.rest, false, v.plan, running) } });
     Row circles{ .align = Align::Center }; // Monday first; a lit one is off
@@ -198,8 +194,6 @@ const char* confirmActionOf(PomodoroQuestion question)
     switch (question) {
     case PomodoroQuestion::Stop: return act::kStopConfirmed;
     case PomodoroQuestion::ResetStats: return act::kResetStatsConfirmed;
-    case PomodoroQuestion::ClearDone: return todo::kClearDoneConfirmed;
-    case PomodoroQuestion::ClearAll: return todo::kClearAllConfirmed;
     case PomodoroQuestion::None: break;
     }
     return "";
@@ -208,7 +202,7 @@ const char* confirmActionOf(PomodoroQuestion question)
 WindowContent pomodoroWindow(const PomodoroWindowView& v)
 {
     std::optional<Color> accent = accentOf(v.session ? v.session->phase : Phase::Focus);
-    return { .title = "Focus timer", .accent = accent, .pages = { timerPage(v), statsPage(v), settingsPage(v) } };
+    return { .title = "Pomodoro", .accent = accent, .pages = { timerPage(v), statsPage(v), settingsPage(v) }, .rail = true };
 }
 
 } // namespace cup

@@ -109,7 +109,11 @@ struct Tokens {
     float windowNavHeight = 40; // a page's entry in the sidebar
     float windowPageMaxWidth = 600; // a page's content no wider: rows of settings don't need a wide screen
     float windowNavRadius = 8; // the picked page's highlight
-    float expandedArtSize = 108; // expanded leading square: the cover, filling the card's shared height with its controls (decisions 094, 107)
+    float windowRailWidth = 64; // WindowContent::rail: the pages' glyphs alone, the title in the title bar (decision 117)
+    // WindowPage::cards (decision 117): one width, so a resize moves cards and never repaints them.
+    float windowCardWidth = 340;
+    float windowCardGap = 16; // between cards, across and down
+    float expandedArtSize = 108; // expanded leading square: the cover, filling the card's shared height with its controls (decisions 094, 107, 119)
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;
     float itemSpacing = 8;
@@ -500,6 +504,7 @@ struct Tokens {
     // A session counts as finished (decision 061) with at most this many focus phases skipped.
     std::size_t pomodoroFocusSkipsAllowed = 1;
     std::size_t todoMaxLength = 150; // characters in a to-do: wraps onto a few lines at most (decision 045)
+    std::size_t taskGroupNameMaxLength = 40; // a task group's name, edited in place (decision 117)
     // Lists (Row::list, decision 029): the window shows this many rows (the
     // half says there's more), the wheel moves scrollStep per notch, easing
     // over scrollDuration; a press dragged dragStartDistance picks a row up.

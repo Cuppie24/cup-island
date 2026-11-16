@@ -43,7 +43,8 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 cover_palette.h + island_tint.h (the island in the playing cover's colours, decision 051; as glass, Midnight with a glow from below, decision 090),
                 tokens.h (+ tokens_json.h, json_reader.h), easing.h, motion.h (the morph's spring, fling, stagger, decision 080),
                 open_windows.h (providers' own windows: which are open, when one may open, decision 104) + window_content.h (what's in one)
-                + window_placement.h (where one opens) + window_layout.h (one laid out: title bar, sidebar, page; what a click means) + window_keys.h (the keyboard in one)
+                + window_placement.h (where one opens) + window_layout.h (one laid out: title bar, sidebar or rail, page; what a click means)
+                + window_page.h (a page: its header, title, sections or cards side by side, decision 117) + window_keys.h (the keyboard in one)
                 + window_fields.h (typing in one's fields, decision 105)
                 menu.h (a row's context menu: when it opens, its keys, where it goes, decision 086)
                 groups.h (grouped rows: a quiet label, one background, a name over its description, decision 090)
@@ -54,7 +55,7 @@ src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interacti
                 per content item) + rolling_text (a big time's digits rolling as they change, decision 107), top_glow (the top band lit, decision 108), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts) + tap_hook (double-tap shortcuts, decision 079), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules and the media widget, SMTC provider for real Windows media),
-                pomodoro/ (the first panel: a timer card, the rest in its window, decision 106), search/ (the search card: apps, Settings, files; decisions 077, 079), service_host (Cup Island's service: setup, updates and providers' calls, decisions 076, 078), system/ (Home's theme and Settings widgets:
+                pomodoro/ (the first panel: a timer card, the rest in its window, decision 106; tasks in groups, task_board, decision 117), search/ (the search card: apps, Settings, files; decisions 077, 079), service_host (Cup Island's service: setup, updates and providers' calls, decisions 076, 078), system/ (Home's theme and Settings widgets:
                 app themes, display, Start with Windows, Copy logs), update/ (updates from GitHub
                 Releases: versions and offers, pure; github.cpp fetches and installs, decision 036)
 src/indexer/    the file index's logic (decision 075), pure: USN records from raw bytes, the index by MFT record,

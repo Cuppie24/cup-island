@@ -40,6 +40,8 @@ void runServiceHostTests();
 void runDoubleTapTests();
 void runSearchTests();
 void runWindowTests();
+void runWindowCardTests();
+void runTaskBoardTests();
 void runWindowFieldTests();
 void runMenuTests();
 int runScenarioFile(const std::filesystem::path& file); // returns scenarios run
@@ -81,6 +83,8 @@ int main(int argc, char** argv)
     runDoubleTapTests();
     runSearchTests();
     runWindowTests();
+    runWindowCardTests();
+    runTaskBoardTests();
     runWindowFieldTests();
     runMenuTests();
 
