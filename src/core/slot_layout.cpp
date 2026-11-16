@@ -153,6 +153,23 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
         return atTop ? slot.frame.y : slot.atBottom ? slot.frame.y + slot.frame.height - height : slot.frame.y + (slot.frame.height - height) / 2;
     };
     float contentTop = topOf(plan.height);
+    // At the bottom (media's bar and controls): the spare height spread evenly
+    // above each row, so the bar sits halfway between the cover and the
+    // controls and nothing is left as a band (decision 119). Not with lists:
+    // they scroll in their windows.
+    bool spread = slot.atBottom && !rows.empty() && std::all_of(rows.begin(), rows.end(), [](const Row& r) { return r.list.empty(); });
+    if (spread) {
+        float total = 0;
+        for (float h : sizes.heights) total += h;
+        float gap = std::max(t.rowSpacing, (slot.frame.height - total) / static_cast<float>(rows.size()));
+        float y = slot.frame.y + slot.frame.height - total - gap * static_cast<float>(rows.size()); // the frame's top unless it overflows
+        contentTop = 0;
+        for (std::size_t r = 0; r < rows.size(); ++r) {
+            y += gap;
+            plan.rows[r].y = y;
+            y += sizes.heights[r];
+        }
+    }
     std::vector<float> wrapped(rows.size(), 0); // each row's wrapping text's height, once its width is known
 
     // Places every row into `target` and returns each row's content span.

@@ -95,7 +95,20 @@ void runProviderTests()
     // ...and its parts fill it (decision 107): the cover, its rows and controls need all but a few pixels of it.
     const Slot& under = island.state.activities.front().content.expandedBottom;
     float needed = 2 * tk.expandedPadding + tk.expandedArtSize + tk.slotGap + slotHeight(under, { 0, 0, card.size.x, card.size.y }, {}, {});
-    expect(needed <= card.size.y && card.size.y - needed <= 12, "no band of empty space: " + std::to_string(int(card.size.y - needed)) + " px spare");
+    expect(needed <= card.size.y, "media's rows fit the card");
+    // ...and the spare goes evenly above each bottom row (decision 119): the bar halfway between the cover and the controls.
+    const Placed *cover = nullptr, *bar = nullptr, *controls = nullptr;
+    for (const Placed& p : card.elements) {
+        if (p.key == "expandedLeading/0/0") cover = &p;
+        if (std::holds_alternative<Progress>(p.item)) bar = &p;
+        if (p.key == playPause) controls = &p;
+    }
+    if (cover && bar && controls) {
+        float above = bar->frame.y - (cover->frame.y + cover->frame.height), below = controls->frame.y - (bar->frame.y + bar->frame.height);
+        expect(std::abs(above - below) < 6 && above > 0, "the bar between the cover and the controls: " + std::to_string(int(above)) + " / " + std::to_string(int(below)));
+    } else {
+        expect(false, "media's cover, bar and controls placed");
+    }
     for (const Placed& p : card.elements)
         if (p.key == "expandedLeading/0/0")
             expect(p.raised && p.frame.width == tk.expandedArtSize, "the cover is raised (a shadow under it), at its full size");
