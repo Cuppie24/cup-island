@@ -32,6 +32,12 @@ Spacing:
 - Every card and Home share `expandedSize.y` (248) so switching tabs doesn't
   resize the island; a test pins media, the timer and Home to it.
 
+Decision 119 took the card scale a step down (the cover 108, steps 30 and 14
+long): the pieces read a little smaller in the same 248 height, with more
+room between them. A Standard card's bottom rows share the spare height
+evenly above each, so media's bar sits halfway between the cover and its
+controls.
+
 ## Standalone windows: a step up, under the cards (decision 112)
 
 Windows (Settings, the timer's) hold pages of rows to read at a desk, so
@@ -50,11 +56,11 @@ Room (window-only tokens): a grouped row 11 above and below its content
 (`groupItemPadding`), groups 16 apart (`sectionGap`), their corners 14; the
 sidebar 200 wide, entries 40 high; a switch 40 × 22, segments 32, key caps 26.
 
-Decision 119 took the card scale a step down (the cover 108, steps 30 and 14
-long): the pieces read a little smaller in the same 248 height, with more
-room between them. A Standard card's bottom rows share the spare height
-evenly above each, so media's bar sits halfway between the cover and its
-controls.
+A page of cards (`WindowPage::cards`, decisions 117, 120), the timer's task
+groups: each card at least `windowCardMinWidth` (440) and sharing the row,
+one background with its rows `windowCardPadding` in; its name a `Heading`
+lined up with the checkboxes, its rows plain (no list item's padding), 36 apart.
+A rail sidebar (`WindowContent::rail`) is `windowRailWidth` of glyphs.
 
 ## Where the dense scale stays
 
