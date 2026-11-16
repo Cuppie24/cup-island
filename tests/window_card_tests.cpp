@@ -43,9 +43,9 @@ void gridTests()
     expect(cardGrid(two - 1).width == std::floor(two - 1) && cardGrid(two + 100).width == std::floor(t.windowCardMinWidth + 50),
            "grid: the cards share the row's width (decision 120)");
     auto frames = cardFrames({ 2, 100 }, { 50, 80, 30 }, { 10, 20 });
-    expect(frames.size() == 3 && frames[1].x == 110 + t.windowCardGap && frames[1].y == 20 && frames[2].x == 10 &&
+    expect(frames.size() == 3 && frames[1].x == 110 + t.windowCardGap && frames[1].y == 20 && frames[2].x == std::round(10 + (100 + t.windowCardGap) / 2) &&
                frames[2].y == 20 + 80 + t.windowCardGap,
-           "grid: row by row, each row as tall as its tallest card");
+           "grid: row by row, each row as tall as its tallest card; one short of cards centred (decision 123)");
 }
 
 void boardTests()
@@ -78,8 +78,11 @@ void boardTests()
                first->frame.y >= fill->frame.y + t.windowCardPadding,
            "a card: one background, its title inside its padding");
     WindowScene wider = windowLayout(w, { 1800, 800 }, 0, Ms{ 0 }, measure);
-    const Placed* widerFirst = text(wider, "Group 0");
-    expect(widerFirst && widerFirst->frame.width > first->frame.width, "wider: the cards grow with the window");
+    const Placed* widerFill = nullptr;
+    for (const Placed& p : wider.page)
+        if (p.key == "card.g0/fill") widerFill = &p;
+    expect(widerFill && widerFill->frame.width > fill->frame.width, "wider: the cards grow with the window");
+    expect(std::abs(text(wider, "Group 0")->frame.width - first->frame.width) < 0.01f, "...a card's name hugs its text (decision 123)");
     // The row under the pointer (decision 120): a card's title row, from its name or the space beside it; nothing in the gap.
     auto inWindow = [&](const Placed& p, float dx) { return Vec2{ p.frame.x + s.pane.x + dx, p.frame.y + s.pane.y - s.scroll + p.frame.height / 2 }; };
     expect(windowRowAt(s, inWindow(*first, 2)) == "card.g0/title", "hover: on a card's name, its title row");

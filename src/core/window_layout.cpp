@@ -90,11 +90,11 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
     s.titleBar = { 0, 0, size.x, bar };
     bool maximizes = w.spec.resizable && w.spec.maximizable;
     float buttons = maximizes ? 3 : 2;
-    s.chrome.push_back(placedButton("chrome/min/0", Glyph::Minus, kWindowMinimize, { size.x - buttons * button, 0, button, bar }, w));
+    s.chrome.push_back(placedButton("chrome/min/0", Glyph::Minimize, kWindowMinimize, { size.x - buttons * button, 0, button, bar }, w));
     if (maximizes)
         s.chrome.push_back(placedButton("chrome/max/0", maximized ? Glyph::Restore : Glyph::Maximize, kWindowMaximize,
                                         { size.x - 2 * button, 0, button, bar }, w));
-    s.chrome.push_back(placedButton("chrome/close/0", Glyph::Close, kWindowClose, { size.x - button, 0, button, bar }, w));
+    s.chrome.push_back(placedButton("chrome/close/0", Glyph::CloseWindow, kWindowClose, { size.x - button, 0, button, bar }, w));
 
     float left = w.content.pages.size() > 1 ? placeSidebar(s, w, bar, now, measure) : 0;
     // No sidebar header to name the window: its title in the bar, as Windows puts one.
@@ -188,6 +188,7 @@ std::string windowRowAt(const WindowScene& s, Vec2 point)
     auto inCard = [](const std::string& slot) { return slot.rfind("card.", 0) == 0; };
     for (const Placed& p : s.page) {
         if (isFill(p) || at.y < p.hitFrame.y || at.y >= p.hitFrame.y + p.hitFrame.height) continue;
+        if (p.listRow && (at.x < p.listRow->x || at.x >= p.listRow->x + p.listRow->width)) continue; // a hugging row: its lit part only
         std::string slot = slotOf(p.key);
         if (card.empty() ? !inCard(slot) : slot == card) return prefix(p.key);
     }

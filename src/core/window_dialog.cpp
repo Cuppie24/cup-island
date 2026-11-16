@@ -30,7 +30,8 @@ WindowDialogScene placeWindowDialog(const Dialog& d, Vec2 size, float top, const
     inner.height = slotHeight(rows, inner, source, measure);
     float height = std::round(inner.height + 2 * pad);
     scene.panel = { std::round((size.x - width) / 2), std::round(top + (scene.scrim.height - height) / 2), width, height };
-    scene.radius = std::min(t.windowCardRadius, height / 2);
+    // Its corners nest its buttons' (decision 123): their radius, the window's own (windowNavRadius), plus its padding.
+    scene.radius = std::min(pad + t.windowNavRadius, height / 2);
     inner.x = scene.panel.x + pad;
     inner.y = scene.panel.y + pad;
     placeSlot({ "dialog", &rows, inner }, source, std::max(0.0f, scene.radius - pad), now, scene.elements, measure);

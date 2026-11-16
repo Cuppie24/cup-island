@@ -55,6 +55,7 @@ const Field kFields[] = {
     { "windowCascade", &Tokens::windowCascade },
     { "windowTitleBarHeight", &Tokens::windowTitleBarHeight },
     { "windowChromeButtonWidth", &Tokens::windowChromeButtonWidth },
+    { "windowChromeGlyphSize", &Tokens::windowChromeGlyphSize },
     { "windowSidebarWidth", &Tokens::windowSidebarWidth },
     { "windowSidebarInset", &Tokens::windowSidebarInset },
     { "windowSidebarHeader", &Tokens::windowSidebarHeader },

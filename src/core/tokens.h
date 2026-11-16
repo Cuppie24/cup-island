@@ -102,7 +102,8 @@ struct Tokens {
     // Inside a window (decision 104): an ordinary window's chrome, a sidebar of pages, groups of rows.
     Vec2 windowPagePadding{ 48, 32 }; // a page's content from the pane's left and top
     float windowTitleBarHeight = 36; // our own title bar: it drags the window; minimize and close at its right
-    float windowChromeButtonWidth = 46; // each of those, the bar's height tall, as Windows draws its own
+    float windowChromeButtonWidth = 46;
+    float windowChromeGlyphSize = 10; // minimize, maximize, close: Windows' caption glyphs at Windows' size (decision 123) // each of those, the bar's height tall, as Windows draws its own
     float windowSidebarWidth = 200; // the pages, with the window's title over them (only with several pages)
     float windowSidebarInset = 14; // the sidebar's items from its edges
     float windowSidebarHeader = 60; // the window's title, over the pages
@@ -117,7 +118,7 @@ struct Tokens {
     float dashedBorderWidth = 1.5f; // GroupFill::dashed: a card offering to add one (decision 122)
     float windowCardRadius = 18;
     float windowDialogWidth = 400;   // a window's question (decision 122): its panel, at most this wide
-    float windowDialogPadding = 24;  // ...its content this far in // its corners; its rows' backgrounds nest in them (radius less padding, decision 121)
+    float windowDialogPadding = 20;  // ...its content this far in // its corners; its rows' backgrounds nest in them (radius less padding, decision 121)
     float windowCardGap = 16; // between cards, across and down
     float expandedArtSize = 108; // expanded leading square: the cover, filling the card's shared height with its controls (decisions 094, 107, 119)
     float slotGap = 10;         // between leading and center/bottom slots

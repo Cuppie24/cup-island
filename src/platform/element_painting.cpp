@@ -114,6 +114,8 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Expand: return L"\uE740"; // FullScreen: a card opening its window (Pomodoro, decision 106)
     case Glyph::Maximize: return L"\uE922"; // ChromeMaximize: a window's own title bar (decision 117)
     case Glyph::Restore: return L"\uE923";  // ChromeRestore: ...when it's maximized
+    case Glyph::Minimize: return L"\uE921"; // ChromeMinimize: a window's own title bar, as Windows draws its own (decision 123)
+    case Glyph::CloseWindow: return L"\uE8BB"; // ChromeClose
     case Glyph::Fire: return L"\U0001F525"; // not in the icon fonts: Segoe UI Emoji's, in colour (paintGlyph)
     }
     return L"?";

@@ -140,6 +140,9 @@ float glyphSizeOf(const Button& button)
 {
     const Tokens& t = tokens();
     if (button.revealOnHover) return t.revealGlyphSize;
+    // Windows' caption glyphs, at the size Windows draws its own (decision 123).
+    bool caption = button.glyph == Glyph::Minimize || button.glyph == Glyph::Maximize || button.glyph == Glyph::Restore || button.glyph == Glyph::CloseWindow;
+    if (caption) return t.windowChromeGlyphSize;
     if (button.large) return t.largeButtonGlyphSize; // a card's main controls (decision 107)
     return button.compact ? t.iconSize : t.buttonGlyphSize;
 }

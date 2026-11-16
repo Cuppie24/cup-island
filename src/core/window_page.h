@@ -23,7 +23,7 @@ struct CardGrid {
 CardGrid cardGrid(float available);
 
 // Each card's frame, in order, row by row from `top` at `left`: a row as
-// tall as its tallest card. `heights`: each card's.
+// tall as its tallest card, one short of cards centred (decision 123). `heights`: each card's.
 std::vector<Rect> cardFrames(const CardGrid& grid, const std::vector<float>& heights, Vec2 topLeft);
 
 // The page's items in `out` (page coordinates: the pane's top-left

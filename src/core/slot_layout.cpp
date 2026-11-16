@@ -472,6 +472,20 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 front.x = std::min(front.x, background.x), front.width = right - front.x;
                 back.width = std::max(back.width, background.x + background.width - back.x);
             }
+            // A hugging list item (a card's name and its delete, decision 123): lit, and pointed at,
+            // from the row's start to just past its last item, not across the whole row.
+            if (row.listItem && row.hug && target.size() > first) {
+                float right = background.x;
+                for (std::size_t i = first; i < target.size(); ++i) right = std::max(right, target[i].frame.x + target[i].frame.width);
+                Rect lit{ background.x, background.y, std::min(background.width, right + t.listItemInset - background.x), background.height };
+                for (std::size_t i = first; i < target.size(); ++i) {
+                    Placed& p = target[i];
+                    if (p.listRow) p.listRow->x = lit.x, p.listRow->width = lit.width;
+                    float end = std::min(p.hitFrame.x + p.hitFrame.width, lit.x + lit.width);
+                    p.hitFrame.x = std::max(p.hitFrame.x, lit.x);
+                    p.hitFrame.width = std::max(0.0f, end - p.hitFrame.x);
+                }
+            }
             // In a list: only what's inside its window can be pointed at.
             if (list)
                 for (std::size_t i = first; i < target.size(); ++i) {
