@@ -29,8 +29,9 @@ std::vector<Rect> cardFrames(const CardGrid& grid, const std::vector<float>& hei
 // The page's items in `out` (page coordinates: the pane's top-left
 // unscrolled), `paneWidth` wide. Returns how tall it is, padding included.
 // `rule`: the line under the header, if it has one.
+// `accent`: the window's, for a header's progress (WindowPage::headerProgress).
 float placePage(const WindowPage& page, float paneWidth, const Source& fields, Ms now, const MeasureText& measure, std::vector<Placed>& out,
-                std::optional<Rect>& rule);
+                std::optional<Rect>& rule, std::optional<Color> accent = std::nullopt);
 
 // A window's text a step up from the island's (decision 112): Title, Body
 // and Caption become their Window kin. Providers write the plain styles, so

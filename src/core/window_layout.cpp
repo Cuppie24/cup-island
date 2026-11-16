@@ -130,7 +130,11 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
         fields.keptText = &typing->kept;
     }
     s.backAction = page->backAction;
-    float content = placePage(*page, s.pane.width, fields, now, measure, s.page, s.headerRule);
+    float content = placePage(*page, s.pane.width, fields, now, measure, s.page, s.headerRule, w.content.accent);
+    // The window's accent on its live data, as a card's on its own (decision 010): a step, a ring, a bar.
+    for (std::vector<Placed>* items : { &s.page, &s.footer })
+        for (Placed& p : *items)
+            if (!p.accent) p.accent = w.content.accent;
     // A button's dot (a setting with something new inside, decision 048), where the island puts one.
     Scene dots;
     dots.size = { s.pane.width, content };
@@ -143,6 +147,8 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
         s.toast = placeToast(*w.toast, fields, { s.pane.width, s.pane.height }, s.pane.height - t.windowPagePadding.y, now, measure);
         s.toastUntil = w.toast->until;
     }
+    // Its question (decision 122): over everything under the title bar, which stays usable.
+    if (w.dialog) s.dialog = placeWindowDialog(*w.dialog, size, bar, fields, now, measure);
     return s;
 }
 
@@ -161,6 +167,7 @@ std::optional<Ms> windowDeadline(const WindowScene& s)
 
 std::string windowRowAt(const WindowScene& s, Vec2 point)
 {
+    if (s.dialog) return {}; // under a question nothing is lit (decision 122)
     if (s.toast && s.toast->frame.contains({ point.x - s.pane.x, point.y - s.pane.y })) return {}; // over the toast: no row under it
     if (!s.pane.contains(point)) return {};
     Vec2 at = toPage(s, point);
@@ -176,10 +183,14 @@ std::string windowRowAt(const WindowScene& s, Vec2 point)
     }
     for (const Placed& p : s.page)
         if (!isFill(p) && p.hitFrame.contains(at)) return prefix(p.key);
-    // Between its items: the band their click areas span, in this card if over one.
-    for (const Placed& p : s.page)
-        if (!isFill(p) && (card.empty() || slotOf(p.key) == card) && at.y >= p.hitFrame.y && at.y < p.hitFrame.y + p.hitFrame.height)
-            return prefix(p.key);
+    // Between its items: the band their click areas span, in this card if over one, and in no card
+    // if over none (the gap beside a card is no row of it, decision 122).
+    auto inCard = [](const std::string& slot) { return slot.rfind("card.", 0) == 0; };
+    for (const Placed& p : s.page) {
+        if (isFill(p) || at.y < p.hitFrame.y || at.y >= p.hitFrame.y + p.hitFrame.height) continue;
+        std::string slot = slotOf(p.key);
+        if (card.empty() ? !inCard(slot) : slot == card) return prefix(p.key);
+    }
     return {};
 }
 
@@ -199,6 +210,10 @@ WindowHit windowHitTest(const WindowScene& s, Vec2 point)
         return { part, Hit{ {}, p.key }, {} };
     }
     if (s.titleBar.contains(point)) return { WindowPart::Caption };
+    if (s.dialog) { // a question: only its buttons take a click, nothing under it (decision 122)
+        auto hit = stamped(hitIn(s.dialog->elements, point));
+        return hit ? WindowHit{ WindowPart::Content, hit } : WindowHit{};
+    }
     if (s.toast) { // over the page: its button first, the rest of its pill does nothing
         Vec2 inPane{ point.x - s.pane.x, point.y - s.pane.y };
         if (s.toast->frame.contains(inPane)) {

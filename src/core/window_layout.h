@@ -8,6 +8,7 @@
 #include "core/hit_test.h"
 #include "core/layout.h"
 #include "core/open_windows.h"
+#include "core/window_dialog.h"
 
 #include <optional>
 #include <string>
@@ -42,6 +43,7 @@ struct WindowScene {
     // Its toast (decision 121), floating over the page's bottom: pane coordinates, unscrolled. When it goes.
     std::optional<ToastScene> toast;
     std::optional<Ms> toastUntil;
+    std::optional<WindowDialogScene> dialog; // its question (decision 122): over everything under the title bar
     Ms now{};                        // when it was laid out: its time labels show this moment
     float scroll = 0;                // how far the page is scrolled, clamped
     float maxScroll = 0;

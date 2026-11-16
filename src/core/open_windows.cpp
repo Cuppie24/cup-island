@@ -139,4 +139,22 @@ std::optional<Ms> nextWindowToastEnd(const Windows& w)
     return next;
 }
 
+bool showWindowDialog(Windows& w, const WindowKey& key, Dialog dialog)
+{
+    OpenWindow* o = find(w, key);
+    if (!o) return false;
+    o->dialog = std::move(dialog);
+    return true;
+}
+
+std::optional<std::string> answerWindowDialog(Windows& w, const WindowKey& key, bool confirmed)
+{
+    OpenWindow* o = find(w, key);
+    if (!o || !o->dialog) return std::nullopt;
+    std::string action = o->dialog->confirmAction;
+    o->dialog.reset();
+    if (!confirmed || action.empty()) return std::nullopt;
+    return action;
+}
+
 } // namespace cup

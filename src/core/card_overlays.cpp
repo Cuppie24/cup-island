@@ -33,7 +33,8 @@ void dropDraft(IslandState& s)
 void focusInput(IslandState& s, const InputFocused& e, Ms now)
 {
     if (!shown(s, e.activityId) || dialogOver(s, e.activityId)) return;
-    if (!s.draft || s.draft->actionId != e.actionId) {
+    bool starting = !s.draft || s.draft->actionId != e.actionId;
+    if (starting) {
         dropDraft(s); // the field it leaves keeps its text
         std::string text = e.text;
         if (!e.editing) { // a field: back to what it had (decision 050)
@@ -44,7 +45,9 @@ void focusInput(IslandState& s, const InputFocused& e, Ms now)
         s.draft->maxLength = e.maxLength;
         placeCaret(*s.draft, text.size(), false); // at the end, unless it was clicked somewhere
     }
-    if (e.caret) placeCaret(*s.draft, *e.caret, false);
+    // A text edited in place starts all selected (decision 122): typing replaces it, an arrow keeps it.
+    if (starting && e.editing) s.draft->anchor = 0;
+    else if (e.caret) placeCaret(*s.draft, *e.caret, false);
     s.lastPointerAt = now;
 }
 

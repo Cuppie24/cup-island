@@ -48,14 +48,25 @@ bool PomodoroProvider::taskAction(const Action& action)
         changed();
         return true;
     }
-    // A group deleted at once, its tasks with it; Undo brings them back.
-    if (startsWith(id, task::kDeleteGroup)) {
+    // A group with tasks asks first, in a question over the window (decision 122); an empty one, or
+    // one confirmed, goes at once. An empty one's Undo is a toast; a confirmed one needs none.
+    bool confirmed = startsWith(id, task::kDeleteGroupConfirmed);
+    if (confirmed || startsWith(id, task::kDeleteGroup)) {
         std::uint64_t group = 0;
-        const char* first = id.c_str() + std::char_traits<char>::length(task::kDeleteGroup);
+        const char* first = id.c_str() + std::char_traits<char>::length(confirmed ? task::kDeleteGroupConfirmed : task::kDeleteGroup);
         std::from_chars(first, id.c_str() + id.size(), group);
+        const TaskGroup* g = tasks_.group(group);
+        if (!g) return true;
+        std::size_t count = g->tasks.items().size();
+        if (!confirmed && count > 0) {
+            std::string tasks = std::to_string(count) + (count == 1 ? " task goes" : " tasks go");
+            host_->ask({ .title = "Delete \u201C" + g->name + "\u201D?", .message = "Its " + tasks + " with it.", .confirmLabel = "Delete",
+                         .confirmAction = task::kDeleteGroupConfirmed + std::to_string(group), .destructive = true, .windowId = kWindowId });
+            return true;
+        }
         if (auto gone = tasks_.removeGroup(group)) {
             deleted_ = std::move(*gone);
-            offerUndo();
+            if (!confirmed) offerUndo();
         }
         changed();
         return true;

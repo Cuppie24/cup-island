@@ -64,12 +64,20 @@ select-word 4                       -> selected=_          # the run of spaces
 select-all                          -> selected=pick_up_the_kids
 type done                           -> draft=done
 
-scenario: editing a text in place starts with the caret where it was clicked
+scenario: editing a text in place starts with all of it selected, wherever it was clicked
 start timer
 click
-edit timer todo.edit.1 groceries at=3   -> draft=groceries caret=3
-type -                              -> draft=gro-ceries
+edit timer todo.edit.1 groceries at=3   -> draft=groceries selected=groceries caret=9   # decision 122
+type bread                          -> draft=bread          # typing replaces it
 submit                              -> draft=none           # an edit ends once sent
+
+scenario: a click in a text being edited places the caret
+start timer
+click
+edit timer todo.edit.1 groceries at=3   -> selected=groceries
+edit timer todo.edit.1 groceries at=3   -> caret=3 selected=none
+type -                              -> draft=gro-ceries
+submit                              -> draft=none
 focus timer add
 type x
 submit                              -> draft=empty caret=0  # the field empties and keeps focus

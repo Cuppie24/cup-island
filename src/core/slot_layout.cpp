@@ -71,7 +71,7 @@ float radiusFor(const Item& item, Rect frame, float nestedRadius)
 float listPadding(const Row& row)
 {
     const Tokens& t = tokens();
-    return row.grouped ? 2 * t.groupItemPadding : row.listItem ? 2 * (row.dense ? t.denseItemPadding : t.listItemPadding) : 0;
+    return row.grouped ? 2 * t.groupItemPadding : row.listItem ? 2 * t.listItemPadding : 0;
 }
 
 // Whether row r's group goes on into the next row (decision 090): both
@@ -241,7 +241,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 // Editable text owns its whole stretch, but is drawn editInset in from each side.
                 // Edited in place, the field fills that stretch (so its background keeps the row's
                 // gaps to the checkbox and delete button) and is as tall as the row's content, with
-                // the text where it was, centred in it (decision 043).
+                // the text where it was, centred in it (decision 043). It draws no box (decision 122).
                 if (auto* text = std::get_if<Text>(&item); text && !text->editAction.empty()) {
                     if (auto* field = std::get_if<TextInput>(&placed.item); field && field->inPlace) {
                         float tall = std::max(h, rowHeight - above - listPadding(row));
@@ -254,7 +254,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 // In a list item, rounded content nests in the row's background, not the
                 // card's corner: its radius is the row's less the inset (decision 006).
                 float rowRadius = std::min(row.grouped ? t.groupRadius : nestedRadius, rowHeight / 2);
-                // Nested by its nearest gap to the row's edge: a dense row's is above and below (decision 121).
+                // Nested by its nearest gap to the row's edge (decision 121).
                 float gap = std::min(t.listItemInset, listPadding(row) / 2);
                 placed.cornerRadius = radiusFor(placed.item, placed.frame, row.listItem ? std::max(0.0f, rowRadius - gap) : nestedRadius);
                 placed.accent = source.content ? source.content->accent : std::nullopt;
@@ -454,13 +454,13 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                         target[i].litByRow = row.listItem; // the lit row says it's clickable; a box inside it would double it
                     }
             }
-            // A field in a list item (a window card's "Add task", decision 122): the row's background is
-            // its only one, and the whole row, its + included, clicks into it. Not one being edited in
-            // place: that keeps its box, to show where the text is being changed.
+            // A field in a list item (a window card's "Add task", decision 122): unfocused, the row's
+            // background is its only one, and the whole row clicks into it; focused, a field with its
+            // own box. Not one being edited in place: that keeps its box, showing what's changed.
             if (row.listItem)
                 for (std::size_t i = first; i < target.size(); ++i)
                     if (auto* field = std::get_if<TextInput>(&target[i].item); field && !field->inPlace) {
-                        target[i].litByRow = true;
+                        target[i].litByRow = !field->focused;
                         target[i].hitFrame = { background.x, y, background.width, rowHeight };
                     }
             // Otherwise a list item's first and last items reach its edges: a

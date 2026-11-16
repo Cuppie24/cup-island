@@ -173,15 +173,22 @@ std::size_t hitOffset(IDWriteTextLayout* layout, const std::string& utf8, float 
 
 namespace {
 
-void drawString(ID2D1DeviceContext* dc, IDWriteTextFormat* f, const std::wstring& text, D2D1_RECT_F rect, const Color& color)
+// One line of text in `rect`, centred on its capitals, not its line box (decision 122): Segoe UI's line
+// has more room over its capitals than under its baseline, so text centred by its line sat low in
+// every row, button and field. As decision 094 does for times (figureNudge).
+void drawString(ID2D1DeviceContext* dc, IDWriteFactory* dw, IDWriteTextFormat* f, const std::wstring& text, D2D1_RECT_F rect, const Color& color)
 {
-    dc->DrawText(text.c_str(), static_cast<UINT32>(text.size()), f, rect, brushOf(dc, color).get(),
-                 D2D1_DRAW_TEXT_OPTIONS_CLIP | D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT); // an emoji in its colours (🔥, decision 064)
+    float width = std::max(0.0f, rect.right - rect.left), height = std::max(0.0f, rect.bottom - rect.top);
+    winrt::com_ptr<IDWriteTextLayout> layout;
+    if (FAILED(dw->CreateTextLayout(text.c_str(), static_cast<UINT32>(text.size()), f, width, height, layout.put()))) return;
+    float nudge = figureNudge(dw, layout.get()); // 0 for several lines, or a font it can't read
+    dc->DrawTextLayout(D2D1::Point2F(rect.left, rect.top + nudge), layout.get(), brushOf(dc, color).get(),
+                       D2D1_DRAW_TEXT_OPTIONS_CLIP | D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT); // an emoji in its colours (🔥, decision 064)
 }
 
-void drawString(ID2D1DeviceContext* dc, IDWriteTextFormat* f, const std::wstring& text, Vec2 size, const Color& color)
+void drawString(ID2D1DeviceContext* dc, IDWriteFactory* dw, IDWriteTextFormat* f, const std::wstring& text, Vec2 size, const Color& color)
 {
-    drawString(dc, f, text, D2D1::RectF(0, 0, size.x, size.y), color);
+    drawString(dc, dw, f, text, D2D1::RectF(0, 0, size.x, size.y), color);
 }
 
 struct TextLook {
@@ -245,6 +252,18 @@ void paintGroupFill(ID2D1DeviceContext* dc, const GroupFill& fill, Vec2 size, fl
     // A square end reaches a radius past the surface, which cuts it off: one
     // rounded rect gives any mix of rounded and square ends (decision 090).
     float top = fill.roundTop ? 0 : -radius, bottom = fill.roundBottom ? size.y : size.y + radius;
+    if (fill.dashed) { // an outline, no fill (decision 122): its stroke inside the surface, half a width in
+        winrt::com_ptr<ID2D1Factory> factory;
+        dc->GetFactory(factory.put());
+        winrt::com_ptr<ID2D1StrokeStyle> dashes;
+        auto props = D2D1::StrokeStyleProperties(D2D1_CAP_STYLE_ROUND, D2D1_CAP_STYLE_ROUND, D2D1_CAP_STYLE_ROUND, D2D1_LINE_JOIN_ROUND, 10.0f,
+                                                 D2D1_DASH_STYLE_DASH);
+        if (factory) factory->CreateStrokeStyle(props, nullptr, 0, dashes.put());
+        float w = tokens().dashedBorderWidth, in = w / 2;
+        D2D1_ROUNDED_RECT shape{ D2D1::RectF(in, top + in, size.x - in, bottom - in), std::max(0.0f, radius - in), std::max(0.0f, radius - in) };
+        dc->DrawRoundedRectangle(shape, brushOf(dc, tokens().trackColor).get(), w, dashes.get());
+        return;
+    }
     dc->FillRoundedRectangle(D2D1_ROUNDED_RECT{ D2D1::RectF(0, top, size.x, bottom), radius, radius }, brushOf(dc, tokens().tileColor).get());
 }
 
@@ -261,7 +280,7 @@ void paintDial(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Dial& dial, Vec
     float top = (size.y - timeHeight - labelHeight) / 2;
     paintLine(dc, dw, time, D2D1::RectF(0, top, size.x, top + timeHeight)); // tabular figures: it ticks (decision 094)
     if (labelHeight > 0)
-        drawString(dc, formatOf(dw, label).get(), widen(label.value), D2D1::RectF(0, top + timeHeight, size.x, top + timeHeight + labelHeight),
+        drawString(dc, dw, formatOf(dw, label).get(), widen(label.value), D2D1::RectF(0, top + timeHeight, size.x, top + timeHeight + labelHeight),
                    lookOf(label.style).color);
 }
 
@@ -295,21 +314,18 @@ void paintLine(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, D2D
 {
     Color color = ink.value_or(lookOf(text.style).color);
     if (!figures(text.style) && !text.struck && text.wrapped.empty() && !text.brightDigits && text.bright.empty()) {
-        drawString(dc, formatOf(dw, text).get(), widen(text.value), rect, color);
+        drawString(dc, dw, formatOf(dw, text).get(), widen(text.value), rect, color);
         return;
     }
     // Wrapped, struck through (a solved to-do), with bright digits (decision 068),
     // a search's matched parts (decision 079) or tabular figures (decision 094):
     // a layout carries each run's look.
     auto layout = wrappedLayout(dw, text, rect.right - rect.left, rect.bottom - rect.top);
-    float nudge = 0;
-    if (figures(text.style)) {
+    if (figures(text.style))
         useTabularFigures(dw, layout.get(), static_cast<UINT32>(widen(text.wrapped.empty() ? text.value : text.wrapped).size()));
-        // A time's digits on the middle of its line, where the bar beside it is drawn.
-        // A Hero time too, so it sits on the line of the buttons beside it (decision 120).
-        bool centredDigits = text.style == TextStyle::Digits || text.style == TextStyle::Hero;
-        if (centredDigits && text.wrapped.empty()) nudge = figureNudge(dw, layout.get());
-    }
+    // One line on its capitals' middle (decisions 094, 120, 122): a time on its bar's or buttons' line,
+    // any text in the middle of its row, as drawString does.
+    float nudge = text.wrapped.empty() ? figureNudge(dw, layout.get()) : 0;
     auto quiet = brushOf(dc, tokens().captionTextColor); // kept alive until drawn
     if (text.style == TextStyle::Hero) { // its separators quieter than its digits (decision 107)
         std::wstring value = widen(text.value);
@@ -401,14 +417,14 @@ void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec
     auto f = formatOf(dw, detail);
     // A path loses its start; a description its end, as any text does (decision 090).
     std::wstring shown = text.detailTrimsEnd ? widen(text.detail) : elidedStart(dw, f.get(), widen(text.detail), size.x);
-    drawString(dc, f.get(), shown, D2D1::RectF(0, top + first, size.x, top + first + second),
+    drawString(dc, dw, f.get(), shown, D2D1::RectF(0, top + first, size.x, top + first + second),
                lookOf(under).color);
 }
 
 void paintLabel(ID2D1DeviceContext* dc, IDWriteFactory* dw, const std::string& label, Vec2 size, const Color& color, TextStyle style)
 {
     Text text{ .value = label, .style = style, .centred = true };
-    drawString(dc, formatOf(dw, text).get(), widen(label), size, color);
+    drawString(dc, dw, formatOf(dw, text).get(), widen(label), size, color);
 }
 
 void paintPrimaryButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& button, Vec2 size, std::optional<Color> ink)
@@ -452,7 +468,7 @@ void paintSegmentLabels(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Segmen
     for (std::size_t i = 0; i < segments.options.size(); ++i) {
         Rect f = segmentFrame(segments, whole, i);
         Text text = segmentText(segments, i);
-        drawString(dc, formatOf(dw, text).get(), widen(text.value), D2D1::RectF(f.x, f.y, f.x + f.width, f.y + f.height), color);
+        drawString(dc, dw, formatOf(dw, text).get(), widen(text.value), D2D1::RectF(f.x, f.y, f.x + f.width, f.y + f.height), color);
     }
 }
 
@@ -473,7 +489,7 @@ void paintKeys(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Keys& keys, Vec
             dc->FillRoundedRectangle(cap, brushOf(dc, t.tileColor).get());
             dc->DrawRoundedRectangle(cap, brushOf(dc, t.trackColor).get(), 1.0f);
         }
-        drawString(dc, formatOf(dw, text).get(), widen(part.label), box, part.cap ? t.bodyTextColor : t.captionTextColor);
+        drawString(dc, dw, formatOf(dw, text).get(), widen(part.label), box, part.cap ? t.bodyTextColor : t.captionTextColor);
         x += w + t.keyCapGap;
     }
 }
@@ -488,7 +504,7 @@ void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, 
     std::wstring value = widen(text.value);
     Color color = ink.value_or(lookOf(text.style).color);
     // A pixel of slack, so rounding never trips the "…" trimming.
-    for (float x : { lead, lead + width + gap }) drawString(dc, f.get(), value, D2D1::RectF(x, 0, x + width + 1, height), color);
+    for (float x : { lead, lead + width + gap }) drawString(dc, dw, f.get(), value, D2D1::RectF(x, 0, x + width + 1, height), color);
 }
 
 void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float fontSize, Vec2 size, const Color& color, bool precise)
@@ -532,7 +548,7 @@ void paintSteps(ID2D1DeviceContext* dc, const Steps& steps, Vec2 size, const Col
     for (int i = 0; i < steps.count; ++i) {
         float w = stepWidth(steps, i); // a dot, or a pill as long as its step (decision 107)
         auto pill = D2D1_ROUNDED_RECT{ D2D1::RectF(x, y - r, x + w, y + r), r, r };
-        bool current = i == steps.done;
+        bool current = i == steps.done && steps.lit; // not running: no step is the live one (decision 122)
         if (current && steps.count > 1 && halo > 0) { // a faint ring of its accent around it; a lone dot (a header's) has none
             Color ring = accent;
             ring.a = static_cast<std::uint8_t>(std::lround(accent.a * std::clamp(t.stepHaloOpacity, 0.0f, 1.0f)));
@@ -562,7 +578,7 @@ void paintTag(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Tag& tag, Vec2 s
     dc->FillRoundedRectangle(D2D1_ROUNDED_RECT{ D2D1::RectF(0, 0, size.x, size.y), r, r }, brushOf(dc, t.badgeColor).get());
     float fontSize = std::min(t.captionFontSize, size.y * 0.75f);
     auto f = format(dw, textFamily(dw, fontSize), fontSize, t.titleFontWeight, DWRITE_TEXT_ALIGNMENT_CENTER);
-    drawString(dc, f.get(), widen(tag.text), size, t.tagTextColor);
+    drawString(dc, dw, f.get(), widen(tag.text), size, t.tagTextColor);
 }
 
 void paintPicture(ID2D1DeviceContext* dc, const ImageData* data, Vec2 size, float side)

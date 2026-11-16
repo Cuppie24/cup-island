@@ -213,15 +213,21 @@ void windowTests()
 
     // The timer page: the time and ▶ across the top, then a card per group: "Tasks", its field, "New group".
     WindowScene timer = island.windowScene();
-    expect(textIn(timer, "25:00") && buttonIn(timer, pomodoro_action::kStart) && textIn(timer, "Focus · round 1 of " + std::to_string(t.pomodoroRounds)) &&
-           timer.headerRule, "the header: the planned focus, ▶, the phase and round, a line under it");
+    expect(textIn(timer, "25:00") && buttonIn(timer, pomodoro_action::kStart) && textIn(timer, "Focus") &&
+           !timer.headerRule, "the header: the planned focus, ▶, the phase and round");
+    const Placed* bar = nullptr;
+    for (const Placed& p : timer.page)
+        if (p.key == "header/progress") bar = &p;
+    expect(bar && std::holds_alternative<Progress>(bar->item) && bar->frame.x == 0 && bar->frame.width == timer.pane.width && bar->accent &&
+               std::get<Progress>(bar->item).timeline.duration == Ms{ 25 * 60000 },
+           "under it, the phase's progress, edge to edge, in the accent (decision 122)");
     expect(!std::get<Button>(buttonIn(timer, pomodoro_action::kStop)->item).enabled, "dormant: stop and skip dimmed, in their places");
     // One line (decision 120): the time and the controls on one middle; the phase and round a loose gap off the steps.
     const Placed* hero = textIn(timer, "25:00");
     const Placed* play = buttonIn(timer, pomodoro_action::kStart);
     auto middle = [](const Placed* p) { return p->frame.y + p->frame.height / 2; };
     expect(hero && play && std::abs(middle(hero) - middle(play)) < 0.5f, "the time and ▶ on one line");
-    const Placed* where = textIn(timer, "Focus · round 1 of " + std::to_string(t.pomodoroRounds));
+    const Placed* where = textIn(timer, "Focus"); // only the phase (decision 122)
     const Placed* steps = nullptr;
     for (const Placed& p : timer.page)
         if (std::holds_alternative<Steps>(p.item)) steps = &p;
@@ -233,11 +239,9 @@ void windowTests()
     for (const Placed& p : timer.page)
         if (auto* input = std::get_if<TextInput>(&p.item); input && input->actionId == inGroup(1, todo_action::kAdd)) field = &p;
     expect(field && std::get<TextInput>(field->item).placeholder == "Add task", "each group's Add task field");
-    const Placed* addIcon = nullptr;
-    for (const Placed& p : timer.page)
-        if (auto* icon = std::get_if<Icon>(&p.item); icon && icon->glyph == Glyph::Plus && p.key.rfind("card.group-1/", 0) == 0) addIcon = &p;
-    expect(field && addIcon && field->litByRow && field->listRow && field->hitFrame.x <= addIcon->frame.x && field->hitFrame.width >= field->listRow->width - 0.5f,
-           "Add task: one background, the row's; the whole row, its + too, clicks into it (decision 122)");
+    expect(field && std::get<TextInput>(field->item).icon == Glyph::Plus && field->litByRow && field->listRow &&
+               field->hitFrame.width >= field->listRow->width - 0.5f,
+           "Add task: '+ Add task', one field lit by its row, the whole row clicking into it (decision 122)");
 
     // ▶ in the window starts it; the card on the island follows.
     island.inWindow(pomodoro_action::kStart);
@@ -308,15 +312,26 @@ void windowTests()
     island.registry.route({ "pomodoro", "", std::string(task_action::kRenameGroup) + "2", 0, "Work", PomodoroProvider::kWindowId });
     page = island.windowScene();
     expect(textIn(page, "Work") && !textIn(page, "Group 2"), "renamed");
+    // A group with tasks asks first, in a question over the window (decision 122): Cancel keeps it.
     island.inWindow(std::string(task_action::kDeleteGroup) + "1");
+    const OpenWindow* asking = island.window();
+    expect(asking->dialog && asking->dialog->title == "Delete \u201CTasks\u201D?" && asking->dialog->message == "Its 1 task goes with it." &&
+               asking->dialog->destructive && textIn(island.windowScene(), "Write the report"),
+           "deleting a group with tasks asks first, its tasks still there");
+    WindowScene asked = island.windowScene();
+    expect(asked.dialog && windowRowAt(asked, { asked.pane.x + 100, asked.pane.y + 200 }).empty(), "a question over the window: nothing under it lit");
+    island.inWindow(kDialogCancel);
+    expect(!island.window()->dialog && textIn(island.windowScene(), "Write the report"), "Cancel: kept");
+    island.inWindow(std::string(task_action::kDeleteGroup) + "1");
+    island.inWindow(kDialogConfirm);
     page = island.windowScene();
-    expect(!textIn(page, "Write the report") && toastSays("“Tasks” deleted"), "a group deleted, its tasks with it, a toast with Undo");
-    island.inWindow(kPomodoroUndo);
-    expect(textIn(island.windowScene(), "Write the report") != nullptr, "undone: the group and its tasks back");
-    island.inWindow(std::string(task_action::kDeleteGroup) + "1");
+    expect(!island.window()->dialog && !textIn(page, "Write the report") && textIn(page, "Work") && !island.window()->toast,
+           "Delete: the group and its tasks gone; confirmed, no Undo toast");
+    // An empty group goes at once, with Undo; the last one leaves a fresh "Tasks".
     island.inWindow(std::string(task_action::kDeleteGroup) + "2");
     page = island.windowScene();
-    expect(textIn(page, "Tasks") && !textIn(page, "Work") && !textIn(page, "Write the report"), "the last group deleted: a fresh, empty Tasks");
+    expect(!island.window()->dialog && textIn(page, "Tasks") && !textIn(page, "Work") && toastSays("\u201CWork\u201D deleted"),
+           "an empty group: no question, deleted at once with a toast; the last one leaves a fresh Tasks");
     island.inWindow(kPomodoroUndo);
     page = island.windowScene();
     expect(textIn(page, "Work") && !textIn(page, "Tasks"), "undone: Work back, the stand-in gone");

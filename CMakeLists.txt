@@ -61,6 +61,7 @@ add_library(cup_core STATIC
     src/core/window_keys.cpp
     src/core/window_layout.cpp
     src/core/window_page.cpp
+    src/core/window_dialog.cpp
     src/core/window_fields.cpp
     src/core/window_placement.cpp
 )

@@ -2,6 +2,7 @@
 
 #include "app/window_typing.h"
 
+#include "core/dialog.h"
 #include "core/tokens.h"
 #include "core/tokens_json.h"
 #include "core/window_keys.h"
@@ -160,11 +161,6 @@ void showHover(Shown& s)
         for (const Placed& p : s.scene.page)
             if (p.listRow && !pageRow.empty() && p.key.rfind(pageRow + "/", 0) == 0) row = p.listRow, radius = p.listRowRadius;
     }
-    // A field lit by its row (decision 122) keeps its row lit while it has the keys: you see where you type.
-    if (!row)
-        for (const Placed& p : s.scene.page)
-            if (auto* field = std::get_if<TextInput>(&p.item); field && field->focused && p.litByRow && p.listRow)
-                row = p.listRow, radius = p.listRowRadius;
     s.window->setHovered(key, nav, row, radius, pageRow);
 }
 
@@ -214,6 +210,12 @@ void key(const WindowKey& id, WPARAM vk)
     ProviderRegistry& registry = *g_hooks.registry;
     bool ctrl = GetKeyState(VK_CONTROL) < 0, shift = GetKeyState(VK_SHIFT) < 0, alt = GetKeyState(VK_MENU) < 0;
     if (alt) return; // Alt's keys are Windows' (Alt+Space, Alt+F4)
+    // A question (decision 122) takes the keys: Esc cancels, Enter confirms, nothing reaches the page under it.
+    if (s->scene.dialog) {
+        if (vk == VK_ESCAPE || vk == VK_RETURN)
+            registry.route({ s->key.providerId, "", vk == VK_RETURN ? kDialogConfirm : kDialogCancel, 0, "", s->key.windowId });
+        return;
+    }
     s->keys = true;
     // A field with the keys takes a text box's (decision 105); the rest go on to the window.
     switch (typingKey(s->typing, s->scene, s->window->hwnd(), vk, registry)) {

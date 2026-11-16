@@ -1,6 +1,7 @@
 // Window pages of cards, the rail and the header (decision 117): cards one
 // width whatever the window's, so a resize moves them and never resizes one.
 
+#include "core/dialog.h"
 #include "core/tokens.h"
 #include "core/window_layout.h"
 #include "core/window_page.h"
@@ -88,6 +89,11 @@ void boardTests()
     expect(deleteButton && windowRowAt(s, inWindow(*first, (deleteButton->frame.x - first->frame.x) - 6)).rfind("card.g0/", 0) == 0,
            "hover: between the name and its delete, still that card's row");
     expect(windowRowAt(s, inWindow(*second, 2)) == "card.g1/title", "hover: the card beside it, its own row");
+    // Beside the lone card in the last row (5 cards, 2 to a row), level with its name: no card's row (decision 122).
+    const Placed* lone = text(s, "Group 4");
+    expect(lone && cardGrid(s.pane.width - 2 * t.windowPagePadding.x).columns == 2 &&
+               windowRowAt(s, { s.pane.x + second->frame.x + 10, s.pane.y + lone->frame.y - s.scroll + 2 }).empty(),
+           "hover: beside the cards, no row");
     expect(windowRowAt(s, { s.pane.x + 2, s.pane.y + 2 }).empty() || windowRowAt(s, { s.pane.x + 2, s.pane.y + 2 }).rfind("header", 0) == 0,
            "hover: the page's margin, no card's row");
     WindowScene narrow = windowLayout(w, { 500, 800 }, 0, Ms{ 0 }, measure);
@@ -134,6 +140,36 @@ void toastTests()
     expect(!windowDeadline(windowLayout(ticking, { 900, 600 }, 0, Ms{ 500 }, measure)), "paused: nothing to wake for");
 }
 
+// A window's question (decision 122): a scrim under the title bar, a panel in the middle; only its buttons click.
+void dialogTests()
+{
+    auto measure = [](const Text& x) { return 8.0f * static_cast<float>(x.value.size()); };
+    Windows windows;
+    WindowContent content{ .title = "T", .pages = { { .id = "one", .title = "One", .sections = { { .rows = { row({ Button{ .actionId = "under", .label = "Under" } }) } } } } } };
+    windows.open.push_back({ .key = { "p", "w" }, .content = content, .page = "one" });
+    expect(showWindowDialog(windows, { "p", "w" }, { .title = "Delete it?", .message = "Its 2 tasks go with it.", .confirmLabel = "Delete",
+                                                     .confirmAction = "gone", .destructive = true, .windowId = "w" }),
+           "question: shown over its window");
+    WindowScene s = windowLayout(windows.open[0], { 900, 600 }, 0, Ms{ 0 }, measure);
+    expect(s.dialog && s.dialog->scrim.y == s.titleBar.height && s.dialog->scrim.height == 600 - s.titleBar.height &&
+               std::abs(s.dialog->panel.x + s.dialog->panel.width / 2 - 450) < 1,
+           "question: the window dimmed under its title bar, a panel in the middle");
+    const Placed *confirm = nullptr, *under = nullptr;
+    for (const Placed& p : s.dialog->elements)
+        if (auto* b = std::get_if<Button>(&p.item); b && b->actionId == kDialogConfirm) confirm = &p;
+    for (const Placed& p : s.page)
+        if (auto* b = std::get_if<Button>(&p.item); b && b->actionId == "under") under = &p;
+    WindowHit yes = confirm ? windowHitTest(s, { confirm->frame.x + 3, confirm->frame.y + 3 }) : WindowHit{};
+    expect(yes.part == WindowPart::Content && yes.hit->action.actionId == kDialogConfirm && yes.hit->action.windowId == "w", "question: its confirm button");
+    expect(under && windowHitTest(s, { s.pane.x + under->frame.x + 3, s.pane.y + under->frame.y + 3 }).part == WindowPart::None,
+           "question: nothing under it takes a click");
+    expect(windowHitTest(s, { 10, 10 }).part == WindowPart::Caption, "question: the title bar still drags");
+    expect(answerWindowDialog(windows, { "p", "w" }, true) == std::optional<std::string>("gone") && !windows.open[0].dialog,
+           "question: confirmed, its action; gone");
+    showWindowDialog(windows, { "p", "w" }, { .title = "Again?", .confirmAction = "gone", .windowId = "w" });
+    expect(!answerWindowDialog(windows, { "p", "w" }, false) && !windows.open[0].dialog, "question: cancelled, no action; gone");
+}
+
 } // namespace
 
 void runWindowCardTests()
@@ -141,6 +177,7 @@ void runWindowCardTests()
     gridTests();
     boardTests();
     toastTests();
+    dialogTests();
 }
 
 } // namespace cup::test

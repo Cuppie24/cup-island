@@ -65,8 +65,9 @@ std::string sessionDetail(const PomodoroSession& session);
 int phaseCount();
 int phasesDone(const PomodoroSession& session);
 // The session's phases as steps, `done` of them done (decision 107): a
-// focus a long pill, a break a dot, the long break a short pill.
-Steps phaseSteps(int done);
+// focus a long pill, a break a dot, the long break a short pill. The current
+// one in the phase's colour only while the timer runs (decision 122).
+Steps phaseSteps(int done, bool running = true);
 
 // The question the stop button asks before ending a running session.
 Dialog stopQuestion(const PomodoroSession& session);

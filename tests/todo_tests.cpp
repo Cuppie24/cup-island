@@ -141,6 +141,7 @@ void wrapTests()
     const Placed* field = firstOf(editing, [&](const Placed& p) { return p.key == longText->key; });
     const auto& input = std::get<TextInput>(field->item);
     expect(input.wrapped == lines && field->frame.height == longText->frame.height, "the field breaks where the text did");
+    state = reduce(state, CaretMoved{ CaretMove::End }, Ms{ 0 }); // it starts all selected (decision 122): to its end
     state = reduce(state, TextTyped{ " and then some more words to push it onto yet another line of its own" }, Ms{ 0 });
     Scene longer = layout(state, Ms{ 0 });
     const Placed* grown = firstOf(longer, [&](const Placed& p) { return p.key == longText->key; });
@@ -444,6 +445,8 @@ void runTodoTests()
     const Text* edited = editedText(editable, fixture::kTodoCard, editId);
     expect(edited && edited->value == "Call mum" && editId.rfind(todo_action::kEdit, 0) == 0, "it edits the row's text");
     send(InputFocused{ fixture::kTodoProvider, fixture::kTodoCard, editId, edited->value, /* editing */ true });
+    expect(state.draft && state.draft->anchor == 0 && state.draft->caret == edited->value.size(), "an edit starts all selected (decision 122)");
+    send(CaretMoved{ CaretMove::End });
     send(TextErased{});
     send(TextErased{});
     send(TextErased{});
@@ -453,8 +456,8 @@ void runTodoTests()
     expect(inPlace && std::holds_alternative<TextInput>(inPlace->item) && std::get<TextInput>(inPlace->item).value == "Call dad" &&
            std::get<TextInput>(inPlace->item).focused, "the text is a field holding the edit");
     const Placed* rowBox = firstOf(editing, [&](const Placed& p) { return p.key == mum->key.substr(0, mum->key.rfind('/')) + "/0"; });
-    expect(rowBox && inPlace->frame.height == rowBox->frame.height && inPlace->frame.y == rowBox->frame.y &&
-           inPlace->cornerRadius == rowBox->cornerRadius, "the field is as tall as the checkbox, its corners nested like it");
+    expect(rowBox && inPlace->frame.height == rowBox->frame.height && inPlace->frame.y == rowBox->frame.y,
+           "the field is as tall as the checkbox, on its line");
     const Placed* rowBin = firstOf(editing, [&](const Placed& p) {
         auto* b = std::get_if<Button>(&p.item);
         return b && b->glyph == Glyph::Delete && p.list && p.list->row == mum->list->row;

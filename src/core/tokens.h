@@ -113,7 +113,11 @@ struct Tokens {
     // WindowPage::cards (decisions 117, 120): no narrower, sharing the row's width; rows windowCardPadding inside.
     float windowCardMinWidth = 560;
     float windowCardPadding = 8;
-    float windowCardRadius = 18; // its corners; its rows' backgrounds nest in them (radius less padding, decision 121)
+    float windowHeaderBarHeight = 3; // WindowPage::headerProgress: the bar under a page's header (decision 122)
+    float dashedBorderWidth = 1.5f; // GroupFill::dashed: a card offering to add one (decision 122)
+    float windowCardRadius = 18;
+    float windowDialogWidth = 400;   // a window's question (decision 122): its panel, at most this wide
+    float windowDialogPadding = 24;  // ...its content this far in // its corners; its rows' backgrounds nest in them (radius less padding, decision 121)
     float windowCardGap = 16; // between cards, across and down
     float expandedArtSize = 108; // expanded leading square: the cover, filling the card's shared height with its controls (decisions 094, 107, 119)
     float slotGap = 10;         // between leading and center/bottom slots
@@ -176,7 +180,6 @@ struct Tokens {
     float smallButtonSize = 32;   // Button::compact: list rows (a to-do's checkbox)
     float revealGlyphSize = 14;   // Button::revealOnHover (a to-do's delete): a smaller glyph, the same button and hover shape
     float inputHeight = 36;       // a TextInput: a little taller than the rows, easy to click into
-    float denseItemPadding = 3; // Row::dense: a window card's rows (decision 121)
     float listItemPadding = 6;    // Row::listItem: above and below its content; = listItemInset, so a checkbox's corners nest in the row's (decision 006)
     float listItemInset = 6;      // Row::listItem: its content in from the hover background's edges
     float sectionGap = 16;        // Row::section: space above a group's heading (decision 037)
@@ -480,6 +483,7 @@ struct Tokens {
     Color placeholderTextColor{ 255, 255, 255, 128 }; // "Add a to-do…": like body text, a little dimmer
     Color tagTextColor{ 255, 255, 255 };           // a Tag's text; its pill is badgeColor, like the dots it goes with (decision 048)
     Color selectionColor{ 10, 132, 255, 115 };     // selected text in a field (decision 043): readable on dark and light themes
+    Color windowScrimColor{ 0, 0, 0, 115 };       // under a window's question: the window dimmed (decision 122)
     Color dangerColor{ 255, 69, 58 };              // a destructive button's label: a dialog's "Clear all" (decision 020)
     Color badgeColor{ 255, 69, 58 };               // a notification dot (decision 038): the red every OS uses for "new"
     Color imagePlaceholderColor{ 255, 255, 255, 31 }; // art that hasn't arrived

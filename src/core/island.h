@@ -116,6 +116,9 @@ struct Dialog {
     std::string confirmLabel = "OK";
     std::string confirmAction;
     bool destructive = false;  // the confirm button reads as dangerous (red)
+    // Set: a modal over that window of the provider's instead of a card
+    // (decision 122): everything under the title bar dimmed until it's answered.
+    std::string windowId;
     bool operator==(const Dialog&) const = default;
 };
 

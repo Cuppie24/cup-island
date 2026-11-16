@@ -31,6 +31,9 @@ struct OpenWindow {
     // Its toast (Host::toast with a windowId, decision 121): over its page's
     // bottom until Toast::until, or its button is clicked. One at a time.
     std::optional<Toast> toast;
+    // Its question (Host::ask with a windowId, decision 122): a modal over it
+    // until answered (its buttons, Esc, Enter). One at a time.
+    std::optional<Dialog> dialog;
     bool operator==(const OpenWindow&) const = default;
 };
 
@@ -84,6 +87,12 @@ bool answerWindowToast(Windows& windows, const WindowKey& key, const std::string
 bool expireWindowToasts(Windows& windows, Ms now);
 // When the next one goes, if any is up.
 std::optional<Ms> nextWindowToastEnd(const Windows& windows);
+
+// A window's question (decision 122): shown, in place of one it had. False: no such window.
+bool showWindowDialog(Windows& windows, const WindowKey& key, Dialog dialog);
+// Answered: gone. The action its provider gets: the confirm button's, or none (Cancel, Esc).
+// None too if the window has no question.
+std::optional<std::string> answerWindowDialog(Windows& windows, const WindowKey& key, bool confirmed);
 
 // Letters, digits, '-', '_', '.', and not empty: safe in a file of places and in element keys.
 bool validWindowId(const std::string& id);

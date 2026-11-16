@@ -113,6 +113,9 @@ private:
     std::function<void()> shown_;
     ElementVisuals sidebar_, page_, footer_, chrome_;
     ToastLayer toast_; // over the pane, clipped to it (decision 121)
+    // A question (decision 122): its scrim and panel (rebuilt with each draw), its items over them.
+    wuc::ContainerVisual dialogDecor_{ nullptr }, dialogLayer_{ nullptr };
+    ElementVisuals dialog_;
 
     WindowScene scene_;
     std::wstring title_; // what Windows has as its title

@@ -168,6 +168,9 @@ struct TextInput {
     std::size_t caret = 0, anchor = 0; // byte offsets into `value`; equal: nothing selected
     bool inPlace = false;    // a Text being edited (Text::editAction): drawn like it, so it doesn't jump
     TextStyle style = TextStyle::Body; // ...in its style's size: a window's text is a step up (decisions 112, 120)
+    // Before its placeholder while it's empty and not focused: a field that
+    // reads as a button ("+ Add task", decision 122). Focused, a plain field.
+    std::optional<Glyph> icon;
     std::string wrapped;     // ...a wrapping one (Text::wrap): `value` broken into lines, like Text::wrapped
     // Set by the provider: at most this many characters (decision 045). 0: no limit.
     std::size_t maxLength = 0;
@@ -216,6 +219,9 @@ struct Steps {
     int count = 0;
     int done = 0;
     std::vector<StepLength> lengths; // per step; past its end (or empty): dots
+    // The current one in the accent with its ring. Off: like the ones to come,
+    // a timer not running (dormant or paused, decision 122).
+    bool lit = true;
     bool operator==(const Steps&) const = default;
 };
 
@@ -292,6 +298,9 @@ struct Segments {
 struct GroupFill {
     bool roundTop = true;
     bool roundBottom = true;
+    // No fill, a dashed outline in trackColor: a card that offers to make one
+    // ("New group"), quieter than the cards it adds to (decision 122).
+    bool dashed = false;
     bool operator==(const GroupFill&) const = default;
 };
 
@@ -375,9 +384,6 @@ struct Row {
     // the whole row under the pointer. Its first and last items' click areas
     // reach the row's edges (a to-do's checkbox: easy to hit, decision 043).
     bool listItem = false;
-    // ...with denseItemPadding above and below instead of listItemPadding: a
-    // window card's rows, as close as a list's lines (decision 121).
-    bool dense = false;
     // Starts a group (a Heading under other rows): sectionGap of space above
     // it, so groups stand apart (decision 037).
     bool section = false;

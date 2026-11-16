@@ -55,22 +55,21 @@ Slot cardSlot(const WindowSection& section)
         slot.back().id = "title"; // one card, one slot: its rows' ids stay unique
     }
     for (Row& r : unlisted(section.rows)) slot.push_back(std::move(r));
-    // Each a list item, close-set (decision 121): lit as a whole under the pointer, from
-    // its first item (a +, a checkbox) to its last (a delete).
+    // Each a list item (decisions 121, 122): lit as a whole under the pointer, from its first
+    // item (a +, a checkbox) to its last (a delete), listItemPadding round them on every side.
     for (Row& r : slot) {
         r.grouped = false;
         r.listItem = true;
-        r.dense = true;
     }
     return windowStyled(std::move(slot));
 }
 
 // Its background: one rounded piece behind the whole card, never clicked.
-Placed cardFill(const std::string& name, Rect frame, const Source& source)
+Placed cardFill(const std::string& name, Rect frame, const Source& source, bool dashed)
 {
     Placed fill;
     fill.key = name + "/fill";
-    fill.item = GroupFill{};
+    fill.item = GroupFill{ .dashed = dashed };
     fill.frame = frame;
     fill.cornerRadius = std::min(tokens().windowCardRadius, frame.width / 2);
     fill.providerId = source.providerId;
@@ -125,7 +124,7 @@ std::vector<Rect> cardFrames(const CardGrid& grid, const std::vector<float>& hei
 }
 
 float placePage(const WindowPage& page, float paneWidth, const Source& fields, Ms now, const MeasureText& measure, std::vector<Placed>& out,
-                std::optional<Rect>& rule)
+                std::optional<Rect>& rule, std::optional<Color> accent)
 {
     const Tokens& t = tokens();
     Vec2 pad = t.windowPagePadding;
@@ -139,7 +138,20 @@ float placePage(const WindowPage& page, float paneWidth, const Source& fields, M
         frame.height = slotHeight(header, frame, fields, measure);
         placeSlot({ "header", &header, frame }, fields, t.windowNavRadius, now, out, measure);
         y = std::round(y + frame.height + pad.y);
-        rule = Rect{ 0, y, paneWidth, 1 };
+        if (page.headerProgress) { // the line is the phase's bar, edge to edge (decision 122)
+            float h = t.windowHeaderBarHeight;
+            Placed bar;
+            bar.key = "header/progress";
+            bar.item = Progress{ .timeline = *page.headerProgress };
+            bar.frame = { 0, y, paneWidth, h };
+            bar.accent = accent;
+            bar.providerId = fields.providerId;
+            bar.activityId = fields.activityId;
+            out.push_back(std::move(bar));
+            y += h;
+        } else {
+            rule = Rect{ 0, y, paneWidth, 1 };
+        }
         y += pad.y;
     }
 
@@ -191,7 +203,7 @@ float placePage(const WindowPage& page, float paneWidth, const Source& fields, M
     for (std::size_t i = 0; i < cards.size(); ++i) {
         std::string name = cardName(page.sections[i], i);
         Rect f = frames[i];
-        out.push_back(cardFill(name, f, fields)); // first: under its rows
+        out.push_back(cardFill(name, f, fields, page.sections[i].dashed)); // first: under its rows
         Rect rows{ f.x + inside, f.y + inside, std::max(0.0f, f.width - 2 * inside), std::max(0.0f, f.height - 2 * inside) };
         // Its rows' lit backgrounds nest in its corners: its radius less its padding (decision 121).
         placeSlot({ name, &cards[i], rows }, fields, std::max(0.0f, t.windowCardRadius - inside), now, out, measure);

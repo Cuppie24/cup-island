@@ -78,7 +78,8 @@ std::vector<Row> timerHeader(const PomodoroWindowView& v)
     const PomodoroSession* s = v.session ? &*v.session : nullptr;
     Timeline timeline = s ? s->timeline : Timeline{ .duration = v.plan.focus };
     TimeLabel time{ .timeline = timeline, .countdown = true, .style = TextStyle::Hero };
-    std::string where = s ? phaseName(s->phase) + " · " + sessionDetail(*s) : "Focus · round 1 of " + std::to_string(tokens().pomodoroRounds);
+    // Only the phase: Focus, Break, Long break (decision 122). The steps beside it say where in the session.
+    std::string where = s ? phaseName(s->phase) : phaseName(PomodoroPhase::Focus);
     if (s && v.question == PomodoroQuestion::Stop) {
         Dialog q = stopQuestion(*s);
         return { Row{ .items = { time },
@@ -94,7 +95,7 @@ std::vector<Row> timerHeader(const PomodoroWindowView& v)
     // gap, not the edge's packed one, keeps them off the steps (decision 120).
     return { Row{ .items = { time, stop, main, skip, Text{ .value = where, .style = TextStyle::Caption, .alignEnd = true } },
                   .loose = true, // big, well-separated targets
-                  .trailing = { phaseSteps(s ? phasesDone(*s) : 0) } } };
+                  .trailing = { phaseSteps(s ? phasesDone(*s) : 0, playing) } } };
 }
 
 // A group's card (decisions 117, 121): its name, edited in place, its delete
@@ -109,8 +110,9 @@ WindowSection groupCard(const TaskGroup& g)
     WindowSection card{ .title = g.name, .id = "group-" + gid, .titleEdit = task::kRenameGroup + gid,
                         .titleMaxLength = tokens().taskGroupNameMaxLength };
     card.titleTrailing = { Button{ .glyph = Glyph::Delete, .actionId = task::kDeleteGroup + gid, .compact = true, .revealOnHover = true } };
-    card.rows.push_back(Row{ .items = { Icon{ Glyph::Plus, true },
-                                        TextInput{ .actionId = inGroup(g.id, todo::kAdd), .placeholder = "Add task", .maxLength = tokens().todoMaxLength } },
+    // "+ Add task" reads as a button; clicked, it's a plain field, the + gone (decision 122).
+    card.rows.push_back(Row{ .items = { TextInput{ .actionId = inGroup(g.id, todo::kAdd), .placeholder = "Add task", .icon = Glyph::Plus,
+                                                   .maxLength = tokens().todoMaxLength } },
                              .id = "add" });
     for (const Todo& t : items) {
         std::string id = std::to_string(t.id);
@@ -127,10 +129,16 @@ WindowSection groupCard(const TaskGroup& g)
 WindowPage timerPage(const PomodoroWindowView& v)
 {
     WindowPage page{ .id = kPomodoroTimerPage, .title = "Timer", .glyph = Glyph::Timer, .titled = false, .header = timerHeader(v), .cards = true };
+    // Under the header, the phase's progress, edge to edge (decision 122); dormant, an empty bar.
+    page.headerProgress = v.session ? v.session->timeline : Timeline{ .duration = v.plan.focus };
     static const TaskBoard none;
     for (const TaskGroup& g : (v.tasks ? *v.tasks : none).groups()) page.sections.push_back(groupCard(g));
-    page.sections.push_back({ .rows = { groupItem(itemText("New group"), { Button{ .glyph = Glyph::Plus, .actionId = task_action::kNewGroup, .compact = true } }) },
-                              .id = "new" });
+    // Quiet (decision 122): a dashed outline, no fill; a caption's words; the whole row its button.
+    page.sections.push_back({ .rows = { Row{ .items = { Button{ .glyph = Glyph::Plus, .actionId = task_action::kNewGroup, .compact = true, .secondary = true },
+                                                      Text{ "New group", TextStyle::Caption } },
+                                           .clickAnywhere = true } },
+                              .id = "new",
+                              .dashed = true });
     return page;
 }
 

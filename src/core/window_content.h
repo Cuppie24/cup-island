@@ -57,6 +57,9 @@ struct WindowSection {
     // At its title row's end: first titleItems (a count), then titleTrailing
     // (a delete shown on hover). The title keeps the rest of the row.
     std::vector<Item> titleItems, titleTrailing;
+    // As a card (WindowPage::cards): no background, a dashed outline. One that
+    // adds a card ("New group"), so it doesn't draw the eye like one (decision 122).
+    bool dashed = false;
     bool operator==(const WindowSection&) const = default;
 };
 
@@ -80,6 +83,9 @@ struct WindowPage {
     // Rows across the whole pane, over the title and sections, a line under
     // them: what the page is about (the timer's time and controls, decision 117).
     std::vector<Row> header;
+    // The line under the header as a bar filling with this timeline, edge to
+    // edge, in the window's accent (the timer's phase, decision 122). None: a plain line.
+    std::optional<Timeline> headerProgress;
     // Its sections as cards side by side, at least windowCardMinWidth wide and
     // sharing the row, as many to a row as fit, instead of one column (a board
     // of task groups, decisions 117, 120). Their titles go inside them.
