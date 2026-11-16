@@ -289,9 +289,10 @@ struct Tokens {
 
     // Home: a grid of panel tiles in the Expanded card (decision 009).
     std::size_t homeColumns = 4;  // columns' worth per Home row; a widget takes one, or two (Panel::wide); rows stretch to full width
-    float tileHeight = 60;        // fits a title and a caption line inside tilePadding
-    float tileGap = 8;
-    float tilePadding = 8;        // inside a tile, on every side
+    float tileHeight = 74;        // fits a CardTitle and a Body line inside tilePadding (decision 111)
+    float tileGap = 12;
+    float tilePadding = 10;       // inside a tile, on every side
+    float tileIconSize = 24;      // a widget's leading icon (Icon::large): the card scale (decision 111)
     float focusRingWidth = 2;     // the keyboard's focus ring (decision 033), drawn inside what has focus
 
     // Smaller transitions: the ears and corners folding, a lift sinking, a

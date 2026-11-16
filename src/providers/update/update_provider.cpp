@@ -89,7 +89,7 @@ Panel updatePanel(const UpdateOffer& offer, const std::string& running, UpdateSt
                             buttons },
         // Stacked like the other small widgets (theme, Settings), no square at
         // the side: it fits a narrow column. The icon and version, then what it is.
-        .tile = { row({ Icon{ Glyph::Download }, Text{ v, TextStyle::Caption } }), row({ Text{ "Update", TextStyle::Title } }) },
+        .tile = { row({ Icon{ Glyph::Download }, Text{ v, TextStyle::Body } }), row({ Text{ "Update", TextStyle::CardTitle } }) },
     };
     return { .id = UpdateProvider::kPanelId, .content = content };
 }

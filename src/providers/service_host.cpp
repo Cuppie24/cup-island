@@ -29,7 +29,7 @@ void ServiceHost::showStuck(const std::string& serviceVersion)
         .expandedCenter = { row({ Text{ .value = "File search needs an update", .style = TextStyle::Title, .centred = true } }),
                             row({ Text{ .value = caption, .style = TextStyle::Caption, .centred = true } }),
                             row({ Button{ .actionId = service_action::kDownload, .label = "Download the installer" } }, Align::Center) },
-        .tile = { row({ Icon{ Glyph::Download }, Text{ "Search", TextStyle::Caption } }), row({ Text{ "Update", TextStyle::Title } }) },
+        .tile = { row({ Icon{ Glyph::Download }, Text{ "Search", TextStyle::Body } }), row({ Text{ "Update", TextStyle::CardTitle } }) },
     };
     host_->publishPanel({ .id = kPanelId, .content = std::move(c) });
     if (host_->load(kStuckKey) == hooks_.appVersion) return; // said once for this version: the widget stays

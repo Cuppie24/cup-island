@@ -437,7 +437,7 @@ void runPomodoroTests()
     island.registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kPause, 0 });
     expect(!island.registry.nextWake(), "paused: no wake-up");
     const Slot& pausedTile = island.focus()->content.tile;
-    expect(pausedTile.size() == 2 && pausedTile[1].items[0] == Item{ Text{ "Paused · 2/" + std::to_string(t.pomodoroRounds), TextStyle::Caption } },
+    expect(pausedTile.size() == 2 && pausedTile[1].items[0] == Item{ Text{ "Paused · 2/" + std::to_string(t.pomodoroRounds), TextStyle::Body } },
            "the widget says it's paused");
     island.now += Ms{ 600000 };
     island.registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kPause, 0 });

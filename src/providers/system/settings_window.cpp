@@ -278,7 +278,7 @@ Panel settingsPanel(const SettingsView& view)
         .badge = !view.unseen.empty(), // something new in it: a dot on its widget (decision 048)
         // One line, the gear in the side square like the other widgets' icons, bold like their titles (decision 073).
         .tileLeading = { row({ Icon{ Glyph::Settings } }, Align::Center) },
-        .tile = { row({ Text{ "Settings", TextStyle::Title } }) },
+        .tile = { row({ Text{ "Settings", TextStyle::CardTitle } }) },
     };
     return { .id = kSettingsPanelId, .content = content, .tapAction = P::kOpenWindow };
 }

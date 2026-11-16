@@ -72,6 +72,11 @@ void placeTile(const Entry& e, Rect frame, float tileRadius, Ms now, std::vector
     Source source{ e.content, e.providerId, e.id };
     std::string key = "tile/" + e.id;
     if (Slot lead = informationOnly(e.content->tileLeading); !lead.empty()) {
+        // Its icon on the card scale, as big as its square calls for (decision 111); icons in its rows stay text-sized.
+        for (Row& r : lead)
+            for (auto* items : { &r.items, &r.leading, &r.trailing })
+                for (Item& item : *items)
+                    if (auto* icon = std::get_if<Icon>(&item)) icon->large = true;
         Rect square{ inner.x, inner.y, inner.height, inner.height };
         placeSlot({ key + "/lead", &lead, square, /* square */ true }, source, radius, now, elements);
         float shift = std::min(inner.width, inner.height + t.slotGap);

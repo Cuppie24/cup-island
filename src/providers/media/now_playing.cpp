@@ -26,10 +26,10 @@ Content nowPlayingContent(const NowPlaying& m)
     c.alertCenter = { row({ title }), row({ artist }) };
 
     // Home's widget (decision 019): the art on the left, the title (swimming
-    // when long) with the bars, the artist under it.
+    // when long) with the bars, the artist under it; the card's sizes (decision 111).
     c.tileLeading = { row({ art }) };
-    c.tile = { Row{ .items = { Text{ .value = m.title, .style = TextStyle::Title, .marquee = true } }, .trailing = { Waveform{ playing } } },
-               row({ Text{ m.artist.empty() ? m.source : m.artist, TextStyle::Caption } }) };
+    c.tile = { Row{ .items = { title }, .trailing = { Waveform{ playing } } },
+               row({ Text{ m.artist.empty() ? m.source : m.artist, TextStyle::Body } }) };
 
     // Like iOS: the big art opens the app that's playing (only expanded; elsewhere a click expands).
     c.expandedLeading = { row({ Image{ m.art, m.canOpenSource ? act::kOpenSource : "" } }) };
@@ -68,7 +68,7 @@ Content nothingPlayingContent()
 {
     Content c{ .label = "Nothing playing", .card = CardLayout::Centred };
     c.tileLeading = { row({ Icon{ Glyph::Music } }, Align::Center) };
-    c.tile = { row({ Text{ "Not playing", TextStyle::Title } }), row({ Text{ "Play in any app", TextStyle::Caption } }) };
+    c.tile = { row({ Text{ "Not playing", TextStyle::CardTitle } }), row({ Text{ "Play in any app", TextStyle::Body } }) };
     c.expandedCenter = { row({ Icon{ Glyph::Music } }, Align::Center),
                          row({ Text{ .value = "Nothing playing", .style = TextStyle::Title, .centred = true } }),
                          row({ Text{ .value = "Music and videos from any app show here", .style = TextStyle::Caption, .centred = true } }) };
