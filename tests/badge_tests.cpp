@@ -50,8 +50,8 @@ void runBadgeTests()
     for (const Tab& tab : strip.tabs->tabs)
         if (tab.id == "media")
             for (Vec2 dot : strip.badges)
-                tabDot = tabDot || near(dot, { tab.frame.x + tab.frame.width - corner(strip.tabs->radius), tab.frame.y + corner(strip.tabs->radius) });
-    expect(strip.tabs && tabDot, "badges: a flagged activity's tab gets one");
+                tabDot = tabDot || near(dot, { tab.frame.x + tab.frame.width, tab.frame.y });
+    expect(strip.tabs && tabDot, "badges: a flagged activity's dot gets one, just off its top-right (decision 109)");
 
     // Home's button: only a widget flagged for it (an update), not any widget with a dot.
     auto homeDot = [&](const Scene& sc) {

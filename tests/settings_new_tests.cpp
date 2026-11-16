@@ -110,7 +110,7 @@ void tabRowTests()
     bottom = reduce(bottom, TabRowPlaced{ false }, Ms{ 0 });
     Scene up = layout(top, Ms{ 0 }), down = layout(bottom, Ms{ 0 });
     const Tokens& t = tokens();
-    expect(up.tabs->tabs[0].frame.y == t.expandedPadding && down.tabs->tabs[0].frame.y == down.size.y - t.expandedPadding - t.tabHeight,
+    expect(up.tabs->pin->frame.y == t.expandedPadding && down.tabs->pin->frame.y == down.size.y - t.expandedPadding - t.tabHeight,
            "tab row: along the top, or the bottom");
     expect(down.size == up.size, "tab row: the card is as tall either way");
     float upText = 0, downText = 0;

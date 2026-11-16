@@ -84,9 +84,15 @@ void PillRenderer::apply(const Scene& scene, const SceneMotion& motion)
     pill_.setEars(!scene.flushLeft, !(scene.flushRight && !scene.bubble));
     pill_.setHighlighted(scene.dropTarget);
     const TabStrip* tabs = scene.tabs ? &*scene.tabs : nullptr;
-    // No background under a tab that isn't shown, only its hover (decision 072).
     pill_.setPinnedTab(tabs && tabs->pin && tabs->pinned ? std::optional<Rect>(tabs->pin->frame) : std::nullopt, tabs ? tabs->radius : 0);
-    pill_.setSelectedTab(tabs && tabs->active ? std::optional<Rect>(tabs->tabs[*tabs->active].frame) : std::nullopt, tabs ? tabs->radius : 0);
+    // The page row (decision 109): a faint dot per page, the shown one's line gliding to it.
+    std::vector<Rect> dots;
+    if (tabs)
+        for (std::size_t i = 0; i < tabs->tabs.size(); ++i)
+            if (tabs->active != i) dots.push_back(tabs->tabs[i].frame);
+    pill_.setTabDots(dots, tokens().tabDotSize / 2);
+    std::optional<Rect> line = tabs && tabs->active ? std::optional<Rect>(tabs->tabs[*tabs->active].frame) : std::nullopt;
+    pill_.setSelectedTab(line, line ? line->height / 2 : 0);
     // Nothing left that lights up as an area: drop a stale hover. A list row's
     // stays: the app re-aims it after every scene, and clearing it here would
     // blink it on each tick of a countdown on the same card.

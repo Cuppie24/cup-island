@@ -116,24 +116,25 @@ void runHomeTests()
     expect(runningLabel && std::get<Text>(runningLabel->item).value == "running", "running: the activity's tile");
     expect(liveScene.tiles[0].frame.x == a.frame.x, "the tile stays where it was");
 
-    // Tabs along the bottom: Home's square icon button apart at the left, then
-    // activities, centred on the card; Home stays selected for a dormant panel's card.
+    // The page row (decision 109): Home's dot first, then activities', centred with
+    // ‹ and › beside them; Home's own button apart at the top left.
     IslandState tabbed = reduce(running, ActivityStarted{ { .id = "media", .content = { .label = "Song" } } }, Ms{ 0 });
     tabbed = reduce(tabbed, HomeOpened{}, Ms{ 0 });
     Scene strip = layout(tabbed, Ms{ 0 });
     expect(strip.tabs && strip.tabs->tabs.size() == 3 && strip.tabs->tabs[0].id.empty() && strip.tabs->active == 0,
-           "Home button first and selected on Home");
-    const Tab& homeButton = strip.tabs->tabs[0];
+           "Home's dot first, and the shown one on Home");
+    expect(strip.tabs->home && strip.tabs->home->id.empty(), "and Home's button");
+    const Tab& homeButton = *strip.tabs->home;
     expect(homeButton.frame == Rect{ p, p, t.homeButtonWidth, t.tabHeight }, "Home: a button at the top left (decision 047)");
     expect(tabAt(*strip.tabs, { 1, 1 }) == &homeButton, "its click area takes in the card's corner");
     expect(tabAt(*strip.tabs, { p + t.homeButtonWidth + t.slotGap / 2 - 1, homeButton.frame.y + t.tabHeight + t.slotGap / 2 - 1 }) == &homeButton,
            "and half the gaps around it");
     expect(!tabAt(*strip.tabs, { p + t.homeButtonWidth + t.slotGap / 2 + 1, homeButton.frame.y + 2 }), "but no further");
-    const Tab& first = strip.tabs->tabs[1];
-    const Tab& last = strip.tabs->tabs[2];
-    expect(first.frame.x >= homeButton.frame.x + homeButton.frame.width + t.slotGap, "set apart from the activity tabs");
-    expect(std::abs(first.frame.x - (strip.size.x - last.frame.x - last.frame.width)) < 0.01f, "activity tabs stay centred on the card");
-    expect(first.frame.y == homeButton.frame.y, "one strip");
+    const Tab& before = *strip.tabs->previous;
+    const Tab& after = *strip.tabs->next;
+    expect(before.frame.x >= homeButton.frame.x + homeButton.frame.width + t.slotGap, "set apart from the dots and arrows");
+    expect(std::abs(before.frame.x - (strip.size.x - after.frame.x - after.frame.width)) < 0.01f, "the dots and arrows stay centred on the card");
+    expect(before.frame.y + before.frame.height / 2 == homeButton.frame.y + homeButton.frame.height / 2, "one row");
     float highest = strip.size.y;
     for (const Tile& tile : strip.tiles) highest = std::min(highest, tile.frame.y);
     expect(highest >= homeButton.frame.y + t.tabHeight + t.slotGap, "tiles sit under the strip");

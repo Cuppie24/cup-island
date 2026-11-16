@@ -65,23 +65,32 @@ struct BubbleScene {
 // button apart at the left when there are panels (decision 009). Clicking a
 // tab switches to it (ActivitySwitched, or HomeOpened for Home).
 struct Tab {
-    Rect frame;     // pill coordinates: drawn highlight
-    Rect hitFrame;  // clickable area: the frame, or more (Home's reaches into the card's corner)
-    std::string id; // the activity's id; empty = Home
+    Rect frame;     // pill coordinates: its dot (the shown one's line), or a button's square
+    Rect hitFrame;  // clickable area: the frame, or more (up to the card's edge, half the gaps beside it)
+    std::string id; // the activity's id; empty = Home; kPinTab, kPreviousTab, kNextTab: the strip's buttons
     bool badge = false; // its activity's Content::badge (decision 038)
+    Rect lit;           // what lights up under the pointer: a button's square, a soft circle round a dot
+    float radius = 0;   // ...its corners
 };
 
-// The pin's tab id (decision 046): not an activity's.
+// The strip's buttons' ids (decisions 046, 109): not activities'.
 inline constexpr const char* kPinTab = "#pin";
+inline constexpr const char* kPreviousTab = "#previous"; // ‹ beside the dots: the page before, round the strip
+inline constexpr const char* kNextTab = "#next";         // › beside the dots: the page after
 
+// Expanded's page row (decision 109): no tabs drawn, a dot per page (Home
+// first, then activities) with a short line for the shown one, an arrow on
+// each side of the dots; Home's button at the left edge, the pin at the right.
 struct TabStrip {
-    std::vector<Tab> tabs;  // Home's button, then activities in start order: stable, so a click doesn't reorder them
-    std::optional<std::size_t> active; // the tab of what's shown; none for a dormant panel's card
-    float radius = 0;       // tab highlight corners, nested in the card's
+    std::vector<Tab> tabs;  // the dots: Home, then activities in start order: stable, so a click doesn't reorder them
+    std::optional<std::size_t> active; // the dot of what's shown (drawn as a line); none for a dormant panel's card
+    float radius = 0;       // the buttons' highlight corners, nested in the card's
+    std::optional<Tab> home;             // Home's button at the left edge (decision 009); with panels
+    std::optional<Tab> previous, next;   // the arrows; with somewhere to go
     // The pin at the right end, Home's mirror (decision 046): a click toggles
     // IslandState::stayOpen (StayOpenToggled). Not a tab you switch to.
     std::optional<Tab> pin;
-    bool pinned = false;    // ...on: lit like the active tab
+    bool pinned = false;    // ...on: lit like a selected button
 };
 
 // A panel's widget on Home (decisions 009, 019). A click on it opens its

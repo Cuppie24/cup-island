@@ -274,10 +274,14 @@ struct Tokens {
     float glassGlowCurve = 2.5f;    // how it fades up its reach (glowFade): higher hugs the edge more; past 1, it melts away at the top
     float glassRimWidth = 1;      // the rim's width, inside the edge
 
-    // Expanded's tabs: one per activity along the top of the card (decisions 007, 047).
-    float tabHeight = 36;
-    float tabGap = 4;
-    float tabMaxWidth = 140;      // each tab's width; the group is centred, and shrinks only when they don't fit
+    // Expanded's page row along the top of the card (decisions 007, 047, 109): a dot per page,
+    // the shown one a line, an arrow on each side of them; Home's button and the pin at the edges.
+    float tabHeight = 24;
+    float tabDotSize = 6;
+    float tabDotGap = 6;
+    float tabLineWidth = 18;   // the shown page's line
+    float tabArrowSize = 24;   // ‹ and ›: square buttons beside the dots
+    float tabArrowGap = 6;     // ...this far from the dots
     float homeButtonWidth = 44;   // Home's icon-only button, apart at the left (decision 009)
     float tabMutedOpacity = 0.5f; // a tab not shown, Home and the pin included: its content grey and this strong until hovered (decision 072)
 
