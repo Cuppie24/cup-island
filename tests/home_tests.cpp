@@ -192,6 +192,13 @@ void runHomeTests()
            "not a Home widget");
     const Tab* under = tabAt(*geared.tabs, { gearTab.frame.x + 2, gearTab.frame.y + 2 });
     expect(under && under->id == gearTab.id && gearTab.badge, "a point finds it; its panel's dot on it");
+    bool gearDot = std::any_of(geared.badges.begin(), geared.badges.end(),
+                               [&](Vec2 d) { return gearTab.frame.contains(d) && d.x > gearTab.frame.x + gearTab.frame.width / 2 && d.y <= gearTab.frame.y + gearTab.frame.height / 2; });
+    expect(gearDot, "something new in Settings: a dot drawn in the gear's top-right corner (decisions 048, 113)");
+    Panel quietGear = gear;
+    quietGear.content.badge = false;
+    Scene quietScene = layout(reduce(reduce(s, PanelPublished{ quietGear }, Ms{ 0 }), PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    expect(!quietScene.tabs->buttons[0].badge && quietScene.badges.size() + 1 == geared.badges.size(), "nothing new: no dot");
     const Placed* gearIcon = find(geared, "tab/button/gear/lead");
     expect(gearIcon && std::get<Icon>(gearIcon->item).glyph == Glyph::Settings && gearIcon->muted, "the gear's glyph, grey until hovered");
 
