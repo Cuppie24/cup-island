@@ -190,6 +190,8 @@ const Field kFields[] = {
     { "glassLuminosity", &Tokens::glassLuminosity },
     { "glassClearLuminosity", &Tokens::glassClearLuminosity },
     { "tabHeight", &Tokens::tabHeight, true },
+    { "tabRowInset", &Tokens::tabRowInset },
+    { "tabRowGap", &Tokens::tabRowGap },
     { "tabDotSize", &Tokens::tabDotSize },
     { "tabDotGap", &Tokens::tabDotGap },
     { "tabLineWidth", &Tokens::tabLineWidth },

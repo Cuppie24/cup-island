@@ -66,7 +66,7 @@ public:
     // Expanded's tabs and Home's tiles: light up the one under the pointer (pill coordinates), or none.
     void setAreaHovered(std::optional<Rect> area, float cornerRadius) { pill_.setHovered(area, cornerRadius); }
     // The expanded top band under the pointer (decision 108): it glows; nullopt: it doesn't.
-    void setTopGlow(std::optional<Rect> band) { pill_.setTopGlow(band); }
+    void setTopGlow(bool on) { pill_.setTopGlow(on); }
     // The keyboard's focus ring (decision 033): around what has focus (pill coordinates), or none.
     void setFocusRing(std::optional<Rect> area, float cornerRadius) { pill_.setFocusRing(area, cornerRadius); }
 

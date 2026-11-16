@@ -1,6 +1,7 @@
 #include "platform/top_glow.h"
 
 #include "core/tokens.h"
+#include "platform/blob_shape.h"
 #include "platform/element_parts.h"
 
 #include <algorithm>
@@ -53,34 +54,48 @@ void animate(wuc::Compositor const& c, wuc::SpriteVisual const& visual, bool sho
 
 } // namespace
 
-void TopGlow::show(wuc::Compositor const& compositor, wuc::ContainerVisual const& content, std::optional<Rect> band)
+void TopGlow::build(wuc::Compositor const& c, wuc::ShapeVisual const& body, wuc::CompositionPropertySet const& shape,
+                    wuc::Visual const& content, wuc::CompositionVisualSurface const& outline)
 {
     const Tokens& t = tokens();
-    if (!visual_) {
-        if (!band) return; // nothing to show yet
-        auto brush = compositor.CreateLinearGradientBrush();
-        brush.StartPoint({ 0.0f, 0.0f }); // top to bottom
-        brush.EndPoint({ 0.0f, 1.0f });
-        edge_ = compositor.CreateColorGradientStop(0.0f, toUiColor(edgeColor()));
-        clear_ = compositor.CreateColorGradientStop(1.0f, toUiColor(clearOf(edgeColor())));
-        brush.ColorStops().Append(edge_);
-        brush.ColorStops().Append(clear_);
-        visual_ = compositor.CreateSpriteVisual();
-        visual_.Brush(brush);
-        visual_.Opacity(0.0f);
-        float spread = std::clamp(tokens().collapseGlowSpread, 0.0f, 1.0f);
-        visual_.Scale({ spread, spread, 1.0f }); // where it spreads from the first time
-        content.Children().InsertAtBottom(visual_); // under the content, like the tab and tile marks
+    compositor_ = c;
+    // From the top edge down collapseGlowHeight px, whatever the island's height: absolute, not a share of it.
+    auto gradient = c.CreateLinearGradientBrush();
+    gradient.MappingMode(wuc::CompositionMappingMode::Absolute);
+    gradient.StartPoint({ 0.0f, 0.0f });
+    gradient.EndPoint({ 0.0f, std::max(t.collapseGlowHeight, 1.0f) });
+    edge_ = c.CreateColorGradientStop(0.0f, toUiColor(edgeColor()));
+    clear_ = c.CreateColorGradientStop(1.0f, toUiColor(clearOf(edgeColor())));
+    gradient.ColorStops().Append(edge_);
+    gradient.ColorStops().Append(clear_);
+    visual_ = c.CreateSpriteVisual();
+    if (outline) {
+        // Over the body and its ears, where the snapshot is (blob_backdrop), cut to its shape.
+        auto cut = c.CreateMaskBrush();
+        cut.Source(gradient);
+        auto mask = c.CreateSurfaceBrush(outline);
+        mask.Stretch(wuc::CompositionStretch::Fill);
+        cut.Mask(mask);
+        visual_.Brush(cut);
+        bindToBlob(c, visual_, L"Size", L"Vector2(pill.Size.X + 2 * " + kEarSize + L", pill.Size.Y)", body, shape);
+        bindToBlob(c, visual_, L"Offset", L"Vector3(-" + kEarSize + L", 0, 0)", body, shape);
+        bindToBlob(c, visual_, L"CenterPoint", L"Vector3(pill.Size.X / 2 + " + kEarSize + L", 0, 0)", body, shape); // the top edge's middle
+    } else {
+        visual_.Brush(gradient); // no snapshot (before 1903): the body's rectangle
+        bindToBlob(c, visual_, L"Size", L"pill.Size", body, shape);
+        bindToBlob(c, visual_, L"CenterPoint", L"Vector3(pill.Size.X / 2, 0, 0)", body, shape);
     }
-    if (band == at_) return;
-    bool wasShown = at_.has_value();
-    at_ = band;
-    if (band) { // from the band's top, collapseGlowHeight down: past the band, so it fades softly
-        visual_.Offset({ band->x, band->y, 0.0f });
-        visual_.Size({ band->width, std::max(band->height, t.collapseGlowHeight) });
-        visual_.CenterPoint({ band->width / 2, 0.0f, 0.0f }); // the top edge's middle
-    }
-    if (band.has_value() != wasShown) animate(compositor, visual_, band.has_value()); // the island resized under it: it stays lit
+    visual_.Opacity(0.0f);
+    float spread = std::clamp(t.collapseGlowSpread, 0.0f, 1.0f);
+    visual_.Scale({ spread, spread, 1.0f }); // where it spreads from the first time
+    body.Children().InsertBelow(visual_, content); // over the fill and the ears, under the content
+}
+
+void TopGlow::show(bool on)
+{
+    if (!visual_ || on == on_) return;
+    on_ = on;
+    animate(compositor_, visual_, on);
 }
 
 void TopGlow::recolor()

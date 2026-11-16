@@ -276,12 +276,14 @@ struct Tokens {
 
     // Expanded's page row along the top of the card (decisions 007, 047, 109): a dot per page,
     // the shown one a line, an arrow on each side of them; Home's button and the pin at the edges.
-    float tabHeight = 24;
+    float tabHeight = 32;      // the row: its buttons' height, their hover shapes
+    float tabRowInset = 12;    // from the card's edge: just inside the top band (collapseZoneHeight), not the card's padding
+    float tabRowGap = 6;       // between the row and the card's content
     float tabDotSize = 6;
-    float tabDotGap = 6;
+    float tabDotGap = 10;      // each dot's click area: its width and this
     float tabLineWidth = 18;   // the shown page's line
-    float tabArrowSize = 24;   // ‹ and ›: square buttons beside the dots
-    float tabArrowGap = 6;     // ...this far from the dots
+    float tabArrowSize = 32;   // ‹ and ›: round buttons beside the dots, the row's height
+    float tabArrowGap = 4;     // ...this far from the dots
     float homeButtonWidth = 44;   // Home's icon-only button, apart at the left (decision 009)
     float tabMutedOpacity = 0.5f; // a tab not shown, Home and the pin included: its content grey and this strong until hovered (decision 072)
 

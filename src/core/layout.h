@@ -75,6 +75,7 @@ struct Tab {
 
 // The strip's buttons' ids (decisions 046, 109): not activities'.
 inline constexpr const char* kPinTab = "#pin";
+inline constexpr const char* kHomeTab = "#home";         // Home's button at the left edge: opens Home, like Home's dot
 inline constexpr const char* kPreviousTab = "#previous"; // ‹ beside the dots: the page before, round the strip
 inline constexpr const char* kNextTab = "#next";         // › beside the dots: the page after
 

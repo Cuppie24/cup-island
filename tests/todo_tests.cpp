@@ -588,7 +588,7 @@ void runTodoTests()
     for (const Placed& p : tallest.elements) {
         if (p.key.rfind("tab/", 0) == 0) continue;
         Rect r = p.list ? p.list->viewport : p.frame; // a list's rows scroll past its window, which clips them
-        expect(r.y >= strip + tokens().slotGap - 0.01f && r.y + r.height <= tallest.size.y - tokens().expandedPadding + 0.01f,
+        expect(r.y >= strip + tokens().tabRowGap - 0.01f && r.y + r.height <= tallest.size.y - tokens().expandedPadding + 0.01f,
                "under the strip, inside the card: " + p.key);
     }
 }

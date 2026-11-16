@@ -24,6 +24,11 @@ island, where it hangs from the screen's edge.
   spreads in from the top edge's middle (`collapseGlowSpread` of its size)
   to its full size as it fades in, over `collapseGlowDuration` (280 ms),
   and shrinks back as it fades out; with reduced motion it only fades.
+  It has the island's shape: over the body and its flared top corners,
+  cut by the outline's live snapshot (the shadow's and the glass's mask),
+  so it runs into the corners instead of stopping square at the body's
+  sides (a rectangle did, on the first run). Before 1903, no snapshot: the
+  body's rectangle.
 
 **Not taken.** A visible handle or bar: the glow shows the band only when
 it's about to be used, and the island stays clean otherwise. The whole

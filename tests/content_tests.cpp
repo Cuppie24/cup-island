@@ -253,7 +253,9 @@ void runContentTests()
     const TabStrip& strip = *opened.tabs;
     expect(strip.tabs[0].id == "media" && strip.tabs[2].id == "sync" && strip.active == 2,
            "dots in start order (stable), the shown one marked active");
-    expect(opened.size.y == t.expandedSize.y + t.tabHeight + t.slotGap, "the card grows by the strip");
+    // The row sits tabRowInset from the top, tabRowGap over the content, which keeps its padding beyond that (decision 109).
+    float rowSpace = t.tabRowInset + t.tabHeight + t.tabRowGap - t.expandedPadding;
+    expect(opened.size.y == t.expandedSize.y + rowSpace, "the card grows by the strip");
     expect(opened.size.y <= t.canvas.y, "the taller card fits on the canvas");
     // The page row (decision 109): no tabs, a dot per page and a line for the shown one, ‹ and › beside them.
     expect(strip.tabs[0].frame.width == t.tabDotSize && strip.tabs[0].frame.height == t.tabDotSize && strip.tabs[2].frame.width == t.tabLineWidth,
@@ -268,9 +270,16 @@ void runContentTests()
            find(opened, "tab/next/lead") && std::get<Icon>(find(opened, "tab/next/lead")->item).glyph == Glyph::ChevronRight, "their chevrons");
     expect(strip.pin && std::abs(strip.pin->frame.x + strip.pin->frame.width - (opened.size.x - t.expandedPadding)) < 0.01f &&
            groupRight <= strip.pin->frame.x, "the pin at the strip's right end, apart");
-    expect(strip.pin->frame.y == t.expandedPadding && strip.pin->frame.height == t.tabHeight, "the row along the top, keeping the card's padding (decision 047)");
+    expect(strip.pin->frame.y == t.tabRowInset && strip.pin->frame.height == t.tabHeight && t.tabRowInset >= t.collapseZoneHeight,
+           "the row along the top, just under the top band (decisions 047, 108)");
     expect(strip.radius == std::min(pillCornerRadius(opened.size) - t.expandedPadding, t.tabHeight / 2), "buttons' corners nested");
     expect(find(opened, "tab/pin/lead") && find(opened, "tab/pin/lead")->muted, "the pin while off: grey");
+    expect(find(opened, "tab/previous/lead")->muted && find(opened, "tab/next/lead")->muted, "the arrows grey until hovered");
+    // Each glyph lights only under its own button: its activityId is the button's, never a page's,
+    // so hovering a dot (Home's is "") doesn't light Home's button or the pin (decision 109).
+    for (const auto& p : opened.elements)
+        if (p.key.rfind("tab/", 0) == 0)
+            expect(!p.activityId.empty() && p.activityId[0] == '#', "a row glyph keyed to its own button: " + p.key);
     Scene pinned = layout(reduce(reduce(three, PillClicked{}, Ms{ 0 }), StayOpenToggled{}, Ms{ 0 }), Ms{ 0 });
     expect(find(pinned, "tab/pin/lead") && !find(pinned, "tab/pin/lead")->muted, "pinned: the pin in colour");
     const Tab& dot = strip.tabs[0];
@@ -284,11 +293,11 @@ void runContentTests()
     expect(!tabAt(strip, { 1, 1 }), "outside the strip: no tab");
     Scene mediaCard = layout(reduce(reduce(three, PillClicked{}, Ms{ 0 }), ActivitySwitched{ "media" }, Ms{ 0 }), Ms{ 0 });
     const Placed* mediaArt = find(mediaCard, "expandedLeading/0/0");
-    float stripSpace = t.tabHeight + t.slotGap;
+    float stripSpace = rowSpace;
     expect(mediaArt && mediaArt->frame.y == t.expandedPadding + stripSpace, "card content starts under the strip");
     for (const auto& p : mediaCard.elements)
         if (p.key.rfind("tab/", 0) != 0)
-            expect(p.frame.y >= mediaCard.tabs->pin->frame.y + t.tabHeight + t.slotGap, "media card content under the strip: " + p.key);
+            expect(p.frame.y >= mediaCard.tabs->pin->frame.y + t.tabHeight + t.tabRowGap, "media card content under the strip: " + p.key);
     expect(mediaCard.tabs->tabs[0].id == "media" && mediaCard.tabs->active == 0u, "switching doesn't reorder tabs");
 
     // A full media card (progress + controls) with tabs: the bottom rows move up to clear the strip.

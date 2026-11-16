@@ -36,20 +36,25 @@ bool homeBadged(const IslandState& s)
 }
 
 // A button's glyph, centred in its square. Keys carry what it is, so it stays
-// the same visual as the strip changes. `muted`: grey until hovered (decision
-// 072): Home's while Home isn't shown, the pin while off.
-void placeGlyph(const std::string& name, Glyph glyph, Rect button, bool muted, std::vector<Placed>& out)
+// the same visual as the strip changes. `muted`: grey until the pointer is on
+// that button itself (decisions 072, 109): its activityId is the button's id,
+// which only its own hover lights: Home's while Home isn't shown, the pin
+// while off, the arrows always.
+void placeGlyph(const std::string& name, const std::string& id, Glyph glyph, Rect button, bool muted, std::vector<Placed>& out)
 {
     float g = std::min(tokens().iconSize, button.height);
     Rect frame{ button.x + (button.width - g) / 2, button.y + (button.height - g) / 2, g, g };
-    out.push_back({ .key = "tab/" + name + "/lead", .item = Icon{ glyph }, .frame = frame, .hitFrame = frame, .muted = muted });
+    out.push_back({ .key = "tab/" + name + "/lead", .item = Icon{ glyph }, .frame = frame, .hitFrame = frame, .activityId = id, .muted = muted });
 }
 
 } // namespace
 
 float tabStripSpace(const IslandState& s)
 {
-    return hasTabs(s) ? tokens().tabHeight + tokens().slotGap : 0;
+    // The row sits tabRowInset from the card's edge, tabRowGap from its content,
+    // which keeps its padding beyond that: the card grows by the difference (decision 109).
+    const Tokens& t = tokens();
+    return hasTabs(s) ? std::max(0.0f, t.tabRowInset + t.tabHeight + t.tabRowGap - t.expandedPadding) : 0;
 }
 
 std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float nestedRadius, const MeasureText&,
@@ -62,11 +67,11 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     for (const Activity& a : s.activities) started.push_back(&a);
     std::sort(started.begin(), started.end(), [](const Activity* a, const Activity* b) { return a->startOrder < b->startOrder; });
     // Along the top, over the card's content (decision 047), or the bottom, under it: the user's pick (decision 048).
-    float p = t.expandedPadding, h = t.tabHeight, y = s.tabsOnTop ? p : cardSize.y - p - h;
+    float p = t.expandedPadding, h = t.tabHeight, y = s.tabsOnTop ? t.tabRowInset : cardSize.y - t.tabRowInset - h;
     TabStrip strip;
     strip.radius = std::min(nestedRadius, h / 2);
     // Click areas reach the card's edge on the strip's side and half the gap on the content's.
-    float top = s.tabsOnTop ? 0 : y - t.slotGap / 2, bottom = s.tabsOnTop ? y + h + t.slotGap / 2 : cardSize.y;
+    float top = s.tabsOnTop ? 0 : y - t.tabRowGap / 2, bottom = s.tabsOnTop ? y + h + t.tabRowGap / 2 : cardSize.y;
     auto button = [&](const std::string& id, Rect frame, float reachLeft, float reachRight) {
         return Tab{ frame, { frame.x - reachLeft, top, frame.width + reachLeft + reachRight, bottom - top }, id, false, frame, strip.radius };
     };
@@ -76,14 +81,14 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     bool homeShown = s.homeOpen;
     if (!s.panels.empty()) {
         Rect frame{ p, y, t.homeButtonWidth, h };
-        strip.home = button("", frame, p, t.slotGap / 2);
+        strip.home = button(kHomeTab, frame, p, t.slotGap / 2);
         strip.home->badge = homeBadged(s);
-        placeGlyph("home", Glyph::Home, frame, !homeShown, elements);
+        placeGlyph("home", kHomeTab, Glyph::Home, frame, !homeShown, elements);
     }
     Rect pin{ cardSize.x - p - t.homeButtonWidth, y, t.homeButtonWidth, h };
     strip.pin = button(kPinTab, pin, t.slotGap / 2, p);
     strip.pinned = s.stayOpen;
-    placeGlyph("pin", s.stayOpen ? Glyph::Pinned : Glyph::Pin, pin, !s.stayOpen, elements);
+    placeGlyph("pin", kPinTab, s.stayOpen ? Glyph::Pinned : Glyph::Pin, pin, !s.stayOpen, elements);
 
     // The pages: Home, then activities; the shown one is a line, the rest dots (decision 109).
     std::optional<std::string> shown;
@@ -106,7 +111,7 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
         Rect frame{ x, y + (h - arrow) / 2, arrow, arrow };
         strip.previous = button(kPreviousTab, frame, 0, arrowGap / 2);
         strip.previous->radius = arrow / 2; // round, like the dots
-        placeGlyph("previous", Glyph::ChevronLeft, frame, false, elements);
+        placeGlyph("previous", kPreviousTab, Glyph::ChevronLeft, frame, true, elements); // grey until hovered
     }
     x += arrow + arrowGap;
     for (const auto& [id, badge] : pages) {
@@ -123,7 +128,7 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
         Rect frame{ x, y + (h - arrow) / 2, arrow, arrow };
         strip.next = button(kNextTab, frame, arrowGap / 2, 0);
         strip.next->radius = arrow / 2;
-        placeGlyph("next", Glyph::ChevronRight, frame, false, elements);
+        placeGlyph("next", kNextTab, Glyph::ChevronRight, frame, true, elements);
     }
     return strip;
 }

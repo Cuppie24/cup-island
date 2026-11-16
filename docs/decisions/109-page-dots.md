@@ -21,9 +21,21 @@ side, and a shorter row.
   Ctrl+Tab does). Shown when there's somewhere to go.
 - **Home's button stays at the left edge and the pin at the right**, as
   before (decisions 009, 046); Home is also the first dot.
-- **The row is `tabHeight` (24) tall**, from 36. A dot's click area is the
-  row's height and half the gaps beside it; under the pointer a soft circle
-  lights round it (`Tab::lit`).
+- **The row is `tabHeight` (32) tall**: its buttons' height, so their hover
+  shapes are a good size. It sits `tabRowInset` (12) from the card's edge,
+  just inside the top band (decision 108), and `tabRowGap` (6) over the
+  content: little room above or below it, so it reads as part of the
+  card's edge, not a bar with space under it (24 tall, at the card's
+  padding with slotGap under it, was tried first: the hover shapes were
+  small and there was space under them). A dot's click area is the row's
+  height and its width plus `tabDotGap` (10); under the pointer a soft
+  circle lights round it (`Tab::lit`).
+- **Grey until pointed at**: the arrows' glyphs and the shown page's line
+  are in `buttonOffColor`, like secondary buttons; an arrow brightens only
+  under the pointer. Each glyph in the row is keyed to its own button
+  (`kHomeTab`, `kPinTab`, `kPreviousTab`, `kNextTab`), so hovering a dot
+  lights nothing else (Home's button flickered with Home's dot, whose id
+  is the empty one, on the first run).
 - A badge on a page sits just off its dot's top-right; Home's button keeps
   its own. The keyboard stops on the dots (not the shown one), the arrows and the pin.
 

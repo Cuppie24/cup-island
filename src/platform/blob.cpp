@@ -95,6 +95,7 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     elements_.init(c, device, content_);
 
     buildShadow(c, parent); // under the body
+    topGlow_.build(c, body_, shape_, content_, snapshot_); // the top band's glow, cut by the shadow's snapshot (decision 108)
     parent.Children().InsertAtTop(body_);
 
     // Attached last, so the initial Size/Offset above don't animate.
@@ -123,7 +124,7 @@ void Blob::refreshAnimations(bool coloursOnly)
     fadeGlow(recolorDuration(t));
     if (shadow_) fadeColor(shadow_, t.glass ? t.glassShadowColor : t.shadowColor);
     if (pinnedTab_.brush) fadeColor(pinnedTab_.brush, t.tabSelectedColor);
-    if (selectedTab_.brush) fadeColor(selectedTab_.brush, t.titleTextColor); // the page row's line (decision 109)
+    if (selectedTab_.brush) fadeColor(selectedTab_.brush, t.buttonOffColor); // the page row's line (decision 109)
     for (Mark& mark : tabDots_)
         if (mark.brush) fadeColor(mark.brush, t.stepTodoColor);
     if (hovered_.brush) fadeColor(hovered_.brush, t.hoverColor);
@@ -185,8 +186,8 @@ void Blob::fadeFill(Ms duration)
     fade(solid_, leftColor(highlighted_), rightColor(highlighted_), duration);
 }
 
-// The shown page's line: bright, the theme's text colour (decision 109).
-void Blob::setSelectedTab(std::optional<Rect> tab, float cornerRadius) { showMark(selectedTab_, tab, cornerRadius, tokens().titleTextColor, true); }
+// The shown page's line: grey like the row's buttons at rest, brighter than the dots (decision 109).
+void Blob::setSelectedTab(std::optional<Rect> tab, float cornerRadius) { showMark(selectedTab_, tab, cornerRadius, tokens().buttonOffColor, true); }
 
 void Blob::setPinnedTab(std::optional<Rect> pin, float cornerRadius) { showMark(pinnedTab_, pin, cornerRadius, tokens().tabSelectedColor, false); }
 

@@ -60,8 +60,8 @@ public:
     void setTabDots(const std::vector<Rect>& dots, float cornerRadius) { showMarks(tabDots_, dots, cornerRadius, tokens().stepTodoColor); }
     void setPinnedTab(std::optional<Rect> pin, float cornerRadius); // the pin while on: lit like the active tab (decision 046)
     void setHovered(std::optional<Rect> area, float cornerRadius); // a tab or a Home tile under the pointer
-    // The top band glowing under the pointer, where a click closes (decision 108); nullopt: not.
-    void setTopGlow(std::optional<Rect> band) { topGlow_.show(compositor_, content_, band); }
+    // The top band glowing under the pointer, where a click closes (decision 108).
+    void setTopGlow(bool on) { topGlow_.show(on); }
     // The keyboard's focus (decision 033): a ring inside `area`, over the
     // content, so it shows which one Enter clicks even with the pointer elsewhere.
     void setFocusRing(std::optional<Rect> area, float cornerRadius);

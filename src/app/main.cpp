@@ -200,7 +200,7 @@ void updateHover(app::Surface& s)
     std::optional<Vec2> at = hoverPoint(s);
     // The top band (decision 108): it glows, and what's under it doesn't light up: a click there closes.
     bool onTop = at && !s.pointer.scrub && inCollapseZone(s.scene, *at);
-    s.renderer->setTopGlow(onTop ? s.scene.collapseZone : std::nullopt);
+    s.renderer->setTopGlow(onTop);
     std::string key;
     if (s.pointer.scrub) {
         key = s.pointer.scrub->key; // stays lit while dragged, even off the bar
@@ -555,6 +555,7 @@ void clickTab(const std::string& id)
         if (to) clickTab(*to);
         return;
     }
+    if (id == kHomeTab) return clickTab(""); // Home's button: as Home's dot
     if (id == kPinTab) dispatch(StayOpenToggled{}, g_state.stayOpen ? "unpin" : "pin"); // decision 046
     else dispatch(id.empty() ? Event{ HomeOpened{} } : Event{ ActivitySwitched{ id } }, "tab");
 }
