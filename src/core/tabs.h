@@ -4,7 +4,8 @@
 // order), the shown one a short line, with ‹ and › beside the dots, the
 // three centred together. No tabs drawn: the card says what it is. With
 // panels, Home's button sits apart at the left edge (decision 009); the pin
-// mirrors it at the right (decision 046).
+// mirrors it at the right (decision 046), panels' buttons beyond it in the
+// corner (Panel::rowButton, decision 113).
 
 #include "core/layout.h"
 

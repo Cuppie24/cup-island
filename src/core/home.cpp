@@ -99,6 +99,7 @@ std::vector<Tile> homeTilesFor(const IslandState& s, Vec2 cardSize, float tileRa
     // it gives one (decision 009).
     std::vector<Entry> entries;
     for (const Panel& panel : s.panels) {
+        if (panel.rowButton) continue; // a button in the page row instead (decision 113)
         const Activity* live = findActivity(s, panel.id);
         bool liveTile = live && (!live->content.tile.empty() || !live->content.tileLeading.empty());
         const Content& content = liveTile ? live->content : panel.content;
@@ -139,7 +140,8 @@ float homeCardHeight(const IslandState& s, float maxHeight)
 {
     const Tokens& t = tokens();
     std::vector<Entry> entries;
-    for (const Panel& panel : s.panels) entries.push_back({ .wide = panel.wide });
+    for (const Panel& panel : s.panels)
+        if (!panel.rowButton) entries.push_back({ .wide = panel.wide });
     std::size_t rows = rowsFor(entries, columnCount()).size();
     float needed = static_cast<float>(rows) * (t.tileHeight + t.tileGap) - t.tileGap + 2 * t.expandedPadding;
     return std::clamp(needed, t.expandedSize.y, std::max(t.expandedSize.y, maxHeight));

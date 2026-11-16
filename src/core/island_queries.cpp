@@ -36,6 +36,13 @@ std::optional<ShownCard> shownCard(const IslandState& s)
     return std::nullopt;
 }
 
+bool hasWidgets(const IslandState& s)
+{
+    for (const Panel& p : s.panels)
+        if (!p.rowButton) return true;
+    return false;
+}
+
 bool isNew(const IslandState& s, const Panel& p)
 {
     bool opens = p.tapAction.empty() && hasCard(p.content); // a toggle or a static widget has no card to open

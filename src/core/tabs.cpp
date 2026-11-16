@@ -18,7 +18,7 @@ bool hasTabs(const IslandState& s)
         const Panel* p = a ? nullptr : findPanel(s, card->activityId);
         if ((a && a->content.hidesTabs) || (p && p->content.hidesTabs)) return false;
     }
-    bool home = !s.panels.empty();
+    bool home = hasWidgets(s);
     bool dormantCard = !s.homeOpen && !findActivity(s, s.expandedId);
     return s.activities.size() + (home ? 1 : 0) > 1 || (home && (dormantCard || s.homeOpen));
 }
@@ -79,14 +79,26 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     // Home's button at the left edge, its click area taking in the card's
     // corner (decision 009); the pin mirrors it at the right (decision 046).
     bool homeShown = s.homeOpen;
-    if (!s.panels.empty()) {
+    if (hasWidgets(s)) {
         Rect frame{ p, y, t.homeButtonWidth, h };
         strip.home = button(kHomeTab, frame, p, t.slotGap / 2);
         strip.home->badge = homeBadged(s);
         placeGlyph("home", kHomeTab, Glyph::Home, frame, !homeShown, elements);
     }
-    Rect pin{ cardSize.x - p - t.homeButtonWidth, y, t.homeButtonWidth, h };
-    strip.pin = button(kPinTab, pin, t.slotGap / 2, p);
+    // Panels' buttons at the right edge, the first in the corner (decision 113): Settings.
+    float right = cardSize.x - p, w = t.homeButtonWidth, between = t.tabArrowGap;
+    for (const Panel& panel : s.panels) {
+        if (!panel.rowButton) continue;
+        const Activity* live = findActivity(s, panel.id);
+        Rect frame{ right - w, y, w, h };
+        std::string id = kPanelButtonTab + panel.id;
+        strip.buttons.push_back(button(id, frame, between / 2, strip.buttons.empty() ? p : between / 2));
+        strip.buttons.back().badge = (live ? live->content : panel.content).badge;
+        placeGlyph("button/" + panel.id, id, *panel.rowButton, frame, true, elements); // grey until hovered, like the arrows
+        right -= w + between;
+    }
+    Rect pin{ right - w, y, w, h };
+    strip.pin = button(kPinTab, pin, t.slotGap / 2, strip.buttons.empty() ? p : between / 2);
     strip.pinned = s.stayOpen;
     placeGlyph("pin", kPinTab, s.stayOpen ? Glyph::Pinned : Glyph::Pin, pin, !s.stayOpen, elements);
 
@@ -95,7 +107,7 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     if (s.homeOpen) shown = "";
     else if (findActivity(s, s.expandedId)) shown = s.expandedId;
     std::vector<std::pair<std::string, bool>> pages; // id, badge
-    if (!s.panels.empty()) pages.push_back({ "", homeBadged(s) });
+    if (hasWidgets(s)) pages.push_back({ "", homeBadged(s) });
     for (const Activity* a : started) pages.push_back({ a->id, a->content.badge });
     float dot = t.tabDotSize, gap = t.tabDotGap;
     auto widthOf = [&](const std::string& id) { return id == shown ? std::max(t.tabLineWidth, dot) : dot; };
@@ -139,6 +151,8 @@ const Tab* tabAt(const TabStrip& strip, Vec2 point)
         if (tab.hitFrame.contains(point)) return &tab;
     for (const std::optional<Tab>* button : { &strip.previous, &strip.next, &strip.home, &strip.pin })
         if (*button && (*button)->hitFrame.contains(point)) return &**button;
+    for (const Tab& button : strip.buttons)
+        if (button.hitFrame.contains(point)) return &button;
     return nullptr;
 }
 

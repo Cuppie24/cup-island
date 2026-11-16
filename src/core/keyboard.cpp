@@ -71,6 +71,9 @@ std::vector<Focusable> focusables(const Scene& scene)
     if (scene.tabs)
         for (const std::optional<Tab>* button : { &scene.tabs->previous, &scene.tabs->next, &scene.tabs->pin })
             if (*button) found.push_back({ "tab:" + (*button)->id, (*button)->frame, centre((*button)->hitFrame), std::nullopt, (*button)->id, (*button)->radius });
+    if (scene.tabs) // panels' buttons right of the pin (decision 113)
+        for (const Tab& button : scene.tabs->buttons)
+            found.push_back({ "tab:" + button.id, button.frame, centre(button.hitFrame), std::nullopt, button.id, button.radius });
     // Reading order, but the tab row last: it sits on top (decision 047), and the
     // keys start in the card, where the first press lands on its first row.
     std::stable_sort(found.begin(), found.end(), [](const Focusable& a, const Focusable& b) {

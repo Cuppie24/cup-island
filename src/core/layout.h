@@ -78,6 +78,8 @@ inline constexpr const char* kPinTab = "#pin";
 inline constexpr const char* kHomeTab = "#home";         // Home's button at the left edge: opens Home, like Home's dot
 inline constexpr const char* kPreviousTab = "#previous"; // ‹ beside the dots: the page before, round the strip
 inline constexpr const char* kNextTab = "#next";         // › beside the dots: the page after
+// A panel's button right of the pin (Panel::rowButton, decision 113): this, then the panel's id.
+inline constexpr const char* kPanelButtonTab = "#panel/";
 
 // Expanded's page row (decision 109): no tabs drawn, a dot per page (Home
 // first, then activities) with a short line for the shown one, an arrow on
@@ -88,6 +90,7 @@ struct TabStrip {
     float radius = 0;       // the buttons' highlight corners, nested in the card's
     std::optional<Tab> home;             // Home's button at the left edge (decision 009); with panels
     std::optional<Tab> previous, next;   // the arrows; with somewhere to go
+    std::vector<Tab> buttons;            // panels' buttons right of the pin, the first at the far right (decision 113)
     // The pin at the right end, Home's mirror (decision 046): a click toggles
     // IslandState::stayOpen (StayOpenToggled). Not a tab you switch to.
     std::optional<Tab> pin;

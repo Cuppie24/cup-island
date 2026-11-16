@@ -76,7 +76,7 @@ bool busy(const IslandState& s) { return typing(s) || s.card.menu.has_value(); }
 // panel exists: a panel's activity ending shows the dormant card (decision 009).
 bool expandedViewExists(const IslandState& s)
 {
-    if (s.homeOpen) return !s.panels.empty();
+    if (s.homeOpen) return hasWidgets(s);
     return findActivity(s, s.expandedId) || findPanel(s, s.expandedId);
 }
 
@@ -144,7 +144,7 @@ void onClick(IslandState& s, Ms now)
         if (!s.homeOpen && !shownCardKeepsOpen(s) && !s.stayOpen) collapse(s);
         break;
     case Mode::Idle:
-        if (!s.panels.empty()) openHome(s, now); // decision 009
+        if (hasWidgets(s)) openHome(s, now); // decision 009
         break;
     case Mode::Receptive:
     case Mode::Hidden:
@@ -201,7 +201,7 @@ void handle(IslandState& s, const StayOpenToggled&, Ms now)
 // goes back to Home; anything else closes.
 void handle(IslandState& s, const EscapePressed&, Ms now)
 {
-    if (s.cardFromHome && !s.homeOpen && !s.panels.empty()) openHome(s, now);
+    if (s.cardFromHome && !s.homeOpen && hasWidgets(s)) openHome(s, now);
     else collapse(s);
 }
 void handle(IslandState& s, const PointerMoved&, Ms now) { s.lastPointerAt = now; }
@@ -288,7 +288,7 @@ void handle(IslandState& s, const PanelRemoved& e, Ms)
 
 void handle(IslandState& s, const HomeOpened&, Ms now)
 {
-    if (!s.panels.empty()) openHome(s, now);
+    if (hasWidgets(s)) openHome(s, now);
 }
 
 // A provider closing its card (search, after starting an app: decision 079).

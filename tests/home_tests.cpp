@@ -7,6 +7,7 @@
 #include "core/tokens.h"
 #include "expect.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace cup::test {
@@ -173,6 +174,24 @@ void runHomeTests()
     Scene dormant = layout(reduce(reduce(s, PillClicked{}, Ms{ 0 }), TileClicked{ "a" }, Ms{ 0 }), Ms{ 0 });
     expect(dormant.tabs && dormant.tabs->tabs.size() == 1 && dormant.tabs->tabs[0].id.empty(),
            "a dormant card with nothing running: just the way back Home");
+
+    // A panel's page-row button (decision 113): Settings' gear right of the pin, in the corner; not a widget.
+    Panel gear{ .id = "gear", .content = { .label = "Settings", .badge = true }, .providerId = "sys", .tapAction = "open", .rowButton = Glyph::Settings };
+    Scene geared = layout(reduce(reduce(s, PanelPublished{ gear }, Ms{ 0 }), PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    expect(geared.tabs && geared.tabs->buttons.size() == 1 && geared.tabs->pin, "the gear: a button in the page row");
+    const Tab& gearTab = geared.tabs->buttons[0];
+    const Tab& pinTab = *geared.tabs->pin;
+    expect(gearTab.id == std::string(kPanelButtonTab) + "gear" && std::abs(gearTab.frame.x + gearTab.frame.width - (geared.size.x - p)) < 0.01f &&
+               gearTab.hitFrame.x + gearTab.hitFrame.width == geared.size.x,
+           "the gear in the right corner, its click area to the card's edge");
+    expect(pinTab.frame.x + pinTab.frame.width + t.tabArrowGap <= gearTab.frame.x + 0.01f && pinTab.hitFrame.x + pinTab.hitFrame.width <= gearTab.hitFrame.x + 0.01f,
+           "the pin just left of it, their click areas apart");
+    expect(std::none_of(geared.tiles.begin(), geared.tiles.end(), [](const Tile& tile) { return tile.id == "gear"; }) && geared.tiles.size() == bare.tiles.size(),
+           "not a Home widget");
+    const Tab* under = tabAt(*geared.tabs, { gearTab.frame.x + 2, gearTab.frame.y + 2 });
+    expect(under && under->id == gearTab.id && gearTab.badge, "a point finds it; its panel's dot on it");
+    const Placed* gearIcon = find(geared, "tab/button/gear/lead");
+    expect(gearIcon && std::get<Icon>(gearIcon->item).glyph == Glyph::Settings && gearIcon->muted, "the gear's glyph, grey until hovered");
 
     // Idle clock: the local time, centred, re-laid out at the next minute.
     IslandState idle;
