@@ -8,6 +8,7 @@ A Dynamic Island for Windows: a standalone C++/WinRT app (Win32 + Composition).
 - `src/core/provider.h` + `content.h`: how data sources put things on the island (ARCHITECTURE.md → Providers).
 - Specs: `docs/technical-requirements.md` (cited as **TR §n**), `docs/provider-platform-spec.md` (**PS §n**).
   Read only the section you need.
+- `docs/design-rules.md`: which text styles, button sizes and spacing to use on cards and widgets.
 - `docs/decisions/`: why non-obvious things are the way they are. Check here before "fixing" something odd.
 
 ## Build and test

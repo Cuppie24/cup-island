@@ -116,6 +116,7 @@ struct Image {
 struct Icon {
     Glyph glyph = Glyph::Music;
     bool quiet = false; // in a Home widget: as strong as a secondary button at rest (buttonOffColor, decision 073)
+    bool large = false; // tileIconSize: a Home widget's leading icon, set by Home (decision 111)
     bool operator==(const Icon&) const = default;
 };
 struct Button {

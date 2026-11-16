@@ -203,6 +203,7 @@ const Field kFields[] = {
     { "tileHeight", &Tokens::tileHeight },
     { "tileGap", &Tokens::tileGap },
     { "tilePadding", &Tokens::tilePadding },
+    { "tileIconSize", &Tokens::tileIconSize },
     { "focusRingWidth", &Tokens::focusRingWidth },
     { "morphDurationMs", &Tokens::morphDuration, true },
     { "morphEase", &Tokens::morphEase },

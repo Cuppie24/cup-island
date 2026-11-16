@@ -124,7 +124,7 @@ Panel pomodoroPanel(const PomodoroPlan& plan)
         .label = "Focus",
         .accent = accentOf(Phase::Focus),
         .tileLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
-        .tile = { row({ Text{ formatDuration(plan.focus), TextStyle::Title } }), row({ Text{ rounds, TextStyle::Caption } }) },
+        .tile = { row({ Text{ formatDuration(plan.focus), TextStyle::CardTitle } }), row({ Text{ rounds, TextStyle::Body } }) },
     };
     content = timerCard(std::move(content), { .duration = plan.focus }, phaseSteps(0), "Focus", std::to_string(t.pomodoroRounds) + " rounds",
                         { Button{ .glyph = Glyph::Play, .actionId = act::kStart, .compact = true, .primary = true } });
@@ -143,12 +143,12 @@ Content pomodoroContent(const PomodoroSession& s, const PomodoroPlan&)
     if (s.phase != Phase::LongBreak) glance += " · " + std::to_string(s.round) + "/" + std::to_string(tokens().pomodoroRounds);
     std::string detail = s.phase == Phase::LongBreak ? "last one" : roundsOf(static_cast<int>(s.round));
     if (!s.timeline.playing) detail = "paused · " + detail;
-    TimeLabel tileLeft{ .timeline = s.timeline, .countdown = true, .style = TextStyle::Title };
+    TimeLabel tileLeft{ .timeline = s.timeline, .countdown = true, .style = TextStyle::CardTitle }; // the card scale (decision 111)
     TimeLabel compactLeft{ .timeline = s.timeline, .countdown = true, .style = TextStyle::Body };
     Progress ring{ .timeline = s.timeline, .shape = ProgressShape::Ring };
-    Button stop{ .glyph = Glyph::Stop, .actionId = act::kStop };
+    Button stop{ .glyph = Glyph::Stop, .actionId = act::kStop, .large = true }; // media's skips' size (decision 111)
     Button pause{ .glyph = s.timeline.playing ? Glyph::Pause : Glyph::Play, .actionId = act::kPause, .compact = true, .primary = true }; // media's size: the card fits its height
-    Button skip{ .glyph = Glyph::Next, .actionId = act::kSkip };
+    Button skip{ .glyph = Glyph::Next, .actionId = act::kSkip, .large = true };
     Content content{
         .label = name,
         .accent = accentOf(s.phase),
@@ -158,7 +158,7 @@ Content pomodoroContent(const PomodoroSession& s, const PomodoroPlan&)
         .minimal = { row({ ring }, Align::Center) },
         // Same place on Home as the dormant tile, now live (decision 009).
         .tileLeading = { row({ ring }, Align::Center) },
-        .tile = { row({ tileLeft }), row({ Text{ glance, TextStyle::Caption } }) },
+        .tile = { row({ tileLeft }), row({ Text{ glance, TextStyle::Body } }) },
     };
     return timerCard(std::move(content), s.timeline, phaseSteps(phasesDone(s)), name, detail, { stop, pause, skip });
 }

@@ -54,7 +54,7 @@ void widgetAndThemes()
     expect(widget.id == SettingsProvider::kPanelId && widget.tapAction == P::kOpenWindow && !hasCard(widget.content) && !sh.window,
            "settings: a widget whose tap opens the window; no card of its own (decision 104)");
     expect(leadGlyph(widget) == Glyph::Settings && textAt(widget, 0, 0) == "Settings" && widget.content.tile.size() == 1 &&
-           std::get<Text>(widget.content.tile[0].items[0]).style == TextStyle::Title,
+           std::get<Text>(widget.content.tile[0].items[0]).style == TextStyle::CardTitle,
            "settings: the gear in the side square, its name bold like the other widgets' (decision 073)");
     expect(applied == "Lime" && saves == 0, "settings: the saved theme applies at start");
 

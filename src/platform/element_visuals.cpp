@@ -554,7 +554,7 @@ void ElementVisuals::paint(View& view)
             else paintText(dc, dw, *text, size, white);
         } else if (auto* icon = std::get_if<Icon>(&item)) {
             Color color = icon->quiet ? t.buttonOffColor : t.iconColor;
-            paintGlyph(dc, dw, icon->glyph, t.iconSize, pixelSize(size), white.value_or(color)); // the surface's whole pixels
+            paintGlyph(dc, dw, icon->glyph, icon->large ? t.tileIconSize : t.iconSize, pixelSize(size), white.value_or(color)); // the surface's whole pixels
         } else if (auto* button = std::get_if<Button>(&item)) {
             Color color = white.value_or(buttonColorOf(*button, view.lit));
             // A primary's and a toggle's circle is a shape under this (syncFill, decision 101).

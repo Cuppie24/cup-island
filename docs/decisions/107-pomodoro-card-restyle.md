@@ -75,7 +75,7 @@ second rolling together reads as one tick.
   (`SlotFrame::atBottom`): media's bar and controls keep the side margin
   under them, the extra room goes between the cover and the bar. A test pins
   media's card, the timer and Home to `expandedSize.y`. Home still grows
-  when its widgets need more than three rows.
+  when its widgets need more rows (three, since decision 111).
 
 **Consequences.** A card whose rows need more than `expandedSize.y` grows
 and resizes the island on a tab switch again; the tests catch it for media

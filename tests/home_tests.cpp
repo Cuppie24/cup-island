@@ -101,6 +101,22 @@ void runHomeTests()
     Scene iconHome = layout(reduce(iconic, PillClicked{}, Ms{ 0 }), Ms{ 0 });
     const Placed* widgetIcon = find(iconHome, "tile/i/0/0");
     expect(widgetIcon && std::get<Icon>(widgetIcon->item).quiet, "a widget's icon is quiet, like a secondary button (decision 073)");
+    expect(!std::get<Icon>(widgetIcon->item).large, "an icon in a widget's rows stays text-sized (decision 111)");
+
+    // The card scale (decision 111): a CardTitle line and a Body line fit a tile, its leading icon large.
+    IslandState scaled = reduce(IslandState{}, PanelPublished{ { .id = "s", .content = {
+        .tileLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
+        .tile = { row({ Text{ "25:00", TextStyle::CardTitle } }), row({ Text{ "Focus · 4 rounds", TextStyle::Body } }) } } } }, Ms{ 0 });
+    Scene scaledHome = layout(reduce(scaled, PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    const Placed* leadIcon = find(scaledHome, "tile/s/lead/0/0");
+    expect(leadIcon && std::get<Icon>(leadIcon->item).large && leadIcon->frame.height == t.tileIconSize, "the leading icon: tileIconSize");
+    const Tile& st = scaledHome.tiles[0];
+    for (const char* key : { "tile/s/0/0", "tile/s/1/0" }) {
+        const Placed* line = find(scaledHome, key);
+        expect(line && line->frame.y >= st.frame.y + t.tilePadding - 0.01f &&
+                   line->frame.y + line->frame.height <= st.frame.y + st.frame.height - t.tilePadding + 0.01f,
+               std::string("a CardTitle and a Body line fit inside the tile's padding: ") + key);
+    }
     expect(!hitTest(home, { a.frame.x + a.frame.width - t.tilePadding - 2, a.frame.y + a.frame.height / 2 }) && a.opens,
            "nothing on it takes the click: the tile opens its card");
     expect(tileAt(home, { a.frame.x + 2, a.frame.y + 2 }) && tileAt(home, { a.frame.x + 2, a.frame.y + 2 })->id == "a",
