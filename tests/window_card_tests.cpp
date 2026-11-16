@@ -83,6 +83,7 @@ void boardTests()
         if (p.key == "card.g0/fill") widerFill = &p;
     expect(widerFill && widerFill->frame.width > fill->frame.width, "wider: the cards grow with the window");
     expect(std::abs(text(wider, "Group 0")->frame.width - first->frame.width) < 0.01f, "...a card's name hugs its text (decision 123)");
+    expect(first->frame.width >= measure(std::get<Text>(first->item)), "...all of it: its edit inset isn't taken from its text (decision 124)");
     // The row under the pointer (decision 120): a card's title row, from its name or the space beside it; nothing in the gap.
     auto inWindow = [&](const Placed& p, float dx) { return Vec2{ p.frame.x + s.pane.x + dx, p.frame.y + s.pane.y - s.scroll + p.frame.height / 2 }; };
     expect(windowRowAt(s, inWindow(*first, 2)) == "card.g0/title", "hover: on a card's name, its title row");

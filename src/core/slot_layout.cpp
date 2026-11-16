@@ -279,7 +279,10 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 if (auto* text = std::get_if<Text>(&item); text && !text->wrap) {
                     Text sized = *text; // Text::sizedAs: as wide as its sample, so a changing value keeps its column
                     if (!text->sizedAs.empty()) sized.value = text->sizedAs;
-                    return textWidth(sized, measure) + 1;
+                    // Editable text is drawn editInset in from each side of its frame: room for that too,
+                    // or a hugging one ("Tasks", a card's name) lost its end to a "…" (decision 124).
+                    float edit = text->editAction.empty() ? 0 : 2 * t.editInset;
+                    return textWidth(sized, measure) + 1 + edit;
                 }
                 return std::nullopt;
             };

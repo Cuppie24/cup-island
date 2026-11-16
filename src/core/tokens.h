@@ -180,6 +180,7 @@ struct Tokens {
     float primaryHoverOpacity = 0.8f; // Button::primary under the pointer: its fill this much as strong (decision 066)
     float smallButtonSize = 32;   // Button::compact: list rows (a to-do's checkbox)
     float revealGlyphSize = 14;   // Button::revealOnHover (a to-do's delete): a smaller glyph, the same button and hover shape
+    float iconFieldHeight = 26;   // TextInput::icon: a field that reads as a button ("+ Add task", decision 124)
     float inputHeight = 36;       // a TextInput: a little taller than the rows, easy to click into
     float listItemPadding = 6;    // Row::listItem: above and below its content; = listItemInset, so a checkbox's corners nest in the row's (decision 006)
     float listItemInset = 6;      // Row::listItem: its content in from the hover background's edges

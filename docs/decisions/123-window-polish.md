@@ -18,3 +18,9 @@ Status: Accepted (amends 117, 120 to 122). Core tested; Windows needs a run.
   -Close) at Windows' size (`windowChromeGlyphSize`, 10).
 - **"+ Add task" is a small button's height** (`smallButtonSize`, from
   `inputHeight`): a field with an icon reads as, and sizes as, a button.
+
+**Addendum (decision 124's number, kept here).** The hugging name ended in
+"…" ("T…"): an editable text is drawn `editInset` in from each side of its
+frame, and its natural width didn't count that. It does now, for any
+editable text laid out at its natural width. "+ Add task" is lower still:
+`iconFieldHeight` (26), its own token.

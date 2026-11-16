@@ -126,6 +126,7 @@ const Field kFields[] = {
     { "smallButtonSize", &Tokens::smallButtonSize },
     { "revealGlyphSize", &Tokens::revealGlyphSize },
     { "inputHeight", &Tokens::inputHeight },
+    { "iconFieldHeight", &Tokens::iconFieldHeight },
     { "listItemPadding", &Tokens::listItemPadding },
     { "listItemInset", &Tokens::listItemInset },
     { "listItemTextInset", &Tokens::listItemTextInset },

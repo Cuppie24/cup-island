@@ -108,8 +108,8 @@ float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& m
     if (std::holds_alternative<Tag>(item)) return t.tagHeight;
     if (auto* button = std::get_if<Button>(&item))
         return button->primary ? primarySize(*button) : button->large ? t.largeButtonSize : button->compact ? t.smallButtonSize : t.buttonSize;
-    // A field that reads as a button ("+ Add task", TextInput::icon) is a small button's height, like the rows round it (decision 123).
-    if (auto* input = std::get_if<TextInput>(&item)) return input->large ? t.searchInputHeight : input->icon ? t.smallButtonSize : t.inputHeight;
+    // A field that reads as a button ("+ Add task", TextInput::icon): iconFieldHeight, a low row (decisions 123, 124).
+    if (auto* input = std::get_if<TextInput>(&item)) return input->large ? t.searchInputHeight : input->icon ? t.iconFieldHeight : t.inputHeight;
     if (std::holds_alternative<Divider>(item)) return t.dividerThickness;
     if (std::holds_alternative<Keys>(item)) return t.keyCapHeight;
     if (std::holds_alternative<Segments>(item)) return t.segmentHeight;
