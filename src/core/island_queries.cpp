@@ -1,5 +1,7 @@
 #include "core/island.h"
 
+#include <algorithm>
+
 // Read-only questions about the state: lookups, the clock, names for logs.
 // Split from island.cpp, which keeps the rules (reduce).
 
@@ -32,6 +34,13 @@ std::optional<ShownCard> shownCard(const IslandState& s)
     if (const Activity* a = findActivity(s, s.expandedId)) return ShownCard{ a->providerId, a->id };
     if (const Panel* p = findPanel(s, s.expandedId)) return ShownCard{ p->providerId, p->id };
     return std::nullopt;
+}
+
+bool isNew(const IslandState& s, const Panel& p)
+{
+    bool opens = p.tapAction.empty() && hasCard(p.content); // a toggle or a static widget has no card to open
+    auto seen = s.seenPanels.find(p.id);
+    return p.announce > 0 && opens && (seen == s.seenPanels.end() || seen->second < p.announce);
 }
 
 const Content* cardContent(const IslandState& s, const std::string& id)

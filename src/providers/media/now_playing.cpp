@@ -9,7 +9,8 @@ Content nowPlayingContent(const NowPlaying& m)
     namespace act = media_action;
     bool playing = m.timeline.playing;
     Image art{ m.art };
-    Text title{ m.title, TextStyle::Title };
+    // Big and heavy beside the cover; too long, it swims like the pill's title instead of ending in "…" (decision 107).
+    Text title{ .value = m.title, .style = TextStyle::CardTitle, .marquee = true };
     Text artist{ m.artist, TextStyle::Body };
 
     Content c;
@@ -39,16 +40,21 @@ Content nowPlayingContent(const NowPlaying& m)
     if (m.showSourceSwitch) c.expandedTrailing = { row({ Button{ Glyph::Source, act::kSource } }) }; // top-right corner
 
     if (m.timeline.duration > Ms{ 0 })
-        c.expandedBottom.push_back(row({ TimeLabel{ m.timeline }, Progress{ m.timeline, m.canSeek }, TimeLabel{ m.timeline, true } }));
+        // The times as wide as they get, so they sit close to the bar (decision 107).
+        c.expandedBottom.push_back(row({ TimeLabel{ .timeline = m.timeline, .fitted = true }, Progress{ m.timeline, m.canSeek },
+                                         TimeLabel{ .timeline = m.timeline, .remaining = true, .fitted = true } }));
     // Three weights (decision 094): ▶/⏸ the filled circle, the skips bright,
     // shuffle and repeat quiet until on or pointed at.
-    Row controls = row({ Button{ Glyph::Previous, act::kPrevious, m.canPrevious },
+    // Sized to fill the card's shared height (decision 107): the full ▶ circle, large skips.
+    Row controls = row({ Button{ .glyph = Glyph::Previous, .actionId = act::kPrevious, .enabled = m.canPrevious, .large = true },
                          Button{ .glyph = playing ? Glyph::Pause : Glyph::Play, .actionId = act::kPlayPause,
-                                 .enabled = m.canPlayPause, .compact = true, .primary = true },
-                         Button{ Glyph::Next, act::kNext, m.canNext } },
+                                 .enabled = m.canPlayPause, .primary = true },
+                         Button{ .glyph = Glyph::Next, .actionId = act::kNext, .enabled = m.canNext, .large = true } },
                        Align::Center);
     controls.loose = true; // big, well-separated targets
-    // Shuffle and repeat take the bottom corners; only shown when the app supports them.
+    // Shuffle and repeat beside the skips, with the other controls (decision 107), not
+    // in the bottom corners; ▶ stays centred. Only shown when the app supports them.
+    controls.edgesBeside = true;
     if (m.canShuffle)
         controls.leading.push_back(Button{ .glyph = Glyph::Shuffle, .actionId = act::kShuffle, .on = m.shuffle, .secondary = true });
     if (m.canRepeat)

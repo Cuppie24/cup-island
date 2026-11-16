@@ -25,9 +25,11 @@ std::vector<Vec2> badgeCentres(const Scene& scene)
     std::vector<Vec2> dots;
     for (const Tile& tile : scene.tiles)
         if (tile.badge) dots.push_back(inCorner(tile.frame, scene.tileRadius));
-    if (scene.tabs)
+    if (scene.tabs) { // a page's dot: the badge just off its top-right (decision 109); Home's button: in its corner
         for (const Tab& tab : scene.tabs->tabs)
-            if (tab.badge) dots.push_back(inCorner(tab.frame, scene.tabs->radius));
+            if (tab.badge) dots.push_back({ tab.frame.x + tab.frame.width, tab.frame.y });
+        if (scene.tabs->home && scene.tabs->home->badge) dots.push_back(inCorner(scene.tabs->home->frame, scene.tabs->radius));
+    }
     for (const Placed& p : scene.elements) {
         auto* button = std::get_if<Button>(&p.item);
         if (!button || !button->badge) continue;

@@ -12,6 +12,7 @@
 #include <dwrite_3.h>
 
 #include <algorithm>
+#include <cstdint>
 #include <cmath>
 #include <cwchar>
 #include <string>
@@ -200,12 +201,14 @@ TextLook lookOf(TextStyle style)
     case TextStyle::Result: return { t.resultFontSize, t.bodyTextColor, t.bodyFontWeight };
     case TextStyle::ResultDetail: return { t.resultDetailFontSize, t.captionTextColor, t.captionFontWeight };
     case TextStyle::PageTitle: return { t.pageTitleFontSize, t.titleTextColor, t.pageTitleFontWeight };
+    case TextStyle::Hero: return { t.heroFontSize, t.titleTextColor, t.heroFontWeight };
+    case TextStyle::CardTitle: return { t.cardTitleFontSize, t.titleTextColor, t.cardTitleFontWeight };
     }
     return { t.bodyFontSize, t.bodyTextColor, t.bodyFontWeight };
 }
 
 // Times, drawn with tabular figures so they don't jitter as they tick (decision 094).
-bool figures(TextStyle style) { return style == TextStyle::Digits || style == TextStyle::Display; }
+bool figures(TextStyle style) { return style == TextStyle::Digits || style == TextStyle::Display || style == TextStyle::Hero; }
 
 winrt::com_ptr<IDWriteTextFormat> formatOf(IDWriteFactory* dw, const Text& text)
 {
@@ -299,6 +302,12 @@ void paintLine(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, D2D
         // A time's digits on the middle of its line, where the bar beside it is drawn.
         if (text.style == TextStyle::Digits && text.wrapped.empty()) nudge = figureNudge(dw, layout.get());
     }
+    auto quiet = brushOf(dc, tokens().captionTextColor); // kept alive until drawn
+    if (text.style == TextStyle::Hero) { // its separators quieter than its digits (decision 107)
+        std::wstring value = widen(text.value);
+        for (UINT32 i = 0; i < value.size(); ++i)
+            if (value[i] == L':') layout->SetDrawingEffect(quiet.get(), DWRITE_TEXT_RANGE{ i, 1 });
+    }
     if (text.struck) layout->SetStrikethrough(TRUE, DWRITE_TEXT_RANGE{ 0, static_cast<UINT32>(widen(text.value).size()) });
     auto bright = brushOf(dc, tokens().titleTextColor); // kept alive until drawn
     if (text.brightDigits) {
@@ -326,9 +335,40 @@ void paintLine(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, D2D
 
 } // namespace
 
+std::vector<TextCharacter> charactersOf(IDWriteFactory* dw, const Text& text, Vec2 size)
+{
+    std::wstring value = widen(text.value);
+    auto layout = wrappedLayout(dw, text, size.x, size.y);
+    if (figures(text.style)) useTabularFigures(dw, layout.get(), static_cast<UINT32>(value.size()));
+    std::vector<TextCharacter> out;
+    for (UINT32 i = 0; i < value.size();) {
+        UINT32 length = value[i] >= 0xD800 && value[i] <= 0xDBFF && i + 1 < value.size() ? 2 : 1; // never half a character
+        FLOAT x = 0, y = 0;
+        DWRITE_HIT_TEST_METRICS hit{};
+        if (SUCCEEDED(layout->HitTestTextPosition(i, FALSE, &x, &y, &hit)))
+            out.push_back({ value.substr(i, length), hit.left, hit.width });
+        i += length;
+    }
+    return out;
+}
+
+void paintCharacter(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, const std::wstring& character, float left, float height)
+{
+    Text alone = text; // its format, from the start of its own box
+    alone.centred = alone.alignEnd = false;
+    winrt::com_ptr<IDWriteTextLayout> layout;
+    winrt::check_hresult(dw->CreateTextLayout(character.c_str(), static_cast<UINT32>(character.size()), formatOf(dw, alone).get(), 100000.0f,
+                                              height, layout.put()));
+    if (figures(text.style)) useTabularFigures(dw, layout.get(), static_cast<UINT32>(character.size()));
+    const Tokens& t = tokens();
+    Color color = text.style == TextStyle::Hero && character == L":" ? t.captionTextColor : lookOf(text.style).color;
+    dc->DrawTextLayout(D2D1::Point2F(left, 0), layout.get(), brushOf(dc, color).get(), D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
+}
+
 std::optional<Color> singleInkOf(const Text& text)
 {
-    if (text.brightDigits || !text.bright.empty() || !text.detail.empty()) return std::nullopt;
+    // Hero: its separators in another colour (decision 107).
+    if (text.brightDigits || !text.bright.empty() || !text.detail.empty() || text.style == TextStyle::Hero) return std::nullopt;
     for (unsigned char c : text.value)
         if (c >= 0xF0) return std::nullopt; // a 4-byte character: likely an emoji, drawn in its own colours (decision 064)
     return lookOf(text.style).color;
@@ -476,11 +516,20 @@ void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float f
 void paintSteps(ID2D1DeviceContext* dc, const Steps& steps, Vec2 size, const Color& accent)
 {
     const Tokens& t = tokens();
-    float r = t.stepDotSize / 2, y = size.y / 2;
+    float r = t.stepDotSize / 2, y = size.y / 2, halo = t.stepHaloWidth;
+    float x = halo; // the frame leaves room for the current one's ring
     for (int i = 0; i < steps.count; ++i) {
-        auto brush = brushOf(dc, i < steps.done ? t.stepDoneColor : i == steps.done ? accent : t.stepTodoColor);
-        float x = r + static_cast<float>(i) * (t.stepDotSize + t.stepDotGap);
-        dc->FillEllipse(D2D1::Ellipse(D2D1::Point2F(x, y), r, r), brush.get());
+        float w = stepWidth(steps, i); // a dot, or a pill as long as its step (decision 107)
+        auto pill = D2D1_ROUNDED_RECT{ D2D1::RectF(x, y - r, x + w, y + r), r, r };
+        bool current = i == steps.done;
+        if (current && steps.count > 1 && halo > 0) { // a faint ring of its accent around it; a lone dot (a header's) has none
+            Color ring = accent;
+            ring.a = static_cast<std::uint8_t>(std::lround(accent.a * std::clamp(t.stepHaloOpacity, 0.0f, 1.0f)));
+            auto around = D2D1_ROUNDED_RECT{ D2D1::RectF(x - halo, y - r - halo, x + w + halo, y + r + halo), r + halo, r + halo };
+            dc->FillRoundedRectangle(around, brushOf(dc, ring).get());
+        }
+        dc->FillRoundedRectangle(pill, brushOf(dc, i < steps.done ? t.stepDoneColor : current ? accent : t.stepTodoColor).get());
+        x += w + t.stepDotGap;
     }
 }
 

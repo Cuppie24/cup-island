@@ -90,7 +90,7 @@ WindowSection timerSection(const PomodoroWindowView& v)
     }
     const PomodoroSession& session = *v.session;
     s.rows = { dialRow(session.timeline, phaseName(session.phase), v.plan),
-               Row{ .items = { Steps{ phaseCount(), phasesDone(session) } }, .align = Align::Center },
+               Row{ .items = { phaseSteps(phasesDone(session)) }, .align = Align::Center },
                caption(progressCaption(session)) };
     if (v.question == PomodoroQuestion::Stop) {
         Dialog q = stopQuestion(session);

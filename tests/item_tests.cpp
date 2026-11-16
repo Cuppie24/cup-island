@@ -1,6 +1,7 @@
 // Decision 010's items: the progress ring, Steps, and the accent colour.
 
 #include "core/hit_test.h"
+#include "core/item_metrics.h"
 #include "core/layout.h"
 #include "core/tokens.h"
 #include "expect.h"
@@ -49,8 +50,12 @@ void runItemTests()
     // Steps: a fixed-width row of dots.
     Scene card = layout(reduce(s, PillClicked{}, Ms{ 0 }), Ms{ 0 });
     const Placed* steps = find(card, "expandedCenter/0/0");
-    expect(steps && steps->frame.height == t.stepDotSize && steps->frame.width == 8 * t.stepDotSize + 7 * t.stepDotGap,
+    float halo = 2 * t.stepHaloWidth; // room for the current step's ring
+    expect(steps && steps->frame.height == t.stepDotSize + halo && steps->frame.width == 8 * t.stepDotSize + 7 * t.stepDotGap + halo,
            "steps: one dot per step, packed");
+    Steps mixed{ .count = 3, .lengths = { StepLength::Long, StepLength::Dot, StepLength::Short } };
+    expect(fixedWidthOf(mixed, 0, {}) == t.stepLongWidth + t.stepDotSize + t.stepShortWidth + 2 * t.stepDotGap + halo,
+           "a long, a dot and a short step: each its length (decision 107)");
 
     // A centred card: one stack across the whole card; other slots are ignored.
     Content centred{ .card = CardLayout::Centred,

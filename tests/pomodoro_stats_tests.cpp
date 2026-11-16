@@ -391,9 +391,10 @@ void fakeStatsTests()
 void settingsPageTests()
 {
     Timer timer;
-    const Row& top = timer.panels.back().content.expandedTrailing[0];
-    expect(top.items.size() == 1 && std::get<Button>(top.items[0]).actionId == pomodoro_action::kOpenWindow,
-           "the card's corner: only the expand button");
+    const Row& top = timer.panels.back().content.expandedCenter[0];
+    expect(top.trailing.size() == (kPomodoroWindowReady ? 1u : 0u) &&
+               (!kPomodoroWindowReady || std::get<Button>(top.trailing[0]).actionId == pomodoro_action::kOpenWindow),
+           "the card's header: at most the window's button (hidden till it's ready); settings are a page of it (decision 107)");
     auto texts = timer.lines(kPomodoroSettingsPage);
     const WindowSection* off = timer.section(kPomodoroSettingsPage, "Days off");
     expect(texts.size() == 6 && texts[0] == "Plan" && texts[1].rfind("Focus", 0) == 0 && texts[2].rfind("Break", 0) == 0 && texts[3] == "Days off" &&

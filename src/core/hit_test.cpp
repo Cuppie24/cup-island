@@ -60,4 +60,9 @@ float seekFraction(const Placed& progress, float x)
     return std::clamp((x - progress.frame.x) / progress.frame.width, 0.0f, 1.0f);
 }
 
+bool inCollapseZone(const Scene& scene, Vec2 point)
+{
+    return scene.collapseZone && scene.collapseZone->contains(point);
+}
+
 } // namespace cup

@@ -31,7 +31,23 @@ std::string widestDigits(std::string s, TextStyle style, const MeasureText& meas
 
 } // namespace
 
-float lineHeight(TextStyle style) { return std::ceil(fontSize(style) * 1.3f); }
+float lineHeight(TextStyle style)
+{
+    if (style == TextStyle::Hero) return std::ceil(tokens().heroLineHeight); // digits only (decision 107)
+    return std::ceil(fontSize(style) * 1.3f);
+}
+
+float stepWidth(const Steps& steps, int i)
+{
+    const Tokens& t = tokens();
+    StepLength length = i >= 0 && static_cast<std::size_t>(i) < steps.lengths.size() ? steps.lengths[i] : StepLength::Dot;
+    switch (length) {
+    case StepLength::Dot: break;
+    case StepLength::Short: return std::max(t.stepShortWidth, t.stepDotSize);
+    case StepLength::Long: return std::max(t.stepLongWidth, t.stepDotSize);
+    }
+    return t.stepDotSize;
+}
 
 
 TextStyle detailStyleOf(TextStyle style) { return style == TextStyle::Result ? TextStyle::ResultDetail : TextStyle::Caption; }
@@ -81,11 +97,12 @@ float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& m
         return lineHeight(text->style) + (text->detail.empty() ? 0.0f : lineHeight(detailStyleOf(text->style)));
     if (std::holds_alternative<Image>(item)) return std::min(slot.width, slot.height);
     if (isRing(item)) return ringSide;
-    if (std::holds_alternative<Steps>(item)) return t.stepDotSize;
+    if (std::holds_alternative<Steps>(item)) return t.stepDotSize + 2 * t.stepHaloWidth; // room for the current one's ring
     if (std::holds_alternative<Swatch>(item)) return t.swatchSize;
     if (std::holds_alternative<Switch>(item)) return t.switchSize.y;
     if (std::holds_alternative<Tag>(item)) return t.tagHeight;
-    if (auto* button = std::get_if<Button>(&item)) return button->primary ? primarySize(*button) : button->compact ? t.smallButtonSize : t.buttonSize;
+    if (auto* button = std::get_if<Button>(&item))
+        return button->primary ? primarySize(*button) : button->large ? t.largeButtonSize : button->compact ? t.smallButtonSize : t.buttonSize;
     if (auto* input = std::get_if<TextInput>(&item)) return input->large ? t.searchInputHeight : t.inputHeight;
     if (std::holds_alternative<Divider>(item)) return t.dividerThickness;
     if (std::holds_alternative<Keys>(item)) return t.keyCapHeight;
@@ -105,8 +122,9 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
         return std::nullopt;
     if (std::holds_alternative<Image>(item) || isRing(item) || std::holds_alternative<Dial>(item)) return height; // squares
     if (auto* steps = std::get_if<Steps>(&item)) {
-        float n = static_cast<float>(std::max(steps->count, 0));
-        return std::max(0.0f, n * t.stepDotSize + (n - 1) * t.stepDotGap);
+        float width = 2 * t.stepHaloWidth; // room for the current one's ring
+        for (int i = 0; i < steps->count; ++i) width += stepWidth(*steps, i) + (i > 0 ? t.stepDotGap : 0.0f);
+        return width;
     }
     if (std::holds_alternative<Swatch>(item)) return t.swatchSize;
     if (std::holds_alternative<Switch>(item)) return t.switchSize.x;
@@ -119,12 +137,12 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
     if (auto* button = std::get_if<Button>(&item)) {
         if (button->primary) return primarySize(*button);
         if (button->round) return t.buttonSize;
-        if (button->label.empty()) return button->compact ? t.smallButtonSize : t.buttonSize;
+        if (button->label.empty()) return button->large ? t.largeButtonSize : button->compact ? t.smallButtonSize : t.buttonSize;
         Text text{ button->label, button->quiet ? TextStyle::Caption : TextStyle::Body };
         return (measure ? measure(text) : estimateTextWidth(text)) + 2 * t.buttonLabelPadding;
     }
     if (auto* label = std::get_if<TimeLabel>(&item)) {
-        if (label->style == TextStyle::Digits) return t.timeLabelWidth; // a column, so rows of labels line up
+        if (label->style == TextStyle::Digits && !label->fitted) return t.timeLabelWidth; // a column, so rows of labels line up
         std::string widest = widestDigits(formatDuration(label->timeline.duration), label->style, measure);
         if (label->remaining && !label->countdown) widest = "-" + widest;
         Text text{ widest, label->style };
@@ -146,6 +164,8 @@ float fontSize(TextStyle style)
     case TextStyle::Result: return t.resultFontSize;
     case TextStyle::ResultDetail: return t.resultDetailFontSize;
     case TextStyle::PageTitle: return t.pageTitleFontSize;
+    case TextStyle::Hero: return t.heroFontSize;
+    case TextStyle::CardTitle: return t.cardTitleFontSize;
     }
     return t.bodyFontSize;
 }

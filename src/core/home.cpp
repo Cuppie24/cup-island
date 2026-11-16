@@ -18,6 +18,7 @@ struct Entry {
     bool wide = false;
     bool opens = false;
     std::string tapAction;
+    bool isNew = false; // says "New" (decision 110)
 };
 
 // Rows of widgets, in publish order: each takes one column's worth, or two
@@ -77,6 +78,8 @@ void placeTile(const Entry& e, Rect frame, float tileRadius, Ms now, std::vector
         inner = { inner.x + shift, inner.y, inner.width - shift, inner.height };
     }
     Slot rows = informationOnly(e.content->tile);
+    // Announced and never opened (decision 110): "New" after its first line's text, as on a new setting (decision 048).
+    if (e.isNew && !rows.empty()) rows.front().items.push_back(Tag{ "New" });
     placeSlot({ key, &rows, inner }, source, radius, now, elements);
 }
 
@@ -95,7 +98,7 @@ std::vector<Tile> homeTilesFor(const IslandState& s, Vec2 cardSize, float tileRa
         bool liveTile = live && (!live->content.tile.empty() || !live->content.tileLeading.empty());
         const Content& content = liveTile ? live->content : panel.content;
         bool opens = panel.tapAction.empty() && (live || hasCard(panel.content)); // a tap action wins over a card
-        entries.push_back({ panel.id, panel.providerId, &content, panel.wide, opens, panel.tapAction });
+        entries.push_back({ panel.id, panel.providerId, &content, panel.wide, opens, panel.tapAction, isNew(s, panel) });
     }
 
     std::size_t columns = columnCount();

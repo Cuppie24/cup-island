@@ -95,6 +95,7 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     elements_.init(c, device, content_);
 
     buildShadow(c, parent); // under the body
+    topGlow_.build(c, body_, shape_, content_, snapshot_); // the top band's glow, cut by the shadow's snapshot (decision 108)
     parent.Children().InsertAtTop(body_);
 
     // Attached last, so the initial Size/Offset above don't animate.
@@ -122,13 +123,16 @@ void Blob::refreshAnimations(bool coloursOnly)
     fadeFill(recolorDuration(t));
     fadeGlow(recolorDuration(t));
     if (shadow_) fadeColor(shadow_, t.glass ? t.glassShadowColor : t.shadowColor);
-    for (Mark* mark : { &selectedTab_, &pinnedTab_ })
-        if (mark->brush) fadeColor(mark->brush, t.tabSelectedColor);
+    if (pinnedTab_.brush) fadeColor(pinnedTab_.brush, t.tabSelectedColor);
+    if (selectedTab_.brush) fadeColor(selectedTab_.brush, t.buttonOffColor); // the page row's line (decision 109)
+    for (Mark& mark : tabDots_)
+        if (mark.brush) fadeColor(mark.brush, t.stepTodoColor);
     if (hovered_.brush) fadeColor(hovered_.brush, t.hoverColor);
     for (Mark& mark : tiles_)
         if (mark.brush) fadeColor(mark.brush, t.tileColor);
     if (focusRing_.brush) fadeColor(focusRing_.brush, t.focusRingColor);
     badges_.recolor();
+    topGlow_.recolor();
     toast_.refresh(coloursOnly);
     elements_.refresh(coloursOnly);
 }
@@ -182,7 +186,8 @@ void Blob::fadeFill(Ms duration)
     fade(solid_, leftColor(highlighted_), rightColor(highlighted_), duration);
 }
 
-void Blob::setSelectedTab(std::optional<Rect> tab, float cornerRadius) { showMark(selectedTab_, tab, cornerRadius, tokens().tabSelectedColor, true); }
+// The shown page's line: grey like the row's buttons at rest, brighter than the dots (decision 109).
+void Blob::setSelectedTab(std::optional<Rect> tab, float cornerRadius) { showMark(selectedTab_, tab, cornerRadius, tokens().buttonOffColor, true); }
 
 void Blob::setPinnedTab(std::optional<Rect> pin, float cornerRadius) { showMark(pinnedTab_, pin, cornerRadius, tokens().tabSelectedColor, false); }
 
@@ -224,11 +229,11 @@ void Blob::setFocusRing(std::optional<Rect> area, float cornerRadius)
     fadeTo(compositor_, ring.visual, 1.0f, tokens().hoverFadeDuration);
 }
 
-void Blob::showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius)
+void Blob::showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius, const Color& color)
 {
     if (marks.size() < at.size()) marks.resize(at.size());
     for (std::size_t i = 0; i < marks.size(); ++i)
-        showMark(marks[i], i < at.size() ? std::optional<Rect>(at[i]) : std::nullopt, cornerRadius, tokens().tileColor, false);
+        showMark(marks[i], i < at.size() ? std::optional<Rect>(at[i]) : std::nullopt, cornerRadius, color, false);
 }
 
 void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide)
@@ -255,13 +260,23 @@ void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, cons
     mark.shape.CornerRadius({ cornerRadius, cornerRadius });
     mark.visual.Offset({ at->x, at->y, 0 });
     if (slide && from) {
-        // Glide from the old tab to the new one: the one motion that says
-        // "switched". Both ends explicit (decision 008).
+        // Glide from the old page to the new one: the one motion that says
+        // "switched". Both ends explicit (decision 008). Its length too: a
+        // line where a dot was is wider (decision 109).
+        auto curve = easingFor(compositor_, settleCurve(tokens())); // just past, and back (decision 080)
         auto anim = compositor_.CreateVector3KeyFrameAnimation();
         anim.InsertKeyFrame(0.0f, { from->x, from->y, 0 });
-        anim.InsertKeyFrame(1.0f, { at->x, at->y, 0 }, easingFor(compositor_, settleCurve(tokens()))); // just past, and back (decision 080)
+        anim.InsertKeyFrame(1.0f, { at->x, at->y, 0 }, curve);
         anim.Duration(tokens().morphDuration);
         mark.visual.StartAnimation(L"Offset", anim);
+        if (from->width != at->width || from->height != at->height) {
+            auto size = compositor_.CreateVector2KeyFrameAnimation();
+            size.InsertKeyFrame(0.0f, { from->width, from->height });
+            size.InsertKeyFrame(1.0f, { at->width, at->height }, curve);
+            size.Duration(tokens().morphDuration);
+            mark.visual.StartAnimation(L"Size", size);
+            mark.shape.StartAnimation(L"Size", size);
+        }
     }
     fadeTo(compositor_, mark.visual, 1.0f, tokens().hoverFadeDuration);
 }

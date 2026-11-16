@@ -122,7 +122,7 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
         return { { "expandedLeading", &c.expandedLeading, { p, y, art, art }, false, true },
                  { "expandedCenter", &c.expandedCenter, { centerX, y, centerRight - centerX, art } },
                  { "expandedTrailing", &c.expandedTrailing, { cornerX, y, corner, corner } },
-                 { "expandedBottom", &c.expandedBottom, { p, bottomY, size.x - 2 * p, size.y - bottomY - p } } };
+                 { "expandedBottom", &c.expandedBottom, { p, bottomY, size.x - 2 * p, size.y - bottomY - p }, false, false, true } };
     }
     default:
         return {};
@@ -205,6 +205,7 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     scene.bubbleTuck = { scene.offset.x + scene.size.x - tuckInset, scene.offset.y };
     if (scene.mode == Mode::Split && !scene.lifted) scene.bubble = bubbleFor(state, now); // lifted: tucked into the pill
     scene.dropTarget = swapPreview(state);
+    if (scene.mode == Mode::Expanded) scene.collapseZone = Rect{ 0, 0, scene.size.x, std::min(tokens().collapseZoneHeight, scene.size.y) };
 
     if (scene.mode == Mode::Idle) placeClock(state, scene, measureText);
 

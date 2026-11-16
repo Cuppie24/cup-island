@@ -1,0 +1,28 @@
+# "New" on a widget (decision 110): a provider announces it; the host shows
+# the tag until the widget's card is first opened, and remembers that.
+
+scenario: an announced widget says New until its card opens
+panel focus new                     -> new=focus
+panel theme                         -> new=focus             # not announced: never New
+home
+tile focus                          -> Expanded expanded=focus new=none
+esc
+home                                -> new=none              # for good
+
+scenario: opening it some other way counts too: its running activity's card
+panel focus new
+start focus                         -> new=focus
+click                               -> Expanded expanded=focus new=none
+
+scenario: what the app saved: seen before, so not New
+seen focus
+panel focus new                     -> new=none
+panel notes new                     -> new=notes
+
+scenario: the provider announces it again: New again, until opened again
+seen focus
+panel focus new                     -> new=none
+panel focus new2                    -> new=focus             # a higher number: a new announcement
+tile focus                          -> new=none
+esc
+seen focus:1                        -> new=none              # an older saved entry doesn't bring it back

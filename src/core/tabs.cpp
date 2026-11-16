@@ -23,44 +23,7 @@ bool hasTabs(const IslandState& s)
     return s.activities.size() + (home ? 1 : 0) > 1 || (home && (dormantCard || s.homeOpen));
 }
 
-const Item* firstItem(const Slot& slot)
-{
-    for (const Row& row : slot)
-        if (!row.items.empty()) return &row.items.front();
-    return nullptr;
-}
-
-// Title: the compact centre's text (media's "Song - Artist"), else the
-// activity's name. Ends in "…" when long: a row of swimming tabs would be busy.
-Text titleOf(const Content& c)
-{
-    const Item* item = firstItem(c.compactCenter);
-    if (auto* text = item ? std::get_if<Text>(item) : nullptr) return Text{ text->value, TextStyle::Body };
-    return Text{ c.label, TextStyle::Body };
-}
-
-// What a tab shows: a lead square (icon or art) and a title.
-struct TabFace {
-    std::string id; // "" = Home
-    std::string providerId;
-    const Item* lead = nullptr;
-    Text title;
-    bool iconOnly = false; // Home: the lead, centred, no title
-    bool badge = false;    // its activity's Content::badge
-};
-
-TabFace faceOf(const Activity& a)
-{
-    const Item* lead = firstItem(a.content.compactLeading);
-    if (!lead) lead = firstItem(a.content.minimal);
-    return { .id = a.id, .providerId = a.providerId, .lead = lead, .title = titleOf(a.content), .badge = a.content.badge };
-}
-
-const Item kHomeIcon = Icon{ Glyph::Home };
-const Item kPinIcon = Icon{ Glyph::Pin };
-const Item kPinnedIcon = Icon{ Glyph::Pinned };
-
-// A dot on Home's button (decision 038): a widget flagged for it
+// A dot on Home's button and its dot (decision 038): a widget flagged for it
 // (Content::badgeHome, an update), not any widget with a dot.
 bool homeBadged(const IslandState& s)
 {
@@ -72,53 +35,29 @@ bool homeBadged(const IslandState& s)
     return false;
 }
 
-// Lead square and title, centred in the tab as one group (the title as wide
-// as it really is, so the group's width is known). A title too long for the
-// tab gets what's left and ends in "…". Keys carry the activity id, so a
-// tab's content stays the same visual when tabs come and go. `muted`: not the
-// tab shown (or the pin while off), so all of it is drawn grey (decision 072).
-void placeTab(const TabFace& face, Rect tab, float radius, bool muted, const MeasureText& measure, std::vector<Placed>& out)
+// A button's glyph, centred in its square. Keys carry what it is, so it stays
+// the same visual as the strip changes. `muted`: grey until the pointer is on
+// that button itself (decisions 072, 109): its activityId is the button's id,
+// which only its own hover lights: Home's while Home isn't shown, the pin
+// while off, the arrows always.
+void placeGlyph(const std::string& name, const std::string& id, Glyph glyph, Rect button, bool muted, std::vector<Placed>& out)
 {
-    const Tokens& t = tokens();
-    float inset = t.compactInset, side = tab.height - 2 * inset, gap = inset;
-    std::string prefix = face.id.empty() ? "tab/home/" : face.id == kPinTab ? "tab/pin/" : "tab/" + face.id + "/";
-    auto place = [&](const std::string& part, Item item, Rect frame, float cornerRadius = 0) {
-        out.push_back({ .key = prefix + part, .item = std::move(item), .frame = frame, .hitFrame = frame,
-                        .cornerRadius = cornerRadius, .providerId = face.providerId, .activityId = face.id, .muted = muted });
-    };
-
-    const Item* lead = face.lead;
-    const Text& title = face.title;
-    if (face.iconOnly && lead) {
-        float g = std::min(t.iconSize, side);
-        place("lead", *lead, { tab.x + (tab.width - g) / 2, tab.y + (tab.height - g) / 2, g, g });
-        return;
-    }
-    float leadWidth = lead ? side + gap : 0;
-    float room = std::max(0.0f, tab.width - 2 * t.itemSpacing - leadWidth); // side margins = item spacing
-    float titleWidth = std::min(measure(title) + 1, room); // +1: rounding never trips the "…"
-    float x = tab.x + (tab.width - (leadWidth + titleWidth)) / 2;
-
-    if (lead) {
-        if (std::holds_alternative<Image>(*lead)) {
-            place("lead", *lead, { x, tab.y + inset, side, side }, std::max(0.0f, std::min(radius - inset, side / 2)));
-        } else {
-            float g = std::min(t.iconSize, side); // glyphs: icon-sized, centred in the square
-            place("lead", *lead, { x + (side - g) / 2, tab.y + (tab.height - g) / 2, g, g });
-        }
-        x += leadWidth;
-    }
-    place("title", title, { x, tab.y, titleWidth, tab.height });
+    float g = std::min(tokens().iconSize, button.height);
+    Rect frame{ button.x + (button.width - g) / 2, button.y + (button.height - g) / 2, g, g };
+    out.push_back({ .key = "tab/" + name + "/lead", .item = Icon{ glyph }, .frame = frame, .hitFrame = frame, .activityId = id, .muted = muted });
 }
 
 } // namespace
 
 float tabStripSpace(const IslandState& s)
 {
-    return hasTabs(s) ? tokens().tabHeight + tokens().slotGap : 0;
+    // The row sits tabRowInset from the card's edge, tabRowGap from its content,
+    // which keeps its padding beyond that: the card grows by the difference (decision 109).
+    const Tokens& t = tokens();
+    return hasTabs(s) ? std::max(0.0f, t.tabRowInset + t.tabHeight + t.tabRowGap - t.expandedPadding) : 0;
 }
 
-std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float nestedRadius, const MeasureText& measure,
+std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float nestedRadius, const MeasureText&,
                                     std::vector<Placed>& elements)
 {
     if (!hasTabs(s)) return std::nullopt;
@@ -128,47 +67,68 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     for (const Activity& a : s.activities) started.push_back(&a);
     std::sort(started.begin(), started.end(), [](const Activity* a, const Activity* b) { return a->startOrder < b->startOrder; });
     // Along the top, over the card's content (decision 047), or the bottom, under it: the user's pick (decision 048).
-    float p = t.expandedPadding, y = s.tabsOnTop ? p : cardSize.y - p - t.tabHeight;
+    float p = t.expandedPadding, h = t.tabHeight, y = s.tabsOnTop ? t.tabRowInset : cardSize.y - t.tabRowInset - h;
     TabStrip strip;
-    strip.radius = std::min(nestedRadius, t.tabHeight / 2);
-    // What's shown: Home, an activity's card, or (a dormant panel's card) neither,
-    // so Home's button there is a plain way back, not the current tab.
+    strip.radius = std::min(nestedRadius, h / 2);
+    // Click areas reach the card's edge on the strip's side and half the gap on the content's.
+    float top = s.tabsOnTop ? 0 : y - t.tabRowGap / 2, bottom = s.tabsOnTop ? y + h + t.tabRowGap / 2 : cardSize.y;
+    auto button = [&](const std::string& id, Rect frame, float reachLeft, float reachRight) {
+        return Tab{ frame, { frame.x - reachLeft, top, frame.width + reachLeft + reachRight, bottom - top }, id, false, frame, strip.radius };
+    };
+
+    // Home's button at the left edge, its click area taking in the card's
+    // corner (decision 009); the pin mirrors it at the right (decision 046).
+    bool homeShown = s.homeOpen;
+    if (!s.panels.empty()) {
+        Rect frame{ p, y, t.homeButtonWidth, h };
+        strip.home = button(kHomeTab, frame, p, t.slotGap / 2);
+        strip.home->badge = homeBadged(s);
+        placeGlyph("home", kHomeTab, Glyph::Home, frame, !homeShown, elements);
+    }
+    Rect pin{ cardSize.x - p - t.homeButtonWidth, y, t.homeButtonWidth, h };
+    strip.pin = button(kPinTab, pin, t.slotGap / 2, p);
+    strip.pinned = s.stayOpen;
+    placeGlyph("pin", kPinTab, s.stayOpen ? Glyph::Pinned : Glyph::Pin, pin, !s.stayOpen, elements);
+
+    // The pages: Home, then activities; the shown one is a line, the rest dots (decision 109).
     std::optional<std::string> shown;
     if (s.homeOpen) shown = "";
     else if (findActivity(s, s.expandedId)) shown = s.expandedId;
-    auto add = [&](const TabFace& face, Rect frame, Rect hitFrame) {
-        if (face.id == shown) strip.active = strip.tabs.size();
-        strip.tabs.push_back({ frame, hitFrame, face.id, face.badge });
-        placeTab(face, frame, strip.radius, face.id != shown, measure, elements);
-    };
-
-    // Home: an icon-only button on its own at the left edge. Its click area
-    // takes in the card's corner on the strip's side, so it's hard to miss. The pin
-    // mirrors it at the right edge (decision 046), so the activity tabs stay
-    // centred on the card.
-    // Click areas reach the card's edge on the strip's side and half the gap on the content's.
-    float top = s.tabsOnTop ? 0 : y - t.slotGap / 2, bottom = s.tabsOnTop ? y + t.tabHeight + t.slotGap / 2 : cardSize.y;
-    float reach = p + t.homeButtonWidth + t.slotGap / 2;
-    if (!s.panels.empty()) {
-        Rect button{ p, y, t.homeButtonWidth, t.tabHeight };
-        add({ .id = "", .lead = &kHomeIcon, .iconOnly = true, .badge = homeBadged(s) }, button, { 0, top, reach, bottom - top });
+    std::vector<std::pair<std::string, bool>> pages; // id, badge
+    if (!s.panels.empty()) pages.push_back({ "", homeBadged(s) });
+    for (const Activity* a : started) pages.push_back({ a->id, a->content.badge });
+    float dot = t.tabDotSize, gap = t.tabDotGap;
+    auto widthOf = [&](const std::string& id) { return id == shown ? std::max(t.tabLineWidth, dot) : dot; };
+    float dotsWidth = 0;
+    for (const auto& page : pages) dotsWidth += widthOf(page.first);
+    dotsWidth += gap * static_cast<float>(pages.size() - 1);
+    // The arrows beside the dots, the three centred as one group. Only with
+    // somewhere to go: another page, or any page from a dormant panel's card.
+    bool arrows = pages.size() > 1 || !shown;
+    float arrow = arrows ? t.tabArrowSize : 0, arrowGap = arrows ? t.tabArrowGap : 0;
+    float x = (cardSize.x - dotsWidth - 2 * (arrow + arrowGap)) / 2;
+    if (arrows) {
+        Rect frame{ x, y + (h - arrow) / 2, arrow, arrow };
+        strip.previous = button(kPreviousTab, frame, 0, arrowGap / 2);
+        strip.previous->radius = arrow / 2; // round, like the dots
+        placeGlyph("previous", kPreviousTab, Glyph::ChevronLeft, frame, true, elements); // grey until hovered
     }
-    Rect pin{ cardSize.x - p - t.homeButtonWidth, y, t.homeButtonWidth, t.tabHeight };
-    strip.pin = Tab{ pin, { cardSize.x - reach, top, reach, bottom - top }, kPinTab };
-    strip.pinned = s.stayOpen;
-    placeTab({ .id = kPinTab, .lead = s.stayOpen ? &kPinnedIcon : &kPinIcon, .iconOnly = true }, pin, strip.radius, !s.stayOpen,
-             measure, elements);
-    float reserved = t.homeButtonWidth + t.slotGap;
-
-    // Every tab at its full width, the group centred; narrower only when they don't fit.
-    float available = cardSize.x - 2 * p - 2 * reserved, n = static_cast<float>(started.size());
-    float width = std::min(t.tabMaxWidth, (available - (n - 1) * t.tabGap) / n);
-    float left = (cardSize.x - (n * width + (n - 1) * t.tabGap)) / 2;
-    for (std::size_t i = 0; i < started.size() && n > 0; ++i)
-    {
-        Rect frame{ left + static_cast<float>(i) * (width + t.tabGap), y, width, t.tabHeight };
-        // Clickable from the card's edge to half the gap toward the content, like Home's button: easy to hit.
-        add(faceOf(*started[i]), frame, { frame.x - t.tabGap / 2, top, width + t.tabGap, bottom - top });
+    x += arrow + arrowGap;
+    for (const auto& [id, badge] : pages) {
+        float w = widthOf(id);
+        Rect frame{ x, y + (h - dot) / 2, w, dot };
+        if (id == shown) strip.active = strip.tabs.size();
+        float halo = t.tabDotGap / 2; // lit: a soft round shape a little bigger than the dot or line
+        Rect lit{ frame.x - halo, frame.y - halo, w + 2 * halo, dot + 2 * halo };
+        strip.tabs.push_back({ frame, { x - gap / 2, top, w + gap, bottom - top }, id, badge, lit, lit.height / 2 }); // easy to hit: the row's height
+        x += w + gap;
+    }
+    x += arrowGap - gap;
+    if (arrows) {
+        Rect frame{ x, y + (h - arrow) / 2, arrow, arrow };
+        strip.next = button(kNextTab, frame, arrowGap / 2, 0);
+        strip.next->radius = arrow / 2;
+        placeGlyph("next", kNextTab, Glyph::ChevronRight, frame, true, elements);
     }
     return strip;
 }
@@ -177,7 +137,8 @@ const Tab* tabAt(const TabStrip& strip, Vec2 point)
 {
     for (const Tab& tab : strip.tabs)
         if (tab.hitFrame.contains(point)) return &tab;
-    if (strip.pin && strip.pin->hitFrame.contains(point)) return &*strip.pin;
+    for (const std::optional<Tab>* button : { &strip.previous, &strip.next, &strip.home, &strip.pin })
+        if (*button && (*button)->hitFrame.contains(point)) return &**button;
     return nullptr;
 }
 

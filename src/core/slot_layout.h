@@ -28,6 +28,9 @@ struct SlotFrame {
     Rect frame;          // pill (or bubble) coordinates
     bool square = false; // a one-glyph square (compact ends, an alert's leading, the bubble): content always centred in it
     bool raised = false; // its art casts a shadow (Placed::raised): Expanded's leading square (decision 094)
+    // Its rows sit at the frame's bottom instead of centred: a card's controls keep
+    // the side margin under them when the card is taller than they need (decision 107).
+    bool atBottom = false;
 };
 
 // Appends the slot's items to `out`, rows stacked and centred vertically in the frame.

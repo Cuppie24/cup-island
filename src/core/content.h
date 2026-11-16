@@ -29,7 +29,9 @@ enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Sour
 // "General", "Dark"): small and quiet, since the group's background already sets it apart (decision 090).
 // Result and ResultDetail: a search result's name and the line under it (decision 079).
 // PageTitle: a window page's name, over its groups (decision 104).
-enum class TextStyle { Title, Body, Caption, Digits, Display, Heading, Result, ResultDetail, PageTitle };
+// CardTitle: a card's main line beside its cover, bigger and heavier than Title (media's song, decision 107).
+// Hero: the one big number a card is about, heavy (Pomodoro's time); its digits roll as they change (decision 107).
+enum class TextStyle { Title, Body, Caption, Digits, Display, Heading, Result, ResultDetail, PageTitle, Hero, CardTitle };
 
 // sRGB plus opacity. As an activity's accent (decision 010) it tints only
 // live data: progress fills (bar and ring), the current step, waveform bars.
@@ -123,6 +125,7 @@ struct Button {
     std::optional<bool> on; // toggles only (shuffle, repeat): on a soft pill when on, dimmed when off (decision 094)
     std::string label;      // a text button ("Clear all") instead of the glyph; as wide as its text
     bool compact = false;   // smallButtonSize: list rows (a to-do's checkbox), not main controls. Not "small": windows.h #defines it
+    bool large = false;     // largeButtonSize, a bigger glyph: a card's main controls beside its ▶ (media's skips, decision 107)
     bool revealOnHover = false; // hidden until the pointer is on its row: a list item's delete (decision 020)
     bool destructive = false;   // its label in dangerColor: a dialog's "Clear"
     bool editsText = false;     // starts editing the Text whose editAction is this button's actionId (decision 029)
@@ -190,14 +193,23 @@ struct TimeLabel {
     bool remaining = false;
     bool countdown = false;
     TextStyle style = TextStyle::Digits; // a countdown that is the main thing shown can be Body or Title
+    // Digits: as wide as the longest time its timeline can show, not the
+    // shared column (timeLabelWidth), so it sits close to the bar beside it
+    // (media, decision 107). Larger styles always are.
+    bool fitted = false;
     bool operator==(const TimeLabel&) const = default;
 };
 struct Waveform { bool active = false; bool operator==(const Waveform&) const = default; };              // "now playing" bars; still dots when inactive
-// A row of dots, one per step: `done` filled, the current one (index `done`)
-// in the accent, the rest faint. Pomodoro's phases, a multi-step task (decision 010).
+// How long a step is drawn (decision 107): a dot, or a pill, so steps that
+// last longer read longer (Pomodoro: a focus long, a break a dot).
+enum class StepLength { Dot, Short, Long };
+// A row of steps: `done` filled, the current one (index `done`) in the
+// accent with a faint ring of it, the rest faint. Pomodoro's phases, a
+// multi-step task (decisions 010, 107).
 struct Steps {
     int count = 0;
     int done = 0;
+    std::vector<StepLength> lengths; // per step; past its end (or empty): dots
     bool operator==(const Steps&) const = default;
 };
 
@@ -367,6 +379,10 @@ struct Row {
     // one line (with Align::Center): a few short statistics (decision 061).
     // Too wide for the slot: laid out as usual.
     bool hug = false;
+    // Its `leading` and `trailing` sit right beside its centred items, the
+    // row's gap away, instead of at its edges: media's shuffle and repeat
+    // with the other controls (decision 107). The items stay centred.
+    bool edgesBeside = false;
     // Columns: its items share the row's width equally, each centred in its
     // share. Rows of the same count line up: a table, value rows over caption
     // rows (Pomodoro's statistics, decision 064).

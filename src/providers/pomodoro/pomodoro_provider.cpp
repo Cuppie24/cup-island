@@ -292,7 +292,8 @@ void PomodoroProvider::openWindow()
 {
     PomodoroWindowView view{ .session = session_, .todos = &todos_, .plan = plan_, .glance = glance(), .daysOff = daysOff_, .fake = fakeRow() };
     bool wasOpen = windowOpen_;
-    WindowOpen result = host_->openWindow({ .id = kWindowId, .size = WindowSize::Large, .resizable = false, .maximizable = false }, pomodoroWindow(view));
+    WindowOpen result = host_->openWindow({ .id = kWindowId, .size = WindowSize::Large, .resizable = false, .maximizable = false },
+                                          pomodoroWindow(view));
     windowOpen_ = result == WindowOpen::Opened || result == WindowOpen::Raised;
     if (windowOpen_ && !wasOpen) {
         question_ = PomodoroQuestion::None;

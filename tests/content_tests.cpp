@@ -157,9 +157,16 @@ void runContentTests()
     expect(wideTitle && wideTitle->frame.x + wideTitle->frame.width == scene.size.x - t.expandedPadding, "without it the title runs to the edge");
     auto cornerHit = hitTest(corneredScene, centre(corner));
     expect(cornerHit && cornerHit->action.actionId == "source", "corner button is clickable");
+    // The top band (decision 108): across the whole card, above the corner button, only when expanded.
+    expect(corneredScene.collapseZone && corneredScene.collapseZone->width == corneredScene.size.x &&
+           corneredScene.collapseZone->height == t.collapseZoneHeight && t.collapseZoneHeight <= t.expandedPadding,
+           "the top band: the card's width, inside its top padding");
+    expect(inCollapseZone(corneredScene, { corneredScene.size.x - 1, 1 }) && !inCollapseZone(corneredScene, centre(corner)),
+           "its corner is the band's; the corner button isn't");
 
-    // Equal margins: the bottom row sits as far from the bottom as art from the side.
-    expect(play->frame.y + play->frame.height == scene.size.y - t.expandedPadding, "expanded bottom margin = side margin");
+    // The bottom row stays clear of the bottom by at least the side margin; this card's
+    // controls are shorter than media's, so it keeps the shared height (decision 107) with room to spare.
+    expect(play->frame.y + play->frame.height <= scene.size.y - t.expandedPadding, "expanded bottom margin >= side margin");
 
     // Nested radius: rounded content is concentric with the pill's corner.
     expect(art->cornerRadius == pillCornerRadius(scene.size) - t.expandedPadding, "art radius = pill radius - padding");
@@ -242,90 +249,55 @@ void runContentTests()
         .compactLeading = { row({ Icon{ Glyph::Timer } }) } } } }, Ms{ 0 });
     three = reduce(three, ActivityStarted{ { .id = "sync", .content = { .label = "Sync" } } }, Ms{ 0 });
     Scene opened = layout(reduce(three, PillClicked{}, Ms{ 0 }), Ms{ 0 }); // opens the top one: sync
-    expect(opened.tabs && opened.tabs->tabs.size() == 3, "a tab per activity, the shown one included");
+    expect(opened.tabs && opened.tabs->tabs.size() == 3, "a dot per activity, the shown one included");
     const TabStrip& strip = *opened.tabs;
     expect(strip.tabs[0].id == "media" && strip.tabs[2].id == "sync" && strip.active == 2,
-           "tabs in start order (stable), the shown one marked active");
-    expect(opened.size.y == t.expandedSize.y + t.tabHeight + t.slotGap, "the card grows by the strip");
+           "dots in start order (stable), the shown one marked active");
+    // The row sits tabRowInset from the top, tabRowGap over the content, which keeps its padding beyond that (decision 109).
+    float rowSpace = t.tabRowInset + t.tabHeight + t.tabRowGap - t.expandedPadding;
+    expect(opened.size.y == t.expandedSize.y + rowSpace, "the card grows by the strip");
     expect(opened.size.y <= t.canvas.y, "the taller card fits on the canvas");
-    float groupLeft = strip.tabs.front().frame.x, groupRight = strip.tabs.back().frame.x + strip.tabs.back().frame.width;
-    float ends = t.homeButtonWidth + t.slotGap; // kept free at both ends: the pin at the right, Home's room at the left (decision 046)
-    expect(strip.tabs[0].frame.width == t.tabMaxWidth || std::abs(groupRight - groupLeft - (opened.size.x - 2 * t.expandedPadding - 2 * ends)) < 0.01f,
-           "tabs use their full width unless they don't fit");
+    // The page row (decision 109): no tabs, a dot per page and a line for the shown one, ‹ and › beside them.
+    expect(strip.tabs[0].frame.width == t.tabDotSize && strip.tabs[0].frame.height == t.tabDotSize && strip.tabs[2].frame.width == t.tabLineWidth,
+           "dots, and a line for the shown page");
+    for (const auto& p : opened.elements)
+        expect(p.key.rfind("tab/media", 0) != 0 && p.key.rfind("tab/sync", 0) != 0, "no tab content drawn: " + p.key);
+    expect(strip.previous && strip.next && strip.previous->frame.x + strip.previous->frame.width + t.tabArrowGap == strip.tabs.front().frame.x &&
+           strip.tabs.back().frame.x + strip.tabs.back().frame.width + t.tabArrowGap == strip.next->frame.x, "‹ and › right beside the dots");
+    float groupLeft = strip.previous->frame.x, groupRight = strip.next->frame.x + strip.next->frame.width;
+    expect(std::abs(groupLeft - (opened.size.x - groupRight)) < 0.01f, "dots and arrows centred together");
+    expect(find(opened, "tab/previous/lead") && std::get<Icon>(find(opened, "tab/previous/lead")->item).glyph == Glyph::ChevronLeft &&
+           find(opened, "tab/next/lead") && std::get<Icon>(find(opened, "tab/next/lead")->item).glyph == Glyph::ChevronRight, "their chevrons");
     expect(strip.pin && std::abs(strip.pin->frame.x + strip.pin->frame.width - (opened.size.x - t.expandedPadding)) < 0.01f &&
-           strip.pin->frame.y == strip.tabs[0].frame.y && groupRight <= strip.pin->frame.x - t.slotGap + 0.01f, "the pin at the strip's right end");
-    expect(std::abs(groupLeft - (opened.size.x - groupRight)) < 0.01f, "the group is centred");
-    expect(groupLeft >= t.expandedPadding && strip.tabs[0].frame.y == t.expandedPadding,
-           "strip along the top, keeping the card's padding (decision 047)");
-    expect(strip.radius == std::min(pillCornerRadius(opened.size) - t.expandedPadding, t.tabHeight / 2), "tab corners nested");
-
-    IslandState two;
-    two = reduce(two, ActivityStarted{ { .id = "a" } }, Ms{ 0 });
-    two = reduce(two, ActivityStarted{ { .id = "b" } }, Ms{ 0 });
-    Scene pair = layout(reduce(two, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    float pairWidth = std::min(t.tabMaxWidth, (pair.size.x - 2 * t.expandedPadding - 2 * ends - t.tabGap) / 2);
-    expect(pair.tabs && pair.tabs->tabs[0].frame.width == pairWidth, "few tabs: as wide as there's room for, up to tabMaxWidth");
-    expect(std::abs(pair.tabs->tabs[0].frame.x - (pair.size.x - 2 * pairWidth - t.tabGap) / 2) < 0.01f, "few tabs: centred, not left-aligned");
-
-    const Placed* artLead = find(opened, "tab/media/lead");
-    const Placed* glyphLead = find(opened, "tab/timer/lead");
-    const Placed* mediaTab = find(opened, "tab/media/title");
-    const Placed* syncTab = find(opened, "tab/sync/title");
-    expect(mediaTab && std::get<Text>(mediaTab->item).value == "Song - Artist" && !std::get<Text>(mediaTab->item).marquee,
-           "tab title: the compact centre text, not swimming");
-    expect(syncTab && std::get<Text>(syncTab->item).value == "Sync", "no compact centre: the activity's name");
+           groupRight <= strip.pin->frame.x, "the pin at the strip's right end, apart");
+    expect(strip.pin->frame.y == t.tabRowInset && strip.pin->frame.height == t.tabHeight && t.tabRowInset >= t.collapseZoneHeight,
+           "the row along the top, just under the top band (decisions 047, 108)");
+    expect(strip.radius == std::min(pillCornerRadius(opened.size) - t.expandedPadding, t.tabHeight / 2), "buttons' corners nested");
+    expect(find(opened, "tab/pin/lead") && find(opened, "tab/pin/lead")->muted, "the pin while off: grey");
+    expect(find(opened, "tab/previous/lead")->muted && find(opened, "tab/next/lead")->muted, "the arrows grey until hovered");
+    // Each glyph lights only under its own button: its activityId is the button's, never a page's,
+    // so hovering a dot (Home's is "") doesn't light Home's button or the pin (decision 109).
     for (const auto& p : opened.elements)
         if (p.key.rfind("tab/", 0) == 0)
-            expect(p.muted == (p.activityId != "sync"), "only the shown tab's content is in colour (decision 072): " + p.key);
-    expect(find(opened, "tab/pin/lead") && find(opened, "tab/pin/lead")->muted, "the pin while off: grey too");
+            expect(!p.activityId.empty() && p.activityId[0] == '#', "a row glyph keyed to its own button: " + p.key);
     Scene pinned = layout(reduce(reduce(three, PillClicked{}, Ms{ 0 }), StayOpenToggled{}, Ms{ 0 }), Ms{ 0 });
-    expect(find(pinned, "tab/pin/lead") && !find(pinned, "tab/pin/lead")->muted, "pinned: the pin in colour, like the shown tab");
-    expect(artLead && artLead->cornerRadius > 0, "tab art radius nested");
-    expect(glyphLead && glyphLead->frame.y + glyphLead->frame.height / 2 == strip.tabs[1].frame.y + strip.tabs[1].frame.height / 2,
-           "tab glyph centred vertically");
-    for (const Tab& tab : strip.tabs)
-        for (const auto& p : opened.elements)
-            if (p.key.rfind("tab/" + tab.id + "/", 0) == 0)
-                expect(p.frame.x >= tab.frame.x && p.frame.x + p.frame.width <= tab.frame.x + tab.frame.width,
-                       "tab content stays inside its tab: " + p.key);
-    for (const auto& p : opened.elements)
-        if (p.key.rfind("tab/", 0) != 0)
-            expect(p.frame.y + p.frame.height <= strip.tabs[0].frame.y - t.slotGap, "card content sits above the strip: " + p.key);
-    // Icon and title centred in the tab as one group, the title as wide as the real text.
-    MeasureText fixed = [](const Text&) { return 20.0f; };
-    Scene measured = layout(reduce(three, PillClicked{}, Ms{ 0 }), Ms{ 0 }, fixed);
-    for (const Tab& tab : measured.tabs->tabs) {
-        const Placed* lead = nullptr;
-        const Placed* label = nullptr;
-        for (const auto& p : measured.elements) {
-            if (p.key == "tab/" + tab.id + "/lead") lead = &p;
-            if (p.key == "tab/" + tab.id + "/title") label = &p;
-        }
-        float groupLeft = lead ? lead->frame.x - (lead->frame.width < t.tabHeight - 2 * t.compactInset
-                                                      ? (t.tabHeight - 2 * t.compactInset - lead->frame.width) / 2 : 0)
-                               : label->frame.x;
-        float groupRight = label->frame.x + label->frame.width;
-        float tabCentre = tab.frame.x + tab.frame.width / 2;
-        expect(label && label->frame.width == 21, "title as wide as the measured text (+1 slack): " + tab.id);
-        expect(std::abs((groupLeft + groupRight) / 2 - tabCentre) < 0.01f, "icon + title centred in the tab: " + tab.id);
-    }
-    MeasureText huge = [](const Text&) { return 1000.0f; };
-    Scene squeezed = layout(reduce(three, PillClicked{}, Ms{ 0 }), Ms{ 0 }, huge);
-    const Placed* longTitle = find(squeezed, "tab/media/title");
-    const Tab& longTab = squeezed.tabs->tabs[0];
-    expect(longTitle && longTitle->frame.x + longTitle->frame.width <= longTab.frame.x + longTab.frame.width - t.itemSpacing,
-           "a title too long for its tab gets what's left (and ends in an ellipsis)");
+    expect(find(pinned, "tab/pin/lead") && !find(pinned, "tab/pin/lead")->muted, "pinned: the pin in colour");
+    const Tab& dot = strip.tabs[0];
+    expect(dot.hitFrame.height > t.tabHeight && dot.hitFrame.width > dot.frame.width && dot.lit.width > dot.frame.width,
+           "a dot is easy to hit, and lights up as a soft circle round it");
 
     Vec2 onTimer{ strip.tabs[1].frame.x + 3, strip.tabs[1].frame.y + 3 };
-    expect(tabAt(strip, onTimer) && tabAt(strip, onTimer)->id == "timer", "a point finds its tab");
+    expect(tabAt(strip, onTimer) && tabAt(strip, onTimer)->id == "timer", "a point finds its dot");
+    Vec2 onNext{ strip.next->frame.x + 3, strip.next->frame.y + 3 };
+    expect(tabAt(strip, onNext) && tabAt(strip, onNext)->id == kNextTab, "...and an arrow");
     expect(!tabAt(strip, { 1, 1 }), "outside the strip: no tab");
     Scene mediaCard = layout(reduce(reduce(three, PillClicked{}, Ms{ 0 }), ActivitySwitched{ "media" }, Ms{ 0 }), Ms{ 0 });
     const Placed* mediaArt = find(mediaCard, "expandedLeading/0/0");
-    float stripSpace = t.tabHeight + t.slotGap;
+    float stripSpace = rowSpace;
     expect(mediaArt && mediaArt->frame.y == t.expandedPadding + stripSpace, "card content starts under the strip");
     for (const auto& p : mediaCard.elements)
         if (p.key.rfind("tab/", 0) != 0)
-            expect(p.frame.y >= mediaCard.tabs->tabs[0].frame.y + t.tabHeight + t.slotGap, "media card content under the strip: " + p.key);
+            expect(p.frame.y >= mediaCard.tabs->pin->frame.y + t.tabHeight + t.tabRowGap, "media card content under the strip: " + p.key);
     expect(mediaCard.tabs->tabs[0].id == "media" && mediaCard.tabs->active == 0u, "switching doesn't reorder tabs");
 
     // A full media card (progress + controls) with tabs: the bottom rows move up to clear the strip.

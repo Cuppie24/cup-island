@@ -47,6 +47,11 @@ void collapse(IslandState& s)
 
 void expand(IslandState& s, const std::string& id, Ms now)
 {
+    // An announced panel's card opened: this announcement seen (decision 110). Its activity's id is the panel's.
+    if (const Panel* p = findPanel(s, id); p && p->announce > 0) {
+        int& seen = s.seenPanels[id];
+        seen = std::max(seen, p->announce);
+    }
     s.expandedId = id;
     s.homeOpen = false;
     s.cardFromHome = false; // opened some other way; TileClicked sets it after
@@ -177,6 +182,10 @@ void handle(IslandState& s, const AlertPosted& e, Ms now)
     if (postAlert(s, e.alert, now)) collapse(s); // only critical interrupts Expanded
 }
 void handle(IslandState& s, const PillClicked&, Ms now) { onClick(s, now); }
+void handle(IslandState& s, const TopClicked&, Ms)
+{
+    if (isExpanded(s)) collapse(s); // whatever would keep it open: the top always closes (decision 108)
+}
 void handle(IslandState& s, const ClickedOutside&, Ms)
 {
     if (!s.stayOpen) collapse(s); // pinned: it stays over whatever was clicked (decision 046)
@@ -302,6 +311,15 @@ void handle(IslandState& s, const ActivityOpened&, Ms now)
 }
 
 // A running panel opens like its tab (and becomes the pick); a dormant one shows its card.
+void handle(IslandState& s, const PanelsSeen& e, Ms)
+{
+    for (const auto& [id, announce] : e.seen) {
+        if (id.empty()) continue;
+        int& seen = s.seenPanels[id];
+        seen = std::max(seen, announce);
+    }
+}
+
 void handle(IslandState& s, const TileClicked& e, Ms now)
 {
     bool fromHome = s.homeOpen;

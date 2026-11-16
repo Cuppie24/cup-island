@@ -148,7 +148,11 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
     // Lists windowed, scrolled, a row dragged (decision 029); the rest stacked.
     ListState lists{ source.activityId, source.scrolls, source.listDrag };
     RowPlan plan = planRows(rows, sizes.heights, lists, &oneLine, slot.frame.height);
-    float contentTop = atTop ? slot.frame.y : slot.frame.y + (slot.frame.height - plan.height) / 2; // centred vertically
+    // Centred vertically, unless the slot or page says top or bottom.
+    auto topOf = [&](float height) {
+        return atTop ? slot.frame.y : slot.atBottom ? slot.frame.y + slot.frame.height - height : slot.frame.y + (slot.frame.height - height) / 2;
+    };
+    float contentTop = topOf(plan.height);
     std::vector<float> wrapped(rows.size(), 0); // each row's wrapping text's height, once its width is known
 
     // Places every row into `target` and returns each row's content span.
@@ -353,8 +357,18 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                     x += w + t.itemSpacing;
                 }
             };
-            placeEdge(row.trailing, row.items.size(), area.x + area.width - trailingWidth + gap);
-            placeEdge(row.leading, row.items.size() + row.trailing.size(), area.x);
+            float trailingX = area.x + area.width - trailingWidth + gap, leadingX = area.x;
+            if (row.edgesBeside && target.size() > first) { // Row::edgesBeside: hugging the items' span, not the row's edges
+                float spanLeft = target[first].frame.x, spanRight = spanLeft;
+                for (std::size_t i = first; i < target.size(); ++i) {
+                    spanLeft = std::min(spanLeft, target[i].frame.x);
+                    spanRight = std::max(spanRight, target[i].frame.x + target[i].frame.width);
+                }
+                trailingX = spanRight + gap;
+                leadingX = spanLeft - leadingWidth;
+            }
+            placeEdge(row.trailing, row.items.size(), trailingX);
+            placeEdge(row.leading, row.items.size() + row.trailing.size(), leadingX);
             // Its piece of its group's background (decision 090): from under its
             // gap down to the next row's top (the row spacing too), so the pieces
             // meet with no seam. Behind its content (the renderer puts it at the
@@ -451,7 +465,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
     }
     if (grew) {
         plan = planRows(rows, sizes.heights, lists, &oneLine, slot.frame.height);
-        contentTop = atTop ? slot.frame.y : slot.frame.y + (slot.frame.height - plan.height) / 2;
+        contentTop = topOf(plan.height);
     }
     placeRows(out, &spans);
     return plan.height;

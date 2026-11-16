@@ -3,6 +3,7 @@
 
 #include "core/hit_test.h"
 #include "core/layout.h"
+#include "core/slot_layout.h"
 #include "core/tokens.h"
 #include "expect.h"
 #include "providers/demo/demo_media_provider.h"
@@ -86,8 +87,15 @@ void runProviderTests()
     }
     // Decision 094: play is the hero, a filled circle; the card grows to fit it under a bigger cover.
     const Button* hero = island.button(playPause);
-    expect(hero && hero->primary && hero->compact, "play is the card's primary action, sized for a row of controls");
-    expect(card.size.y > tk.expandedSize.y, "the media card grows past Expanded's height for its controls");
+    expect(hero && hero->primary && !hero->compact, "play is the card's primary action, the full circle (decision 107)");
+    const Text& song = std::get<Text>(island.state.activities.front().content.expandedCenter[0].items[0]);
+    expect(song.style == TextStyle::CardTitle && song.marquee, "the song's title: big, and swims when too long, like the pill's");
+    // Every card and Home share Expanded's height (decision 107): media's rows fit it, or tabs resize the island again.
+    expect(card.size.y == tk.expandedSize.y, "the media card is Expanded's height");
+    // ...and its parts fill it (decision 107): the cover, its rows and controls need all but a few pixels of it.
+    const Slot& under = island.state.activities.front().content.expandedBottom;
+    float needed = 2 * tk.expandedPadding + tk.expandedArtSize + tk.slotGap + slotHeight(under, { 0, 0, card.size.x, card.size.y }, {}, {});
+    expect(needed <= card.size.y && card.size.y - needed <= 12, "no band of empty space: " + std::to_string(int(card.size.y - needed)) + " px spare");
     for (const Placed& p : card.elements)
         if (p.key == "expandedLeading/0/0")
             expect(p.raised && p.frame.width == tk.expandedArtSize, "the cover is raised (a shadow under it), at its full size");
@@ -100,8 +108,24 @@ void runProviderTests()
     expect(progress && !progress->timeline.playing && progress->timeline.position == Ms{ 5000 },
            "pause freezes the timeline where it was");
 
-    // Shuffle (leading edge) and repeat (trailing edge) are toggles that light up.
+    // Shuffle (leading) and repeat (trailing) are toggles that light up, beside the
+    // skips, the row's loose gap away, not in the corners (decision 107).
     const std::string repeat = "expandedBottom/1/3", shuffle = "expandedBottom/1/4";
+    {
+        Scene controls = island.scene();
+        auto at = [&](const std::string& key) {
+            for (const Placed& p : controls.elements)
+                if (p.key == key) return p.frame;
+            return Rect{};
+        };
+        Rect prev = at("expandedBottom/1/0"), next = at("expandedBottom/1/2"), sh = at(shuffle), re = at(repeat), bar = at("expandedBottom/0/1");
+        expect(std::abs(sh.x + sh.width + tk.looseItemSpacing - prev.x) < 0.01f && std::abs(next.x + next.width + tk.looseItemSpacing - re.x) < 0.01f,
+               "shuffle and repeat right beside previous and next");
+        expect(std::abs(sh.x - (controls.size.x - re.x - re.width)) < 0.01f, "the whole group centred");
+        Rect elapsed = at("expandedBottom/0/0"), left = at("expandedBottom/0/2");
+        expect(elapsed.width < tk.timeLabelWidth && left.width < tk.timeLabelWidth && elapsed.x + elapsed.width + tk.itemSpacing == bar.x,
+               "the times as wide as they get, close to the bar: no fixed column");
+    }
     expect(island.button(shuffle) && island.button(shuffle)->glyph == Glyph::Shuffle && island.button(shuffle)->on == false,
            "shuffle shows, off");
     expect(island.button(shuffle)->secondary && island.button(repeat)->secondary, "shuffle and repeat are quiet until on (decision 094)");

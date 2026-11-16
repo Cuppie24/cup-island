@@ -11,24 +11,29 @@ namespace {
 using Phase = PomodoroPhase;
 namespace act = pomodoro_action;
 
-// The card is laid out like media's (decisions 094, 106), so the two are
-// one size: the ring where the cover goes, the time left big beside it and
-// what it is under that, the expand button in the top-right corner (where
-// media's app switch goes), then a bar with the time gone and left, and the
-// controls, ▶/⏸ the filled circle between two bright ones.
-Content timerCard(Content c, const Timeline& timeline, const std::string& what, std::vector<Item> controls)
+// The card (decision 107): a header, the phase's dot in its colour, its
+// name and the round, the window's button at the right (statistics and
+// settings are its pages); the time left, big and heavy, centred; the session's phases as
+// steps under it; then the controls, ▶/⏸ the filled circle between stop and
+// skip. Stacked and centred: the time is what it's about. It fits the
+// height every card and Home share, so switching tabs doesn't resize the island.
+Content timerCard(Content c, const Timeline& timeline, const Steps& steps, const std::string& name, const std::string& detail,
+                  std::vector<Item> controls)
 {
-    c.card = CardLayout::Standard;
+    c.card = CardLayout::Centred;
     c.keepOpen = true;      // a click between the controls doesn't close it (Content::keepOpen)
     c.noIdleTimeout = true; // nor does being left alone: a timer kept in view (decision 062)
-    c.expandedLeading = { row({ Progress{ .timeline = timeline, .shape = ProgressShape::Ring } }) };
-    c.expandedCenter = { row({ TimeLabel{ .timeline = timeline, .countdown = true, .style = TextStyle::Display } }),
-                         row({ Text{ what, TextStyle::Caption } }) };
-    c.expandedTrailing = { row({ Button{ .glyph = Glyph::Expand, .actionId = act::kOpenWindow, .secondary = true } }) };
-    Row buttons{ .items = std::move(controls), .align = Align::Center, .loose = true }; // big, well-separated targets
-    c.expandedBottom = { row({ TimeLabel{ timeline }, Progress{ timeline }, TimeLabel{ timeline, true } }), buttons };
+    Row header{ .leading = { Steps{ .count = 1 }, Text{ name, TextStyle::Title }, Text{ detail, TextStyle::Caption } } };
+    if (kPomodoroWindowReady) // hidden while the window isn't finished
+        header.trailing = { Button{ .glyph = Glyph::Expand, .actionId = act::kOpenWindow, .compact = true, .secondary = true } };
+    Row time = row({ TimeLabel{ .timeline = timeline, .countdown = true, .style = TextStyle::Hero } }, Align::Center);
+    Row phases{ .items = { steps }, .align = Align::Center, .apart = true };
+    Row buttons{ .items = std::move(controls), .align = Align::Center, .loose = true, .apart = true }; // well-separated targets
+    c.expandedCenter = { header, time, phases, buttons };
     return c;
 }
+
+std::string roundsOf(int round) { return "round " + std::to_string(round) + " of " + std::to_string(tokens().pomodoroRounds); }
 
 } // namespace
 
@@ -60,6 +65,14 @@ std::string progressCaption(const PomodoroSession& s)
 {
     std::string caption = std::to_string(phasesDone(s)) + " of " + std::to_string(phaseCount()) + " done"; // the dial says the phase
     return s.timeline.playing ? caption : "Paused · " + caption;
+}
+
+Steps phaseSteps(int done)
+{
+    Steps steps{ .count = phaseCount(), .done = done };
+    for (int i = 0; i < steps.count; ++i) // focus, break, ... focus, long break
+        steps.lengths.push_back(i == steps.count - 1 ? StepLength::Short : i % 2 == 0 ? StepLength::Long : StepLength::Dot);
+    return steps;
 }
 
 // One size whatever the phase (sized for the plan's longest).
@@ -99,7 +112,7 @@ Dialog resetQuestion()
              .confirmLabel = "Reset", .confirmAction = act::kResetStatsConfirmed, .destructive = true };
 }
 
-// Dormant (decision 106): the planned focus in its empty ring, ▶ under it.
+// Dormant (decisions 106, 107): the planned focus, the steps to come, ▶ under them.
 // The to-dos, today, the statistics and settings are the window's. The
 // widget is laid out like the running one: the timer icon where the ring
 // goes, the focus time, the rounds.
@@ -113,27 +126,28 @@ Panel pomodoroPanel(const PomodoroPlan& plan)
         .tileLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
         .tile = { row({ Text{ formatDuration(plan.focus), TextStyle::Title } }), row({ Text{ rounds, TextStyle::Caption } }) },
     };
-    content = timerCard(std::move(content), { .duration = plan.focus }, rounds,
+    content = timerCard(std::move(content), { .duration = plan.focus }, phaseSteps(0), "Focus", std::to_string(t.pomodoroRounds) + " rounds",
                         { Button{ .glyph = Glyph::Play, .actionId = act::kStart, .compact = true, .primary = true } });
-    return { .id = kPomodoroPanelId, .content = content, .wide = true };
+    // New (decision 110): the host shows "New" on its widget until its card is first opened.
+    return { .id = kPomodoroPanelId, .content = content, .wide = true, .announce = 1 }; // raise it to announce it again
 }
 
 // Compact: the countdown centred, the ring filling on the right; no phase
-// name (the colour says it). Expanded (decision 106): the timer card, its
-// phase and round under the time; the phase dots and the rest are in the
-// window. The widget (decision 019): the ring filling, the time left, the phase and round.
+// name (the colour says it). Expanded (decision 107): the timer card, the
+// phase and round over the time, its steps under it; the rest is in the
+// window (decision 106). The widget (decision 019): the ring filling, the time left, the phase and round.
 Content pomodoroContent(const PomodoroSession& s, const PomodoroPlan&)
 {
     std::string name = phaseName(s.phase);
     std::string glance = s.timeline.playing ? name : "Paused";
     if (s.phase != Phase::LongBreak) glance += " · " + std::to_string(s.round) + "/" + std::to_string(tokens().pomodoroRounds);
-    std::string what = s.timeline.playing ? name : "Paused · " + name;
-    if (s.phase != Phase::LongBreak) what += " · round " + std::to_string(s.round) + " of " + std::to_string(tokens().pomodoroRounds);
+    std::string detail = s.phase == Phase::LongBreak ? "last one" : roundsOf(static_cast<int>(s.round));
+    if (!s.timeline.playing) detail = "paused · " + detail;
     TimeLabel tileLeft{ .timeline = s.timeline, .countdown = true, .style = TextStyle::Title };
     TimeLabel compactLeft{ .timeline = s.timeline, .countdown = true, .style = TextStyle::Body };
     Progress ring{ .timeline = s.timeline, .shape = ProgressShape::Ring };
     Button stop{ .glyph = Glyph::Stop, .actionId = act::kStop };
-    Button pause{ .glyph = s.timeline.playing ? Glyph::Pause : Glyph::Play, .actionId = act::kPause, .compact = true, .primary = true };
+    Button pause{ .glyph = s.timeline.playing ? Glyph::Pause : Glyph::Play, .actionId = act::kPause, .compact = true, .primary = true }; // media's size: the card fits its height
     Button skip{ .glyph = Glyph::Next, .actionId = act::kSkip };
     Content content{
         .label = name,
@@ -146,7 +160,7 @@ Content pomodoroContent(const PomodoroSession& s, const PomodoroPlan&)
         .tileLeading = { row({ ring }, Align::Center) },
         .tile = { row({ tileLeft }), row({ Text{ glance, TextStyle::Caption } }) },
     };
-    return timerCard(std::move(content), s.timeline, what, { stop, pause, skip });
+    return timerCard(std::move(content), s.timeline, phaseSteps(phasesDone(s)), name, detail, { stop, pause, skip });
 }
 
 } // namespace cup

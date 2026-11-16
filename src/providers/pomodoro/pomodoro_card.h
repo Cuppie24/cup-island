@@ -1,8 +1,8 @@
 #pragma once
 // Pomodoro on the island, pure (tested on its own): the dormant panel and a
-// running session's card, each only the dial and its controls, with a
-// button that opens the timer's window, where everything else is
-// (pomodoro_window.h, decision 106); the stop question.
+// running session's card, each the time, its phases and its controls, with
+// buttons that open the timer's window, where everything else is
+// (pomodoro_window.h, decisions 106, 107); the stop question.
 
 #include "core/island.h"
 #include "providers/pomodoro/pomodoro_session.h"
@@ -14,6 +14,9 @@ namespace cup {
 
 inline constexpr const char* kPomodoroPanelId = "pomodoro.focus"; // the panel and its activity
 inline constexpr const char* kPomodoroWindowId = "timer";         // its window (decision 106)
+// The window isn't finished: until it is, the card has no button into it
+// (decision 107). Its action still opens it, for the tests and for turning it back on.
+inline constexpr bool kPomodoroWindowReady = false;
 
 namespace pomodoro_action {
 inline constexpr const char* kStart = "start";
@@ -47,9 +50,9 @@ struct PomodoroGlance {
 };
 PomodoroGlance glanceOf(const PomodoroStats& stats, const DaysOff& off, long long today);
 
-// Dormant: the focus time in its empty ring and ▶. Its widget: the planned focus and the rounds.
+// Dormant: the focus time, the steps to come and ▶. Its widget: the planned focus and the rounds.
 Panel pomodoroPanel(const PomodoroPlan& plan = defaultPlan());
-// Running: the dial and stop, pause, skip; compact, minimal and the widget count down.
+// Running: the time, the steps and stop, pause, skip (decision 107); compact, minimal and the widget count down.
 Content pomodoroContent(const PomodoroSession& session, const PomodoroPlan& plan = defaultPlan());
 
 // Shared with the window: the time in a ring that fills as it goes, its label under it (decision 065).
@@ -59,6 +62,9 @@ std::string phaseName(PomodoroPhase phase);
 std::string progressCaption(const PomodoroSession& session);
 int phaseCount();
 int phasesDone(const PomodoroSession& session);
+// The session's phases as steps, `done` of them done (decision 107): a
+// focus a long pill, a break a dot, the long break a short pill.
+Steps phaseSteps(int done);
 
 // The question the stop button asks before ending a running session.
 Dialog stopQuestion(const PomodoroSession& session);

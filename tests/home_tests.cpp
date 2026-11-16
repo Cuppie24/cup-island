@@ -51,7 +51,8 @@ void runHomeTests()
     // tile twice a narrow one, a row that isn't full stretches, centred vertically.
     IslandState s = withPanels({ panel("a"), panel("b", true), panel("c") });
     Scene home = layout(reduce(s, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    float stripSpace = t.tabHeight + t.slotGap; // Home always has its tab strip: Home's button and the pin (decision 046)
+    // Home always has its strip: Home's button and the pin (decision 046); the row's room (decision 109).
+    float stripSpace = t.tabRowInset + t.tabHeight + t.tabRowGap - t.expandedPadding;
     expect(home.mode == Mode::Expanded && home.size.x == t.expandedSize.x && home.size.y == t.expandedSize.y + stripSpace,
            "one row: Home keeps Expanded's card size, plus its strip");
     expect(home.tabs && home.tabs->tabs.size() == 1 && home.tabs->pin, "only Home: its button, active, and the pin");
@@ -84,10 +85,10 @@ void runHomeTests()
 
     // Nothing is hidden: Home grows to fit every row, up to the canvas.
     IslandState many;
-    for (int i = 0; i < 12; ++i) many = reduce(many, PanelPublished{ panel("p" + std::to_string(i)) }, Ms{ 0 });
+    for (int i = 0; i < 16; ++i) many = reduce(many, PanelPublished{ panel("p" + std::to_string(i)) }, Ms{ 0 });
     Scene full = layout(reduce(many, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    expect(full.tiles.size() == 12, "every widget shows");
-    expect(full.size.y == 3 * (t.tileHeight + gap) - gap + 2 * p + stripSpace && full.size.y <= t.canvas.y, "the card grows to fit three rows");
+    expect(full.tiles.size() == 16, "every widget shows");
+    expect(full.size.y == 4 * (t.tileHeight + gap) - gap + 2 * p + stripSpace && full.size.y <= t.canvas.y, "the card grows to fit four rows");
     for (const Tile& tile : full.tiles)
         expect(tile.frame.y + tile.frame.height <= full.size.y - p + 0.01f, "tile inside the card: " + tile.id);
 
@@ -116,27 +117,28 @@ void runHomeTests()
     expect(runningLabel && std::get<Text>(runningLabel->item).value == "running", "running: the activity's tile");
     expect(liveScene.tiles[0].frame.x == a.frame.x, "the tile stays where it was");
 
-    // Tabs along the bottom: Home's square icon button apart at the left, then
-    // activities, centred on the card; Home stays selected for a dormant panel's card.
+    // The page row (decision 109): Home's dot first, then activities', centred with
+    // ‹ and › beside them; Home's own button apart at the top left.
     IslandState tabbed = reduce(running, ActivityStarted{ { .id = "media", .content = { .label = "Song" } } }, Ms{ 0 });
     tabbed = reduce(tabbed, HomeOpened{}, Ms{ 0 });
     Scene strip = layout(tabbed, Ms{ 0 });
     expect(strip.tabs && strip.tabs->tabs.size() == 3 && strip.tabs->tabs[0].id.empty() && strip.tabs->active == 0,
-           "Home button first and selected on Home");
-    const Tab& homeButton = strip.tabs->tabs[0];
-    expect(homeButton.frame == Rect{ p, p, t.homeButtonWidth, t.tabHeight }, "Home: a button at the top left (decision 047)");
+           "Home's dot first, and the shown one on Home");
+    expect(strip.tabs->home && strip.tabs->home->id == kHomeTab, "and Home's button");
+    const Tab& homeButton = *strip.tabs->home;
+    expect(homeButton.frame == Rect{ p, t.tabRowInset, t.homeButtonWidth, t.tabHeight }, "Home: a button at the top left (decisions 047, 109)");
     expect(tabAt(*strip.tabs, { 1, 1 }) == &homeButton, "its click area takes in the card's corner");
-    expect(tabAt(*strip.tabs, { p + t.homeButtonWidth + t.slotGap / 2 - 1, homeButton.frame.y + t.tabHeight + t.slotGap / 2 - 1 }) == &homeButton,
+    expect(tabAt(*strip.tabs, { p + t.homeButtonWidth + t.slotGap / 2 - 1, homeButton.frame.y + t.tabHeight + t.tabRowGap / 2 - 1 }) == &homeButton,
            "and half the gaps around it");
     expect(!tabAt(*strip.tabs, { p + t.homeButtonWidth + t.slotGap / 2 + 1, homeButton.frame.y + 2 }), "but no further");
-    const Tab& first = strip.tabs->tabs[1];
-    const Tab& last = strip.tabs->tabs[2];
-    expect(first.frame.x >= homeButton.frame.x + homeButton.frame.width + t.slotGap, "set apart from the activity tabs");
-    expect(std::abs(first.frame.x - (strip.size.x - last.frame.x - last.frame.width)) < 0.01f, "activity tabs stay centred on the card");
-    expect(first.frame.y == homeButton.frame.y, "one strip");
+    const Tab& before = *strip.tabs->previous;
+    const Tab& after = *strip.tabs->next;
+    expect(before.frame.x >= homeButton.frame.x + homeButton.frame.width + t.slotGap, "set apart from the dots and arrows");
+    expect(std::abs(before.frame.x - (strip.size.x - after.frame.x - after.frame.width)) < 0.01f, "the dots and arrows stay centred on the card");
+    expect(before.frame.y + before.frame.height / 2 == homeButton.frame.y + homeButton.frame.height / 2, "one row");
     float highest = strip.size.y;
     for (const Tile& tile : strip.tiles) highest = std::min(highest, tile.frame.y);
-    expect(highest >= homeButton.frame.y + t.tabHeight + t.slotGap, "tiles sit under the strip");
+    expect(highest >= homeButton.frame.y + t.tabHeight + t.tabRowGap, "tiles sit under the strip");
     const Placed* homeIcon = find(strip, "tab/home/lead");
     expect(homeIcon && std::get<Icon>(homeIcon->item).glyph == Glyph::Home && !find(strip, "tab/home/title"), "Home: icon only");
     expect(std::abs(homeIcon->frame.x + homeIcon->frame.width / 2 - (homeButton.frame.x + t.homeButtonWidth / 2)) < 0.01f, "icon centred");
@@ -214,6 +216,35 @@ void runHomeTests()
     Scene countdown = layout(counting, Ms{ 1 });
     const Placed* left = find(countdown, "expandedBottom/0/0");
     expect(left && std::get<Text>(left->item).value == "24:59" && std::get<Text>(left->item).centred, "countdown: 24:59, no minus, centred");
+
+    // "New" (decision 110): drawn on an announced widget's first line until its card is opened.
+    Panel fresh = panel("fresh");
+    fresh.announce = 1;
+    Panel still = panel("still"); // no card to open: never New
+    still.announce = 1;
+    still.content.expandedCenter.clear();
+    IslandState news = withPanels({ fresh, still });
+    auto tagOn = [](const Scene& scene, const std::string& tile) {
+        for (const Placed& p : scene.elements)
+            if (auto* tag = std::get_if<Tag>(&p.item); tag && tag->text == "New" && p.key.rfind("tile/" + tile + "/", 0) == 0) return &p;
+        return static_cast<const Placed*>(nullptr);
+    };
+    Scene unseen = layout(reduce(news, PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    const Placed* tag = tagOn(unseen, "fresh");
+    const Placed* name = find(unseen, "tile/fresh/0/0");
+    expect(tag && name && tag->frame.x > name->frame.x && std::abs(tag->frame.y + tag->frame.height / 2 - (name->frame.y + name->frame.height / 2)) < 1,
+           "an announced widget: New on its first line, after its text");
+    expect(!tagOn(unseen, "still"), "announced but with no card: nothing to open, so never New");
+    news = reduce(reduce(news, PillClicked{}, Ms{ 0 }), TileClicked{ "fresh" }, Ms{ 0 });
+    news = reduce(reduce(news, EscapePressed{}, Ms{ 0 }), HomeOpened{}, Ms{ 0 });
+    expect(!tagOn(layout(news, Ms{ 0 }), "fresh"), "its card opened once: no more New");
+    expect(news.seenPanels == std::map<std::string, int>{ { "fresh", 1 } }, "and the host remembers it (the app saves seenPanels)");
+    // The provider announces it again (a feature added to it): New again, until opened again.
+    fresh.announce = 2;
+    news = reduce(news, PanelPublished{ fresh }, Ms{ 0 });
+    expect(tagOn(layout(news, Ms{ 0 }), "fresh") != nullptr, "announced again: New again");
+    news = reduce(reduce(news, TileClicked{ "fresh" }, Ms{ 0 }), HomeOpened{}, Ms{ 0 });
+    expect(!tagOn(layout(news, Ms{ 0 }), "fresh") && news.seenPanels["fresh"] == 2, "...until its card is opened again");
 }
 
 } // namespace cup::test

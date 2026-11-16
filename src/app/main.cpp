@@ -198,10 +198,13 @@ void pointerStill(app::Surface& s) { s.pointer.still = true; }
 void updateHover(app::Surface& s)
 {
     std::optional<Vec2> at = hoverPoint(s);
+    // The top band (decision 108): it glows, and what's under it doesn't light up: a click there closes.
+    bool onTop = at && !s.pointer.scrub && inCollapseZone(s.scene, *at);
+    s.renderer->setTopGlow(onTop);
     std::string key;
     if (s.pointer.scrub) {
         key = s.pointer.scrub->key; // stays lit while dragged, even off the bar
-    } else if (at) {
+    } else if (at && !onTop) {
         if (auto hit = hitTest(s.scene, *at)) key = hit->key;
     }
     s.renderer->setHovered(key);
@@ -216,15 +219,15 @@ void updateHover(app::Surface& s)
 
     // Tabs light up as a whole, except the active one, which is already marked (decision 007).
     // Home's tiles too, unless the pointer is on one of their buttons (decision 009).
-    const Tab* tab = s.scene.tabs && at ? tabAt(*s.scene.tabs, *at) : nullptr;
+    const Tab* tab = s.scene.tabs && at && !onTop ? tabAt(*s.scene.tabs, *at) : nullptr;
     if (tab && isCurrent(s, *tab)) tab = nullptr;
     s.renderer->setHoveredTab(tab ? std::optional<std::string>(tab->id) : std::nullopt); // its grey content in colour (decision 072)
-    const Tile* tile = at && key.empty() ? tileAt(s.scene, *at) : nullptr;
+    const Tile* tile = at && key.empty() && !onTop ? tileAt(s.scene, *at) : nullptr;
     if (tile && !tile->clickable()) tile = nullptr; // widgets without a card or tap action don't react
     // A list item (a to-do) lights up as a whole row, like a tab (Row::listItem).
     bool onMenu = at && s.scene.menu && s.scene.menu->frame.contains(*at); // a row's menu covers what's under it (decision 086)
     const Placed* item = at && !s.pointer.scrub && !onMenu ? contentUnder(s, *at) : nullptr;
-    if (tab) s.renderer->setAreaHovered(tab->frame, s.scene.tabs->radius);
+    if (tab) s.renderer->setAreaHovered(tab->lit, tab->radius); // a soft circle round a dot, a button's round shape
     else if (tile) s.renderer->setAreaHovered(tile->frame, s.scene.tileRadius);
     else if (item && item->listRow) s.renderer->setAreaHovered(item->listRow, item->listRowRadius);
     else if (auto lit = &s == &g_island && escapeCloses(g_state) && !app::keyFocus() ? defaultRow(s.scene) : std::nullopt)
@@ -247,6 +250,14 @@ std::optional<Ms> earliest(std::optional<Ms> a, std::optional<Ms> b)
 }
 
 void saveSpot();
+
+// Each announced panel's announcement last opened (decision 110): in the
+// store under the island's own name, "<id> <n>" a line, so a widget's "New"
+// stays gone after a restart until its provider announces it again.
+constexpr const char* kIslandStore = "island";
+constexpr const char* kSeenPanelsKey = "seenPanels";
+std::map<std::string, int> loadSeenPanels();
+void saveSeenPanels(const std::map<std::string, int>& seen);
 void onLifted();
 void tokensChanged(Vec2 oldCanvas, const char* reason);
 
@@ -264,7 +275,9 @@ void dispatch(const Event& event, const char* reason)
     bool wasHidden = g_state.hidden;
     std::optional<ShownCard> wasCard = shownCard(g_state);
     std::optional<Draft> wasDraft = g_state.draft;
+    std::map<std::string, int> wasSeen = g_state.seenPanels; // a few entries: cheap to compare
     g_state = reduce(g_state, event, t);
+    if (g_state.seenPanels != wasSeen) saveSeenPanels(g_state.seenPanels);
     Scene next = layout(g_state, t, [](const Text& text) { return g_renderer.measure(text); });
 
     if (next.mode != g_island.scene.mode) {
@@ -449,6 +462,11 @@ void onPressDown(app::Surface& s, Vec2 canvasPoint)
     }
     Vec2 point = toLocal(s, canvasPoint);
     s.pointer.at = point;
+    if (inCollapseZone(s.scene, point)) { // the top band: over tabs and buttons, it closes (decision 108)
+        s.pointer.topPress = true;
+        s.renderer->pressDown(false);
+        return;
+    }
     if (const Tab* tab = tabUnder(s, point)) {
         s.pointer.tabPress = tab->id; // switches on release, if still on the same tab
         return;
@@ -542,6 +560,12 @@ void onPointerMoved(app::Surface& s, Vec2 canvasPoint, bool inside)
 // What a click does, by what it's on. The pointer's release and the keyboard's Enter share them.
 void clickTab(const std::string& id)
 {
+    if (id == kPreviousTab || id == kNextTab) { // the arrows beside the dots: the page before or after, round the strip (decision 109)
+        std::optional<std::string> to = id == kPreviousTab ? previousTab(g_island.scene) : nextTab(g_island.scene);
+        if (to) clickTab(*to);
+        return;
+    }
+    if (id == kHomeTab) return clickTab(""); // Home's button: as Home's dot
     if (id == kPinTab) dispatch(StayOpenToggled{}, g_state.stayOpen ? "unpin" : "pin"); // decision 046
     else dispatch(id.empty() ? Event{ HomeOpened{} } : Event{ ActivitySwitched{ id } }, "tab");
 }
@@ -596,6 +620,12 @@ void onPressRelease(app::Surface& s, Vec2 canvasPoint, Release how)
     if (!std::exchange(s.pointer.selecting, std::string{}).empty()) {
         updateHover(s);
         return; // the caret and selection are where the drag left them
+    }
+    if (std::exchange(s.pointer.topPress, false)) {
+        s.renderer->pressRelease(false);
+        if (how == Release::Inside && onShape(s, canvasPoint) && inCollapseZone(s.scene, toLocal(s, canvasPoint)))
+            dispatch(TopClicked{}, "top click");
+        return;
     }
     if (s.pointer.tabPress) {
         std::string id = *std::exchange(s.pointer.tabPress, std::nullopt);
@@ -829,6 +859,28 @@ void onLifted()
 }
 
 // Where the island rests on this monitor, kept for the next start (decision 026).
+std::map<std::string, int> loadSeenPanels()
+{
+    std::map<std::string, int> seen;
+    std::istringstream lines(store().load(kIslandStore, kSeenPanelsKey));
+    for (std::string line; std::getline(lines, line);) {
+        std::istringstream fields(line);
+        std::string id;
+        int announce = 1; // a bare id: the first announcement
+        if (!(fields >> id)) continue;
+        fields >> announce;
+        seen[id] = std::max(announce, 1);
+    }
+    return seen;
+}
+
+void saveSeenPanels(const std::map<std::string, int>& seen)
+{
+    std::string text;
+    for (const auto& [id, announce] : seen) text += id + " " + std::to_string(announce) + "\n";
+    store().save(kIslandStore, kSeenPanelsKey, text);
+}
+
 void saveSpot()
 {
     auto it = g_spots.find(g_displayId);
@@ -968,6 +1020,7 @@ int main()
     g_spots = parseSpots(readTextFile(g_spotsFile));
     g_state = reduce(g_state, ScreenResized{ static_cast<float>(render.width) }, now());
     g_state = reduce(g_state, SpotRestored{ savedSpot(g_displayId) }, now());
+    g_state = reduce(g_state, PanelsSeen{ loadSeenPanels() }, now()); // before the providers publish their widgets (decision 110)
     g_island.scene = layout(g_state, now());
     g_island.renderer = &g_renderer;
     g_renderer.build(render.compositor, render.root, g_island.scene);

@@ -62,7 +62,9 @@ struct Tokens {
     Vec2 idleSize{ 160, 28 };
     Vec2 compactSize{ 260, 32 };
     Vec2 alertSize{ 320, 64 };
-    Vec2 expandedSize{ 480, 171 }; // every card and Home: the width a to-do's text needs (decisions 043, 047)
+    // Every card and Home: the width a to-do's text needs (decisions 043, 047); one height for all,
+    // room for the tallest (the timer's), so switching tabs never resizes the island (decision 107).
+    Vec2 expandedSize{ 480, 248 };
     Vec2 receptiveSize{ 380, 84 };
     Vec2 hiddenSize{ 160, 0 };
     float maxCornerRadius = 34; // bottom corners: half the height, capped, so big shapes aren't blobs
@@ -107,7 +109,7 @@ struct Tokens {
     float windowNavHeight = 38; // a page's entry in the sidebar
     float windowPageMaxWidth = 600; // a page's content no wider: rows of settings don't need a wide screen
     float windowNavRadius = 8; // the picked page's highlight
-    float expandedArtSize = 88; // expanded leading square: the cover, bigger than the text beside it (decision 094)
+    float expandedArtSize = 120; // expanded leading square: the cover, filling the card's shared height with its controls (decisions 094, 107)
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;
     float itemSpacing = 8;
@@ -115,7 +117,10 @@ struct Tokens {
     float titleFontSize = 17;   // the type ramp steps 2 px: caption 13, body 15, title 17 (decision 024)
     float bodyFontSize = 15;
     float captionFontSize = 13; // the smallest text: ~11 px on screen at 100% after islandScale
-    float displayFontSize = 48; // TextStyle::Display: a timer as the card's centre
+    float displayFontSize = 48; // TextStyle::Display: a timer in a dial (decision 065)
+    float cardTitleFontSize = 22; // TextStyle::CardTitle: a card's main line beside its cover (media's song, decision 107)
+    float heroFontSize = 64;    // TextStyle::Hero: the one big number a card is about (Pomodoro's time, decision 107)
+    float heroLineHeight = 60;  // ...its line: digits only, no descenders, so tighter than other text's
     float headingFontSize = 14; // TextStyle::Heading: a group's label, in the caption colour, a little over caption size (decision 090)
     float pageTitleFontSize = 24; // TextStyle::PageTitle: a window page's name (decision 104)
     // Font weights, 100..900 (400 regular, 600 semibold; decision 024). Segoe UI Variable
@@ -124,6 +129,8 @@ struct Tokens {
     float bodyFontWeight = 600;    // semibold: text on the island reads heavier than on a page (decision 024)
     float captionFontWeight = 600;
     float displayFontWeight = 300; // big and still the lightest, like a clock face
+    float cardTitleFontWeight = 800;
+    float heroFontWeight = 800;    // heavy: the card's timer reads from across the desk (decision 107)
     float headingFontWeight = 600; // a group's label is quiet: its group's background sets it apart (decision 090)
     float pageTitleFontWeight = 700;
     // Darkens antialiased text strokes (DirectWrite's grayscale enhanced
@@ -170,14 +177,20 @@ struct Tokens {
     float editInset = 6;          // editable Text is drawn this far in from its stretch, which its field fills when edited (decision 043)
     float buttonLabelPadding = 10; // a text button: its label plus this on each side        // hover circle; the click area also takes in half the gaps around it
     float buttonGlyphSize = 16;
+    float largeButtonSize = 44;      // Button::large: a card's main controls beside its ▶ (media's skips, decision 107)
+    float largeButtonGlyphSize = 22;
     float buttonPressScale = 0.85f;
     float progressHeight = 4;
     float progressHitHeight = 16; // taller than drawn, so it's easy to click
     float progressKnobSize = 12;  // the scrub handle shown on hover
     float timeLabelWidth = 56;  // fits "-1:02:05" at captionFontSize
     float ringThickness = 3;      // progress ring stroke (decision 010)
-    float stepDotSize = 9;        // Steps: one dot per step
+    float stepDotSize = 9;        // Steps: one dot per step; a pill step's height
     float stepDotGap = 8;
+    float stepShortWidth = 16;    // StepLength::Short: a pill a little longer than a dot (the long break, decision 107)
+    float stepLongWidth = 34;     // StepLength::Long: a long pill (a focus)
+    float stepHaloWidth = 3;      // the current step's ring of its accent, faint, around it
+    float stepHaloOpacity = 0.35f;
     float badgeSize = 8;          // a notification dot (decision 038)
     float badgeInset = 7;         // ...at least this far in from a widget's or tab's edges (its corner's rounding sets it, decision 038)
     float swatchSize = 24;        // Swatch: a colour sample (a theme on Settings' list, decision 030)
@@ -261,10 +274,16 @@ struct Tokens {
     float glassGlowCurve = 2.5f;    // how it fades up its reach (glowFade): higher hugs the edge more; past 1, it melts away at the top
     float glassRimWidth = 1;      // the rim's width, inside the edge
 
-    // Expanded's tabs: one per activity along the top of the card (decisions 007, 047).
-    float tabHeight = 36;
-    float tabGap = 4;
-    float tabMaxWidth = 140;      // each tab's width; the group is centred, and shrinks only when they don't fit
+    // Expanded's page row along the top of the card (decisions 007, 047, 109): a dot per page,
+    // the shown one a line, an arrow on each side of them; Home's button and the pin at the edges.
+    float tabHeight = 32;      // the row: its buttons' height, their hover shapes
+    float tabRowInset = 12;    // from the card's edge: just inside the top band (collapseZoneHeight), not the card's padding
+    float tabRowGap = 6;       // between the row and the card's content
+    float tabDotSize = 6;
+    float tabDotGap = 10;      // each dot's click area: its width and this
+    float tabLineWidth = 18;   // the shown page's line
+    float tabArrowSize = 32;   // ‹ and ›: round buttons beside the dots, the row's height
+    float tabArrowGap = 4;     // ...this far from the dots
     float homeButtonWidth = 44;   // Home's icon-only button, apart at the left (decision 009)
     float tabMutedOpacity = 0.5f; // a tab not shown, Home and the pin included: its content grey and this strong until hovered (decision 072)
 
@@ -314,6 +333,9 @@ struct Tokens {
 
     // Content crossfades slightly after the pill starts morphing.
     Ms contentFadeDuration{ 150 };
+    // A Hero time's digits roll as they change (decision 107): the new one
+    // falls in from above as the old one drops out below, over this long.
+    Ms digitRollDuration{ 380 };
     // New content starts arriving once the growing pill is this share of the
     // way to its new size (decision 080): with the spring that's early, and it
     // follows the morph's own timing. A shrinking pill shows it at once.
@@ -335,6 +357,15 @@ struct Tokens {
 
     // Arbitration (PS §6).
     Ms alertDuration{ 3000 };
+    // The top band of an expanded island (decision 108): a click there always
+    // closes it; under the pointer, a soft glow fades down from the top edge.
+    float collapseZoneHeight = 12;
+    float collapseGlowHeight = 28;
+    // It spreads in from the top edge's middle (this share of its width, a sliver
+    // tall) to its full size as it fades in, over collapseGlowDuration; it fades out shrinking back.
+    float collapseGlowSpread = 0.3f;
+    Ms collapseGlowDuration{ 280 };
+    float collapseGlowOpacity = 0.12f; // the theme's text colour, this strong at the edge: a light glow on a dark island, a shade on a light one
     Ms toastDuration{ 5000 }; // a toast at a card's bottom goes after this (decision 071)
     Ms toastSlideDuration{ 260 }; // ...and slides up from below the card's edge, fading in, and back down, over this
     Ms menuOpenDuration{ 140 };   // a row's menu grows and fades in from where it opens, over this (decision 086); it goes at once

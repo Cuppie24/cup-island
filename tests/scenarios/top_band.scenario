@@ -1,0 +1,31 @@
+# The top band of an expanded island (decision 108): a click there always
+# closes it, even where a click on the card's empty space does nothing.
+
+scenario: a card closes from the top, like a click on its empty space
+start timer
+click                               -> Expanded expanded=timer
+top-click                           -> Compact
+
+scenario: Home closes from the top, though an empty click there keeps it
+panel focus
+home                                -> Expanded expanded=home
+click                               -> Expanded expanded=home
+top-click                           -> Idle
+
+scenario: a card that keeps open on a click closes from the top
+panel notes keep
+home
+tile notes                          -> Expanded expanded=notes
+click                               -> Expanded expanded=notes
+top-click                           -> Idle
+
+scenario: pinned, it closes from the top too, and the pin goes with it
+start timer
+click
+pin                                 -> stay=yes
+click                               -> Expanded stay=yes
+top-click                           -> Compact stay=no
+
+scenario: outside Expanded the top does nothing
+start timer                         -> Compact
+top-click                           -> Compact

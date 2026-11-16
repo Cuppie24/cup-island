@@ -111,13 +111,13 @@ void tabRowTests()
     bottom = reduce(bottom, TabRowPlaced{ false }, Ms{ 0 });
     Scene up = layout(top, Ms{ 0 }), down = layout(bottom, Ms{ 0 });
     const Tokens& t = tokens();
-    expect(up.tabs->tabs[0].frame.y == t.expandedPadding && down.tabs->tabs[0].frame.y == down.size.y - t.expandedPadding - t.tabHeight,
+    expect(up.tabs->pin->frame.y == t.tabRowInset && down.tabs->pin->frame.y == down.size.y - t.tabRowInset - t.tabHeight,
            "tab row: along the top, or the bottom");
     expect(down.size == up.size, "tab row: the card is as tall either way");
     float upText = 0, downText = 0;
     for (const Placed& p : up.elements) if (p.key.rfind("tab/", 0) != 0) upText = p.frame.y;
     for (const Placed& p : down.elements) if (p.key.rfind("tab/", 0) != 0) downText = p.frame.y;
-    expect(std::abs(upText - downText - (t.tabHeight + t.slotGap)) < 0.01f, "tab row: the content above a bottom strip, under a top one");
+    expect(std::abs(upText - downText - (t.tabRowInset + t.tabHeight + t.tabRowGap - t.expandedPadding)) < 0.01f, "tab row: the content above a bottom strip, under a top one");
     expect(down.tabs->pin && down.tabs->pin->hitFrame.y + down.tabs->pin->hitFrame.height == down.size.y, "tab row: at the bottom, the pin reaches the card's bottom corner");
 }
 

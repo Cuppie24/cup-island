@@ -10,6 +10,7 @@
 #include "core/tokens.h"
 #include "platform/badge_dots.h"
 #include "platform/toast_layer.h"
+#include "platform/top_glow.h"
 #include "platform/element_visuals.h"
 #include "platform/glass.h"
 #include "platform/graphics_device.h"
@@ -51,17 +52,22 @@ public:
     // `reveal`: new content waits this long (the morph's, decision 080).
     void setContent(const std::vector<Placed>& elements, Ms now, Ms reveal) { elements_.apply(elements, now, reveal); }
     ElementVisuals& elements() { return elements_; } // hover, press, scrub feedback on content
-    // Expanded's tabs (pill coordinates; nullopt = none): the active tab's
-    // background slides to a newly picked tab; hover is fainter and just fades.
+    // Expanded's page row (pill coordinates; nullopt = none, decision 109):
+    // the shown page's line glides, growing or shrinking, to a newly picked
+    // dot; hover is fainter and just fades.
     void setSelectedTab(std::optional<Rect> tab, float cornerRadius);
+    // ...and the other pages' dots, faint (stepTodoColor), under the content.
+    void setTabDots(const std::vector<Rect>& dots, float cornerRadius) { showMarks(tabDots_, dots, cornerRadius, tokens().stepTodoColor); }
     void setPinnedTab(std::optional<Rect> pin, float cornerRadius); // the pin while on: lit like the active tab (decision 046)
     void setHovered(std::optional<Rect> area, float cornerRadius); // a tab or a Home tile under the pointer
+    // The top band glowing under the pointer, where a click closes (decision 108).
+    void setTopGlow(bool on) { topGlow_.show(on); }
     // The keyboard's focus (decision 033): a ring inside `area`, over the
     // content, so it shows which one Enter clicks even with the pointer elsewhere.
     void setFocusRing(std::optional<Rect> area, float cornerRadius);
     // Home's tiles (decision 009): a faint background under each, always shown;
     // hover adds to it. Tabs have none: only hover and selection (decision 072).
-    void setTiles(const std::vector<Rect>& tiles, float cornerRadius) { showMarks(tiles_, tiles, cornerRadius); }
+    void setTiles(const std::vector<Rect>& tiles, float cornerRadius) { showMarks(tiles_, tiles, cornerRadius, tokens().tileColor); }
     // Notification dots (decision 038), over the content: Scene::badges.
     void setBadges(const std::vector<Vec2>& centres) { badges_.show(centres); }
     // A toast floating over the content (decision 071): Scene::toast; nullopt fades it out.
@@ -145,7 +151,7 @@ private:
         std::optional<Rect> at;
     };
     void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide);
-    void showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius); // tileColor, one per rect
+    void showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius, const Color& color); // one per rect
     Mark selectedTab_, pinnedTab_, hovered_;
     struct Ring { // the focus ring: stroked, not filled; over content_, not under it
         wuc::ShapeVisual visual{ nullptr };
@@ -156,7 +162,9 @@ private:
         float radius = 0;
     } focusRing_;
     std::vector<Mark> tiles_; // grows to the most shown; spare ones stay faded out
+    std::vector<Mark> tabDots_; // the page row's dots (decision 109), the same way
     BadgeDots badges_;
+    TopGlow topGlow_;
     ToastLayer toast_;
     ElementVisuals elements_;
     Vec2 size_, offset_;

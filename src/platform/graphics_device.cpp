@@ -74,6 +74,13 @@ void GraphicsDevice::updateTextParams()
     if (!textParams_) // no IDWriteFactory1: no separate grayscale contrast
         dwrite_->CreateCustomRenderingParams(defaults->GetGamma(), contrast, 0.0f, DWRITE_PIXEL_GEOMETRY_FLAT,
                                              DWRITE_RENDERING_MODE_NATURAL, textParams_.put());
+    // Big text (decision 107): drawn as outlines, smoothed both ways and not
+    // snapped to pixel rows. NATURAL's horizontal-only smoothing stair-stepped
+    // a big time's round tops and bottoms and flattened them, as if cropped;
+    // the extra contrast, for thin small strokes, only hardened its edges.
+    outlineParams_ = nullptr;
+    dwrite_->CreateCustomRenderingParams(defaults->GetGamma(), 0.0f, 0.0f, DWRITE_PIXEL_GEOMETRY_FLAT, DWRITE_RENDERING_MODE_OUTLINE,
+                                         outlineParams_.put());
 }
 
 wuc::CompositionDrawingSurface GraphicsDevice::createSurface(Vec2 size)
@@ -85,7 +92,7 @@ wuc::CompositionDrawingSurface GraphicsDevice::createSurface(Vec2 size)
 }
 
 bool GraphicsDevice::draw(wuc::CompositionDrawingSurface const& surface,
-                          const std::function<void(ID2D1DeviceContext*)>& paint)
+                          const std::function<void(ID2D1DeviceContext*)>& paint, bool bigText)
 {
     auto interop = surface.as<abi::ICompositionDrawingSurfaceInterop>();
     winrt::com_ptr<ID2D1DeviceContext> context;
@@ -108,7 +115,8 @@ bool GraphicsDevice::draw(wuc::CompositionDrawingSurface const& surface,
     // than the default symmetric mode at small sizes.
     context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE);
     updateTextParams(); // textContrast is live-tunable
-    if (textParams_) context->SetTextRenderingParams(textParams_.get());
+    IDWriteRenderingParams* params = bigText && outlineParams_ ? outlineParams_.get() : textParams_.get();
+    if (params) context->SetTextRenderingParams(params);
     context->Clear(D2D1::ColorF(0, 0, 0, 0));
     paint(context.get());
     winrt::check_hresult(interop->EndDraw());
