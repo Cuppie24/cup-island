@@ -26,8 +26,9 @@ opened" is the same for every widget: the host's job.
 - **Drawn by Home**: a `Tag{ "New" }` after the text of the widget's first
   line, as on a new setting (decision 048).
 - **Kept by the app**: in the store under `island/seenPanels`, `<id> <n>`
-  a line (a bare id reads as 1), loaded (`PanelsSeen`) before the providers publish their widgets,
-  so a widget never flashes New after a restart; saved when the list grows.
+  a line (a bare id reads as 1), loaded (`PanelsSeen`) before the providers
+  publish their widgets, so a widget never flashes New after a restart;
+  saved whenever an entry is added or raised.
 
 **Not taken.** A provider keeping its own "seen" key (the first version):
 the same logic in every provider that wants it.
