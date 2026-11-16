@@ -158,8 +158,9 @@ void runContentTests()
     auto cornerHit = hitTest(corneredScene, centre(corner));
     expect(cornerHit && cornerHit->action.actionId == "source", "corner button is clickable");
 
-    // Equal margins: the bottom row sits as far from the bottom as art from the side.
-    expect(play->frame.y + play->frame.height == scene.size.y - t.expandedPadding, "expanded bottom margin = side margin");
+    // The bottom row stays clear of the bottom by at least the side margin; this card's
+    // controls are shorter than media's, so it keeps the shared height (decision 107) with room to spare.
+    expect(play->frame.y + play->frame.height <= scene.size.y - t.expandedPadding, "expanded bottom margin >= side margin");
 
     // Nested radius: rounded content is concentric with the pill's corner.
     expect(art->cornerRadius == pillCornerRadius(scene.size) - t.expandedPadding, "art radius = pill radius - padding");

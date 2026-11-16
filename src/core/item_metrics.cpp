@@ -31,7 +31,11 @@ std::string widestDigits(std::string s, TextStyle style, const MeasureText& meas
 
 } // namespace
 
-float lineHeight(TextStyle style) { return std::ceil(fontSize(style) * 1.3f); }
+float lineHeight(TextStyle style)
+{
+    if (style == TextStyle::Hero) return std::ceil(tokens().heroLineHeight); // digits only (decision 107)
+    return std::ceil(fontSize(style) * 1.3f);
+}
 
 float stepWidth(const Steps& steps, int i)
 {

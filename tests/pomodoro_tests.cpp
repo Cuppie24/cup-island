@@ -159,6 +159,19 @@ void cardTests()
     for (const Placed& p : running.elements)
         expect(p.frame.y + p.frame.height <= running.size.y - t.expandedPadding + 0.01f, "fits the card: " + p.key);
 
+    // One height with media's card and Home (decision 107): switching tabs doesn't resize the island.
+    IslandState media;
+    NowPlaying song{ .title = "Song", .artist = "Artist", .timeline = { .duration = Ms{ 200000 }, .playing = true } };
+    media = reduce(media, ActivityStarted{ { .id = "media", .content = nowPlayingContent(song) } }, Ms{ 0 });
+    media = reduce(media, PillClicked{}, Ms{ 0 });
+    float mediaHeight = layout(media, Ms{ 0 }).size.y;
+    auto cardHeight = [&](const Scene& s) { return s.size.y - (s.tabs ? tabStripSpace(island.state) : 0); };
+    expect(cardHeight(running) == mediaHeight && cardHeight(dormant) == mediaHeight,
+           "dormant and running, the media card's height (" + std::to_string(int(mediaHeight)) + ")");
+    island.send(HomeOpened{});
+    expect(cardHeight(island.scene()) == mediaHeight, "and Home's");
+    island.send(TileClicked{ PomodoroProvider::kPanelId });
+
     // The chart and the gear open the window on their pages.
     expect(island.press(kGear) && island.window() && island.window()->page == kPomodoroSettingsPage, "the gear: settings");
     expect(island.press(kStats) && island.window()->page == kPomodoroStatsPage, "the chart: statistics");

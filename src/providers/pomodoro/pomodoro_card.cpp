@@ -15,7 +15,8 @@ namespace act = pomodoro_action;
 // name and the round, with statistics, settings and the window at the
 // right; the time left, big and heavy, centred; the session's phases as
 // steps under it; then the controls, ▶/⏸ the filled circle between stop and
-// skip. Stacked and centred: the time is what it's about.
+// skip. Stacked and centred: the time is what it's about. Packed to fit
+// the media card's height, so switching tabs doesn't resize the island.
 Content timerCard(Content c, const Timeline& timeline, const Steps& steps, const std::string& name, const std::string& detail,
                   std::vector<Item> controls)
 {
@@ -23,12 +24,12 @@ Content timerCard(Content c, const Timeline& timeline, const Steps& steps, const
     c.keepOpen = true;      // a click between the controls doesn't close it (Content::keepOpen)
     c.noIdleTimeout = true; // nor does being left alone: a timer kept in view (decision 062)
     Row header{ .leading = { Steps{ .count = 1 }, Text{ name, TextStyle::Title }, Text{ detail, TextStyle::Caption } },
-                .trailing = { Button{ .glyph = Glyph::Chart, .actionId = act::kOpenStats, .secondary = true },
-                              Button{ .glyph = Glyph::Settings, .actionId = act::kOpenSettings, .secondary = true },
-                              Button{ .glyph = Glyph::Expand, .actionId = act::kOpenWindow, .secondary = true } } };
+                .trailing = { Button{ .glyph = Glyph::Chart, .actionId = act::kOpenStats, .compact = true, .secondary = true },
+                              Button{ .glyph = Glyph::Settings, .actionId = act::kOpenSettings, .compact = true, .secondary = true },
+                              Button{ .glyph = Glyph::Expand, .actionId = act::kOpenWindow, .compact = true, .secondary = true } } };
     Row time = row({ TimeLabel{ .timeline = timeline, .countdown = true, .style = TextStyle::Hero } }, Align::Center);
-    Row phases{ .items = { steps }, .align = Align::Center, .apart = true };
-    Row buttons{ .items = std::move(controls), .align = Align::Center, .loose = true, .apart = true }; // big, well-separated targets
+    Row phases{ .items = { steps }, .align = Align::Center };
+    Row buttons{ .items = std::move(controls), .align = Align::Center, .loose = true }; // well-separated targets
     c.expandedCenter = { header, time, phases, buttons };
     return c;
 }
@@ -127,7 +128,7 @@ Panel pomodoroPanel(const PomodoroPlan& plan)
         .tile = { row({ Text{ formatDuration(plan.focus), TextStyle::Title } }), row({ Text{ rounds, TextStyle::Caption } }) },
     };
     content = timerCard(std::move(content), { .duration = plan.focus }, phaseSteps(0), "Focus", std::to_string(t.pomodoroRounds) + " rounds",
-                        { Button{ .glyph = Glyph::Play, .actionId = act::kStart, .primary = true } });
+                        { Button{ .glyph = Glyph::Play, .actionId = act::kStart, .compact = true, .primary = true } });
     return { .id = kPomodoroPanelId, .content = content, .wide = true };
 }
 
@@ -146,7 +147,7 @@ Content pomodoroContent(const PomodoroSession& s, const PomodoroPlan&)
     TimeLabel compactLeft{ .timeline = s.timeline, .countdown = true, .style = TextStyle::Body };
     Progress ring{ .timeline = s.timeline, .shape = ProgressShape::Ring };
     Button stop{ .glyph = Glyph::Stop, .actionId = act::kStop };
-    Button pause{ .glyph = s.timeline.playing ? Glyph::Pause : Glyph::Play, .actionId = act::kPause, .primary = true };
+    Button pause{ .glyph = s.timeline.playing ? Glyph::Pause : Glyph::Play, .actionId = act::kPause, .compact = true, .primary = true }; // media's size: the card fits its height
     Button skip{ .glyph = Glyph::Next, .actionId = act::kSkip };
     Content content{
         .label = name,

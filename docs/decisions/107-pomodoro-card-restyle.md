@@ -54,7 +54,15 @@ ones, and the time's digits rolling as they change.
 motion would distract. A stagger between rolling digits: the minute and
 second rolling together reads as one tick.
 
-**Consequences.** The card is a little taller than media's (it grows to
-its rows, as a Centred card does), no longer the same size (106's "one size
-by the same rule"). The roll is Composition-only and can't be checked in a
+- **One height for the cards and Home**: `expandedSize.y` is 203, exactly
+  what media's card needs, and every card and Home is at least that, so
+  switching tabs between them doesn't resize the island. The timer card is
+  packed to fit it: the time's line is `heroLineHeight` (60: digits, no
+  descenders), the header's buttons and ▶/⏸ are compact (media's sizes),
+  and its rows have no group gaps. A test pins media's card to
+  `expandedSize.y` and the timer and Home to media's. Home still grows when
+  its widgets need more than two rows.
+
+**Consequences.** Changing media's rows (or the tokens they use) means
+changing `expandedSize.y` with them; the test says so. The roll is Composition-only and can't be checked in a
 Linux session (decision 008).

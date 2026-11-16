@@ -73,6 +73,7 @@ const Field kFields[] = {
     { "captionFontSize", &Tokens::captionFontSize },
     { "displayFontSize", &Tokens::displayFontSize },
     { "heroFontSize", &Tokens::heroFontSize },
+    { "heroLineHeight", &Tokens::heroLineHeight },
     { "headingFontSize", &Tokens::headingFontSize },
     { "pageTitleFontSize", &Tokens::pageTitleFontSize },
     { "inputFontSize", &Tokens::inputFontSize },

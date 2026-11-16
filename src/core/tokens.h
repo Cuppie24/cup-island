@@ -62,7 +62,9 @@ struct Tokens {
     Vec2 idleSize{ 160, 28 };
     Vec2 compactSize{ 260, 32 };
     Vec2 alertSize{ 320, 64 };
-    Vec2 expandedSize{ 480, 171 }; // every card and Home: the width a to-do's text needs (decisions 043, 047)
+    // Every card and Home: the width a to-do's text needs (decisions 043, 047); the height media's card
+    // needs (its cover, bar and controls), so switching tabs never resizes the island (decision 107).
+    Vec2 expandedSize{ 480, 203 };
     Vec2 receptiveSize{ 380, 84 };
     Vec2 hiddenSize{ 160, 0 };
     float maxCornerRadius = 34; // bottom corners: half the height, capped, so big shapes aren't blobs
@@ -117,6 +119,7 @@ struct Tokens {
     float captionFontSize = 13; // the smallest text: ~11 px on screen at 100% after islandScale
     float displayFontSize = 48; // TextStyle::Display: a timer in a dial (decision 065)
     float heroFontSize = 64;    // TextStyle::Hero: the one big number a card is about (Pomodoro's time, decision 107)
+    float heroLineHeight = 60;  // ...its line: digits only, no descenders, so tighter than other text's
     float headingFontSize = 14; // TextStyle::Heading: a group's label, in the caption colour, a little over caption size (decision 090)
     float pageTitleFontSize = 24; // TextStyle::PageTitle: a window page's name (decision 104)
     // Font weights, 100..900 (400 regular, 600 semibold; decision 024). Segoe UI Variable
