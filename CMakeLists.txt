@@ -60,6 +60,7 @@ add_library(cup_core STATIC
     src/core/tokens_json.cpp
     src/core/window_keys.cpp
     src/core/window_layout.cpp
+    src/core/window_page.cpp
     src/core/window_fields.cpp
     src/core/window_placement.cpp
 )
@@ -75,6 +76,8 @@ add_library(cup_providers STATIC
     src/providers/media/tab_match.cpp
     src/providers/pomodoro/pomodoro_card.cpp
     src/providers/pomodoro/pomodoro_window.cpp
+    src/providers/pomodoro/task_board.cpp
+    src/providers/pomodoro/pomodoro_tasks.cpp
     src/providers/pomodoro/pomodoro_provider.cpp
     src/providers/pomodoro/pomodoro_session.cpp
     src/providers/pomodoro/pomodoro_stats.cpp
@@ -149,6 +152,8 @@ if(CUP_BUILD_TESTS)
         tests/todo_tests.cpp
         tests/tokens_tests.cpp
         tests/window_tests.cpp
+        tests/window_card_tests.cpp
+        tests/task_board_tests.cpp
         tests/window_field_tests.cpp
     )
     target_link_libraries(cup_tests PRIVATE cup_providers cup_indexer)

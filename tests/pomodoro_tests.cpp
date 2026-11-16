@@ -136,8 +136,10 @@ void cardTests()
                auto* b = std::get_if<Button>(&p.item);
                return p.key.rfind("expandedCenter/", 0) == 0 && b && (b->glyph == Glyph::Chart || b->glyph == Glyph::Settings);
            }), "no statistics or settings buttons on the island: the window has them");
-    const Placed* name = find(dormant, "expandedCenter/0/1");
-    const Placed* dot = find(dormant, "expandedCenter/0/0");
+    // The header's keys number its trailing (the window's button) before its leading (slot_layout).
+    auto header = [](int i) { return "expandedCenter/0/" + std::to_string(i + (kPomodoroWindowReady ? 1 : 0)); };
+    const Placed* name = find(dormant, header(1));
+    const Placed* dot = find(dormant, header(0));
     expect(dot && name && std::get<Text>(name->item).value == "Focus" && dot->frame.x < name->frame.x && name->frame.y < time->frame.y,
            "the phase's dot and name over the time, at the left");
     for (const Placed& p : dormant.elements)
@@ -160,7 +162,7 @@ void cardTests()
     expect(stop && pause && skip && std::get<Button>(stop->item).glyph == Glyph::Stop && std::get<Button>(pause->item).primary &&
            std::get<Button>(skip->item).glyph == Glyph::Next && stop->frame.x < pause->frame.x && pause->frame.x < skip->frame.x &&
            steps->frame.y < pause->frame.y, "stop, ⏸ (the filled circle) and skip, under the steps");
-    const Placed* round = find(running, "expandedCenter/0/2");
+    const Placed* round = find(running, header(2));
     expect(round && std::get<Text>(round->item).value == "round 1 of " + std::to_string(t.pomodoroRounds), "the round beside the phase");
     for (const Placed& p : running.elements)
         expect(p.frame.y + p.frame.height <= running.size.y - t.expandedPadding + 0.01f, "fits the card: " + p.key);
@@ -186,10 +188,13 @@ void cardTests()
 void windowTests()
 {
     const Tokens& t = tokens();
-    std::string saved;
+    std::string saved, savedTasks;
     ProviderRegistry::Store store{
         .load = [&](const std::string&, const std::string& key) { return key == PomodoroProvider::kPlanKey ? saved : ""; },
-        .save = [&](const std::string&, const std::string& key, const std::string& text) { if (key == PomodoroProvider::kPlanKey) saved = text; },
+        .save = [&](const std::string&, const std::string& key, const std::string& text) {
+            if (key == PomodoroProvider::kPlanKey) saved = text;
+            if (key == PomodoroProvider::kTodosKey) savedTasks = text;
+        },
     };
     Island island(store);
     island.registry.add(std::make_unique<PomodoroProvider>());
@@ -199,37 +204,30 @@ void windowTests()
     expect(!island.window(), "no window until asked");
     expect(island.openWindow() && island.window(), "the expand button opens the window");
     const OpenWindow& w = *island.window();
-    expect(w.spec.size == WindowSize::Large && !w.spec.resizable && !w.spec.maximizable, "one size, like Settings' window");
-    expect(w.content.pages.size() == 3 && w.page == kPomodoroTimerPage && w.content.pages[1].id == kPomodoroStatsPage &&
-           w.content.pages[2].id == kPomodoroSettingsPage, "three pages, the timer first");
+    expect(w.spec.size == WindowSize::Large && w.spec.resizable && w.spec.maximizable, "it resizes and maximizes (decision 117)");
+    expect(w.content.rail && w.content.pages.size() == 3 && w.page == kPomodoroTimerPage && w.content.pages[1].id == kPomodoroStatsPage &&
+           w.content.pages[2].id == kPomodoroSettingsPage && w.content.pages[2].atFoot, "three pages on a rail, the timer first, settings at its foot");
     std::uint64_t raised = w.raised;
     island.openWindow();
     expect(island.registry.windows().open.size() == 1 && island.window()->raised != raised, "again: the same window, brought forward");
 
-    // The timer page: the dial, the plan in words, ▶, today, the to-dos with their field.
+    // The timer page: the time and ▶ across the top, then a card per group: "Tasks", its field, "New group".
     WindowScene timer = island.windowScene();
-    const Placed* dial = nullptr;
-    for (const Placed& p : timer.page)
-        if (std::holds_alternative<Dial>(p.item)) dial = &p;
-    expect(dial && std::get<Dial>(dial->item).shown == "25:00" && std::get<Dial>(dial->item).label == "Focus", "the dial, the planned focus in it");
-    expect(textIn(timer, "Focus · " + std::to_string(t.pomodoroRounds) + " rounds of 25 min") && textIn(timer, "0 cycles") &&
-           textIn(timer, "Today") && textIn(timer, "To-dos"), "the plan in words, today, the to-dos' label");
+    expect(textIn(timer, "25:00") && buttonIn(timer, pomodoro_action::kStart) && textIn(timer, "Focus · round 1 of " + std::to_string(t.pomodoroRounds)) &&
+           timer.headerRule, "the header: the planned focus, ▶, the phase and round, a line under it");
+    expect(!std::get<Button>(buttonIn(timer, pomodoro_action::kStop)->item).enabled, "dormant: stop and skip dimmed, in their places");
+    expect(textIn(timer, "Tasks") && textIn(timer, "New group") && !textIn(timer, "Timer"), "the first group, the new group card; no page title");
     const Placed* field = nullptr;
     for (const Placed& p : timer.page)
-        if (auto* input = std::get_if<TextInput>(&p.item); input && input->actionId == todo_action::kAdd) field = &p;
-    expect(field != nullptr, "the to-do field, in the window");
+        if (auto* input = std::get_if<TextInput>(&p.item); input && input->actionId == inGroup(1, todo_action::kAdd)) field = &p;
+    expect(field && std::get<TextInput>(field->item).placeholder == "Add task", "each group's Add task field");
 
     // ▶ in the window starts it; the card on the island follows.
     island.inWindow(pomodoro_action::kStart);
     expect(island.focus() && island.window(), "started from the window");
     timer = island.windowScene();
-    const Steps* steps = nullptr;
-    for (const Placed& p : timer.page)
-        if (auto* s = std::get_if<Steps>(&p.item)) steps = s;
-    expect(steps && *steps == phaseSteps(0) && textIn(timer, "0 of " + std::to_string(phaseCount()) + " done"),
-           "running: a dot per phase, and how many are done");
-    expect(buttonIn(timer, pomodoro_action::kStop) && buttonIn(timer, pomodoro_action::kPause) && buttonIn(timer, pomodoro_action::kSkip),
-           "its controls");
+    expect(buttonIn(timer, pomodoro_action::kStop) && buttonIn(timer, pomodoro_action::kPause) && buttonIn(timer, pomodoro_action::kSkip) &&
+           std::get<Button>(buttonIn(timer, pomodoro_action::kStop)->item).enabled, "running: its controls");
 
     // Stop asks in place (a window has no dialogs over it): Cancel keeps it, Stop ends it.
     island.inWindow(pomodoro_action::kStop);
@@ -252,32 +250,52 @@ void windowTests()
     island.registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kStopConfirmed, 0 });
     island.send(DialogClosed{});
 
-    // The to-dos, typed into the window's field (decision 105): Enter adds one; a delete has its Undo in place; clearing asks in place.
+    // Tasks, typed into a group's field (decision 105): Enter adds one; a delete has its Undo in place.
     WindowTyping typing;
     WindowScene page = island.windowScene();
     std::string fieldKey;
     for (const Placed& p : page.page)
-        if (auto* input = std::get_if<TextInput>(&p.item); input && input->actionId == todo_action::kAdd) fieldKey = p.key;
+        if (auto* input = std::get_if<TextInput>(&p.item); input && input->actionId == inGroup(1, todo_action::kAdd)) fieldKey = p.key;
     focusField(typing, page, fieldKey, std::nullopt);
     typeText(typing, page, "Write the report");
     FieldOutcome enter = fieldKey.empty() ? FieldOutcome{} : cup::fieldKey(typing, page, FieldKey::Enter, false, false);
-    expect(enter.send && enter.send->windowId == PomodoroProvider::kWindowId, "Enter in the window's field sends the to-do");
+    expect(enter.send && enter.send->windowId == PomodoroProvider::kWindowId, "Enter in the group's field sends the task");
     if (enter.send) island.registry.route(*enter.send);
     page = island.windowScene();
-    expect(textIn(page, "Write the report") != nullptr, "added: it's in the window's list");
-    std::string id = std::to_string(1);
-    island.inWindow(std::string(todo_action::kDelete) + id);
+    const Placed* task = textIn(page, "Write the report");
+    expect(task && std::get<Text>(task->item).editAction == inGroup(1, std::string(todo_action::kEdit) + "1"), "added: in its group, edited in place");
+    expect(textIn(page, "1") != nullptr, "the group's count of open tasks beside its name");
+    const Placed* remove = buttonIn(page, inGroup(1, std::string(todo_action::kDelete) + "1"));
+    expect(remove && std::get<Button>(remove->item).revealOnHover, "its delete shows on hover");
+    island.inWindow(inGroup(1, std::string(todo_action::kDelete) + "1"));
     page = island.windowScene();
-    expect(!textIn(page, "Write the report") && textIn(page, "To-do deleted") && buttonIn(page, todo_action::kUndoDelete), "deleted, with an Undo row");
-    island.inWindow(todo_action::kUndoDelete);
+    expect(!textIn(page, "Write the report") && textIn(page, "Task deleted") && buttonIn(page, kPomodoroUndo), "deleted, with an Undo row");
+    island.inWindow(kPomodoroUndo);
     page = island.windowScene();
-    expect(textIn(page, "Write the report") && !textIn(page, "To-do deleted"), "undone: back, the row gone");
-    island.inWindow(todo_action::kClearAll);
+    expect(textIn(page, "Write the report") && !textIn(page, "Task deleted"), "undone: back, the row gone");
+    expect(savedTasks == "# Tasks\n[ ] Write the report\n", "kept: the group's name over its tasks");
+
+    // Groups: a new one, renamed in place; deleted with an Undo; the last one deleted leaves a fresh "Tasks".
+    island.inWindow(task_action::kNewGroup);
     page = island.windowScene();
-    expect(!island.dialog() && textIn(page, "Clear all tasks?") && buttonIn(page, todo_action::kClearAllConfirmed), "clear all asks in place");
-    island.inWindow(todo_action::kClearAllConfirmed);
+    expect(textIn(page, "Group 2") != nullptr, "a new group, named after the others");
+    const Placed* name = textIn(page, "Group 2");
+    expect(name && std::get<Text>(name->item).editAction == std::string(task_action::kRenameGroup) + "2", "its name edits in place");
+    island.registry.route({ "pomodoro", "", std::string(task_action::kRenameGroup) + "2", 0, "Work", PomodoroProvider::kWindowId });
     page = island.windowScene();
-    expect(!textIn(page, "Write the report") && !textIn(page, "Clear all tasks?"), "confirmed: cleared, the question gone");
+    expect(textIn(page, "Work") && !textIn(page, "Group 2"), "renamed");
+    island.inWindow(std::string(task_action::kDeleteGroup) + "1");
+    page = island.windowScene();
+    expect(!textIn(page, "Write the report") && textIn(page, "“Tasks” deleted"), "a group deleted, its tasks with it, an Undo row");
+    island.inWindow(kPomodoroUndo);
+    expect(textIn(island.windowScene(), "Write the report") != nullptr, "undone: the group and its tasks back");
+    island.inWindow(std::string(task_action::kDeleteGroup) + "1");
+    island.inWindow(std::string(task_action::kDeleteGroup) + "2");
+    page = island.windowScene();
+    expect(textIn(page, "Tasks") && !textIn(page, "Work") && !textIn(page, "Write the report"), "the last group deleted: a fresh, empty Tasks");
+    island.inWindow(kPomodoroUndo);
+    page = island.windowScene();
+    expect(textIn(page, "Work") && !textIn(page, "Tasks"), "undone: Work back, the stand-in gone");
 
     // The settings page: the plan (Focus  − 25 min +), then the days off.
     island.registry.windowPageShown({ "pomodoro", PomodoroProvider::kWindowId }, kPomodoroSettingsPage);
@@ -397,10 +415,9 @@ void runPomodoroTests()
     // How many phases have passed: in the window (decision 106).
     auto stepsShown = [&] {
         if (const OpenWindow* w = island.window())
-            for (const WindowSection& section : w->content.pages[0].sections)
-                for (const Row& r : section.rows)
-                    for (const Item& item : r.items)
-                        if (auto* steps = std::get_if<Steps>(&item)) return *steps;
+            for (const Row& r : w->content.pages[0].header)
+                for (const Item& item : r.trailing)
+                    if (auto* steps = std::get_if<Steps>(&item)) return *steps;
         return Steps{ -1, -1 };
     };
     expect(stepsShown() == phaseSteps(0) && stepsShown().count == static_cast<int>(2 * t.pomodoroRounds), "the window: a step per phase, none done yet");

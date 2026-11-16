@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <cmath>
 #include <optional>
+#include <string_view>
+#include <unordered_set>
 
 namespace cup::platform {
 namespace {
@@ -197,10 +199,12 @@ void ElementVisuals::apply(const std::vector<Placed>& elements, Ms now, Ms revea
     reveal_ = reveal;
     deviceLost_ = false;
 
+    // Laid out again on every frame of a window's resize: a set, not a search per visual (decision 117).
+    std::unordered_set<std::string_view> shown;
+    shown.reserve(elements.size());
+    for (const Placed& p : elements) shown.insert(p.key);
     for (auto it = views_.begin(); it != views_.end();) {
-        bool stillShown = std::any_of(elements.begin(), elements.end(),
-                                      [&](const Placed& p) { return p.key == it->first; });
-        if (stillShown) { ++it; continue; }
+        if (shown.contains(it->first)) { ++it; continue; }
         fadeOutAndRemove(it->second.visual);
         it = views_.erase(it);
     }

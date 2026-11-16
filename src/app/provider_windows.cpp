@@ -127,9 +127,10 @@ void relayout(Shown& s)
         s.scroll = 0;
     }
     Ms now = g_hooks.now();
-    s.scene = windowLayout(*w, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing);
+    bool maximized = s.window->maximized();
+    s.scene = windowLayout(*w, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing, maximized);
     if (dropGoneField(s.typing, s.scene)) // the field with the keys went: laid out without it
-        s.scene = windowLayout(*w, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing);
+        s.scene = windowLayout(*w, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing, maximized);
     s.scroll = s.scene.scroll;
     s.window->draw(s.scene, now);
     showFocus(s);
@@ -167,6 +168,7 @@ void act(const Shown& s, const WindowHit& hit)
     case WindowPart::Page: registry.windowPageShown(s.key, hit.page); break;
     case WindowPart::Close: registry.windowClosed(s.key); break;
     case WindowPart::Minimize: s.window->minimize(); break;
+    case WindowPart::Maximize: s.window->toggleMaximized(); break;
     case WindowPart::Caption:
     case WindowPart::None: break;
     }

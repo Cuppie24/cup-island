@@ -145,7 +145,7 @@ struct Timer {
     PomodoroStats stats() { return loadStats(store[PomodoroProvider::kStatsKey]); }
     PomodoroDay today() { return countsOf(stats(), localDay(wall, Ms{ 0 })); }
     // Its window (decision 106), open from the start.
-    void inWindow(const std::string& action) { registry.route({ "pomodoro", "", action, 0, "", PomodoroProvider::kWindowId }); }
+    void inWindow(const std::string& action, const std::string& text = "") { registry.route({ "pomodoro", "", action, 0, text, PomodoroProvider::kWindowId }); }
     const WindowPage* page(const char* id)
     {
         const OpenWindow* w = findWindow(registry.windows(), { "pomodoro", PomodoroProvider::kWindowId });
@@ -189,18 +189,13 @@ struct Timer {
                 if (s.title == title) return &s;
         return nullptr;
     }
-    // The timer page's Today: cycles and focus time, then days in a row (a fire after it from three on).
-    std::string line()
+    // Days in a row: today's third value on the statistics page (a fire before it from three on).
+    std::string streak()
     {
-        const WindowSection* today = section(kPomodoroTimerPage, "Today");
-        return today && !today->rows.empty() ? words(today->rows[0].items) : "";
-    }
-    std::string corner()
-    {
-        const WindowSection* today = section(kPomodoroTimerPage, "Today");
-        if (!today || today->rows.size() < 2) return "";
-        std::string fire = words(today->rows[1].trailing);
-        return (fire.empty() ? "" : fire + " ") + words(today->rows[1].items);
+        std::string values = today3();
+        auto last = values.rfind(' ');
+        if (last != std::string::npos && last >= 2 && values.compare(last - 4, 4, "🔥") == 0) return values.substr(last - 4);
+        return last == std::string::npos ? values : values.substr(last + 1);
     }
     std::vector<std::string> statsPage() { return lines(kPomodoroStatsPage); }
     // The statistics page's table rows as words: today's values, what they are (or "[Record]"), the records.
@@ -213,7 +208,7 @@ void providerTests()
 {
     const Tokens& t = tokens();
     Timer timer;
-    expect(timer.line() == "0 cycles · 0 min of focus" && timer.corner().empty(), "a first run: today's values, no days in a row shown");
+    expect(timer.today3() == "0 0m 0" && timer.streak() == "0", "a first run: today's values, no days in a row");
     auto first = timer.statsPage();
     expect(first.size() == 7 && first[0] == "Today" && first[1] == "0 0m 0" && first[2] == "cycles focus time days in a row" &&
            first[3] == "🏆 Personal records" && first[4] == "0 0m 0 days" && first[5] == "most cycles best focus day best streak" &&
@@ -227,7 +222,7 @@ void providerTests()
     expect(day.focus == static_cast<long long>(t.pomodoroRounds) * t.pomodoroFocus, "and the focus time");
     expect(!timer.alerts.empty() && timer.alerts.back().content.label == "Session done" &&
            std::get<Text>(timer.alerts.back().content.alertCenter[1].items[0]).value == "1 finished today", "the last alert says how many today");
-    expect(timer.line() == "1 cycle · 1 h 40 min of focus" && timer.corner() == "1 day in a row", "today: its values, the run");
+    expect(timer.streak() == "1", "today: the run");
     expect(timer.today3() == "1 1h 40m 1" && timer.todayCaptions() == "[Record] [Record] [Record]" && timer.records() == "1 1h 40m 1 day",
            "the page: records tagged, and the new records below");
 
@@ -248,34 +243,34 @@ void providerTests()
     day = timer.today();
     expect(day.canceled == 1 && day.focus == before + Ms{ 120000 }, "stopped: canceled, two minutes of focus kept");
 
-    // To-dos ticked count; unticked the same day, taken back.
-    timer.registry.route({ "pomodoro", PomodoroProvider::kPanelId, todo_action::kAdd, 0, "write tests" });
-    std::string toggle = std::string(todo_action::kToggle) + "1"; // the first to-do of the run
-    timer.act(toggle);
-    expect(timer.today().todosDone == 1, "a to-do ticked");
-    timer.act(toggle);
+    // Tasks ticked count; unticked the same day, taken back.
+    timer.inWindow(inGroup(1, todo_action::kAdd), "write tests"); // the first group's first task
+    std::string toggle = inGroup(1, std::string(todo_action::kToggle) + "1");
+    timer.inWindow(toggle);
+    expect(timer.today().todosDone == 1, "a task ticked");
+    timer.inWindow(toggle);
     expect(timer.today().todosDone == 0, "unticked: taken back");
 
     // The next day: today starts over; the window follows once the card is shown again.
     timer.pass(Ms{ kDay });
     timer.registry.cardShown({ "pomodoro", PomodoroProvider::kPanelId });
-    expect(timer.line() == "0 cycles · 0 min of focus" && timer.corner() == "1 day in a row", "a new day: none today yet, the run still on");
+    expect(timer.today3() == "0 0m 1", "a new day: none today yet, the run still on");
     expect(timer.today3().rfind("0 0m", 0) == 0 && timer.records().rfind("2 ", 0) == 0 && timer.todayCaptions() == "cycles focus time [Record]",
            "yesterday's 2 is the best; the run of 1 is still a record");
     timer.session();
-    expect(timer.corner() == "2 days in a row" && timer.today3().rfind("1 ", 0) == 0 && timer.todayCaptions() == "cycles focus time [Record]",
+    expect(timer.streak() == "2" && timer.today3().rfind("1 ", 0) == 0 && timer.todayCaptions() == "cycles focus time [Record]",
            "two days in a row: a record; 1 today isn't");
 
     // A run broken: the old one is the best to beat; from three days on, a fire.
     timer.pass(Ms{ 2 * kDay });
     timer.registry.cardShown({ "pomodoro", PomodoroProvider::kPanelId });
-    expect(timer.corner().empty() && timer.today3() == "0 0m 0" && timer.records().find("2 days") != std::string::npos,
+    expect(timer.today3() == "0 0m 0" && timer.records().find("2 days") != std::string::npos,
            "a day missed: no run shown, best 2");
     for (int day = 0; day < 3; ++day) {
         timer.session();
         if (day < 2) timer.pass(Ms{ kDay });
     }
-    expect(timer.corner() == "fire 3 days in a row" && timer.today3().find("🔥 3") != std::string::npos && timer.todayCaptions().find("[Record]") != std::string::npos,
+    expect(timer.streak() == "🔥 3" && timer.today3().find("🔥 3") != std::string::npos && timer.todayCaptions().find("[Record]") != std::string::npos,
            "three days: a fire, and a record");
 }
 
@@ -376,15 +371,15 @@ void fakeStatsTests()
     std::string real = timer.store[PomodoroProvider::kStatsKey];
     expect(timer.lines(kPomodoroSettingsPage).back() == "Fake statistics · Real", "Debug: a Fake statistics row");
     timer.inWindow(pomodoro_action::kFakeStats);
-    expect(timer.corner() == "fire 3 days in a row" && timer.today3() == "2 3h 20m 🔥 3" && timer.todayCaptions() == "cycles focus time days in a row" &&
+    expect(timer.today3() == "2 3h 20m 🔥 3" && timer.todayCaptions() == "cycles focus time days in a row" &&
            timer.records() == "4 6h 40m 5 days", "fake 1: records to beat, a fire");
     timer.act(pomodoro_action::kFakeStats);
-    expect(timer.corner() == "fire 6 days in a row" && timer.today3() == "5 8h 20m 🔥 6" && timer.todayCaptions() == "[Record] [Record] [Record]",
+    expect(timer.today3() == "5 8h 20m 🔥 6" && timer.todayCaptions() == "[Record] [Record] [Record]",
            "fake 2: records");
     timer.session();
     expect(timer.store[PomodoroProvider::kStatsKey] == real, "made up: never saved");
     timer.act(pomodoro_action::kFakeStats);
-    expect(timer.line() == "1 cycle · 1 h 40 min of focus", "the third click: the real statistics again");
+    expect(timer.today3() == "1 1h 40m 1", "the third click: the real statistics again");
 }
 
 // The timer's settings, a page of its window (decisions 061, 106): the plan, then the days off.

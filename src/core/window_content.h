@@ -47,6 +47,15 @@ struct WindowSpec {
 struct WindowSection {
     std::string title; // a Heading over its rows; "": none
     std::vector<Row> rows;
+    // Stable across updates: its items' keys, so a section removed before it
+    // doesn't make the ones after it rebuilt. "": its index.
+    std::string id;
+    // Its title edited in place, like a to-do (decision 043): a click on it
+    // sends Action{titleEdit, text}. "": it's plain text.
+    std::string titleEdit;
+    std::size_t titleMaxLength = 0; // ...at most this many characters; 0: no limit
+    // Beside its title (a count) and at the row's end (a delete shown on hover).
+    std::vector<Item> titleItems, titleTrailing;
     bool operator==(const WindowSection&) const = default;
 };
 
@@ -63,6 +72,17 @@ struct WindowPage {
     std::string backAction;
     Glyph glyph = Glyph::Settings;
     bool badge = false; // a dot in the sidebar: something new on it (decision 038)
+    // At the sidebar's foot instead of under the others (a timer's settings, decision 117).
+    bool atFoot = false;
+    // Its title over the page. Off: a page whose header says what it is (the timer's).
+    bool titled = true;
+    // Rows across the whole pane, over the title and sections, a line under
+    // them: what the page is about (the timer's time and controls, decision 117).
+    std::vector<Row> header;
+    // Its sections as cards side by side, windowCardWidth wide, as many to a
+    // row as fit, instead of one column (a board of task groups, decision 117).
+    // Their titles go inside them.
+    bool cards = false;
     std::vector<WindowSection> sections;
     bool operator==(const WindowPage&) const = default;
 };
@@ -74,6 +94,9 @@ struct WindowContent {
     std::string title;           // its title bar's, the taskbar's and Alt-Tab's; also its accessible name
     std::optional<Color> accent; // tints live data, as on a card (decision 010)
     std::vector<WindowPage> pages; // one: no sidebar. None: an empty window
+    // The sidebar as a rail of the pages' glyphs, windowRailWidth wide, the
+    // window's title in its title bar instead (decision 117). Off: names too.
+    bool rail = false;
     // Pinned under the pages, outside their scrolling: "Done", "Reset". Optional.
     std::vector<Row> footer;
     bool operator==(const WindowContent&) const = default;

@@ -32,7 +32,7 @@ bool startsWith(const std::string& text, const char* prefix) { return text.rfind
 void PomodoroProvider::start(Host& host)
 {
     host_ = &host;
-    todos_ = TodoList::load(host_->load(kTodosKey));
+    tasks_ = TaskBoard::load(host_->load(kTodosKey));
     plan_ = loadPlan(host_->load(kPlanKey));
     stats_ = loadStats(host_->load(kStatsKey));
     daysOff_ = loadDaysOff(host_->load(kDaysOffKey));
@@ -74,53 +74,7 @@ void PomodoroProvider::onWindowClosed(const std::string& windowId)
     if (windowId != kWindowId) return;
     windowOpen_ = false;
     question_ = PomodoroQuestion::None;
-    undoInWindow_ = false;
-}
-
-// The to-dos (decisions 016, 020, 071): on the card (a test fixture's) a
-// clear asks with a dialog and a delete with a toast; in the window both are in place.
-bool PomodoroProvider::todoAction(const Action& action, bool fromWindow)
-{
-    namespace todo = todo_action;
-    const std::string& id = action.actionId;
-    if (id == todo::kClearDone || id == todo::kClearAll) {
-        if (fromWindow) {
-            ask(id == todo::kClearDone ? PomodoroQuestion::ClearDone : PomodoroQuestion::ClearAll);
-        } else {
-            host_->ask(clearQuestion(id, todos_, kPanelId)); // clears only once confirmed (decision 020)
-        }
-        return true;
-    }
-    // Deleted at once, with an Undo (decision 071): the one deleted is kept until then.
-    if (id == todo::kUndoDelete) {
-        if (deleted_) todos_.restore(*deleted_);
-        deleted_.reset();
-        undoInWindow_ = false;
-        host_->save(kTodosKey, todos_.save());
-        showAll();
-        return true;
-    }
-    bool deleting = startsWith(id, todo::kDelete);
-    if (deleting) {
-        std::uint64_t todoId = std::strtoull(id.c_str() + std::char_traits<char>::length(todo::kDelete), nullptr, 10);
-        auto it = std::find_if(todos_.items().begin(), todos_.items().end(), [&](const Todo& t) { return t.id == todoId; });
-        if (it != todos_.items().end()) {
-            deleted_ = *it;
-            undoInWindow_ = fromWindow;
-            if (!fromWindow) host_->toast({ .activityId = kPanelId, .text = "To-do deleted", .actionLabel = "Undo", .actionId = todo::kUndoDelete });
-        }
-    }
-    if (!todos_.apply(id, action.text, action.value)) return startsWith(id, "todo.");
-    if (!deleting) undoInWindow_ = false; // the next change: the Undo row goes
-    if (id == todo::kClearDoneConfirmed || id == todo::kClearAllConfirmed) question_ = PomodoroQuestion::None;
-    if (startsWith(id, todo::kToggle)) countTodo(id);
-    host_->save(kTodosKey, todos_.save());
-    showAll();
-    if (id == todo::kAdd && !fromWindow) { // the newest open one: keep it in view (decision 029)
-        auto open = std::count_if(todos_.items().begin(), todos_.items().end(), [](const Todo& t) { return !t.done; });
-        if (open > 0) host_->reveal(kPanelId, todo::kList, static_cast<std::size_t>(open - 1));
-    }
-    return true;
+    deleted_.reset();
 }
 
 void PomodoroProvider::onAction(const Action& action)
@@ -131,7 +85,7 @@ void PomodoroProvider::onAction(const Action& action)
     if (id == act::kOpenWindow) return openWindow();
     if (id == kWindowPage) return ask(PomodoroQuestion::None); // another page: a question there goes unanswered
     if (id == act::kCancel) return ask(PomodoroQuestion::None);
-    if (todoAction(action, fromWindow)) return;
+    if (fromWindow && taskAction(action)) return;
     // Reset statistics (decision 071): asks first; confirmed, every day but today goes.
     if (id == act::kResetStats) {
         if (fromWindow) ask(PomodoroQuestion::ResetStats);
@@ -282,33 +236,23 @@ PomodoroGlance PomodoroProvider::glance() const { return glanceOf(stats_, daysOf
 void PomodoroProvider::showWindow()
 {
     if (!windowOpen_) return;
-    host_->updateWindow(kWindowId, pomodoroWindow({ .session = session_, .todos = &todos_, .plan = plan_, .glance = glance(), .daysOff = daysOff_,
-                                                    .question = question_, .undoDelete = undoInWindow_ && deleted_, .fake = fakeRow() }));
+    host_->updateWindow(kWindowId, pomodoroWindow({ .session = session_, .tasks = &tasks_, .plan = plan_, .glance = glance(), .daysOff = daysOff_,
+                                                    .question = question_, .undo = undoText(), .fake = fakeRow() }));
 }
 
 // The card's expand button (decision 106): the window opens on the timer, or
 // comes to the front where the user left it, like Settings' (decision 104).
+// It resizes and maximizes (decision 117): the tasks' cards fill what room there is.
 void PomodoroProvider::openWindow()
 {
-    PomodoroWindowView view{ .session = session_, .todos = &todos_, .plan = plan_, .glance = glance(), .daysOff = daysOff_, .fake = fakeRow() };
+    PomodoroWindowView view{ .session = session_, .tasks = &tasks_, .plan = plan_, .glance = glance(), .daysOff = daysOff_, .fake = fakeRow() };
     bool wasOpen = windowOpen_;
-    WindowOpen result = host_->openWindow({ .id = kWindowId, .size = WindowSize::Large, .resizable = false, .maximizable = false },
-                                          pomodoroWindow(view));
+    WindowOpen result = host_->openWindow({ .id = kWindowId, .size = WindowSize::Large }, pomodoroWindow(view));
     windowOpen_ = result == WindowOpen::Opened || result == WindowOpen::Raised;
     if (windowOpen_ && !wasOpen) {
         question_ = PomodoroQuestion::None;
-        undoInWindow_ = false;
+        deleted_.reset();
     }
-}
-
-void PomodoroProvider::countTodo(const std::string& actionId)
-{
-    std::uint64_t id = std::strtoull(actionId.c_str() + std::char_traits<char>::length(todo_action::kToggle), nullptr, 10);
-    auto it = std::find_if(todos_.items().begin(), todos_.items().end(), [&](const Todo& t) { return t.id == id; });
-    if (it == todos_.items().end()) return;
-    int& done = today().todosDone;
-    done = it->done ? done + 1 : std::max(0, done - 1); // unticked: taken back, never below none
-    saveStats();
 }
 
 PomodoroDay& PomodoroProvider::today() { return dayOf(stats_, localDay(host_->wallClock(), host_->utcOffset())); }

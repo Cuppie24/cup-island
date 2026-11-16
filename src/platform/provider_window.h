@@ -54,6 +54,8 @@ public:
     static constexpr UINT_PTR kRevealTimer = 1;
     void raise();                                // to the front, with the keys; restored if minimized
     void minimize();
+    void toggleMaximized();      // the title bar's middle button: as big as the screen, or back (decision 117)
+    bool maximized() const;
     void refresh(bool coloursOnly); // tokens changed: recoloured, or rebuilt on the next draw()
     // The keyboard's focus ring (decision 033) around `frame` (window coordinates), or none.
     void setFocusRing(std::optional<Rect> frame, float radius);
@@ -96,6 +98,7 @@ private:
     wuc::SpriteVisual background_{ nullptr }, paneBackground_{ nullptr };
     wuc::ContainerVisual sidebarDecor_{ nullptr }, sidebarLayer_{ nullptr };
     wuc::ContainerVisual pane_{ nullptr }, scroller_{ nullptr }, pageLayer_{ nullptr }, pageDots_{ nullptr }, rowHover_{ nullptr };
+    wuc::SpriteVisual headerRule_{ nullptr }; // the line under a page's header: one sprite, resized, never redrawn
     wuc::ContainerVisual footerLayer_{ nullptr }, chromeLayer_{ nullptr }, focusLayer_{ nullptr };
     bool glass_ = false;
     bool cloaked_ = false;
@@ -103,6 +106,7 @@ private:
     ElementVisuals sidebar_, page_, footer_, chrome_;
 
     WindowScene scene_;
+    std::wstring title_; // what Windows has as its title
     std::optional<std::size_t> hoveredNav_;
     std::optional<Rect> hoveredRow_;
     float hoveredRowRadius_ = 0;

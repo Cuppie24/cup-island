@@ -67,6 +67,12 @@ std::string progressCaption(const PomodoroSession& s)
     return s.timeline.playing ? caption : "Paused · " + caption;
 }
 
+std::string sessionDetail(const PomodoroSession& s)
+{
+    std::string detail = s.phase == Phase::LongBreak ? "last one" : roundsOf(static_cast<int>(s.round));
+    return s.timeline.playing ? detail : "paused · " + detail;
+}
+
 Steps phaseSteps(int done)
 {
     Steps steps{ .count = phaseCount(), .done = done };
@@ -141,8 +147,7 @@ Content pomodoroContent(const PomodoroSession& s, const PomodoroPlan&)
     std::string name = phaseName(s.phase);
     std::string glance = s.timeline.playing ? name : "Paused";
     if (s.phase != Phase::LongBreak) glance += " · " + std::to_string(s.round) + "/" + std::to_string(tokens().pomodoroRounds);
-    std::string detail = s.phase == Phase::LongBreak ? "last one" : roundsOf(static_cast<int>(s.round));
-    if (!s.timeline.playing) detail = "paused · " + detail;
+    std::string detail = sessionDetail(s);
     TimeLabel tileLeft{ .timeline = s.timeline, .countdown = true, .style = TextStyle::TileTitle }; // a widget's first line (decision 114)
     TimeLabel compactLeft{ .timeline = s.timeline, .countdown = true, .style = TextStyle::Body };
     Progress ring{ .timeline = s.timeline, .shape = ProgressShape::Ring };
