@@ -14,9 +14,9 @@ namespace cup {
 
 inline constexpr const char* kPomodoroPanelId = "pomodoro.focus"; // the panel and its activity
 inline constexpr const char* kPomodoroWindowId = "timer";         // its window (decision 106)
-// The window isn't finished: until it is, the card has no button into it
-// (decision 107). Its action still opens it, for the tests and for turning it back on.
-inline constexpr bool kPomodoroWindowReady = false;
+// The card's button into the window (decision 107): hidden while the window
+// wasn't finished, shown since its redesign (decision 117).
+inline constexpr bool kPomodoroWindowReady = true;
 
 namespace pomodoro_action {
 inline constexpr const char* kStart = "start";
@@ -60,6 +60,8 @@ Row dialRow(const Timeline& timeline, const std::string& label, const PomodoroPl
 // A phase's name, and "2 of 8 done" (paused: "Paused · ..."), under the dial's dots.
 std::string phaseName(PomodoroPhase phase);
 std::string progressCaption(const PomodoroSession& session);
+// Beside the phase's name: "round 2 of 4", "last one"; paused, "paused · " first.
+std::string sessionDetail(const PomodoroSession& session);
 int phaseCount();
 int phasesDone(const PomodoroSession& session);
 // The session's phases as steps, `done` of them done (decision 107): a

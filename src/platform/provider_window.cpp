@@ -139,6 +139,8 @@ bool ProviderWindow::create(HINSTANCE instance, wuc::Compositor const& composito
     pane_ = layer(compositor_, root_);
     pane_.Clip(compositor_.CreateInsetClip()); // the page shows only in the pane
     scroller_ = layer(compositor_, pane_);
+    headerRule_ = colourRect(compositor_, {}, tokens().trackColor);
+    scroller_.Children().InsertAtTop(headerRule_);
     pageLayer_ = layer(compositor_, scroller_);
     pageDots_ = layer(compositor_, scroller_); // buttons' dots (decision 038), over them
     rowHover_ = layer(compositor_, scroller_); // over the row's items: a faint tint, like the island's lit rows
@@ -155,15 +157,20 @@ bool ProviderWindow::create(HINSTANCE instance, wuc::Compositor const& composito
 
 void ProviderWindow::draw(const WindowScene& scene, Ms now)
 {
+    if (scene.title != scene_.title || title_.empty()) { // not on every frame of a resize
+        title_ = winrt::to_hstring(scene.title).c_str();
+        SetWindowTextW(hwnd_, title_.c_str()); // the taskbar's and Alt-Tab's name
+    }
     scene_ = scene;
-    std::wstring title = winrt::to_hstring(scene.title).c_str();
-    SetWindowTextW(hwnd_, title.c_str()); // the taskbar's and Alt-Tab's name
     background_.Size(toFloat2(scene.size));
     paneBackground_.Size({ scene.pane.width, scene.size.y - scene.pane.y });
     paneBackground_.Offset({ scene.pane.x, scene.pane.y, 0 });
     pane_.Size({ scene.pane.width, scene.pane.height });
     pane_.Offset({ std::round(scene.pane.x), std::round(scene.pane.y), 0 }); // on whole pixels, or every item in it is resampled (blurred)
     scroller_.Offset({ 0, -std::round(scene.scroll), 0 }); // the page moves as a whole: scrolling redraws nothing
+    Rect rule = scene.headerRule.value_or(Rect{});
+    headerRule_.Size({ rule.width, rule.height }); // a resize stretches it: nothing to repaint
+    headerRule_.Offset({ std::round(rule.x), std::round(rule.y), 0 });
     drawDecor();
     sidebar_.apply(scene.sidebarItems, now);
     page_.apply(scene.page, now);
@@ -231,6 +238,13 @@ void ProviderWindow::raise()
 
 void ProviderWindow::minimize() { ShowWindow(hwnd_, SW_MINIMIZE); }
 
+void ProviderWindow::toggleMaximized()
+{
+    if (maximizable_) ShowWindow(hwnd_, IsZoomed(hwnd_) ? SW_RESTORE : SW_MAXIMIZE);
+}
+
+bool ProviderWindow::maximized() const { return hwnd_ && IsZoomed(hwnd_); }
+
 void ProviderWindow::setFocusRing(std::optional<Rect> frame, float radius)
 {
     focusLayer_.Children().RemoveAll();
@@ -290,6 +304,7 @@ void ProviderWindow::refresh(bool coloursOnly)
     for (ElementVisuals* v : { &sidebar_, &page_, &footer_, &chrome_ }) v->refresh(coloursOnly);
     paintBackground();
     paneBackground_.Brush(compositor_.CreateColorBrush(toUiColor(tokens().windowPaneColor)));
+    headerRule_.Brush(compositor_.CreateColorBrush(toUiColor(tokens().trackColor)));
     drawDecor();
 }
 

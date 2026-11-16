@@ -161,9 +161,15 @@ void layoutTests()
     Vec2 size{ 900, 700 };
     WindowScene s = windowLayout(w, size, 0, Ms{ 0 }, measure);
 
-    expect(s.titleBar == Rect{ 0, 0, 900, t.windowTitleBarHeight } && s.chrome.size() == 2 &&
-           s.chrome[1].frame.x + s.chrome[1].frame.width == 900 && s.chrome[0].frame.x + s.chrome[0].frame.width == s.chrome[1].frame.x,
-           "window: our own title bar, minimize then close at its right");
+    expect(s.titleBar == Rect{ 0, 0, 900, t.windowTitleBarHeight } && s.chrome.size() == 3 &&
+           s.chrome[2].frame.x + s.chrome[2].frame.width == 900 && s.chrome[0].frame.x + s.chrome[0].frame.width == s.chrome[1].frame.x &&
+           s.chrome[1].frame.x + s.chrome[1].frame.width == s.chrome[2].frame.x && std::get<Button>(s.chrome[1].item).glyph == Glyph::Maximize,
+           "window: our own title bar, minimize, maximize and close at its right");
+    OpenWindow fixed = w;
+    fixed.spec.maximizable = false;
+    expect(windowLayout(fixed, size, 0, Ms{ 0 }, measure).chrome.size() == 2, "window: not maximizable, no maximize button");
+    expect(std::get<Button>(windowLayout(w, size, 0, Ms{ 0 }, measure, nullptr, true).chrome[1].item).glyph == Glyph::Restore,
+           "window: maximized, the button restores it");
     expect(s.sidebar && s.sidebar->width == t.windowSidebarWidth && s.nav.size() == 2 && s.nav[0].picked && !s.nav[1].picked &&
            s.pane.x == t.windowSidebarWidth && s.pane.y == t.windowTitleBarHeight,
            "window: two pages, a sidebar, the shown one picked; the page beside it, under the bar");
@@ -207,8 +213,9 @@ void layoutTests()
     WindowHit right = windowHitTest(s, { bottom.x + s.pane.x + bottom.width / 2, bottom.y + s.pane.y + bottom.height / 2 });
     expect(right.hit && right.hit->action.actionId == "tabs:1" && right.hit->action.windowId == "w", "hit: an option sends its pick, from this window");
     auto middle = [](const Placed& p) { return Vec2{ p.frame.x + p.frame.width / 2, p.frame.y + p.frame.height / 2 }; }; // window coordinates
-    expect(windowHitTest(s, { 10, 10 }).part == WindowPart::Caption && windowHitTest(s, middle(s.chrome[1])).part == WindowPart::Close &&
-           windowHitTest(s, middle(s.chrome[0])).part == WindowPart::Minimize, "hit: the bar drags; its buttons minimize and close");
+    expect(windowHitTest(s, { 10, 10 }).part == WindowPart::Caption && windowHitTest(s, middle(s.chrome[2])).part == WindowPart::Close &&
+           windowHitTest(s, middle(s.chrome[1])).part == WindowPart::Maximize && windowHitTest(s, middle(s.chrome[0])).part == WindowPart::Minimize,
+           "hit: the bar drags; its buttons minimize, maximize and close");
     WindowHit nav = windowHitTest(s, { s.nav[1].frame.x + 5, s.nav[1].frame.y + 5 });
     expect(nav.part == WindowPart::Page && nav.page == "two", "hit: a sidebar entry picks its page");
     expect(windowHitTest(s, { s.pane.x + 2, s.pane.y + s.pane.height - 2 }).part == WindowPart::None, "hit: the page's empty space does nothing");

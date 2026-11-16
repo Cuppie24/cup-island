@@ -5,6 +5,7 @@
 #include "core/slot_layout.h"
 #include "core/tokens.h"
 #include "core/window_fields.h"
+#include "core/window_page.h"
 
 #include <algorithm>
 #include <cmath>
@@ -29,33 +30,47 @@ Placed placedButton(const std::string& key, Glyph glyph, const char* action, Rec
     return p;
 }
 
-// A window's text a step up from the island's (decision 112): Title, Body
-// and Caption become their Window kin. Providers write the plain styles, so
-// the same rows read the same on a card and in a window.
-TextStyle windowStyle(TextStyle style)
+// The sidebar: the window's title over an entry per page, each its glyph
+// and name; or, as a rail, the glyphs alone (decision 117). Pages atFoot
+// stack up from its bottom.
+float placeSidebar(WindowScene& s, const OpenWindow& w, float bar, Ms now, const MeasureText& measure)
 {
-    switch (style) {
-    case TextStyle::Title: return TextStyle::WindowTitle;
-    case TextStyle::Body: return TextStyle::WindowBody;
-    case TextStyle::Caption: return TextStyle::WindowCaption;
-    default: return style;
+    const Tokens& t = tokens();
+    const auto& pages = w.content.pages;
+    Source source{ .providerId = w.key.providerId };
+    bool rail = w.content.rail;
+    float left = std::round(std::min(rail ? t.windowRailWidth : t.windowSidebarWidth, s.size.x / 2));
+    s.sidebar = Rect{ 0, bar, left, std::max(0.0f, s.size.y - bar) };
+    s.rail = rail;
+    float inset = t.windowSidebarInset, entryWidth = rail ? std::min(t.windowNavHeight, left - 2 * inset) : std::max(0.0f, left - 2 * inset);
+    float entryX = rail ? std::round((left - entryWidth) / 2) : inset;
+    float top = bar + inset;
+    if (!rail) {
+        Slot header = windowStyled({ row({ Text{ .value = w.content.title, .style = TextStyle::Title } }) });
+        placeSlot({ "side", &header, { inset + 10, bar, std::max(0.0f, left - 2 * inset - 10), t.windowSidebarHeader } }, source, 0, now,
+                  s.sidebarItems, measure);
+        top = bar + t.windowSidebarHeader;
     }
-}
-
-Slot windowStyled(Slot slot)
-{
-    for (Row& r : slot)
-        for (auto* items : { &r.items, &r.leading, &r.trailing })
-            for (Item& item : *items) {
-                if (auto* text = std::get_if<Text>(&item)) text->style = windowStyle(text->style);
-                else if (auto* label = std::get_if<TimeLabel>(&item)) label->style = windowStyle(label->style);
-            }
-    return slot;
+    std::size_t atFoot = static_cast<std::size_t>(std::count_if(pages.begin(), pages.end(), [](const WindowPage& p) { return p.atFoot; }));
+    float foot = s.size.y - inset - static_cast<float>(atFoot) * (t.windowNavHeight + 4) + 4;
+    for (std::size_t i = 0; i < pages.size(); ++i) {
+        const WindowPage& page = pages[i];
+        float& y = page.atFoot ? foot : top;
+        Rect entry{ entryX, std::round(y), entryWidth, t.windowNavHeight };
+        Row one{ .items = { Icon{ page.glyph } }, .align = rail ? Align::Center : Align::Start, .inset = !rail };
+        if (!rail) one.items.push_back(Text{ page.title });
+        Slot slot = windowStyled({ one });
+        placeSlot({ "nav" + std::to_string(i), &slot, entry, rail }, source, t.windowNavRadius, now, s.sidebarItems, measure);
+        s.nav.push_back({ entry, page.id, page.id == w.page, page.badge });
+        y += t.windowNavHeight + 4;
+    }
+    return left;
 }
 
 } // namespace
 
-WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, const MeasureText& measure, const WindowTyping* typing)
+WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, const MeasureText& measure, const WindowTyping* typing,
+                         bool maximized)
 {
     const Tokens& t = tokens();
     WindowScene s;
@@ -71,27 +86,20 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
     // scale (decision 017), and a pane at 237.5 px blurred every item in it.
     float bar = std::round(t.windowTitleBarHeight), button = std::round(t.windowChromeButtonWidth);
     s.titleBar = { 0, 0, size.x, bar };
-    s.chrome.push_back(placedButton("chrome/min/0", Glyph::Minus, kWindowMinimize, { size.x - 2 * button, 0, button, bar }, w));
+    bool maximizes = w.spec.resizable && w.spec.maximizable;
+    float buttons = maximizes ? 3 : 2;
+    s.chrome.push_back(placedButton("chrome/min/0", Glyph::Minus, kWindowMinimize, { size.x - buttons * button, 0, button, bar }, w));
+    if (maximizes)
+        s.chrome.push_back(placedButton("chrome/max/0", maximized ? Glyph::Restore : Glyph::Maximize, kWindowMaximize,
+                                        { size.x - 2 * button, 0, button, bar }, w));
     s.chrome.push_back(placedButton("chrome/close/0", Glyph::Close, kWindowClose, { size.x - button, 0, button, bar }, w));
 
-    // The sidebar, with several pages: the window's title over an entry per page.
-    float left = 0;
-    if (w.content.pages.size() > 1) {
-        left = std::round(std::min(t.windowSidebarWidth, size.x / 2));
-        s.sidebar = Rect{ 0, bar, left, std::max(0.0f, size.y - bar) };
-        float inset = t.windowSidebarInset;
-        Slot header = windowStyled({ row({ Text{ .value = w.content.title, .style = TextStyle::Title } }) });
-        placeSlot({ "side", &header, { inset + 10, bar, std::max(0.0f, left - 2 * inset - 10), t.windowSidebarHeader } }, source, 0, now,
-                  s.sidebarItems, measure);
-        float y = bar + t.windowSidebarHeader;
-        for (std::size_t i = 0; i < w.content.pages.size(); ++i) {
-            const WindowPage& page = w.content.pages[i];
-            Rect entry{ inset, y, std::max(0.0f, left - 2 * inset), t.windowNavHeight };
-            Slot one = windowStyled({ Row{ .items = { Icon{ page.glyph }, Text{ page.title } }, .inset = true } });
-            placeSlot({ "nav" + std::to_string(i), &one, entry }, source, t.windowNavRadius, now, s.sidebarItems, measure);
-            s.nav.push_back({ entry, page.id, page.id == w.page, page.badge });
-            y += t.windowNavHeight + 4;
-        }
+    float left = w.content.pages.size() > 1 ? placeSidebar(s, w, bar, now, measure) : 0;
+    // No sidebar header to name the window: its title in the bar, as Windows puts one.
+    if (left == 0 || w.content.rail) {
+        Slot title = windowStyled({ row({ Text{ .value = w.content.title, .style = TextStyle::Caption } }) });
+        placeSlot({ "chrome/title", &title, { t.windowSidebarInset + 4, 0, std::max(0.0f, size.x - buttons * button - 2 * t.windowSidebarInset), bar } },
+                  source, 0, now, s.chrome, measure);
     }
 
     // The footer, pinned under the page.
@@ -108,9 +116,6 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
     }
     s.pane = { left, bar, std::max(0.0f, size.x - left), std::max(0.0f, bottom - bar) };
 
-    // The page: its title (a back arrow before it on a page within a page), a
-    // line under it, then each section as a group of rows (core/groups.h): one
-    // slot, laid out like a List card's, from the top.
     const WindowPage* page = shownPage(w);
     if (!page) return s;
     // Its fields, as a card's (decision 105): a draft names the window as its card.
@@ -120,31 +125,12 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
         fields.keptText = &typing->kept;
     }
     s.backAction = page->backAction;
-    Slot rows;
-    Row title{ .items = { Text{ .value = page->title, .style = TextStyle::PageTitle } } };
-    if (!page->backAction.empty()) title.leading = { Button{ .glyph = Glyph::ChevronLeft, .actionId = page->backAction, .compact = true } };
-    rows.push_back(title);
-    if (!page->subtitle.empty()) rows.push_back(row({ Text{ .value = page->subtitle, .style = TextStyle::Caption } }));
-    for (const WindowSection& section : page->sections) {
-        std::vector<Row> group = section.rows;
-        for (Row& r : group) {
-            r.list.clear(); // the page scrolls as a whole (window_content.h)
-            r.visibleRows = 0;
-        }
-        addGroup(rows, section.title, std::move(group));
-    }
-    float width = std::max(0.0f, std::min(t.windowPageMaxWidth, s.pane.width - 2 * t.windowPagePadding.x));
-    Rect frame{ t.windowPagePadding.x, t.windowPagePadding.y, width, 0 };
-    rows = windowStyled(std::move(rows));
-    frame.height = slotHeight(rows, frame, fields, measure);
-    placeSlot({ "page", &rows, frame }, fields, t.windowNavRadius, now, s.page, measure);
+    float content = placePage(*page, s.pane.width, fields, now, measure, s.page, s.headerRule);
     // A button's dot (a setting with something new inside, decision 048), where the island puts one.
     Scene dots;
-    dots.size = { s.pane.width, frame.y + frame.height };
+    dots.size = { s.pane.width, content };
     dots.elements = s.page;
     s.badges = badgeCentres(dots);
-    float y = frame.y + frame.height;
-    float content = y + t.windowPagePadding.y;
     s.maxScroll = std::max(0.0f, content - s.pane.height);
     s.scroll = std::clamp(scroll, 0.0f, s.maxScroll);
     return s;
@@ -161,9 +147,12 @@ WindowHit windowHitTest(const WindowScene& s, Vec2 point)
         }
         return hit;
     };
-    for (const Placed& p : s.chrome)
-        if (p.hitFrame.contains(point))
-            return { std::get<Button>(p.item).actionId == kWindowClose ? WindowPart::Close : WindowPart::Minimize, Hit{ {}, p.key }, {} };
+    for (const Placed& p : s.chrome) {
+        auto* button = std::get_if<Button>(&p.item); // the title beside them is only text
+        if (!button || !p.hitFrame.contains(point)) continue;
+        WindowPart part = button->actionId == kWindowClose ? WindowPart::Close : button->actionId == kWindowMaximize ? WindowPart::Maximize : WindowPart::Minimize;
+        return { part, Hit{ {}, p.key }, {} };
+    }
     if (s.titleBar.contains(point)) return { WindowPart::Caption };
     for (const NavEntry& n : s.nav)
         if (n.frame.contains(point)) return { WindowPart::Page, std::nullopt, n.page };

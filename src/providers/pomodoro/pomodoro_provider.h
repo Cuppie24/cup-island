@@ -3,9 +3,9 @@
 // a card that starts a session; running, it's an activity that counts down
 // focus rounds and breaks. It ends by itself after the long break, or with
 // its stop button, once confirmed. The widget only informs (decision 019).
-// The card is only the dial and its controls; its expand button opens the
-// timer's window (decision 106) with the rest: the phase dots, today, the
-// to-dos (decision 016), statistics and settings (decision 061).
+// The card is the time and its controls; its expand button opens the
+// timer's window (decision 106) with the rest: the tasks in groups
+// (decisions 016, 117), statistics and settings (decision 061).
 // Pure: the countdown is host-driven (a Timeline), phase ends come from
 // Host::wakeAt, so it builds and tests on any OS. A session survives a
 // restart, paused (decisions 027, 061); everything is kept in the host's store (decision 028).
@@ -15,11 +15,12 @@
 #include "providers/pomodoro/pomodoro_session.h"
 #include "providers/pomodoro/pomodoro_stats.h"
 #include "providers/pomodoro/pomodoro_window.h"
-#include "providers/pomodoro/todo_list.h"
+#include "providers/pomodoro/task_board.h"
 
 #include <cstddef>
 #include <optional>
 #include <string>
+#include <variant>
 
 namespace cup {
 
@@ -38,7 +39,7 @@ public:
 
     static constexpr const char* kPanelId = kPomodoroPanelId; // the panel and its activity
     static constexpr const char* kWindowId = kPomodoroWindowId;
-    // Its store keys (Host::load/save): the list (TodoList::save), the session (saveSession; "" = none).
+    // Its store keys (Host::load/save): the tasks (TaskBoard::save; a TodoList's before groups), the session (saveSession; "" = none).
     static constexpr const char* kTodosKey = "todos";
     static constexpr const char* kSessionKey = "session";
     static constexpr const char* kPlanKey = "plan"; // focus and break lengths (savePlan)
@@ -58,8 +59,10 @@ private:
     void showWindow();                          // the window's content, if it's open
     void openWindow();                          // from the card's expand button: opened, or brought forward
     void ask(PomodoroQuestion question);        // a question in the window, or none (answered, Cancel, another page)
-    bool todoAction(const Action& action, bool fromWindow); // a todo.* action: true if it was one
-    void countTodo(const std::string& actionId); // a to-do ticked or unticked: today's count
+    // The tasks (pomodoro_tasks.cpp): a group.* or tasks.* action, or the Undo. True if it was one.
+    bool taskAction(const Action& action);
+    void countTask(const TaskTarget& target);   // a task ticked or unticked: today's count
+    std::string undoText() const;               // the Undo row's words; "": no row
     PomodoroDay& today();                       // today's statistics, to change (then saveStats)
     PomodoroGlance glance() const;              // today's, now
     void saveStats();
@@ -67,14 +70,18 @@ private:
 
     Host* host_ = nullptr;
     std::optional<Session> session_;
-    TodoList todos_;
+    TaskBoard tasks_;
     PomodoroPlan plan_;
     PomodoroStats stats_;
     DaysOff daysOff_{};
     bool windowOpen_ = false;
     PomodoroQuestion question_ = PomodoroQuestion::None; // asked in the window, waiting
-    std::optional<Todo> deleted_; // the last to-do deleted, for its Undo (decision 071)
-    bool undoInWindow_ = false;   // ...deleted in the window: its Undo row shows there
+    // The last task or group deleted, for its Undo row (decision 071); the next change drops it.
+    struct DeletedTask {
+        std::uint64_t group = 0;
+        Todo task;
+    };
+    std::optional<std::variant<DeletedTask, RemovedGroup>> deleted_;
     bool debug_ = false;
     int fake_ = 0; // a made-up history shown (fakeStats), never saved; 0: the real one
 };
