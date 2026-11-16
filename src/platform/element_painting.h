@@ -7,6 +7,8 @@
 
 #include <functional>
 #include <optional>
+#include <string>
+#include <vector>
 
 namespace cup::platform {
 
@@ -16,6 +18,18 @@ void paintText(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, Vec
 // The one colour `text` is drawn in, if it's one (decision 102): not with
 // bright digits or parts, a detail line under it, or an emoji (its own colours).
 std::optional<Color> singleInkOf(const Text& text);
+// A Hero time's characters, each drawn on its own so each can roll (decision
+// 107): where each one's advance is in a frame of `size`, laid out as
+// paintText lays the whole line out (centred, tabular figures).
+struct TextCharacter {
+    std::wstring value; // one character: a UTF-16 unit, or a pair
+    float left = 0;
+    float width = 0;
+};
+std::vector<TextCharacter> charactersOf(IDWriteFactory* dw, const Text& text, Vec2 size);
+// One of them alone, its advance starting at `left`, in a surface `height`
+// tall: on the line's baseline, in its colour (a separator quieter).
+void paintCharacter(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, const std::wstring& character, float left, float height);
 // Width of `text` on a single line, untrimmed: decides whether marquee text has to swim.
 float measureText(IDWriteFactory* dw, const Text& text);
 // Swimming text: the string twice, `gap` apart, starting at x = `lead`, so
@@ -49,8 +63,9 @@ void paintRoundButton(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Button& 
 // Where in `text` (a byte offset) a click at `at` (from its frame's top left) lands:
 // where editing it in place puts the caret (decision 043).
 std::size_t caretAt(IDWriteFactory* dw, const Text& text, Vec2 size, Vec2 at);
-// Steps (decision 010): a dot per step, centred vertically; done and to-do
-// ones in their token colours, the current one in `accent`.
+// Steps (decisions 010, 107): a dot or a pill per step, centred vertically;
+// done and to-do ones in their token colours, the current one in `accent`
+// with a faint ring of it.
 void paintSteps(ID2D1DeviceContext* dc, const Steps& steps, Vec2 size, const Color& accent);
 // A Swatch (decision 030): a circle of its fill, ringed in trackColor so a
 // pale one shows on a pale island, with a dot of its mark in the middle.

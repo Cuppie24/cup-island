@@ -170,6 +170,13 @@ bool swims(const Item& item)
     return text && text->marquee;
 }
 
+// A Hero time (decision 107): its characters roll as they change.
+bool rolls(const Item& item)
+{
+    auto* text = std::get_if<Text>(&item);
+    return text && text->style == TextStyle::Hero && !text->marquee;
+}
+
 } // namespace
 
 void ElementVisuals::init(wuc::Compositor const& compositor, GraphicsDevice& device, wuc::ContainerVisual const& parent)
@@ -213,7 +220,7 @@ void ElementVisuals::apply(const std::vector<Placed>& elements, Ms now, Ms revea
     // The GPU was reset mid-apply: the device is rebuilt, but every surface lost its pixels.
     if (deviceLost_)
         for (auto& [key, view] : views_)
-            if (view.surface) paint(view);
+            if (view.surface || view.rolling.visual) paint(view);
 }
 
 void ElementVisuals::refresh(bool coloursOnly)
@@ -299,6 +306,13 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
             masked.Mask(parts.glyph.Brush());
             parts.glyph.Brush(masked);
         }
+    } else if (rolls(placed.item)) {
+        // A sprite per character, so each can roll (decision 107); it reaches
+        // `lead` past the frame on each side, room for a heavy glyph's overhang.
+        view.rolling = createRollingText(compositor_, *device_, std::get<Text>(placed.item), size, view.grey);
+        view.lead = view.rolling.lead;
+        visualSize.x += 2 * view.lead;
+        view.visual = view.rolling.visual;
     } else if (clickableArt(placed.item)) {
         view.surface = device_->createSurface(size);
         view.glyphSurface = device_->createSurface(size);
@@ -384,7 +398,7 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     // A bar and a ring are both Progress, but different visuals. A new accent
     // (a cover's colour) isn't a new visual: its brushes fade to it.
     bool retyped = view.placed.item.index() != placed.item.index() || isRing(view.placed.item) != isRing(placed.item) ||
-                   clickableArt(view.placed.item) != clickableArt(placed.item);
+                   clickableArt(view.placed.item) != clickableArt(placed.item) || rolls(view.placed.item) != rolls(placed.item);
     bool recoloured = view.placed.accent != placed.accent;
     // In a list, its place is in the list's scroller: scrolling moves the scroller, not it.
     Vec2 was = lists_.positionOf(view.placed), at = lists_.positionOf(placed);
@@ -446,6 +460,8 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     if (view.highlight && focusedField(placed.item) != wasFocused) // focus came or went: background follows (or hover keeps it)
         fadeTo(compositor_, view.highlight, focusedField(placed.item) || placed.key == hovered_ ? 1.0f : 0.0f, tokens().hoverFadeDuration);
     if (view.surface && !newPicture) paint(view);
+    if (view.rolling.visual && !rollTo(compositor_, *device_, view.rolling, std::get<Text>(placed.item), pixelSize(sizeOf(placed))))
+        deviceLost_ = true;
     syncFill(view, tokens().hoverFadeDuration); // a toggle switched on or off, a button enabled
     if (view.ink) fadeInk(view, tokens().hoverFadeDuration); // another style: another colour
     // While scrubbing, the bar belongs to the pointer; endScrub() re-arms it.
@@ -479,7 +495,7 @@ void ElementVisuals::recolor(View& view)
         fadeInk(view, recolorDuration(t));
         return;
     }
-    if (view.surface) paint(view);
+    if (view.surface || view.rolling.visual) paint(view);
 }
 
 void ElementVisuals::fadeInk(View& view, Ms duration)
@@ -520,6 +536,11 @@ void ElementVisuals::paint(View& view)
     Vec2 size = sizeOf(view.placed);
     IDWriteFactory* dw = device_->dwrite();
     const Item& item = view.placed.item;
+    if (view.rolling.visual) { // its characters' own surfaces (decision 107)
+        view.rolling.grey = view.grey;
+        if (!repaintRolling(*device_, view.rolling, pixelSize(size))) deviceLost_ = true;
+        return;
+    }
     // Coloured by its brush (decision 102): its pixels are white.
     std::optional<Color> white = view.ink ? std::optional<Color>(Color{ 255, 255, 255 }) : std::nullopt;
     auto content = [&](ID2D1DeviceContext* dc) {
@@ -635,6 +656,7 @@ void ElementVisuals::setGrey(View& view, bool grey)
     if (view.track) fadeColor(view.track, toned(t.trackColor, grey), t.hoverFadeDuration);
     if (view.accent) fadeColor(view.accent, toned(accentOf(view.placed), grey), t.hoverFadeDuration);
     if (view.knobBrush) fadeColor(view.knobBrush, toned(t.knobColor, grey), t.hoverFadeDuration);
+    if (view.rolling.visual) paint(view); // greyed or coloured again, in place (decision 107)
     if (!view.surface) return;
     if (view.picture && view.marqueeWidth == 0) {
         auto size = view.surface.Size();

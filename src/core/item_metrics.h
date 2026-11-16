@@ -13,6 +13,8 @@ float lineHeight(TextStyle style); // a line of text in this style
 // The style of a Text::detail line under text in `style` (decision 079).
 TextStyle detailStyleOf(TextStyle style);
 bool isRing(const Item& item);
+// Step i's length on screen, from its StepLength (decision 107).
+float stepWidth(const Steps& steps, int i);
 // A primary button's circle (decision 064) and the glyph in it; a compact
 // one is the main action in a row of controls, media's ▶ (decision 094).
 float primarySize(const Button& button);

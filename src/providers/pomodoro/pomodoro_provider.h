@@ -56,7 +56,7 @@ private:
     void showDormant();                         // the dormant panel
     void showAll();                             // the card that's up (the session's, or the dormant one) and the window
     void showWindow();                          // the window's content, if it's open
-    void openWindow();                          // from the card's expand button: opened, or brought forward
+    void openWindow(const std::string& page = ""); // from the card's buttons: opened, or brought forward; on `page`, if given
     void ask(PomodoroQuestion question);        // a question in the window, or none (answered, Cancel, another page)
     bool todoAction(const Action& action, bool fromWindow); // a todo.* action: true if it was one
     void countTodo(const std::string& actionId); // a to-do ticked or unticked: today's count

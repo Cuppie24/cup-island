@@ -29,7 +29,8 @@ enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Sour
 // "General", "Dark"): small and quiet, since the group's background already sets it apart (decision 090).
 // Result and ResultDetail: a search result's name and the line under it (decision 079).
 // PageTitle: a window page's name, over its groups (decision 104).
-enum class TextStyle { Title, Body, Caption, Digits, Display, Heading, Result, ResultDetail, PageTitle };
+// Hero: the one big number a card is about, heavy (Pomodoro's time); its digits roll as they change (decision 107).
+enum class TextStyle { Title, Body, Caption, Digits, Display, Heading, Result, ResultDetail, PageTitle, Hero };
 
 // sRGB plus opacity. As an activity's accent (decision 010) it tints only
 // live data: progress fills (bar and ring), the current step, waveform bars.
@@ -193,11 +194,16 @@ struct TimeLabel {
     bool operator==(const TimeLabel&) const = default;
 };
 struct Waveform { bool active = false; bool operator==(const Waveform&) const = default; };              // "now playing" bars; still dots when inactive
-// A row of dots, one per step: `done` filled, the current one (index `done`)
-// in the accent, the rest faint. Pomodoro's phases, a multi-step task (decision 010).
+// How long a step is drawn (decision 107): a dot, or a pill, so steps that
+// last longer read longer (Pomodoro: a focus long, a break a dot).
+enum class StepLength { Dot, Short, Long };
+// A row of steps: `done` filled, the current one (index `done`) in the
+// accent with a faint ring of it, the rest faint. Pomodoro's phases, a
+// multi-step task (decisions 010, 107).
 struct Steps {
     int count = 0;
     int done = 0;
+    std::vector<StepLength> lengths; // per step; past its end (or empty): dots
     bool operator==(const Steps&) const = default;
 };
 

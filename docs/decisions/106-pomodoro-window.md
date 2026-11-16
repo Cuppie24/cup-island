@@ -1,6 +1,6 @@
 # 106: Pomodoro's card is a timer; the rest is its window
 
-Status: Accepted (amends 061, 063 to 070 and 085: what was on the card and its pages is in the window). Core and provider tested; the window on Windows needs a run.
+Status: Accepted (amends 061, 063 to 070 and 085: what was on the card and its pages is in the window). Core and provider tested; the window on Windows needs a run. The card's layout is amended by 107.
 
 **Context.** Pomodoro's card held the most of any card: corners with the
 days in a row, the statistics and the gear; the dial; the phase dots and

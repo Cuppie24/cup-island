@@ -220,6 +220,7 @@ if(WIN32)
         src/platform/effects.cpp
         src/platform/element_parts.cpp
         src/platform/element_visuals.cpp
+        src/platform/rolling_text.cpp
         src/platform/switch_parts.cpp
         src/platform/segments_parts.cpp
         src/platform/list_viewports.cpp

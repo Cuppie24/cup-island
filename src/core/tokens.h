@@ -115,7 +115,8 @@ struct Tokens {
     float titleFontSize = 17;   // the type ramp steps 2 px: caption 13, body 15, title 17 (decision 024)
     float bodyFontSize = 15;
     float captionFontSize = 13; // the smallest text: ~11 px on screen at 100% after islandScale
-    float displayFontSize = 48; // TextStyle::Display: a timer as the card's centre
+    float displayFontSize = 48; // TextStyle::Display: a timer in a dial (decision 065)
+    float heroFontSize = 64;    // TextStyle::Hero: the one big number a card is about (Pomodoro's time, decision 107)
     float headingFontSize = 14; // TextStyle::Heading: a group's label, in the caption colour, a little over caption size (decision 090)
     float pageTitleFontSize = 24; // TextStyle::PageTitle: a window page's name (decision 104)
     // Font weights, 100..900 (400 regular, 600 semibold; decision 024). Segoe UI Variable
@@ -124,6 +125,7 @@ struct Tokens {
     float bodyFontWeight = 600;    // semibold: text on the island reads heavier than on a page (decision 024)
     float captionFontWeight = 600;
     float displayFontWeight = 300; // big and still the lightest, like a clock face
+    float heroFontWeight = 800;    // heavy: the card's timer reads from across the desk (decision 107)
     float headingFontWeight = 600; // a group's label is quiet: its group's background sets it apart (decision 090)
     float pageTitleFontWeight = 700;
     // Darkens antialiased text strokes (DirectWrite's grayscale enhanced
@@ -176,8 +178,12 @@ struct Tokens {
     float progressKnobSize = 12;  // the scrub handle shown on hover
     float timeLabelWidth = 56;  // fits "-1:02:05" at captionFontSize
     float ringThickness = 3;      // progress ring stroke (decision 010)
-    float stepDotSize = 9;        // Steps: one dot per step
+    float stepDotSize = 9;        // Steps: one dot per step; a pill step's height
     float stepDotGap = 8;
+    float stepShortWidth = 16;    // StepLength::Short: a pill a little longer than a dot (the long break, decision 107)
+    float stepLongWidth = 34;     // StepLength::Long: a long pill (a focus)
+    float stepHaloWidth = 3;      // the current step's ring of its accent, faint, around it
+    float stepHaloOpacity = 0.35f;
     float badgeSize = 8;          // a notification dot (decision 038)
     float badgeInset = 7;         // ...at least this far in from a widget's or tab's edges (its corner's rounding sets it, decision 038)
     float swatchSize = 24;        // Swatch: a colour sample (a theme on Settings' list, decision 030)
@@ -314,6 +320,9 @@ struct Tokens {
 
     // Content crossfades slightly after the pill starts morphing.
     Ms contentFadeDuration{ 150 };
+    // A Hero time's digits roll as they change (decision 107): the new one
+    // falls in from above as the old one drops out below, over this long.
+    Ms digitRollDuration{ 380 };
     // New content starts arriving once the growing pill is this share of the
     // way to its new size (decision 080): with the spring that's early, and it
     // follows the morph's own timing. A shrinking pill shows it at once.
