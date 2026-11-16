@@ -9,7 +9,7 @@ namespace {
 
 // Somewhere else to go: another activity, or Home (with panels, by its
 // button) from any card. And Home itself, even with nothing running: the
-// strip carries the pin that keeps it open (decision 046).
+// strip carries Home's button and panels' buttons (decisions 009, 113).
 bool hasTabs(const IslandState& s)
 {
     if (mode(s) != Mode::Expanded) return false;
@@ -38,7 +38,7 @@ bool homeBadged(const IslandState& s)
 // A button's glyph, centred in its square. Keys carry what it is, so it stays
 // the same visual as the strip changes. `muted`: grey until the pointer is on
 // that button itself (decisions 072, 109): its activityId is the button's id,
-// which only its own hover lights: Home's while Home isn't shown, the pin
+// which only its own hover lights: Home's while Home isn't shown, a panel's button
 // while off, the arrows always. `disabled`: dim, and never lit (an arrow with nowhere to go).
 void placeGlyph(const std::string& name, const std::string& id, Glyph glyph, Rect button, bool muted, std::vector<Placed>& out,
                 bool disabled = false)
@@ -79,7 +79,7 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     };
 
     // Home's button at the left edge, its click area taking in the card's
-    // corner (decision 009); the pin mirrors it at the right (decision 046).
+    // corner (decision 009).
     bool homeShown = s.homeOpen;
     if (hasWidgets(s)) {
         Rect frame{ p, y, t.homeButtonWidth, h };
@@ -99,10 +99,7 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
         placeGlyph("button/" + panel.id, id, *panel.rowButton, frame, true, elements); // grey until hovered, like the arrows
         right -= w + between;
     }
-    Rect pin{ right - w, y, w, h };
-    strip.pin = button(kPinTab, pin, t.slotGap / 2, strip.buttons.empty() ? p : between / 2);
-    strip.pinned = s.stayOpen;
-    placeGlyph("pin", kPinTab, s.stayOpen ? Glyph::Pinned : Glyph::Pin, pin, !s.stayOpen, elements);
+    // No pin any more (decision 121): the row is Home, the pages and their arrows, and panels' buttons.
 
     // The pages: the activities; the shown one is a line, the rest dots (decision 109).
     // Home isn't one: its button at the left is the way there (decision 115).
@@ -156,7 +153,7 @@ const Tab* tabAt(const TabStrip& strip, Vec2 point)
 {
     for (const Tab& tab : strip.tabs)
         if (tab.hitFrame.contains(point)) return &tab;
-    for (const std::optional<Tab>* button : { &strip.previous, &strip.next, &strip.home, &strip.pin })
+    for (const std::optional<Tab>* button : { &strip.previous, &strip.next, &strip.home })
         if (*button && (*button)->hitFrame.contains(point)) return &**button;
     for (const Tab& button : strip.buttons)
         if (button.hitFrame.contains(point)) return &button;

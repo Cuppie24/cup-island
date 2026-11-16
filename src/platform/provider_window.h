@@ -9,6 +9,7 @@
 #include "core/window_layout.h"
 #include "platform/element_visuals.h"
 #include "platform/graphics_device.h"
+#include "platform/toast_layer.h"
 #include "platform/win.h"
 
 #include <functional>
@@ -29,6 +30,7 @@ struct ProviderWindowCallbacks {
     std::function<void(Vec2 size)> onResized; // the client area's new size: lay it out again now
     std::function<void()> onMoved;           // the user let go after moving or resizing it
     std::function<bool(Vec2 point)> isCaption; // the title bar's empty part: it drags the window
+    std::function<void()> onTick;            // armTick's time came: lay it out again (a time label, a toast's end)
 };
 
 class ProviderWindow {
@@ -52,6 +54,10 @@ public:
 
     static constexpr UINT kRevealMessage = WM_APP + 21; // posted after drawing its first frame: handled once that's committed
     static constexpr UINT_PTR kRevealTimer = 1;
+    static constexpr UINT_PTR kTickTimer = 2;
+    // Its own one-shot timer (decision 121): onTick after `delay`, replacing the one armed; none: disarmed.
+    // A window's time labels and toast keep time with it, not with the island's timer.
+    void armTick(std::optional<Ms> delay);
     void raise();                                // to the front, with the keys; restored if minimized
     void minimize();
     void toggleMaximized();      // the title bar's middle button: as big as the screen, or back (decision 117)
@@ -106,6 +112,7 @@ private:
     bool cloaked_ = false;
     std::function<void()> shown_;
     ElementVisuals sidebar_, page_, footer_, chrome_;
+    ToastLayer toast_; // over the pane, clipped to it (decision 121)
 
     WindowScene scene_;
     std::wstring title_; // what Windows has as its title

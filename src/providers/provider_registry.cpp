@@ -50,6 +50,11 @@ public:
     void toast(Toast toast) override
     {
         toast.providerId = providerId_;
+        if (!toast.windowId.empty()) { // over its window, not a card (decision 121)
+            WindowKey key{ providerId_, toast.windowId };
+            if (showWindowToast(registry_.windows_, key, std::move(toast), registry_.clock_())) registry_.windowsChanged();
+            return;
+        }
         registry_.dispatch_(ToastShown{ std::move(toast) }, providerId_.c_str());
     }
 
@@ -180,7 +185,14 @@ void ProviderRegistry::route(const Action& action)
     // A click from a window closed meanwhile goes nowhere (decision 104).
     if (!action.windowId.empty() && !findWindow(windows_, { action.providerId, action.windowId })) return;
     userActed(windows_, action.providerId, clock_()); // it may open a window now
+    // A window's toast answered (its Undo): it goes, as a card's does (decision 121).
+    if (!action.windowId.empty() && answerWindowToast(windows_, { action.providerId, action.windowId }, action.actionId)) windowsChanged();
     e->provider->onAction(action);
+}
+
+void ProviderRegistry::expireWindowToasts(Ms now)
+{
+    if (cup::expireWindowToasts(windows_, now)) windowsChanged();
 }
 
 void ProviderRegistry::cardClosed(const ShownCard& card)

@@ -70,7 +70,8 @@ float radiusFor(const Item& item, Rect frame, float nestedRadius)
 // more in a group (Row::grouped, decision 090).
 float listPadding(const Row& row)
 {
-    return row.grouped ? 2 * tokens().groupItemPadding : row.listItem ? 2 * tokens().listItemPadding : 0;
+    const Tokens& t = tokens();
+    return row.grouped ? 2 * t.groupItemPadding : row.listItem ? 2 * (row.dense ? t.denseItemPadding : t.listItemPadding) : 0;
 }
 
 // Whether row r's group goes on into the next row (decision 090): both
@@ -200,7 +201,11 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 auto inset = [&](const std::vector<Item>& edge, const Item* outer) {
                     bool control = outer && (std::holds_alternative<Button>(*outer) || std::holds_alternative<TextInput>(*outer) ||
                                              std::holds_alternative<Switch>(*outer));
-                    return edge.empty() && outer && !control ? t.listItemTextInset : t.listItemInset;
+                    // Editable text is drawn editInset in from its frame already: its frame sits that much
+                    // closer, so its letters line up with the plain text of the rows around it.
+                    auto* text = outer ? std::get_if<Text>(outer) : nullptr;
+                    float textInset = text && !text->editAction.empty() ? t.listItemTextInset - t.editInset : t.listItemTextInset;
+                    return edge.empty() && outer && !control ? textInset : t.listItemInset;
                 };
                 float left = inset(row.leading, row.items.empty() ? nullptr : &row.items.front());
                 float right = inset(row.trailing, row.items.empty() ? nullptr : &row.items.back());
@@ -249,7 +254,9 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 // In a list item, rounded content nests in the row's background, not the
                 // card's corner: its radius is the row's less the inset (decision 006).
                 float rowRadius = std::min(row.grouped ? t.groupRadius : nestedRadius, rowHeight / 2);
-                placed.cornerRadius = radiusFor(placed.item, placed.frame, row.listItem ? std::max(0.0f, rowRadius - t.listItemInset) : nestedRadius);
+                // Nested by its nearest gap to the row's edge: a dense row's is above and below (decision 121).
+                float gap = std::min(t.listItemInset, listPadding(row) / 2);
+                placed.cornerRadius = radiusFor(placed.item, placed.frame, row.listItem ? std::max(0.0f, rowRadius - gap) : nestedRadius);
                 placed.accent = source.content ? source.content->accent : std::nullopt;
                 placed.list = list;
                 if (row.listItem) {

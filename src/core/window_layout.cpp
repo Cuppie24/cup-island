@@ -3,6 +3,7 @@
 #include "core/badges.h"
 #include "core/groups.h"
 #include "core/slot_layout.h"
+#include "core/toast.h"
 #include "core/tokens.h"
 #include "core/window_fields.h"
 #include "core/window_page.h"
@@ -79,6 +80,7 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
     s.providerId = w.key.providerId;
     s.windowId = w.key.windowId;
     s.navRadius = t.windowNavRadius;
+    s.now = now;
     Source source{ .providerId = w.key.providerId };
 
     // The title bar: our own, so it's the window's colour; Windows' buttons drawn by us at its right.
@@ -136,13 +138,30 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
     s.badges = badgeCentres(dots);
     s.maxScroll = std::max(0.0f, content - s.pane.height);
     s.scroll = std::clamp(scroll, 0.0f, s.maxScroll);
+    // Its toast (decision 121): a pill at the page's bottom, the island's own (toast.h), over the page.
+    if (w.toast) {
+        s.toast = placeToast(*w.toast, fields, { s.pane.width, s.pane.height }, s.pane.height - t.windowPagePadding.y, now, measure);
+        s.toastUntil = w.toast->until;
+    }
     return s;
 }
 
 Vec2 toPage(const WindowScene& s, Vec2 point) { return { point.x - s.pane.x, point.y - s.pane.y + s.scroll }; }
 
+std::optional<Ms> windowDeadline(const WindowScene& s)
+{
+    Scene page;
+    page.size = { s.pane.width, s.pane.height };
+    page.elements = s.page;
+    page.now = s.now;
+    std::optional<Ms> next = sceneDeadline(page);
+    if (s.toastUntil && (!next || *s.toastUntil < *next)) next = s.toastUntil;
+    return next;
+}
+
 std::string windowRowAt(const WindowScene& s, Vec2 point)
 {
+    if (s.toast && s.toast->frame.contains({ point.x - s.pane.x, point.y - s.pane.y })) return {}; // over the toast: no row under it
     if (!s.pane.contains(point)) return {};
     Vec2 at = toPage(s, point);
     auto prefix = [](const std::string& key) { return key.substr(0, key.rfind('/')); };
@@ -180,6 +199,13 @@ WindowHit windowHitTest(const WindowScene& s, Vec2 point)
         return { part, Hit{ {}, p.key }, {} };
     }
     if (s.titleBar.contains(point)) return { WindowPart::Caption };
+    if (s.toast) { // over the page: its button first, the rest of its pill does nothing
+        Vec2 inPane{ point.x - s.pane.x, point.y - s.pane.y };
+        if (s.toast->frame.contains(inPane)) {
+            auto hit = stamped(hitIn(s.toast->elements, inPane));
+            return hit ? WindowHit{ WindowPart::Content, hit } : WindowHit{};
+        }
+    }
     for (const NavEntry& n : s.nav)
         if (n.frame.contains(point)) return { WindowPart::Page, std::nullopt, n.page };
     if (s.footerBar && s.footerBar->contains(point)) {

@@ -584,7 +584,7 @@ void runTodoTests()
     send(ActivitySwitched{ fixture::kTodoCard });
     Scene tallest = layout(state, now);
     expect(tallest.tabs && tallest.size.y <= tokens().canvas.y, "the tallest card fits the canvas");
-    float strip = tallest.tabs->pin->frame.y + tokens().tabHeight; // the row's top: the pin's, a full-height button
+    float strip = tallest.tabs->tabs.front().lit.y + tallest.tabs->tabs.front().lit.height / 2 + tokens().tabHeight / 2; // the row's bottom: its dots' middle, half a row down
     for (const Placed& p : tallest.elements) {
         if (p.key.rfind("tab/", 0) == 0) continue;
         Rect r = p.list ? p.list->viewport : p.frame; // a list's rows scroll past its window, which clips them

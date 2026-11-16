@@ -58,7 +58,6 @@ public:
     void setSelectedTab(std::optional<Rect> tab, float cornerRadius);
     // ...and the other pages' dots, faint (stepTodoColor), under the content.
     void setTabDots(const std::vector<Rect>& dots, float cornerRadius) { showMarks(tabDots_, dots, cornerRadius, tokens().stepTodoColor); }
-    void setPinnedTab(std::optional<Rect> pin, float cornerRadius); // the pin while on: lit like the active tab (decision 046)
     void setHovered(std::optional<Rect> area, float cornerRadius); // a tab or a Home tile under the pointer
     // The top band glowing under the pointer, where a click closes (decision 108).
     void setTopGlow(bool on) { topGlow_.show(on); }
@@ -152,7 +151,7 @@ private:
     };
     void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide);
     void showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius, const Color& color); // one per rect
-    Mark selectedTab_, pinnedTab_, hovered_;
+    Mark selectedTab_, hovered_;
     struct Ring { // the focus ring: stroked, not filled; over content_, not under it
         wuc::ShapeVisual visual{ nullptr };
         wuc::CompositionRoundedRectangleGeometry shape{ nullptr };

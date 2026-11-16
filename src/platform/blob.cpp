@@ -123,7 +123,6 @@ void Blob::refreshAnimations(bool coloursOnly)
     fadeFill(recolorDuration(t));
     fadeGlow(recolorDuration(t));
     if (shadow_) fadeColor(shadow_, t.glass ? t.glassShadowColor : t.shadowColor);
-    if (pinnedTab_.brush) fadeColor(pinnedTab_.brush, t.tabSelectedColor);
     if (selectedTab_.brush) fadeColor(selectedTab_.brush, t.buttonOffColor); // the page row's line (decision 109)
     for (Mark& mark : tabDots_)
         if (mark.brush) fadeColor(mark.brush, t.stepTodoColor);
@@ -189,7 +188,6 @@ void Blob::fadeFill(Ms duration)
 // The shown page's line: grey like the row's buttons at rest, brighter than the dots (decision 109).
 void Blob::setSelectedTab(std::optional<Rect> tab, float cornerRadius) { showMark(selectedTab_, tab, cornerRadius, tokens().buttonOffColor, true); }
 
-void Blob::setPinnedTab(std::optional<Rect> pin, float cornerRadius) { showMark(pinnedTab_, pin, cornerRadius, tokens().tabSelectedColor, false); }
 
 void Blob::setHovered(std::optional<Rect> area, float cornerRadius) { showMark(hovered_, area, cornerRadius, tokens().hoverColor, false); }
 

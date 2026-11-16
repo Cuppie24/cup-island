@@ -97,8 +97,8 @@ std::vector<Row> timerHeader(const PomodoroWindowView& v)
                   .trailing = { phaseSteps(s ? phasesDone(*s) : 0) } } };
 }
 
-// A group's card (decision 117): its name, edited in place, and how many
-// are open beside it, its delete at the end on hover; "Add task", then its
+// A group's card (decisions 117, 121): its name, edited in place, its delete
+// at the end on hover; "Add task", then its
 // tasks: open ones first, then solved ones, struck (decision 071). A task's
 // box ticks it, a click on its text edits it, its delete shows on hover.
 WindowSection groupCard(const TaskGroup& g)
@@ -106,10 +106,8 @@ WindowSection groupCard(const TaskGroup& g)
     namespace task = task_action;
     std::string gid = std::to_string(g.id);
     const auto& items = g.tasks.items();
-    auto open = std::count_if(items.begin(), items.end(), [](const Todo& t) { return !t.done; });
     WindowSection card{ .title = g.name, .id = "group-" + gid, .titleEdit = task::kRenameGroup + gid,
                         .titleMaxLength = tokens().taskGroupNameMaxLength };
-    if (open > 0) card.titleItems = { Text{ std::to_string(open), TextStyle::Caption } };
     card.titleTrailing = { Button{ .glyph = Glyph::Delete, .actionId = task::kDeleteGroup + gid, .compact = true, .revealOnHover = true } };
     card.rows.push_back(Row{ .items = { Icon{ Glyph::Plus, true },
                                         TextInput{ .actionId = inGroup(g.id, todo::kAdd), .placeholder = "Add task", .maxLength = tokens().todoMaxLength } },
@@ -131,10 +129,6 @@ WindowPage timerPage(const PomodoroWindowView& v)
     WindowPage page{ .id = kPomodoroTimerPage, .title = "Timer", .glyph = Glyph::Timer, .titled = false, .header = timerHeader(v), .cards = true };
     static const TaskBoard none;
     for (const TaskGroup& g : (v.tasks ? *v.tasks : none).groups()) page.sections.push_back(groupCard(g));
-    // After the groups, so none of them moves while it shows.
-    if (!v.undo.empty())
-        page.sections.push_back({ .rows = { groupItem(itemText(v.undo), { Button{ .actionId = kPomodoroUndo, .label = "Undo", .compact = true } }) },
-                                  .id = "undo" });
     page.sections.push_back({ .rows = { groupItem(itemText("New group"), { Button{ .glyph = Glyph::Plus, .actionId = task_action::kNewGroup, .compact = true } }) },
                               .id = "new" });
     return page;

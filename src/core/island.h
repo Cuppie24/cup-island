@@ -129,6 +129,9 @@ struct Toast {
     std::string actionLabel; // its button's ("Undo"); empty: no button
     std::string actionId;    // sent to the provider when its button is clicked
     Ms until{};              // set by the host: when it goes
+    // Set: over that window of the provider's instead of a card (decision 121),
+    // at its page's bottom; its button's action carries the window's id.
+    std::string windowId;
     bool operator==(const Toast&) const = default;
 };
 

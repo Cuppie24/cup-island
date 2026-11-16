@@ -52,7 +52,7 @@ void boardTests()
     const Tokens& t = tokens();
     auto measure = [](const Text& x) { return 8.0f * static_cast<float>(x.value.size()); };
     OpenWindow w = board();
-    WindowScene s = windowLayout(w, { 1200, 800 }, 0, Ms{ 0 }, measure);
+    WindowScene s = windowLayout(w, { 1500, 800 }, 0, Ms{ 0 }, measure);
     expect(s.rail && s.sidebar && s.sidebar->width == t.windowRailWidth && s.nav.size() == 3, "rail: windowRailWidth, an entry per page");
     expect(s.nav[2].frame.y > s.nav[1].frame.y + 100 && s.nav[2].frame.y + s.nav[2].frame.height <= 800, "rail: a page atFoot at its bottom");
     bool title = false;
@@ -76,7 +76,7 @@ void boardTests()
     expect(fill && std::holds_alternative<GroupFill>(fill->item) && first->frame.x >= fill->frame.x + t.windowCardPadding &&
                first->frame.y >= fill->frame.y + t.windowCardPadding,
            "a card: one background, its title inside its padding");
-    WindowScene wider = windowLayout(w, { 1500, 800 }, 0, Ms{ 0 }, measure);
+    WindowScene wider = windowLayout(w, { 1800, 800 }, 0, Ms{ 0 }, measure);
     const Placed* widerFirst = text(wider, "Group 0");
     expect(widerFirst && widerFirst->frame.width > first->frame.width, "wider: the cards grow with the window");
     // The row under the pointer (decision 120): a card's title row, from its name or the space beside it; nothing in the gap.
@@ -96,12 +96,51 @@ void boardTests()
     expect(a && b && b->frame.y > a->frame.y && b->frame.x == a->frame.x, "narrow: one column");
 }
 
+// A window's toast (decision 121): the registry's, over the page's bottom, gone by itself or when answered.
+void toastTests()
+{
+    const Tokens& t = tokens();
+    auto measure = [](const Text& x) { return 8.0f * static_cast<float>(x.value.size()); };
+    Windows windows;
+    WindowContent content{ .title = "T", .pages = { { .id = "one", .title = "One" } } };
+    windows.open.push_back({ .key = { "p", "w" }, .content = content, .page = "one" });
+    expect(!showWindowToast(windows, { "p", "nope" }, { .text = "x" }, Ms{ 0 }), "toast: no such window, nothing");
+    expect(showWindowToast(windows, { "p", "w" }, { .text = "Task deleted", .actionLabel = "Undo", .actionId = "undo", .windowId = "w" }, Ms{ 1000 }) &&
+               windows.open[0].toast->until == Ms{ 1000 } + t.toastDuration && nextWindowToastEnd(windows) == Ms{ 1000 } + t.toastDuration,
+           "toast: shown until toastDuration from now");
+    WindowScene s = windowLayout(windows.open[0], { 900, 600 }, 0, Ms{ 1000 }, measure);
+    expect(s.toast && s.toast->frame.y + s.toast->frame.height <= s.pane.height && std::abs(s.toast->frame.x + s.toast->frame.width / 2 - s.pane.width / 2) < 1,
+           "toast: a pill centred over the page's bottom");
+    expect(windowDeadline(s) == Ms{ 1000 } + t.toastDuration, "toast: the window's timer wakes when it goes");
+    const Placed* button = nullptr;
+    for (const Placed& p : s.toast->elements)
+        if (std::holds_alternative<Button>(p.item)) button = &p;
+    WindowHit hit = button ? windowHitTest(s, { s.pane.x + button->frame.x + 3, s.pane.y + button->frame.y + 3 }) : WindowHit{};
+    expect(hit.part == WindowPart::Content && hit.hit->action.actionId == "undo" && hit.hit->action.windowId == "w", "toast: its button, from this window");
+    expect(!answerWindowToast(windows, { "p", "w" }, "other") && answerWindowToast(windows, { "p", "w" }, "undo") && !windows.open[0].toast,
+           "toast: answered, gone");
+    showWindowToast(windows, { "p", "w" }, { .text = "again" }, Ms{ 0 });
+    expect(!expireWindowToasts(windows, t.toastDuration - Ms{ 1 }) && expireWindowToasts(windows, t.toastDuration) && !windows.open[0].toast,
+           "toast: gone when its time is up");
+
+    // A time label that plays: the window's timer wakes for its next second.
+    WindowContent timed = content;
+    timed.pages[0].header = { row({ TimeLabel{ .timeline = { .duration = Ms{ 60000 }, .playing = true }, .countdown = true } }) };
+    OpenWindow ticking{ .key = { "p", "w" }, .content = timed, .page = "one" };
+    auto next = windowDeadline(windowLayout(ticking, { 900, 600 }, 0, Ms{ 500 }, measure));
+    expect(next && *next > Ms{ 500 } && *next <= Ms{ 1000 }, "a playing time on the page: its next second wakes the window");
+    timed.pages[0].header = { row({ TimeLabel{ .timeline = { .duration = Ms{ 60000 } }, .countdown = true } }) };
+    ticking.content = timed;
+    expect(!windowDeadline(windowLayout(ticking, { 900, 600 }, 0, Ms{ 500 }, measure)), "paused: nothing to wake for");
+}
+
 } // namespace
 
 void runWindowCardTests()
 {
     gridTests();
     boardTests();
+    toastTests();
 }
 
 } // namespace cup::test

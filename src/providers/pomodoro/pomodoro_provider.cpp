@@ -237,7 +237,7 @@ void PomodoroProvider::showWindow()
 {
     if (!windowOpen_) return;
     host_->updateWindow(kWindowId, pomodoroWindow({ .session = session_, .tasks = &tasks_, .plan = plan_, .glance = glance(), .daysOff = daysOff_,
-                                                    .question = question_, .undo = undoText(), .fake = fakeRow() }));
+                                                    .question = question_, .fake = fakeRow() }));
 }
 
 // The card's expand button (decision 106): the window opens on the timer, or

@@ -39,6 +39,10 @@ struct WindowScene {
     std::vector<Placed> page;        // the page's items, page coordinates: the pane's top-left unscrolled
     std::vector<Vec2> badges;        // dots on the page's buttons (Button::badge, decision 038), page coordinates: where badgeCentres puts them
     std::optional<Rect> headerRule;  // the line under the page's header (WindowPage::header), page coordinates
+    // Its toast (decision 121), floating over the page's bottom: pane coordinates, unscrolled. When it goes.
+    std::optional<ToastScene> toast;
+    std::optional<Ms> toastUntil;
+    Ms now{};                        // when it was laid out: its time labels show this moment
     float scroll = 0;                // how far the page is scrolled, clamped
     float maxScroll = 0;
     std::vector<Placed> footer;      // WindowContent::footer, under the page (window coordinates)
@@ -78,6 +82,10 @@ WindowHit windowHitTest(const WindowScene& scene, Vec2 point);
 
 // A point in the window to the page's own coordinates (scrolled).
 Vec2 toPage(const WindowScene& scene, Vec2 point);
+
+// When the window must be laid out again by itself: a time label on its page
+// ticks over (as sceneDeadline), or its toast's time is up. None: nothing timed.
+std::optional<Ms> windowDeadline(const WindowScene& scene);
 
 // The page's row under a point (window coordinates): "<slot>/<row>", the
 // prefix of its items' keys, or "". It reveals that row's revealOnHover

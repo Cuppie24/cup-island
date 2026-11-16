@@ -103,4 +103,40 @@ bool validWindowId(const std::string& id)
     });
 }
 
+bool showWindowToast(Windows& w, const WindowKey& key, Toast toast, Ms now)
+{
+    OpenWindow* o = find(w, key);
+    if (!o) return false;
+    toast.until = now + tokens().toastDuration;
+    o->toast = std::move(toast);
+    return true;
+}
+
+bool answerWindowToast(Windows& w, const WindowKey& key, const std::string& actionId)
+{
+    OpenWindow* o = find(w, key);
+    if (!o || !o->toast || o->toast->actionId.empty() || o->toast->actionId != actionId) return false;
+    o->toast.reset();
+    return true;
+}
+
+bool expireWindowToasts(Windows& w, Ms now)
+{
+    bool any = false;
+    for (OpenWindow& o : w.open)
+        if (o.toast && o.toast->until <= now) {
+            o.toast.reset();
+            any = true;
+        }
+    return any;
+}
+
+std::optional<Ms> nextWindowToastEnd(const Windows& w)
+{
+    std::optional<Ms> next;
+    for (const OpenWindow& o : w.open)
+        if (o.toast && (!next || o.toast->until < *next)) next = o.toast->until;
+    return next;
+}
+
 } // namespace cup

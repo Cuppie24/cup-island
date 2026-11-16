@@ -111,8 +111,9 @@ struct Tokens {
     float windowNavRadius = 8; // the picked page's highlight
     float windowRailWidth = 64; // WindowContent::rail: the pages' glyphs alone, the title in the title bar (decision 117)
     // WindowPage::cards (decisions 117, 120): no narrower, sharing the row's width; rows windowCardPadding inside.
-    float windowCardMinWidth = 440;
-    float windowCardPadding = 10;
+    float windowCardMinWidth = 560;
+    float windowCardPadding = 8;
+    float windowCardRadius = 18; // its corners; its rows' backgrounds nest in them (radius less padding, decision 121)
     float windowCardGap = 16; // between cards, across and down
     float expandedArtSize = 108; // expanded leading square: the cover, filling the card's shared height with its controls (decisions 094, 107, 119)
     float slotGap = 10;         // between leading and center/bottom slots
@@ -175,6 +176,7 @@ struct Tokens {
     float smallButtonSize = 32;   // Button::compact: list rows (a to-do's checkbox)
     float revealGlyphSize = 14;   // Button::revealOnHover (a to-do's delete): a smaller glyph, the same button and hover shape
     float inputHeight = 36;       // a TextInput: a little taller than the rows, easy to click into
+    float denseItemPadding = 3; // Row::dense: a window card's rows (decision 121)
     float listItemPadding = 6;    // Row::listItem: above and below its content; = listItemInset, so a checkbox's corners nest in the row's (decision 006)
     float listItemInset = 6;      // Row::listItem: its content in from the hover background's edges
     float sectionGap = 16;        // Row::section: space above a group's heading (decision 037)

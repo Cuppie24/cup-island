@@ -55,12 +55,13 @@ Slot cardSlot(const WindowSection& section)
         slot.back().id = "title"; // one card, one slot: its rows' ids stay unique
     }
     for (Row& r : unlisted(section.rows)) slot.push_back(std::move(r));
+    // Each a list item, close-set (decision 121): lit as a whole under the pointer, from
+    // its first item (a +, a checkbox) to its last (a delete).
     for (Row& r : slot) {
         r.grouped = false;
-        r.inset = true;
+        r.listItem = true;
+        r.dense = true;
     }
-    // The name not inset as row text is: drawn editInset in, it lines up with the checkboxes under it.
-    if (hasTitle(section)) slot.front().inset = false;
     return windowStyled(std::move(slot));
 }
 
@@ -71,7 +72,7 @@ Placed cardFill(const std::string& name, Rect frame, const Source& source)
     fill.key = name + "/fill";
     fill.item = GroupFill{};
     fill.frame = frame;
-    fill.cornerRadius = std::min(tokens().groupRadius, frame.width / 2);
+    fill.cornerRadius = std::min(tokens().windowCardRadius, frame.width / 2);
     fill.providerId = source.providerId;
     fill.activityId = source.activityId;
     return fill;
@@ -192,7 +193,8 @@ float placePage(const WindowPage& page, float paneWidth, const Source& fields, M
         Rect f = frames[i];
         out.push_back(cardFill(name, f, fields)); // first: under its rows
         Rect rows{ f.x + inside, f.y + inside, std::max(0.0f, f.width - 2 * inside), std::max(0.0f, f.height - 2 * inside) };
-        placeSlot({ name, &cards[i], rows }, fields, t.groupRadius - inside, now, out, measure);
+        // Its rows' lit backgrounds nest in its corners: its radius less its padding (decision 121).
+        placeSlot({ name, &cards[i], rows }, fields, std::max(0.0f, t.windowCardRadius - inside), now, out, measure);
         bottom = std::max(bottom, f.y + f.height);
     }
     return bottom + pad.y;

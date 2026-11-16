@@ -375,6 +375,9 @@ struct Row {
     // the whole row under the pointer. Its first and last items' click areas
     // reach the row's edges (a to-do's checkbox: easy to hit, decision 043).
     bool listItem = false;
+    // ...with denseItemPadding above and below instead of listItemPadding: a
+    // window card's rows, as close as a list's lines (decision 121).
+    bool dense = false;
     // Starts a group (a Heading under other rows): sectionGap of space above
     // it, so groups stand apart (decision 037).
     bool section = false;

@@ -276,15 +276,22 @@ void windowTests()
     page = island.windowScene();
     const Placed* task = textIn(page, "Write the report");
     expect(task && std::get<Text>(task->item).editAction == inGroup(1, std::string(todo_action::kEdit) + "1"), "added: in its group, edited in place");
-    expect(textIn(page, "1") != nullptr, "the group's count of open tasks beside its name");
+    expect(textIn(page, "1") == nullptr, "no count beside the group's name (decision 121)");
     const Placed* remove = buttonIn(page, inGroup(1, std::string(todo_action::kDelete) + "1"));
     expect(remove && std::get<Button>(remove->item).revealOnHover, "its delete shows on hover");
     island.inWindow(inGroup(1, std::string(todo_action::kDelete) + "1"));
     page = island.windowScene();
-    expect(!textIn(page, "Write the report") && textIn(page, "Task deleted") && buttonIn(page, kPomodoroUndo), "deleted, with an Undo row");
+    // Its Undo is the host's toast over the window (decision 121), not a row of the page.
+    auto toastSays = [&](const std::string& text) {
+        const OpenWindow* w = island.window();
+        if (!w || !w->toast || w->toast->text != text || w->toast->actionId != kPomodoroUndo) return false;
+        WindowScene shown = island.windowScene();
+        return shown.toast.has_value() && !textIn(shown, text);
+    };
+    expect(!textIn(page, "Write the report") && toastSays("Task deleted"), "deleted, with a toast over the window: Undo");
     island.inWindow(kPomodoroUndo);
     page = island.windowScene();
-    expect(textIn(page, "Write the report") && !textIn(page, "Task deleted"), "undone: back, the row gone");
+    expect(textIn(page, "Write the report") && !island.window()->toast, "undone: back, the toast gone");
     expect(savedTasks == "# Tasks\n[ ] Write the report\n", "kept: the group's name over its tasks");
 
     // Groups: a new one, renamed in place; deleted with an Undo; the last one deleted leaves a fresh "Tasks".
@@ -298,7 +305,7 @@ void windowTests()
     expect(textIn(page, "Work") && !textIn(page, "Group 2"), "renamed");
     island.inWindow(std::string(task_action::kDeleteGroup) + "1");
     page = island.windowScene();
-    expect(!textIn(page, "Write the report") && textIn(page, "“Tasks” deleted"), "a group deleted, its tasks with it, an Undo row");
+    expect(!textIn(page, "Write the report") && toastSays("“Tasks” deleted"), "a group deleted, its tasks with it, a toast with Undo");
     island.inWindow(kPomodoroUndo);
     expect(textIn(island.windowScene(), "Write the report") != nullptr, "undone: the group and its tasks back");
     island.inWindow(std::string(task_action::kDeleteGroup) + "1");

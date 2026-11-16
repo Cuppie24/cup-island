@@ -4,6 +4,7 @@
 // aren't ranked, timed out or hidden with it, so they live beside
 // IslandState, owned by the ProviderRegistry. Pure.
 
+#include "core/island.h"
 #include "core/window_content.h"
 
 #include <compare>
@@ -27,6 +28,9 @@ struct OpenWindow {
     WindowContent content;    // as last sent
     std::string page;         // the page shown: one of content.pages, or "" if it has none
     std::uint64_t raised = 0; // changes when it must come to the front: the platform raises it then
+    // Its toast (Host::toast with a windowId, decision 121): over its page's
+    // bottom until Toast::until, or its button is clicked. One at a time.
+    std::optional<Toast> toast;
     bool operator==(const OpenWindow&) const = default;
 };
 
@@ -70,6 +74,16 @@ bool closeWindow(Windows& windows, const WindowKey& key);
 std::vector<WindowKey> closeProviderWindows(Windows& windows, const std::string& providerId);
 
 const OpenWindow* findWindow(const Windows& windows, const WindowKey& key);
+
+// A window's toast (decision 121): shown until now + toastDuration, in place
+// of one it had. False: no such window. New content keeps it.
+bool showWindowToast(Windows& windows, const WindowKey& key, Toast toast, Ms now);
+// Its button clicked (`actionId` is the toast's): gone. False: no such toast.
+bool answerWindowToast(Windows& windows, const WindowKey& key, const std::string& actionId);
+// Toasts whose time is up, gone. True if any went.
+bool expireWindowToasts(Windows& windows, Ms now);
+// When the next one goes, if any is up.
+std::optional<Ms> nextWindowToastEnd(const Windows& windows);
 
 // Letters, digits, '-', '_', '.', and not empty: safe in a file of places and in element keys.
 bool validWindowId(const std::string& id);

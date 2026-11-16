@@ -574,7 +574,6 @@ void clickTab(const std::string& id)
         }
         return;
     }
-    if (id == kPinTab) dispatch(StayOpenToggled{}, g_state.stayOpen ? "unpin" : "pin"); // decision 046
     else dispatch(id.empty() ? Event{ HomeOpened{} } : Event{ ActivitySwitched{ id } }, "tab");
 }
 

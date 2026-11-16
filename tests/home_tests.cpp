@@ -52,12 +52,12 @@ void runHomeTests()
     // tile twice a narrow one, a row that isn't full stretches, centred vertically.
     IslandState s = withPanels({ panel("a"), panel("b", true), panel("c") });
     Scene home = layout(reduce(s, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    // Home always has its strip: Home's button and the pin (decision 046); the row's room (decision 109).
+    // Home always has its strip: Home's button (no pin, decision 121); the row's room (decision 109).
     float stripSpace = t.tabRowInset + t.tabHeight + t.tabRowGap - t.expandedPadding;
     expect(home.mode == Mode::Expanded && home.size.x == t.expandedSize.x && home.size.y == t.expandedSize.y + stripSpace,
            "one row: Home keeps Expanded's card size, plus its strip");
-    expect(home.tabs && home.tabs->tabs.empty() && home.tabs->home && home.tabs->pin && !home.tabs->previous,
-           "only Home: its button and the pin; no dots, no arrows (decision 115)");
+    expect(home.tabs && home.tabs->tabs.empty() && home.tabs->home && !home.tabs->previous,
+           "only Home: its button; no dots, no arrows (decision 115)");
     expect(home.label == "Home" && home.activityId.empty(), "Home is no activity's card");
     float p = t.expandedPadding, gap = t.tileGap, unit = (home.size.x - 2 * p - 2 * gap) / 4;
     expect(home.tiles.size() == 3, "a b(wide) c: one full row");
@@ -172,22 +172,21 @@ void runHomeTests()
     Scene single = layout(reduce(reduce(s, ActivityStarted{ { .id = "solo" } }, Ms{ 0 }), PillClicked{}, Ms{ 0 }), Ms{ 0 });
     expect(single.tabs && single.tabs->tabs.size() == 1 && single.tabs->home, "one activity plus panels: its dot and Home's button");
     Scene bare = layout(reduce(s, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    expect(bare.tabs && bare.tabs->tabs.empty() && bare.tabs->home && bare.tabs->pin, "Home with nothing running: Home's button and the pin");
+    expect(bare.tabs && bare.tabs->tabs.empty() && bare.tabs->home, "Home with nothing running: Home's button");
     Scene dormant = layout(reduce(reduce(s, PillClicked{}, Ms{ 0 }), TileClicked{ "a" }, Ms{ 0 }), Ms{ 0 });
     expect(dormant.tabs && dormant.tabs->tabs.empty() && dormant.tabs->home && !dormant.tabs->previous,
            "a dormant card with nothing running: just Home's button, the way back");
 
-    // A panel's page-row button (decision 113): Settings' gear right of the pin, in the corner; not a widget.
+    // A panel's page-row button (decision 113): Settings' gear in the right corner; not a widget.
     Panel gear{ .id = "gear", .content = { .label = "Settings", .badge = true }, .providerId = "sys", .tapAction = "open", .rowButton = Glyph::Settings };
     Scene geared = layout(reduce(reduce(s, PanelPublished{ gear }, Ms{ 0 }), PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    expect(geared.tabs && geared.tabs->buttons.size() == 1 && geared.tabs->pin, "the gear: a button in the page row");
+    expect(geared.tabs && geared.tabs->buttons.size() == 1, "the gear: a button in the page row");
     const Tab& gearTab = geared.tabs->buttons[0];
-    const Tab& pinTab = *geared.tabs->pin;
     expect(gearTab.id == std::string(kPanelButtonTab) + "gear" && std::abs(gearTab.frame.x + gearTab.frame.width - (geared.size.x - p)) < 0.01f &&
                gearTab.hitFrame.x + gearTab.hitFrame.width == geared.size.x,
            "the gear in the right corner, its click area to the card's edge");
-    expect(pinTab.frame.x + pinTab.frame.width + t.tabArrowGap <= gearTab.frame.x + 0.01f && pinTab.hitFrame.x + pinTab.hitFrame.width <= gearTab.hitFrame.x + 0.01f,
-           "the pin just left of it, their click areas apart");
+    expect(std::none_of(geared.elements.begin(), geared.elements.end(), [](const Placed& e) { return e.key == "tab/pin/lead"; }),
+           "no pin in the page row (decision 121)");
     expect(std::none_of(geared.tiles.begin(), geared.tiles.end(), [](const Tile& tile) { return tile.id == "gear"; }) && geared.tiles.size() == bare.tiles.size(),
            "not a Home widget");
     const Tab* under = tabAt(*geared.tabs, { gearTab.frame.x + 2, gearTab.frame.y + 2 });

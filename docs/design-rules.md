@@ -56,10 +56,12 @@ Room (window-only tokens): a grouped row 11 above and below its content
 (`groupItemPadding`), groups 16 apart (`sectionGap`), their corners 14; the
 sidebar 200 wide, entries 40 high; a switch 40 × 22, segments 32, key caps 26.
 
-A page of cards (`WindowPage::cards`, decisions 117, 120), the timer's task
-groups: each card at least `windowCardMinWidth` (440) and sharing the row,
-one background with its rows `windowCardPadding` in; its name a `Heading`
-lined up with the checkboxes, its rows plain (no list item's padding), 36 apart.
+A page of cards (`WindowPage::cards`, decisions 117, 120, 121), the timer's task
+groups: each card at least `windowCardMinWidth` (560) and sharing the row,
+one background (`windowCardRadius` 18) with its rows `windowCardPadding` (8)
+in; its rows dense list items (`denseItemPadding` 3), lit whole on hover, 42
+apart; every radius inside nests (the one around it less the gap). A
+window's Undo is the host's toast (`Toast::windowId`), never a row.
 A rail sidebar (`WindowContent::rail`) is `windowRailWidth` of glyphs.
 
 ## Where the dense scale stays

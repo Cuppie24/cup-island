@@ -53,7 +53,10 @@ bool PomodoroProvider::taskAction(const Action& action)
         std::uint64_t group = 0;
         const char* first = id.c_str() + std::char_traits<char>::length(task::kDeleteGroup);
         std::from_chars(first, id.c_str() + id.size(), group);
-        if (auto gone = tasks_.removeGroup(group)) deleted_ = std::move(*gone);
+        if (auto gone = tasks_.removeGroup(group)) {
+            deleted_ = std::move(*gone);
+            offerUndo();
+        }
         changed();
         return true;
     }
@@ -64,8 +67,12 @@ bool PomodoroProvider::taskAction(const Action& action)
     if (target)
         if (const Todo* t = named(*tasks_.tasksOf(target->group), target->todoAction, todo::kDelete)) deleting = DeletedTask{ target->group, *t };
     if (!tasks_.apply(id, action.text, action.value)) return true;
-    if (deleting) deleted_ = *deleting;
-    else deleted_.reset(); // the next change: the Undo row goes
+    if (deleting) {
+        deleted_ = *deleting;
+        offerUndo();
+    } else {
+        deleted_.reset(); // the next change: there's nothing to undo any more
+    }
     if (target && startsWith(target->todoAction, todo::kToggle)) countTask(*target);
     changed();
     return true;
@@ -81,11 +88,13 @@ void PomodoroProvider::countTask(const TaskTarget& target)
     saveStats();
 }
 
-std::string PomodoroProvider::undoText() const
+// The host's toast over the window (decision 121), as a card's delete has (decision 071).
+void PomodoroProvider::offerUndo()
 {
-    if (!deleted_) return "";
-    if (std::holds_alternative<DeletedTask>(*deleted_)) return "Task deleted";
-    return "“" + std::get<RemovedGroup>(*deleted_).group.name + "” deleted";
+    if (!deleted_) return;
+    std::string text = std::holds_alternative<DeletedTask>(*deleted_) ? "Task deleted"
+                                                                      : "“" + std::get<RemovedGroup>(*deleted_).group.name + "” deleted";
+    host_->toast({ .text = text, .actionLabel = "Undo", .actionId = kPomodoroUndo, .windowId = kWindowId });
 }
 
 } // namespace cup
