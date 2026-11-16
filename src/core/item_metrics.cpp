@@ -101,7 +101,8 @@ float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& m
     if (std::holds_alternative<Swatch>(item)) return t.swatchSize;
     if (std::holds_alternative<Switch>(item)) return t.switchSize.y;
     if (std::holds_alternative<Tag>(item)) return t.tagHeight;
-    if (auto* button = std::get_if<Button>(&item)) return button->primary ? primarySize(*button) : button->compact ? t.smallButtonSize : t.buttonSize;
+    if (auto* button = std::get_if<Button>(&item))
+        return button->primary ? primarySize(*button) : button->large ? t.largeButtonSize : button->compact ? t.smallButtonSize : t.buttonSize;
     if (auto* input = std::get_if<TextInput>(&item)) return input->large ? t.searchInputHeight : t.inputHeight;
     if (std::holds_alternative<Divider>(item)) return t.dividerThickness;
     if (std::holds_alternative<Keys>(item)) return t.keyCapHeight;
@@ -136,7 +137,7 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
     if (auto* button = std::get_if<Button>(&item)) {
         if (button->primary) return primarySize(*button);
         if (button->round) return t.buttonSize;
-        if (button->label.empty()) return button->compact ? t.smallButtonSize : t.buttonSize;
+        if (button->label.empty()) return button->large ? t.largeButtonSize : button->compact ? t.smallButtonSize : t.buttonSize;
         Text text{ button->label, button->quiet ? TextStyle::Caption : TextStyle::Body };
         return (measure ? measure(text) : estimateTextWidth(text)) + 2 * t.buttonLabelPadding;
     }
@@ -164,6 +165,7 @@ float fontSize(TextStyle style)
     case TextStyle::ResultDetail: return t.resultDetailFontSize;
     case TextStyle::PageTitle: return t.pageTitleFontSize;
     case TextStyle::Hero: return t.heroFontSize;
+    case TextStyle::CardTitle: return t.cardTitleFontSize;
     }
     return t.bodyFontSize;
 }

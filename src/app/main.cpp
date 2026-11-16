@@ -198,10 +198,13 @@ void pointerStill(app::Surface& s) { s.pointer.still = true; }
 void updateHover(app::Surface& s)
 {
     std::optional<Vec2> at = hoverPoint(s);
+    // The top band (decision 108): it glows, and what's under it doesn't light up: a click there closes.
+    bool onTop = at && !s.pointer.scrub && inCollapseZone(s.scene, *at);
+    s.renderer->setTopGlow(onTop ? s.scene.collapseZone : std::nullopt);
     std::string key;
     if (s.pointer.scrub) {
         key = s.pointer.scrub->key; // stays lit while dragged, even off the bar
-    } else if (at) {
+    } else if (at && !onTop) {
         if (auto hit = hitTest(s.scene, *at)) key = hit->key;
     }
     s.renderer->setHovered(key);
@@ -216,10 +219,10 @@ void updateHover(app::Surface& s)
 
     // Tabs light up as a whole, except the active one, which is already marked (decision 007).
     // Home's tiles too, unless the pointer is on one of their buttons (decision 009).
-    const Tab* tab = s.scene.tabs && at ? tabAt(*s.scene.tabs, *at) : nullptr;
+    const Tab* tab = s.scene.tabs && at && !onTop ? tabAt(*s.scene.tabs, *at) : nullptr;
     if (tab && isCurrent(s, *tab)) tab = nullptr;
     s.renderer->setHoveredTab(tab ? std::optional<std::string>(tab->id) : std::nullopt); // its grey content in colour (decision 072)
-    const Tile* tile = at && key.empty() ? tileAt(s.scene, *at) : nullptr;
+    const Tile* tile = at && key.empty() && !onTop ? tileAt(s.scene, *at) : nullptr;
     if (tile && !tile->clickable()) tile = nullptr; // widgets without a card or tap action don't react
     // A list item (a to-do) lights up as a whole row, like a tab (Row::listItem).
     bool onMenu = at && s.scene.menu && s.scene.menu->frame.contains(*at); // a row's menu covers what's under it (decision 086)
@@ -449,6 +452,11 @@ void onPressDown(app::Surface& s, Vec2 canvasPoint)
     }
     Vec2 point = toLocal(s, canvasPoint);
     s.pointer.at = point;
+    if (inCollapseZone(s.scene, point)) { // the top band: over tabs and buttons, it closes (decision 108)
+        s.pointer.topPress = true;
+        s.renderer->pressDown(false);
+        return;
+    }
     if (const Tab* tab = tabUnder(s, point)) {
         s.pointer.tabPress = tab->id; // switches on release, if still on the same tab
         return;
@@ -596,6 +604,12 @@ void onPressRelease(app::Surface& s, Vec2 canvasPoint, Release how)
     if (!std::exchange(s.pointer.selecting, std::string{}).empty()) {
         updateHover(s);
         return; // the caret and selection are where the drag left them
+    }
+    if (std::exchange(s.pointer.topPress, false)) {
+        s.renderer->pressRelease(false);
+        if (how == Release::Inside && onShape(s, canvasPoint) && inCollapseZone(s.scene, toLocal(s, canvasPoint)))
+            dispatch(TopClicked{}, "top click");
+        return;
     }
     if (s.pointer.tabPress) {
         std::string id = *std::exchange(s.pointer.tabPress, std::nullopt);

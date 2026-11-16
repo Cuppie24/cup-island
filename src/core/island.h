@@ -150,6 +150,9 @@ struct ActivityUpdated { std::string id; Content content; };
 struct ActivityEnded { std::string id; };
 struct AlertPosted { Alert alert; };
 struct PillClicked {};
+// A click in the top band of an expanded island (Scene::collapseZone): it always
+// closes, on Home, a card that keeps open, or pinned (decision 108).
+struct TopClicked {};
 struct ClickedOutside {};
 struct EscapePressed {};
 struct PointerMoved {};                 // inside the pill; resets Expanded's idle timeout
@@ -217,7 +220,7 @@ struct ClockSynced {
 };
 
 using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, AlertPosted,
-                           PillClicked, ClickedOutside, EscapePressed, PointerMoved,
+                           PillClicked, TopClicked, ClickedOutside, EscapePressed, PointerMoved,
                            DragEntered, DragLeft, Dropped, HiddenChanged, Tick,
                            BubbleClicked, ActivityPromoted, ActivitySwitched,
                            BubbleDragged, BubbleReleased, BubbleDragCancelled,

@@ -7,7 +7,7 @@
 // Commands:  start <id> [level] [relevance] [expires=<ms>] [by=<provider>]   update <id>   end <id>
 //            alert <name> [level] [for=<activity|panel>] [key=<coalesceKey>] [refresh]
 //            click  outside  esc  pointer  drag-enter  drag-rejected
-//            drag-leave  drop  hide  show  wait <ms>
+//            drag-leave  drop  hide  show  wait <ms>  top-click (the expanded top band, decision 108)
 //            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel
 //            panel <id> [static|keep|awake|field|menu|menu=changed]  unpanel <id>  home  tile <id>  (static: a widget with no card;
 //                                                                     field: a card that is its field "go", decision 079;
@@ -172,6 +172,7 @@ struct Runner {
             }
             apply(AlertPosted{ a });
         } else if (cmd == "click") apply(PillClicked{});
+        else if (cmd == "top-click") apply(TopClicked{}); // the expanded island's top band (decision 108)
         else if (cmd == "outside") apply(ClickedOutside{});
         else if (cmd == "close-card" && w.size() > 1) apply(CardCloseRequested{ w[1] });
         else if (cmd == "esc") apply(EscapePressed{});

@@ -10,6 +10,7 @@
 #include "core/tokens.h"
 #include "platform/badge_dots.h"
 #include "platform/toast_layer.h"
+#include "platform/top_glow.h"
 #include "platform/element_visuals.h"
 #include "platform/glass.h"
 #include "platform/graphics_device.h"
@@ -56,6 +57,8 @@ public:
     void setSelectedTab(std::optional<Rect> tab, float cornerRadius);
     void setPinnedTab(std::optional<Rect> pin, float cornerRadius); // the pin while on: lit like the active tab (decision 046)
     void setHovered(std::optional<Rect> area, float cornerRadius); // a tab or a Home tile under the pointer
+    // The top band glowing under the pointer, where a click closes (decision 108); nullopt: not.
+    void setTopGlow(std::optional<Rect> band) { topGlow_.show(compositor_, content_, band); }
     // The keyboard's focus (decision 033): a ring inside `area`, over the
     // content, so it shows which one Enter clicks even with the pointer elsewhere.
     void setFocusRing(std::optional<Rect> area, float cornerRadius);
@@ -157,6 +160,7 @@ private:
     } focusRing_;
     std::vector<Mark> tiles_; // grows to the most shown; spare ones stay faded out
     BadgeDots badges_;
+    TopGlow topGlow_;
     ToastLayer toast_;
     ElementVisuals elements_;
     Vec2 size_, offset_;

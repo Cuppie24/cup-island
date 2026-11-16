@@ -3,6 +3,7 @@
 
 #include "core/hit_test.h"
 #include "core/layout.h"
+#include "core/slot_layout.h"
 #include "core/tokens.h"
 #include "expect.h"
 #include "providers/demo/demo_media_provider.h"
@@ -86,9 +87,13 @@ void runProviderTests()
     }
     // Decision 094: play is the hero, a filled circle; the card grows to fit it under a bigger cover.
     const Button* hero = island.button(playPause);
-    expect(hero && hero->primary && hero->compact, "play is the card's primary action, sized for a row of controls");
+    expect(hero && hero->primary && !hero->compact, "play is the card's primary action, the full circle (decision 107)");
     // Every card and Home share Expanded's height (decision 107): media's rows fit it, or tabs resize the island again.
     expect(card.size.y == tk.expandedSize.y, "the media card is Expanded's height");
+    // ...and its parts fill it (decision 107): the cover, its rows and controls need all but a few pixels of it.
+    const Slot& under = island.state.activities.front().content.expandedBottom;
+    float needed = 2 * tk.expandedPadding + tk.expandedArtSize + tk.slotGap + slotHeight(under, { 0, 0, card.size.x, card.size.y }, {}, {});
+    expect(needed <= card.size.y && card.size.y - needed <= 12, "no band of empty space: " + std::to_string(int(card.size.y - needed)) + " px spare");
     for (const Placed& p : card.elements)
         if (p.key == "expandedLeading/0/0")
             expect(p.raised && p.frame.width == tk.expandedArtSize, "the cover is raised (a shadow under it), at its full size");

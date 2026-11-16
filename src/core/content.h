@@ -29,8 +29,9 @@ enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Sour
 // "General", "Dark"): small and quiet, since the group's background already sets it apart (decision 090).
 // Result and ResultDetail: a search result's name and the line under it (decision 079).
 // PageTitle: a window page's name, over its groups (decision 104).
+// CardTitle: a card's main line beside its cover, bigger and heavier than Title (media's song, decision 107).
 // Hero: the one big number a card is about, heavy (Pomodoro's time); its digits roll as they change (decision 107).
-enum class TextStyle { Title, Body, Caption, Digits, Display, Heading, Result, ResultDetail, PageTitle, Hero };
+enum class TextStyle { Title, Body, Caption, Digits, Display, Heading, Result, ResultDetail, PageTitle, Hero, CardTitle };
 
 // sRGB plus opacity. As an activity's accent (decision 010) it tints only
 // live data: progress fills (bar and ring), the current step, waveform bars.
@@ -124,6 +125,7 @@ struct Button {
     std::optional<bool> on; // toggles only (shuffle, repeat): on a soft pill when on, dimmed when off (decision 094)
     std::string label;      // a text button ("Clear all") instead of the glyph; as wide as its text
     bool compact = false;   // smallButtonSize: list rows (a to-do's checkbox), not main controls. Not "small": windows.h #defines it
+    bool large = false;     // largeButtonSize, a bigger glyph: a card's main controls beside its ▶ (media's skips, decision 107)
     bool revealOnHover = false; // hidden until the pointer is on its row: a list item's delete (decision 020)
     bool destructive = false;   // its label in dangerColor: a dialog's "Clear"
     bool editsText = false;     // starts editing the Text whose editAction is this button's actionId (decision 029)

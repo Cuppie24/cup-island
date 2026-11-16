@@ -9,7 +9,7 @@ Content nowPlayingContent(const NowPlaying& m)
     namespace act = media_action;
     bool playing = m.timeline.playing;
     Image art{ m.art };
-    Text title{ m.title, TextStyle::Title };
+    Text title{ m.title, TextStyle::CardTitle }; // big and heavy beside the cover (decision 107)
     Text artist{ m.artist, TextStyle::Body };
 
     Content c;
@@ -42,10 +42,11 @@ Content nowPlayingContent(const NowPlaying& m)
         c.expandedBottom.push_back(row({ TimeLabel{ m.timeline }, Progress{ m.timeline, m.canSeek }, TimeLabel{ m.timeline, true } }));
     // Three weights (decision 094): ▶/⏸ the filled circle, the skips bright,
     // shuffle and repeat quiet until on or pointed at.
-    Row controls = row({ Button{ Glyph::Previous, act::kPrevious, m.canPrevious },
+    // Sized to fill the card's shared height (decision 107): the full ▶ circle, large skips.
+    Row controls = row({ Button{ .glyph = Glyph::Previous, .actionId = act::kPrevious, .enabled = m.canPrevious, .large = true },
                          Button{ .glyph = playing ? Glyph::Pause : Glyph::Play, .actionId = act::kPlayPause,
-                                 .enabled = m.canPlayPause, .compact = true, .primary = true },
-                         Button{ Glyph::Next, act::kNext, m.canNext } },
+                                 .enabled = m.canPlayPause, .primary = true },
+                         Button{ .glyph = Glyph::Next, .actionId = act::kNext, .enabled = m.canNext, .large = true } },
                        Align::Center);
     controls.loose = true; // big, well-separated targets
     // Shuffle and repeat take the bottom corners; only shown when the app supports them.

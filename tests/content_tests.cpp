@@ -157,6 +157,12 @@ void runContentTests()
     expect(wideTitle && wideTitle->frame.x + wideTitle->frame.width == scene.size.x - t.expandedPadding, "without it the title runs to the edge");
     auto cornerHit = hitTest(corneredScene, centre(corner));
     expect(cornerHit && cornerHit->action.actionId == "source", "corner button is clickable");
+    // The top band (decision 108): across the whole card, above the corner button, only when expanded.
+    expect(corneredScene.collapseZone && corneredScene.collapseZone->width == corneredScene.size.x &&
+           corneredScene.collapseZone->height == t.collapseZoneHeight && t.collapseZoneHeight <= t.expandedPadding,
+           "the top band: the card's width, inside its top padding");
+    expect(inCollapseZone(corneredScene, { corneredScene.size.x - 1, 1 }) && !inCollapseZone(corneredScene, centre(corner)),
+           "its corner is the band's; the corner button isn't");
 
     // The bottom row stays clear of the bottom by at least the side margin; this card's
     // controls are shorter than media's, so it keeps the shared height (decision 107) with room to spare.

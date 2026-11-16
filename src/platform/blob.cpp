@@ -129,6 +129,7 @@ void Blob::refreshAnimations(bool coloursOnly)
         if (mark.brush) fadeColor(mark.brush, t.tileColor);
     if (focusRing_.brush) fadeColor(focusRing_.brush, t.focusRingColor);
     badges_.recolor();
+    topGlow_.recolor();
     toast_.refresh(coloursOnly);
     elements_.refresh(coloursOnly);
 }

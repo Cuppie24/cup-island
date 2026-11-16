@@ -177,6 +177,10 @@ void handle(IslandState& s, const AlertPosted& e, Ms now)
     if (postAlert(s, e.alert, now)) collapse(s); // only critical interrupts Expanded
 }
 void handle(IslandState& s, const PillClicked&, Ms now) { onClick(s, now); }
+void handle(IslandState& s, const TopClicked&, Ms)
+{
+    if (isExpanded(s)) collapse(s); // whatever would keep it open: the top always closes (decision 108)
+}
 void handle(IslandState& s, const ClickedOutside&, Ms)
 {
     if (!s.stayOpen) collapse(s); // pinned: it stays over whatever was clicked (decision 046)

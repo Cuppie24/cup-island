@@ -36,4 +36,8 @@ float seekFraction(const Placed& progress, float x);
 // only over an item (decision 063). Tabs aren't rows.
 std::string rowAt(const Scene& scene, Vec2 point);
 
+// `point` is in the top band of an expanded island (Scene::collapseZone,
+// decision 108): a click there closes it, over tabs and buttons alike.
+bool inCollapseZone(const Scene& scene, Vec2 point);
+
 } // namespace cup

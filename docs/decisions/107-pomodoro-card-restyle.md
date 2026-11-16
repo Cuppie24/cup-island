@@ -43,6 +43,11 @@ ones, and the time's digits rolling as they change.
   bleeds into a rolling one; the visual reaches `rollingLead` past the frame
   on each side for a heavy glyph's overhang.
 
+- **Media's card fills the height** (asked for after the first try left a
+  band of empty space): the cover is 120 (`expandedArtSize`), the song's
+  title `TextStyle::CardTitle` (22 px at 800), ▶/⏸ the full primary circle,
+  previous and next `Button::large` (44, a 22 px glyph). They need all but
+  a few pixels of the shared height; a test holds it to that.
 - **Big text is drawn as outlines** (`GraphicsDevice::draw(..., bigText)`):
   Hero and Display text and a Dial's time use `DWRITE_RENDERING_MODE_OUTLINE`
   with no extra contrast. Decision 024's NATURAL mode smooths only
