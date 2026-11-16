@@ -66,11 +66,13 @@ std::vector<Focusable> focusables(const Scene& scene)
             if (scene.tabs->active == i) continue; // shown already: nothing to switch to
             found.push_back({ "tab:" + tab.id, tab.frame, centre(tab.hitFrame), std::nullopt, tab.id, tab.radius });
         }
-    // The arrows and the pin (decisions 046, 109): Enter or Space clicks them. Home's
-    // button is left out: Home's dot is the same stop.
+    // Home's button, the arrows and the pin (decisions 046, 109, 115): Enter or Space clicks them.
     if (scene.tabs)
-        for (const std::optional<Tab>* button : { &scene.tabs->previous, &scene.tabs->next, &scene.tabs->pin })
+        for (const std::optional<Tab>* button : { &scene.tabs->home, &scene.tabs->previous, &scene.tabs->next, &scene.tabs->pin })
             if (*button) found.push_back({ "tab:" + (*button)->id, (*button)->frame, centre((*button)->hitFrame), std::nullopt, (*button)->id, (*button)->radius });
+    if (scene.tabs) // panels' buttons right of the pin (decision 113)
+        for (const Tab& button : scene.tabs->buttons)
+            found.push_back({ "tab:" + button.id, button.frame, centre(button.hitFrame), std::nullopt, button.id, button.radius });
     // Reading order, but the tab row last: it sits on top (decision 047), and the
     // keys start in the card, where the first press lands on its first row.
     std::stable_sort(found.begin(), found.end(), [](const Focusable& a, const Focusable& b) {
@@ -207,22 +209,21 @@ std::optional<Focusable> homeWidget(const Scene& scene, std::size_t n)
 
 namespace {
 
-// The tab `step` places from the one shown, round the strip; Home with none shown.
-std::optional<std::string> tabFrom(const Scene& scene, std::size_t step)
+// The tab after (or before) the one shown, round the strip; the first (or the last) with none shown (Home, a dormant card).
+std::optional<std::string> tabFrom(const Scene& scene, bool back)
 {
     if (!scene.tabs || scene.tabs->tabs.empty()) return std::nullopt;
     const std::vector<Tab>& tabs = scene.tabs->tabs;
-    std::size_t next = scene.tabs->active ? (*scene.tabs->active + step) % tabs.size() : 0;
+    std::size_t n = tabs.size(), step = back ? n - 1 : 1; // one back is all the way round but one
+    std::size_t next = scene.tabs->active ? (*scene.tabs->active + step) % n : back ? n - 1 : 0;
     if (scene.tabs->active == next) return std::nullopt; // only the one shown: nowhere to go
     return tabs[next].id;
 }
 
 } // namespace
 
-std::optional<std::string> nextTab(const Scene& scene) { return tabFrom(scene, 1); }
-
-// One back is all the way round but one.
-std::optional<std::string> previousTab(const Scene& scene) { return scene.tabs ? tabFrom(scene, scene.tabs->tabs.size() - 1) : std::nullopt; }
+std::optional<std::string> nextTab(const Scene& scene) { return tabFrom(scene, false); }
+std::optional<std::string> previousTab(const Scene& scene) { return tabFrom(scene, true); }
 
 bool fieldStop(const Scene& scene, const Focusable& f)
 {

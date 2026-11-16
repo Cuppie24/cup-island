@@ -7,9 +7,9 @@
 namespace cup {
 namespace {
 
-// Somewhere else to go: another activity, or Home (with panels) from any
-// card. And Home itself, even with nothing running: the strip carries the pin
-// that keeps it open (decision 046).
+// Somewhere else to go: another activity, or Home (with panels, by its
+// button) from any card. And Home itself, even with nothing running: the
+// strip carries the pin that keeps it open (decision 046).
 bool hasTabs(const IslandState& s)
 {
     if (mode(s) != Mode::Expanded) return false;
@@ -18,7 +18,7 @@ bool hasTabs(const IslandState& s)
         const Panel* p = a ? nullptr : findPanel(s, card->activityId);
         if ((a && a->content.hidesTabs) || (p && p->content.hidesTabs)) return false;
     }
-    bool home = !s.panels.empty();
+    bool home = hasWidgets(s);
     bool dormantCard = !s.homeOpen && !findActivity(s, s.expandedId);
     return s.activities.size() + (home ? 1 : 0) > 1 || (home && (dormantCard || s.homeOpen));
 }
@@ -79,32 +79,43 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     // Home's button at the left edge, its click area taking in the card's
     // corner (decision 009); the pin mirrors it at the right (decision 046).
     bool homeShown = s.homeOpen;
-    if (!s.panels.empty()) {
+    if (hasWidgets(s)) {
         Rect frame{ p, y, t.homeButtonWidth, h };
         strip.home = button(kHomeTab, frame, p, t.slotGap / 2);
         strip.home->badge = homeBadged(s);
         placeGlyph("home", kHomeTab, Glyph::Home, frame, !homeShown, elements);
     }
-    Rect pin{ cardSize.x - p - t.homeButtonWidth, y, t.homeButtonWidth, h };
-    strip.pin = button(kPinTab, pin, t.slotGap / 2, p);
+    // Panels' buttons at the right edge, the first in the corner (decision 113): Settings.
+    float right = cardSize.x - p, w = t.homeButtonWidth, between = t.tabArrowGap;
+    for (const Panel& panel : s.panels) {
+        if (!panel.rowButton) continue;
+        const Activity* live = findActivity(s, panel.id);
+        Rect frame{ right - w, y, w, h };
+        std::string id = kPanelButtonTab + panel.id;
+        strip.buttons.push_back(button(id, frame, between / 2, strip.buttons.empty() ? p : between / 2));
+        strip.buttons.back().badge = (live ? live->content : panel.content).badge;
+        placeGlyph("button/" + panel.id, id, *panel.rowButton, frame, true, elements); // grey until hovered, like the arrows
+        right -= w + between;
+    }
+    Rect pin{ right - w, y, w, h };
+    strip.pin = button(kPinTab, pin, t.slotGap / 2, strip.buttons.empty() ? p : between / 2);
     strip.pinned = s.stayOpen;
     placeGlyph("pin", kPinTab, s.stayOpen ? Glyph::Pinned : Glyph::Pin, pin, !s.stayOpen, elements);
 
-    // The pages: Home, then activities; the shown one is a line, the rest dots (decision 109).
+    // The pages: the activities; the shown one is a line, the rest dots (decision 109).
+    // Home isn't one: its button at the left is the way there (decision 115).
     std::optional<std::string> shown;
-    if (s.homeOpen) shown = "";
-    else if (findActivity(s, s.expandedId)) shown = s.expandedId;
+    if (!s.homeOpen && findActivity(s, s.expandedId)) shown = s.expandedId;
     std::vector<std::pair<std::string, bool>> pages; // id, badge
-    if (!s.panels.empty()) pages.push_back({ "", homeBadged(s) });
     for (const Activity* a : started) pages.push_back({ a->id, a->content.badge });
     float dot = t.tabDotSize, gap = t.tabDotGap;
     auto widthOf = [&](const std::string& id) { return id == shown ? std::max(t.tabLineWidth, dot) : dot; };
     float dotsWidth = 0;
     for (const auto& page : pages) dotsWidth += widthOf(page.first);
-    dotsWidth += gap * static_cast<float>(pages.size() - 1);
+    if (!pages.empty()) dotsWidth += gap * static_cast<float>(pages.size() - 1);
     // The arrows beside the dots, the three centred as one group. Only with
-    // somewhere to go: another page, or any page from a dormant panel's card.
-    bool arrows = pages.size() > 1 || !shown;
+    // somewhere to go: another page, or any page from Home or a dormant panel's card.
+    bool arrows = pages.size() > 1 || (!pages.empty() && !shown);
     float arrow = arrows ? t.tabArrowSize : 0, arrowGap = arrows ? t.tabArrowGap : 0;
     float x = (cardSize.x - dotsWidth - 2 * (arrow + arrowGap)) / 2;
     if (arrows) {
@@ -123,7 +134,7 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
         strip.tabs.push_back({ frame, { x - gap / 2, top, w + gap, bottom - top }, id, badge, lit, lit.height / 2 }); // easy to hit: the row's height
         x += w + gap;
     }
-    x += arrowGap - gap;
+    if (!pages.empty()) x += arrowGap - gap;
     if (arrows) {
         Rect frame{ x, y + (h - arrow) / 2, arrow, arrow };
         strip.next = button(kNextTab, frame, arrowGap / 2, 0);
@@ -139,6 +150,8 @@ const Tab* tabAt(const TabStrip& strip, Vec2 point)
         if (tab.hitFrame.contains(point)) return &tab;
     for (const std::optional<Tab>* button : { &strip.previous, &strip.next, &strip.home, &strip.pin })
         if (*button && (*button)->hitFrame.contains(point)) return &**button;
+    for (const Tab& button : strip.buttons)
+        if (button.hitFrame.contains(point)) return &button;
     return nullptr;
 }
 

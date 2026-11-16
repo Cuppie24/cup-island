@@ -29,6 +29,8 @@ std::vector<Vec2> badgeCentres(const Scene& scene)
         for (const Tab& tab : scene.tabs->tabs)
             if (tab.badge) dots.push_back({ tab.frame.x + tab.frame.width, tab.frame.y });
         if (scene.tabs->home && scene.tabs->home->badge) dots.push_back(inCorner(scene.tabs->home->frame, scene.tabs->radius));
+        for (const Tab& button : scene.tabs->buttons) // a panel's button (decision 113): as Home's
+            if (button.badge) dots.push_back(inCorner(button.frame, scene.tabs->radius));
     }
     for (const Placed& p : scene.elements) {
         auto* button = std::get_if<Button>(&p.item);

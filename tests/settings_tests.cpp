@@ -52,10 +52,9 @@ void widgetAndThemes()
     settings.start(sh);
     const Panel& widget = sh.published.back();
     expect(widget.id == SettingsProvider::kPanelId && widget.tapAction == P::kOpenWindow && !hasCard(widget.content) && !sh.window,
-           "settings: a widget whose tap opens the window; no card of its own (decision 104)");
-    expect(leadGlyph(widget) == Glyph::Settings && textAt(widget, 0, 0) == "Settings" && widget.content.tile.size() == 1 &&
-           std::get<Text>(widget.content.tile[0].items[0]).style == TextStyle::CardTitle,
-           "settings: the gear in the side square, its name bold like the other widgets' (decision 073)");
+           "settings: a panel whose tap opens the window; no card of its own (decision 104)");
+    expect(widget.rowButton == Glyph::Settings && widget.content.tile.empty() && widget.content.tileLeading.empty(),
+           "settings: a gear in the page row, not a Home widget (decision 113)");
     expect(applied == "Lime" && saves == 0, "settings: the saved theme applies at start");
 
     settings.onAction({ "system.settings", SettingsProvider::kPanelId, P::kOpenWindow, 0 });

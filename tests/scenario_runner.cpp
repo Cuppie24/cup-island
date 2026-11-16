@@ -9,7 +9,8 @@
 //            click  outside  esc  pointer  drag-enter  drag-rejected
 //            drag-leave  drop  hide  show  wait <ms>  top-click (the expanded top band, decision 108)
 //            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel
-//            panel <id> [static|keep|awake|field|menu|menu=changed|new]  unpanel <id>  home  tile <id>  (static: a widget with no card;
+//            panel <id> [static|keep|awake|field|menu|menu=changed|new|button]  unpanel <id>  home  tile <id>  (static: a widget with no card;
+//                                                                     button: a page-row button, not a widget, decision 113;
 //                                                                     new / new2: announced (1 or 2), "New" until its card opens, decision 110;
 //            seen <id>[:<n>]...  (the app's saved announcements opened, decision 110; n defaults to 1)
 //                                                                     field: a card that is its field "go", decision 079;
@@ -194,7 +195,8 @@ struct Runner {
         else if (cmd == "cancel") apply(BubbleDragCancelled{});
         else if (cmd == "panel") {
             Panel p{ .id = arg(1), .content = { .label = arg(1) } };
-            if (arg(2) != "static") p.content.expandedCenter = { row({ Text{ arg(1) } }) };
+            if (arg(2) != "static" && arg(2) != "button") p.content.expandedCenter = { row({ Text{ arg(1) } }) };
+            if (arg(2) == "button") p.rowButton = Glyph::Settings, p.tapAction = "open"; // a page-row button, decision 113
             p.content.keepOpen = arg(2) == "keep" || arg(2) == "awake";
             p.content.noIdleTimeout = arg(2) == "awake";
             p.announce = arg(2) == "new" ? 1 : arg(2) == "new2" ? 2 : 0;

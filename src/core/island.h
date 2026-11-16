@@ -53,6 +53,10 @@ struct Panel {
     // higher number than the one last seen is new again (a feature added to
     // it). The host tracks and draws it.
     int announce = 0;
+    // Set: not a widget but this glyph as a button in the page row, right of
+    // the pin (decision 113). A click sends tapAction; Content::badge puts a
+    // dot on it. Settings: always at hand, without a Home tile of its own.
+    std::optional<Glyph> rowButton;
     bool operator==(const Panel&) const = default;
 };
 
@@ -310,6 +314,9 @@ struct ShownCard {
     bool operator==(const ShownCard&) const = default;
 };
 std::optional<ShownCard> shownCard(const IslandState& state);
+
+// Home has something to show: a panel that's a widget, not a page-row button (decision 113).
+bool hasWidgets(const IslandState& state);
 
 // Its widget says "New" (decision 110): announced, it opens a card, and that
 // card hasn't been opened since this announcement.

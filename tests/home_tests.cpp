@@ -7,6 +7,7 @@
 #include "core/tokens.h"
 #include "expect.h"
 
+#include <algorithm>
 #include <cmath>
 
 namespace cup::test {
@@ -55,7 +56,8 @@ void runHomeTests()
     float stripSpace = t.tabRowInset + t.tabHeight + t.tabRowGap - t.expandedPadding;
     expect(home.mode == Mode::Expanded && home.size.x == t.expandedSize.x && home.size.y == t.expandedSize.y + stripSpace,
            "one row: Home keeps Expanded's card size, plus its strip");
-    expect(home.tabs && home.tabs->tabs.size() == 1 && home.tabs->pin, "only Home: its button, active, and the pin");
+    expect(home.tabs && home.tabs->tabs.empty() && home.tabs->home && home.tabs->pin && !home.tabs->previous,
+           "only Home: its button and the pin; no dots, no arrows (decision 115)");
     expect(home.label == "Home" && home.activityId.empty(), "Home is no activity's card");
     float p = t.expandedPadding, gap = t.tileGap, unit = (home.size.x - 2 * p - 2 * gap) / 4;
     expect(home.tiles.size() == 3, "a b(wide) c: one full row");
@@ -103,10 +105,10 @@ void runHomeTests()
     expect(widgetIcon && std::get<Icon>(widgetIcon->item).quiet, "a widget's icon is quiet, like a secondary button (decision 073)");
     expect(!std::get<Icon>(widgetIcon->item).large, "an icon in a widget's rows stays text-sized (decision 111)");
 
-    // The card scale (decision 111): a CardTitle line and a Body line fit a tile, its leading icon large.
+    // A widget's sizes (decisions 111, 114): a TileTitle line and a Body line fit a tile, its leading icon large.
     IslandState scaled = reduce(IslandState{}, PanelPublished{ { .id = "s", .content = {
         .tileLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
-        .tile = { row({ Text{ "25:00", TextStyle::CardTitle } }), row({ Text{ "Focus · 4 rounds", TextStyle::Body } }) } } } }, Ms{ 0 });
+        .tile = { row({ Text{ "25:00", TextStyle::TileTitle } }), row({ Text{ "Focus · 4 rounds", TextStyle::Body } }) } } } }, Ms{ 0 });
     Scene scaledHome = layout(reduce(scaled, PillClicked{}, Ms{ 0 }), Ms{ 0 });
     const Placed* leadIcon = find(scaledHome, "tile/s/lead/0/0");
     expect(leadIcon && std::get<Icon>(leadIcon->item).large && leadIcon->frame.height == t.tileIconSize, "the leading icon: tileIconSize");
@@ -115,7 +117,7 @@ void runHomeTests()
         const Placed* line = find(scaledHome, key);
         expect(line && line->frame.y >= st.frame.y + t.tilePadding - 0.01f &&
                    line->frame.y + line->frame.height <= st.frame.y + st.frame.height - t.tilePadding + 0.01f,
-               std::string("a CardTitle and a Body line fit inside the tile's padding: ") + key);
+               std::string("a TileTitle and a Body line fit inside the tile's padding: ") + key);
     }
     expect(!hitTest(home, { a.frame.x + a.frame.width - t.tilePadding - 2, a.frame.y + a.frame.height / 2 }) && a.opens,
            "nothing on it takes the click: the tile opens its card");
@@ -133,13 +135,14 @@ void runHomeTests()
     expect(runningLabel && std::get<Text>(runningLabel->item).value == "running", "running: the activity's tile");
     expect(liveScene.tiles[0].frame.x == a.frame.x, "the tile stays where it was");
 
-    // The page row (decision 109): Home's dot first, then activities', centred with
-    // ‹ and › beside them; Home's own button apart at the top left.
+    // The page row (decision 109): the activities' dots, centred with ‹ and ›
+    // beside them; Home has no dot, only its button apart at the top left (decision 115).
     IslandState tabbed = reduce(running, ActivityStarted{ { .id = "media", .content = { .label = "Song" } } }, Ms{ 0 });
     tabbed = reduce(tabbed, HomeOpened{}, Ms{ 0 });
     Scene strip = layout(tabbed, Ms{ 0 });
-    expect(strip.tabs && strip.tabs->tabs.size() == 3 && strip.tabs->tabs[0].id.empty() && strip.tabs->active == 0,
-           "Home's dot first, and the shown one on Home");
+    expect(strip.tabs && strip.tabs->tabs.size() == 2 && strip.tabs->tabs[0].id == "a" && !strip.tabs->active,
+           "a dot per activity, none of them Home's: on Home, none is shown");
+    expect(strip.tabs->previous && strip.tabs->next, "the arrows: from Home to the activities");
     expect(strip.tabs->home && strip.tabs->home->id == kHomeTab, "and Home's button");
     const Tab& homeButton = *strip.tabs->home;
     expect(homeButton.frame == Rect{ p, t.tabRowInset, t.homeButtonWidth, t.tabHeight }, "Home: a button at the top left (decisions 047, 109)");
@@ -167,12 +170,37 @@ void runHomeTests()
     expect(!homeIcon->muted && find(card, "tab/home/lead")->muted && find(media, "tab/home/lead")->muted,
            "Home's button in colour only on Home: grey on a card, a dormant one's too (decision 072)");
     Scene single = layout(reduce(reduce(s, ActivityStarted{ { .id = "solo" } }, Ms{ 0 }), PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    expect(single.tabs && single.tabs->tabs.size() == 2, "one activity plus panels: Home and its tab");
+    expect(single.tabs && single.tabs->tabs.size() == 1 && single.tabs->home, "one activity plus panels: its dot and Home's button");
     Scene bare = layout(reduce(s, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    expect(bare.tabs && bare.tabs->tabs.size() == 1 && bare.tabs->pin, "Home with nothing running: Home's button and the pin");
+    expect(bare.tabs && bare.tabs->tabs.empty() && bare.tabs->home && bare.tabs->pin, "Home with nothing running: Home's button and the pin");
     Scene dormant = layout(reduce(reduce(s, PillClicked{}, Ms{ 0 }), TileClicked{ "a" }, Ms{ 0 }), Ms{ 0 });
-    expect(dormant.tabs && dormant.tabs->tabs.size() == 1 && dormant.tabs->tabs[0].id.empty(),
-           "a dormant card with nothing running: just the way back Home");
+    expect(dormant.tabs && dormant.tabs->tabs.empty() && dormant.tabs->home && !dormant.tabs->previous,
+           "a dormant card with nothing running: just Home's button, the way back");
+
+    // A panel's page-row button (decision 113): Settings' gear right of the pin, in the corner; not a widget.
+    Panel gear{ .id = "gear", .content = { .label = "Settings", .badge = true }, .providerId = "sys", .tapAction = "open", .rowButton = Glyph::Settings };
+    Scene geared = layout(reduce(reduce(s, PanelPublished{ gear }, Ms{ 0 }), PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    expect(geared.tabs && geared.tabs->buttons.size() == 1 && geared.tabs->pin, "the gear: a button in the page row");
+    const Tab& gearTab = geared.tabs->buttons[0];
+    const Tab& pinTab = *geared.tabs->pin;
+    expect(gearTab.id == std::string(kPanelButtonTab) + "gear" && std::abs(gearTab.frame.x + gearTab.frame.width - (geared.size.x - p)) < 0.01f &&
+               gearTab.hitFrame.x + gearTab.hitFrame.width == geared.size.x,
+           "the gear in the right corner, its click area to the card's edge");
+    expect(pinTab.frame.x + pinTab.frame.width + t.tabArrowGap <= gearTab.frame.x + 0.01f && pinTab.hitFrame.x + pinTab.hitFrame.width <= gearTab.hitFrame.x + 0.01f,
+           "the pin just left of it, their click areas apart");
+    expect(std::none_of(geared.tiles.begin(), geared.tiles.end(), [](const Tile& tile) { return tile.id == "gear"; }) && geared.tiles.size() == bare.tiles.size(),
+           "not a Home widget");
+    const Tab* under = tabAt(*geared.tabs, { gearTab.frame.x + 2, gearTab.frame.y + 2 });
+    expect(under && under->id == gearTab.id && gearTab.badge, "a point finds it; its panel's dot on it");
+    bool gearDot = std::any_of(geared.badges.begin(), geared.badges.end(),
+                               [&](Vec2 d) { return gearTab.frame.contains(d) && d.x > gearTab.frame.x + gearTab.frame.width / 2 && d.y <= gearTab.frame.y + gearTab.frame.height / 2; });
+    expect(gearDot, "something new in Settings: a dot drawn in the gear's top-right corner (decisions 048, 113)");
+    Panel quietGear = gear;
+    quietGear.content.badge = false;
+    Scene quietScene = layout(reduce(reduce(s, PanelPublished{ quietGear }, Ms{ 0 }), PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    expect(!quietScene.tabs->buttons[0].badge && quietScene.badges.size() + 1 == geared.badges.size(), "nothing new: no dot");
+    const Placed* gearIcon = find(geared, "tab/button/gear/lead");
+    expect(gearIcon && std::get<Icon>(gearIcon->item).glyph == Glyph::Settings && gearIcon->muted, "the gear's glyph, grey until hovered");
 
     // Idle clock: the local time, centred, re-laid out at the next minute.
     IslandState idle;

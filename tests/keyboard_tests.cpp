@@ -142,7 +142,7 @@ void runKeyboardTests()
         s = reduce(s, HomeOpened{}, Ms{ 0 });
         s = reduce(s, TileClicked{ "asks" }, Ms{ 0 });
         Scene card = layout(s, Ms{ 0 });
-        expect(card.tabs && findFocusable(card, "tab:"), "dialog: before it, the card's tabs are stops");
+        expect(card.tabs && findFocusable(card, std::string("tab:") + kHomeTab), "dialog: before it, the card's tabs are stops");
         s = reduce(s, DialogShown{ { .activityId = "asks", .title = "Stop?", .confirmLabel = "Stop", .confirmAction = "stop.yes", .destructive = true } }, Ms{ 0 });
         Scene asked = layout(s, Ms{ 0 });
         std::vector<Focusable> stops = focusables(asked);
@@ -201,8 +201,8 @@ void runKeyboardTests()
            "home: and on from it, along the row and down");
     expect(onStatic->radius == rows.tileRadius, "home: a tile's ring has the tile's corners");
 
-    // Ctrl+Tab switches tabs: Home, then each activity, then round;
-    // Ctrl+Shift+Tab the other way.
+    // Ctrl+Tab switches between activities, round; Ctrl+Shift+Tab the other
+    // way. Home isn't one (decision 115): from it, the first or the last.
     IslandState tabbed = reduce(home, ActivityStarted{ { .id = "music", .content = { .label = "music", .expandedCenter = { row({ Text{ "m" } }) } } } }, Ms{ 0 });
     tabbed = reduce(tabbed, ActivityStarted{ { .id = "timer", .content = { .label = "timer", .expandedCenter = { row({ Text{ "t" } }) } } } }, Ms{ 0 });
     tabbed = reduce(tabbed, HomeOpened{}, Ms{ 0 });
@@ -211,10 +211,9 @@ void runKeyboardTests()
     expect(previousTab(onHome) == std::optional<std::string>("timer"), "ctrl+shift+tab: from Home, round to the last activity");
     tabbed = reduce(tabbed, ActivitySwitched{ "timer" }, Ms{ 0 });
     Scene onLast = layout(tabbed, Ms{ 0 });
-    expect(nextTab(onLast) == std::optional<std::string>(""), "ctrl+tab: from the last tab, round to Home");
+    expect(nextTab(onLast) == std::optional<std::string>("music"), "ctrl+tab: from the last tab, round to the first, not Home");
     expect(previousTab(onLast) == std::optional<std::string>("music"), "ctrl+shift+tab: the one before");
-    expect(nextTab(list) == std::optional<std::string>("") && previousTab(list) == std::optional<std::string>(""),
-           "ctrl+tab: on a dormant panel's card (no tab shown), Home either way");
+    expect(!nextTab(list) && !previousTab(list), "ctrl+tab: on a dormant panel's card with nothing running, nowhere: Home is its button");
     expect(!nextTab(grid) && !previousTab(grid), "ctrl+tab: no tabs, nothing");
 
     // Shortcuts (decision 032): system-wide, rebindable, saved as text.

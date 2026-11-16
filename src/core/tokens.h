@@ -103,10 +103,10 @@ struct Tokens {
     Vec2 windowPagePadding{ 48, 32 }; // a page's content from the pane's left and top
     float windowTitleBarHeight = 36; // our own title bar: it drags the window; minimize and close at its right
     float windowChromeButtonWidth = 46; // each of those, the bar's height tall, as Windows draws its own
-    float windowSidebarWidth = 190; // the pages, with the window's title over them (only with several pages)
+    float windowSidebarWidth = 200; // the pages, with the window's title over them (only with several pages)
     float windowSidebarInset = 14; // the sidebar's items from its edges
-    float windowSidebarHeader = 56; // the window's title, over the pages
-    float windowNavHeight = 38; // a page's entry in the sidebar
+    float windowSidebarHeader = 60; // the window's title, over the pages
+    float windowNavHeight = 40; // a page's entry in the sidebar
     float windowPageMaxWidth = 600; // a page's content no wider: rows of settings don't need a wide screen
     float windowNavRadius = 8; // the picked page's highlight
     float expandedArtSize = 120; // expanded leading square: the cover, filling the card's shared height with its controls (decisions 094, 107)
@@ -118,11 +118,16 @@ struct Tokens {
     float bodyFontSize = 15;
     float captionFontSize = 13; // the smallest text: ~11 px on screen at 100% after islandScale
     float displayFontSize = 48; // TextStyle::Display: a timer in a dial (decision 065)
+    float tileTitleFontSize = 19; // TextStyle::TileTitle: a Home widget's first line, a little under a card's (decision 114)
     float cardTitleFontSize = 22; // TextStyle::CardTitle: a card's main line beside its cover (media's song, decision 107)
     float heroFontSize = 64;    // TextStyle::Hero: the one big number a card is about (Pomodoro's time, decision 107)
     float heroLineHeight = 60;  // ...its line: digits only, no descenders, so tighter than other text's
-    float headingFontSize = 14; // TextStyle::Heading: a group's label, in the caption colour, a little over caption size (decision 090)
-    float pageTitleFontSize = 24; // TextStyle::PageTitle: a window page's name (decision 104)
+    float headingFontSize = 15; // TextStyle::Heading: a group's label, in the caption colour, a little over caption size (decision 090)
+    float pageTitleFontSize = 26; // TextStyle::PageTitle: a window page's name (decisions 104, 112)
+    // A window's own step of the ramp (decision 112): a little over the island's lists, under a card's.
+    float windowTitleFontSize = 18;
+    float windowBodyFontSize = 16;   // a setting's name, a sidebar entry
+    float windowCaptionFontSize = 14; // a setting's value under its name, a page's subtitle
     // Font weights, 100..900 (400 regular, 600 semibold; decision 024). Segoe UI Variable
     // (Windows 11) takes any value in between; other fonts use the nearest weight they have.
     float titleFontWeight = 700;   // bold: Segoe UI Variable's heaviest
@@ -130,9 +135,13 @@ struct Tokens {
     float captionFontWeight = 600;
     float displayFontWeight = 300; // big and still the lightest, like a clock face
     float cardTitleFontWeight = 800;
+    float tileTitleFontWeight = 700;
     float heroFontWeight = 800;    // heavy: the card's timer reads from across the desk (decision 107)
     float headingFontWeight = 600; // a group's label is quiet: its group's background sets it apart (decision 090)
-    float pageTitleFontWeight = 700;
+    float pageTitleFontWeight = 800; // heavier: the page's one name (decision 112)
+    float windowTitleFontWeight = 700;
+    float windowBodyFontWeight = 600;
+    float windowCaptionFontWeight = 600;
     // Darkens antialiased text strokes (DirectWrite's grayscale enhanced
     // contrast): 0 = none, 1 = Windows' usual, higher = bolder-looking edges.
     float textContrast = 1.5f;
@@ -163,13 +172,13 @@ struct Tokens {
     float inputHeight = 36;       // a TextInput: a little taller than the rows, easy to click into
     float listItemPadding = 6;    // Row::listItem: above and below its content; = listItemInset, so a checkbox's corners nest in the row's (decision 006)
     float listItemInset = 6;      // Row::listItem: its content in from the hover background's edges
-    float sectionGap = 12;        // Row::section: space above a group's heading (decision 037)
-    float groupItemPadding = 9;   // Row::grouped: above and below each row's content, in place of listItemPadding (decision 090)
-    float groupRadius = 12;       // ...the group's background's corners (its colour: tileColor)
-    float keyCapHeight = 24;      // Keys: a key cap's height; a one-character cap is at least this wide (decision 092)
+    float sectionGap = 16;        // Row::section: space above a group's heading (decision 037)
+    float groupItemPadding = 11;  // Row::grouped: above and below each row's content, in place of listItemPadding (decision 090)
+    float groupRadius = 14;       // ...the group's background's corners (its colour: tileColor)
+    float keyCapHeight = 26;      // Keys: a key cap's height; a one-character cap is at least this wide (decision 092)
     float keyCapPadding = 7;      // ...its label's room on each side
     float keyCapGap = 4;          // ...between caps, and around the words between them
-    float segmentHeight = 30;     // Segments: the track's height (decision 093)
+    float segmentHeight = 32;     // Segments: the track's height (decision 093)
     float segmentInset = 3;       // ...the picked pill in from the track's edge
     float segmentPadding = 12;    // ...an option's room on each side of its label
     float keyCapRadius = 6;       // ...its corners (fill: tileColor over the group's; edge: trackColor)
@@ -194,7 +203,7 @@ struct Tokens {
     float badgeSize = 8;          // a notification dot (decision 038)
     float badgeInset = 7;         // ...at least this far in from a widget's or tab's edges (its corner's rounding sets it, decision 038)
     float swatchSize = 24;        // Swatch: a colour sample (a theme on Settings' list, decision 030)
-    Vec2 switchSize{ 36, 20 };    // Switch: an on/off setting's track (decision 053); the knob is its height, inset
+    Vec2 switchSize{ 40, 22 };    // Switch: an on/off setting's track (decision 053); the knob is its height, inset
     float switchKnobInset = 3;    // ...the knob this far inside the track
     float tagHeight = 18;         // Tag: "New" beside a setting not seen yet (decision 048)
     float tagPadding = 7;         // ...its text this far in from the pill's ends
@@ -289,10 +298,10 @@ struct Tokens {
 
     // Home: a grid of panel tiles in the Expanded card (decision 009).
     std::size_t homeColumns = 4;  // columns' worth per Home row; a widget takes one, or two (Panel::wide); rows stretch to full width
-    float tileHeight = 74;        // fits a CardTitle and a Body line inside tilePadding (decision 111)
-    float tileGap = 12;
-    float tilePadding = 10;       // inside a tile, on every side
-    float tileIconSize = 24;      // a widget's leading icon (Icon::large): the card scale (decision 111)
+    float tileHeight = 68;        // fits a TileTitle and a Body line inside tilePadding (decisions 111, 114)
+    float tileGap = 10;
+    float tilePadding = 9;        // inside a tile, on every side
+    float tileIconSize = 22;      // a widget's leading icon (Icon::large, decisions 111, 114)
     float focusRingWidth = 2;     // the keyboard's focus ring (decision 033), drawn inside what has focus
 
     // Smaller transitions: the ears and corners folding, a lift sinking, a
