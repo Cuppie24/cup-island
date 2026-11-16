@@ -38,6 +38,7 @@ keep the smaller scale: `Title` (17/700), `Body`, `Caption`, `buttonSize` 36,
 - Settings' list card and the windows' pages (decisions 030, 104).
 - Search's results (`Result`, `ResultDetail`; decision 079).
 - Grouped rows, menus, dialogs (decisions 020, 086, 090).
+- Alerts (the banner that drops in): `Title` and `Body`, like every alert.
 - Text inside a widget's rows: an inline icon stays `iconSize` (18), so the
   row is as tall as its text.
 

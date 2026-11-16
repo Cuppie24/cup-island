@@ -23,7 +23,8 @@ Content nowPlayingContent(const NowPlaying& m)
     c.compactTrailing = { row({ Waveform{ playing } }, Align::Center) }; // paused: the bars rest as dots
     c.minimal = { row({ Waveform{ playing } }) }; // the Split bubble: equalizer bars, still dots when paused
     c.alertLeading = { row({ art }) };
-    c.alertCenter = { row({ title }), row({ artist }) };
+    // The alert is a short banner, not a card: the dense Title like every other alert (design rules).
+    c.alertCenter = { row({ Text{ .value = m.title, .style = TextStyle::Title, .marquee = true } }), row({ artist }) };
 
     // Home's widget (decision 019): the art on the left, the title (swimming
     // when long) with the bars, the artist under it; the card's sizes (decision 111).

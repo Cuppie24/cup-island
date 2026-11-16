@@ -214,6 +214,7 @@ void runMediaTests()
     expect(playing.tile[0].items[0] == Item{ Text{ .value = "Song", .style = TextStyle::CardTitle, .marquee = true } } &&
            playing.tile[0].trailing[0] == Item{ Waveform{ true } }, "the title swims, the bars beside it");
     expect(std::get<Text>(playing.tile[1].items[0]).value == "Band", "the artist under it");
+    expect(std::get<Text>(playing.alertCenter[0].items[0]).style == TextStyle::Title, "the alert's title is the dense Title, not the card's");
 
     // On Home: the activity's widget replaces the idle one in place, and back.
     IslandState s = reduce(IslandState{}, PanelPublished{ idlePanel }, Ms{ 0 });
