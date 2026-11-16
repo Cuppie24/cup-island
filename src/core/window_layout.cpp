@@ -29,6 +29,30 @@ Placed placedButton(const std::string& key, Glyph glyph, const char* action, Rec
     return p;
 }
 
+// A window's text a step up from the island's (decision 112): Title, Body
+// and Caption become their Window kin. Providers write the plain styles, so
+// the same rows read the same on a card and in a window.
+TextStyle windowStyle(TextStyle style)
+{
+    switch (style) {
+    case TextStyle::Title: return TextStyle::WindowTitle;
+    case TextStyle::Body: return TextStyle::WindowBody;
+    case TextStyle::Caption: return TextStyle::WindowCaption;
+    default: return style;
+    }
+}
+
+Slot windowStyled(Slot slot)
+{
+    for (Row& r : slot)
+        for (auto* items : { &r.items, &r.leading, &r.trailing })
+            for (Item& item : *items) {
+                if (auto* text = std::get_if<Text>(&item)) text->style = windowStyle(text->style);
+                else if (auto* label = std::get_if<TimeLabel>(&item)) label->style = windowStyle(label->style);
+            }
+    return slot;
+}
+
 } // namespace
 
 WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, const MeasureText& measure, const WindowTyping* typing)
@@ -56,14 +80,14 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
         left = std::round(std::min(t.windowSidebarWidth, size.x / 2));
         s.sidebar = Rect{ 0, bar, left, std::max(0.0f, size.y - bar) };
         float inset = t.windowSidebarInset;
-        Slot header{ row({ Text{ .value = w.content.title, .style = TextStyle::Title } }) };
+        Slot header = windowStyled({ row({ Text{ .value = w.content.title, .style = TextStyle::Title } }) });
         placeSlot({ "side", &header, { inset + 10, bar, std::max(0.0f, left - 2 * inset - 10), t.windowSidebarHeader } }, source, 0, now,
                   s.sidebarItems, measure);
         float y = bar + t.windowSidebarHeader;
         for (std::size_t i = 0; i < w.content.pages.size(); ++i) {
             const WindowPage& page = w.content.pages[i];
             Rect entry{ inset, y, std::max(0.0f, left - 2 * inset), t.windowNavHeight };
-            Slot one{ Row{ .items = { Icon{ page.glyph }, Text{ page.title } }, .inset = true } };
+            Slot one = windowStyled({ Row{ .items = { Icon{ page.glyph }, Text{ page.title } }, .inset = true } });
             placeSlot({ "nav" + std::to_string(i), &one, entry }, source, t.windowNavRadius, now, s.sidebarItems, measure);
             s.nav.push_back({ entry, page.id, page.id == w.page, page.badge });
             y += t.windowNavHeight + 4;
@@ -72,14 +96,15 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
 
     // The footer, pinned under the page.
     float bottom = size.y;
-    if (!w.content.footer.empty()) {
+    Slot footer = windowStyled(w.content.footer);
+    if (!footer.empty()) {
         Rect area{ left + t.windowPagePadding.x, 0, std::max(0.0f, size.x - left - 2 * t.windowPagePadding.x), 0 };
-        float height = slotHeight(w.content.footer, area, source, measure) + 2 * t.groupItemPadding;
+        float height = slotHeight(footer, area, source, measure) + 2 * t.groupItemPadding;
         bottom = std::round(std::max(bar, size.y - height));
         s.footerBar = Rect{ left, bottom, size.x - left, size.y - bottom };
         area.y = bottom;
         area.height = height;
-        placeSlot({ "footer", &w.content.footer, area }, source, t.windowNavRadius, now, s.footer, measure);
+        placeSlot({ "footer", &footer, area }, source, t.windowNavRadius, now, s.footer, measure);
     }
     s.pane = { left, bar, std::max(0.0f, size.x - left), std::max(0.0f, bottom - bar) };
 
@@ -110,6 +135,7 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
     }
     float width = std::max(0.0f, std::min(t.windowPageMaxWidth, s.pane.width - 2 * t.windowPagePadding.x));
     Rect frame{ t.windowPagePadding.x, t.windowPagePadding.y, width, 0 };
+    rows = windowStyled(std::move(rows));
     frame.height = slotHeight(rows, frame, fields, measure);
     placeSlot({ "page", &rows, frame }, fields, t.windowNavRadius, now, s.page, measure);
     // A button's dot (a setting with something new inside, decision 048), where the island puts one.

@@ -2,6 +2,7 @@
 // between providers and the open windows. The rules of opening, raising,
 // pages and closing are in windows.scenario.
 
+#include "core/item_metrics.h"
 #include "core/segments.h"
 #include "core/tokens.h"
 #include "core/window_keys.h"
@@ -246,6 +247,18 @@ void layoutTests()
     single.content.pages.pop_back();
     WindowScene alone = windowLayout(single, size, 0, Ms{ 0 }, measure);
     expect(!alone.sidebar && alone.nav.empty() && alone.pane.x == 0 && alone.pane.width == 900, "window: one page, no sidebar");
+
+    // A window's text a step up from the island's (decision 112): no plain Title, Body or Caption in it.
+    WindowScene styled = windowLayout(sample(), size, 0, Ms{ 0 }, measure);
+    std::size_t windowTexts = 0;
+    for (const auto* placed : { &styled.page, &styled.sidebarItems, &styled.footer })
+        for (const Placed& p : *placed)
+            if (auto* text = std::get_if<Text>(&p.item)) {
+                ++windowTexts;
+                expect(text->style != TextStyle::Title && text->style != TextStyle::Body && text->style != TextStyle::Caption,
+                       "window: its text on the window step: " + p.key);
+            }
+    expect(windowTexts > 0 && detailStyleOf(TextStyle::WindowBody) == TextStyle::WindowCaption, "window: a row's detail on the window step too");
 }
 
 // The keys in a window (decision 104): the island's rules on the page,

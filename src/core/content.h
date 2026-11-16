@@ -31,7 +31,10 @@ enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Sour
 // PageTitle: a window page's name, over its groups (decision 104).
 // CardTitle: a card's main line beside its cover, bigger and heavier than Title (media's song, decision 107).
 // Hero: the one big number a card is about, heavy (Pomodoro's time); its digits roll as they change (decision 107).
-enum class TextStyle { Title, Body, Caption, Digits, Display, Heading, Result, ResultDetail, PageTitle, Hero, CardTitle };
+// Window*: Title, Body and Caption a step up in a standalone window (decision 112);
+// the window's layout swaps them in, providers write the plain three.
+enum class TextStyle { Title, Body, Caption, Digits, Display, Heading, Result, ResultDetail, PageTitle, Hero, CardTitle,
+                       WindowTitle, WindowBody, WindowCaption };
 
 // sRGB plus opacity. As an activity's accent (decision 010) it tints only
 // live data: progress fills (bar and ring), the current step, waveform bars.

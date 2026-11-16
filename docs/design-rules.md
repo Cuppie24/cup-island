@@ -30,14 +30,31 @@ Spacing:
 - Every card and Home share `expandedSize.y` (248) so switching tabs doesn't
   resize the island; a test pins media, the timer and Home to it.
 
+## Standalone windows: a step up, under the cards (decision 112)
+
+Windows (Settings, the timer's) hold pages of rows to read at a desk, so
+they sit between the island's lists and its cards. Providers write the plain
+styles; the window's layout swaps in its own step, so nothing to remember.
+
+| Piece | On the island | In a window |
+| --- | --- | --- |
+| `Title` | 17 at 700 | `WindowTitle` 18 at 700 |
+| `Body` (a setting's name, a sidebar entry) | 15 at 600 | `WindowBody` 16 at 600 |
+| `Caption` (its value under it, a subtitle) | 13 at 600 | `WindowCaption` 14 at 600 |
+| A group's label (`Heading`) | | 15 at 600 |
+| A page's name (`PageTitle`) | | 26 at 800 |
+
+Room (window-only tokens): a grouped row 11 above and below its content
+(`groupItemPadding`), groups 16 apart (`sectionGap`), their corners 14; the
+sidebar 200 wide, entries 40 high; a switch 40 × 22, segments 32, key caps 26.
+
 ## Where the dense scale stays
 
-Lists and windows hold many rows to scan, not one thing to glance at; they
+Lists hold many rows to scan, not one thing to glance at; on the island they
 keep the smaller scale: `Title` (17/700), `Body`, `Caption`, `buttonSize` 36,
 `compact` buttons in rows.
-- Settings' list card and the windows' pages (decisions 030, 104).
 - Search's results (`Result`, `ResultDetail`; decision 079).
-- Grouped rows, menus, dialogs (decisions 020, 086, 090).
+- Menus, dialogs and toasts (decisions 020, 086).
 - Text inside a widget's rows: an inline icon stays `iconSize` (18), so the
   row is as tall as its text.
 

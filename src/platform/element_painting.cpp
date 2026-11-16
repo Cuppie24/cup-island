@@ -203,6 +203,9 @@ TextLook lookOf(TextStyle style)
     case TextStyle::PageTitle: return { t.pageTitleFontSize, t.titleTextColor, t.pageTitleFontWeight };
     case TextStyle::Hero: return { t.heroFontSize, t.titleTextColor, t.heroFontWeight };
     case TextStyle::CardTitle: return { t.cardTitleFontSize, t.titleTextColor, t.cardTitleFontWeight };
+    case TextStyle::WindowTitle: return { t.windowTitleFontSize, t.titleTextColor, t.windowTitleFontWeight }; // decision 112
+    case TextStyle::WindowBody: return { t.windowBodyFontSize, t.bodyTextColor, t.windowBodyFontWeight };
+    case TextStyle::WindowCaption: return { t.windowCaptionFontSize, t.captionTextColor, t.windowCaptionFontWeight };
     }
     return { t.bodyFontSize, t.bodyTextColor, t.bodyFontWeight };
 }
