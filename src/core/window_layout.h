@@ -79,4 +79,10 @@ WindowHit windowHitTest(const WindowScene& scene, Vec2 point);
 // A point in the window to the page's own coordinates (scrolled).
 Vec2 toPage(const WindowScene& scene, Vec2 point);
 
+// The page's row under a point (window coordinates): "<slot>/<row>", the
+// prefix of its items' keys, or "". It reveals that row's revealOnHover
+// buttons (a task's delete, decision 120), as rowAt does on the island.
+// Between a row's items too; within a card, only that card's rows.
+std::string windowRowAt(const WindowScene& scene, Vec2 point);
+
 } // namespace cup

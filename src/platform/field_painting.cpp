@@ -40,13 +40,14 @@ FieldLine lineOf(IDWriteFactory* dw, const TextInput& input, Vec2 size)
     const Tokens& t = tokens();
     FieldLine line;
     // Edited in place: the Text's own size and place, so nothing jumps when editing starts (decision 043).
-    float fontSize = input.inPlace ? t.bodyFontSize : input.large ? t.searchInputFontSize : t.inputFontSize; // large: search's (decision 079)
+    // In place, the edited text's size (a window's is a step up, decision 120); large: search's (decision 079).
+    float fontSize = input.inPlace ? cup::fontSize(input.style) : input.large ? t.searchInputFontSize : t.inputFontSize;
     line.inset = input.inPlace ? t.editInset : t.buttonLabelPadding;
     line.room = std::max(0.0f, size.x - 2 * line.inset);
     bool empty = input.value.empty(), wrapped = !input.wrapped.empty();
     std::wstring value = widen(empty ? input.placeholder : wrapped ? input.wrapped : input.value);
     auto f = format(dw, textFamily(dw, fontSize), fontSize, t.bodyFontWeight, DWRITE_TEXT_ALIGNMENT_LEADING);
-    if (wrapped) setLineHeight(f.get(), lineHeight(TextStyle::Body)); // as tall as core laid it out (decision 045)
+    if (wrapped) setLineHeight(f.get(), lineHeight(input.inPlace ? input.style : TextStyle::Body)); // as tall as core laid it out (decision 045)
     winrt::check_hresult(dw->CreateTextLayout(value.c_str(), static_cast<UINT32>(value.size()), f.get(), 100000.0f, size.y, line.layout.put()));
     DWRITE_TEXT_METRICS metrics{};
     winrt::check_hresult(line.layout->GetMetrics(&metrics));

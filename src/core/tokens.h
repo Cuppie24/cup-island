@@ -110,8 +110,9 @@ struct Tokens {
     float windowPageMaxWidth = 600; // a page's content no wider: rows of settings don't need a wide screen
     float windowNavRadius = 8; // the picked page's highlight
     float windowRailWidth = 64; // WindowContent::rail: the pages' glyphs alone, the title in the title bar (decision 117)
-    // WindowPage::cards (decision 117): one width, so a resize moves cards and never repaints them.
-    float windowCardWidth = 340;
+    // WindowPage::cards (decisions 117, 120): no narrower, sharing the row's width; rows windowCardPadding inside.
+    float windowCardMinWidth = 440;
+    float windowCardPadding = 10;
     float windowCardGap = 16; // between cards, across and down
     float expandedArtSize = 108; // expanded leading square: the cover, filling the card's shared height with its controls (decisions 094, 107, 119)
     float slotGap = 10;         // between leading and center/bottom slots

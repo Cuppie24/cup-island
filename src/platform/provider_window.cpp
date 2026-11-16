@@ -316,9 +316,11 @@ ElementVisuals& ProviderWindow::visualsFor(const std::string& key)
     return page_;
 }
 
-void ProviderWindow::setHovered(const std::string& key, std::optional<std::size_t> nav, std::optional<Rect> row, float rowRadius)
+void ProviderWindow::setHovered(const std::string& key, std::optional<std::size_t> nav, std::optional<Rect> row, float rowRadius,
+                                const std::string& pageRow)
 {
     for (ElementVisuals* v : { &sidebar_, &page_, &footer_, &chrome_ }) v->setHovered(v == &visualsFor(key) ? key : std::string());
+    page_.setHoveredRow(pageRow); // a task's delete shows while the pointer is on its row (decision 120)
     if (nav != hoveredNav_ || row != hoveredRow_) {
         hoveredNav_ = nav;
         hoveredRow_ = row;

@@ -42,7 +42,7 @@ Item resolve(const Item& item, Ms now, const Source& source)
         const Draft* d = source.draft;
         if (d && d->activityId == source.activityId && d->actionId == text->editAction)
             return TextInput{ .actionId = text->editAction, .value = d->text, .focused = true, .caret = d->caret, .anchor = d->anchor,
-                              .inPlace = true };
+                              .inPlace = true, .style = text->style };
     }
     return item;
 }
@@ -226,8 +226,8 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                         shown->wrapped = wrapText(shown->value, shown->style, room, measure);
                         h = static_cast<float>(lineCount(shown->wrapped)) * lineHeight(shown->style);
                     } else if (auto* field = std::get_if<TextInput>(&placed.item)) {
-                        field->wrapped = wrapText(field->value, TextStyle::Body, room, measure); // the field's font
-                        h = static_cast<float>(lineCount(field->wrapped)) * lineHeight(TextStyle::Body);
+                        field->wrapped = wrapText(field->value, field->style, room, measure); // the field's font: the text's
+                        h = static_cast<float>(lineCount(field->wrapped)) * lineHeight(field->style);
                     }
                     wrapped[r] = std::max(wrapped[r], h);
                 }

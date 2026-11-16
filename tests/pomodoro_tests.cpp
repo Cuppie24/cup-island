@@ -216,6 +216,18 @@ void windowTests()
     expect(textIn(timer, "25:00") && buttonIn(timer, pomodoro_action::kStart) && textIn(timer, "Focus · round 1 of " + std::to_string(t.pomodoroRounds)) &&
            timer.headerRule, "the header: the planned focus, ▶, the phase and round, a line under it");
     expect(!std::get<Button>(buttonIn(timer, pomodoro_action::kStop)->item).enabled, "dormant: stop and skip dimmed, in their places");
+    // One line (decision 120): the time and the controls on one middle; the phase and round a loose gap off the steps.
+    const Placed* hero = textIn(timer, "25:00");
+    const Placed* play = buttonIn(timer, pomodoro_action::kStart);
+    auto middle = [](const Placed* p) { return p->frame.y + p->frame.height / 2; };
+    expect(hero && play && std::abs(middle(hero) - middle(play)) < 0.5f, "the time and ▶ on one line");
+    const Placed* where = textIn(timer, "Focus · round 1 of " + std::to_string(t.pomodoroRounds));
+    const Placed* steps = nullptr;
+    for (const Placed& p : timer.page)
+        if (std::holds_alternative<Steps>(p.item)) steps = &p;
+    expect(where && steps && std::get<Text>(where->item).alignEnd &&
+               std::abs(steps->frame.x - (where->frame.x + where->frame.width) - t.looseItemSpacing) < 0.5f,
+           "the round set against its end, the row's loose gap before the steps");
     expect(textIn(timer, "Tasks") && textIn(timer, "New group") && !textIn(timer, "Timer"), "the first group, the new group card; no page title");
     const Placed* field = nullptr;
     for (const Placed& p : timer.page)

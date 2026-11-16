@@ -90,9 +90,11 @@ std::vector<Row> timerHeader(const PomodoroWindowView& v)
     Button stop{ .glyph = Glyph::Stop, .actionId = act::kStop, .enabled = s != nullptr, .secondary = true };
     Button main{ .glyph = playing ? Glyph::Pause : Glyph::Play, .actionId = s ? act::kPause : act::kStart, .primary = true };
     Button skip{ .glyph = Glyph::Next, .actionId = act::kSkip, .enabled = s != nullptr, .secondary = true };
-    return { Row{ .items = { time, stop, main, skip },
+    // The phase and round take the row's spare width, set against its end, so the loose row's
+    // gap, not the edge's packed one, keeps them off the steps (decision 120).
+    return { Row{ .items = { time, stop, main, skip, Text{ .value = where, .style = TextStyle::Caption, .alignEnd = true } },
                   .loose = true, // big, well-separated targets
-                  .trailing = { Text{ where, TextStyle::Caption }, phaseSteps(s ? phasesDone(*s) : 0) } } };
+                  .trailing = { phaseSteps(s ? phasesDone(*s) : 0) } } };
 }
 
 // A group's card (decision 117): its name, edited in place, and how many
@@ -118,7 +120,8 @@ WindowSection groupCard(const TaskGroup& g)
         Text text{ .value = t.text, .style = t.done ? TextStyle::Caption : TextStyle::Body, .struck = t.done, .editAction = inGroup(g.id, todo::kEdit + id),
                    .editMaxLength = tokens().todoMaxLength, .wrap = true }; // long ones wrap (decision 045)
         Button remove{ .glyph = Glyph::Delete, .actionId = inGroup(g.id, todo::kDelete + id), .compact = true, .revealOnHover = true };
-        card.rows.push_back(Row{ .items = { box, text }, .trailing = { remove }, .id = "task-" + id, .listItem = true });
+        // No list item's padding: a card's tasks sit as close as a list's lines (decision 120); the delete still shows on hover.
+        card.rows.push_back(Row{ .items = { box, text }, .trailing = { remove }, .id = "task-" + id });
     }
     return card;
 }

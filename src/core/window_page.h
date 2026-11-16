@@ -12,10 +12,10 @@
 
 namespace cup {
 
-// Where the cards of a WindowPage::cards page go: as many windowCardWidth
-// columns as fit in `available`, windowCardGap apart. One width whatever the
-// window's, so a resize only moves cards (decision 117); narrower than one
-// card, the one column is as wide as there is.
+// Where the cards of a WindowPage::cards page go: as many columns as fit in
+// `available` at windowCardMinWidth or more, windowCardGap apart, sharing the
+// row's width (decision 120: fixed widths left them small and a gap at the
+// right); narrower than one card, the one column is as wide as there is.
 struct CardGrid {
     int columns = 1;
     float width = 0; // each card's

@@ -142,7 +142,9 @@ void showHover(Shown& s)
     std::optional<std::size_t> nav;
     std::optional<Rect> row;
     float radius = 0;
+    std::string pageRow;
     if (s.pointer) {
+        pageRow = windowRowAt(s.scene, *s.pointer);
         WindowHit hit = windowHitTest(s.scene, *s.pointer);
         if (hit.hit) key = hit.hit->key;
         if (hit.part == WindowPart::Page)
@@ -151,7 +153,7 @@ void showHover(Shown& s)
         for (const Placed& p : s.scene.page) // a clickable row lights as a whole, as on the island (decision 090)
             if (p.key == key && p.listRow) row = p.listRow, radius = p.listRowRadius;
     }
-    s.window->setHovered(key, nav, row, radius);
+    s.window->setHovered(key, nav, row, radius, pageRow);
 }
 
 Shown* find(const WindowKey& key)

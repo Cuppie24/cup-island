@@ -98,8 +98,11 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
     // No sidebar header to name the window: its title in the bar, as Windows puts one.
     if (left == 0 || w.content.rail) {
         Slot title = windowStyled({ row({ Text{ .value = w.content.title, .style = TextStyle::Caption } }) });
-        placeSlot({ "chrome/title", &title, { t.windowSidebarInset + 4, 0, std::max(0.0f, size.x - buttons * button - 2 * t.windowSidebarInset), bar } },
-                  source, 0, now, s.chrome, measure);
+        // As wide as its text, not the bar: a resize then doesn't repaint it (decision 120).
+        float room = std::max(0.0f, size.x - buttons * button - 2 * t.windowSidebarInset);
+        const Text& text = std::get<Text>(title.front().items.front());
+        float width = measure ? std::min(room, std::ceil(measure(text)) + 2) : room;
+        placeSlot({ "chrome/title", &title, { t.windowSidebarInset + 4, 0, width, bar } }, source, 0, now, s.chrome, measure);
     }
 
     // The footer, pinned under the page.
@@ -137,6 +140,29 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
 }
 
 Vec2 toPage(const WindowScene& s, Vec2 point) { return { point.x - s.pane.x, point.y - s.pane.y + s.scroll }; }
+
+std::string windowRowAt(const WindowScene& s, Vec2 point)
+{
+    if (!s.pane.contains(point)) return {};
+    Vec2 at = toPage(s, point);
+    auto prefix = [](const std::string& key) { return key.substr(0, key.rfind('/')); };
+    auto slotOf = [](const std::string& key) { return key.substr(0, key.find('/')); };
+    auto isFill = [](const Placed& p) { return std::holds_alternative<GroupFill>(p.item); };
+    // A card's background (decision 120) says which card; a grouped row's piece is that row.
+    std::string card;
+    for (const Placed& p : s.page) {
+        if (!isFill(p) || !p.frame.contains(at)) continue;
+        if (p.key.size() > 5 && p.key.ends_with("/fill")) card = prefix(p.key);
+        else return prefix(p.key);
+    }
+    for (const Placed& p : s.page)
+        if (!isFill(p) && p.hitFrame.contains(at)) return prefix(p.key);
+    // Between its items: the band their click areas span, in this card if over one.
+    for (const Placed& p : s.page)
+        if (!isFill(p) && (card.empty() || slotOf(p.key) == card) && at.y >= p.hitFrame.y && at.y < p.hitFrame.y + p.hitFrame.height)
+            return prefix(p.key);
+    return {};
+}
 
 WindowHit windowHitTest(const WindowScene& s, Vec2 point)
 {

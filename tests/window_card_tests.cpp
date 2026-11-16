@@ -6,6 +6,7 @@
 #include "core/window_page.h"
 #include "expect.h"
 
+#include <cmath>
 #include <string>
 
 namespace cup::test {
@@ -35,10 +36,11 @@ const Placed* text(const WindowScene& s, const std::string& value)
 void gridTests()
 {
     const Tokens& t = tokens();
-    float two = 2 * t.windowCardWidth + t.windowCardGap;
-    expect(cardGrid(two).columns == 2 && cardGrid(two - 1).columns == 1 && cardGrid(two).width == t.windowCardWidth,
-           "grid: as many cards to a row as fit, each windowCardWidth");
-    expect(cardGrid(100).columns == 1 && cardGrid(100).width == 100, "grid: narrower than a card, one column as wide as there is");
+    float two = 2 * t.windowCardMinWidth + t.windowCardGap;
+    expect(cardGrid(two).columns == 2 && cardGrid(two - 1).columns == 1 && cardGrid(two).width == t.windowCardMinWidth,
+           "grid: as many cards to a row as fit at windowCardMinWidth");
+    expect(cardGrid(two - 1).width == std::floor(two - 1) && cardGrid(two + 100).width == std::floor(t.windowCardMinWidth + 50),
+           "grid: the cards share the row's width (decision 120)");
     auto frames = cardFrames({ 2, 100 }, { 50, 80, 30 }, { 10, 20 });
     expect(frames.size() == 3 && frames[1].x == 110 + t.windowCardGap && frames[1].y == 20 && frames[2].x == 10 &&
                frames[2].y == 20 + 80 + t.windowCardGap,
@@ -67,14 +69,27 @@ void boardTests()
     const Placed* second = text(s, "Group 1");
     expect(second && second->frame.y == first->frame.y && second->frame.x > first->frame.x, "wide: cards side by side");
 
-    // A resize: the same cards, the same sizes; only where they are changes.
-    WindowScene wider = windowLayout(w, { 1700, 800 }, 0, Ms{ 0 }, measure);
-    bool sameSizes = true;
+    // Each card one background, its rows windowCardPadding inside it (decision 120).
+    const Placed* fill = nullptr;
     for (const Placed& p : s.page)
-        if (p.key.rfind("card.", 0) == 0)
-            for (const Placed& q : wider.page)
-                if (q.key == p.key) sameSizes = sameSizes && q.frame.width == p.frame.width && q.frame.height == p.frame.height;
-    expect(sameSizes, "resized: no card's item changes size, so none is repainted");
+        if (p.key == "card.g0/fill") fill = &p;
+    expect(fill && std::holds_alternative<GroupFill>(fill->item) && first->frame.x >= fill->frame.x + t.windowCardPadding &&
+               first->frame.y >= fill->frame.y + t.windowCardPadding,
+           "a card: one background, its title inside its padding");
+    WindowScene wider = windowLayout(w, { 1500, 800 }, 0, Ms{ 0 }, measure);
+    const Placed* widerFirst = text(wider, "Group 0");
+    expect(widerFirst && widerFirst->frame.width > first->frame.width, "wider: the cards grow with the window");
+    // The row under the pointer (decision 120): a card's title row, from its name or the space beside it; nothing in the gap.
+    auto inWindow = [&](const Placed& p, float dx) { return Vec2{ p.frame.x + s.pane.x + dx, p.frame.y + s.pane.y - s.scroll + p.frame.height / 2 }; };
+    expect(windowRowAt(s, inWindow(*first, 2)) == "card.g0/title", "hover: on a card's name, its title row");
+    const Placed* deleteButton = nullptr;
+    for (const Placed& p : s.page)
+        if (p.key.rfind("card.g0/title/", 0) == 0 && std::holds_alternative<Button>(p.item)) deleteButton = &p;
+    expect(deleteButton && windowRowAt(s, inWindow(*first, (deleteButton->frame.x - first->frame.x) - 6)).rfind("card.g0/", 0) == 0,
+           "hover: between the name and its delete, still that card's row");
+    expect(windowRowAt(s, inWindow(*second, 2)) == "card.g1/title", "hover: the card beside it, its own row");
+    expect(windowRowAt(s, { s.pane.x + 2, s.pane.y + 2 }).empty() || windowRowAt(s, { s.pane.x + 2, s.pane.y + 2 }).rfind("header", 0) == 0,
+           "hover: the page's margin, no card's row");
     WindowScene narrow = windowLayout(w, { 500, 800 }, 0, Ms{ 0 }, measure);
     const Placed* a = text(narrow, "Group 0");
     const Placed* b = text(narrow, "Group 1");

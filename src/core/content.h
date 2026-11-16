@@ -167,6 +167,7 @@ struct TextInput {
     bool focused = false;
     std::size_t caret = 0, anchor = 0; // byte offsets into `value`; equal: nothing selected
     bool inPlace = false;    // a Text being edited (Text::editAction): drawn like it, so it doesn't jump
+    TextStyle style = TextStyle::Body; // ...in its style's size: a window's text is a step up (decisions 112, 120)
     std::string wrapped;     // ...a wrapping one (Text::wrap): `value` broken into lines, like Text::wrapped
     // Set by the provider: at most this many characters (decision 045). 0: no limit.
     std::size_t maxLength = 0;

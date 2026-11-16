@@ -54,7 +54,8 @@ struct WindowSection {
     // sends Action{titleEdit, text}. "": it's plain text.
     std::string titleEdit;
     std::size_t titleMaxLength = 0; // ...at most this many characters; 0: no limit
-    // Beside its title (a count) and at the row's end (a delete shown on hover).
+    // At its title row's end: first titleItems (a count), then titleTrailing
+    // (a delete shown on hover). The title keeps the rest of the row.
     std::vector<Item> titleItems, titleTrailing;
     bool operator==(const WindowSection&) const = default;
 };
@@ -79,9 +80,9 @@ struct WindowPage {
     // Rows across the whole pane, over the title and sections, a line under
     // them: what the page is about (the timer's time and controls, decision 117).
     std::vector<Row> header;
-    // Its sections as cards side by side, windowCardWidth wide, as many to a
-    // row as fit, instead of one column (a board of task groups, decision 117).
-    // Their titles go inside them.
+    // Its sections as cards side by side, at least windowCardMinWidth wide and
+    // sharing the row, as many to a row as fit, instead of one column (a board
+    // of task groups, decisions 117, 120). Their titles go inside them.
     bool cards = false;
     std::vector<WindowSection> sections;
     bool operator==(const WindowPage&) const = default;

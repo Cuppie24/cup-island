@@ -306,7 +306,9 @@ void paintLine(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, D2D
     if (figures(text.style)) {
         useTabularFigures(dw, layout.get(), static_cast<UINT32>(widen(text.wrapped.empty() ? text.value : text.wrapped).size()));
         // A time's digits on the middle of its line, where the bar beside it is drawn.
-        if (text.style == TextStyle::Digits && text.wrapped.empty()) nudge = figureNudge(dw, layout.get());
+        // A Hero time too, so it sits on the line of the buttons beside it (decision 120).
+        bool centredDigits = text.style == TextStyle::Digits || text.style == TextStyle::Hero;
+        if (centredDigits && text.wrapped.empty()) nudge = figureNudge(dw, layout.get());
     }
     auto quiet = brushOf(dc, tokens().captionTextColor); // kept alive until drawn
     if (text.style == TextStyle::Hero) { // its separators quieter than its digits (decision 107)
@@ -368,7 +370,10 @@ void paintCharacter(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text
     if (figures(text.style)) useTabularFigures(dw, layout.get(), static_cast<UINT32>(character.size()));
     const Tokens& t = tokens();
     Color color = text.style == TextStyle::Hero && character == L":" ? t.captionTextColor : lookOf(text.style).color;
-    dc->DrawTextLayout(D2D1::Point2F(left, 0), layout.get(), brushOf(dc, color).get(), D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
+    // A Hero time's digits on its box's middle, as paintText puts a whole one (decision 120):
+    // centred by its line, it sat a few pixels under the buttons beside it.
+    float nudge = text.style == TextStyle::Hero ? figureNudge(dw, layout.get()) : 0;
+    dc->DrawTextLayout(D2D1::Point2F(left, nudge), layout.get(), brushOf(dc, color).get(), D2D1_DRAW_TEXT_OPTIONS_ENABLE_COLOR_FONT);
 }
 
 std::optional<Color> singleInkOf(const Text& text)

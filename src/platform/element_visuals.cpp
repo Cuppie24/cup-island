@@ -430,8 +430,10 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
         // A to-do's text turning into its field (or back) swaps in place: a fade would flash it (decision 043).
         // Only its pixels' size changed (resnapped): the same thing, in place, with no fade either.
         auto editable = [](const Item& item) { return std::holds_alternative<Text>(item) || std::holds_alternative<TextInput>(item); };
+        // Only resized (a window being resized, decision 120): the same thing at its new size, in place;
+        // faded in anew on every frame of the drag, it flickered.
         bool inPlace = (retyped && editable(view.placed.item) && editable(placed.item)) ||
-                       (resnapped && !resized && !retyped && !relisted && !reinked && !changed);
+                       ((resnapped || resized) && !retyped && !relisted && !reinked && !changed);
         view = create(placed, now, !inPlace);
         return true;
     }
