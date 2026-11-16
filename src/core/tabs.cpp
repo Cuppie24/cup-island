@@ -39,12 +39,14 @@ bool homeBadged(const IslandState& s)
 // the same visual as the strip changes. `muted`: grey until the pointer is on
 // that button itself (decisions 072, 109): its activityId is the button's id,
 // which only its own hover lights: Home's while Home isn't shown, the pin
-// while off, the arrows always.
-void placeGlyph(const std::string& name, const std::string& id, Glyph glyph, Rect button, bool muted, std::vector<Placed>& out)
+// while off, the arrows always. `disabled`: dim, and never lit (an arrow with nowhere to go).
+void placeGlyph(const std::string& name, const std::string& id, Glyph glyph, Rect button, bool muted, std::vector<Placed>& out,
+                bool disabled = false)
 {
     float g = std::min(tokens().iconSize, button.height);
     Rect frame{ button.x + (button.width - g) / 2, button.y + (button.height - g) / 2, g, g };
-    out.push_back({ .key = "tab/" + name + "/lead", .item = Icon{ glyph }, .frame = frame, .hitFrame = frame, .activityId = id, .muted = muted });
+    out.push_back({ .key = "tab/" + name + "/lead", .item = Icon{ .glyph = glyph, .disabled = disabled }, .frame = frame, .hitFrame = frame,
+                    .activityId = id, .muted = muted && !disabled });
 }
 
 } // namespace
@@ -113,16 +115,20 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     float dotsWidth = 0;
     for (const auto& page : pages) dotsWidth += widthOf(page.first);
     if (!pages.empty()) dotsWidth += gap * static_cast<float>(pages.size() - 1);
-    // The arrows beside the dots, the three centred as one group. Only with
-    // somewhere to go: another page, or any page from Home or a dormant panel's card.
-    bool arrows = pages.size() > 1 || (!pages.empty() && !shown);
+    // The arrows beside the dots, the three centred as one group. Always
+    // there with any page, so the row doesn't shift (decision 118); with
+    // nowhere to go (one page, shown) they're dim, and no button: nothing to click, hover or focus.
+    bool arrows = !pages.empty();
+    bool live = pages.size() > 1 || (!pages.empty() && !shown);
     float arrow = arrows ? t.tabArrowSize : 0, arrowGap = arrows ? t.tabArrowGap : 0;
     float x = (cardSize.x - dotsWidth - 2 * (arrow + arrowGap)) / 2;
     if (arrows) {
         Rect frame{ x, y + (h - arrow) / 2, arrow, arrow };
-        strip.previous = button(kPreviousTab, frame, 0, arrowGap / 2);
-        strip.previous->radius = arrow / 2; // round, like the dots
-        placeGlyph("previous", kPreviousTab, Glyph::ChevronLeft, frame, true, elements); // grey until hovered
+        if (live) {
+            strip.previous = button(kPreviousTab, frame, 0, arrowGap / 2);
+            strip.previous->radius = arrow / 2; // round, like the dots
+        }
+        placeGlyph("previous", kPreviousTab, Glyph::ChevronLeft, frame, true, elements, !live); // grey until hovered
     }
     x += arrow + arrowGap;
     for (const auto& [id, badge] : pages) {
@@ -137,9 +143,11 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     if (!pages.empty()) x += arrowGap - gap;
     if (arrows) {
         Rect frame{ x, y + (h - arrow) / 2, arrow, arrow };
-        strip.next = button(kNextTab, frame, arrowGap / 2, 0);
-        strip.next->radius = arrow / 2;
-        placeGlyph("next", kNextTab, Glyph::ChevronRight, frame, true, elements);
+        if (live) {
+            strip.next = button(kNextTab, frame, arrowGap / 2, 0);
+            strip.next->radius = arrow / 2;
+        }
+        placeGlyph("next", kNextTab, Glyph::ChevronRight, frame, true, elements, !live);
     }
     return strip;
 }
