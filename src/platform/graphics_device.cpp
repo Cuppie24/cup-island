@@ -54,9 +54,9 @@ void GraphicsDevice::create(wuc::Compositor const& compositor)
 }
 
 // The user's own gamma, no ClearType (the surfaces are transparent),
-// horizontal-only smoothing (NATURAL), and grayscale contrast from the
-// textContrast token: higher darkens thin strokes on light-on-dark text
-// (decision 024).
+// smoothing both ways (NATURAL_SYMMETRIC, decision 154), and grayscale
+// contrast from the textContrast token: higher darkens thin strokes on
+// light-on-dark text (decision 024).
 void GraphicsDevice::updateTextParams()
 {
     float contrast = tokens().textContrast;
@@ -68,12 +68,12 @@ void GraphicsDevice::updateTextParams()
     if (auto factory1 = dwrite_.try_as<IDWriteFactory1>()) {
         winrt::com_ptr<IDWriteRenderingParams1> params;
         if (SUCCEEDED(factory1->CreateCustomRenderingParams(defaults->GetGamma(), defaults->GetEnhancedContrast(), contrast, 0.0f,
-                                                            DWRITE_PIXEL_GEOMETRY_FLAT, DWRITE_RENDERING_MODE_NATURAL, params.put())))
+                                                            DWRITE_PIXEL_GEOMETRY_FLAT, DWRITE_RENDERING_MODE_NATURAL_SYMMETRIC, params.put())))
             textParams_ = params;
     }
     if (!textParams_) // no IDWriteFactory1: no separate grayscale contrast
         dwrite_->CreateCustomRenderingParams(defaults->GetGamma(), contrast, 0.0f, DWRITE_PIXEL_GEOMETRY_FLAT,
-                                             DWRITE_RENDERING_MODE_NATURAL, textParams_.put());
+                                             DWRITE_RENDERING_MODE_NATURAL_SYMMETRIC, textParams_.put());
     // Big text (decision 107): drawn as outlines, smoothed both ways and not
     // snapped to pixel rows. NATURAL's horizontal-only smoothing stair-stepped
     // a big time's round tops and bottoms and flattened them, as if cropped;
@@ -111,8 +111,8 @@ bool GraphicsDevice::draw(wuc::CompositionDrawingSurface const& surface,
     // The surface may live in a shared atlas: draw relative to its offset.
     context->SetTransform(D2D1::Matrix3x2F::Translation(static_cast<float>(offset.x), static_cast<float>(offset.y)));
     // Surfaces are transparent, so text is grayscale-antialiased (ClearType
-    // needs an opaque background). NATURAL smooths horizontally only: crisper
-    // than the default symmetric mode at small sizes.
+    // needs an opaque background). Without ClearType, horizontal-only
+    // smoothing left curves stair-stepped, so it smooths both ways (decision 154).
     context->SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE);
     updateTextParams(); // textContrast is live-tunable
     IDWriteRenderingParams* params = bigText && outlineParams_ ? outlineParams_.get() : textParams_.get();
