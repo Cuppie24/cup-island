@@ -190,13 +190,22 @@ void cardTests()
 void windowTests()
 {
     const Tokens& t = tokens();
-    std::string saved, savedTasks;
+    std::string saved, savedTasks, windowSeen;
     ProviderRegistry::Store store{
-        .load = [&](const std::string&, const std::string& key) { return key == PomodoroProvider::kPlanKey ? saved : ""; },
+        .load = [&](const std::string&, const std::string& key) {
+            return key == PomodoroProvider::kPlanKey ? saved : key == PomodoroProvider::kWindowSeenKey ? windowSeen : "";
+        },
         .save = [&](const std::string&, const std::string& key, const std::string& text) {
             if (key == PomodoroProvider::kPlanKey) saved = text;
             if (key == PomodoroProvider::kTodosKey) savedTasks = text;
+            if (key == PomodoroProvider::kWindowSeenKey) windowSeen = text;
         },
+    };
+    // The card's expand button, and whether it has the "new" dot (decision 156).
+    auto expandBadge = [](const Scene& s) -> std::optional<bool> {
+        for (const Placed& p : s.elements)
+            if (auto* b = std::get_if<Button>(&p.item); b && b->actionId == pomodoro_action::kOpenWindow) return b->badge;
+        return std::nullopt;
     };
     Island island(store);
     island.registry.add(std::make_unique<PomodoroProvider>());
@@ -204,7 +213,10 @@ void windowTests()
     island.send(PillClicked{});
     island.send(TileClicked{ PomodoroProvider::kPanelId });
     expect(!island.window(), "no window until asked");
+    expect(!kPomodoroWindowReady || expandBadge(island.scene()) == true, "never opened: its expand button has the new dot (decision 156)");
     expect(island.openWindow() && island.window(), "the expand button opens the window");
+    expect(!kPomodoroWindowReady || expandBadge(island.scene()) == false, "opened once: the dot is gone");
+    expect(windowSeen == "1", "...and stays gone: kept in the store");
     const OpenWindow& w = *island.window();
     expect(w.spec.size == WindowSize::Large && w.spec.resizable && w.spec.maximizable, "it resizes and maximizes (decision 117)");
     expect(w.spec.minSize == std::optional<Vec2>(tokens().pomodoroWindowMinSize) &&
@@ -460,6 +472,9 @@ void windowTests()
     again.registry.start("pomodoro");
     const Panel* panel = findPanel(again.state, PomodoroProvider::kPanelId);
     expect(panel && std::get<Text>(panel->content.tile[0].items[0]).value == "35:00", "after a restart: the widget shows the planned focus");
+    again.send(PillClicked{});
+    again.send(TileClicked{ PomodoroProvider::kPanelId });
+    expect(!kPomodoroWindowReady || expandBadge(again.scene()) == false, "after a restart: no dot, the window was opened before");
 }
 
 } // namespace

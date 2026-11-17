@@ -49,10 +49,11 @@ struct PomodoroGlance {
 };
 PomodoroGlance glanceOf(const PomodoroStats& stats, const DaysOff& off, long long today);
 
+// `windowNew`: a dot on the expand button until the window is first opened (decision 156).
 // Dormant: the focus time, the steps to come and ▶. Its widget: the planned focus and the rounds.
-Panel pomodoroPanel(const PomodoroPlan& plan = defaultPlan());
+Panel pomodoroPanel(const PomodoroPlan& plan = defaultPlan(), bool windowNew = false);
 // Running: the time, the steps and stop, pause, skip (decision 107); compact, minimal and the widget count down.
-Content pomodoroContent(const PomodoroSession& session, const PomodoroPlan& plan = defaultPlan());
+Content pomodoroContent(const PomodoroSession& session, const PomodoroPlan& plan = defaultPlan(), bool windowNew = false);
 
 // Shared with the window: the time in a ring that fills as it goes, its label under it (decision 065).
 Row dialRow(const Timeline& timeline, const std::string& label, const PomodoroPlan& plan);
