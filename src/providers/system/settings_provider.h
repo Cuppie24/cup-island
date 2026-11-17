@@ -58,6 +58,9 @@ struct SettingsHooks {
     std::function<void(Transparency)> setTransparency;
     // Providers' windows (Settings' own) as glass too, while the island is (decision 104). Empty: no row.
     std::function<void(bool on)> setGlassWindows;
+    // Windows' own theme (decision 150): like the island, like Windows' app
+    // mode, or the named theme (Manual). The app resolves it (windowThemeFor). Empty: no row.
+    std::function<void(WindowThemeMode, const std::string& manual)> applyWindowTheme;
     // What can be tagged "New" (decision 048): the shipped list, unless a test brings its own.
     std::vector<SettingItem> announced = announcedSettings();
 };
@@ -108,6 +111,8 @@ public:
     static constexpr const char* kGlassKey = "glass";         // "on" or "off" ("": on, decision 089)
     static constexpr const char* kTransparencyKey = "transparency"; // "low", "medium" or "high" ("": medium, decision 096)
     static constexpr const char* kGlassWindowsKey = "glasswindows"; // "on" or "off" ("": on, decision 104)
+    static constexpr const char* kWindowThemeKey = "windowtheme";        // "island", "system" or "manual" ("": island, decision 150)
+    static constexpr const char* kWindowThemeNameKey = "windowthemename"; // Manual's theme
     static constexpr const char* kSeenKey = "seen";           // "seen1", then the announced settings seen, one id per line
 
 private:
@@ -126,6 +131,7 @@ private:
     void placeTabRow(bool top);
     void pickFade(FadeSpeed speed);
     void pickTransparency(Transparency level);
+    void pickWindowTheme(WindowThemeMode mode, const std::string& manual); // apply it, save it, show it
 
     SettingsHooks hooks_;
     Host* host_ = nullptr;
@@ -147,6 +153,8 @@ private:
     bool glass_ = true;
     Transparency transparency_ = Transparency::Medium;
     bool glassWindows_ = true;
+    WindowThemeMode windowTheme_ = WindowThemeMode::Island;
+    std::string windowThemeName_; // Manual's; kept while another mode is picked
     std::set<std::string> seen_;     // announced settings seen in earlier visits (decision 048)
     std::set<std::string> seeing_;   // ...and shown during this one: seen once the window closes
     bool windowOpen_ = false;        // the window is on screen

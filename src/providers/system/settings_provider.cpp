@@ -82,6 +82,10 @@ void SettingsProvider::start(Host& host)
     glassWindows_ = trimmed(host_->load(kGlassWindowsKey)) != "off"; // on until turned off: windows look like the island (decision 104)
     if (hooks_.setGlassWindows) hooks_.setGlassWindows(glassWindows_);
     pick(known(trimmed(host_->load(kThemeKey))));
+    // After the island's: Manual's first pick is the island's theme (decision 150).
+    windowTheme_ = parseWindowThemeMode(trimmed(host_->load(kWindowThemeKey)));
+    windowThemeName_ = trimmed(host_->load(kWindowThemeNameKey));
+    if (hooks_.applyWindowTheme) pickWindowTheme(windowTheme_, windowThemeName_);
 }
 
 void SettingsProvider::loadSeen()
@@ -98,7 +102,7 @@ void SettingsProvider::loadSeen()
     // setting is as new as the rest (none tagged), or an update from before
     // tags existed, which kept other settings (all announced ones are new).
     bool fresh = true;
-    for (const char* key : { kAutostartKey, kThemeKey, kDisplayKey, kShortcutsKey, kTabRowKey, kCoverColoursKey, kFadeKey, kGlassKey, kTransparencyKey, kGlassWindowsKey })
+    for (const char* key : { kAutostartKey, kThemeKey, kDisplayKey, kShortcutsKey, kTabRowKey, kCoverColoursKey, kFadeKey, kGlassKey, kTransparencyKey, kGlassWindowsKey, kWindowThemeKey })
         if (!trimmed(host_->load(key)).empty()) fresh = false;
     if (!fresh) return;
     for (const SettingItem& s : hooks_.announced) seen_.insert(s.id);
@@ -131,6 +135,18 @@ void SettingsProvider::pickTransparency(Transparency level)
     publish();
 }
 
+// Manual with no theme picked yet (or one tokens.json no longer has) starts at
+// the island's, so switching to it changes nothing until a theme is clicked.
+void SettingsProvider::pickWindowTheme(WindowThemeMode mode, const std::string& manual)
+{
+    windowTheme_ = mode;
+    const auto& themes = tokens().themes;
+    bool kept = std::any_of(themes.begin(), themes.end(), [&](const Theme& t) { return t.name == manual; });
+    windowThemeName_ = kept ? manual : mode == WindowThemeMode::Manual ? theme_ : std::string();
+    if (hooks_.applyWindowTheme) hooks_.applyWindowTheme(windowTheme_, windowThemeName_);
+    publish();
+}
+
 void SettingsProvider::stop()
 {
     if (!host_) return;
@@ -156,6 +172,21 @@ void SettingsProvider::onAction(const Action& action)
         page_ = SettingsPage::List;
         publish();
     } else if (id == settings_action::kOpenThemes && !themes.empty()) open(SettingsPage::Themes);
+    else if (id == settings_action::kOpenWindowTheme && !themes.empty() && hooks_.applyWindowTheme) open(SettingsPage::WindowTheme);
+    else if (auto at = choiceIndex(id, settings_action::kPickWindowThemeMode)) {
+        // Picked in place (decision 093); the page stays, Manual's themes showing under it or going.
+        if (*at <= 2 && hooks_.applyWindowTheme) {
+            pickWindowTheme(*at == 0 ? WindowThemeMode::Island : *at == 1 ? WindowThemeMode::System : WindowThemeMode::Manual, windowThemeName_);
+            host_->save(kWindowThemeKey, windowThemeText(windowTheme_));
+            host_->save(kWindowThemeNameKey, windowThemeName_);
+        }
+    } else if (auto at = choiceIndex(id, settings_action::kPickWindowTheme)) {
+        // Like the island's themes: this window, recoloured at once, is the preview.
+        if (*at < themes.size() && windowTheme_ == WindowThemeMode::Manual && hooks_.applyWindowTheme) {
+            pickWindowTheme(WindowThemeMode::Manual, themes[*at].name);
+            host_->save(kWindowThemeNameKey, windowThemeName_);
+        }
+    }
     else if (id == settings_action::kOpenDisplays && displays_.size() >= 2) open(SettingsPage::Displays);
     else if (id == settings_action::kOpenShortcuts) {
         page_ = SettingsPage::Shortcuts;
@@ -392,7 +423,9 @@ void SettingsProvider::onWake()
 
 void SettingsProvider::refresh()
 {
-    if (host_) pick(known(theme_));
+    if (!host_) return;
+    pick(known(theme_));
+    if (hooks_.applyWindowTheme) pickWindowTheme(windowTheme_, windowThemeName_); // the windows' may be gone too
 }
 
 void SettingsProvider::refreshDisplays()
@@ -433,6 +466,10 @@ SettingsView SettingsProvider::view() const
     if (hooks_.setGlass && hooks_.setTransparency) v.transparency = transparency_; // on Glass' page
     if (hooks_.setGlass && hooks_.setGlassWindows) v.glassWindows = glassWindows_;  // ...and this
     if (hooks_.setCoverColours && hooks_.setFadeSpeed) v.fadeSpeed = fadeSpeed_; // on Music colours' page
+    if (hooks_.applyWindowTheme) {
+        v.windowTheme = windowTheme_;
+        v.windowThemeName = windowThemeName_;
+    }
     return v;
 }
 

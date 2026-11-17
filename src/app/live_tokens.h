@@ -35,6 +35,15 @@ bool rescaleTokens(const std::filesystem::path& file, float scale);
 // file's, now and after every reload. Returns true if tokens changed.
 bool setTheme(const std::string& name);
 
+// Windows' own theme (decision 150): a name in "themes" that providers'
+// windows are drawn in, or nothing: the island's tokens, cover colours and
+// all. Kept over every reload. Returns true if the windows' tokens changed.
+bool setWindowTheme(std::optional<std::string> name);
+
+// The tokens windows are drawn with: nullptr while they're the island's
+// (tokens()), else the island's with the window theme's colours instead.
+const Tokens* windowTokens();
+
 // The playing cover's colour (decision 051): its palette goes over the
 // theme's, now and after every reload; nullopt = the theme alone. Returns true if tokens changed.
 bool setTint(std::optional<CoverTint> cover);

@@ -1,5 +1,6 @@
 #include "app/provider_windows.h"
 
+#include "app/live_tokens.h"
 #include "app/window_typing.h"
 
 #include "core/dialog.h"
@@ -77,6 +78,29 @@ void guarded(const char* what, const std::function<void()>& work)
     }
 }
 
+// Windows in their own theme (decision 150): while one paints, its tokens
+// stand in for the island's, which are back once it's done. Only around
+// painting: what a click routes may redraw the island at once, in its own.
+struct WindowColours {
+    std::optional<Tokens> island;
+    WindowColours()
+    {
+        if (const Tokens* own = windowTokens()) {
+            island = tokens();
+            setTokens(*own);
+        }
+    }
+    ~WindowColours()
+    {
+        if (island) setTokens(*island);
+    }
+    WindowColours(const WindowColours&) = delete;
+    WindowColours& operator=(const WindowColours&) = delete;
+};
+
+// What windows are drawn with now: their own theme's tokens, or the island's.
+const Tokens& windowColours() { return windowTokens() ? *windowTokens() : tokens(); }
+
 std::string placeKey(const WindowKey& key) { return key.providerId + "/" + key.windowId; }
 
 // Every monitor as a Screen. Tokens are already in the island's display's
@@ -127,6 +151,7 @@ void showFocus(Shown& s)
         if (f) s.focus = f->id;
     }
     if (!f) s.focus.clear();
+    WindowColours colours;
     bool shows = f && (!f->inPage || (f->frame.y >= s.scene.pane.y - 0.5f && f->frame.y + f->frame.height <= s.scene.pane.y + s.scene.pane.height + 0.5f));
     s.window->setFocusRing(shows ? std::optional<Rect>(f->frame) : std::nullopt, f ? f->radius : 0);
 }
@@ -169,7 +194,10 @@ void relayout(Shown& s)
     if (s.menu && !s.scene.dialog && !s.drag) s.scene.menu = placeWindowMenu(*w, s.scene, *s.menu, now, g_hooks.measure);
     if (!s.scene.menu) s.menu.reset();
     s.scroll = s.scene.scroll;
-    s.window->draw(s.scene, now);
+    {
+        WindowColours colours;
+        s.window->draw(s.scene, now);
+    }
     showFocus(s);
     // Its own timer (decision 121): the next second of a time on its page, or its toast's end.
     std::optional<Ms> next = windowDeadline(s.scene);
@@ -201,7 +229,10 @@ void showHover(Shown& s)
             if (p.listRow && !pageRow.empty() && p.key.rfind(pageRow + "/", 0) == 0 && p.key.find('/', pageRow.size() + 1) == std::string::npos)
                 row = p.listRow, radius = p.listRowRadius; // that row's own items, not a card's every row (decision 134)
     }
-    s.window->setHovered(key, nav, row, radius, pageRow, pageCard);
+    {
+        WindowColours colours;
+        s.window->setHovered(key, nav, row, radius, pageRow, pageCard);
+    }
     // The grab cursor (decisions 143, 144): a closed hand carrying a card, an open one over what picks one up.
     using Grab = platform::ProviderWindow::Grab;
     bool over = !s.drag && s.pointer && !s.menu && [&] {
@@ -372,7 +403,10 @@ void pressAt(Shown& s, Vec2 p)
     WindowHit hit = windowHitTest(s.scene, p);
     if (hit.part == WindowPart::None || hit.part == WindowPart::Caption) return;
     s.pressed = hit;
-    if (hit.hit) s.window->press(hit.hit->key);
+    if (hit.hit) {
+        WindowColours colours;
+        s.window->press(hit.hit->key);
+    }
 }
 
 void releaseAt(Shown& s, Vec2 p, bool inside)
@@ -380,7 +414,10 @@ void releaseAt(Shown& s, Vec2 p, bool inside)
     s.clicks.selecting.clear(); // a drag selecting in a field ends
     if (!s.pressed) return;
     WindowHit was = *std::exchange(s.pressed, std::nullopt);
-    if (was.hit) s.window->release(was.hit->key);
+    if (was.hit) {
+        WindowColours colours;
+        s.window->release(was.hit->key);
+    }
     if (!inside) return;
     // Only a release on what was pressed counts: sliding off cancels, like any button.
     WindowHit now = windowHitTest(s.scene, p);
@@ -536,15 +573,20 @@ platform::ProviderWindowCallbacks callbacksFor(const WindowKey& id)
 
 void openWindowFor(const OpenWindow& w)
 {
-    if (!g_drawnFor) g_drawnFor = tokens();
+    if (!g_drawnFor) g_drawnFor = windowColours();
     std::vector<Rect> taken;
     for (const auto& [key, s] : g_shown) taken.push_back(s->window->frame());
     Rect frame = placeWindow(w.spec, screens(), g_hooks.islandScreen(), g_hooks.pill(), recall(places(), placeKey(w.key), w.key.providerId), taken);
     auto shown = std::make_unique<Shown>();
     shown->key = w.key;
     shown->window = std::make_unique<platform::ProviderWindow>();
-    if (!shown->window->create(g_hooks.instance, g_hooks.compositor, *g_hooks.device, frame, windowMinSizeOf(w.spec), w.spec.keepOnTop,
-                               w.spec.resizable, w.spec.maximizable, callbacksFor(w.key))) {
+    bool created = false;
+    {
+        WindowColours colours; // its backgrounds are made as it's created
+        created = shown->window->create(g_hooks.instance, g_hooks.compositor, *g_hooks.device, frame, windowMinSizeOf(w.spec), w.spec.keepOnTop,
+                                        w.spec.resizable, w.spec.maximizable, callbacksFor(w.key));
+    }
+    if (!created) {
         g_hooks.registry->windowClosed(w.key); // logged; closed for its provider, not tried again and again
         return;
     }
@@ -552,7 +594,10 @@ void openWindowFor(const OpenWindow& w)
     s.raised = w.raised;
     s.focusRequest = w.content.focusRequest; // asked before it opened: not acted on now
     g_shown[w.key] = std::move(shown); // before anything that sends messages finds it
-    s.window->setGlass(g_glass);
+    {
+        WindowColours colours;
+        s.window->setGlass(g_glass);
+    }
     // Drawn in the next queue turn (decision 012), so the click that opened it
     // is answered at once: building every row's text first froze it. Shown
     // once that's committed: shown first, it flashed what was behind it.
@@ -625,10 +670,14 @@ void syncWindows()
 
 void refreshWindows()
 {
-    bool coloursOnly = g_drawnFor && onlyColorsDiffer(*g_drawnFor, tokens());
-    g_drawnFor = tokens();
+    if (g_drawnFor && *g_drawnFor == windowColours()) return; // the island's changed, not theirs (a cover, in their own theme)
+    bool coloursOnly = g_drawnFor && onlyColorsDiffer(*g_drawnFor, windowColours());
+    g_drawnFor = windowColours();
     for (auto& [key, s] : g_shown) {
-        s->window->refresh(coloursOnly);
+        {
+            WindowColours colours;
+            s->window->refresh(coloursOnly);
+        }
         relayout(*s);
     }
 }
@@ -637,6 +686,7 @@ void setWindowsGlass(bool on)
 {
     if (on == g_glass) return;
     g_glass = on;
+    WindowColours colours; // light or dark acrylic, by the windows' own island colour
     for (auto& [key, s] : g_shown) s->window->setGlass(on);
 }
 

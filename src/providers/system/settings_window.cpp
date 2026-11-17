@@ -92,6 +92,14 @@ Row marked(Row r, const std::string& id, const SettingsView& v)
 const char* fadeName(FadeSpeed speed) { return speed == FadeSpeed::Fast ? "Fast" : speed == FadeSpeed::Slow ? "Slow" : "Medium"; }
 const char* transparencyName(Transparency level) { return level == Transparency::Low ? "Low" : level == Transparency::High ? "High" : "Medium"; }
 
+// What the Window theme row says it's set to (decision 150).
+std::string windowThemeValue(const SettingsView& v)
+{
+    if (v.windowTheme == WindowThemeMode::System) return "Like Windows";
+    if (v.windowTheme == WindowThemeMode::Manual) return v.windowThemeName;
+    return "Like the island";
+}
+
 // --- The sidebar's pages ------------------------------------------------------
 
 WindowPage appearancePage(const SettingsView& v)
@@ -99,6 +107,7 @@ WindowPage appearancePage(const SettingsView& v)
     WindowPage page{ .id = kAppearancePage, .title = "Appearance", .subtitle = "How the island looks and where it sits.", .glyph = Glyph::Palette };
     std::vector<Row> look;
     if (!tokens().themes.empty()) look.push_back(marked(settingRow("Theme", v.theme, P::kOpenThemes), "theme", v));
+    if (!tokens().themes.empty() && v.windowTheme) look.push_back(marked(settingRow("Window theme", windowThemeValue(v), P::kOpenWindowTheme), "windowtheme", v));
     if (v.glass) look.push_back(marked(settingRow("Glass", *v.glass ? "On" : "Off", P::kOpenGlass), "glass", v)); // decisions 089, 096
     if (v.coverColours) look.push_back(marked(settingRow("Music colours", *v.coverColours ? "On" : "Off", P::kOpenMusicColours), "musiccolours", v));
     if (!v.displays.empty()) look.push_back(marked(settingRow("Display", v.displays[v.display], P::kOpenDisplays), "display", v));
@@ -141,14 +150,28 @@ WindowPage within(WindowPage parent, const char* title, std::string subtitle)
     return parent;
 }
 
-void themesPage(WindowPage& page, const SettingsView& v)
+// Every theme, dark ones then light ones under their headings, `picked` ticked; a click sends `action` + its index.
+void themeList(WindowPage& page, const std::string& picked, const char* action)
 {
     const auto& themes = tokens().themes;
     for (const ThemeListRow& r : themeListRows()) {
         if (!r.heading.empty()) page.sections.push_back({ .title = r.heading });
-        else page.sections.back().rows.push_back(choiceRow(themes[r.theme].name, themes[r.theme].name == v.theme,
-                                                           P::kPickTheme + std::to_string(r.theme), &themes[r.theme]));
+        else page.sections.back().rows.push_back(choiceRow(themes[r.theme].name, themes[r.theme].name == picked, action + std::to_string(r.theme), &themes[r.theme]));
     }
+}
+
+void themesPage(WindowPage& page, const SettingsView& v) { themeList(page, v.theme, P::kPickTheme); }
+
+// Windows' own theme (decision 150): like the island, like Windows, or picked
+// in place (decision 093); the themes to pick from only while it's Manual.
+void windowThemePage(WindowPage& page, const SettingsView& v)
+{
+    WindowThemeMode mode = v.windowTheme.value_or(WindowThemeMode::Island);
+    const char* says = mode == WindowThemeMode::System ? "Light or dark, as Windows' apps are"
+                     : mode == WindowThemeMode::Manual ? "The theme picked below"
+                                                       : "The island's theme and music colours";
+    page.sections.push_back({ .rows = { segmentsRow("Colours", says, { "Island", "System", "Manual" }, static_cast<std::size_t>(mode), P::kPickWindowThemeMode) } });
+    if (mode == WindowThemeMode::Manual) themeList(page, v.windowThemeName, P::kPickWindowTheme);
 }
 
 // The island in the music's colours (decisions 052, 053): on or off, and how
@@ -232,6 +255,7 @@ std::vector<SettingItem> announcedSettings()
         { "glass", "" },                   // decision 089
         { "transparency", "glass" },       // decision 096
         { "glasswindows", "glass" },       // decision 104
+        { "windowtheme", "" },             // decision 150
     };
 }
 
@@ -290,6 +314,7 @@ WindowContent settingsWindow(const SettingsView& v)
     auto& general = window.pages[1];
     switch (v.page) {
     case SettingsPage::Themes: appearance = within(appearance, "Theme", "The island's colours. Dark ones, then light ones."), themesPage(appearance, v); break;
+    case SettingsPage::WindowTheme: appearance = within(appearance, "Window theme", "Settings and other windows' colours."), windowThemePage(appearance, v); break;
     case SettingsPage::MusicColours: appearance = within(appearance, "Music colours", ""), musicColoursPage(appearance, v); break;
     case SettingsPage::Glass: appearance = within(appearance, "Glass", ""), glassPage(appearance, v); break;
     case SettingsPage::Displays: appearance = within(appearance, "Display", "The monitor the island is on."), displaysPage(appearance, v); break;

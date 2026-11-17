@@ -88,6 +88,7 @@ add_library(cup_providers STATIC
     src/providers/system/settings_window.cpp
     src/providers/system/settings_provider.cpp
     src/providers/system/system_panels.cpp
+    src/providers/system/window_theme.cpp
     src/providers/file_store.cpp
     src/providers/search/launchables.cpp
     src/providers/search/result_menu.cpp
@@ -155,6 +156,7 @@ if(CUP_BUILD_TESTS)
         tests/todo_tests.cpp
         tests/tokens_tests.cpp
         tests/window_tests.cpp
+        tests/window_theme_tests.cpp
         tests/window_card_tests.cpp
         tests/window_menu_tests.cpp
         tests/window_drag_tests.cpp
