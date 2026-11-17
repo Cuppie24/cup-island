@@ -5,7 +5,7 @@
 1 ICON "cup_island.ico"
 
 // The grab cursors (decision 144): an open hand over what drags a window's card,
-// a closed one while it's carried. Drawn by tools/make_cursors.py, 32-64 px each.
+// a closed one while it's carried. Chromium's (BSD): THIRD-PARTY-NOTICES.txt.
 2 CURSOR "grab.cur"
 3 CURSOR "grabbing.cur"
 
