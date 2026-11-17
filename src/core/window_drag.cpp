@@ -123,6 +123,10 @@ WindowContent withMove(const WindowContent& content, const std::string& pageId, 
     if (row == source.end()) return moved;
     Row carried = std::move(*row);
     source.erase(row);
+    // In another card, a name of its own: a provider's row ids are its card's (Pomodoro's tasks are
+    // numbered per group), so it could share one with a row there, and their items' keys with it:
+    // both followed the pointer, the outline spanned both, the card's rows looked gone (decision 138).
+    if (to != from) carried.id = d.what.section + ":" + (carried.id.empty() ? d.what.action : carried.id);
     auto& target = to->rows;
     std::size_t at = insertAt(target, t.index, [](const Row& r) { return !r.moveAction.empty(); }, target.size());
     target.insert(target.begin() + static_cast<std::ptrdiff_t>(at), std::move(carried));
