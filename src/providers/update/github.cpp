@@ -1,6 +1,7 @@
 #include "providers/update/github.h"
 
 #include "platform/log.h"
+#include "platform/watchdog.h"
 #include "platform/win.h"
 
 #include <shellapi.h>
@@ -147,7 +148,8 @@ winrt::fire_and_forget fetch(std::string appVersion, std::function<void(std::opt
     } catch (...) {
         co_return; // the app is closing: nobody to tell
     }
-    done(release);
+    // Out of a fire_and_forget an exception is a fail-fast (decision 158): logged instead.
+    platform::guardedTask("after the update check", [&] { done(release); });
 }
 
 winrt::fire_and_forget install(UpdateOffer offer, std::string appVersion, std::function<void()> quit, std::function<void(std::string)> failed)
@@ -186,15 +188,17 @@ winrt::fire_and_forget install(UpdateOffer offer, std::string appVersion, std::f
     } catch (...) {
         co_return;
     }
-    if (problem.empty()) {
-        if (runInstaller(installer)) {
-            logLine("update: installing %s; quitting so it can replace the island", offer.fileName.c_str());
-            quit();
-            co_return;
+    platform::guardedTask("installing the update", [&] {
+        if (problem.empty()) {
+            if (runInstaller(installer)) {
+                logLine("update: installing %s; quitting so it can replace the island", offer.fileName.c_str());
+                quit();
+                return;
+            }
+            problem = "Couldn't start the installer";
         }
-        problem = "Couldn't start the installer";
-    }
-    failed(problem);
+        failed(problem);
+    });
 }
 
 } // namespace

@@ -50,6 +50,7 @@ public:
 private:
     using Manager = wmc::GlobalSystemMediaTransportControlsSessionManager;
     using Session = wmc::GlobalSystemMediaTransportControlsSession;
+    using Properties = wmc::GlobalSystemMediaTransportControlsSessionMediaProperties;
 
     SmtcReader(Out out, const Tokens& settings) : out_(std::move(out)), tokens_(settings) {}
 
@@ -76,6 +77,8 @@ private:
     winrt::fire_and_forget recheckArt(Ms delay);
     void onArtDecoded(std::uint64_t id, std::shared_ptr<const ImageData> image);
     winrt::fire_and_forget load(); // one at a time: see loading_
+    // The rest of a read, once the properties are in: may throw, so load() calls it inside its try.
+    void showRead(Session const& session, Properties const& properties, bool propertiesChanged, Ms began);
     void loaded();                 // a read ended: start the one asked for meanwhile, if any
     void onAction(const Action& action);
     void cycleSource();
