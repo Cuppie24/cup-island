@@ -240,8 +240,8 @@ void sideBySideTests()
     WindowScene s = laid(w); // 1400 wide: two columns
     const Movable* big = movable(s, "move.g0");
     const Movable* small = movable(s, "move.g1");
-    expect(big && small && small->frame.y == big->frame.y && small->frame.x > big->frame.x && big->frame.height > 2 * small->frame.height,
-           "side by side: the bigger group left of the smaller one");
+    expect(big && small && small->frame.y == big->frame.y && small->frame.x > big->frame.x && big->frame.height == small->frame.height,
+           "side by side: the bigger group left of the smaller one, both as tall as the row (decision 140)");
     WindowDrag d = startDrag(s, *big, inWindow(s, { big->frame.x + big->frame.width / 2, big->frame.y + 4 }));
     DropTarget t = origin(d);
     auto previewAt = [&](float x) {
