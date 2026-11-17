@@ -77,7 +77,11 @@ std::optional<Todo> TodoList::take(std::uint64_t id)
 
 std::uint64_t TodoList::place(Todo todo, std::size_t index)
 {
-    todo.id = nextId_++;
+    // Its own id if this list has none like it (moved within its list): the same row on screen, so
+    // it glides to its place instead of fading out and in (decision 137). Else a new one of this list's.
+    bool taken = todo.id == 0 || std::any_of(items_.begin(), items_.end(), [&](const Todo& t) { return t.id == todo.id; });
+    if (taken) todo.id = nextId_++;
+    else nextId_ = std::max(nextId_, todo.id + 1);
     std::size_t at = std::min(index, items_.size());
     items_.insert(items_.begin() + static_cast<std::ptrdiff_t>(at), todo);
     if (!todo.done) { // its rank between the open ones round it (decision 071)

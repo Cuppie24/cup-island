@@ -70,9 +70,17 @@ void moveTests()
     };
     std::uint64_t a = board.groups()[0].id, b = board.groups()[1].id;
     expect(board.moveTask(a, 1, a, 2) && names(0) == "a2 a3 a1 ", "within its group: to its new place");
+    expect(board.groups()[0].tasks.items()[2].id == 1, "...keeping its id: the same row on screen, gliding there (decision 137)");
     std::string saved = board.save();
     expect(saved.find("[ ] a2\n[ ] a3\n[ ] a1\n") != std::string::npos, "...kept in that order (its rank between its neighbours')");
     expect(board.moveTask(a, 3, b, 0) && names(0) == "a2 a1 " && names(1) == "a3 b1 ", "into another group, at its top");
+    expect(board.groups()[1].tasks.items()[0].id == 3, "...its id kept there too while B has none like it");
+    board.moveTask(b, 3, a, 0); // back to A: a3's id 3 is free there again
+    board.moveTask(a, 1, b, 0); // a1 (id 1) into B, whose b1 has id 1: a new one of B's
+    const auto& bItems = board.groups()[1].tasks.items();
+    expect(bItems.size() == 2 && bItems[0].text == "a1" && bItems[0].id != bItems[1].id, "an id B already has: a new one");
+    board.moveTask(b, bItems[0].id, a, 0);
+    board.moveTask(a, 3, b, 0); // B "a3 b1" again, as the rest expects
     expect(!board.moveTask(a, 99, b, 0) && !board.moveTask(a, 2, 99, 0), "a task or group that's gone: nothing");
     expect(board.moveGroup(b, 0) && board.groups()[0].name == "B" && board.groups()[1].name == "A", "a group to the front");
     expect(!board.moveGroup(b, 0), "already there: nothing");
