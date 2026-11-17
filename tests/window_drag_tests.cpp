@@ -114,6 +114,26 @@ void dragTests()
     expect(moved.pages[0].sections[0].rows.size() == 2 && moved.pages[0].sections[1].rows.size() == 4 &&
                moved.pages[0].sections[1].rows[0].moveAction == "row.0.0",
            "laid out in the other card");
+    // Decision 138: both groups have a row "r0"; carried into g1, it's the carried one alone that
+    // follows the pointer, the outline is its row's, and g1's own rows stay where they are.
+    {
+        OpenWindow into = w;
+        into.content = moved;
+        WindowScene across = laid(into);
+        follow(across, d);
+        const Movable* carriedIn = movable(across, "row.0.0");
+        const Movable* own = movable(across, "row.1.0");
+        bool onlyIt = true;
+        const Placed* outline = nullptr;
+        for (const Placed& p : across.page) {
+            bool mine = carriedIn && p.key.rfind(carriedIn->key + "/", 0) == 0;
+            if (mine != p.carried) onlyIt = false;
+            if (p.key == kDropSpot) outline = &p;
+        }
+        expect(carriedIn && own && carriedIn->key != own->key && onlyIt, "carried into a card with a row of its id: only it follows the pointer");
+        expect(outline && own && outline->frame.height < own->frame.height * 1.5f && outline->frame.y < own->frame.y,
+               "...the outline its row's alone, over g1's first row, which makes room under it");
+    }
     d.at = { 5, 5 }; // over no card
     expect(dropTarget(s, d, origin(d)) == origin(d), "over no card (from where it was): it stays");
 
