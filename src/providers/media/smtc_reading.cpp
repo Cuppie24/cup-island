@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cctype>
 #include <map>
+#include <mutex>
 
 namespace cup {
 namespace {
@@ -86,8 +87,13 @@ NowPlaying readPlayback(wmc::GlobalSystemMediaTransportControlsSessionPlaybackIn
 
 std::string appName(winrt::hstring const& appUserModelId)
 {
+    // A restarted provider's reader can overlap the old one's for a moment (decision 144).
+    static std::mutex mutex;
     static std::map<winrt::hstring, std::string> cache;
-    if (auto it = cache.find(appUserModelId); it != cache.end()) return it->second;
+    {
+        std::lock_guard lock(mutex);
+        if (auto it = cache.find(appUserModelId); it != cache.end()) return it->second;
+    }
 
     std::string name;
     // Only packaged apps ("Family!App") are known to AppInfo; asking about a
@@ -110,6 +116,7 @@ std::string appName(winrt::hstring const& appUserModelId)
             if (tail == ".exe") name.resize(name.size() - 4);
         }
     }
+    std::lock_guard lock(mutex);
     cache.emplace(appUserModelId, name);
     return name;
 }

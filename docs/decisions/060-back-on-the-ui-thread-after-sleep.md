@@ -1,6 +1,6 @@
 # 060: The island froze after sleep (coroutines on the wrong thread)
 
-Status: Accepted (fixed; confirmed on Windows after a sleep)
+Status: Accepted (fixed; confirmed on Windows after a sleep). Amended by 144: media sessions are now read on a thread of their own; "back on the UI thread" became "back on the reader's thread", and the reader posts its results to the UI.
 
 **Symptom.** After the PC slept (or hibernated) and woke, the island was
 on screen but frozen: no animation, and clicks did nothing you could see.

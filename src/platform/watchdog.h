@@ -16,7 +16,14 @@ namespace cup::platform {
 void watchForCrashes();
 
 // Starts watching the UI thread through one of its windows. Stops by itself
-// once the window is destroyed.
+// once the window is destroyed. That window's procedure must answer the
+// ping: on watchdogPing(), call answerWatchdog() (decision 144).
 void watchForHangs(HWND uiWindow);
+
+// A registered message the watchdog posts. Posted, not sent: a thread
+// blocked in a call into another process still handles sent messages, so
+// it looked alive while clicks went unread (decision 144).
+UINT watchdogPing();
+void answerWatchdog();
 
 } // namespace cup::platform

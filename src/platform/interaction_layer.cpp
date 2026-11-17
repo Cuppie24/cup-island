@@ -1,6 +1,7 @@
 #include "platform/interaction_layer.h"
 #include "platform/log.h"
 #include "platform/single_instance.h"
+#include "platform/watchdog.h"
 
 #include "core/tokens.h"
 
@@ -25,7 +26,11 @@ constexpr UINT WM_APP_COMPOSITOR_TICK = WM_APP + 1;
 // Posted by setTimerFromAnyThread: wParam = TimerId, lParam = delay in ms.
 constexpr UINT WM_APP_SET_TIMER = WM_APP + 2;
 
+// GUID_CONSOLE_DISPLAY_STATE, spelled out: winnt.h only declares it.
+constexpr GUID kConsoleDisplayState{ 0x6fe69556, 0x704a, 0x47a0, { 0x8f, 0x24, 0xc2, 0x8d, 0x93, 0x6f, 0xda, 0x47 } };
+
 HWND g_hwnd{};
+DWORD g_screenState = 1; // on; logged when it changes
 int g_renderLeft = 0;
 int g_renderTop = 0; // monitors above or below the primary don't start at y = 0
 InteractionCallbacks g_callbacks;
@@ -157,6 +162,10 @@ try {
         call(g_callbacks.onShowRequested);
         return 0;
     }
+    if (message == watchdogPing()) { // posted: handled only once this thread is back in its loop (decision 144)
+        answerWatchdog();
+        return 0;
+    }
     switch (message) {
     case WM_APP_COMPOSITOR_TICK:
         onCompositorTick();
@@ -273,9 +282,17 @@ try {
         if (lParam && std::wcscmp(reinterpret_cast<const wchar_t*>(lParam), L"ImmersiveColorSet") == 0) call(g_callbacks.onColourSettingChanged);
         break;
 
-    case WM_POWERBROADCAST: // only logged: a user's log then shows what happened around a sleep (decision 060)
+    case WM_POWERBROADCAST: // only logged: a user's log then shows what happened around a sleep (decisions 060, 144)
         if (wParam == PBT_APMSUSPEND) logLine("going to sleep");
         else if (wParam == PBT_APMRESUMEAUTOMATIC) logLine("woke from sleep");
+        else if (wParam == PBT_POWERSETTINGCHANGE && lParam) {
+            const auto* setting = reinterpret_cast<const POWERBROADCAST_SETTING*>(lParam);
+            if (setting->PowerSetting == kConsoleDisplayState && setting->DataLength >= sizeof(DWORD)) {
+                DWORD state = *reinterpret_cast<const DWORD*>(setting->Data); // 0 off, 1 on, 2 dimmed
+                if (state != g_screenState) logLine("screen %s", state == 0 ? "off" : state == 1 ? "on" : "dimmed");
+                g_screenState = state;
+            }
+        }
         return TRUE;
 
     case WM_DESTROY:
@@ -327,6 +344,13 @@ HWND createInteractionLayer(HINSTANCE instance, int renderLeft, int renderTop, V
         static_cast<int>(size.x), static_cast<int>(size.y),
         nullptr, nullptr, instance, nullptr);
     if (!g_hwnd) return nullptr;
+
+    // Sleep and wake in the log (decisions 060, 144). A Modern Standby PC
+    // doesn't broadcast them: a user's five days of logs had not one line.
+    // Registered, the window gets them wherever Windows sends them, and the
+    // screen going off and on marks a standby on either kind of PC.
+    RegisterSuspendResumeNotification(g_hwnd, DEVICE_NOTIFY_WINDOW_HANDLE);                // Windows 8+
+    RegisterPowerSettingNotification(g_hwnd, &kConsoleDisplayState, DEVICE_NOTIFY_WINDOW_HANDLE); // Windows 8+
 
     g_morphStartedEvent = CreateEventW(nullptr, /* manualReset */ FALSE, /* initialState */ FALSE, nullptr);
     std::thread(compositorTickThread).detach();

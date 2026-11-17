@@ -1,6 +1,6 @@
 # 116: Play/pause shows without waiting for the properties' read
 
-Status: Accepted (follows 057). Provider and presenter tested; the timing on Windows needs a run.
+Status: Accepted (follows 057; amended by 144: the synchronous read now runs on the media reader's thread, not the UI's). Provider and presenter tested; the timing on Windows needs a run.
 
 **Symptom.** Pressing ▶ (on the island or in Spotify) started the music,
 but the island's button stayed ▶ for about 10 s, then turned ⏸.
