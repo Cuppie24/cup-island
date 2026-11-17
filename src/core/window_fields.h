@@ -77,7 +77,17 @@ bool dropGoneField(WindowTyping& typing, const WindowScene& scene);
 // gets them, if nothing has them. True if it did: lay it out again.
 bool focusArrived(WindowTyping& typing, const WindowScene& scene);
 
-// The focused field on the page, as windowLayout filled it (caret and all); none if nothing has the keys.
+// The focused field on the page or its question, as windowLayout filled it (caret and all); none if nothing has the keys.
 const Placed* focusedField(const WindowScene& scene);
+
+// A question with a field (Dialog::field, decision 142) gives it the keys as it
+// appears, all its text selected; whatever had them on the page lets go first:
+// its Action, as blurField's. Nothing if it has them already, or there's none.
+std::optional<Action> dialogTakesKeys(WindowTyping& typing, const WindowScene& scene);
+
+// The question's field's text as it's answered (decision 142): from the keys,
+// or left there (a click on its buttons took them), or as it started. It lets
+// go of the keys and forgets it: the next question starts afresh.
+std::string dialogFieldText(WindowTyping& typing, const WindowScene& scene);
 
 } // namespace cup

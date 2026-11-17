@@ -236,7 +236,7 @@ void PomodoroProvider::showWindow()
 {
     if (!windowOpen_) return;
     host_->updateWindow(kWindowId, pomodoroWindow({ .session = session_, .tasks = &tasks_, .plan = plan_, .glance = glance(), .daysOff = daysOff_,
-                                                    .fake = fakeRow(), .focus = focus_, .focusRequest = focusRequest_, .writingIn = writingIn_ }));
+                                                    .fake = fakeRow(), .writingIn = writingIn_ }));
 }
 
 // The card's expand button (decision 106): the window opens on the timer, or
@@ -247,7 +247,7 @@ void PomodoroProvider::openWindow()
     bool wasOpen = windowOpen_;
     if (!wasOpen) writingIn_.reset(); // a row left open when it closed went with it
     PomodoroWindowView view{ .session = session_, .tasks = &tasks_, .plan = plan_, .glance = glance(), .daysOff = daysOff_, .fake = fakeRow(),
-                             .focus = focus_, .focusRequest = focusRequest_, .writingIn = writingIn_ };
+                             .writingIn = writingIn_ };
     WindowOpen result = host_->openWindow({ .id = kWindowId, .size = WindowSize::Large }, pomodoroWindow(view));
     windowOpen_ = result == WindowOpen::Opened || result == WindowOpen::Raised;
     if (windowOpen_ && !wasOpen) deleted_.reset();

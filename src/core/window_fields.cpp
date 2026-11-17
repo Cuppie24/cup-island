@@ -1,6 +1,7 @@
 #include "core/window_fields.h"
 
 #include "core/card_overlays.h"
+#include "core/dialog.h"
 #include "core/text_edit.h"
 
 #include <sstream>
@@ -9,19 +10,31 @@
 namespace cup {
 namespace {
 
+// What can be typed in: the page's items, and a question's (its field, decision 142) while one is up.
+template <typename Visit>
+const Placed* findField(const WindowScene& s, Visit visit)
+{
+    if (s.dialog)
+        for (const Placed& p : s.dialog->elements)
+            if (visit(p)) return &p;
+    for (const Placed& p : s.page)
+        if (visit(p)) return &p;
+    return nullptr;
+}
+
 const Placed* findOnPage(const WindowScene& s, const std::string& key)
 {
-    for (const Placed& p : s.page)
-        if (p.key == key) return &p;
-    return nullptr;
+    return findField(s, [&](const Placed& p) { return p.key == key; });
 }
 
 // The TextInput a draft is typing into, as the page shows it (its changeAction).
 const TextInput* inputOf(const WindowScene& s, const Draft& d)
 {
-    for (const Placed& p : s.page)
-        if (auto* input = std::get_if<TextInput>(&p.item); input && input->actionId == d.actionId && !input->inPlace) return input;
-    return nullptr;
+    const Placed* p = findField(s, [&](const Placed& p) {
+        auto* input = std::get_if<TextInput>(&p.item);
+        return input && input->actionId == d.actionId && !input->inPlace;
+    });
+    return p ? &std::get<TextInput>(p->item) : nullptr;
 }
 
 Action sent(const WindowScene& s, const std::string& actionId, const std::string& text)
@@ -86,6 +99,7 @@ std::optional<Action> focusField(WindowTyping& typing, const WindowScene& s, con
     if (!d.editing) { // the text it was left with (decision 050)
         auto kept = typing.kept.find(keptKey(s.windowId, d.actionId));
         if (kept != typing.kept.end()) d.text = std::move(kept->second), typing.kept.erase(kept);
+        else if (auto* input = std::get_if<TextInput>(&p->item)) d.text = input->value; // what it shows: a question's field's start (decision 142)
     }
     placeCaret(d, caret.value_or(d.text.size()), false);
     if (d.editing && !std::holds_alternative<TextInput>(p->item)) d.anchor = 0; // the whole text selected: typing replaces it
@@ -210,9 +224,44 @@ bool focusArrived(WindowTyping& typing, const WindowScene& s)
 
 const Placed* focusedField(const WindowScene& s)
 {
-    for (const Placed& p : s.page)
-        if (auto* input = std::get_if<TextInput>(&p.item); input && input->focused) return &p;
-    return nullptr;
+    return findField(s, [](const Placed& p) {
+        auto* input = std::get_if<TextInput>(&p.item);
+        return input && input->focused;
+    });
+}
+
+std::optional<Action> dialogTakesKeys(WindowTyping& typing, const WindowScene& s)
+{
+    if (!s.dialog) return std::nullopt;
+    for (const Placed& p : s.dialog->elements) {
+        auto* input = std::get_if<TextInput>(&p.item);
+        if (!input || !input->autoFocus) continue;
+        if (typing.draft && typing.draft->actionId == input->actionId) return std::nullopt; // it has them already
+        std::optional<Action> left = blurField(typing, s); // what was being typed on the page lets go first
+        // Its text left there (a click on its buttons took the keys) comes back with them; a new
+        // question starts from its own, since answering forgets it (dialogFieldText).
+        focusField(typing, s, p.key, std::nullopt);
+        if (typing.draft) selectAll(*typing.draft); // typed over at once
+        return left;
+    }
+    return std::nullopt;
+}
+
+std::string dialogFieldText(WindowTyping& typing, const WindowScene& s)
+{
+    std::string key = keptKey(s.windowId, kDialogField);
+    std::string text;
+    if (typing.draft && typing.draft->actionId == kDialogField) {
+        text = typing.draft->text;
+        typing.draft.reset();
+    } else if (auto kept = typing.kept.find(key); kept != typing.kept.end()) {
+        text = kept->second;
+    } else if (s.dialog) {
+        for (const Placed& p : s.dialog->elements)
+            if (auto* input = std::get_if<TextInput>(&p.item); input && input->actionId == kDialogField) text = input->value;
+    }
+    typing.kept.erase(key);
+    return text;
 }
 
 } // namespace cup

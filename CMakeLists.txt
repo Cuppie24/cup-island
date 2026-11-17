@@ -62,6 +62,7 @@ add_library(cup_core STATIC
     src/core/window_layout.cpp
     src/core/window_page.cpp
     src/core/window_dialog.cpp
+    src/core/window_menu.cpp
     src/core/window_drag.cpp
     src/core/window_fields.cpp
     src/core/window_placement.cpp
@@ -155,6 +156,7 @@ if(CUP_BUILD_TESTS)
         tests/tokens_tests.cpp
         tests/window_tests.cpp
         tests/window_card_tests.cpp
+        tests/window_menu_tests.cpp
         tests/window_drag_tests.cpp
         tests/task_board_tests.cpp
         tests/window_field_tests.cpp

@@ -15,7 +15,8 @@ namespace cup {
 
 namespace task_action {
 inline constexpr const char* kNewGroup = "group.new";
-inline constexpr const char* kRenameGroup = "group.rename."; // + the group's id: Action::text = its new name (edited in place)
+inline constexpr const char* kRenameGroup = "group.rename."; // + the group's id: Action::text = its new name (the name question's confirm)
+inline constexpr const char* kAskGroupName = "group.name."; // + the group's id: its menu's Rename, a question with its name in a field (decision 142)
 inline constexpr const char* kDeleteGroup = "group.delete."; // + the group's id: asks first if it has tasks (decision 122), else at once with an Undo
 inline constexpr const char* kDeleteGroupConfirmed = "group.remove."; // + the group's id: the question's confirm button
 // Dragged (decision 129). A group: + its id; Action::value = its new index among the groups.

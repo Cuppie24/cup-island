@@ -29,10 +29,13 @@ Row titleRow(const WindowSection& section)
                             .editMaxLength = section.titleMaxLength } },
            .trailing = section.titleItems };
     for (const Item& item : section.titleTrailing) r.trailing.push_back(item);
+    // Its menu's "…", last (decision 142): the host opens the menu, the provider never sees this action.
+    if (!section.menu.empty())
+        r.trailing.push_back(Button{ .glyph = Glyph::More, .actionId = kWindowCardMenu + section.id, .compact = true, .secondary = true });
     return r;
 }
 
-bool hasTitle(const WindowSection& section) { return !section.title.empty() || !section.titleTrailing.empty(); }
+bool hasTitle(const WindowSection& section) { return !section.title.empty() || !section.titleTrailing.empty() || !section.menu.empty(); }
 
 // A section's rows as the page shows them: the page scrolls as a whole (window_content.h), not its lists.
 std::vector<Row> unlisted(std::vector<Row> rows)

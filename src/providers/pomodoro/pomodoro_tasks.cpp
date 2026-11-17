@@ -4,6 +4,8 @@
 
 #include "providers/pomodoro/pomodoro_provider.h"
 
+#include "core/tokens.h"
+
 #include <algorithm>
 #include <charconv>
 
@@ -72,6 +74,15 @@ bool PomodoroProvider::taskAction(const Action& action)
         return true;
     }
 
+    // Its menu's Rename (decision 142): its name in a question over the window; confirmed, kRenameGroup with the text.
+    if (startsWith(id, task::kAskGroupName)) {
+        std::uint64_t group = 0;
+        const char* first = id.c_str() + std::char_traits<char>::length(task::kAskGroupName);
+        std::from_chars(first, id.c_str() + id.size(), group);
+        if (const TaskGroup* g = tasks_.group(group)) askName(*g, false);
+        return true;
+    }
+
     // Dragged (decision 129): a group among the groups; a task within its group or into another.
     if (startsWith(id, task::kMoveGroup)) {
         std::uint64_t group = 0;
@@ -128,11 +139,8 @@ bool PomodoroProvider::taskAction(const Action& action)
         deleted_.reset(); // the next change: there's nothing to undo any more
     }
     if (target && startsWith(target->todoAction, todo::kToggle)) countTask(*target);
-    if (id == task::kNewGroup) { // its name gets the keys, selected: typed over at once (decision 134)
-        focus_ = task::kRenameGroup + std::to_string(tasks_.groups().back().id);
-        ++focusRequest_;
-    }
     changed();
+    if (id == task::kNewGroup) askName(tasks_.groups().back(), true); // its name asked at once, "Group 2" typed over (decision 142)
     return true;
 }
 
@@ -144,6 +152,15 @@ void PomodoroProvider::countTask(const TaskTarget& target)
     int& done = today().todosDone;
     done = t->done ? done + 1 : std::max(0, done - 1); // unticked: taken back, never below none
     saveStats();
+}
+
+// A group's name asked in a question over the window (decision 142): its field starts with the name, all
+// of it selected. Confirmed, kRenameGroup with what's in it (blank: unchanged); cancelled, it stays.
+void PomodoroProvider::askName(const TaskGroup& g, bool made)
+{
+    host_->ask({ .title = made ? std::string("Name the new group") : std::string("Rename group"), .confirmLabel = made ? std::string("Save") : std::string("Rename"),
+                 .confirmAction = task_action::kRenameGroup + std::to_string(g.id), .windowId = kWindowId, .field = g.name,
+                 .fieldMaxLength = tokens().taskGroupNameMaxLength });
 }
 
 // The host's toast over the window (decision 121), as a card's delete has (decision 071).

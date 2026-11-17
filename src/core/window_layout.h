@@ -45,6 +45,7 @@ struct WindowScene {
     std::optional<ToastScene> toast;
     std::optional<Ms> toastUntil;
     std::optional<WindowDialogScene> dialog; // its question (decision 122): over everything under the title bar
+    std::optional<MenuScene> menu; // a card's open menu (decision 142), window coordinates: the app's, set after windowLayout
     std::vector<Movable> movables;   // what can be dragged on the page (decision 129), page coordinates
     std::vector<DropZone> dropZones; // ...and the cards a dragged row may land in
     Ms now{};                        // when it was laid out: its time labels show this moment

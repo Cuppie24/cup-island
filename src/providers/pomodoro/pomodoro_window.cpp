@@ -90,9 +90,10 @@ WindowSection groupCard(const TaskGroup& g, bool writing)
     namespace task = task_action;
     std::string gid = std::to_string(g.id);
     const auto& items = g.tasks.items();
-    WindowSection card{ .title = g.name, .id = "group-" + gid, .titleEdit = task::kRenameGroup + gid,
-                        .titleMaxLength = tokens().taskGroupNameMaxLength };
-    card.titleTrailing = { Button{ .glyph = Glyph::Delete, .actionId = task::kDeleteGroup + gid, .compact = true, .revealOnHover = true } };
+    // Its name is plain text; its "…" holds Rename (a question with its name in a field) and Delete (decision 142).
+    WindowSection card{ .title = g.name, .id = "group-" + gid };
+    card.menu = { MenuItem{ .label = "Rename", .actionId = task::kAskGroupName + gid },
+                  MenuItem{ .label = "Delete", .actionId = task::kDeleteGroup + gid, .destructive = true } };
     card.moveAction = task::kMoveGroup + gid; // dragged by its handle among the groups (decision 129)
     card.takesRows = true;                    // ...and a task from another group dropped in it
     // "+ Add task" is a button, the whole row its click, its + where a task's box is (decision 132);
@@ -185,8 +186,7 @@ WindowPage settingsPage(const PomodoroWindowView& v)
 WindowContent pomodoroWindow(const PomodoroWindowView& v)
 {
     std::optional<Color> accent = accentOf(v.session ? v.session->phase : Phase::Focus);
-    return { .title = "Pomodoro", .accent = accent, .pages = { timerPage(v), statsPage(v), settingsPage(v) }, .rail = true,
-             .focus = v.focus, .focusRequest = v.focusRequest };
+    return { .title = "Pomodoro", .accent = accent, .pages = { timerPage(v), statsPage(v), settingsPage(v) }, .rail = true };
 }
 
 } // namespace cup

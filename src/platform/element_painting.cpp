@@ -117,6 +117,7 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Minimize: return L"\uE921"; // ChromeMinimize: a window's own title bar, as Windows draws its own (decision 123)
     case Glyph::CloseWindow: return L"\uE8BB"; // ChromeClose
     case Glyph::Grip: return L"\uE76F";     // GripperBarHorizontal; paintGlyph draws a card's handle as one line instead (decision 134)
+    case Glyph::More: return L"\uE712";     // More (…): a window card's menu (decision 142)
     case Glyph::Fire: return L"\U0001F525"; // not in the icon fonts: Segoe UI Emoji's, in colour (paintGlyph)
     }
     return L"?";
