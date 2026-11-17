@@ -281,17 +281,19 @@ void ProviderWindow::setFocusRing(std::optional<Rect> frame, float radius)
     focusLayer_.Children().RemoveAll();
     if (!frame) return;
     // Inside what has focus, as on the island (decision 033): half the line each side of a path inset by half its width.
-    float w = tokens().focusRingWidth;
-    Rect r{ frame->x + w / 2, frame->y + w / 2, std::max(0.0f, frame->width - w), std::max(0.0f, frame->height - w) };
+    // The path is offset by that half within the visual, as the island's is: a ShapeVisual clips to its
+    // size, so a path at its corner lost the outer half of its top and left strokes.
+    float w = tokens().focusRingWidth, half = w / 2;
     auto geometry = compositor_.CreateRoundedRectangleGeometry();
-    geometry.Size({ r.width, r.height });
-    geometry.CornerRadius({ std::max(0.0f, radius - w / 2), std::max(0.0f, radius - w / 2) });
+    geometry.Offset({ half, half });
+    geometry.Size({ std::max(0.0f, frame->width - w), std::max(0.0f, frame->height - w) });
+    geometry.CornerRadius({ std::max(0.0f, radius - half), std::max(0.0f, radius - half) });
     auto shape = compositor_.CreateSpriteShape(geometry);
     shape.StrokeBrush(compositor_.CreateColorBrush(toUiColor(tokens().focusRingColor)));
     shape.StrokeThickness(w);
     auto ring = compositor_.CreateShapeVisual();
-    ring.Size({ r.width + w, r.height + w });
-    ring.Offset({ std::round(r.x), std::round(r.y), 0 });
+    ring.Size({ frame->width, frame->height });
+    ring.Offset({ std::round(frame->x), std::round(frame->y), 0 });
     ring.Shapes().Append(shape);
     focusLayer_.Children().InsertAtTop(ring);
 }
