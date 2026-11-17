@@ -78,6 +78,8 @@ public:
     std::size_t caretAt(const Placed& field, Vec2 point) const;
     void press(const std::string& key);
     void release(const std::string& key);
+    // The move cursor over the client area (decision 143): over a card's header or handle, or carrying one.
+    void setGrabCursor(bool on);
 
     HWND hwnd() const { return hwnd_; }
     Rect frame() const { return normal_; } // where it is on screen, px (its restored place when maximized or minimized)
@@ -118,6 +120,7 @@ private:
     wuc::ContainerVisual dialogDecor_{ nullptr }, dialogLayer_{ nullptr };
     ElementVisuals dialog_;
     MenuLayer menu_; // a card's open menu (decision 142): the island's, over everything
+    bool grabCursor_ = false; // WM_SETCURSOR shows the move cursor (setGrabCursor)
 
     WindowScene scene_;
     std::wstring title_; // what Windows has as its title

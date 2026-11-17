@@ -274,7 +274,16 @@ PlacedPage placePage(const WindowPage& page, float paneWidth, const Source& fiel
         bottom = std::max(bottom, f.y + f.height);
         recordMovables(section, name, f, cards[i], out, first, placed);
         if (!section.moveAction.empty()) {
-            placed.movables.push_back({ .card = true, .key = name, .section = section.id, .index = movableCards++, .frame = f, .action = section.moveAction });
+            // Its header picks it up too (decision 143): from its top to its title row's bottom, its whole width.
+            Rect grip;
+            std::string title = name + "/title/";
+            for (std::size_t k = first; k < out.size(); ++k)
+                if (out[k].key.rfind(title, 0) == 0) {
+                    Rect r = out[k].listRow.value_or(out[k].hitFrame);
+                    grip = { f.x, f.y, f.width, std::max(grip.height, r.y + r.height - f.y) };
+                }
+            placed.movables.push_back({ .card = true, .key = name, .section = section.id, .index = movableCards++, .frame = f, .action = section.moveAction,
+                                        .grip = grip });
             out.push_back(dragHandle(name, f, fields));
         }
     }

@@ -1,5 +1,7 @@
 #include "core/window_drag.h"
 
+#include "core/window_page.h"
+
 #include <algorithm>
 
 namespace cup {
@@ -34,6 +36,13 @@ std::optional<Movable> movableAt(const WindowScene& s, Vec2 point)
             for (const Movable& m : s.movables)
                 if (m.card && m.key == card) return m;
         }
+    // A card's header (decision 143), but not a button on it (its "…", a delete): that's the button's.
+    bool onButton = false;
+    for (const Placed& p : s.page)
+        if (auto* b = std::get_if<Button>(&p.item); b && b->enabled && b->actionId != kWindowDragHandle && p.hitFrame.contains(at)) onButton = true;
+    if (!onButton)
+        for (const Movable& m : s.movables)
+            if (m.card && m.grip.contains(at)) return m;
     for (const Movable& m : s.movables)
         if (!m.card && m.frame.contains(at)) return m;
     return std::nullopt;

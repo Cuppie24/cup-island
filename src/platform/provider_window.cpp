@@ -370,6 +370,16 @@ void ProviderWindow::setHovered(const std::string& key, std::optional<std::size_
 }
 
 void ProviderWindow::press(const std::string& key) { visualsFor(key).press(key); }
+
+void ProviderWindow::setGrabCursor(bool on)
+{
+    if (on == grabCursor_) return;
+    grabCursor_ = on;
+    // Now, not at the next move: WM_SETCURSOR came before the move that changed it. Only while the
+    // pointer is over this window's client area, where WM_SETCURSOR would show ours.
+    POINT at{};
+    if (GetCursorPos(&at) && WindowFromPoint(at) == hwnd_) SetCursor(LoadCursorW(nullptr, on ? IDC_SIZEALL : IDC_ARROW));
+}
 void ProviderWindow::release(const std::string& key) { visualsFor(key).release(key); }
 
 void ProviderWindow::rememberNormal()
