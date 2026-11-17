@@ -38,6 +38,10 @@ struct WindowSpec {
     // The page to show: on opening, or when it's open already (Settings'
     // "Shortcuts" page from a shortcut's row). "": the first, or the one shown.
     std::string page;
+    // No smaller than this by its frame (decision 149), a tokens() size; never
+    // below windowMinSize. None: windowMinSize. A page that needs room asks
+    // (Pomodoro: one card beside its rail).
+    std::optional<Vec2> minSize;
     bool operator==(const WindowSpec&) const = default;
 };
 

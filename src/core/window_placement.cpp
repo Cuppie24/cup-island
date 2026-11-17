@@ -81,6 +81,13 @@ Vec2 windowSize(WindowSize size)
     return t.windowMediumSize;
 }
 
+Vec2 windowMinSizeOf(const WindowSpec& spec)
+{
+    Vec2 least = tokens().windowMinSize;
+    if (spec.minSize) least = { std::max(least.x, spec.minSize->x), std::max(least.y, spec.minSize->y) };
+    return least;
+}
+
 Rect placeWindow(const WindowSpec& spec, const std::vector<Screen>& screens, const std::string& islandScreen, Rect pill,
                  const std::optional<SavedPlace>& saved, const std::vector<Rect>& open)
 {
@@ -89,7 +96,7 @@ Rect placeWindow(const WindowSpec& spec, const std::vector<Screen>& screens, con
     Rect r;
     const Screen* on = saved ? findScreen(screens, saved->screen) : nullptr;
     if (on) {
-        Vec2 least = tokens().windowMinSize;
+        Vec2 least = windowMinSizeOf(spec);
         Vec2 logical = spec.resizable ? Vec2{ std::max(saved->frame.width, least.x), std::max(saved->frame.height, least.y) } : size;
         r = keepOn({ on->workArea.x + saved->frame.x * on->scale, on->workArea.y + saved->frame.y * on->scale, logical.x * on->scale,
                      logical.y * on->scale },

@@ -42,6 +42,13 @@ void placementTests()
     expect(placeWindow(fixed, screens, "A", pill, saved).width == small.x, "not resizable: its size class's size");
     expect(placeWindow(spec, screens, "A", pill, SavedPlace{ "B", { 0, 0, 10, 10 } }).width == t.windowMinSize.x,
            "a saved size under windowMinSize: the minimum");
+    // Decision 149: a provider asks for a bigger minimum, never a smaller one.
+    WindowSpec roomy = spec;
+    roomy.minSize = Vec2{ 700, 20 };
+    expect(windowMinSizeOf(roomy) == Vec2{ 700, t.windowMinSize.y } && windowMinSizeOf(spec) == t.windowMinSize,
+           "its own minimum, never under windowMinSize");
+    expect(placeWindow(roomy, screens, "A", pill, SavedPlace{ "B", { 0, 0, 10, 10 } }).width == 700 * screens[1].scale,
+           "a saved size under its own minimum: that minimum, at its screen's scale");
     expect(placeWindow(spec, { screens[0] }, "A", pill, saved) == near, "its screen gone: placed afresh on the island's");
     Rect huge = placeWindow(spec, screens, "A", pill, SavedPlace{ "B", { 1000, 900, 2000, 2000 } });
     expect(huge.x == 1920 && huge.y == 0, "too big for its screen: its top-left corner stays on it");
