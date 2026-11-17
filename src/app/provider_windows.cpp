@@ -143,15 +143,14 @@ void relayout(Shown& s)
     }
     Ms now = g_hooks.now();
     bool maximized = s.window->maximized();
-    WindowScene shown = s.drag && s.drag->what.card ? s.scene : WindowScene{}; // what the pointer is over now
+    WindowScene shown = s.drag ? s.scene : WindowScene{}; // what the pointer is over now
     s.scene = windowLayout(*w, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing, maximized);
     if (dropGoneField(s.typing, s.scene)) // the field with the keys went: laid out without it
         s.scene = windowLayout(*w, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing, maximized);
     if (focusArrived(s.typing, s.scene)) // a row opened to be written takes the keys (decision 132): laid out focused
         s.scene = windowLayout(*w, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing, maximized);
     if (s.drag) { // carried (decision 129): laid out as if it were where it lands, following the pointer
-        // A card: from the page as shown, the others already making room (decision 135); a row: as laid out without it.
-        s.target = s.drag->what.card ? cardTarget(shown, *s.drag, s.target) : dropTarget(s.scene, *s.drag);
+        s.target = dropTarget(shown, *s.drag, s.target); // from the page as shown, the others already making room (decisions 135, 136)
         OpenWindow preview = *w;
         preview.content = withMove(w->content, w->page, *s.drag, s.target);
         s.scene = windowLayout(preview, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing, maximized);

@@ -7,20 +7,6 @@ namespace {
 
 Vec2 centreOf(Rect r) { return { r.x + r.width / 2, r.y + r.height / 2 }; }
 
-// Where the carried thing's middle is now.
-Vec2 carriedCentre(const WindowDrag& d)
-{
-    return { d.at.x - d.grab.x + d.what.frame.width / 2, d.at.y - d.grab.y + d.what.frame.height / 2 };
-}
-
-// Reading order on a grid of cards: a card on a row above, or left of the point on its row.
-bool before(Rect card, Vec2 point)
-{
-    Vec2 c = centreOf(card);
-    bool sameRow = point.y >= card.y && point.y < card.y + card.height;
-    return sameRow ? c.x < point.x : c.y < point.y;
-}
-
 // Where in `items` the index-th of those `moves` says move goes, the carried one taken out already:
 // before it, or after the last one, or at `fallback` if there's none.
 template <typename T, typename Moves>
@@ -61,41 +47,62 @@ WindowDrag startDrag(const WindowScene& s, const Movable& what, Vec2 point)
 
 DropTarget origin(const WindowDrag& d) { return { d.what.card ? "" : d.what.section, d.what.index }; }
 
-DropTarget dropTarget(const WindowScene& s, const WindowDrag& d)
-{
-    Vec2 c = carriedCentre(d);
-    if (d.what.card) {
-        std::size_t index = 0;
-        for (const Movable& m : s.movables)
-            if (m.card && m.key != d.what.key && before(m.frame, c)) ++index;
-        return { "", index };
-    }
-    for (const DropZone& zone : s.dropZones) {
-        if (!zone.frame.contains(c)) continue;
-        std::size_t index = 0;
-        for (const Movable& m : s.movables)
-            if (!m.card && m.section == zone.section && m.key != d.what.key && centreOf(m.frame).y < c.y) ++index;
-        return { zone.section, index };
-    }
-    return origin(d); // over no card: back where it was
-}
+namespace {
 
+// A card's place (decision 135): over another card, before it on its first half (its top; its
+// left when cards sit side by side on that row), after it on its second. Over none: as it was.
 DropTarget cardTarget(const WindowScene& shown, const WindowDrag& d, const DropTarget& current)
 {
     std::vector<Rect> others; // the other movable cards, in order, where they show now
     for (const Movable& m : shown.movables)
-        if (m.card && m.key != d.what.key) others.push_back(m.frame);
+        if (m.card && m.action != d.what.action) others.push_back(m.frame);
     for (std::size_t k = 0; k < others.size(); ++k) {
         Rect r = others[k];
         if (!r.contains(d.at)) continue;
-        bool beside = false; // another card on its row: the cards run left to right there
-        for (std::size_t o = 0; o < others.size(); ++o)
-            if (o != k && others[o].y < r.y + r.height && others[o].y + others[o].height > r.y) beside = true;
+        // Another card shown on its row (any card: "New group", where the carried one lands): the cards run left to right there.
+        bool beside = false;
+        for (const Placed& p : shown.page) {
+            if (!std::holds_alternative<GroupFill>(p.item) || p.carried) continue;
+            Rect f = p.frame;
+            bool sameRow = f.y < r.y + r.height && f.y + f.height > r.y;
+            bool apart = f.x >= r.x + r.width || f.x + f.width <= r.x;
+            if (sameRow && apart) beside = true;
+        }
         Vec2 c = centreOf(r);
         bool past = beside ? d.at.x > c.x : d.at.y > c.y;
         return { "", k + (past ? 1 : 0) };
     }
     return current;
+}
+
+// A row's place (decision 136), the same way, in the card under the pointer: over another row,
+// before it on its top half, after it on its bottom half; above its rows (its name, "Add task"),
+// first; below them, last; in the gap the carried row leaves, as it was. Over no card: as it was.
+DropTarget rowTarget(const WindowScene& shown, const WindowDrag& d, const DropTarget& current)
+{
+    for (const DropZone& zone : shown.dropZones) {
+        if (!zone.frame.contains(d.at)) continue;
+        std::vector<Rect> rows; // its other movable rows, in order, where they show now
+        for (const Movable& m : shown.movables)
+            if (!m.card && m.section == zone.section && m.action != d.what.action) rows.push_back(m.frame);
+        if (rows.empty() || d.at.y < rows.front().y) return { zone.section, 0 };
+        if (d.at.y >= rows.back().y + rows.back().height) return { zone.section, rows.size() };
+        for (std::size_t k = 0; k < rows.size(); ++k)
+            if (d.at.y >= rows[k].y && d.at.y < rows[k].y + rows[k].height)
+                return { zone.section, k + (d.at.y > centreOf(rows[k]).y ? 1 : 0) };
+        if (current.section == zone.section) return current; // the room it leaves: it stays there
+        std::size_t index = 0; // a gap in another card: between the rows it's between
+        while (index < rows.size() && rows[index].y + rows[index].height <= d.at.y) ++index;
+        return { zone.section, index };
+    }
+    return current;
+}
+
+} // namespace
+
+DropTarget dropTarget(const WindowScene& shown, const WindowDrag& d, const DropTarget& current)
+{
+    return d.what.card ? cardTarget(shown, d, current) : rowTarget(shown, d, current);
 }
 
 WindowContent withMove(const WindowContent& content, const std::string& pageId, const WindowDrag& d, const DropTarget& t)

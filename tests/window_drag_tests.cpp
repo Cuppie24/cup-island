@@ -74,10 +74,10 @@ void dragTests()
 
     // A row carried down past the next one in its card: it lands after it.
     WindowDrag d = startDrag(s, *r00, inWindow(s, { r00->frame.x + 20, r00->frame.y + 5 }));
-    expect(dropTarget(s, d) == origin(d) && !dropAction(s, d, dropTarget(s, d)), "not moved: lands where it was, nothing sent");
+    expect(dropTarget(s, d, origin(d)) == origin(d) && !dropAction(s, d, dropTarget(s, d, origin(d))), "not moved: lands where it was, nothing sent");
     const Movable* r01 = movable(s, "row.0.1");
     d.at.y += r01->frame.y + r01->frame.height / 2 - r00->frame.y + 2;
-    DropTarget t = dropTarget(s, d);
+    DropTarget t = dropTarget(s, d, origin(d));
     expect(t.section == "g0" && t.index == 1, "past the next row's middle: after it");
     WindowContent moved = withMove(w.content, "p", d, t);
     expect(moved.pages[0].sections[0].rows[1].moveAction == "row.0.0" && moved.pages[0].sections[0].rows[0].moveAction == "row.0.1",
@@ -108,20 +108,20 @@ void dragTests()
     // Into the other card, near its top: its first place there.
     const Movable* r10 = movable(s, "row.1.0");
     d.at = { r10->frame.x + 20, r10->frame.y + 1 };
-    t = dropTarget(s, d);
+    t = dropTarget(s, d, origin(d));
     expect(t.section == "g1" && t.index == 0, "over the other card's first row: its first place");
     moved = withMove(w.content, "p", d, t);
     expect(moved.pages[0].sections[0].rows.size() == 2 && moved.pages[0].sections[1].rows.size() == 4 &&
                moved.pages[0].sections[1].rows[0].moveAction == "row.0.0",
            "laid out in the other card");
     d.at = { 5, 5 }; // over no card
-    expect(dropTarget(s, d) == origin(d), "over no card: back where it was");
+    expect(dropTarget(s, d, origin(d)) == origin(d), "over no card (from where it was): it stays");
 
     // A card carried past the other: it goes after it.
     const Movable* g1 = movable(s, "move.g1");
     WindowDrag card = startDrag(s, *g0, inWindow(s, { g0->frame.x + g0->frame.width / 2, g0->frame.y + 3 }));
     card.at.x += g1->frame.x + g1->frame.width / 2 - g0->frame.x - g0->frame.width / 2 + 5;
-    t = dropTarget(s, card);
+    t = dropTarget(s, card, origin(card));
     expect(t.section.empty() && t.index == 1, "a card past the other's middle: after it");
     moved = withMove(w.content, "p", card, t);
     expect(moved.pages[0].sections[0].id == "g1" && moved.pages[0].sections[1].id == "g0" && moved.pages[0].sections[2].id == "new",
@@ -149,7 +149,7 @@ void tallCardTests()
     DropTarget t = origin(d);
     auto previewAt = [&](float y) {
         d.at.y = y;
-        t = cardTarget(s, d, t);
+        t = dropTarget(s, d, t);
         OpenWindow preview = w;
         preview.content = withMove(w.content, "p", d, t);
         s = lay(preview);
@@ -169,12 +169,90 @@ void tallCardTests()
     expect(previewAt(upTop + upHeight * 0.25f) == 0, "over its top half as shown: before it again, it goes back down");
 }
 
+// Decision 136: tasks the same way. A tall (wrapped) task dragged under a short one: the short one
+// moves up past its middle, stays up in the room the tall one leaves, and goes back down only over
+// its top half as it shows now.
+void tallRowTests()
+{
+    OpenWindow w = board();
+    Row& first = w.content.pages[0].sections[0].rows[0];
+    std::string words;
+    for (int i = 0; i < 60; ++i) words += "word ";
+    first.items = { Text{ .value = words, .wrap = true } };
+    WindowScene s = laid(w);
+    const Movable* tall = movable(s, "row.0.0");
+    const Movable* next = movable(s, "row.0.1");
+    expect(tall && next && tall->frame.height > 2 * next->frame.height, "the first task wraps: taller than the next");
+    WindowDrag d = startDrag(s, *tall, inWindow(s, { tall->frame.x + 20, tall->frame.y + 4 }));
+    DropTarget t = origin(d);
+    auto previewAt = [&](float y) {
+        d.at.y = y;
+        t = dropTarget(s, d, t);
+        OpenWindow preview = w;
+        preview.content = withMove(w.content, "p", d, t);
+        s = laid(preview);
+        follow(s, d);
+        return t;
+    };
+    float nextTop = next->frame.y, nextHeight = next->frame.height;
+    expect(previewAt(nextTop + nextHeight * 0.25f).index == 0, "over the next task's top half: still before it");
+    expect(previewAt(nextTop + nextHeight * 0.75f).index == 1, "past its middle: after it, it moves up");
+    const Movable* up = movable(s, "row.0.1");
+    expect(up && up->frame.y < nextTop, "...shown up top now");
+    float upTop = up->frame.y, upHeight = up->frame.height;
+    bool stays = true;
+    for (float y = upTop + upHeight + 2; y < upTop + upHeight + 2 * nextHeight; y += 4) {
+        DropTarget at = previewAt(y);
+        stays = stays && at.section == "g0" && at.index == 1;
+    }
+    expect(stays, "the pointer in the room the tall task left: the short one stays up");
+    expect(previewAt(upTop + upHeight * 0.25f).index == 0, "over its top half as shown: before it again");
+}
+
+// Groups side by side (a wide window): the bigger one, held by its handle at its top, dragged right
+// over the smaller one goes after it once past its middle, left to right; in the room it leaves,
+// nothing changes; back over the smaller one's left half, before it again.
+void sideBySideTests()
+{
+    OpenWindow w = board();
+    auto& sections = w.content.pages[0].sections;
+    for (int r = 3; r < 10; ++r) sections[0].rows.push_back(Row{ .items = { Text{ "More " + std::to_string(r) } }, .moveAction = "row.0." + std::to_string(r) });
+    WindowScene s = laid(w); // 1400 wide: two columns
+    const Movable* big = movable(s, "move.g0");
+    const Movable* small = movable(s, "move.g1");
+    expect(big && small && small->frame.y == big->frame.y && small->frame.x > big->frame.x && big->frame.height > 2 * small->frame.height,
+           "side by side: the bigger group left of the smaller one");
+    WindowDrag d = startDrag(s, *big, inWindow(s, { big->frame.x + big->frame.width / 2, big->frame.y + 4 }));
+    DropTarget t = origin(d);
+    auto previewAt = [&](float x) {
+        d.at.x = x;
+        t = dropTarget(s, d, t);
+        OpenWindow preview = w;
+        preview.content = withMove(w.content, "p", d, t);
+        s = laid(preview);
+        follow(s, d);
+        return t.index;
+    };
+    float smallLeft = small->frame.x, smallWidth = small->frame.width;
+    expect(previewAt(smallLeft + smallWidth * 0.25f) == 0, "over the smaller one's left half: still before it");
+    expect(previewAt(smallLeft + smallWidth * 0.75f) == 1, "past its middle: after it, the smaller one moves left");
+    const Movable* moved = movable(s, "move.g1");
+    expect(moved && moved->frame.x < smallLeft, "...shown on the left now");
+    float movedLeft = moved->frame.x, movedWidth = moved->frame.width;
+    expect(previewAt(movedLeft + movedWidth + 40) == 1 && previewAt(smallLeft + smallWidth * 0.5f) == 1,
+           "in the room the bigger one leaves: it stays");
+    expect(previewAt(movedLeft + movedWidth * 0.75f) == 1, "over the smaller one's right half: still after it");
+    expect(previewAt(movedLeft + movedWidth * 0.25f) == 0, "over its left half: before it again");
+}
+
 } // namespace
 
 void runWindowDragTests()
 {
     dragTests();
     tallCardTests();
+    tallRowTests();
+    sideBySideTests();
 }
 
 } // namespace cup::test

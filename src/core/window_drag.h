@@ -36,17 +36,13 @@ std::optional<Movable> movableAt(const WindowScene& scene, Vec2 point);
 // Picked up at `point` (window coordinates): the drag, not yet moved.
 WindowDrag startDrag(const WindowScene& scene, const Movable& what, Vec2 point);
 
-// Where it lands if let go now, worked out on `scene` as laid out without the
-// drag (so what makes room doesn't move the target). A row over no card goes
-// back where it was.
-DropTarget dropTarget(const WindowScene& scene, const WindowDrag& drag);
-
-// A card's place, worked out on the page as it's shown now (`shown`: the last
-// preview, the others already making room), from the pointer (decision 135).
-// Over another card: before it on its first half (its top; its left when cards
-// sit side by side), after it on its second. Over no card: `current` stays, so
-// the room left by a tall card doesn't send the others back.
-DropTarget cardTarget(const WindowScene& shown, const WindowDrag& drag, const DropTarget& current);
+// Where it lands if let go now, from the pointer over the page as it's shown
+// (`shown`: the last preview, the others already making room; before the
+// first, the page as laid out). Over another card (a card) or row (a row):
+// before it on its first half, after it on its second. Over no card, or in
+// the room the carried thing left: `current` stays, so that room doesn't send
+// the others back (decisions 135, 136).
+DropTarget dropTarget(const WindowScene& shown, const WindowDrag& drag, const DropTarget& current);
 
 // Where it was: a target that changes nothing.
 DropTarget origin(const WindowDrag& drag);
