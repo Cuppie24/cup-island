@@ -116,7 +116,7 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Restore: return L"\uE923";  // ChromeRestore: ...when it's maximized
     case Glyph::Minimize: return L"\uE921"; // ChromeMinimize: a window's own title bar, as Windows draws its own (decision 123)
     case Glyph::CloseWindow: return L"\uE8BB"; // ChromeClose
-    case Glyph::Grip: return L"\uE76F";     // GripperBarHorizontal; paintGlyph draws a card's handle as one line instead (decision 132)
+    case Glyph::Grip: return L"\uE76F";     // GripperBarHorizontal; paintGlyph draws a card's handle as one line instead (decision 134)
     case Glyph::Fire: return L"\U0001F525"; // not in the icon fonts: Segoe UI Emoji's, in colour (paintGlyph)
     }
     return L"?";
@@ -255,7 +255,7 @@ void paintGroupFill(ID2D1DeviceContext* dc, const GroupFill& fill, Vec2 size, fl
     // A square end reaches a radius past the surface, which cuts it off: one
     // rounded rect gives any mix of rounded and square ends (decision 090).
     float top = fill.roundTop ? 0 : -radius, bottom = fill.roundBottom ? size.y : size.y + radius;
-    if (fill.outline) { // where a dragged card or task lands (decision 132): a soft solid line, inside the surface
+    if (fill.outline) { // where a dragged card or task lands (decision 134): a soft solid line, inside the surface
         float w = tokens().windowDropOutlineWidth, in = w / 2;
         D2D1_ROUNDED_RECT shape{ D2D1::RectF(in, top + in, size.x - in, bottom - in), std::max(0.0f, radius - in), std::max(0.0f, radius - in) };
         dc->DrawRoundedRectangle(shape, brushOf(dc, tokens().trackColor).get(), w);
@@ -518,7 +518,7 @@ void paintMarquee(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, 
 
 void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float fontSize, Vec2 size, const Color& color, bool precise)
 {
-    if (glyph == Glyph::Grip) { // a card's drag handle: one rounded line (decision 132), not the icon font's two bars
+    if (glyph == Glyph::Grip) { // a card's drag handle: one rounded line (decision 134), not the icon font's two bars
         const Tokens& t = tokens();
         float w = std::min(size.x, t.windowDragLineWidth), h = std::min(size.y, t.windowDragLineThickness);
         float x = (size.x - w) / 2, y = (size.y - h) / 2;

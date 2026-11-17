@@ -128,7 +128,7 @@ bool PomodoroProvider::taskAction(const Action& action)
         deleted_.reset(); // the next change: there's nothing to undo any more
     }
     if (target && startsWith(target->todoAction, todo::kToggle)) countTask(*target);
-    if (id == task::kNewGroup) { // its name gets the keys, selected: typed over at once (decision 132)
+    if (id == task::kNewGroup) { // its name gets the keys, selected: typed over at once (decision 134)
         focus_ = task::kRenameGroup + std::to_string(tasks_.groups().back().id);
         ++focusRequest_;
     }

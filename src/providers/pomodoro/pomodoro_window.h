@@ -27,7 +27,7 @@ struct PomodoroWindowView {
     PomodoroGlance glance;
     DaysOff daysOff{};
     std::optional<int> fake;        // Debug builds: which made-up history shows (0: the real one); none: no debug row
-    // A group just made: its name's edit action gets the keys (WindowContent::focus, decision 132).
+    // A group just made: its name's edit action gets the keys (WindowContent::focus, decision 134).
     std::string focus;
     std::uint64_t focusRequest = 0;
     std::optional<std::uint64_t> writingIn; // the group with a task row being written under its "Add task" (decision 132)

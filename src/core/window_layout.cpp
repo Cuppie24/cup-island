@@ -187,7 +187,7 @@ std::string windowRowAt(const WindowScene& s, Vec2 point)
     auto prefix = [](const std::string& key) { return key.substr(0, key.rfind('/')); };
     auto slotOf = [](const std::string& key) { return key.substr(0, key.find('/')); };
     auto isFill = [](const Placed& p) { return std::holds_alternative<GroupFill>(p.item); };
-    // A card's drag handle (decision 129) is no row: over it, it named the card, and the card's last row lit (decision 132).
+    // A card's drag handle (decision 129) is no row: over it, it named the card, and the card's last row lit (decision 134).
     auto notRow = [&](const Placed& p) { return isFill(p) || p.key.ends_with("/handle"); };
     // A card's background (decision 120) says which card; a grouped row's piece is that row.
     std::string card;

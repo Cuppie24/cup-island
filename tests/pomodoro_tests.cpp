@@ -349,7 +349,7 @@ void windowTests()
     expect(textIn(page, "Group 2") != nullptr, "a new group, named after the others");
     const Placed* name = textIn(page, "Group 2");
     expect(name && std::get<Text>(name->item).editAction == std::string(task_action::kRenameGroup) + "2", "its name edits in place");
-    // Made, its name gets the keys at once, all of it selected: typed over (decision 132).
+    // Made, its name gets the keys at once, all of it selected: typed over (decision 134).
     const WindowContent& made = island.window()->content;
     WindowTyping naming;
     focusByAction(naming, page, made.focus);

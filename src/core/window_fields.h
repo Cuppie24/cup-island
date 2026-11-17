@@ -34,7 +34,7 @@ bool isField(const WindowScene& scene, const std::string& key);
 std::optional<Action> focusField(WindowTyping& typing, const WindowScene& scene, const std::string& key, std::optional<std::size_t> caret);
 
 // The field whose action is `action` (WindowContent::focus) gets the keys, all
-// its text selected (decision 132). Whatever had them lets go: its Action, as
+// its text selected (decision 134). Whatever had them lets go: its Action, as
 // focusField's. Nothing if no field on the page has that action.
 std::optional<Action> focusByAction(WindowTyping& typing, const WindowScene& scene, const std::string& action);
 

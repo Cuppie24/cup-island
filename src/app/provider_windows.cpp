@@ -32,7 +32,7 @@ struct Shown {
     WindowKey key;
     std::unique_ptr<platform::ProviderWindow> window;
     std::uint64_t raised = 0; // OpenWindow::raised last acted on
-    std::uint64_t focusRequest = 0; // WindowContent::focusRequest last acted on (decision 132)
+    std::uint64_t focusRequest = 0; // WindowContent::focusRequest last acted on (decision 134)
     std::string page;         // the page laid out: a new one starts at its top
     float scroll = 0;
     WindowScene scene;
@@ -51,9 +51,6 @@ struct Shown {
     std::optional<Pick> pick;
     std::optional<WindowDrag> drag;
     DropTarget target;
-    // Just let go (or put back with Esc): everything glides to its place, the carried thing
-    // home and the provider's update after it, until the user does anything else (decision 132).
-    bool settling = false;
 };
 
 WindowHooks g_hooks;
@@ -157,8 +154,6 @@ void relayout(Shown& s)
         preview.content = withMove(w->content, w->page, *s.drag, s.target);
         s.scene = windowLayout(preview, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing, maximized);
         follow(s.scene, *s.drag);
-    } else if (s.settling) {
-        settle(s.scene);
     }
     s.scroll = s.scene.scroll;
     s.window->draw(s.scene, now);
@@ -191,7 +186,7 @@ void showHover(Shown& s)
         // A list item lights as a whole wherever the pointer is on it, between its items too (decisions 090, 121).
         for (const Placed& p : s.scene.page)
             if (p.listRow && !pageRow.empty() && p.key.rfind(pageRow + "/", 0) == 0 && p.key.find('/', pageRow.size() + 1) == std::string::npos)
-                row = p.listRow, radius = p.listRowRadius; // that row's own items, not a card's every row (decision 132)
+                row = p.listRow, radius = p.listRowRadius; // that row's own items, not a card's every row (decision 134)
     }
     s.window->setHovered(key, nav, row, radius, pageRow, pageCard);
 }
@@ -239,7 +234,6 @@ void key(const WindowKey& id, WPARAM vk)
     if (g_hooks.takeKey && g_hooks.takeKey(id, vk)) return;
     Shown* s = find(id);
     if (!s) return;
-    s->settling = false;
     ProviderRegistry& registry = *g_hooks.registry;
     bool ctrl = GetKeyState(VK_CONTROL) < 0, shift = GetKeyState(VK_SHIFT) < 0, alt = GetKeyState(VK_MENU) < 0;
     if (alt) return; // Alt's keys are Windows' (Alt+Space, Alt+F4)
@@ -354,7 +348,6 @@ bool carry(Shown& s, Vec2 p)
 bool cancelDrag(Shown& s)
 {
     if (!s.drag && !s.pick) return false;
-    s.settling = s.drag.has_value();
     s.drag.reset();
     s.pick.reset();
     relayout(s);
@@ -372,7 +365,6 @@ platform::ProviderWindowCallbacks callbacksFor(const WindowKey& id)
         if (Shown* s = find(id)) {
             s->pointer = p;
             if (carry(*s, p)) return; // a drag (decision 129)
-            s->settling = false;
             if (dragInField(s->typing, s->clicks, s->scene, *s->window, p)) relayout(*s); // selecting by dragging (decision 043)
             showHover(*s);
         }
@@ -386,7 +378,6 @@ platform::ProviderWindowCallbacks callbacksFor(const WindowKey& id)
     c.onPressDown = [id](Vec2 p) {
         Shown* s = find(id);
         if (!s) return;
-        s->settling = false;
         // Something that moves (decision 129): held until it's carried far enough to be a drag,
         // or let go (a click, as before). Not text being edited: a press there places the caret.
         if (auto what = movableAt(s->scene, p); what && !onFocusedField(*s, p)) {
@@ -401,7 +392,6 @@ platform::ProviderWindowCallbacks callbacksFor(const WindowKey& id)
         if (s->drag) { // let go: its provider moves it, unless it lands where it was or outside the window
             WindowDrag carried = *std::exchange(s->drag, std::nullopt);
             s->pick.reset();
-            s->settling = true; // it eases into its place (decision 132)
             std::optional<Action> moved;
             if (inside) moved = dropAction(s->scene, carried, s->target);
             relayout(*s);
@@ -409,7 +399,7 @@ platform::ProviderWindowCallbacks callbacksFor(const WindowKey& id)
             return;
         }
         if (auto pick = std::exchange(s->pick, std::nullopt)) { // never carried: the click it held back
-            // A handle does nothing clicked; what its wider band reaches over (a group's name) takes the click (decision 132).
+            // A handle does nothing clicked; what its wider band reaches over (a group's name) takes the click (decision 134).
             if (pick->what.card) {
                 WindowHit hit = windowHitTest(s->scene, pick->down);
                 if (!hit.hit || hit.hit->key.ends_with("/handle")) return;
@@ -421,7 +411,6 @@ platform::ProviderWindowCallbacks callbacksFor(const WindowKey& id)
     c.onWheel = [id](Vec2, float notches) {
         Shown* s = find(id);
         if (!s) return;
-        s->settling = false;
         s->scroll -= notches * 3 * tokens().smallButtonSize; // three small rows a notch
         relayout(*s);
         showHover(*s);
@@ -433,7 +422,6 @@ platform::ProviderWindowCallbacks callbacksFor(const WindowKey& id)
     c.onCloseRequested = [id] { g_hooks.registry->windowClosed(id); };
     c.onResized = [id](Vec2) {
         if (Shown* s = find(id)) {
-            s->settling = false; // a resize follows the frame at once
             relayout(*s);
             showHover(*s);
         }
@@ -510,7 +498,7 @@ void applyWindows()
             continue;
         }
         relayout(*s);
-        // A field the provider gives the keys (a group just made, decision 132): its text selected.
+        // A field the provider gives the keys (a group just made, decision 134): its text selected.
         if (w.content.focusRequest != s->focusRequest) {
             s->focusRequest = w.content.focusRequest;
             if (!w.content.focus.empty()) {

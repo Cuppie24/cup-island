@@ -114,7 +114,7 @@ struct WindowContent {
     bool rail = false;
     // Pinned under the pages, outside their scrolling: "Done", "Reset". Optional.
     std::vector<Row> footer;
-    // A field to give the keys to, once (decision 132): each time focusRequest
+    // A field to give the keys to, once (decision 134): each time focusRequest
     // changes, the host focuses the field whose action is `focus` (a TextInput's
     // actionId, a Text's editAction: a card's titleEdit), its text selected so
     // what's typed replaces it. A group just made, its name ready to write.
