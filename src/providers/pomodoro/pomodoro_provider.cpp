@@ -36,6 +36,7 @@ void PomodoroProvider::start(Host& host)
     plan_ = loadPlan(host_->load(kPlanKey));
     stats_ = loadStats(host_->load(kStatsKey));
     daysOff_ = loadDaysOff(host_->load(kDaysOffKey));
+    windowSeen_ = !host_->load(kWindowSeenKey).empty();
     showDormant();
     // A session from before a restart is back, paused where it was (decision 061).
     session_ = resumeSession(host_->load(kSessionKey), host_->now());
@@ -217,7 +218,7 @@ void PomodoroProvider::finish()
     showWindow(); // dormant there too, with today's statistics
 }
 
-void PomodoroProvider::showDormant() { host_->publishPanel(pomodoroPanel(plan_)); }
+void PomodoroProvider::showDormant() { host_->publishPanel(pomodoroPanel(plan_, !windowSeen_)); }
 
 std::optional<int> PomodoroProvider::fakeRow() const { return debug_ ? std::optional<int>(fake_) : std::nullopt; }
 
@@ -252,6 +253,11 @@ void PomodoroProvider::openWindow()
     WindowOpen result = host_->openWindow({ .id = kWindowId, .size = WindowSize::Large, .minSize = tokens().pomodoroWindowMinSize }, pomodoroWindow(view));
     windowOpen_ = result == WindowOpen::Opened || result == WindowOpen::Raised;
     if (windowOpen_ && !wasOpen) deleted_.reset();
+    if (windowOpen_ && !windowSeen_) { // seen: the expand button's dot goes, for good (decision 156)
+        windowSeen_ = true;
+        host_->save(kWindowSeenKey, "1");
+        showAll(); // the card without it
+    }
 }
 
 PomodoroDay& PomodoroProvider::today() { return dayOf(stats_, localDay(host_->wallClock(), host_->utcOffset())); }
@@ -265,7 +271,7 @@ void PomodoroProvider::publish()
 {
     const Timeline& tl = session_->timeline;
     host_->save(kSessionKey, saveSession(*session_, host_->now()));
-    host_->startActivity({ .id = kPanelId, .relevance = 0.4f, .content = pomodoroContent(*session_, plan_) });
+    host_->startActivity({ .id = kPanelId, .relevance = 0.4f, .content = pomodoroContent(*session_, plan_, !windowSeen_) });
     host_->wakeAt(tl.playing ? std::optional<Ms>(tl.anchoredAt + (tl.duration - tl.position)) : std::nullopt);
     showWindow();
 }
