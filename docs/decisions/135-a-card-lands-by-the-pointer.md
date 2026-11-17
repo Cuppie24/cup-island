@@ -1,6 +1,6 @@
 # 135: A dragged card lands by the pointer, over the cards as shown
 
-Status: Accepted (amends 129). Core tested; the feel on Windows needs a run.
+Status: Accepted (amends 129; extended to rows by 136). Core tested; the feel on Windows needs a run.
 
 **Context.** Decision 129 placed a dragged card by its own middle, measured
 against the cards as laid out before the drag. Dragging a tall group under a
@@ -14,5 +14,5 @@ the others already making room) and on the pointer, not the card's middle.
 Over another card: before it on its first half (its top; its left when cards
 sit side by side on that row), after it on its second. Over no card: the
 target stays as it was. So the small card goes back down only when the
-pointer is over its top half where it shows. Rows keep decision 129's rule:
-a card's rows are close together, with no room between them to wander in.
+pointer is over its top half where it shows. Tasks do the same since
+decision 136.
