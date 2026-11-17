@@ -25,7 +25,9 @@ CardGrid cardGrid(float available);
 
 // Each card's frame, in order, row by row from `top` at `left`: a row as
 // tall as its tallest card, one short of cards centred (decision 123). `heights`: each card's.
-std::vector<Rect> cardFrames(const CardGrid& grid, const std::vector<float>& heights, Vec2 topLeft);
+// Each card is stretched to its row's tallest (decision 140), except where `ownHeight[i]`:
+// "New group"'s dashed outline keeps its own (decision 153).
+std::vector<Rect> cardFrames(const CardGrid& grid, const std::vector<float>& heights, Vec2 topLeft, const std::vector<bool>& ownHeight = {});
 
 // A page laid out (placePage): how tall it is, padding included; the line
 // under its header, if it has one; and what can be dragged on it (decision 129).

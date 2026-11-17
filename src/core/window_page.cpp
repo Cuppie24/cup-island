@@ -162,7 +162,7 @@ CardGrid cardGrid(float available)
     return { columns, std::floor(width) };
 }
 
-std::vector<Rect> cardFrames(const CardGrid& grid, const std::vector<float>& heights, Vec2 topLeft)
+std::vector<Rect> cardFrames(const CardGrid& grid, const std::vector<float>& heights, Vec2 topLeft, const std::vector<bool>& ownHeight)
 {
     float gap = tokens().windowCardGap;
     std::vector<Rect> frames;
@@ -178,7 +178,9 @@ std::vector<Rect> cardFrames(const CardGrid& grid, const std::vector<float>& hei
             // Whole pixels: a card at a fraction is resampled, and moved by one it's rebuilt (decision 090's seam).
             float x = std::round(left + static_cast<float>(i - first) * (grid.width + gap));
             // As tall as its row's tallest (decision 140): the row's cards end together, its rows still from its top.
-            frames.push_back({ x, std::round(y), grid.width, tallest });
+            // One that keeps its own (a dashed "New group", decision 153) is a button, not a card to fill.
+            bool own = i < ownHeight.size() && ownHeight[i];
+            frames.push_back({ x, std::round(y), grid.width, own ? heights[i] : tallest });
         }
         y += tallest + gap;
     }
@@ -261,11 +263,13 @@ PlacedPage placePage(const WindowPage& page, float paneWidth, const Source& fiel
     float inside = t.windowCardPadding;
     std::vector<Slot> cards;
     std::vector<float> heights;
+    std::vector<bool> ownHeight; // a dashed card ("New group") isn't stretched to its row (decision 153)
     for (const WindowSection& section : page.sections) {
         cards.push_back(cardSlot(section));
         heights.push_back(slotHeight(cards.back(), { 0, 0, std::max(0.0f, grid.width - 2 * inside), 0 }, fields, measure) + 2 * inside);
+        ownHeight.push_back(section.dashed);
     }
-    std::vector<Rect> frames = cardFrames(grid, heights, { pad.x, y });
+    std::vector<Rect> frames = cardFrames(grid, heights, { pad.x, y }, ownHeight);
     float bottom = y;
     std::size_t movableCards = 0;
     for (std::size_t i = 0; i < cards.size(); ++i) {

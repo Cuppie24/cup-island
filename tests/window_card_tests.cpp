@@ -48,6 +48,9 @@ void gridTests()
            "grid: row by row, each row as tall as its tallest card; one short of cards centred (decision 123)");
     expect(frames[0].height == 80 && frames[1].height == 80 && frames[2].height == 30,
            "...and each card as tall as its row's tallest: a row's cards end together (decision 140)");
+    auto own = cardFrames({ 2, 100 }, { 50, 80, 30 }, { 10, 20 }, { true, false, false });
+    expect(own[0].height == 50 && own[0].y == 20 && own[1].height == 80 && own[2].y == 20 + 80 + t.windowCardGap,
+           "...but one that keeps its own height (New group, decision 153) isn't stretched; its row is still as tall as its tallest");
 }
 
 void boardTests()
