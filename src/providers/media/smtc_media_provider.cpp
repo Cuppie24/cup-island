@@ -1,405 +1,64 @@
 #include "providers/media/smtc_media_provider.h"
 #include "providers/media/app_activation.h"
-#include "platform/log.h"
 
-#include "core/tokens.h"
-
-#include <algorithm>
-#include <cstdio>
+#include <chrono>
+#include <string>
 #include <utility>
 
 namespace cup {
 
-auto SmtcMediaProvider::onUiThread(void (SmtcMediaProvider::*method)())
-{
-    return [this, alive = alive_, method](auto&&...) {
-        post_([this, alive, method] {
-            if (*alive) guarded(method);
-        });
-    };
-}
-
-void SmtcMediaProvider::guarded(void (SmtcMediaProvider::*method)())
-{
-    // A session can vanish while we read it (the app closed): its calls then
-    // throw. Uncaught in a posted callback, that would end the app; the next
-    // SessionsChanged brings us back in sync.
-    try {
-        (this->*method)();
-    } catch (winrt::hresult_error const& e) {
-        platform::logLine("media: session went away mid-update (0x%08x)", static_cast<unsigned>(e.code()));
-    }
-}
-
 void SmtcMediaProvider::start(Host& host)
 {
-    host_ = &host;
-    uiThread_ = std::this_thread::get_id();
     presenter_ = std::make_unique<MediaPresenter>(host);
     presenter_->start();
     alive_ = std::make_shared<bool>(true);
-    connect(alive_);
+
+    // The reader reports from its own thread: each report is posted here, and
+    // dropped if the provider stopped meanwhile (alive_ is only read and
+    // written on this thread).
+    auto alive = alive_;
+    SmtcReader::Out out{
+        // The Host's clock, which the reader can't call from its thread: the
+        // same steady clock, anchored to it once here.
+        .now = [base = host.now(), anchor = std::chrono::steady_clock::now()] {
+            return base + std::chrono::duration_cast<Ms>(std::chrono::steady_clock::now() - anchor);
+        },
+        .show = [this, post = post_, alive](std::optional<MediaSnapshot> snapshot) {
+            post([this, alive, snapshot = std::move(snapshot)] {
+                if (!*alive) return;
+                shown_ = snapshot;
+                presenter_->show(snapshot);
+            });
+        },
+        .showPlayback = [this, post = post_, alive](std::string sessionKey, NowPlaying playback) {
+            post([this, alive, sessionKey = std::move(sessionKey), playback = std::move(playback)] {
+                if (*alive) presenter_->showPlayback(sessionKey, playback);
+            });
+        },
+    };
+    reader_ = SmtcReader::start(std::move(out), tokens());
 }
 
 void SmtcMediaProvider::stop()
 {
     *alive_ = false;
-    currentChanged_.revoke();
-    sessionsChanged_.revoke();
-    propertiesChanged_.revoke();
-    timelineChanged_.revoke();
-    playbackWatchers_.clear();
-    manager_ = nullptr;
-    session_ = nullptr;
-    chosen_ = nullptr;
-    chosenApp_.clear();
-    mainApp_.clear();
-    art_ = {};
-    loggedTrack_.clear();
-    propertiesDirty_ = artRecheckQueued_ = false;
-    readFailures_ = 0;
-    loading_ = reloadWanted_ = stuckCheckQueued_ = false;
-    shownPlaying_.reset();
+    reader_->stop(); // returns at once, even if its thread is stuck in a call into Windows
+    reader_.reset();
+    shown_.reset();
     presenter_->stop();
     presenter_.reset();
-    host_ = nullptr;
-}
-
-winrt::fire_and_forget SmtcMediaProvider::connect(std::shared_ptr<bool> alive)
-{
-    Manager manager{ nullptr };
-    std::optional<winrt::hresult> failed;
-    try {
-        manager = co_await Manager::RequestAsync();
-    } catch (winrt::hresult_error const& e) {
-        failed = e.code(); // maybe thrown on a pool thread: handled below, on the UI thread
-    }
-    co_await onUi();
-    if (failed) {
-        platform::logLine("media: session manager unavailable (0x%08x)", static_cast<unsigned>(*failed));
-        co_return;
-    }
-    if (!*alive) co_return;
-
-    manager_ = manager;
-    currentChanged_ = manager_.CurrentSessionChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::pickSession));
-    sessionsChanged_ = manager_.SessionsChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::onSessionsChanged));
-    platform::logLine("media: %u session(s)", manager_.GetSessions().Size());
-    onSessionsChanged();
-}
-
-void SmtcMediaProvider::onSessionsChanged()
-{
-    watchAllSessions();
-    pickSession();
-}
-
-void SmtcMediaProvider::watchAllSessions()
-{
-    playbackWatchers_.clear(); // revokes the old subscriptions
-    for (auto const& s : manager_.GetSessions())
-        playbackWatchers_.push_back({ s, s.PlaybackInfoChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::onPlaybackChanged)) });
-}
-
-void SmtcMediaProvider::onPlaybackChanged()
-{
-    platform::logLine("media: playback changed"); // play/pause from any app: should show on the island at once
-    showPlaybackNow();
-    pickSession();
-    recheckSoon(alive_);
-}
-
-void SmtcMediaProvider::onTimelineChanged()
-{
-    showPlaybackNow();
-    refresh();
-}
-
-// Play/pause, the bar, shuffle and repeat read synchronously and shown at
-// once, over the last full read (decision 116). The properties' read can take
-// seconds (Spotify); a pause doesn't wait for it. The full read still follows.
-void SmtcMediaProvider::showPlaybackNow()
-{
-    if (!session_ || !presenter_) return;
-    try {
-        NowPlaying playback = readPlayback(session_.GetPlaybackInfo(), session_.GetTimelineProperties(), host_->now());
-        if (shownPlaying_ != playback.timeline.playing) {
-            if (shownPlaying_) platform::logLine("media: %s (from the playback event)", playback.timeline.playing ? "playing" : "paused");
-            shownPlaying_ = playback.timeline.playing;
-        }
-        presenter_->showPlayback(winrt::to_string(session_.SourceAppUserModelId()), playback);
-    } catch (winrt::hresult_error const&) {
-        // Mid-switch or closing: the full read handles it (and retries).
-    }
-}
-
-winrt::fire_and_forget SmtcMediaProvider::recheckSoon(std::shared_ptr<bool> alive)
-{
-    auto post = post_; // `this` is only touched back on the UI thread, after the alive check
-    co_await winrt::resume_after(tokens().mediaSessionRecheck);
-    post([this, alive] {
-        if (*alive) guarded(&SmtcMediaProvider::pickSession);
-    });
-}
-
-void SmtcMediaProvider::pickSession()
-{
-    if (!manager_) return;
-    auto sessions = manager_.GetSessions();
-
-    // When Windows moves its main media to another app (the one the media keys
-    // now control), follow it, dropping any manual pick. Compared by app id:
-    // a new object for the same session, or a moment with no main media, isn't a move.
-    Session current = manager_.GetCurrentSession();
-    std::string currentApp = current ? winrt::to_string(current.SourceAppUserModelId()) : "";
-    if (mainMediaMoved(mainApp_, currentApp)) {
-        mainApp_ = currentApp;
-        if (chosen_) platform::logLine("media: manual pick dropped, Windows moved its main media");
-        chosen_ = nullptr;
-        chosenApp_.clear();
-        platform::logLine("media: Windows' main media is %s", appName(current.SourceAppUserModelId()).c_str());
-    }
-
-    // By session first (every Chrome tab shares one app id), app id as fallback.
-    Session chosen{ nullptr };
-    if (chosen_) {
-        if (auto i = findSession(describe(chosen_), chosenApp_)) {
-            chosen = sessions.GetAt(static_cast<std::uint32_t>(*i));
-            chosen_ = chosen; // keep the object Windows hands out now
-        } else {
-            platform::logLine("media: picked session went away, following Windows again");
-            chosen_ = nullptr;
-            chosenApp_.clear();
-        }
-    }
-    if (!chosen) chosen = current;
-    if (!chosen && sessions.Size() > 0) chosen = sessions.GetAt(0);
-
-    if (chosen != session_) {
-        session_ = chosen;
-        propertiesChanged_.revoke();
-        timelineChanged_.revoke();
-        if (session_) {
-            // (Playback changes are watched for every session in watchAllSessions.)
-            propertiesChanged_ = session_.MediaPropertiesChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::onPropertiesChanged));
-            timelineChanged_ = session_.TimelinePropertiesChanged(winrt::auto_revoke, onUiThread(&SmtcMediaProvider::onTimelineChanged));
-            platform::logLine("media: showing %s", appName(session_.SourceAppUserModelId()).c_str());
-        }
-        propertiesDirty_ = true; // another session: read its picture fresh
-    }
-    refresh(); // also when only the session count changed (source button)
-}
-
-void SmtcMediaProvider::refresh()
-{
-    if (loading_ && host_->now() - loadStarted_ < tokens().mediaReadStuck) {
-        reloadWanted_ = true;
-        // If this read hangs, read again when it counts as stuck, not at the
-        // next event, which can be 10 s away (decision 116).
-        if (!stuckCheckQueued_) {
-            stuckCheckQueued_ = true;
-            refreshLater(loadStarted_ + tokens().mediaReadStuck - host_->now() + Ms{ 1 }, false, alive_);
-        }
-        return;
-    }
-    stuckCheckQueued_ = false;
-    if (loading_) platform::logLine("media: a read is stuck, reading again");
-    load(alive_);
-}
-
-void SmtcMediaProvider::loaded()
-{
-    loading_ = false;
-    if (std::exchange(reloadWanted_, false)) refresh();
-}
-
-void SmtcMediaProvider::onPropertiesChanged()
-{
-    propertiesDirty_ = true;
-    refresh();
-}
-
-winrt::fire_and_forget SmtcMediaProvider::refreshLater(Ms delay, bool rereadArt, std::shared_ptr<bool> alive)
-{
-    auto post = post_; // `this` is only touched back on the UI thread, after the alive check
-    co_await winrt::resume_after(std::max(delay, Ms{ 0 }));
-    post([this, alive, rereadArt] {
-        if (!*alive) return;
-        if (rereadArt) propertiesDirty_ = true;
-        guarded(&SmtcMediaProvider::refresh);
-    });
-}
-
-void SmtcMediaProvider::recheckArtIfMissing()
-{
-    if (artRecheckQueued_) return;
-    auto attempt = art_.wantsRecheck(tokens().mediaArtRechecks);
-    if (!attempt) return;
-    artRecheckQueued_ = true;
-    recheckArt(tokens().mediaArtRecheck * static_cast<int>(*attempt), alive_);
-}
-
-winrt::fire_and_forget SmtcMediaProvider::recheckArt(Ms delay, std::shared_ptr<bool> alive)
-{
-    auto post = post_; // `this` is only touched back on the UI thread, after the alive check
-    co_await winrt::resume_after(std::max(delay, Ms{ 0 }));
-    post([this, alive] {
-        if (!*alive) return;
-        artRecheckQueued_ = false;
-        if (art_.art()) return; // it came meanwhile
-        platform::logLine("media: still no cover, reading again");
-        propertiesDirty_ = true; // decode whatever picture the read finds
-        guarded(&SmtcMediaProvider::refresh);
-    });
-}
-
-winrt::fire_and_forget SmtcMediaProvider::load(std::shared_ptr<bool> alive)
-{
-    Session session = session_;
-    if (!session) {
-        presenter_->show(std::nullopt);
-        co_return;
-    }
-    loading_ = true;
-    loadStarted_ = host_->now();
-    // However the read ends, the next one asked for meanwhile starts (on the UI thread, where this resumes).
-    struct Done {
-        SmtcMediaProvider* self;
-        std::shared_ptr<bool> alive;
-        ~Done()
-        {
-            if (*alive) self->guarded(&SmtcMediaProvider::loaded);
-        }
-    } done{ this, alive };
-
-    wmc::GlobalSystemMediaTransportControlsSessionMediaProperties properties{ nullptr };
-    NowPlaying media;
-    Ms began = loadStarted_;
-    // Taken before the read: a properties event arriving during it (Spotify's
-    // thumbnail, just after its title) stays set for the read that follows.
-    bool propertiesChanged = std::exchange(propertiesDirty_, false);
-    std::optional<winrt::hresult> failed;
-    try {
-        properties = co_await session.TryGetMediaPropertiesAsync();
-    } catch (winrt::hresult_error const& e) {
-        failed = e.code(); // after sleep, thrown on a pool thread (0x80010100): handled below, on the UI thread
-    }
-    co_await onUi(); // decision 060
-    if (!*alive) co_return;
-    try {
-        if (failed) winrt::throw_hresult(*failed);
-        if (session != session_) co_return; // another session is shown now: its read follows
-        media = readNowPlaying(properties, session.GetPlaybackInfo(), session.GetTimelineProperties(), host_->now());
-    } catch (winrt::hresult_error const& e) {
-        propertiesDirty_ = propertiesDirty_ || propertiesChanged; // not read: the next read still owes it
-        // The app closed its session, or is mid-switch (Chrome changing tabs)
-        // and may send nothing more: try again shortly, a few times.
-        if (*alive && session == session_ && readFailures_++ < tokens().mediaReadRetries) {
-            platform::logLine("media: read failed (0x%08x), retrying", static_cast<unsigned>(e.code()));
-            refreshLater(tokens().mediaSessionRecheck, false, alive);
-        }
-        co_return;
-    }
-    readFailures_ = 0;
-    if (Ms took = host_->now() - began; took > Ms{ 250 })
-        platform::logLine("media: read took %lld ms", static_cast<long long>(took.count()));
-    if (shownPlaying_ != media.timeline.playing) {
-        if (shownPlaying_) platform::logLine("media: %s", media.timeline.playing ? "playing" : "paused");
-        shownPlaying_ = media.timeline.playing;
-    }
-
-    winrt::hstring app = session.SourceAppUserModelId();
-    media.source = appName(app);
-    media.showSourceSwitch = manager_.GetSessions().Size() > 1;
-    media.canOpenSource = true;
-    shownTitle_ = winrt::to_hstring(media.title);
-
-    // The cover (ArtState): decoded on a new track and on every properties
-    // update (Chrome sends a tab's picture after its title). A new track
-    // shows at once, without one; the cover fades in when it's read (056).
-    auto thumbnail = properties.Thumbnail();
-    std::string track = winrt::to_string(app) + "|" + media.title + "|" + media.artist + "|" + winrt::to_string(properties.AlbumTitle());
-    bool newTrack = track != loggedTrack_;
-    if (newTrack) {
-        loggedTrack_ = track;
-        platform::logLine("media: new track%s", thumbnail ? "" : " (no cover yet)");
-    }
-    if (auto id = art_.onRead(track, thumbnail != nullptr, propertiesChanged)) {
-        decodeArt(thumbnail, [this, alive, post = post_, id = *id](std::shared_ptr<const ImageData> image) {
-            // Decoding ends on whatever thread Windows chose (decision 060): back to the UI thread.
-            post([this, alive, id, image = std::move(image)]() mutable {
-                if (!*alive) return;
-                // The island's colour can only follow a new track once its cover is
-                // read: the gap between this line and "new track" is a late recolour's wait.
-                bool failed = !image;
-                if (art_.onDecoded(id, std::move(image))) {
-                    platform::logLine("media: cover shown");
-                    guarded(&SmtcMediaProvider::refresh);
-                } else if (failed) {
-                    recheckArtIfMissing(); // Spotify's picture can be unreadable for a moment
-                }
-            });
-        });
-        if (newTrack) refreshLater(tokens().mediaArtRecheck, true, alive); // the right picture may come in a later update
-    }
-
-    recheckArtIfMissing(); // no picture yet: look again, in case no event says it came
-    media.art = art_.art();
-    presenter_->show(MediaSnapshot{ winrt::to_string(app), media });
-}
-
-std::vector<SessionView> SmtcMediaProvider::describe(Session const& remembered) const
-{
-    std::vector<SessionView> views;
-    for (auto const& s : manager_.GetSessions())
-        views.push_back({ winrt::to_string(s.SourceAppUserModelId()), remembered && s == remembered });
-    return views;
-}
-
-void SmtcMediaProvider::cycleSource()
-{
-    auto sessions = manager_.GetSessions();
-    std::uint32_t count = sessions.Size();
-    if (count < 2) return;
-    // Found by object, else by app id: an identity-only search could miss the
-    // shown session and "switch" to it again, so the first click did nothing.
-    std::string shownApp = session_ ? winrt::to_string(session_.SourceAppUserModelId()) : "";
-    auto next = nextSession(count, findSession(describe(session_), shownApp));
-    chosen_ = sessions.GetAt(static_cast<std::uint32_t>(next));
-    chosenApp_ = winrt::to_string(chosen_.SourceAppUserModelId());
-    platform::logLine("media: source button -> %s", appName(chosen_.SourceAppUserModelId()).c_str());
-    pickSession();
 }
 
 void SmtcMediaProvider::onAction(const Action& action)
 {
-    if (!session_) return;
-    namespace act = media_action;
-    try {
-        // Fire and forget: the real state comes back through the change events.
-        if (action.actionId == act::kPlayPause) session_.TryTogglePlayPauseAsync();
-        else if (action.actionId == act::kNext) session_.TrySkipNextAsync();
-        else if (action.actionId == act::kPrevious) session_.TrySkipPreviousAsync();
-        else if (action.actionId == act::kSource) cycleSource();
-        else if (action.actionId == act::kOpenSource) {
-            openSourceApp(std::wstring(session_.SourceAppUserModelId()), std::wstring(shownTitle_)); // logs its result
-        }
-        else if (action.actionId == act::kShuffle) {
-            auto shuffle = session_.GetPlaybackInfo().IsShuffleActive();
-            session_.TryChangeShuffleActiveAsync(!(shuffle && shuffle.Value()));
-        } else if (action.actionId == act::kRepeat) {
-            auto repeat = session_.GetPlaybackInfo().AutoRepeatMode();
-            session_.TryChangeAutoRepeatModeAsync(toWindows(nextRepeat(repeat ? fromWindows(repeat.Value()) : Repeat::Off)));
-        }
-        else if (action.actionId == act::kSeek) {
-            auto timeline = session_.GetTimelineProperties();
-            auto start = timeline.StartTime(), end = timeline.EndTime();
-            auto offset = static_cast<std::int64_t>(static_cast<double>((end - start).count()) * action.value);
-            session_.TryChangePlaybackPositionAsync(start.count() + offset); // 100 ns ticks
-        }
-    } catch (winrt::hresult_error const&) {
-        // Session vanished between the click and the call.
+    // Opening the app hands over the foreground, which only this click's
+    // thread may do (app_activation.h): here, from what the last read showed.
+    if (action.actionId == media_action::kOpenSource) {
+        if (shown_)
+            openSourceApp(std::wstring(winrt::to_hstring(shown_->sessionKey)), std::wstring(winrt::to_hstring(shown_->media.title)));
+        return;
     }
+    if (reader_) reader_->act(action);
 }
 
 } // namespace cup

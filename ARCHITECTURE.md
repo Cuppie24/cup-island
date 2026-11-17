@@ -54,7 +54,7 @@ src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interacti
                 blob_backdrop: what's under a blob, its shadow and glass, decision 089), glass (Windows 11's blurred backdrop, decision 089), provider_window (a provider's window, decision 104), figures (tabular digits centred on their line, decision 094), element_visuals (one visual
                 per content item) + rolling_text (a big time's digits rolling as they change, decision 107), top_glow (the top band lit, decision 108), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts) + tap_hook (double-tap shortcuts, decision 079), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
-                MediaPresenter rules and the media widget, SMTC provider for real Windows media),
+                MediaPresenter rules and the media widget, SMTC provider for real Windows media: its smtc_reader reads sessions on a thread of its own, decision 144),
                 pomodoro/ (the first panel: a timer card, the rest in its window, decision 106; tasks in groups, task_board, decision 117), search/ (the search card: apps, Settings, files; decisions 077, 079), service_host (Cup Island's service: setup, updates and providers' calls, decisions 076, 078), system/ (Home's theme and Settings widgets:
                 app themes, display, Start with Windows, Copy logs), update/ (updates from GitHub
                 Releases: versions and offers, pure; github.cpp fetches and installs, decision 036)
@@ -158,7 +158,8 @@ Writing one: implement `Provider`, build `Content` in a pure function (see
 `providers/media/now_playing.cpp`), test it through `ProviderRegistry` like
 `tests/provider_tests.cpp`, and register it in `app/main.cpp`. WinRT event
 handlers run on background threads; marshal to the UI thread before calling
-the Host. `providers/media/smtc_media_provider.cpp` is the reference
+the Host. Calls into another process (WinRT sessions, COM servers) can hang:
+keep them off the UI thread too (decision 144). `providers/media/smtc_media_provider.cpp` is the reference
 example: thin WinRT reading, with every decision in a pure presenter (decision 005).
 
 ## Rules that keep it readable

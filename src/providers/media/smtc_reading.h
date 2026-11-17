@@ -37,7 +37,7 @@ winrt::Windows::Media::MediaPlaybackAutoRepeatMode toWindows(Repeat repeat);
 std::string appName(winrt::hstring const& appUserModelId);
 
 // Decodes album art to premultiplied BGRA, at most 128 px on the long side.
-// Start it on the UI thread: `done` then runs there too, with nullptr on failure.
+// `done` may run on any thread (decision 060), with nullptr on failure: post from it.
 winrt::fire_and_forget decodeArt(winrt::Windows::Storage::Streams::IRandomAccessStreamReference thumbnail,
                                  std::function<void(std::shared_ptr<const ImageData>)> done);
 

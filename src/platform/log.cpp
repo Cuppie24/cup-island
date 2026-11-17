@@ -30,15 +30,14 @@ std::wstring widen(const std::string& utf8)
     return wide;
 }
 
-// The tail of the log file: whole lines only.
-std::string readTail()
+// The last `bytes` of a file: whole lines only. "" if it can't be read.
+std::string readTail(const std::filesystem::path& path, long bytes)
 {
-    std::lock_guard lock(g_mutex);
-    FILE* in = _wfsopen(g_path.c_str(), L"rb", _SH_DENYNO);
+    FILE* in = _wfsopen(path.c_str(), L"rb", _SH_DENYNO);
     if (!in) return {};
     std::fseek(in, 0, SEEK_END);
     long size = std::ftell(in);
-    long start = size > kCopyBytes ? size - kCopyBytes : 0;
+    long start = size > bytes ? size - bytes : 0;
     std::fseek(in, start, SEEK_SET);
     std::string text(static_cast<size_t>(size - start), '\0');
     text.resize(std::fread(text.data(), 1, text.size(), in));
@@ -46,6 +45,21 @@ std::string readTail()
     if (start > 0) {
         auto firstLineEnd = text.find('\n');
         text.erase(0, firstLineEnd == std::string::npos ? 0 : firstLineEnd + 1);
+    }
+    return text;
+}
+
+// What Copy logs takes. The log is renamed to cup-island.old.log at a start
+// once it's big, and that start is often the one after a freeze: then the
+// freeze is all in the old file. So a short log comes with the old one's end
+// (decision 144).
+std::string readTail()
+{
+    std::lock_guard lock(g_mutex);
+    std::string text = readTail(g_path, kCopyBytes);
+    if (static_cast<long>(text.size()) < kCopyBytes / 2) {
+        std::string old = readTail(g_path.parent_path() / L"cup-island.old.log", kCopyBytes - static_cast<long>(text.size()));
+        if (!old.empty()) text = old + "--- cup-island.old.log ends; cup-island.log begins ---\n" + text;
     }
     return text;
 }

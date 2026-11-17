@@ -260,6 +260,8 @@ if(WIN32)
         src/providers/media/app_activation.cpp
         src/providers/media/browser_tabs.cpp
         src/providers/media/smtc_media_provider.cpp
+        src/providers/media/smtc_reader.cpp
+        src/providers/media/smtc_reader_reads.cpp
         src/providers/media/smtc_reading.cpp
         src/providers/search/windows_apps.cpp
         src/providers/service_link.cpp

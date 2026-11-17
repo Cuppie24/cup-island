@@ -15,9 +15,8 @@
 namespace cup::platform {
 namespace {
 
-// The check runs this often, and the UI thread gets this long to answer.
-// A few seconds keeps the watchdog nearly free while idle (TR §8).
-constexpr DWORD kCheckEveryMs = 5000;
+// The UI thread gets this long to answer a ping; the next goes out once it
+// has. A few seconds keeps the watchdog nearly free while idle (TR §8).
 constexpr UINT kAnswerWithinMs = 5000;
 
 std::filesystem::path dumpPath(const char* kind)
@@ -51,6 +50,8 @@ void writeDump(const char* kind, EXCEPTION_POINTERS* exception)
 // down (terminate -> abort -> SIGABRT) stay quiet.
 std::atomic<bool> g_reported{ false };
 bool firstReport() { return !g_reported.exchange(true); }
+
+std::atomic<unsigned> g_pingsAnswered{ 0 }; // the UI thread counts the pings it handled
 
 LONG WINAPI onUnhandledException(EXCEPTION_POINTERS* exception)
 {
@@ -112,17 +113,33 @@ void watchForCrashes()
     SetThreadStackGuarantee(&reserve);
 }
 
+UINT watchdogPing()
+{
+    static const UINT message = RegisterWindowMessageW(L"CupIsland.WatchdogPing");
+    return message;
+}
+
+void answerWatchdog()
+{
+    ++g_pingsAnswered;
+}
+
 void watchForHangs(HWND uiWindow)
 {
     std::thread([uiWindow] {
         bool hung = false;
+        bool pinged = false; // one ping at a time: a hung thread isn't sent a pile of them
+        unsigned answeredBefore = 0;
         auto hungSince = std::chrono::steady_clock::now();
         for (;;) {
-            Sleep(kCheckEveryMs);
+            if (!pinged) {
+                answeredBefore = g_pingsAnswered;
+                pinged = PostMessageW(uiWindow, watchdogPing(), 0, 0) != FALSE;
+            }
+            Sleep(kAnswerWithinMs);
             if (!IsWindow(uiWindow)) return; // shutting down
-            DWORD_PTR result = 0;
-            bool answered = SendMessageTimeoutW(uiWindow, WM_NULL, 0, 0, SMTO_NORMAL, kAnswerWithinMs, &result) != 0;
-            if (!answered && !IsWindow(uiWindow)) return;
+            bool answered = pinged && g_pingsAnswered != answeredBefore;
+            if (answered) pinged = false;
             if (!answered && !hung) {
                 hung = true;
                 hungSince = std::chrono::steady_clock::now();
