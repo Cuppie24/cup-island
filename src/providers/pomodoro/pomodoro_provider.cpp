@@ -68,12 +68,11 @@ void PomodoroProvider::onCardShown(const std::string& activityId)
     if (host_ && activityId == kPanelId) showWindow();
 }
 
-// Closed: a question it was asking goes unanswered, an Undo with it.
+// Closed: an Undo goes with it (its question, the host's, went with the window).
 void PomodoroProvider::onWindowClosed(const std::string& windowId)
 {
     if (windowId != kWindowId) return;
     windowOpen_ = false;
-    question_ = PomodoroQuestion::None;
     deleted_.reset();
 }
 
@@ -83,19 +82,20 @@ void PomodoroProvider::onAction(const Action& action)
     if (!host_ || (action.activityId != kPanelId && !fromWindow)) return;
     const std::string& id = action.actionId;
     if (id == act::kOpenWindow) return openWindow();
-    if (id == kWindowPage) return ask(PomodoroQuestion::None); // another page: a question there goes unanswered
-    if (id == act::kCancel) return ask(PomodoroQuestion::None);
     if (fromWindow && taskAction(action)) return;
-    // Reset statistics (decision 071): asks first; confirmed, every day but today goes.
+    // Reset statistics (decision 071): asks first, over the card or the window (decision 128); confirmed, every day but today goes.
     if (id == act::kResetStats) {
-        if (fromWindow) ask(PomodoroQuestion::ResetStats);
-        else host_->ask(resetQuestion());
+        Dialog question = resetQuestion();
+        if (fromWindow) {
+            question.activityId.clear();
+            question.windowId = kWindowId;
+        }
+        host_->ask(question);
         return;
     }
     if (id == act::kResetStatsConfirmed) {
         long long day = localDay(host_->wallClock(), host_->utcOffset());
         std::erase_if(stats_.days, [&](const PomodoroDay& d) { return d.day != day; });
-        question_ = PomodoroQuestion::None;
         saveStats();
         showAll();
         return;
@@ -149,7 +149,6 @@ void PomodoroProvider::onAction(const Action& action)
         PomodoroDay& day = today(); // canceled; the focus spent still counts
         if (session_->phase == Phase::Focus) day.focus += session_->timeline.positionAt(now);
         ++day.canceled;
-        question_ = PomodoroQuestion::None;
         saveStats();
         finish();
     }
@@ -231,19 +230,13 @@ void PomodoroProvider::showAll()
     }
 }
 
-void PomodoroProvider::ask(PomodoroQuestion question)
-{
-    question_ = question;
-    showWindow();
-}
-
 PomodoroGlance PomodoroProvider::glance() const { return glanceOf(stats_, daysOff_, localDay(host_->wallClock(), host_->utcOffset())); }
 
 void PomodoroProvider::showWindow()
 {
     if (!windowOpen_) return;
     host_->updateWindow(kWindowId, pomodoroWindow({ .session = session_, .tasks = &tasks_, .plan = plan_, .glance = glance(), .daysOff = daysOff_,
-                                                    .question = question_, .fake = fakeRow() }));
+                                                    .fake = fakeRow() }));
 }
 
 // The card's expand button (decision 106): the window opens on the timer, or
@@ -255,10 +248,7 @@ void PomodoroProvider::openWindow()
     bool wasOpen = windowOpen_;
     WindowOpen result = host_->openWindow({ .id = kWindowId, .size = WindowSize::Large }, pomodoroWindow(view));
     windowOpen_ = result == WindowOpen::Opened || result == WindowOpen::Raised;
-    if (windowOpen_ && !wasOpen) {
-        question_ = PomodoroQuestion::None;
-        deleted_.reset();
-    }
+    if (windowOpen_ && !wasOpen) deleted_.reset();
 }
 
 PomodoroDay& PomodoroProvider::today() { return dayOf(stats_, localDay(host_->wallClock(), host_->utcOffset())); }

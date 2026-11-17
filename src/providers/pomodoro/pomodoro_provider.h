@@ -58,7 +58,6 @@ private:
     void showAll();                             // the card that's up (the session's, or the dormant one) and the window
     void showWindow();                          // the window's content, if it's open
     void openWindow();                          // from the card's expand button: opened, or brought forward
-    void ask(PomodoroQuestion question);        // a question in the window, or none (answered, Cancel, another page)
     // The tasks (pomodoro_tasks.cpp): a group.* or tasks.* action, or the Undo. True if it was one.
     bool taskAction(const Action& action);
     void countTask(const TaskTarget& target);   // a task ticked or unticked: today's count
@@ -75,7 +74,6 @@ private:
     PomodoroStats stats_;
     DaysOff daysOff_{};
     bool windowOpen_ = false;
-    PomodoroQuestion question_ = PomodoroQuestion::None; // asked in the window, waiting
     // The last task or group deleted, for its toast's Undo (decisions 071, 121); the next change drops it.
     struct DeletedTask {
         std::uint64_t group = 0;

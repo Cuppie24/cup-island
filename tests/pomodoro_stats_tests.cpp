@@ -343,17 +343,17 @@ void resetTests()
            "confirmed: only today stays, its count whole");
     expect(timer.records() == "2 3h 20m 1 day", "the records start over from today");
 
-    // In the window it asks in place: Cancel keeps everything, Reset clears.
+    // In the window it asks with the host's question over the window (decision 128): nothing cleared until confirmed.
     timer.pass(Ms{ kDay });
     timer.session();
     timer.inWindow(pomodoro_action::kResetStats);
-    auto asking = timer.statsPage();
-    expect(timer.asked.size() == 1 && asking.back() == "Cancel Reset" && asking[asking.size() - 3] == "Reset statistics?", "the window asks in place");
-    timer.inWindow(pomodoro_action::kCancel);
-    expect(timer.stats().days.size() == 2 && timer.statsPage().back().rfind("Reset statistics", 0) == 0, "cancelled: nothing cleared");
-    timer.inWindow(pomodoro_action::kResetStats);
+    const OpenWindow* w = findWindow(timer.registry.windows(), { "pomodoro", PomodoroProvider::kWindowId });
+    expect(timer.asked.size() == 1 && w && w->dialog && w->dialog->confirmAction == pomodoro_action::kResetStatsConfirmed && w->dialog->destructive &&
+               timer.stats().days.size() == 2 &&
+               timer.statsPage().back().rfind("Reset statistics", 0) == 0,
+           "the window asks over itself; the page stays as it was");
     timer.inWindow(pomodoro_action::kResetStatsConfirmed);
-    expect(timer.stats().days.size() == 1 && timer.statsPage().back().rfind("Reset statistics", 0) == 0, "confirmed: cleared, the question gone");
+    expect(timer.stats().days.size() == 1, "confirmed: cleared");
 }
 
 // Debug builds: the settings page's row steps through made-up histories, never saved.
