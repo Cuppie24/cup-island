@@ -315,7 +315,7 @@ struct GroupFill {
     // ("New group"), quieter than the cards it adds to (decision 122).
     bool dashed = false;
     // No fill, a soft solid outline in trackColor: where a card or task being
-    // dragged in a window lands if let go now (decision 132).
+    // dragged in a window lands if let go now (decision 134).
     bool outline = false;
     bool operator==(const GroupFill&) const = default;
 };

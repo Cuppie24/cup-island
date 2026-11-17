@@ -74,7 +74,7 @@ private:
     PomodoroStats stats_;
     DaysOff daysOff_{};
     bool windowOpen_ = false;
-    // A group just made: its name gets the keys in the window, once (decision 132).
+    // A group just made: its name gets the keys in the window, once (decision 134).
     std::string focus_;
     std::uint64_t focusRequest_ = 0;
     // The last task or group deleted, for its toast's Undo (decisions 071, 121); the next change drops it.

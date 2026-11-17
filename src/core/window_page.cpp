@@ -114,7 +114,7 @@ void recordMovables(const WindowSection& section, const std::string& name, Rect 
 
 // A movable card's handle (decision 129): a short line at its top's middle, shown while the
 // pointer is on the card; pressed and dragged, the card moves. One line, a little under the
-// card's edge, held anywhere in a wider band than it draws (decision 132).
+// card's edge, held anywhere in a wider band than it draws (decision 134).
 Placed dragHandle(const std::string& name, Rect card, const Source& source)
 {
     const Tokens& t = tokens();
