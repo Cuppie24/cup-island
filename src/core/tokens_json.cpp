@@ -202,6 +202,7 @@ const Field kFields[] = {
     { "glassGlowOpacity", &Tokens::glassGlowOpacity },
     { "glassGlowCurve", &Tokens::glassGlowCurve },
     { "glassRimWidth", &Tokens::glassRimWidth },
+    { "glassEdgeSoftness", &Tokens::glassEdgeSoftness },
     { "glassDarkenScale", &Tokens::glassDarkenScale },
     { "glassDarkenLift", &Tokens::glassDarkenLift },
     { "glassDenseLuminosity", &Tokens::glassDenseLuminosity },

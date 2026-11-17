@@ -170,6 +170,25 @@ Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush co
     }
 }
 
+wuc::CompositionBrush softenedMask(wuc::Compositor const& compositor, wuc::CompositionBrush const& mask, float softness)
+{
+    if (softness <= 0) return mask;
+    try {
+        // Direct2D's Gaussian blur by index: standard deviation, optimization,
+        // border mode. Soft: the mask's edge fades out past its bounds, as it's
+        // clear there anyway.
+        auto effect = makeEffect(L"Soft", CLSID_D2D1GaussianBlur, { CompositionEffectSourceParameter(L"Mask") },
+                                 { PropertyValue::CreateSingle(softness), PropertyValue::CreateUInt32(D2D1_GAUSSIANBLUR_OPTIMIZATION_QUALITY),
+                                   PropertyValue::CreateUInt32(D2D1_BORDER_MODE_SOFT) });
+        auto brush = compositor.CreateEffectFactory(effect).CreateBrush();
+        brush.SetSourceParameter(L"Mask", mask);
+        return brush;
+    } catch (winrt::hresult_error const& e) {
+        logLine("glass: the cut stays hard: no blur for it (0x%08lx)", static_cast<unsigned long>(e.code()));
+        return mask;
+    }
+}
+
 bool transparencyOn()
 {
     try {
