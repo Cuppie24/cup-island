@@ -185,6 +185,9 @@ example: thin WinRT reading, with every decision in a pure presenter (decision 0
 - **All tuning lives in `assets/tokens.json`.** Sizes, timings, easing curves
   and limits. Edit it while the app runs and saving applies it live (see
   "Tuning" below). `core/tokens.h` declares the same fields with fallback defaults.
+- **Snapshots are Soft (decision 133).** A visual tree drawn into a
+  `CompositionVisualSurface` has no parent to inherit a border mode from,
+  so its edges come out aliased. Set `BorderMode(Soft)` on its root.
 - **Threads:** everything runs on the UI thread. The only exception is the
   compositor-tick thread, which just posts a message. Future providers post
   events to the UI thread; core has no locks.

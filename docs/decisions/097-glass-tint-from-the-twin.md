@@ -1,6 +1,6 @@
 # 097: As glass, the island's tint is the twin's layer, over the glass
 
-Status: Accepted; built, not yet run on Windows (amends 089)
+Status: Accepted; built, not yet run on Windows (amends 089); the jaggies in (1) were mostly the snapshot's aliased edge, fixed by 133
 
 **Context.** Glass (decision 089) stacked, bottom to top: the outline twin
 (decision 018: the body's shape, opaque, snapshotted as the mask of the
