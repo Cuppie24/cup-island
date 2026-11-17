@@ -41,6 +41,13 @@ WindowDrag startDrag(const WindowScene& scene, const Movable& what, Vec2 point);
 // back where it was.
 DropTarget dropTarget(const WindowScene& scene, const WindowDrag& drag);
 
+// A card's place, worked out on the page as it's shown now (`shown`: the last
+// preview, the others already making room), from the pointer (decision 135).
+// Over another card: before it on its first half (its top; its left when cards
+// sit side by side), after it on its second. Over no card: `current` stays, so
+// the room left by a tall card doesn't send the others back.
+DropTarget cardTarget(const WindowScene& shown, const WindowDrag& drag, const DropTarget& current);
+
 // Where it was: a target that changes nothing.
 DropTarget origin(const WindowDrag& drag);
 
