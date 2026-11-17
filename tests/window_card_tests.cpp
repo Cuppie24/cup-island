@@ -46,6 +46,8 @@ void gridTests()
     expect(frames.size() == 3 && frames[1].x == 110 + t.windowCardGap && frames[1].y == 20 && frames[2].x == std::round(10 + (100 + t.windowCardGap) / 2) &&
                frames[2].y == 20 + 80 + t.windowCardGap,
            "grid: row by row, each row as tall as its tallest card; one short of cards centred (decision 123)");
+    expect(frames[0].height == 80 && frames[1].height == 80 && frames[2].height == 30,
+           "...and each card as tall as its row's tallest: a row's cards end together (decision 140)");
 }
 
 void boardTests()

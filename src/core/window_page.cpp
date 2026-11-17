@@ -167,11 +167,12 @@ std::vector<Rect> cardFrames(const CardGrid& grid, const std::vector<float>& hei
         // A row short of cards (two groups on a wide screen) sits in the middle, not at the left (decision 123).
         float missing = static_cast<float>(first + static_cast<std::size_t>(grid.columns) - end);
         float left = topLeft.x + missing * (grid.width + gap) / 2;
+        for (std::size_t i = first; i < end; ++i) tallest = std::max(tallest, heights[i]);
         for (std::size_t i = first; i < end; ++i) {
             // Whole pixels: a card at a fraction is resampled, and moved by one it's rebuilt (decision 090's seam).
             float x = std::round(left + static_cast<float>(i - first) * (grid.width + gap));
-            frames.push_back({ x, std::round(y), grid.width, heights[i] });
-            tallest = std::max(tallest, heights[i]);
+            // As tall as its row's tallest (decision 140): the row's cards end together, its rows still from its top.
+            frames.push_back({ x, std::round(y), grid.width, tallest });
         }
         y += tallest + gap;
     }
