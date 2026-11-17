@@ -69,10 +69,20 @@ Get-Process CupIsland -ErrorAction SilentlyContinue |
     Where-Object { $_.Path -and $_.Path.StartsWith("$PSScriptRoot\build\", [StringComparison]::OrdinalIgnoreCase) } |
     Stop-Process -Force
 
-cmake --preset $preset @fresh "-DCUP_VERSION=$Version"
+# CI's compiler cache (decision 146): sccache, when the workflow sets CUP_SCCACHE and has
+# put it on PATH. It keeps each compile's output by its source and flags, so a file
+# that didn't change since a cached build isn't compiled again. Local builds: off.
+$launcher = @()
+if ($env:CUP_SCCACHE -and (Get-Command sccache -ErrorAction SilentlyContinue)) {
+    Write-Host "Compiler cache: sccache"
+    $launcher = @("-DCMAKE_CXX_COMPILER_LAUNCHER=sccache")
+}
+
+cmake --preset $preset @fresh @launcher "-DCUP_VERSION=$Version"
 if ($LASTEXITCODE -ne 0) { throw "Configure failed (exit $LASTEXITCODE)" }
 cmake --build --preset $preset
 if ($LASTEXITCODE -ne 0) { throw "Build failed (exit $LASTEXITCODE)" }
+if ($launcher) { sccache --show-stats } # hits and misses, in the run's log
 
 if ($Test) {
     ctest --preset $preset
