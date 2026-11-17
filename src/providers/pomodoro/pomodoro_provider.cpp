@@ -248,7 +248,8 @@ void PomodoroProvider::openWindow()
     if (!wasOpen) writingIn_.reset(); // a row left open when it closed went with it
     PomodoroWindowView view{ .session = session_, .tasks = &tasks_, .plan = plan_, .glance = glance(), .daysOff = daysOff_, .fake = fakeRow(),
                              .writingIn = writingIn_ };
-    WindowOpen result = host_->openWindow({ .id = kWindowId, .size = WindowSize::Large }, pomodoroWindow(view));
+    // No smaller than one group's card beside the rail (decision 149).
+    WindowOpen result = host_->openWindow({ .id = kWindowId, .size = WindowSize::Large, .minSize = tokens().pomodoroWindowMinSize }, pomodoroWindow(view));
     windowOpen_ = result == WindowOpen::Opened || result == WindowOpen::Raised;
     if (windowOpen_ && !wasOpen) deleted_.reset();
 }

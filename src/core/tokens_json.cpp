@@ -51,6 +51,7 @@ const Field kFields[] = {
     { "windowMediumSize", &Tokens::windowMediumSize },
     { "windowLargeSize", &Tokens::windowLargeSize },
     { "windowMinSize", &Tokens::windowMinSize },
+    { "pomodoroWindowMinSize", &Tokens::pomodoroWindowMinSize },
     { "windowIslandGap", &Tokens::windowIslandGap },
     { "windowCascade", &Tokens::windowCascade },
     { "windowTitleBarHeight", &Tokens::windowTitleBarHeight },

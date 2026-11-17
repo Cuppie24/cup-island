@@ -207,6 +207,9 @@ void windowTests()
     expect(island.openWindow() && island.window(), "the expand button opens the window");
     const OpenWindow& w = *island.window();
     expect(w.spec.size == WindowSize::Large && w.spec.resizable && w.spec.maximizable, "it resizes and maximizes (decision 117)");
+    expect(w.spec.minSize == std::optional<Vec2>(tokens().pomodoroWindowMinSize) &&
+               tokens().pomodoroWindowMinSize.x >= tokens().windowRailWidth + 2 * tokens().windowPagePadding.x + tokens().windowCardMinWidth,
+           "...down to its own minimum: one card beside its rail (decision 149)");
     expect(w.content.rail && w.content.pages.size() == 3 && w.page == kPomodoroTimerPage && w.content.pages[1].id == kPomodoroStatsPage &&
            w.content.pages[2].id == kPomodoroSettingsPage && w.content.pages[2].atFoot, "three pages on a rail, the timer first, settings at its foot");
     std::uint64_t raised = w.raised;

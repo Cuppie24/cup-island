@@ -97,6 +97,7 @@ struct Tokens {
     Vec2 windowMediumSize{ 640, 480 };
     Vec2 windowLargeSize{ 880, 620 };
     Vec2 windowMinSize{ 320, 240 };   // no smaller, by its frame or the provider's ask
+    Vec2 pomodoroWindowMinSize{ 720, 520 }; // Pomodoro's window (decision 149): its rail, a page's padding and one card at windowCardMinWidth
     float windowIslandGap = 16;       // WindowStart::NearIsland: this far under the pill
     float windowCascade = 28;         // opening where another one already is: this far right and down from it
     // Inside a window (decision 104): an ordinary window's chrome, a sidebar of pages, groups of rows.

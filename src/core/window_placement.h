@@ -41,6 +41,9 @@ std::optional<SavedPlace> recall(const Places& places, const std::string& window
 // A size class's logical size (tokens: windowSmallSize ...).
 Vec2 windowSize(WindowSize size);
 
+// The smallest its frame may make it (decision 149): its spec's minSize, never below windowMinSize.
+Vec2 windowMinSizeOf(const WindowSpec& spec);
+
 // The window's frame, physical px: its size class's size, or a resizable
 // one's saved size (never under windowMinSize). Saved on a screen that's
 // gone, or never saved: by its `start`, on the island's screen. Kept on its
