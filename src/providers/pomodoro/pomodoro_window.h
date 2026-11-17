@@ -27,6 +27,7 @@ struct PomodoroWindowView {
     PomodoroGlance glance;
     DaysOff daysOff{};
     std::optional<int> fake;        // Debug builds: which made-up history shows (0: the real one); none: no debug row
+    std::optional<std::uint64_t> writingIn; // the group with a task row being written under its "Add task" (decision 132)
 };
 
 WindowContent pomodoroWindow(const PomodoroWindowView& view);

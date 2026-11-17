@@ -95,6 +95,26 @@ bool PomodoroProvider::taskAction(const Action& action)
         return true;
     }
 
+    // "Add task" opens a row to write one in, under it (decision 132); left, it's added and goes, or
+    // just goes if it was left blank. Another group's open row was left first, by the click.
+    bool written = startsWith(id, task::kTaskWritten);
+    if (written || startsWith(id, task::kWriteTask)) {
+        std::uint64_t group = 0;
+        const char* first = id.c_str() + std::char_traits<char>::length(written ? task::kTaskWritten : task::kWriteTask);
+        std::from_chars(first, id.c_str() + id.size(), group);
+        if (!written) {
+            if (tasks_.group(group)) writingIn_ = group;
+        } else if (writingIn_ == group) {
+            writingIn_.reset();
+        }
+        if (written && tasks_.apply(inGroup(group, todo::kAdd), action.text)) { // blank: nothing added
+            deleted_.reset();
+            host_->save(kTodosKey, tasks_.save());
+        }
+        showWindow();
+        return true;
+    }
+
     auto target = tasks_.targetOf(id);
     if (!startsWith(id, task::kNewGroup) && !startsWith(id, task::kRenameGroup) && !target) return startsWith(id, task::kInGroup);
     std::optional<DeletedTask> deleting;

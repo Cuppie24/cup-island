@@ -20,6 +20,9 @@ void fadeTo(wuc::Compositor const& c, wuc::Visual const& visual, float opacity, 
 // A new picture (a cover read after its track showed, decision 056): `host`
 // shows `fresh` at once, under a copy of the old picture that fades out.
 void fadeInSurface(wuc::SpriteVisual const& host, wuc::CompositionDrawingSurface const& fresh, Ms duration);
+// Moved (a row opened above it pushes it down, decision 132): from where it was to `to`, eased,
+// both ends given (decision 008). Its Offset is `to` from the start: nothing else waits on it.
+void glideFrom(wuc::Compositor const& c, wuc::Visual const& visual, wfn::float3 from, wfn::float3 to);
 void playScale(wuc::Compositor const& c, wuc::Visual const& visual, float scale, Ms duration, Bezier curve);
 // A colour (a brush's, a shadow's) to a new one (a cover, a theme; decision 051): over recolorDuration() (the picked speed, decision 053).
 void fadeColor(wuc::CompositionObject const& target, const Color& color);

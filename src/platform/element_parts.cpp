@@ -107,6 +107,18 @@ void fadeInSurface(SpriteVisual const& host, CompositionDrawingSurface const& fr
     batch.Completed([host, old](auto&&, auto&&) { host.Children().Remove(old); });
 }
 
+void glideFrom(Compositor const& c, Visual const& visual, wfn::float3 from, wfn::float3 to)
+{
+    const Tokens& t = tokens();
+    visual.Offset(to);
+    if (t.reducedMotion) return;
+    auto anim = c.CreateVector3KeyFrameAnimation();
+    anim.InsertKeyFrame(0.0f, from);
+    anim.InsertKeyFrame(1.0f, to, easeOf(c, t.morphEase));
+    anim.Duration(atLeast1(t.scrollDuration)); // as a list's rows glide (decision 029)
+    visual.StartAnimation(L"Offset", anim);
+}
+
 void playScale(Compositor const& c, Visual const& visual, float scale, Ms duration, Bezier curve)
 {
     auto anim = c.CreateVector3KeyFrameAnimation();

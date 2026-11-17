@@ -165,6 +165,12 @@ void ProviderWindow::draw(const WindowScene& scene, Ms now)
         title_ = winrt::to_hstring(scene.title).c_str();
         SetWindowTextW(hwnd_, title_.c_str()); // the taskbar's and Alt-Tab's name
     }
+    // A change to the page, not a resize or another page: what moved glides (decision 132).
+    auto picked = [](const WindowScene& s) {
+        auto it = std::find_if(s.nav.begin(), s.nav.end(), [](const NavEntry& n) { return n.picked; });
+        return it == s.nav.end() ? std::string{} : it->page;
+    };
+    bool glide = scene.size.x == scene_.size.x && scene.size.y == scene_.size.y && picked(scene) == picked(scene_) && !scene_.page.empty();
     scene_ = scene;
     background_.Size(toFloat2(scene.size));
     paneBackground_.Size({ scene.pane.width, scene.size.y - scene.pane.y });
@@ -177,7 +183,7 @@ void ProviderWindow::draw(const WindowScene& scene, Ms now)
     headerRule_.Offset({ std::round(rule.x), std::round(rule.y), 0 });
     drawDecor();
     sidebar_.apply(scene.sidebarItems, now);
-    page_.apply(scene.page, now);
+    page_.apply(scene.page, now, Ms{ 0 }, glide);
     footer_.apply(scene.footer, now);
     chrome_.apply(scene.chrome, now);
     toast_.frame().Offset({ std::round(scene.pane.x), std::round(scene.pane.y), 0 }); // pane coordinates; hidden under its bottom edge

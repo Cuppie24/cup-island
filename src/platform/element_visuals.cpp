@@ -200,9 +200,10 @@ void ElementVisuals::init(wuc::Compositor const& compositor, GraphicsDevice& dev
     lists_.init(compositor, parent);
 }
 
-void ElementVisuals::apply(const std::vector<Placed>& elements, Ms now, Ms reveal)
+void ElementVisuals::apply(const std::vector<Placed>& elements, Ms now, Ms reveal, bool glide)
 {
     reveal_ = reveal;
+    glide_ = glide;
     deviceLost_ = false;
 
     // Laid out again on every frame of a window's resize: a set, not a search per visual (decision 117).
@@ -473,7 +474,11 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
         paint(view);
         fadeInSurface(view.picture, view.surface, tokens().mediaArtFade);
     }
-    if (moved) place(view);
+    // A list's rows glide in their scroller already; a carried one follows the pointer (decision 132).
+    if (moved && glide_ && !placed.carried && !placed.list)
+        glideFrom(compositor_, view.visual, pixelOffset(was.x - view.lead, was.y), pixelOffset(at.x - view.lead, at.y));
+    else if (moved)
+        place(view);
     if (greyNow(placed) != view.grey) setGrey(view, !view.grey); // its tab became the one shown, or stopped being it
     else if (recoloured) recolor(view); // redraws its pixels too (a new picture: already in its fresh surface)
     if (!changed) return false;

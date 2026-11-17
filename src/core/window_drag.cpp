@@ -122,6 +122,7 @@ void follow(WindowScene& preview, const WindowDrag& d)
         if (p.key.rfind(prefix, 0) != 0) continue;
         shift(p.frame);
         shift(p.hitFrame);
+        p.carried = true;
         if (p.listRow) shift(*p.listRow);
     }
     shift(now->frame);
