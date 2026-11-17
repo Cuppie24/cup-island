@@ -114,7 +114,6 @@ private:
     Look glassLook_ = Look::Plain; // how its brightness is kept in hand (glass.h)
     Darken darkenBuilt_;           // ...Darkened with these (glassDarken*): made again when they change
     wuc::CompositionBrush glassMask_{ nullptr }, glassLuminosity_{ nullptr };
-    float softnessBuilt_ = 0;      // the mask softened by this (glassEdgeSoftness, decision 133): made again when it changes
     // The brightness colour, painted on a little surface: the one kind of
     // colour input Windows takes into the effect. Repainted (not faded) when it changes.
     wuc::CompositionDrawingSurface luminosity_{ nullptr };

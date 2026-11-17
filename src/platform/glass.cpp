@@ -170,44 +170,6 @@ Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush co
     }
 }
 
-wuc::CompositionBrush softenedMask(wuc::Compositor const& compositor, wuc::CompositionBrush const& mask, float softness)
-{
-    if (softness <= 0) return mask;
-    // Direct2D's Gaussian blur by index: standard deviation, optimization,
-    // border mode. Windows refused Quality optimization (0x80004002, decision
-    // 133), so each guess in turn, Win2D's defaults first (Balanced, Soft:
-    // the mask's edge fades out past its bounds, where it's clear anyway);
-    // the log says which one Windows took, or each step it refused.
-    struct Try {
-        const char* what;
-        std::vector<winrt::Windows::Foundation::IInspectable> properties;
-    };
-    const Try tries[] = {
-        { "balanced", { PropertyValue::CreateSingle(softness), PropertyValue::CreateUInt32(D2D1_GAUSSIANBLUR_OPTIMIZATION_BALANCED),
-                        PropertyValue::CreateUInt32(D2D1_BORDER_MODE_SOFT) } },
-        { "speed", { PropertyValue::CreateSingle(softness), PropertyValue::CreateUInt32(D2D1_GAUSSIANBLUR_OPTIMIZATION_SPEED),
-                     PropertyValue::CreateUInt32(D2D1_BORDER_MODE_SOFT) } },
-        { "amount only", { PropertyValue::CreateSingle(softness) } },
-    };
-    for (const Try& attempt : tries) {
-        const char* step = "factory";
-        try {
-            auto effect = makeEffect(L"Soft", CLSID_D2D1GaussianBlur, { CompositionEffectSourceParameter(L"Mask") }, attempt.properties);
-            auto factory = compositor.CreateEffectFactory(effect);
-            step = "brush";
-            auto brush = factory.CreateBrush();
-            step = "mask";
-            brush.SetSourceParameter(L"Mask", mask);
-            logLine("glass: the cut is softened (%s)", attempt.what);
-            return brush;
-        } catch (winrt::hresult_error const& e) {
-            logLine("glass: no blur for the cut, %s (%s: 0x%08lx)", attempt.what, step, static_cast<unsigned long>(e.code()));
-        }
-    }
-    logLine("glass: the cut stays hard");
-    return mask;
-}
-
 bool transparencyOn()
 {
     try {

@@ -37,13 +37,6 @@ struct Glass {
 Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush const& mask, wuc::CompositionBrush const& luminosity,
                      Darken darkening);
 
-// `mask` blurred by `softness` px, for maskedBackdrop: the snapshot's curves
-// come out hard-stepped, and a cut by them stair-stepped the glass round the
-// island's antialiased corners (decision 133). A blur brush of its own,
-// chained, since Windows takes no nested effect (decision 100). `mask` itself
-// if softness is 0 or Windows refuses the blur (logged).
-wuc::CompositionBrush softenedMask(wuc::Compositor const& compositor, wuc::CompositionBrush const& mask, float softness);
-
 // Windows' "Transparency effects" (Personalisation > Colours). Off, glass is
 // drawn solid, as Windows draws its own; on where it can't be read.
 bool transparencyOn();
