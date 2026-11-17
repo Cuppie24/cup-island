@@ -20,6 +20,10 @@ concurrency:
 jobs:
   windows:
     runs-on: windows-latest
+    env:
+      # The compiler cache (decision 146): sccache keeps compiles in GitHub's Actions cache.
+      SCCACHE_GHA_ENABLED: "true"
+      CUP_SCCACHE: "1" # build.ps1 uses it
     defaults:
       run:
         shell: pwsh
@@ -27,6 +31,9 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # tags, for the version (git describe)
+
+      - name: Set up the compiler cache
+        uses: mozilla-actions/sccache-action@v0.0.9
 
       - name: Build and test
         run: ./build.ps1 -Test

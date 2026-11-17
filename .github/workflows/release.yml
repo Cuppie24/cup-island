@@ -39,6 +39,9 @@ jobs:
     env:
       VERSION: ${{ inputs.version }} # read as $env:VERSION, never pasted into a script
       MANDATORY: ${{ inputs.mandatory }}
+      # The compiler cache (decision 146): main's compiles, kept by the Build workflow's runs on main.
+      SCCACHE_GHA_ENABLED: "true"
+      CUP_SCCACHE: "1" # build.ps1 uses it
     defaults:
       run:
         shell: pwsh
@@ -65,6 +68,9 @@ jobs:
               Write-Host "::warning::${env:VERSION} is lower than v${highest}: installed copies will move back to it."
           }
           Write-Host "Releasing ${env:VERSION} (highest so far: ${highest})"
+
+      - name: Set up the compiler cache
+        uses: mozilla-actions/sccache-action@v0.0.9
 
       - name: Install Inno Setup
         run: |
