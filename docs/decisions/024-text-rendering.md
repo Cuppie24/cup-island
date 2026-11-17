@@ -40,7 +40,8 @@ transparent Composition surfaces. Three problems showed up on screen:
 - **Rendering** (`graphics_device.cpp`):
   - Grayscale antialiasing: the surfaces are transparent, so ClearType can't apply.
   - DirectWrite's NATURAL mode, which smooths horizontally only, so
-    horizontal strokes stay sharp.
+    horizontal strokes stay sharp. (Superseded by decision 154:
+    NATURAL_SYMMETRIC, smoothed both ways.)
   - The user's own gamma.
   - Grayscale enhanced contrast from `textContrast` (1.5; Windows' usual is
     1), which darkens the antialiased edges so strokes look fuller. The

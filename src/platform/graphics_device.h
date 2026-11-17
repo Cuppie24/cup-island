@@ -22,7 +22,7 @@ public:
     // Returns false if the GPU was lost: the device is rebuilt, and the
     // caller should redraw every surface (they all lost their pixels).
     // `bigText`: its text is big (a timer), drawn as smooth outlines rather
-    // than with small text's crisp horizontal-only smoothing (decision 107).
+    // than with small text's pixel-row-snapped hinting (decisions 107, 154).
     bool draw(wuc::CompositionDrawingSurface const& surface, const std::function<void(ID2D1DeviceContext*)>& paint, bool bigText = false);
 
     IDWriteFactory* dwrite() const { return dwrite_.get(); }
