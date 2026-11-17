@@ -209,6 +209,42 @@ void tallRowTests()
     expect(previewAt(upTop + upHeight * 0.25f).index == 0, "over its top half as shown: before it again");
 }
 
+// Groups side by side (a wide window): the bigger one, held by its handle at its top, dragged right
+// over the smaller one goes after it once past its middle, left to right; in the room it leaves,
+// nothing changes; back over the smaller one's left half, before it again.
+void sideBySideTests()
+{
+    OpenWindow w = board();
+    auto& sections = w.content.pages[0].sections;
+    for (int r = 3; r < 10; ++r) sections[0].rows.push_back(Row{ .items = { Text{ "More " + std::to_string(r) } }, .moveAction = "row.0." + std::to_string(r) });
+    WindowScene s = laid(w); // 1400 wide: two columns
+    const Movable* big = movable(s, "move.g0");
+    const Movable* small = movable(s, "move.g1");
+    expect(big && small && small->frame.y == big->frame.y && small->frame.x > big->frame.x && big->frame.height > 2 * small->frame.height,
+           "side by side: the bigger group left of the smaller one");
+    WindowDrag d = startDrag(s, *big, inWindow(s, { big->frame.x + big->frame.width / 2, big->frame.y + 4 }));
+    DropTarget t = origin(d);
+    auto previewAt = [&](float x) {
+        d.at.x = x;
+        t = dropTarget(s, d, t);
+        OpenWindow preview = w;
+        preview.content = withMove(w.content, "p", d, t);
+        s = laid(preview);
+        follow(s, d);
+        return t.index;
+    };
+    float smallLeft = small->frame.x, smallWidth = small->frame.width;
+    expect(previewAt(smallLeft + smallWidth * 0.25f) == 0, "over the smaller one's left half: still before it");
+    expect(previewAt(smallLeft + smallWidth * 0.75f) == 1, "past its middle: after it, the smaller one moves left");
+    const Movable* moved = movable(s, "move.g1");
+    expect(moved && moved->frame.x < smallLeft, "...shown on the left now");
+    float movedLeft = moved->frame.x, movedWidth = moved->frame.width;
+    expect(previewAt(movedLeft + movedWidth + 40) == 1 && previewAt(smallLeft + smallWidth * 0.5f) == 1,
+           "in the room the bigger one leaves: it stays");
+    expect(previewAt(movedLeft + movedWidth * 0.75f) == 1, "over the smaller one's right half: still after it");
+    expect(previewAt(movedLeft + movedWidth * 0.25f) == 0, "over its left half: before it again");
+}
+
 } // namespace
 
 void runWindowDragTests()
@@ -216,6 +252,7 @@ void runWindowDragTests()
     dragTests();
     tallCardTests();
     tallRowTests();
+    sideBySideTests();
 }
 
 } // namespace cup::test
