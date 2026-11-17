@@ -149,8 +149,8 @@ scroll. Alt's keys are Windows' (Alt+Space, Alt+F4).
 **Glass for windows**, a switch on Settings' Glass page ("Settings and
 other windows, like the island", on until turned off): while the island
 is glass (Glass on, Windows' transparency effects on), providers' windows
-are too. Windows 11's own acrylic for top-level windows
-(`DWMWA_SYSTEMBACKDROP_TYPE`, transient window) behind the whole window,
+are too. Windows 11's own acrylic for top-level windows (Mica since
+decision 155) (`DWMWA_SYSTEMBACKDROP_TYPE`, transient window) behind the whole window,
 DWM's frame extended over it so it shows, and the window's background
 over it see-through by `islandFill` at the Transparency pick (the plain
 blur's opacities: Windows' acrylic evens out what's behind). Light themes

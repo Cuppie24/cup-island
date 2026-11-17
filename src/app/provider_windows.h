@@ -44,7 +44,7 @@ void syncWindows();
 // Windows in a theme of their own (decision 150) are drawn with app::windowTokens().
 void refreshWindows();
 
-// Glass (decision 104): Windows' acrylic behind every window, now and as
+// Glass (decision 104): Windows' Mica behind every window (decision 155), now and as
 // they open. The app decides: Settings' Glass windows, with the island's glass on.
 void setWindowsGlass(bool on);
 

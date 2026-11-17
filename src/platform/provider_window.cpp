@@ -21,10 +21,12 @@ constexpr DWORD kImmersiveDarkMode = 20;
 // Windows' own backdrop behind a top-level window (DWMWA_SYSTEMBACKDROP_TYPE):
 // Windows 11 22H2 and later. Older builds refuse it, and the window stays solid.
 constexpr DWORD kSystemBackdropType = 38;
-constexpr int kBackdropNone = 1, kBackdropAcrylic = 3; // DWMSBT_NONE, DWMSBT_TRANSIENTWINDOW
+// Mica, not acrylic (decision 155): acrylic re-blurs what's behind on every
+// frame of a drag, minimize or maximize; Mica blurs the wallpaper once.
+constexpr int kBackdropNone = 1, kBackdropMica = 2; // DWMSBT_NONE, DWMSBT_MAINWINDOW
 constexpr DWORD kCloak = 13;                          // DWMWA_CLOAK: composed, not seen (Windows 8+)
 
-// A pale island (a light theme): Windows' light frame and acrylic, else its dark ones.
+// A pale island (a light theme): Windows' light frame and Mica, else its dark ones.
 BOOL lightTheme() { const Color& c = tokens().islandColor; return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b > 128 ? TRUE : FALSE; }
 
 void registerClass(HINSTANCE instance, WNDPROC proc)
@@ -300,12 +302,12 @@ void ProviderWindow::setFocusRing(std::optional<Rect> frame, float radius)
     focusLayer_.Children().InsertAtTop(ring);
 }
 
-// Glass (decision 104): Windows' acrylic behind the whole window, our
+// Glass (decisions 104, 155): Windows' Mica behind the whole window, our
 // background see-through over it as the island's is. Where Windows refuses
 // the backdrop (before 11 22H2), solid, as it was.
 void ProviderWindow::setGlass(bool on)
 {
-    int type = on ? kBackdropAcrylic : kBackdropNone;
+    int type = on ? kBackdropMica : kBackdropNone;
     bool took = SUCCEEDED(DwmSetWindowAttribute(hwnd_, kSystemBackdropType, &type, sizeof type));
     if (on && !took) logLine("a provider's window: Windows has no backdrop for it (before Windows 11 22H2): solid");
     glass_ = on && took;
@@ -327,9 +329,9 @@ void ProviderWindow::paintBackground()
 {
     const Tokens& t = tokens();
     BOOL dark = !lightTheme();
-    DwmSetWindowAttribute(hwnd_, kImmersiveDarkMode, &dark, sizeof dark); // a theme change: the acrylic's light or dark too
-    // Over Windows' own acrylic, which evens out what's behind as the island's
-    // plain blur doesn't: the plain blur's opacities (glassPlainOpacity...), at the Transparency pick.
+    DwmSetWindowAttribute(hwnd_, kImmersiveDarkMode, &dark, sizeof dark); // a theme change: Mica's light or dark too
+    // Over Windows' Mica, which evens out what's behind (the wallpaper) as the
+    // island's plain blur doesn't: the plain blur's opacities (glassPlainOpacity...), at the Transparency pick.
     Color fill = glass_ ? islandFill(t, t.islandColor, false) : t.islandColor;
     background_.Brush(compositor_.CreateColorBrush(toUiColor(fill)));
 }

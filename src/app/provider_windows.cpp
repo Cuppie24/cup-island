@@ -686,7 +686,7 @@ void setWindowsGlass(bool on)
 {
     if (on == g_glass) return;
     g_glass = on;
-    WindowColours colours; // light or dark acrylic, by the windows' own island colour
+    WindowColours colours; // light or dark Mica, by the windows' own island colour
     for (auto& [key, s] : g_shown) s->window->setGlass(on);
 }
 
