@@ -26,8 +26,7 @@ winrt::fire_and_forget SmtcReader::load()
         }
     } done{ this };
 
-    wmc::GlobalSystemMediaTransportControlsSessionMediaProperties properties{ nullptr };
-    NowPlaying media;
+    Properties properties{ nullptr };
     Ms began = loadStarted_;
     // Taken before the read: a properties event arriving during it (Spotify's
     // thumbnail, just after its title) stays set for the read that follows.
@@ -40,10 +39,14 @@ winrt::fire_and_forget SmtcReader::load()
     }
     co_await onReader(); // decision 060
     if (stopped_) co_return;
+    // Everything from here calls into the session, and its app can close it at
+    // any moment (Spotify quitting): any call can throw. Nothing may escape:
+    // out of a fire_and_forget it is a fail-fast, and the island vanished with
+    // nothing in the log (decision 158).
     try {
         if (failed) winrt::throw_hresult(*failed);
         if (session != session_) co_return; // another session is shown now: its read follows
-        media = readNowPlaying(properties, session.GetPlaybackInfo(), session.GetTimelineProperties(), out_.now());
+        showRead(session, properties, propertiesChanged, began);
     } catch (winrt::hresult_error const& e) {
         propertiesDirty_ = propertiesDirty_ || propertiesChanged; // not read: the next read still owes it
         // The app closed its session, or is mid-switch (Chrome changing tabs)
@@ -52,8 +55,14 @@ winrt::fire_and_forget SmtcReader::load()
             platform::logLine("media: read failed (0x%08x), retrying", static_cast<unsigned>(e.code()));
             refreshLater(tokens_.mediaSessionRecheck, false);
         }
-        co_return;
+    } catch (std::exception const& e) {
+        platform::logLine("media: error while reading (%s)", e.what());
     }
+}
+
+void SmtcReader::showRead(Session const& session, Properties const& properties, bool propertiesChanged, Ms began)
+{
+    NowPlaying media = readNowPlaying(properties, session.GetPlaybackInfo(), session.GetTimelineProperties(), out_.now());
     readFailures_ = 0;
     if (Ms took = out_.now() - began; took > Ms{ 250 })
         platform::logLine("media: read took %lld ms", static_cast<long long>(took.count()));

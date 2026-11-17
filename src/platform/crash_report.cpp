@@ -41,10 +41,17 @@ std::wstring messageOf(EVT_HANDLE event)
     return message;
 }
 
+// Windows writes its record of a fail-fast a few seconds after the process
+// ends (WerFault collects it first), and a quick restart looked before that:
+// "no crash record" for what was a crash (decision 158). So it looks again,
+// for a while. Fixed, not tokens: this runs before tokens.json is read.
+constexpr DWORD kRecordRetryMs = 2000;
+constexpr int kRecordTries = 15; // about 30 s
+
 // Windows' "Application Error" (a crash, fail-fasts included) and
 // "Application Hang" (closed while not responding) records for our exe
-// since the previous run started.
-void logWindowsRecords(unsigned long long since)
+// since the previous run started. Returns how many it logged; -1 if the log can't be read.
+int logWindowsRecordsOnce(unsigned long long since)
 {
     FILETIME fileTime{ static_cast<DWORD>(since), static_cast<DWORD>(since >> 32) };
     SYSTEMTIME t{};
@@ -57,7 +64,7 @@ void logWindowsRecords(unsigned long long since)
     EVT_HANDLE results = EvtQuery(nullptr, L"Application", query, EvtQueryChannelPath | EvtQueryForwardDirection);
     if (!results) {
         logLine("can't read Windows' Application event log (0x%08lx)", GetLastError());
-        return;
+        return -1;
     }
     int found = 0;
     EVT_HANDLE events[16];
@@ -72,9 +79,18 @@ void logWindowsRecords(unsigned long long since)
         }
     }
     EvtClose(results);
-    if (found == 0)
-        logLine("Windows has no crash record for it: it was ended from outside (Task Manager, sign-out, power loss) "
-                "or crashed without a report");
+    return found;
+}
+
+void logWindowsRecords(unsigned long long since)
+{
+    for (int attempt = 0; attempt < kRecordTries; ++attempt) {
+        if (attempt > 0) Sleep(kRecordRetryMs);
+        int found = logWindowsRecordsOnce(since);
+        if (found != 0) return; // logged, or the event log can't be read at all
+    }
+    logLine("Windows has no crash record for it: it was ended from outside (Task Manager, sign-out, power loss) "
+            "or crashed without a report");
 }
 
 } // namespace

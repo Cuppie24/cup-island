@@ -62,7 +62,8 @@ LONG WINAPI onUnhandledException(EXCEPTION_POINTERS* exception)
     return EXCEPTION_CONTINUE_SEARCH; // then Windows' own crash handling
 }
 
-// An exception escaping a noexcept function or a fire_and_forget coroutine ends up here.
+// An exception escaping a noexcept function ends up here. Not one leaving a
+// winrt::fire_and_forget: C++/WinRT fail-fasts on that, past this (decision 158).
 void onTerminate()
 {
     if (firstReport()) {

@@ -1,6 +1,6 @@
 # 013: A log file, hang and crash dumps, and a clean exit
 
-Status: Accepted
+Status: Accepted. Amended by 158: an exception leaving a `fire_and_forget` is a fail-fast, not `std::terminate`; and the next start looks for Windows' record for about 30 s.
 
 **Context.** Release builds have no console (decision 011), so problems
 reported from real use (the island freezing, Exit leaving the process
@@ -18,8 +18,9 @@ it needs the frozen thread's stack.
 - `platform/watchdog.h`: every 5 s a background thread sends the UI thread
   `WM_NULL` and waits 5 s for an answer. No answer: the log says HANG and a
   minidump of every thread goes next to the log, once per hang. Crashes and
-  `std::terminate` (an exception escaping a `fire_and_forget` coroutine)
-  log and dump too. This is the island's only periodic wake-up besides the
+  `std::terminate` log and dump too. (Not an exception leaving a
+  `fire_and_forget`: C++/WinRT fail-fasts on that, past every handler;
+  decision 158.) This is the island's only periodic wake-up besides the
   idle clock's: a cheap message every 5 s, never a data source polling (TR §8).
 - **Exit.** `main()` used to block on `ShutdownQueueAsync().get()` on the
   UI thread, but that shutdown completes *on* the UI thread: a deadlock, so
