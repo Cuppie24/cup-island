@@ -1,6 +1,7 @@
 // A window card's "…" menu and a window question's field (decision 142).
 
 #include "core/dialog.h"
+#include "core/tokens.h"
 #include "core/window_fields.h"
 #include "core/window_layout.h"
 #include "core/window_menu.h"
@@ -45,6 +46,19 @@ void menuTests()
     expect(more && std::get<Button>(more->item).glyph == Glyph::More, "a card with a menu: a … in its title row");
     expect(cardMenuOf(std::string(kWindowCardMenu) + "g1") == std::optional<std::string>("g1") && !cardMenuOf("rename.1"),
            "its action names the card; a provider's doesn't");
+    // Decision 145: its name is plain, so its header lights nothing, and the \u2026 is at the card's far end.
+    const Placed* name = nullptr;
+    const Placed* fill = nullptr;
+    bool headerLit = false;
+    for (const Placed& p : s.page) {
+        if (auto* t = std::get_if<Text>(&p.item); t && t->value == "Group 1") name = &p;
+        if (p.key == "card.g1/fill") fill = &p;
+        if (p.key.rfind("card.g1/title/", 0) == 0 && p.listRow) headerLit = true;
+    }
+    expect(name && fill && !headerLit, "a plain name's header: nothing on it lit under the pointer");
+    expect(more->frame.x + more->frame.width > fill->frame.x + fill->frame.width - 2 * tokens().windowCardPadding - tokens().smallButtonSize / 2 &&
+               more->frame.x > name->frame.x + measure(std::get<Text>(name->item)) + 100,
+           "...and its \u2026 at the card's far end, not beside the name");
     std::optional<Menu> menu = openCardMenu(w, "g1");
     expect(menu && menu->row == "g1" && menu->items.size() == 2 && !menu->lit && !openCardMenu(w, "nope"), "opened: the card's items");
     auto placed = placeWindowMenu(w, s, *menu, Ms{ 0 }, measure);
