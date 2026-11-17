@@ -26,13 +26,17 @@ public:
 
 private:
     void animate(bool in, float slide);
+    void applyShadow(); // toastShadowBlur, -Offset, -Color
 
     wuc::Compositor compositor_{ nullptr };
     wuc::ContainerVisual frame_{ nullptr };                   // still, clipped to the card
     wuc::ContainerVisual layer_{ nullptr };                   // slides and fades as one: the pill and its content
+    wuc::LayerVisual pillLayer_{ nullptr };                   // the pill, casting its shadow (decision 151)
+    wuc::DropShadow shadow_{ nullptr };
     wuc::ShapeVisual background_{ nullptr };
     wuc::CompositionRoundedRectangleGeometry shape_{ nullptr };
     wuc::CompositionColorBrush fill_{ nullptr };
+    wuc::CompositionColorBrush edge_{ nullptr }; // trackColor, as the menu's
     ElementVisuals elements_;
     bool shown_ = false;
     float slide_ = 0; // the shown one's: how far it goes back down
