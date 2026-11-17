@@ -371,14 +371,23 @@ void ProviderWindow::setHovered(const std::string& key, std::optional<std::size_
 
 void ProviderWindow::press(const std::string& key) { visualsFor(key).press(key); }
 
-void ProviderWindow::setGrabCursor(bool on)
+HCURSOR ProviderWindow::grabCursor() const
 {
-    if (on == grabCursor_) return;
-    grabCursor_ = on;
+    // The exe's own hands (cup_island.rc), at the system's cursor size; the move arrows if they can't load.
+    static const HCURSOR open = static_cast<HCURSOR>(LoadImageW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(2), IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE));
+    static const HCURSOR closed = static_cast<HCURSOR>(LoadImageW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(3), IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE));
+    HCURSOR hand = grab_ == Grab::Closed ? closed : open;
+    return hand ? hand : LoadCursorW(nullptr, IDC_SIZEALL);
+}
+
+void ProviderWindow::setGrabCursor(Grab grab)
+{
+    if (grab == grab_) return;
+    grab_ = grab;
     // Now, not at the next move: WM_SETCURSOR came before the move that changed it. Only while the
     // pointer is over this window's client area, where WM_SETCURSOR would show ours.
     POINT at{};
-    if (GetCursorPos(&at) && WindowFromPoint(at) == hwnd_) SetCursor(LoadCursorW(nullptr, on ? IDC_SIZEALL : IDC_ARROW));
+    if (GetCursorPos(&at) && WindowFromPoint(at) == hwnd_) SetCursor(grab == Grab::None ? LoadCursorW(nullptr, IDC_ARROW) : grabCursor());
 }
 void ProviderWindow::release(const std::string& key) { visualsFor(key).release(key); }
 

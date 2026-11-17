@@ -268,7 +268,8 @@ if(WIN32)
         src/providers/update/github.cpp
     )
     # The icon isn't an #include, so the build doesn't see it change on its own.
-    set_source_files_properties(assets/cup_island.rc PROPERTIES OBJECT_DEPENDS ${CMAKE_SOURCE_DIR}/assets/cup_island.ico)
+    set_source_files_properties(assets/cup_island.rc PROPERTIES OBJECT_DEPENDS
+        "${CMAKE_SOURCE_DIR}/assets/cup_island.ico;${CMAKE_SOURCE_DIR}/assets/grab.cur;${CMAKE_SOURCE_DIR}/assets/grabbing.cur")
     target_include_directories(CupIsland PRIVATE "${CMAKE_BINARY_DIR}/generated") # cup_version.h, for the code and the .rc
     target_link_libraries(CupIsland PRIVATE cup_providers WindowsApp CoreMessaging User32 Advapi32 Ole32 Dbghelp d3d11 d2d1 dxguid dwrite dxgi dwmapi shell32 Shcore wevtapi)
     # Release: a GUI app, no console window (quit from the tray icon). Debug keeps

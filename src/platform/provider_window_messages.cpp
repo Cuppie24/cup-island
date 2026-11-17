@@ -97,9 +97,9 @@ LRESULT ProviderWindow::handle(UINT message, WPARAM wParam, LPARAM lParam)
         return 0;
     case WM_ERASEBKGND:
         return 1; // Composition draws all of it
-    case WM_SETCURSOR: // over what drags a card, or carrying one: the move cursor (decision 143)
-        if (LOWORD(lParam) == HTCLIENT && grabCursor_) {
-            SetCursor(LoadCursorW(nullptr, IDC_SIZEALL));
+    case WM_SETCURSOR: // over what drags a card, or carrying one: a hand (decisions 143, 144)
+        if (LOWORD(lParam) == HTCLIENT && grab_ != Grab::None) {
+            SetCursor(grabCursor());
             return TRUE;
         }
         break;
