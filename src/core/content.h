@@ -130,6 +130,9 @@ struct Button {
     std::optional<bool> on; // toggles only (shuffle, repeat): on a soft pill when on, dimmed when off (decision 094)
     std::string label;      // a text button ("Clear all") instead of the glyph; as wide as its text
     bool compact = false;   // smallButtonSize: list rows (a to-do's checkbox), not main controls. Not "small": windows.h #defines it
+    // Compact, but lowButtonHeight tall: a whole-row button lower than the rows under it, its glyph
+    // still where theirs are ("+ Add task", decision 141).
+    bool low = false;
     bool large = false;     // largeButtonSize, a bigger glyph: a card's main controls beside its ▶ (media's skips, decision 107)
     bool revealOnHover = false; // hidden until the pointer is on its row: a list item's delete (decision 020)
     bool revealWithSlot = false; // hidden until the pointer is anywhere on its slot: a window card's drag handle (decision 129)

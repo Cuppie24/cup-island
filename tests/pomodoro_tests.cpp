@@ -291,6 +291,15 @@ void windowTests()
     const Placed* task = textIn(page, "Write the report");
     expect(task && std::get<Text>(task->item).editAction == inGroup(1, std::string(todo_action::kEdit) + "1"), "added: in its group, edited in place");
     expect(writingField(page) && !focusArrived(typing, page) && typing.draft, "...and the row stays, for the next one");
+    {
+        // "+ Add task" is lower than a task's row, its + right over the tasks' boxes (decision 141).
+        const Placed* plus = buttonIn(page, writeTask);
+        const Placed* tick = buttonIn(page, inGroup(1, std::string(todo_action::kToggle) + "1"));
+        const Tokens& tk = tokens();
+        expect(plus && tick && plus->frame.height == tk.lowButtonHeight && tick->frame.height == tk.smallButtonSize &&
+                   plus->frame.height < tick->frame.height && plus->frame.x == tick->frame.x && plus->frame.width == tick->frame.width,
+               "Add task: a lower row than a task's, its + where their boxes are");
+    }
     // Written, it's drawn as the task it adds (decision 125): a task row's height, a box, no field box.
     WindowScene written = windowLayout(*island.window(), { 1000, 2000 }, 0, island.now, {}, &typing);
     const Placed *addField = writingField(written), *box = buttonIn(written, inGroup(1, std::string(todo_action::kToggle) + "1"));

@@ -107,7 +107,9 @@ float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& m
     if (std::holds_alternative<Switch>(item)) return t.switchSize.y;
     if (std::holds_alternative<Tag>(item)) return t.tagHeight;
     if (auto* button = std::get_if<Button>(&item))
-        return button->primary ? primarySize(*button) : button->large ? t.largeButtonSize : button->compact ? t.smallButtonSize : t.buttonSize;
+        return button->primary ? primarySize(*button) : button->large ? t.largeButtonSize
+                                                     : button->compact ? (button->low ? t.lowButtonHeight : t.smallButtonSize)
+                                                                       : t.buttonSize;
     // A field that reads as a button ("+ Add task", TextInput::icon): iconFieldHeight, a low row (decisions 123, 124).
     if (auto* input = std::get_if<TextInput>(&item)) {
         if (input->focused && input->focusedIcon) return t.smallButtonSize; // the row it adds, written: a row's height (decision 125)
