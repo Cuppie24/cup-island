@@ -28,6 +28,8 @@
 //            close-window <provider> <id>  pick-page <provider> <id> <page>  stop-provider <provider>
 //                                                                    (providers' windows, decision 104: open-window's pages are
 //                                                                     a, b, c; update-window's are pages=, default a)
+//            publish-commands <provider> <id,id...>  run-command <caller> <provider> <id>
+//                                                                    (providers' commands, decision 154; stop-provider removes them)
 //            tabrow top|bottom                                                       (Settings' Tab row, decision 048)
 //            ask <card>  close-dialog                                               (a provider's dialog, decision 020)
 //            toast <card>  toast-acted                                              (a provider's toast, decision 071)
@@ -46,9 +48,11 @@
 //                     toast=<card>|none  new=<panel>,<panel>|none (widgets saying "New", decision 110)
 //                     menu=<card>/<row>|none  lit=<item>|none   (the island's open menu, and its lit item)
 //                     windows=<provider/id,...>|none  front=<provider/id>|none  page=<provider/id>:<page>  opened=<result>
+//                     commands=<provider/id,...>|none  ran=<run-command result>
 //                     (opened: what the last open-window got: opened, raised, notnow, toomany, badid)
 // Levels: passive active timeSensitive critical.  '#' starts a comment.
 
+#include "core/commands.h"
 #include "core/island.h"
 #include "core/open_windows.h"
 #include "core/lift.h"
@@ -110,6 +114,8 @@ struct Runner {
     IslandState state;
     Windows windows; // beside the island, as the registry keeps them (decision 104)
     std::string opened = "none";
+    Commands commands;  // beside it too (decision 154)
+    std::string ran = "none";
     Ms now{ 0 };
 
     static WindowContent pages(const std::string& ids)
@@ -274,7 +280,20 @@ struct Runner {
         else if (cmd == "update-window") updateWindow(windows, { arg(1), arg(2) }, pages(option(arg(3), "pages").value_or("a")));
         else if (cmd == "close-window") closeWindow(windows, { arg(1), arg(2) });
         else if (cmd == "pick-page") showPage(windows, { arg(1), arg(2) }, arg(3));
-        else if (cmd == "stop-provider") closeProviderWindows(windows, arg(1));
+        else if (cmd == "stop-provider") {
+            closeProviderWindows(windows, arg(1));
+            removeCommands(commands, arg(1));
+        }
+        else if (cmd == "publish-commands") {
+            std::vector<CommandSpec> list;
+            std::stringstream ids(arg(2));
+            for (std::string id; std::getline(ids, id, ',');) list.push_back({ .id = id, .title = id });
+            publishCommands(commands, arg(1), std::move(list));
+        }
+        else if (cmd == "run-command") {
+            static const char* names[] = { "ran", "notnow", "unknown", "own", "notallowed" };
+            ran = names[static_cast<int>(runCommand(commands, windows, arg(1), arg(2), arg(3), now))];
+        }
         else if (cmd == "tabrow") apply(TabRowPlaced{ arg(1) != "bottom" });
         else if (cmd == "edit") apply(InputFocused{ "p", arg(1), arg(2), arg(3), /* editing */ true, at(4) });
         else if (cmd == "wheel") apply(ListScrolled{ arg(1), arg(2), std::stof(arg(3)), std::stof(arg(4)), std::stof(arg(5)) });
@@ -334,6 +353,12 @@ struct Runner {
                 for (const OpenWindow& o : windows.open)
                     if (o.key.providerId + "/" + o.key.windowId == key) got = o.page;
                 if (key + ":" + got != *v) fail("page=" + *v + ", got " + got);
+            } else if (auto v = option(word, "ran")) {
+                if (ran != *v) fail("ran=" + *v + ", got " + ran);
+            } else if (auto v = option(word, "commands")) {
+                std::vector<std::string> listed;
+                for (const PublishedCommand& c : listCommands(commands, "")) listed.push_back(c.providerId + "/" + c.spec.id);
+                if (joined(listed) != *v) fail("commands=" + *v + ", got " + joined(listed));
             } else if (auto v = option(word, "opened")) {
                 if (opened != *v) fail("opened=" + *v + ", got " + opened);
             } else if (auto v = option(word, "squash")) {

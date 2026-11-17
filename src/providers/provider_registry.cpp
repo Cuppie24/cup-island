@@ -117,9 +117,8 @@ public:
     void callService(const std::string& method, const std::string& params, std::function<void(ServiceReply)> done) override
     {
         std::string module = method.substr(0, method.find('.'));
-        auto granted = registry_.grants_.find(providerId_);
-        bool allowed = method.find('.') != std::string::npos && granted != registry_.grants_.end() &&
-                       std::find(granted->second.begin(), granted->second.end(), module) != granted->second.end();
+        bool allowed = method.find('.') != std::string::npos && module != kCommandsGrant && // the host's, not the service's
+                       registry_.granted(providerId_, module);
         if (!allowed) {
             done({ ServiceReply::Problem::NotAllowed, {} });
             return;
@@ -132,6 +131,29 @@ public:
         registry_.serviceCaller_(method, params, [this, done = std::move(done)](ServiceReply reply) {
             if (registry_.isRunning(providerId_)) done(std::move(reply));
         });
+    }
+
+    void publishCommands(std::vector<CommandSpec> commands) override
+    {
+        cup::publishCommands(registry_.commands_, providerId_, std::move(commands));
+    }
+
+    std::vector<PublishedCommand> listCommands() const override
+    {
+        if (!registry_.granted(providerId_, kCommandsGrant)) return {};
+        return cup::listCommands(registry_.commands_, providerId_);
+    }
+
+    CommandRun runCommand(const std::string& providerId, const std::string& commandId) override
+    {
+        if (!registry_.granted(providerId_, kCommandsGrant)) return CommandRun::NotAllowed;
+        CommandRun run = cup::runCommand(registry_.commands_, registry_.windows_, providerId_, providerId, commandId, registry_.clock_());
+        if (run != CommandRun::Ran) return run;
+        // Copied first: the owner may publish a new list while it handles it.
+        const CommandSpec* spec = findCommand(registry_.commands_, providerId, commandId);
+        Action action{ providerId, spec->activityId, spec->id };
+        registry_.route(action); // the owner's own action, as its button sends it
+        return run;
     }
 
 private:
@@ -175,6 +197,7 @@ void ProviderRegistry::stop(const std::string& providerId)
         e->running = false;
         e->wake.reset();
         e->provider->stop();
+        removeCommands(commands_, providerId); // nothing runs on a stopped provider
         if (!closeProviderWindows(windows_, providerId).empty()) windowsChanged(); // its windows go with it
     }
 }
@@ -261,6 +284,12 @@ void ProviderRegistry::wakeDue(Ms now)
         e.wake.reset(); // before onWake(), which may ask for the next one
         e.provider->onWake();
     }
+}
+
+bool ProviderRegistry::granted(const std::string& providerId, const std::string& module) const
+{
+    auto it = grants_.find(providerId);
+    return it != grants_.end() && std::find(it->second.begin(), it->second.end(), module) != it->second.end();
 }
 
 ProviderRegistry::Entry* ProviderRegistry::find(const std::string& providerId)

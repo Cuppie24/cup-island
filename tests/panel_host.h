@@ -34,6 +34,8 @@ struct PanelHost : Host {
     std::string load(const std::string& key) const override { auto it = store.find(key); return it == store.end() ? "" : it->second; }
     void save(const std::string& key, const std::string& text) override { store[key] = text; ++saves[key]; }
     Ms wallClock() const override { return clock; }
+    std::vector<CommandSpec> commands; // the last list published (decision 154)
+    void publishCommands(std::vector<CommandSpec> list) override { commands = std::move(list); }
 
     // Its window (decision 104): the last content sent while it's open.
     std::optional<WindowContent> window;

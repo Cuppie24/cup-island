@@ -1,6 +1,7 @@
 # 154: Providers' commands, run from Search and from Windows search
 
-Status: Proposed. Nothing built yet.
+Status: Proposed. The host side is built and tested (below); Search's rows,
+`showsCard` and the Start menu are not yet.
 
 **Context.** Providers can do things that are useful from anywhere, without
 opening their card first: switch the Windows theme, open Pomodoro's window,
@@ -21,21 +22,25 @@ stand in the way:
 **Decision.**
 - **Commands are the host's, like panels** (decision 009). A provider
   publishes its list, `Host::publishCommands(std::vector<CommandSpec>)`:
-  each with an id, a title ("Pause the timer"), keywords, an icon, and
-  whether it may go into the Start menu (`exportable`). Each call replaces
+  each with an id, a title ("Pause the timer"), keywords, an icon, the card
+  its button is on, and (with the Start menu) whether it may go there
+  (`exportable`). Each call replaces
   the provider's previous list, so it lists only what applies now ("Pause"
   while running, "Resume" while paused). The registry keeps the lists,
   stamped with the provider's id; at most `commandsPerProvider` (tokens).
   Ids: letters, digits, `-`, `_`, `.`, as windows' (decision 104).
 - **Running one is an `Action`.** The registry sends the owner
-  `Action{providerId, actionId = command id}`, the same action its button
+  `Action{providerId, spec.activityId, actionId = command id}`, the same action its button
   sends, so a provider needs no second code path and never learns who ran it.
 - **Search reads them through the host, by grant**, as it reads files
   (decision 078): `ProviderRegistry::grant("search", "commands")` allows
-  `Host::findCommands(query)` and `Host::runCommand(ref)`. Without the
-  grant both refuse. Search shows them as rows among its results; it never
-  reaches Pomodoro, and Pomodoro never reaches it. Matching and ranking are
-  pure, in `core/commands.h`, tested on Linux. Plugins (PS §8, Tier 2)
+  `Host::listCommands()` and `Host::runCommand(provider, command)`. Without
+  the grant, nothing is listed and every run is refused; the grant is the
+  host's, never a service module. Search shows them as rows among its
+  results; it never reaches Pomodoro, and Pomodoro never reaches it. The
+  host lists them all and Search ranks them with its own scorer (decision
+  077), so a command and an app are matched alike. The rules are pure, in
+  `core/commands.h`, tested on Linux. Plugins (PS §8, Tier 2)
   publish the same way: no back doors (PS §1, rule 3).
 - **A command passes the user's gesture to its owner.** Running one counts
   as the user acting on the owning provider: its `windowOpenGrace` starts,
@@ -45,8 +50,9 @@ stand in the way:
     right after the user acted on it. Search can run a command after a
     click or Enter, never from a wake-up, a timer or a service reply.
   - A provider can't run its own commands through it (it needs no host for that).
-  - One gesture, one command: running it uses up the caller's grace, so a
-    command can't start a chain of windows.
+  - One gesture, one command: the user action a run used can't run
+    another, so a click can't start a chain of windows. The caller keeps
+    its own grace for its own windows.
 - **A command that asks asks in its own provider's place.** It opens its
   window (the gesture allows it) and asks there with `Dialog::windowId`
   (decision 122), as Pomodoro's stop does in its window (decision 126). A
@@ -83,12 +89,16 @@ stand in the way:
 - Search is one place that shows commands, not the one they depend on: off,
   they still run from the Start menu. Rebindable hotkeys for commands
   (decision 032's table) would be one more such place, later.
-- New Host calls (`publishCommands`, `findCommands`, `runCommand`), a grant,
-  and the hand-over of the gesture, in `ProviderRegistry`. Rules in
-  `tests/scenarios/` and `tests/provider_tests.cpp`: a command run right
-  after a click opens its window; one run from a wake-up is refused; one
-  without the grant is refused; a `showsCard` command's question lands over
-  its own card.
+- New Host calls (`publishCommands`, `listCommands`, `runCommand`), the
+  `commands` grant, and the hand-over of the gesture, in `ProviderRegistry`.
+  Rules in `tests/scenarios/commands.scenario`; the registry and the real
+  providers in `tests/command_tests.cpp`: a command run right after a click
+  opens its window; one run from a wake-up, or without the grant, is refused.
+- The first commands, each its provider's own button's action: "Cup Island
+  settings" (Settings' widget tap), "Switch Windows to dark mode" / "...to
+  light mode" (the theme tile's tap, named for the mode it switches to, none
+  when the mode can't be read), "Open the Pomodoro timer" (the card's expand
+  button). Nothing runs them until Search lists them.
 - Built in steps, a branch each: the host side (this), Search's rows, then
   the Start menu export.
 

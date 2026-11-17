@@ -35,7 +35,7 @@ So "why did X happen?" is always answered in `core/`, by a scenario test.
 
 ```
 src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (what providers show), layout.h, dialog.h + toast.h (a card's question and note, decisions 020, 071)
-                (+ slot_layout.h), split.h, tabs.h, home.h, hit_test.h, provider.h (Provider/Host API),
+                (+ slot_layout.h), split.h, tabs.h, home.h, hit_test.h, provider.h (Provider/Host API), commands.h (providers' commands: who published what, when one may run, decision 154),
                 lift.h + placement.h (moving the island along the top edge, decision 026),
                 keyboard.h (arrow, Tab and digit focus, decisions 031, 033) + shortcuts.h (the shortcut table, decision 031)
                 + double_tap.h (Double Ctrl, decision 079),
@@ -118,6 +118,13 @@ A provider can also publish **panels** (decision 009): always-available
 entries shown as widgets on Expanded's Home, not ranked into the pill.
 Widgets only inform (decision 019): no buttons; a click opens the card. Starting
 an activity with a panel's id makes it live; ending it makes it dormant again.
+A provider can publish **commands** (decision 154): things it does from
+anywhere ("Open the Pomodoro timer"), each the action of one of its own
+buttons. The registry keeps them (`core/commands.h`); a provider granted
+`commands` (Search) lists them and runs one for the user, right after the
+user acted on it, and the owner gets its own action and may open its window.
+Neither knows the other.
+
 Providers that change on a schedule ask `Host::wakeAt` and get `onWake()`.
 Ctrl+W on an activity's card calls `onCloseRequested()`: the provider ends
 it, asks first, or ignores it (the default; decision 034).
@@ -228,7 +235,7 @@ over the file's, so `tokens()` is always what's on screen.
   format is documented at the top of `tests/scenario_runner.cpp`.
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing), `list_card_tests.cpp` (Settings' List card), `group_tests.cpp` (grouped rows), `badge_tests.cpp` (notification dots),
   `home_tests.cpp` (tiles, Home tab, idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
-  `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop), `pomodoro_stats_tests.cpp` (statistics, days off),
+  `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop), `command_tests.cpp` (providers' commands through the registry), `pomodoro_stats_tests.cpp` (statistics, days off),
   `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end, on a fixture card: `todo_card_fixture.h`), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install), `window_tests.cpp` (where a window opens; the registry between providers and their windows), `window_field_tests.cpp` (typing in a window, decision 105).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
@@ -261,6 +268,7 @@ over the file's, so `tokens()` is always what's on screen.
 | Search card (decisions 077, 079): apps, Settings pages, Control Panel, files; live field; Double Ctrl; launch history | rules tested; the hook, the shell folders, launching and the look need a Windows run |
 | Providers reach the service only through the host, by granted module (decision 078) | done; tested |
 | Providers' windows (decision 104, replacing 081's floating cards): the Host API, `WindowContent`, which are open, when one may open, placement, layout; Settings in a window | core, registry, layout and Settings tested; the Windows window compiles in CI, needs a Windows run (resizing above all). Keyboard navigation and glass for windows (decision 104) tested in core; the look needs a run. Fluid layout (084) is proposed |
+| Providers' commands (decision 154): `Host::publishCommands`, listing and running them by grant, the gesture passed to the owner; Settings, the theme switch and Pomodoro's window as the first | host side tested; nothing lists them until Search's rows |
 | Text fields in windows (decision 105): focus, typing, Enter, live fields, edit in place, kept text, clipboard | core tested; the Windows side compiles in CI, needs a run |
 | Hover waits for a real pointer move after a card opens or a key is pressed (decision 087) | done; needs a Windows run |
 | Row context menus (decision 086): search's results (Open, Run as administrator, Reveal, Terminal, Copy, Copy path, Remove from history, App settings, Uninstall, Properties), each with a shortcut; right-click, Right or the › | rules tested; drawing, input and the Windows hooks compile in CI, need a Windows run |

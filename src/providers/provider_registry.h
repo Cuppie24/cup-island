@@ -40,6 +40,8 @@ public:
                                              std::function<void(ServiceReply)> done)>;
     void setServiceCaller(ServiceCaller caller) { serviceCaller_ = std::move(caller); }
     void grant(const std::string& providerId, const std::string& module);
+    // Not a service module but the host's (decision 154): Host::listCommands and runCommand.
+    static constexpr const char* kCommandsGrant = "commands";
     void start(const std::string& providerId);
     void stop(const std::string& providerId);
     bool isRunning(const std::string& providerId) const;
@@ -67,6 +69,9 @@ public:
     // Windows' toasts whose time is up go (decision 121): the windows' own timers call it.
     void expireWindowToasts(Ms now);
 
+    // What providers published with Host::publishCommands (decision 154).
+    const Commands& commands() const { return commands_; }
+
     // Wake-ups providers asked for (Host::wakeAt): the earliest, for the app's
     // one timer, and calling onWake() on every provider whose time has come.
     std::optional<Ms> nextWake() const;
@@ -82,6 +87,7 @@ private:
     };
     Entry* find(const std::string& providerId);
     const Entry* find(const std::string& providerId) const;
+    bool granted(const std::string& providerId, const std::string& module) const;
 
     Dispatch dispatch_;
     Clock clock_;
@@ -91,6 +97,7 @@ private:
     std::map<std::string, std::vector<std::string>> grants_; // provider -> modules
     std::vector<Entry> entries_;
     Windows windows_;
+    Commands commands_;
     std::function<void()> windowsChanged_;
     void windowsChanged() const
     {

@@ -14,16 +14,17 @@ OpenWindow* find(Windows& w, const WindowKey& key)
     return nullptr;
 }
 
+} // namespace
+
 // Decision 104: a provider shows a window only right after the user acted
 // on it, so no window (and no focus) is taken by surprise, from a built-in
 // or a plugin alike (PS §9: providers can't take keyboard focus).
-bool mayOpen(const Windows& w, const std::string& providerId, Ms now)
+std::optional<Ms> justActed(const Windows& w, const std::string& providerId, Ms now)
 {
     auto it = w.actedAt.find(providerId);
-    return it != w.actedAt.end() && now >= it->second && now - it->second <= tokens().windowOpenGrace;
+    if (it == w.actedAt.end() || now < it->second || now - it->second > tokens().windowOpenGrace) return std::nullopt;
+    return it->second;
 }
-
-} // namespace
 
 std::string pageOrFirst(const WindowContent& content, const std::string& wanted)
 {
@@ -37,7 +38,7 @@ void userActed(Windows& w, const std::string& providerId, Ms now) { w.actedAt[pr
 WindowOpen openWindow(Windows& w, const std::string& providerId, const WindowSpec& spec, WindowContent content, Ms now)
 {
     if (!validWindowId(spec.id)) return WindowOpen::BadId;
-    if (!mayOpen(w, providerId, now)) return WindowOpen::NotNow;
+    if (!justActed(w, providerId, now)) return WindowOpen::NotNow;
     WindowKey key{ providerId, spec.id };
     if (OpenWindow* o = find(w, key)) {
         o->spec = spec;

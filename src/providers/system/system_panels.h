@@ -11,7 +11,8 @@
 
 namespace cup {
 
-// Windows' light/dark mode (apps and system together), as a toggle tile.
+// Windows' light/dark mode (apps and system together), as a toggle tile
+// and a command that does what the tile's tap does.
 class ThemePresenter {
 public:
     explicit ThemePresenter(Host& host) : host_(host) {}
@@ -26,5 +27,7 @@ private:
 
 // Content, pure.
 Panel themePanel(bool dark);
+// The switch as a command (decision 154): named for the mode it switches to.
+CommandSpec themeCommand(bool dark);
 
 } // namespace cup

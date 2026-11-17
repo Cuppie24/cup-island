@@ -25,6 +25,16 @@ void runSystemTests()
     theme.show(false);
     expect(th.published.size() == 2 && leadGlyph(th.published.back()) == Glyph::Sun && textAt(th.published.back(), 0, 0) == "Light",
            "light: the sun");
+
+    // ...and as a command (decision 154): the tile's own tap, named for the mode it switches to.
+    expect(th.commands.size() == 1 && th.commands[0].id == ThemePresenter::kToggle &&
+               th.commands[0].activityId == ThemePresenter::kPanelId && th.commands[0].title == "Switch Windows to dark mode",
+           "light: a command to switch to dark, sending the tile's action");
+    theme.show(true);
+    expect(th.commands.size() == 1 && th.commands[0].title == "Switch Windows to light mode" && th.commands[0].glyph == Glyph::Sun,
+           "dark: to light");
+    theme.show(std::nullopt);
+    expect(th.commands.empty(), "can't tell the mode: no command, as no tile");
 }
 
 } // namespace cup::test
