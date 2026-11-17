@@ -9,6 +9,7 @@
 #include "core/window_layout.h"
 #include "platform/element_visuals.h"
 #include "platform/graphics_device.h"
+#include "platform/menu_layer.h"
 #include "platform/toast_layer.h"
 #include "platform/win.h"
 
@@ -116,6 +117,7 @@ private:
     // A question (decision 122): its scrim and panel (rebuilt with each draw), its items over them.
     wuc::ContainerVisual dialogDecor_{ nullptr }, dialogLayer_{ nullptr };
     ElementVisuals dialog_;
+    MenuLayer menu_; // a card's open menu (decision 142): the island's, over everything
 
     WindowScene scene_;
     std::wstring title_; // what Windows has as its title

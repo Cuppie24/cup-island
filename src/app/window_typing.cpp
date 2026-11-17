@@ -15,11 +15,21 @@ void send(ProviderRegistry& registry, const std::optional<Action>& action)
     if (action) registry.route(*action);
 }
 
+// A field by its key: on the page, or a question's (its field, decision 142).
 const Placed* onPage(const WindowScene& s, const std::string& key)
 {
+    if (s.dialog)
+        for (const Placed& p : s.dialog->elements)
+            if (p.key == key) return &p;
     for (const Placed& p : s.page)
         if (p.key == key) return &p;
     return nullptr;
+}
+
+// Where `point` (window coordinates) is in the field's own coordinates: a question's are the window's, the page's scroll.
+Vec2 inFieldSpace(const WindowScene& s, const Placed& field, Vec2 point)
+{
+    return field.key.rfind("dialog/", 0) == 0 ? point : toPage(s, point);
 }
 
 } // namespace
@@ -90,7 +100,7 @@ bool pressField(WindowTyping& typing, FieldClicks& clicks, const WindowScene& s,
         clicks.count = 0;
         return false;
     }
-    std::size_t at = window.caretAt(*field, toPage(s, point));
+    std::size_t at = window.caretAt(*field, inFieldSpace(s, *field, point));
     auto* input = std::get_if<TextInput>(&field->item);
     bool focused = input && input->focused && typing.draft;
     bool sameSpot = std::abs(point.x - clicks.point.x) <= GetSystemMetrics(SM_CXDOUBLECLK) / 2 &&
@@ -111,7 +121,7 @@ bool dragInField(WindowTyping& typing, const FieldClicks& clicks, const WindowSc
     if (clicks.selecting.empty() || clicks.count != 1 || !typing.draft) return false;
     const Placed* field = onPage(s, clicks.selecting);
     if (!field) return false;
-    std::size_t at = window.caretAt(*field, toPage(s, point)); // off either end: its first or last character
+    std::size_t at = window.caretAt(*field, inFieldSpace(s, *field, point)); // off either end: its first or last character
     if (at == typing.draft->caret) return false;
     moveCaretTo(typing, at, true);
     return true;

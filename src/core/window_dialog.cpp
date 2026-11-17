@@ -23,6 +23,10 @@ WindowDialogScene placeWindowDialog(const Dialog& d, Vec2 size, float top, const
                     .align = Align::End,
                     .apart = true } };
     if (d.message.empty()) rows.erase(rows.begin() + 1);
+    // Its field (decision 142): above the buttons, with the keys as it appears (window_fields: dialogTakesKeys).
+    if (d.field)
+        rows.insert(rows.end() - 1, Row{ .items = { TextInput{ .actionId = kDialogField, .value = *d.field, .maxLength = d.fieldMaxLength,
+                                                                .autoFocus = true } } });
     rows = windowStyled(std::move(rows));
     float pad = t.windowDialogPadding;
     float width = std::round(std::min(t.windowDialogWidth, std::max(0.0f, size.x - 2 * t.windowPagePadding.x)));

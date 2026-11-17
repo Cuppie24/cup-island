@@ -43,6 +43,7 @@ PlacedPage placePage(const WindowPage& page, float paneWidth, const Source& fiel
                      std::optional<Color> accent = std::nullopt);
 
 // The key of a card's drag handle (WindowSection::moveAction): "<slot>/handle".
+inline constexpr const char* kWindowCardMenu = "window.menu."; // + a card's id: its "…" (WindowSection::menu, decision 142), opened by the host
 inline constexpr const char* kWindowDragHandle = "window.drag"; // its action: never sent, a press on it starts a drag
 
 // A window's text a step up from the island's (decision 112): Title, Body

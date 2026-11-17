@@ -10,6 +10,8 @@
 #include "core/tokens.h"
 #include "core/window_fields.h"
 #include "core/window_layout.h"
+#include "core/window_menu.h"
+#include "core/window_page.h"
 #include "expect.h"
 #include "providers/media/now_playing.h"
 #include "providers/pomodoro/pomodoro_provider.h"
@@ -343,22 +345,39 @@ void windowTests()
     expect(textIn(page, "Write the report") && !island.window()->toast, "undone: back, the toast gone");
     expect(savedTasks == "# Tasks\n[ ] Write the report\n", "kept: the group's name over its tasks");
 
-    // Groups: a new one, renamed in place; deleted with an Undo; the last one deleted leaves a fresh "Tasks".
+    // Groups: a new one, named in a question; renamed from its "…" menu; deleted with an Undo; the last one deleted leaves a fresh "Tasks".
     island.inWindow(task_action::kNewGroup);
     page = island.windowScene();
-    expect(textIn(page, "Group 2") != nullptr, "a new group, named after the others");
     const Placed* name = textIn(page, "Group 2");
-    expect(name && std::get<Text>(name->item).editAction == std::string(task_action::kRenameGroup) + "2", "its name edits in place");
-    // Made, its name gets the keys at once, all of it selected: typed over (decision 134).
-    const WindowContent& made = island.window()->content;
-    WindowTyping naming;
-    focusByAction(naming, page, made.focus);
-    expect(made.focus == std::string(task_action::kRenameGroup) + "2" && made.focusRequest > 0 && naming.draft &&
-               naming.draft->actionId == made.focus && naming.draft->text == "Group 2" && naming.draft->anchor == 0 && naming.draft->caret == 7,
-           "a new group asks for its name to be focused, selected");
-    island.registry.route({ "pomodoro", "", std::string(task_action::kRenameGroup) + "2", 0, "Work", PomodoroProvider::kWindowId });
+    expect(name && std::get<Text>(name->item).editAction.empty(), "a new group, named after the others; its name plain text (decision 142)");
+    // Made, its name is asked at once (decision 142): a question with a field holding "Group 2", the field with the keys, all of it selected.
+    const Dialog* naming = island.window()->dialog ? &*island.window()->dialog : nullptr;
+    expect(naming && naming->field == std::optional<std::string>("Group 2") && naming->confirmAction == std::string(task_action::kRenameGroup) + "2",
+           "a new group asks for its name, in a field");
+    WindowTyping keys;
+    expect(page.dialog && !dialogTakesKeys(keys, page) && keys.draft && keys.draft->actionId == kDialogField && keys.draft->text == "Group 2" &&
+               keys.draft->anchor == 0 && keys.draft->caret == 7,
+           "...the field has the keys as it appears, its text selected: typed over");
+    typeText(keys, page, "Work");
+    std::string typed = dialogFieldText(keys, page);
+    expect(typed == "Work" && !keys.draft, "answered: what's in the field, and it lets go");
+    island.registry.route({ "pomodoro", "", kDialogConfirm, 0, typed, PomodoroProvider::kWindowId });
     page = island.windowScene();
-    expect(textIn(page, "Work") && !textIn(page, "Group 2"), "renamed");
+    expect(textIn(page, "Work") && !textIn(page, "Group 2") && !island.window()->dialog, "confirmed: named");
+    // Its "…" (decision 142): a menu of Rename and Delete; Rename asks again, Cancel keeps it.
+    const Placed* more = buttonIn(page, std::string(kWindowCardMenu) + "group-2");
+    std::optional<Menu> menu = openCardMenu(*island.window(), "group-2");
+    expect(more && std::get<Button>(more->item).glyph == Glyph::More && menu && menu->items.size() == 2 && menu->items[0].label == "Rename" &&
+               menu->items[1].label == "Delete" && menu->items[1].destructive,
+           "a group's \u2026 opens Rename and Delete");
+    std::optional<Action> rename = menuChoice(page, *menu, 0);
+    expect(rename && rename->actionId == std::string(task_action::kAskGroupName) + "2" && rename->windowId == PomodoroProvider::kWindowId,
+           "Rename chosen: its action, from the window");
+    if (rename) island.registry.route(*rename);
+    naming = island.window()->dialog ? &*island.window()->dialog : nullptr;
+    expect(naming && naming->title == "Rename group" && naming->field == std::optional<std::string>("Work"), "Rename: its name in a question's field");
+    island.inWindow(kDialogCancel);
+    expect(!island.window()->dialog && textIn(island.windowScene(), "Work"), "cancelled: the name stays");
     // A group with tasks asks first, in a question over the window (decision 122): Cancel keeps it.
     island.inWindow(std::string(task_action::kDeleteGroup) + "1");
     const OpenWindow* asking = island.window();

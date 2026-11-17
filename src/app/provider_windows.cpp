@@ -3,11 +3,13 @@
 #include "app/window_typing.h"
 
 #include "core/dialog.h"
+#include "core/menu.h"
 #include "core/tokens.h"
 #include "core/tokens_json.h"
 #include "core/window_drag.h"
 #include "core/window_keys.h"
 #include "core/window_layout.h"
+#include "core/window_menu.h"
 #include "core/window_placement.h"
 #include "platform/displays.h"
 #include "platform/log.h"
@@ -51,6 +53,7 @@ struct Shown {
     std::optional<Pick> pick;
     std::optional<WindowDrag> drag;
     DropTarget target;
+    std::optional<Menu> menu; // a card's open menu (decision 142): `row` is its card's id
 };
 
 WindowHooks g_hooks;
@@ -147,6 +150,12 @@ void relayout(Shown& s)
     s.scene = windowLayout(*w, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing, maximized);
     if (dropGoneField(s.typing, s.scene)) // the field with the keys went: laid out without it
         s.scene = windowLayout(*w, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing, maximized);
+    // A question with a field (decision 142) takes the keys as it appears: laid out focused.
+    bool dialogHadKeys = s.typing.draft && s.typing.draft->actionId == kDialogField;
+    std::optional<Action> leftForDialog = dialogTakesKeys(s.typing, s.scene);
+    if (!dialogHadKeys && s.typing.draft && s.typing.draft->actionId == kDialogField)
+        s.scene = windowLayout(*w, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing, maximized);
+    if (leftForDialog) g_hooks.registry->route(*leftForDialog); // what was being written under it is added (decision 132)
     if (focusArrived(s.typing, s.scene)) // a row opened to be written takes the keys (decision 132): laid out focused
         s.scene = windowLayout(*w, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing, maximized);
     if (s.drag) { // carried (decision 129): laid out as if it were where it lands, following the pointer
@@ -156,6 +165,9 @@ void relayout(Shown& s)
         s.scene = windowLayout(preview, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing, maximized);
         follow(s.scene, *s.drag);
     }
+    // A card's menu (decision 142): under its "…"; a question, or its card or items gone, closes it.
+    if (s.menu && !s.scene.dialog && !s.drag) s.scene.menu = placeWindowMenu(*w, s.scene, *s.menu, now, g_hooks.measure);
+    if (!s.scene.menu) s.menu.reset();
     s.scroll = s.scene.scroll;
     s.window->draw(s.scene, now);
     showFocus(s);
@@ -173,7 +185,7 @@ void showHover(Shown& s)
     float radius = 0;
     std::string pageRow;
     std::string pageCard;
-    if (s.pointer && !s.drag) { // carrying something: nothing under it lights
+    if (s.pointer && !s.drag && !s.menu) { // carrying something, or a menu open: nothing under it lights
         pageRow = windowRowAt(s.scene, *s.pointer);
         pageCard = windowCardAt(s.scene, *s.pointer);
         WindowHit hit = windowHitTest(s.scene, *s.pointer);
@@ -198,11 +210,47 @@ Shown* find(const WindowKey& key)
     return it == g_shown.end() ? nullptr : it->second.get();
 }
 
-void act(const Shown& s, const WindowHit& hit)
+// A window's question answered (decision 122): confirmed, with its field's text, if it has one (decision 142).
+void answer(Shown& s, bool confirm)
+{
+    std::string text = dialogFieldText(s.typing, s.scene);
+    g_hooks.registry->route({ s.key.providerId, "", confirm ? kDialogConfirm : kDialogCancel, 0, confirm ? text : "", s.key.windowId });
+}
+
+// A card's menu item chosen (decision 142): it closes, then its action goes.
+void chooseMenu(Shown& s, std::size_t index)
+{
+    if (!s.menu) return;
+    std::optional<Action> chosen = menuChoice(s.scene, *s.menu, index);
+    if (!chosen) return; // a dim one: it stays open
+    s.menu.reset();
+    relayout(s);
+    g_hooks.registry->route(*chosen);
+}
+
+// A card's "…" (decision 142): its menu opens, or closes if it was open.
+bool openMenu(Shown& s, const std::string& actionId)
+{
+    auto card = cardMenuOf(actionId);
+    if (!card) return false;
+    const OpenWindow* w = findWindow(g_hooks.registry->windows(), s.key);
+    bool same = s.menu && s.menu->row == *card;
+    s.menu = same || !w ? std::nullopt : openCardMenu(*w, *card);
+    relayout(s);
+    showHover(s);
+    return true;
+}
+
+void act(Shown& s, const WindowHit& hit)
 {
     ProviderRegistry& registry = *g_hooks.registry;
     switch (hit.part) {
-    case WindowPart::Content: registry.route(hit.hit->action); break;
+    case WindowPart::Content:
+        if (s.scene.dialog && (hit.hit->action.actionId == kDialogConfirm || hit.hit->action.actionId == kDialogCancel))
+            answer(s, hit.hit->action.actionId == kDialogConfirm); // its field's text with it
+        else if (!openMenu(s, hit.hit->action.actionId))
+            registry.route(hit.hit->action);
+        break;
     case WindowPart::Page: registry.windowPageShown(s.key, hit.page); break;
     case WindowPart::Close: registry.windowClosed(s.key); break;
     case WindowPart::Minimize: s.window->minimize(); break;
@@ -239,10 +287,26 @@ void key(const WindowKey& id, WPARAM vk)
     bool ctrl = GetKeyState(VK_CONTROL) < 0, shift = GetKeyState(VK_SHIFT) < 0, alt = GetKeyState(VK_MENU) < 0;
     if (alt) return; // Alt's keys are Windows' (Alt+Space, Alt+F4)
     if (vk == VK_ESCAPE && cancelDrag(*s)) return; // carrying something: Esc puts it back (decision 129)
+    // A card's menu (decision 142) takes the keys while it's open, as the island's does (decision 086).
+    if (s->menu) {
+        std::optional<std::size_t> lit = s->menu->lit;
+        if (vk == VK_ESCAPE) s->menu.reset();
+        else if (vk == VK_UP || vk == VK_DOWN) lit = menuStep(*s->menu, vk == VK_UP ? -1 : 1);
+        else if (vk == VK_HOME || vk == VK_END) lit = menuEnd(*s->menu, vk == VK_END);
+        else if ((vk == VK_RETURN || vk == VK_SPACE) && lit) return chooseMenu(*s, *lit);
+        if (s->menu) s->menu->lit = lit;
+        relayout(*s);
+        showHover(*s);
+        return;
+    }
     // A question (decision 122) takes the keys: Esc cancels, Enter confirms, nothing reaches the page under it.
     if (s->scene.dialog) {
-        if (vk == VK_ESCAPE || vk == VK_RETURN)
-            registry.route({ s->key.providerId, "", vk == VK_RETURN ? kDialogConfirm : kDialogCancel, 0, "", s->key.windowId });
+        if (vk == VK_ESCAPE || vk == VK_RETURN) return answer(*s, vk == VK_RETURN);
+        // Its field (decision 142) takes a text box's keys; Tab, the arrows up and down and the page's keys go nowhere.
+        bool windowKey = vk == VK_TAB || vk == VK_UP || vk == VK_DOWN || vk == VK_PRIOR || vk == VK_NEXT || (ctrl && vk == 'W');
+        if (!windowKey && s->typing.draft && s->typing.draft->actionId == kDialogField &&
+            typingKey(s->typing, s->scene, s->window->hwnd(), vk, registry) == Typed::Changed)
+            relayout(*s);
         return;
     }
     s->keys = true;
@@ -367,6 +431,14 @@ platform::ProviderWindowCallbacks callbacksFor(const WindowKey& id)
         if (Shown* s = find(id)) {
             s->pointer = p;
             if (carry(*s, p)) return; // a drag (decision 129)
+            if (s->menu) { // the item under the pointer lights (decision 142)
+                std::optional<std::size_t> lit = s->scene.menu ? menuItemAt(*s->scene.menu, p) : std::nullopt;
+                if (lit && lit != s->menu->lit) {
+                    s->menu->lit = lit;
+                    relayout(*s);
+                }
+                return;
+            }
             if (dragInField(s->typing, s->clicks, s->scene, *s->window, p)) relayout(*s); // selecting by dragging (decision 043)
             showHover(*s);
         }
@@ -380,6 +452,16 @@ platform::ProviderWindowCallbacks callbacksFor(const WindowKey& id)
     c.onPressDown = [id](Vec2 p) {
         Shown* s = find(id);
         if (!s) return;
+        // A card's menu open (decision 142): an item is chosen; anywhere else closes it, and does nothing more.
+        if (s->menu) {
+            std::optional<std::size_t> item = s->scene.menu ? menuItemAt(*s->scene.menu, p) : std::nullopt;
+            if (item) return chooseMenu(*s, *item);
+            if (s->scene.menu && s->scene.menu->frame.contains(p)) return; // its padding, a dim item
+            s->menu.reset();
+            relayout(*s);
+            showHover(*s);
+            return;
+        }
         // Something that moves (decision 129): held until it's carried far enough to be a drag,
         // or let go (a click, as before). Not text being edited: a press there places the caret.
         if (auto what = movableAt(s->scene, p); what && !onFocusedField(*s, p)) {

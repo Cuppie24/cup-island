@@ -68,6 +68,9 @@ struct WindowSection {
     // Rows dragged from another card may be dropped in it: their Row::moveAction
     // sends Action{value = index, text = this card's id} (decision 129).
     bool takesRows = false;
+    // As a card: a "…" at its title row's end opens a menu of these (decision
+    // 142), under it; an item chosen sends its action from the window.
+    std::vector<MenuItem> menu;
     bool operator==(const WindowSection&) const = default;
 };
 

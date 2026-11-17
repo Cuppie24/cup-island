@@ -122,6 +122,11 @@ struct Dialog {
     // Set: a modal over that window of the provider's instead of a card
     // (decision 122): everything under the title bar dimmed until it's answered.
     std::string windowId;
+    // Over a window only (decision 142): a text field under the message,
+    // starting with this text, all of it selected, with the keys. Confirmed,
+    // the confirm action's Action::text is what's in it ("Rename group").
+    std::optional<std::string> field;
+    std::size_t fieldMaxLength = 0; // ...at most this many characters; 0: no limit
     bool operator==(const Dialog&) const = default;
 };
 

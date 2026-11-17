@@ -151,6 +151,7 @@ bool ProviderWindow::create(HINSTANCE instance, wuc::Compositor const& composito
     dialog_.init(compositor_, device, dialogLayer_);
     chromeLayer_ = layer(compositor_, root_);
     focusLayer_ = layer(compositor_, root_); // the keyboard's ring, over everything
+    menu_.build(compositor_, device, root_);  // a card's menu (decision 142), over even that
     background_.Size(toFloat2(clientSize())); // its colour from the start: it can show before its content is drawn
     sidebar_.init(compositor_, device, sidebarLayer_);
     page_.init(compositor_, device, pageLayer_);
@@ -196,6 +197,7 @@ void ProviderWindow::draw(const WindowScene& scene, Ms now)
         dialogDecor_.Children().InsertAtTop(roundedRect(compositor_, scene.dialog->panel, scene.dialog->radius, tokens().islandHighlightColor));
     }
     dialog_.apply(scene.dialog ? scene.dialog->elements : std::vector<Placed>{}, now);
+    menu_.show(scene.menu, { 0, 0 }, now); // window coordinates already
 }
 
 // The shapes around the items: the picked page's highlight (and the hovered
@@ -337,6 +339,7 @@ void ProviderWindow::refresh(bool coloursOnly)
     for (ElementVisuals* v : { &sidebar_, &page_, &footer_, &chrome_ }) v->refresh(coloursOnly);
     toast_.refresh(coloursOnly);
     dialog_.refresh(coloursOnly);
+    menu_.refresh(coloursOnly);
     paintBackground();
     paneBackground_.Brush(compositor_.CreateColorBrush(toUiColor(tokens().windowPaneColor)));
     headerRule_.Brush(compositor_.CreateColorBrush(toUiColor(tokens().trackColor)));

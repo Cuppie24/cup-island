@@ -10,6 +10,7 @@ namespace cup {
 // dialog instead of routing them to the card's provider.
 inline constexpr const char* kDialogConfirm = "dialog.confirm";
 inline constexpr const char* kDialogCancel = "dialog.cancel";
+inline constexpr const char* kDialogField = "dialog.field"; // a window question's field (Dialog::field): never sent, its text rides on the confirm
 
 // Title, message, then Cancel and the confirm button, centred.
 Content dialogContent(const Dialog& dialog);
