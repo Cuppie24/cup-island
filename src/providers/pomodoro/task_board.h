@@ -18,6 +18,10 @@ inline constexpr const char* kNewGroup = "group.new";
 inline constexpr const char* kRenameGroup = "group.rename."; // + the group's id: Action::text = its new name (edited in place)
 inline constexpr const char* kDeleteGroup = "group.delete."; // + the group's id: asks first if it has tasks (decision 122), else at once with an Undo
 inline constexpr const char* kDeleteGroupConfirmed = "group.remove."; // + the group's id: the question's confirm button
+// Dragged (decision 129). A group: + its id; Action::value = its new index among the groups.
+inline constexpr const char* kMoveGroup = "group.move.";
+// A task: + "<group id>.<task id>"; Action::value = its index in the group it lands in, Action::text = that group's id.
+inline constexpr const char* kMoveTask = "task.move.";
 // A to-do action (todo_action) on one group's tasks: "tasks.<group id>:" + it.
 inline constexpr const char* kInGroup = "tasks.";
 } // namespace task_action
@@ -57,6 +61,9 @@ public:
     // Gone, and returned for an Undo. The last one: a new empty "Tasks" in its place.
     std::optional<RemovedGroup> removeGroup(std::uint64_t id);
     void restoreGroup(const RemovedGroup& removed); // back where it was
+    bool moveGroup(std::uint64_t id, std::size_t index); // to `index` among the groups (decision 129)
+    // A task from one group to `index` among another's (or its own) tasks as shown: false if either is gone.
+    bool moveTask(std::uint64_t from, std::uint64_t task, std::uint64_t to, std::size_t index);
 
     // A group.* action (new, rename) or a to-do action in a group (inGroup).
     // True if it changed the board. Deleting a group is the provider's: it keeps it for its Undo.

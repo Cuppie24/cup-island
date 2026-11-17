@@ -87,6 +87,47 @@ std::string cardName(const WindowSection& section, std::size_t index)
     return "card." + (section.id.empty() ? std::to_string(index) : section.id);
 }
 
+// What can be dragged in a card (decision 129): its rows with a moveAction, each
+// its items' span (their lit row's, if they have one), and the card itself as
+// a place rows land if it takes them or has its own.
+void recordMovables(const WindowSection& section, const std::string& name, Rect card, const Slot& slot, const std::vector<Placed>& out,
+                    std::size_t first, PlacedPage& placed)
+{
+    std::size_t index = 0;
+    for (std::size_t r = 0; r < slot.size(); ++r) {
+        const Row& row = slot[r];
+        if (row.moveAction.empty()) continue;
+        std::string key = name + "/" + (row.id.empty() ? std::to_string(r) : row.id);
+        std::optional<Rect> span;
+        for (std::size_t i = first; i < out.size(); ++i) {
+            if (out[i].key.rfind(key + "/", 0) != 0) continue;
+            Rect f = out[i].listRow.value_or(out[i].frame);
+            if (!span) span = f;
+            float left = std::min(span->x, f.x), top = std::min(span->y, f.y);
+            float right = std::max(span->x + span->width, f.x + f.width), bottom = std::max(span->y + span->height, f.y + f.height);
+            span = Rect{ left, top, right - left, bottom - top };
+        }
+        if (span) placed.movables.push_back({ .key = key, .section = section.id, .index = index++, .frame = *span, .action = row.moveAction });
+    }
+    if (index > 0 || section.takesRows) placed.dropZones.push_back({ section.id, name, card });
+}
+
+// A movable card's handle (decision 129): a short line at its top's middle, shown while the
+// pointer is on the card; pressed and dragged, the card moves.
+Placed dragHandle(const std::string& name, Rect card, const Source& source)
+{
+    const Tokens& t = tokens();
+    Placed handle;
+    handle.key = name + "/handle";
+    handle.item = Button{ .glyph = Glyph::Grip, .actionId = kWindowDragHandle, .compact = true, .revealWithSlot = true, .secondary = true };
+    float w = t.smallButtonSize, h = t.windowDragHandleHeight;
+    handle.frame = handle.hitFrame = { std::round(card.x + (card.width - w) / 2), card.y, w, h };
+    handle.cornerRadius = h / 2;
+    handle.providerId = source.providerId;
+    handle.activityId = source.activityId;
+    return handle;
+}
+
 } // namespace
 
 Slot windowStyled(Slot slot)
@@ -132,9 +173,11 @@ std::vector<Rect> cardFrames(const CardGrid& grid, const std::vector<float>& hei
     return frames;
 }
 
-float placePage(const WindowPage& page, float paneWidth, const Source& fields, Ms now, const MeasureText& measure, std::vector<Placed>& out,
-                std::optional<Rect>& rule, std::optional<Color> accent)
+PlacedPage placePage(const WindowPage& page, float paneWidth, const Source& fields, Ms now, const MeasureText& measure, std::vector<Placed>& out,
+                     std::optional<Color> accent)
 {
+    PlacedPage placed;
+    std::optional<Rect>& rule = placed.rule;
     const Tokens& t = tokens();
     Vec2 pad = t.windowPagePadding;
     float available = std::max(0.0f, paneWidth - 2 * pad.x);
@@ -195,7 +238,10 @@ float placePage(const WindowPage& page, float paneWidth, const Source& fields, M
         y += frame.height;
         if (page.cards && !page.sections.empty()) y += t.sectionGap;
     }
-    if (!page.cards) return y + pad.y;
+    if (!page.cards) {
+        placed.height = y + pad.y;
+        return placed;
+    }
 
     // The cards, side by side as many as fit, filling the row (decisions 117, 120): each a
     // background with its rows windowCardPadding inside it.
@@ -209,16 +255,25 @@ float placePage(const WindowPage& page, float paneWidth, const Source& fields, M
     }
     std::vector<Rect> frames = cardFrames(grid, heights, { pad.x, y });
     float bottom = y;
+    std::size_t movableCards = 0;
     for (std::size_t i = 0; i < cards.size(); ++i) {
-        std::string name = cardName(page.sections[i], i);
+        const WindowSection& section = page.sections[i];
+        std::string name = cardName(section, i);
         Rect f = frames[i];
-        out.push_back(cardFill(name, f, fields, page.sections[i].dashed)); // first: under its rows
+        out.push_back(cardFill(name, f, fields, section.dashed)); // first: under its rows
         Rect rows{ f.x + inside, f.y + inside, std::max(0.0f, f.width - 2 * inside), std::max(0.0f, f.height - 2 * inside) };
         // Its rows' lit backgrounds nest in its corners: its radius less its padding (decision 121).
+        std::size_t first = out.size();
         placeSlot({ name, &cards[i], rows }, fields, std::max(0.0f, t.windowCardRadius - inside), now, out, measure);
         bottom = std::max(bottom, f.y + f.height);
+        recordMovables(section, name, f, cards[i], out, first, placed);
+        if (!section.moveAction.empty()) {
+            placed.movables.push_back({ .card = true, .key = name, .section = section.id, .index = movableCards++, .frame = f, .action = section.moveAction });
+            out.push_back(dragHandle(name, f, fields));
+        }
     }
-    return bottom + pad.y;
+    placed.height = bottom + pad.y;
+    return placed;
 }
 
 } // namespace cup

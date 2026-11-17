@@ -66,6 +66,7 @@ const Field kFields[] = {
     { "windowCardMinWidth", &Tokens::windowCardMinWidth },
     { "windowCardPadding", &Tokens::windowCardPadding },
     { "windowCardRadius", &Tokens::windowCardRadius },
+    { "windowDragHandleHeight", &Tokens::windowDragHandleHeight },
     { "windowDialogWidth", &Tokens::windowDialogWidth },
     { "windowDialogPadding", &Tokens::windowDialogPadding },
     { "dashedBorderWidth", &Tokens::dashedBorderWidth },

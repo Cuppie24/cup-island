@@ -346,10 +346,10 @@ ElementVisuals& ProviderWindow::visualsFor(const std::string& key)
 }
 
 void ProviderWindow::setHovered(const std::string& key, std::optional<std::size_t> nav, std::optional<Rect> row, float rowRadius,
-                                const std::string& pageRow)
+                                const std::string& pageRow, const std::string& pageCard)
 {
     for (ElementVisuals* v : { &sidebar_, &page_, &footer_, &chrome_, &toast_.elements(), &dialog_ }) v->setHovered(v == &visualsFor(key) ? key : std::string());
-    page_.setHoveredRow(pageRow); // a task's delete shows while the pointer is on its row (decision 120)
+    page_.setHoveredRow(pageRow, pageCard); // a task's delete on its row (decision 120), a card's handle on its card (decision 129)
     if (nav != hoveredNav_ || row != hoveredRow_) {
         hoveredNav_ = nav;
         hoveredRow_ = row;

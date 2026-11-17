@@ -130,7 +130,11 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
         fields.keptText = &typing->kept;
     }
     s.backAction = page->backAction;
-    float content = placePage(*page, s.pane.width, fields, now, measure, s.page, s.headerRule, w.content.accent);
+    PlacedPage placed = placePage(*page, s.pane.width, fields, now, measure, s.page, w.content.accent);
+    float content = placed.height;
+    s.headerRule = placed.rule;
+    s.movables = std::move(placed.movables);
+    s.dropZones = std::move(placed.dropZones);
     // The window's accent on its live data, as a card's on its own (decision 010): a step, a ring, a bar.
     for (std::vector<Placed>* items : { &s.page, &s.footer })
         for (Placed& p : *items)
@@ -153,6 +157,15 @@ WindowScene windowLayout(const OpenWindow& w, Vec2 size, float scroll, Ms now, c
 }
 
 Vec2 toPage(const WindowScene& s, Vec2 point) { return { point.x - s.pane.x, point.y - s.pane.y + s.scroll }; }
+
+std::string windowCardAt(const WindowScene& s, Vec2 point)
+{
+    if (s.dialog || !s.pane.contains(point)) return {};
+    Vec2 at = toPage(s, point);
+    for (const Placed& p : s.page)
+        if (std::holds_alternative<GroupFill>(p.item) && p.key.ends_with("/fill") && p.frame.contains(at)) return p.key.substr(0, p.key.size() - 5);
+    return {};
+}
 
 std::optional<Ms> windowDeadline(const WindowScene& s)
 {

@@ -6,6 +6,7 @@
 #include "core/layout.h"
 #include "core/slot_layout.h"
 #include "core/window_content.h"
+#include "core/window_movables.h"
 
 #include <optional>
 #include <vector>
@@ -26,12 +27,23 @@ CardGrid cardGrid(float available);
 // tall as its tallest card, one short of cards centred (decision 123). `heights`: each card's.
 std::vector<Rect> cardFrames(const CardGrid& grid, const std::vector<float>& heights, Vec2 topLeft);
 
+// A page laid out (placePage): how tall it is, padding included; the line
+// under its header, if it has one; and what can be dragged on it (decision 129).
+struct PlacedPage {
+    float height = 0;
+    std::optional<Rect> rule;
+    std::vector<Movable> movables;
+    std::vector<DropZone> dropZones;
+};
+
 // The page's items in `out` (page coordinates: the pane's top-left
-// unscrolled), `paneWidth` wide. Returns how tall it is, padding included.
-// `rule`: the line under the header, if it has one.
-// `accent`: the window's, for a header's progress (WindowPage::headerProgress).
-float placePage(const WindowPage& page, float paneWidth, const Source& fields, Ms now, const MeasureText& measure, std::vector<Placed>& out,
-                std::optional<Rect>& rule, std::optional<Color> accent = std::nullopt);
+// unscrolled), `paneWidth` wide. `accent`: the window's, for a header's
+// progress (WindowPage::headerProgress).
+PlacedPage placePage(const WindowPage& page, float paneWidth, const Source& fields, Ms now, const MeasureText& measure, std::vector<Placed>& out,
+                     std::optional<Color> accent = std::nullopt);
+
+// The key of a card's drag handle (WindowSection::moveAction): "<slot>/handle".
+inline constexpr const char* kWindowDragHandle = "window.drag"; // its action: never sent, a press on it starts a drag
 
 // A window's text a step up from the island's (decision 112): Title, Body
 // and Caption become their Window kin. Providers write the plain styles, so

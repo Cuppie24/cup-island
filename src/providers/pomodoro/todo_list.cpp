@@ -66,6 +66,35 @@ void TodoList::restore(const Todo& todo)
     group();
 }
 
+std::optional<Todo> TodoList::take(std::uint64_t id)
+{
+    auto it = std::find_if(items_.begin(), items_.end(), [&](const Todo& t) { return t.id == id; });
+    if (it == items_.end()) return std::nullopt;
+    Todo taken = *it;
+    items_.erase(it);
+    return taken;
+}
+
+std::uint64_t TodoList::place(Todo todo, std::size_t index)
+{
+    todo.id = nextId_++;
+    std::size_t at = std::min(index, items_.size());
+    items_.insert(items_.begin() + static_cast<std::ptrdiff_t>(at), todo);
+    if (!todo.done) { // its rank between the open ones round it (decision 071)
+        const Todo* prev = nullptr;
+        const Todo* next = nullptr;
+        for (std::size_t i = at; i-- > 0;)
+            if (!items_[i].done) { prev = &items_[i]; break; }
+        for (std::size_t i = at + 1; i < items_.size(); ++i)
+            if (!items_[i].done) { next = &items_[i]; break; }
+        double rank = prev && next ? (prev->rank + next->rank) / 2 : prev ? prev->rank + 1 : next ? next->rank - 1 : nextRank_++;
+        items_[at].rank = rank;
+        nextRank_ = std::max(nextRank_, rank + 1);
+    }
+    group(); // a solved one with the solved, an open one with the open
+    return todo.id;
+}
+
 bool TodoList::remove(std::uint64_t id)
 {
     return std::erase_if(items_, [&](const Todo& t) { return t.id == id; }) > 0;

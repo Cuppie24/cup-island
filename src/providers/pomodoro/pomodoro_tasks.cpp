@@ -72,6 +72,29 @@ bool PomodoroProvider::taskAction(const Action& action)
         return true;
     }
 
+    // Dragged (decision 129): a group among the groups; a task within its group or into another.
+    if (startsWith(id, task::kMoveGroup)) {
+        std::uint64_t group = 0;
+        const char* first = id.c_str() + std::char_traits<char>::length(task::kMoveGroup);
+        std::from_chars(first, id.c_str() + id.size(), group);
+        if (tasks_.moveGroup(group, static_cast<std::size_t>(std::max(0.0f, action.value)))) changed();
+        return true;
+    }
+    if (startsWith(id, task::kMoveTask)) {
+        std::uint64_t from = 0, task = 0, to = 0;
+        const char* first = id.c_str() + std::char_traits<char>::length(task::kMoveTask);
+        const char* end = id.c_str() + id.size();
+        auto [dot, error] = std::from_chars(first, end, from);
+        if (error == std::errc{} && dot < end && *dot == '.') std::from_chars(dot + 1, end, task);
+        std::string into = action.text.rfind("group-", 0) == 0 ? action.text.substr(6) : "";
+        std::from_chars(into.data(), into.data() + into.size(), to);
+        if (tasks_.moveTask(from, task, to, static_cast<std::size_t>(std::max(0.0f, action.value)))) {
+            deleted_.reset();
+            changed();
+        }
+        return true;
+    }
+
     auto target = tasks_.targetOf(id);
     if (!startsWith(id, task::kNewGroup) && !startsWith(id, task::kRenameGroup) && !target) return startsWith(id, task::kInGroup);
     std::optional<DeletedTask> deleting;

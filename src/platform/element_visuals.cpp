@@ -127,12 +127,15 @@ bool noSquash(const Item& item)
     return std::holds_alternative<TextInput>(item) || std::holds_alternative<Text>(item) || std::holds_alternative<Segments>(item);
 }
 
-// A list item's delete button: hidden until the pointer is on its row (decision 020).
+// A list item's delete button: hidden until the pointer is on its row (decision 020);
+// a window card's handle, until it's on its card (decision 129).
 bool revealsOnHover(const Item& item)
 {
     auto* button = std::get_if<Button>(&item);
-    return button && button->revealOnHover;
+    return button && (button->revealOnHover || button->revealWithSlot);
 }
+
+std::string slotOf(const std::string& key) { return key.substr(0, key.find('/')); }
 
 // A row's secondary action (revealed on hover) is quieter than its checkbox;
 // the button around it, and its hover shape, stay the row's size.
@@ -398,7 +401,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     if (view.arc) armRing(compositor_, view.arc, ringTimeline(placed.item), now);
     if (!view.bars.empty()) animateBars(view);
     if (view.highlight && focusedField(placed.item)) view.highlight.Opacity(1.0f);
-    if (revealsOnHover(placed.item) && rowOf(placed.key) != hoveredRow_) view.visual.Opacity(0.0f); // until its row is hovered
+    if (revealsOnHover(placed.item) && !revealedNow(placed)) view.visual.Opacity(0.0f); // until its row (or card) is hovered
     else if (fade) fadeIn(compositor_, view.visual, opacityOf(view.grey), reveal_ + arrive.value_or(Ms{ 0 }), arrive.has_value());
     else view.visual.Opacity(opacityOf(view.grey));
     return view;
@@ -462,7 +465,7 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     // card: the plan's − and + keys become days off, decision 063): its opacity follows.
     if (revealsOnHover(placed.item) != wasRevealed) {
         view.visual.StopAnimation(L"Opacity"); // a hover fade still running would carry on past this
-        view.visual.Opacity(revealsOnHover(placed.item) && rowOf(placed.key) != hoveredRow_ ? 0.0f : 1.0f);
+        view.visual.Opacity(revealsOnHover(placed.item) && !revealedNow(placed) ? 0.0f : 1.0f);
     }
     if (newPicture) { // a cover read after its track showed (decision 056): painted anew, fading in over the old
         auto size = view.surface.Size();
@@ -647,12 +650,20 @@ void ElementVisuals::place(View& view)
 
 // --- Pointer feedback ---------------------------------------------------------
 
-void ElementVisuals::setHoveredRow(const std::string& row)
+void ElementVisuals::setHoveredRow(const std::string& row, const std::string& slot)
 {
-    if (row == hoveredRow_) return;
+    if (row == hoveredRow_ && slot == hoveredSlot_) return;
     hoveredRow_ = row;
+    hoveredSlot_ = slot;
     for (auto& [key, view] : views_)
-        if (revealsOnHover(view.placed.item)) fadeTo(compositor_, view.visual, rowOf(key) == row ? 1.0f : 0.0f, tokens().hoverFadeDuration);
+        if (revealsOnHover(view.placed.item)) fadeTo(compositor_, view.visual, revealedNow(view.placed) ? 1.0f : 0.0f, tokens().hoverFadeDuration);
+}
+
+bool ElementVisuals::revealedNow(const Placed& placed) const
+{
+    auto* button = std::get_if<Button>(&placed.item);
+    if (button && button->revealWithSlot) return !hoveredSlot_.empty() && slotOf(placed.key) == hoveredSlot_;
+    return rowOf(placed.key) == hoveredRow_;
 }
 
 bool ElementVisuals::greyNow(const Placed& placed) const

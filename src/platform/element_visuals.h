@@ -32,7 +32,9 @@ public:
 
     // Pointer feedback on content (decision 002), by element key. Unknown keys are ignored.
     void setHovered(const std::string& key); // "" = nothing; buttons light up, progress shows its knob
-    void setHoveredRow(const std::string& row); // "<slot>/<row>" under the pointer, "" = none: reveals its revealOnHover buttons
+    // "<slot>/<row>" under the pointer, "" = none: reveals its revealOnHover buttons; `slot`, the
+    // card under it, its revealWithSlot ones (a window card's handle, decision 129).
+    void setHoveredRow(const std::string& row, const std::string& slot = {});
     // The tab under the pointer (Tab::id, "" = Home), none = std::nullopt: its muted content
     // (Placed::muted) is drawn in colour and at full strength meanwhile (decision 072).
     void setHoveredTab(const std::optional<std::string>& tab);
@@ -98,7 +100,8 @@ private:
     std::map<std::string, View> views_;
     ListViewports lists_; // scrolling lists' clipped, eased containers (decision 029)
     std::string hovered_;
-    std::string hoveredRow_;
+    std::string hoveredRow_, hoveredSlot_;
+    bool revealedNow(const Placed& placed) const; // a reveal-on-hover item: shown now
     Ms reveal_{}; // the latest apply()'s: what's built during it waits this long
     std::optional<std::string> hoveredTab_;
     bool deviceLost_ = false;

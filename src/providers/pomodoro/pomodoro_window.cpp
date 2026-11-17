@@ -103,6 +103,8 @@ WindowSection groupCard(const TaskGroup& g)
     WindowSection card{ .title = g.name, .id = "group-" + gid, .titleEdit = task::kRenameGroup + gid,
                         .titleMaxLength = tokens().taskGroupNameMaxLength };
     card.titleTrailing = { Button{ .glyph = Glyph::Delete, .actionId = task::kDeleteGroup + gid, .compact = true, .revealOnHover = true } };
+    card.moveAction = task::kMoveGroup + gid; // dragged by its handle among the groups (decision 129)
+    card.takesRows = true;                    // ...and a task from another group dropped in it
     // "+ Add task" reads as a button; clicked, it's the task it adds, being written: an unticked
     // box, its text where a task's is, a task row's height (decisions 122, 125).
     card.rows.push_back(Row{ .items = { TextInput{ .actionId = inGroup(g.id, todo::kAdd), .placeholder = "Add task", .icon = Glyph::Plus,
@@ -114,8 +116,8 @@ WindowSection groupCard(const TaskGroup& g)
         Text text{ .value = t.text, .style = t.done ? TextStyle::Caption : TextStyle::Body, .struck = t.done, .editAction = inGroup(g.id, todo::kEdit + id),
                    .editMaxLength = tokens().todoMaxLength, .wrap = true }; // long ones wrap (decision 045)
         Button remove{ .glyph = Glyph::Delete, .actionId = inGroup(g.id, todo::kDelete + id), .compact = true, .revealOnHover = true };
-        // No list item's padding: a card's tasks sit as close as a list's lines (decision 120); the delete still shows on hover.
-        card.rows.push_back(Row{ .items = { box, text }, .trailing = { remove }, .id = "task-" + id });
+        // Dragged to another place in its group, or into another (decision 129).
+        card.rows.push_back(Row{ .items = { box, text }, .trailing = { remove }, .moveAction = task::kMoveTask + gid + "." + id, .id = "task-" + id });
     }
     return card;
 }

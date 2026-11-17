@@ -117,6 +117,7 @@ struct Tokens {
     float windowHeaderBarHeight = 3; // WindowPage::headerProgress: the bar under a page's header (decision 122)
     float dashedBorderWidth = 1.5f; // GroupFill::dashed: a card offering to add one (decision 122)
     float windowCardRadius = 18;
+    float windowDragHandleHeight = 14; // a movable card's handle at its top: a short line to hold (decision 129)
     float windowDialogWidth = 400;   // a window's question (decision 122): its panel, at most this wide
     float windowDialogPadding = 20;  // ...its content this far in // its corners; its rows' backgrounds nest in them (radius less padding, decision 121)
     float windowCardGap = 16; // between cards, across and down

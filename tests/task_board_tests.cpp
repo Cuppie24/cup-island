@@ -59,8 +59,37 @@ void boardTests()
     expect(two.groups().size() == 2, "a stand-in that got tasks stays");
 }
 
+// Dragged (decision 129): a task within its group or into another, a group among the groups.
+void moveTests()
+{
+    TaskBoard board = TaskBoard::load("# A\n[ ] a1\n[ ] a2\n[ ] a3\n# B\n[ ] b1\n");
+    auto names = [&](std::size_t g) {
+        std::string out;
+        for (const Todo& t : board.groups()[g].tasks.items()) out += t.text + " ";
+        return out;
+    };
+    std::uint64_t a = board.groups()[0].id, b = board.groups()[1].id;
+    expect(board.moveTask(a, 1, a, 2) && names(0) == "a2 a3 a1 ", "within its group: to its new place");
+    std::string saved = board.save();
+    expect(saved.find("[ ] a2\n[ ] a3\n[ ] a1\n") != std::string::npos, "...kept in that order (its rank between its neighbours')");
+    expect(board.moveTask(a, 3, b, 0) && names(0) == "a2 a1 " && names(1) == "a3 b1 ", "into another group, at its top");
+    expect(!board.moveTask(a, 99, b, 0) && !board.moveTask(a, 2, 99, 0), "a task or group that's gone: nothing");
+    expect(board.moveGroup(b, 0) && board.groups()[0].name == "B" && board.groups()[1].name == "A", "a group to the front");
+    expect(!board.moveGroup(b, 0), "already there: nothing");
+    TaskBoard again = TaskBoard::load(board.save());
+    expect(again.groups()[0].name == "B" && again.save() == board.save(), "the new order is kept");
+    // A solved task stays with the solved, wherever it's dropped.
+    std::uint64_t a3 = board.groups()[0].tasks.items()[0].id; // B: a3 first, its id B's now
+    board.apply(inGroup(b, std::string(todo_action::kToggle) + std::to_string(a3)), "");
+    expect(names(0) == "b1 a3 " && board.moveTask(b, a3, b, 0) && names(0) == "b1 a3 ", "a solved one dropped first goes back under the open ones");
+}
+
 } // namespace
 
-void runTaskBoardTests() { boardTests(); }
+void runTaskBoardTests()
+{
+    boardTests();
+    moveTests();
+}
 
 } // namespace cup::test
