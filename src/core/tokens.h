@@ -187,6 +187,7 @@ struct Tokens {
     float groupGap = 20;           // Row::apart: space above a card's group (decision 066)
     float primaryHoverOpacity = 0.8f; // Button::primary under the pointer: its fill this much as strong (decision 066)
     float smallButtonSize = 32;   // Button::compact: list rows (a to-do's checkbox)
+    float lowButtonHeight = 24;   // Button::low: a compact button's height in a lower row ("+ Add task", decision 141)
     float revealGlyphSize = 14;   // Button::revealOnHover (a to-do's delete): a smaller glyph, the same button and hover shape
     float iconFieldHeight = 26;   // TextInput::icon: a field that reads as a button ("+ Add task", decision 124)
     float inputHeight = 36;       // a TextInput: a little taller than the rows, easy to click into

@@ -99,7 +99,8 @@ WindowSection groupCard(const TaskGroup& g, bool writing)
     // it stays. Clicked, a task row being written opens under it with the keys: an unticked box,
     // its text where a task's is (decision 125). Enter adds one and keeps it for the next; left,
     // what's in it is added and the row goes; left blank or Esc'd, it just goes.
-    card.rows.push_back(Row{ .items = { Button{ .glyph = Glyph::Plus, .actionId = task::kWriteTask + gid, .compact = true, .secondary = true },
+    // Lower than a task's row (decision 141): it's there on every group, so it takes less room.
+    card.rows.push_back(Row{ .items = { Button{ .glyph = Glyph::Plus, .actionId = task::kWriteTask + gid, .compact = true, .low = true, .secondary = true },
                                         Text{ "Add task", TextStyle::Caption } },
                              .clickAnywhere = true,
                              .id = "add" });

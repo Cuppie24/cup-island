@@ -130,6 +130,7 @@ const Field kFields[] = {
     { "groupGap", &Tokens::groupGap },
     { "primaryHoverOpacity", &Tokens::primaryHoverOpacity },
     { "smallButtonSize", &Tokens::smallButtonSize },
+    { "lowButtonHeight", &Tokens::lowButtonHeight },
     { "revealGlyphSize", &Tokens::revealGlyphSize },
     { "inputHeight", &Tokens::inputHeight },
     { "iconFieldHeight", &Tokens::iconFieldHeight },
