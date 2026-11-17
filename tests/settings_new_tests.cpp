@@ -373,8 +373,34 @@ void groupPiecesMeet()
 
 } // namespace
 
+// A setting this machine doesn't offer (Glass on Windows 10: no hook, no row)
+// can never be seen, so it never counts as new: no dot on the gear for it.
+void unofferedNeverNew()
+{
+    PanelHost h;
+    h.store[SettingsProvider::kThemeKey] = "Midnight"; // not a fresh install: what's announced is new until seen
+    h.store[SettingsProvider::kSeenKey] = "seen1\n";
+    for (const SettingItem& item : announcedSettings())
+        if (item.id != "glass" && item.id != "transparency" && item.id != "glasswindows") h.store[SettingsProvider::kSeenKey] += item.id + "\n";
+    SettingsProvider windows10({ .applyTheme = [](const std::string&) {} }); // no setGlass: Windows 10
+    windows10.start(h);
+    expect(!h.published.back().content.badge, "new: Glass unseen but not on this machine: no dot on the gear");
+    openWindow(windows10);
+    const WindowPage* look = pageOf(h, kAppearancePage);
+    expect(!look->badge && !windowRow(h, "Glass"), "new: and none beside Appearance");
+    windows10.stop();
+
+    PanelHost g;
+    g.store = h.store;
+    SettingsProvider windows11({ .applyTheme = [](const std::string&) {}, .setGlass = [](bool) {} });
+    windows11.start(g);
+    expect(g.published.back().content.badge, "new: the same store where Glass is offered: its dot, until it's seen");
+    windows11.stop();
+}
+
 void runSettingsNewTests()
 {
+    unofferedNeverNew();
     groupPiecesMeet();
     tabRowTests();
     coverColoursTests();

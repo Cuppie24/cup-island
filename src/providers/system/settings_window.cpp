@@ -266,6 +266,20 @@ std::string pageOfSetting(const std::string& id)
     return kAppearancePage;
 }
 
+std::set<std::string> offeredSettings(const SettingsView& view)
+{
+    std::set<std::string> offered;
+    for (SettingsPage page : { SettingsPage::List, SettingsPage::Themes, SettingsPage::WindowTheme, SettingsPage::Displays, SettingsPage::Shortcuts,
+                               SettingsPage::MusicColours, SettingsPage::Glass }) {
+        SettingsView v = view;
+        v.page = page;
+        WindowContent window = settingsWindow(v);
+        for (const WindowPage& p : window.pages)
+            for (const std::string& id : shownSettings(window, p.id, view.announced)) offered.insert(id);
+    }
+    return offered;
+}
+
 std::vector<std::string> shownSettings(const WindowContent& window, const std::string& page, const std::vector<SettingItem>& announced)
 {
     std::vector<std::string> shown;

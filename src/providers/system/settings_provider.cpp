@@ -449,8 +449,6 @@ SettingsView SettingsProvider::view() const
 {
     SettingsView v{ .page = page_, .theme = theme_, .note = note_, .shortcuts = shortcuts_, .recording = recording_,
                     .shortcutNote = shortcutNote_, .version = hooks_.version, .tabsOnTop = tabsOnTop_, .announced = hooks_.announced };
-    for (const SettingItem& s : hooks_.announced)
-        if (!seen_.count(s.id)) v.unseen.insert(s.id); // still "New" while being seen: until the card closes
     if (hooks_.checkForUpdates) v.update = updateNote_;
     v.offer = offer_;
     if (displays_.size() >= 2) { // one monitor: nothing to choose
@@ -470,6 +468,11 @@ SettingsView SettingsProvider::view() const
         v.windowTheme = windowTheme_;
         v.windowThemeName = windowThemeName_;
     }
+    // Still "New" while being seen: until the card closes. Only what this machine
+    // has a row for: one it lacks (Glass on Windows 10) could never be seen, and its dot never went.
+    std::set<std::string> offered = offeredSettings(v);
+    for (const SettingItem& s : hooks_.announced)
+        if (!seen_.count(s.id) && offered.count(s.id)) v.unseen.insert(s.id);
     return v;
 }
 

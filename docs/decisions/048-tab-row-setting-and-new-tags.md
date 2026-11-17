@@ -32,3 +32,8 @@ says it's there, let alone that it's on a page under another row.
 **Consequences.** `tests/settings_new_tests.cpp`, a `tabrow` line in
 `tests/scenarios/pin.scenario`. `Tag` is a new content item (PS §5 subset,
 decision 004): painted as a pill with centred text.
+
+**Amended.** Only an announced setting this machine offers counts as new
+(`offeredSettings`: it has a row on some page of the window). One it lacks,
+such as Glass on Windows 10 (no backdrop, no row), could never be seen, so
+the gear's dot never went away.
