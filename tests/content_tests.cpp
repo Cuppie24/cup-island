@@ -30,6 +30,14 @@ IslandState expandedWith(const Content& content)
 
 void runContentTests()
 {
+    // A button lights only over its shape; a click takes all of its area (decision 130).
+    Placed expand{ .key = "expandedCenter/0/0", .item = Button{ .glyph = Glyph::Expand, .actionId = "open", .compact = true },
+                   .frame = { 100, 10, 32, 32 }, .hitFrame = { 90, 0, 60, 52 } };
+    expect(lightsAt(expand, { 110, 20 }) && !lightsAt(expand, { 145, 48 }) && expand.hitFrame.contains({ 145, 48 }),
+           "a button: lit over its shape, not over the rest of its click area");
+    expand.litByRow = true;
+    expect(lightsAt(expand, { 145, 48 }), "one lit by its row: wherever it takes a click");
+
     // Timeline: extrapolates while playing, freezes when paused, clamps to duration.
     Timeline playing{ .position = Ms{ 10000 }, .duration = Ms{ 60000 }, .anchoredAt = Ms{ 1000 }, .playing = true };
     expect(playing.positionAt(Ms{ 3000 }) == Ms{ 12000 }, "position advances while playing");
