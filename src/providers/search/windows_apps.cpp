@@ -1,6 +1,7 @@
 #include "providers/search/windows_apps.h"
 
 #include "platform/log.h"
+#include "platform/watchdog.h"
 #include "platform/win.h"
 
 #include <ole2.h>
@@ -167,7 +168,8 @@ void iconWorker()
             g_iconJobs.pop_front();
         }
         auto icon = readIcon(job.target, job.side);
-        if (job.queue) job.queue.TryEnqueue([icon, done = std::move(job.done)] { done(icon); });
+        if (job.queue)
+            job.queue.TryEnqueue([icon, done = std::move(job.done)] { platform::guardedTask("showing an icon", [&] { done(icon); }); });
     }
 }
 
@@ -217,7 +219,7 @@ void loadWindowsApps(std::function<void(std::vector<Launchable>)> done)
         bool com = SUCCEEDED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED));
         std::vector<Launchable> apps = readApps();
         if (com) CoUninitialize();
-        if (queue) queue.TryEnqueue([apps = std::move(apps), done] { done(apps); });
+        if (queue) queue.TryEnqueue([apps = std::move(apps), done] { platform::guardedTask("listing apps", [&] { done(apps); }); });
     }).detach();
 }
 

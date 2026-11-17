@@ -3,6 +3,7 @@
 #include "platform/log.h"
 
 #include <dbghelp.h>
+#include <winrt/base.h>
 
 #include <atomic>
 #include <chrono>
@@ -111,6 +112,19 @@ void watchForCrashes()
     // filter above can still log and dump instead of dying silently.
     ULONG reserve = 64 * 1024;
     SetThreadStackGuarantee(&reserve);
+}
+
+void guardedTask(const char* what, const std::function<void()>& work)
+{
+    try {
+        work();
+    } catch (winrt::hresult_error const& e) {
+        logLine("WinRT error %s: 0x%08x %ls", what, static_cast<unsigned int>(e.code()), e.message().c_str());
+    } catch (std::exception const& e) {
+        logLine("Exception %s: %s", what, e.what());
+    } catch (...) {
+        logLine("Unknown exception %s", what);
+    }
 }
 
 UINT watchdogPing()

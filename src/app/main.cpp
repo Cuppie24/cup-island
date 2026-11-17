@@ -271,7 +271,9 @@ void dispatch(const Event& event, const char* reason)
         // A provider's coroutine left on a pool thread (after sleep, decision 060).
         // Composition used from there froze the island: run it on the UI thread instead.
         logLine("dispatch (%s) came from a background thread: moved to the UI thread", reason);
-        g_uiQueue.TryEnqueue([event, why = std::string(reason)] { dispatch(event, why.c_str()); });
+        g_uiQueue.TryEnqueue([event, why = std::string(reason)] {
+            guardedTask("in a moved dispatch", [&] { dispatch(event, why.c_str()); });
+        });
         return;
     }
     Ms t = now();
@@ -1106,7 +1108,9 @@ int main()
     auto uiQueue = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
     g_uiQueue = uiQueue;
     g_uiThread = std::this_thread::get_id();
-    auto postToUi = [uiQueue](std::function<void()> work) { uiQueue.TryEnqueue([work = std::move(work)] { work(); }); };
+    auto postToUi = [uiQueue](std::function<void()> work) {
+        uiQueue.TryEnqueue([work = std::move(work)] { guardedTask("in a provider's posted work", work); });
+    };
 
     g_providers = std::make_unique<ProviderRegistry>(dispatch, now, ProviderRegistry::Store{
         .load = [](const std::string& provider, const std::string& key) { return store().load(provider, key); },

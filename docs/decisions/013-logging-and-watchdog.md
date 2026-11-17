@@ -44,6 +44,12 @@ runs, leaving no log line and no dump. They are covered two ways:
   Application Hang 1002). It reads the event log with `wevtapi`, on a
   background thread, once. No record means it was ended from outside
   (Task Manager, sign-out, power loss).
+- **Queued tasks guarded** (`platform::guardedTask`): an exception out of
+  a DispatcherQueue task is such a fail-fast, and Windows may not have
+  recorded it yet when the next start looks. A run that vanished just after
+  `media: playback changed` showed providers' posted work, moved dispatches
+  and search's callbacks ran unguarded, and the pill's content build caught
+  only WinRT errors (`bad_alloc` got out). They now log and carry on.
 
 **Consequences.** Freeze reports come with a `.dmp`: open it in Visual
 Studio with the build's `CupIsland.pdb` (Debug → Windows → Parallel Stacks
