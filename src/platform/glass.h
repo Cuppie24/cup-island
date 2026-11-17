@@ -39,7 +39,7 @@ Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush co
 
 // `mask` blurred by `softness` px, for maskedBackdrop: the snapshot's curves
 // come out hard-stepped, and a cut by them stair-stepped the glass round the
-// island's antialiased corners (decision 127). A blur brush of its own,
+// island's antialiased corners (decision 133). A blur brush of its own,
 // chained, since Windows takes no nested effect (decision 100). `mask` itself
 // if softness is 0 or Windows refuses the blur (logged).
 wuc::CompositionBrush softenedMask(wuc::Compositor const& compositor, wuc::CompositionBrush const& mask, float softness);
