@@ -60,6 +60,13 @@ struct WindowSection {
     // As a card (WindowPage::cards): no background, a dashed outline. One that
     // adds a card ("New group"), so it doesn't draw the eye like one (decision 122).
     bool dashed = false;
+    // As a card: dragged by a handle at its top, shown while the pointer is on
+    // it; let go, Action{moveAction, value = its new index among the page's
+    // cards that move} (decision 129). "": it stays where it is.
+    std::string moveAction;
+    // Rows dragged from another card may be dropped in it: their Row::moveAction
+    // sends Action{value = index, text = this card's id} (decision 129).
+    bool takesRows = false;
     bool operator==(const WindowSection&) const = default;
 };
 

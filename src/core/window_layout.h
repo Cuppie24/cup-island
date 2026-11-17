@@ -9,6 +9,7 @@
 #include "core/layout.h"
 #include "core/open_windows.h"
 #include "core/window_dialog.h"
+#include "core/window_movables.h"
 
 #include <optional>
 #include <string>
@@ -44,6 +45,8 @@ struct WindowScene {
     std::optional<ToastScene> toast;
     std::optional<Ms> toastUntil;
     std::optional<WindowDialogScene> dialog; // its question (decision 122): over everything under the title bar
+    std::vector<Movable> movables;   // what can be dragged on the page (decision 129), page coordinates
+    std::vector<DropZone> dropZones; // ...and the cards a dragged row may land in
     Ms now{};                        // when it was laid out: its time labels show this moment
     float scroll = 0;                // how far the page is scrolled, clamped
     float maxScroll = 0;
@@ -94,5 +97,9 @@ std::optional<Ms> windowDeadline(const WindowScene& scene);
 // buttons (a task's delete, decision 120), as rowAt does on the island.
 // Between a row's items too; within a card, only that card's rows.
 std::string windowRowAt(const WindowScene& scene, Vec2 point);
+
+// The card (WindowPage::cards) under a point (window coordinates): its slot ("card.<id>"),
+// or "". Its handle shows while the pointer is on it (decision 129).
+std::string windowCardAt(const WindowScene& scene, Vec2 point);
 
 } // namespace cup

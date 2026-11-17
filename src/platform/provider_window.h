@@ -71,7 +71,7 @@ public:
     // What's under the pointer: an item's key, a sidebar entry, a lit row (page coordinates), and the
     // page's row (windowRowAt), whose buttons shown on hover appear (decision 120). ""/nullopt: nothing.
     void setHovered(const std::string& key, std::optional<std::size_t> nav, std::optional<Rect> row, float rowRadius,
-                    const std::string& pageRow);
+                    const std::string& pageRow, const std::string& pageCard = {});
     // Where a click at `point` (page coordinates) puts the caret in `field`
     // (a TextInput, or a Text edited in place), as a byte offset (decision 105).
     std::size_t caretAt(const Placed& field, Vec2 point) const;

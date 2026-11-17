@@ -5,6 +5,7 @@
 #include "core/dialog.h"
 #include "core/tokens.h"
 #include "core/tokens_json.h"
+#include "core/window_drag.h"
 #include "core/window_keys.h"
 #include "core/window_layout.h"
 #include "core/window_placement.h"
@@ -40,6 +41,15 @@ struct Shown {
     bool keys = false;                // the keyboard is in use: a stop that goes (a page opened by Enter) hands focus to the page's first
     WindowTyping typing;              // its fields: the one with the keys, the text left in others (decision 105)
     FieldClicks clicks;
+    // A press on something that moves (decision 129): a drag once it's carried dragStartDistance,
+    // else a click when let go. While carried, where it would land.
+    struct Pick {
+        Movable what;
+        Vec2 down;
+    };
+    std::optional<Pick> pick;
+    std::optional<WindowDrag> drag;
+    DropTarget target;
 };
 
 WindowHooks g_hooks;
@@ -120,6 +130,7 @@ void showFocus(Shown& s)
 // Lays it out at its size now and draws it: after any change, and in the
 // size message itself while it's resized, so the drawing keeps up.
 void showHover(Shown& s);
+bool cancelDrag(Shown& s);
 
 void relayout(Shown& s)
 {
@@ -134,6 +145,13 @@ void relayout(Shown& s)
     s.scene = windowLayout(*w, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing, maximized);
     if (dropGoneField(s.typing, s.scene)) // the field with the keys went: laid out without it
         s.scene = windowLayout(*w, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing, maximized);
+    if (s.drag) { // carried (decision 129): laid out as if it were where it lands, following the pointer
+        s.target = dropTarget(s.scene, *s.drag);
+        OpenWindow preview = *w;
+        preview.content = withMove(w->content, w->page, *s.drag, s.target);
+        s.scene = windowLayout(preview, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing, maximized);
+        follow(s.scene, *s.drag);
+    }
     s.scroll = s.scene.scroll;
     s.window->draw(s.scene, now);
     showFocus(s);
@@ -150,8 +168,10 @@ void showHover(Shown& s)
     std::optional<Rect> row;
     float radius = 0;
     std::string pageRow;
-    if (s.pointer) {
+    std::string pageCard;
+    if (s.pointer && !s.drag) { // carrying something: nothing under it lights
         pageRow = windowRowAt(s.scene, *s.pointer);
+        pageCard = windowCardAt(s.scene, *s.pointer);
         WindowHit hit = windowHitTest(s.scene, *s.pointer);
         if (hit.hit) key = hit.hit->key;
         // Lit only over its shape (decision 130): a click still takes all of its area. On the page, in page coordinates.
@@ -164,7 +184,7 @@ void showHover(Shown& s)
         for (const Placed& p : s.scene.page)
             if (p.listRow && !pageRow.empty() && p.key.rfind(pageRow + "/", 0) == 0) row = p.listRow, radius = p.listRowRadius;
     }
-    s.window->setHovered(key, nav, row, radius, pageRow);
+    s.window->setHovered(key, nav, row, radius, pageRow, pageCard);
 }
 
 Shown* find(const WindowKey& key)
@@ -213,6 +233,7 @@ void key(const WindowKey& id, WPARAM vk)
     ProviderRegistry& registry = *g_hooks.registry;
     bool ctrl = GetKeyState(VK_CONTROL) < 0, shift = GetKeyState(VK_SHIFT) < 0, alt = GetKeyState(VK_MENU) < 0;
     if (alt) return; // Alt's keys are Windows' (Alt+Space, Alt+F4)
+    if (vk == VK_ESCAPE && cancelDrag(*s)) return; // carrying something: Esc puts it back (decision 129)
     // A question (decision 122) takes the keys: Esc cancels, Enter confirms, nothing reaches the page under it.
     if (s->scene.dialog) {
         if (vk == VK_ESCAPE || vk == VK_RETURN)
@@ -258,6 +279,77 @@ void key(const WindowKey& id, WPARAM vk)
     }
 }
 
+// A press, as it always was: a field takes the keys (decision 105), anything else is pressed.
+void pressAt(Shown& s, Vec2 p)
+{
+    s.keys = false;
+    if (!s.focus.empty()) { // the pointer's turn: the ring goes until a key is pressed again
+        s.focus.clear();
+        showFocus(s);
+    }
+    bool hadKeys = s.typing.draft.has_value();
+    if (pressField(s.typing, s.clicks, s.scene, *s.window, p, g_hooks.now(), *g_hooks.registry)) { // a field: the caret goes there (decision 105)
+        relayout(s);
+        return;
+    }
+    if (hadKeys) relayout(s); // a field let go of the keys
+    WindowHit hit = windowHitTest(s.scene, p);
+    if (hit.part == WindowPart::None || hit.part == WindowPart::Caption) return;
+    s.pressed = hit;
+    if (hit.hit) s.window->press(hit.hit->key);
+}
+
+void releaseAt(Shown& s, Vec2 p, bool inside)
+{
+    s.clicks.selecting.clear(); // a drag selecting in a field ends
+    if (!s.pressed) return;
+    WindowHit was = *std::exchange(s.pressed, std::nullopt);
+    if (was.hit) s.window->release(was.hit->key);
+    if (!inside) return;
+    // Only a release on what was pressed counts: sliding off cancels, like any button.
+    WindowHit now = windowHitTest(s.scene, p);
+    bool same = now.part == was.part && now.page == was.page && (!now.hit || (was.hit && now.hit->key == was.hit->key));
+    if (same) act(s, now); // the segment let go on, not the one pressed: its index is the release's
+}
+
+// The field with the keys is under `p`: a press there places its caret, never picks its row up.
+bool onFocusedField(const Shown& s, Vec2 p)
+{
+    WindowHit hit = windowHitTest(s.scene, p);
+    if (!hit.hit) return false;
+    for (const Placed& placed : s.scene.page)
+        if (placed.key == hit.hit->key)
+            if (auto* field = std::get_if<TextInput>(&placed.item)) return field->focused;
+    return false;
+}
+
+// The pointer moved with something held (decision 129): carried once it's gone dragStartDistance,
+// the page laid out round it. True if a drag has it.
+bool carry(Shown& s, Vec2 p)
+{
+    if (!s.pick) return false;
+    if (!s.drag) {
+        Vec2 from = s.pick->down;
+        float dx = p.x - from.x, dy = p.y - from.y;
+        if (dx * dx + dy * dy < tokens().dragStartDistance * tokens().dragStartDistance) return true; // not yet: a click, maybe
+        if (auto left = blurField(s.typing, s.scene)) g_hooks.registry->route(*left); // what was being typed is let go first
+        s.drag = startDrag(s.scene, s.pick->what, from);
+    }
+    s.drag->at = toPage(s.scene, p);
+    relayout(s);
+    return true;
+}
+
+// Esc while carrying: it goes back where it was.
+bool cancelDrag(Shown& s)
+{
+    if (!s.drag && !s.pick) return false;
+    s.drag.reset();
+    s.pick.reset();
+    relayout(s);
+    return true;
+}
+
 platform::ProviderWindowCallbacks callbacksFor(const WindowKey& id)
 {
     platform::ProviderWindowCallbacks c;
@@ -268,6 +360,7 @@ platform::ProviderWindowCallbacks callbacksFor(const WindowKey& id)
     c.onPointerMoved = [id](Vec2 p) {
         if (Shown* s = find(id)) {
             s->pointer = p;
+            if (carry(*s, p)) return; // a drag (decision 129)
             if (dragInField(s->typing, s->clicks, s->scene, *s->window, p)) relayout(*s); // selecting by dragging (decision 043)
             showHover(*s);
         }
@@ -281,33 +374,31 @@ platform::ProviderWindowCallbacks callbacksFor(const WindowKey& id)
     c.onPressDown = [id](Vec2 p) {
         Shown* s = find(id);
         if (!s) return;
-        s->keys = false;
-        if (!s->focus.empty()) { // the pointer's turn: the ring goes until a key is pressed again
-            s->focus.clear();
-            showFocus(*s);
-        }
-        bool hadKeys = s->typing.draft.has_value();
-        if (pressField(s->typing, s->clicks, s->scene, *s->window, p, g_hooks.now(), *g_hooks.registry)) { // a field: the caret goes there (decision 105)
-            relayout(*s);
+        // Something that moves (decision 129): held until it's carried far enough to be a drag,
+        // or let go (a click, as before). Not text being edited: a press there places the caret.
+        if (auto what = movableAt(s->scene, p); what && !onFocusedField(*s, p)) {
+            s->pick = Shown::Pick{ *what, p };
             return;
         }
-        if (hadKeys) relayout(*s); // a field let go of the keys
-        WindowHit hit = windowHitTest(s->scene, p);
-        if (hit.part == WindowPart::None || hit.part == WindowPart::Caption) return;
-        s->pressed = hit;
-        if (hit.hit) s->window->press(hit.hit->key);
+        pressAt(*s, p);
     };
     c.onPressRelease = [id](Vec2 p, bool inside) {
         Shown* s = find(id);
-        if (s) s->clicks.selecting.clear(); // a drag selecting in a field ends
-        if (!s || !s->pressed) return;
-        WindowHit was = *std::exchange(s->pressed, std::nullopt);
-        if (was.hit) s->window->release(was.hit->key);
-        if (!inside) return;
-        // Only a release on what was pressed counts: sliding off cancels, like any button.
-        WindowHit now = windowHitTest(s->scene, p);
-        bool same = now.part == was.part && now.page == was.page && (!now.hit || (was.hit && now.hit->key == was.hit->key));
-        if (same) act(*s, now); // the segment let go on, not the one pressed: its index is the release's
+        if (!s) return;
+        if (s->drag) { // let go: its provider moves it, unless it lands where it was or outside the window
+            WindowDrag carried = *std::exchange(s->drag, std::nullopt);
+            s->pick.reset();
+            std::optional<Action> moved;
+            if (inside) moved = dropAction(s->scene, carried, s->target);
+            relayout(*s);
+            if (moved) g_hooks.registry->route(*moved);
+            return;
+        }
+        if (auto pick = std::exchange(s->pick, std::nullopt)) { // never carried: the click it held back
+            if (pick->what.card) return; // a handle does nothing clicked
+            pressAt(*s, pick->down);
+        }
+        releaseAt(*s, p, inside);
     };
     c.onWheel = [id](Vec2, float notches) {
         Shown* s = find(id);

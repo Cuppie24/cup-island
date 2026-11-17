@@ -103,6 +103,29 @@ void TaskBoard::restoreGroup(const RemovedGroup& removed)
     groups_.insert(groups_.begin() + static_cast<std::ptrdiff_t>(std::min(removed.index, groups_.size())), removed.group);
 }
 
+bool TaskBoard::moveGroup(std::uint64_t id, std::size_t index)
+{
+    auto it = std::find_if(groups_.begin(), groups_.end(), [&](const TaskGroup& g) { return g.id == id; });
+    if (it == groups_.end()) return false;
+    std::size_t from = static_cast<std::size_t>(it - groups_.begin()), to = std::min(index, groups_.size() - 1);
+    if (from == to) return false;
+    TaskGroup moving = std::move(*it);
+    groups_.erase(it);
+    groups_.insert(groups_.begin() + static_cast<std::ptrdiff_t>(to), std::move(moving));
+    return true;
+}
+
+bool TaskBoard::moveTask(std::uint64_t from, std::uint64_t task, std::uint64_t to, std::size_t index)
+{
+    TodoList* source = tasksOf(from);
+    TodoList* target = tasksOf(to);
+    if (!source || !target) return false;
+    std::optional<Todo> taken = source->take(task);
+    if (!taken) return false;
+    target->place(*taken, index);
+    return true;
+}
+
 std::optional<TaskTarget> TaskBoard::targetOf(const std::string& actionId) const
 {
     std::string_view p = act::kInGroup;

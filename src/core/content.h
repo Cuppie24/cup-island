@@ -23,7 +23,7 @@ using Ms = std::chrono::milliseconds;
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
                    Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre,
                    Minus, Plus, Pin, Pinned, Fire, Chart, ChevronDown, Search, File, Folder, Close, Refresh, Reset,
-                   Palette, Sliders, Expand, Maximize, Restore, Minimize, CloseWindow };
+                   Palette, Sliders, Expand, Maximize, Restore, Minimize, CloseWindow, Grip };
 
 // Display: a big number, the card's centre (a timer). Heading: a group's label over its rows (Settings'
 // "General", "Dark"): small and quiet, since the group's background already sets it apart (decision 090).
@@ -132,6 +132,7 @@ struct Button {
     bool compact = false;   // smallButtonSize: list rows (a to-do's checkbox), not main controls. Not "small": windows.h #defines it
     bool large = false;     // largeButtonSize, a bigger glyph: a card's main controls beside its ▶ (media's skips, decision 107)
     bool revealOnHover = false; // hidden until the pointer is on its row: a list item's delete (decision 020)
+    bool revealWithSlot = false; // hidden until the pointer is anywhere on its slot: a window card's drag handle (decision 129)
     bool destructive = false;   // its label in dangerColor: a dialog's "Clear"
     bool editsText = false;     // starts editing the Text whose editAction is this button's actionId (decision 029)
     bool badge = false;         // a dot on it: something new behind it, an update to install (decision 038)
