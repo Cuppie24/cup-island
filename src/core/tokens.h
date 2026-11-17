@@ -266,6 +266,9 @@ struct Tokens {
     // Under the expanded card's cover (decision 094), colour in artShadowColor: it sits on the card, not in it.
     float artShadowBlur = 12;
     Vec2 artShadowOffset{ 0, 3 };
+    // Under a toast (decision 151), colour in toastShadowColor: it floats over the page, apart from it.
+    float toastShadowBlur = 14;
+    Vec2 toastShadowOffset{ 0, 3 };
 
     // Glass (decision 089): the blurred desktop behind the island, at one
     // brightness (glassLuminosityColor) like Windows' own acrylic, the island's
@@ -501,6 +504,7 @@ struct Tokens {
     Color imagePlaceholderColor{ 255, 255, 255, 31 }; // art that hasn't arrived
     Color shadowColor{ 0, 0, 0, 115 };             // under the island in every mode; its alpha is the shadow's strength
     Color artShadowColor{ 0, 0, 0, 102 };          // under the expanded card's cover (decision 094)
+    Color toastShadowColor{ 0, 0, 0, 140 };        // under a toast (decision 151): dark enough to show on a dark page
     Color glassShadowColor{ 0, 0, 0, 51 };         // ...as glass (decision 089): fainter, since it also shows through the island
     Color glassRimColor{ 255, 255, 255, 46 };      // glass's rim (decision 089), at its brightest along the bottom
     // Glass's brightness (decision 089): the blur takes this colour's

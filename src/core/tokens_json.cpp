@@ -199,6 +199,8 @@ const Field kFields[] = {
     { "shadowOffset", &Tokens::shadowOffset },
     { "artShadowBlur", &Tokens::artShadowBlur },
     { "artShadowOffset", &Tokens::artShadowOffset },
+    { "toastShadowBlur", &Tokens::toastShadowBlur },
+    { "toastShadowOffset", &Tokens::toastShadowOffset },
     { "glassDenseOpacity", &Tokens::glassDenseOpacity, true }, // Transparency Low (decision 096)
     { "glassOpacity", &Tokens::glassOpacity },                 // ...Medium
     { "glassClearOpacity", &Tokens::glassClearOpacity },       // ...High
@@ -335,6 +337,7 @@ const Field kFields[] = {
     { "imagePlaceholderColor", &Tokens::imagePlaceholderColor },
     { "shadowColor", &Tokens::shadowColor },
     { "artShadowColor", &Tokens::artShadowColor },
+    { "toastShadowColor", &Tokens::toastShadowColor },
     { "glassShadowColor", &Tokens::glassShadowColor },
     { "glassRimColor", &Tokens::glassRimColor },
     { "glassLuminosityColor", &Tokens::glassLuminosityColor },

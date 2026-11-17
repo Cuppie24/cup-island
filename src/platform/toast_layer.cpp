@@ -19,14 +19,26 @@ void ToastLayer::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Co
     layer_.Opacity(0.0f);
     frame_.Children().InsertAtTop(layer_);
 
-    // The pill: the island's raised colour (the theme's), under the toast's text and button.
+    // The pill: the island's raised colour (the theme's), under the toast's text and button,
+    // with the menu's faint edge and a shadow (decision 151): on a page of the same dark it stands apart.
+    const Tokens& t = tokens();
     shape_ = c.CreateRoundedRectangleGeometry();
-    fill_ = c.CreateColorBrush(toUiColor(tokens().islandHighlightColor));
+    fill_ = c.CreateColorBrush(toUiColor(t.islandHighlightColor));
+    edge_ = c.CreateColorBrush(toUiColor(t.trackColor));
     auto pill = c.CreateSpriteShape(shape_);
     pill.FillBrush(fill_);
+    pill.StrokeBrush(edge_);
+    pill.StrokeThickness(t.dividerThickness);
     background_ = c.CreateShapeVisual();
     background_.Shapes().Append(pill);
-    layer_.Children().InsertAtBottom(background_);
+    // In a layer, whose shadow takes the shape of what's drawn in it: the pill's rounded
+    // corners, not its rectangle. LayerVisual.Shadow is Windows 10 1607 (decision 015).
+    pillLayer_ = c.CreateLayerVisual();
+    pillLayer_.Children().InsertAtTop(background_);
+    shadow_ = c.CreateDropShadow();
+    applyShadow();
+    pillLayer_.Shadow(shadow_);
+    layer_.Children().InsertAtBottom(pillLayer_);
     elements_.init(c, device, layer_); // its text and button, above the pill
 }
 
@@ -35,7 +47,8 @@ void ToastLayer::show(const std::optional<ToastScene>& toast, Ms now)
     elements_.apply(toast ? toast->elements : std::vector<Placed>{}, now);
     if (toast) {
         Rect f = snapToPixels(toast->frame); // on the pixels its button and text are on
-        background_.Offset({ f.x, f.y, 0 });
+        pillLayer_.Offset({ f.x, f.y, 0 });
+        pillLayer_.Size({ f.width, f.height });
         background_.Size({ f.width, f.height });
         shape_.Size({ f.width, f.height });
         shape_.CornerRadius({ toast->radius, toast->radius });
@@ -65,9 +78,19 @@ void ToastLayer::animate(bool in, float slide)
     layer_.StartAnimation(L"Offset", offset);
 }
 
+void ToastLayer::applyShadow()
+{
+    const Tokens& t = tokens();
+    shadow_.BlurRadius(t.toastShadowBlur);
+    shadow_.Offset(toFloat3(t.toastShadowOffset));
+    shadow_.Color(toUiColor(t.toastShadowColor));
+}
+
 void ToastLayer::refresh(bool coloursOnly)
 {
     fadeColor(fill_, tokens().islandHighlightColor);
+    fadeColor(edge_, tokens().trackColor);
+    applyShadow(); // a light theme's is fainter; tokens.json may have changed its size
     elements_.refresh(coloursOnly);
 }
 
