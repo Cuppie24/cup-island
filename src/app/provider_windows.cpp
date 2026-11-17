@@ -202,12 +202,13 @@ void showHover(Shown& s)
                 row = p.listRow, radius = p.listRowRadius; // that row's own items, not a card's every row (decision 134)
     }
     s.window->setHovered(key, nav, row, radius, pageRow, pageCard);
-    // The move cursor (decision 143): carrying a card, or over what picks one up (its header, its handle).
-    bool grab = s.drag ? s.drag->what.card : s.pointer && !s.menu && [&] {
+    // The grab cursor (decisions 143, 144): a closed hand carrying a card, an open one over what picks one up.
+    using Grab = platform::ProviderWindow::Grab;
+    bool over = !s.drag && s.pointer && !s.menu && [&] {
         auto what = movableAt(s.scene, *s.pointer);
         return what && what->card;
     }();
-    s.window->setGrabCursor(grab);
+    s.window->setGrabCursor(s.drag && s.drag->what.card ? Grab::Closed : over ? Grab::Open : Grab::None);
 }
 
 Shown* find(const WindowKey& key)

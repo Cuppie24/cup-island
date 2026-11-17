@@ -50,6 +50,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; Flags: unchecked
 Source: "..\build\windows\{#AppExe}"; DestDir: "{app}"; Flags: ignoreversion
 ; Read from beside the exe (src/app/live_tokens.h); still live-tunable after install.
 Source: "..\assets\tokens.json"; DestDir: "{app}"; Flags: ignoreversion
+; Chromium's licence, for its grab cursors in the exe (decision 144)
+Source: "..\THIRD-PARTY-NOTICES.txt"; DestDir: "{app}"; Flags: ignoreversion
 ; File search's own installer, under a fixed name the app looks for (providers/search/search_service.cpp).
 Source: "..\dist\CupIsland-Index-Setup-{#AppVersion}.exe"; DestDir: "{app}"; DestName: "CupIsland-Index-Setup.exe"; Flags: ignoreversion
 
