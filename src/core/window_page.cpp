@@ -114,19 +114,16 @@ void recordMovables(const WindowSection& section, const std::string& name, Rect 
 
 // A movable card's handle (decision 129): a short line at its top's middle, shown while the
 // pointer is on the card; pressed and dragged, the card moves. One line, a little under the
-// card's edge, held anywhere in a wider band than it draws (decision 134).
+// card's edge (decision 134), in a box lit under the pointer and held anywhere in it (decision 139).
 Placed dragHandle(const std::string& name, Rect card, const Source& source)
 {
     const Tokens& t = tokens();
     Placed handle;
     handle.key = name + "/handle";
     handle.item = Button{ .glyph = Glyph::Grip, .actionId = kWindowDragHandle, .compact = true, .revealWithSlot = true, .secondary = true };
-    float w = t.smallButtonSize, h = t.windowDragHandleHeight;
-    float middle = card.x + card.width / 2;
-    handle.frame = { std::round(middle - w / 2), card.y + t.windowDragHandleTop, w, h };
-    float hitWidth = std::min(card.width, std::max(w, t.windowDragHitWidth));
-    float hitHeight = std::max(handle.frame.y + h - card.y, t.windowDragHitHeight);
-    handle.hitFrame = { std::round(middle - hitWidth / 2), card.y, hitWidth, hitHeight };
+    // Held where it's lit (decision 139): one box, what shows under the pointer is what can be grabbed.
+    float w = std::min(card.width, t.windowDragHandleWidth), h = t.windowDragHandleHeight;
+    handle.frame = handle.hitFrame = { std::round(card.x + (card.width - w) / 2), card.y + t.windowDragHandleTop, w, h };
     handle.cornerRadius = h / 2;
     handle.providerId = source.providerId;
     handle.activityId = source.activityId;
