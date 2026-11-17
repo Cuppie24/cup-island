@@ -1,6 +1,6 @@
 # 140: A row's cards end together
 
-Status: Accepted (amends 117, 120). Core tested; the look on Windows needs a run.
+Status: Accepted (amends 117, 120; "New group" keeps its own height since 153). Core tested; the look on Windows needs a run.
 
 **Context.** Cards sit in a grid row by row, each row as tall as its tallest
 card (decision 120). A shorter card ended early and left a hole under it
