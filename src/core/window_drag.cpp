@@ -69,7 +69,7 @@ DropTarget cardTarget(const WindowScene& shown, const WindowDrag& d, const DropT
         Rect r = others[k];
         if (!r.contains(d.at)) continue;
         // Another card shown on its row (where the carried one lands): the cards run left to right there.
-        // Not a dashed one ("New group"): it's left out while a card is carried (decision 156).
+        // Not a dashed one ("New group"): it's shown, in its place, but no card's place depends on it (decision 156).
         bool beside = false;
         for (const Placed& p : shown.page) {
             auto* fill = std::get_if<GroupFill>(&p.item);
@@ -130,9 +130,6 @@ WindowContent withMove(const WindowContent& content, const std::string& pageId, 
         if (from == sections.end()) return moved;
         WindowSection carried = std::move(*from);
         sections.erase(from);
-        // A dashed card ("New group") is a button, not a card among them: left out while one is
-        // carried, so the cards make room only for each other (decision 156); it's back on drop.
-        std::erase_if(sections, [](const WindowSection& sec) { return sec.dashed; });
         std::size_t at = insertAt(sections, t.index, [](const WindowSection& sec) { return !sec.moveAction.empty(); }, sections.size());
         sections.insert(sections.begin() + static_cast<std::ptrdiff_t>(at), std::move(carried));
         return moved;
