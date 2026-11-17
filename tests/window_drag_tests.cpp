@@ -147,6 +147,15 @@ void dragTests()
     moved = withMove(w.content, "p", card, t);
     expect(moved.pages[0].sections[0].id == "g1" && moved.pages[0].sections[1].id == "g0" && moved.pages[0].sections[2].id == "new",
            "laid out after it; the card that doesn't move stays last");
+    {
+        OpenWindow dashed = w;
+        dashed.content.pages[0].sections[2].dashed = true; // "New group"
+        WindowContent without = withMove(dashed.content, "p", card, t);
+        expect(without.pages[0].sections.size() == 2 && without.pages[0].sections[1].id == "g0",
+               "a card carried: the dashed card is left out (decision 156)");
+        WindowDrag task = startDrag(s, *r00, inWindow(s, { r00->frame.x + 4, r00->frame.y + 2 }));
+        expect(withMove(dashed.content, "p", task, origin(task)).pages[0].sections.size() == 3, "...a task carried: it stays");
+    }
     action = dropAction(s, card, t);
     expect(action && action->actionId == "move.g0" && action->value == 1, "let go: the card's move action, its new index");
 }

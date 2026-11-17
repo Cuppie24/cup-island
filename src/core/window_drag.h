@@ -48,6 +48,7 @@ DropTarget dropTarget(const WindowScene& shown, const WindowDrag& drag, const Dr
 DropTarget origin(const WindowDrag& drag);
 
 // The page's content with it moved to `target`: laid out, the others make room.
+// A card carried: without the dashed cards ("New group", decision 156).
 WindowContent withMove(const WindowContent& content, const std::string& page, const WindowDrag& drag, const DropTarget& target);
 
 // On `preview` (laid out from withMove), what's carried follows the pointer
