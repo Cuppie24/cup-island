@@ -64,10 +64,15 @@ Slot cardSlot(const WindowSection& section)
         r.grouped = false;
         r.listItem = true;
     }
-    // Its name hugs its text, what's at its end right beside it, a gap apart; lit only that far (decision 123).
     if (hasTitle(section)) {
-        slot.front().hug = true;
-        slot.front().edgesBeside = true;
+        Row& title = slot.front();
+        if (!section.titleEdit.empty()) { // its name hugs its text, what's at its end right beside it, lit only that far (decision 123)
+            title.hug = true;
+            title.edgesBeside = true;
+        } else { // a plain name (decision 145): nothing lit under the pointer, in line with the rows; its buttons (a "…") at the far end
+            title.listItem = false;
+            title.inset = true;
+        }
     }
     return windowStyled(std::move(slot));
 }
