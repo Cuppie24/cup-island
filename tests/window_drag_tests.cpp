@@ -58,6 +58,7 @@ void dragTests()
     expect(handle && std::get<Button>(handle->item).revealWithSlot && handle->frame.y == g0->frame.y + tk.windowDragHandleTop &&
                std::abs(handle->frame.x + handle->frame.width / 2 - (g0->frame.x + g0->frame.width / 2)) < 1,
            "a movable card's handle: at its top's middle, a little under its edge, shown with its card");
+    expect(handle->noHoverShape, "...with no hover background: the whole header drags the card (decision 147)");
     expect(handle->hitFrame == handle->frame && handle->frame.width == tk.windowDragHandleWidth &&
                handle->frame.height == tk.windowDragHandleHeight && handle->frame.width >= 2 * tk.windowDragLineWidth,
            "...held anywhere it's lit, a box well wider than its line (decision 139)");
