@@ -243,6 +243,16 @@ void sideBySideTests()
     const Movable* small = movable(s, "move.g1");
     expect(big && small && small->frame.y == big->frame.y && small->frame.x > big->frame.x && big->frame.height == small->frame.height,
            "side by side: the bigger group left of the smaller one, both as tall as the row (decision 140)");
+    {
+        const Placed *bigName = nullptr, *smallName = nullptr;
+        for (const Placed& p : s.page)
+            if (auto* t = std::get_if<Text>(&p.item)) {
+                if (t->value == "Group 0") bigName = &p;
+                if (t->value == "Group 1") smallName = &p;
+            }
+        expect(bigName && smallName && std::abs((smallName->frame.y - small->frame.y) - (bigName->frame.y - big->frame.y)) < 0.5f,
+               "the shorter one's rows start at its top too, not centred in it (decision 148)");
+    }
     WindowDrag d = startDrag(s, *big, inWindow(s, { big->frame.x + big->frame.width / 2, big->frame.y + 4 }));
     DropTarget t = origin(d);
     auto previewAt = [&](float x) {
