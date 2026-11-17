@@ -194,7 +194,8 @@ void Blob::buildGlass()
     auto luminosity = compositor_.CreateSurfaceBrush(luminosity_);
     luminosity.Stretch(wuc::CompositionStretch::Fill);
     glassLuminosity_ = luminosity;
-    glassMask_ = compositor_.CreateSurfaceBrush(snapshot_);
+    softnessBuilt_ = tokens().glassEdgeSoftness;
+    glassMask_ = softenedMask(compositor_, compositor_.CreateSurfaceBrush(snapshot_), softnessBuilt_);
     darkenBuilt_ = { tokens().glassDarkenScale, tokens().glassDarkenLift };
     Glass made = maskedBackdrop(compositor_, glassMask_, glassLuminosity_, darkenBuilt_);
     if (!made.brush) return; // logged: the island stays solid
@@ -227,12 +228,17 @@ void Blob::applyGlass(Ms duration)
 
     if (t.glass && !glass_ && !glassTried_) buildGlass();
     if (glassLook_ == Look::Even && glassLuminosityAt(t) != luminosityPainted_) paintLuminosity(glassLuminosityAt(t));
-    // Darkened's range is baked into its effect: a new one from tokens.json
-    // makes the brush again (decision 100).
-    if (glass_ && glassLook_ == Look::Darkened && (t.glassDarkenScale != darkenBuilt_.scale || t.glassDarkenLift != darkenBuilt_.lift)) {
+    // Darkened's range is baked into its effect, and the cut's softness into
+    // its mask: a new one from tokens.json makes the brush again (decisions 100, 127).
+    const bool newSoftness = t.glassEdgeSoftness != softnessBuilt_;
+    if (glass_ && newSoftness) {
+        softnessBuilt_ = t.glassEdgeSoftness;
+        glassMask_ = softenedMask(compositor_, compositor_.CreateSurfaceBrush(snapshot_), softnessBuilt_);
+    }
+    if (glass_ && (newSoftness || (glassLook_ == Look::Darkened && (t.glassDarkenScale != darkenBuilt_.scale || t.glassDarkenLift != darkenBuilt_.lift)))) {
         darkenBuilt_ = { t.glassDarkenScale, t.glassDarkenLift };
         Glass made = maskedBackdrop(compositor_, glassMask_, glassLuminosity_, darkenBuilt_);
-        if (made.brush && made.look == Look::Darkened) glass_.Brush(made.brush);
+        if (made.brush && made.look == glassLook_) glass_.Brush(made.brush); // the same look, or keep the one shown
     }
     if (glass_ && t.glass != glassShown_) {
         glassShown_ = t.glass;
