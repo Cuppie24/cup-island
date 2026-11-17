@@ -66,6 +66,7 @@
 #include "providers/service_link.h"
 #include "providers/system/settings_provider.h"
 #include "providers/system/theme_provider.h"
+#include "providers/system/window_theme.h"
 #include "providers/update/github.h"
 #include "providers/update/update_provider.h"
 #include "providers/provider_registry.h"
@@ -105,6 +106,8 @@ IslandTint g_tint; // the playing cover's colour on the island (decision 051)
 bool g_coverColours = false; // ...if Settings has it on (decisions 052, 055)
 bool g_glassPicked = false;  // Settings' Glass (decision 089): drawn only while Windows' transparency effects are on too
 bool g_glassWindowsPicked = false; // ...and Glass for windows (decision 104): providers' windows as glass too, while the island is
+WindowThemeMode g_windowTheme = WindowThemeMode::Island; // Settings' Window theme (decision 150)...
+std::string g_windowThemeName;                            // ...and Manual's theme
 PillRenderer g_renderer;
 HWND g_inputHwnd{};
 // The island's state and its Composition visuals belong to this thread. A
@@ -910,6 +913,22 @@ bool animationsOff()
     return SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, &on, 0) && !on;
 }
 
+// Windows' app mode (Settings > Personalization > Colors): light, unless it says dark. Read each time.
+bool appsLight()
+{
+    DWORD value = 1, size = sizeof value;
+    RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", L"AppsUseLightTheme", RRF_RT_REG_DWORD,
+                 nullptr, &value, &size);
+    return value != 0;
+}
+
+// Providers' windows in their own theme (decision 150), as Settings picked it;
+// System's follows Windows' app mode, so this runs again when that changes.
+void applyWindowTheme()
+{
+    if (app::setWindowTheme(windowThemeFor(g_windowTheme, g_windowThemeName, appsLight(), tokens().themes))) app::refreshWindows();
+}
+
 void tokensChanged(Vec2 oldCanvas, const char* reason)
 {
     if (tokens().canvas != oldCanvas) positionLayers();
@@ -1061,7 +1080,10 @@ int main()
         Vec2 oldCanvas = tokens().canvas;
         if (app::setReducedMotion(animationsOff())) tokensChanged(oldCanvas, "animation setting");
     };
-    callbacks.onColourSettingChanged = [] { applyGlass("transparency setting"); };
+    callbacks.onColourSettingChanged = [] {
+        applyGlass("transparency setting");
+        applyWindowTheme(); // light or dark mode, as Windows' apps are (decision 150)
+    };
     callbacks.onShowRequested = [] {
         logLine("launched again: opening Home");
         dispatch(HomeOpened{}, "launched again");
@@ -1158,6 +1180,11 @@ int main()
             applyGlass(on ? "glass windows on" : "glass windows off");
         })
                                              : nullptr,
+        .applyWindowTheme = [](WindowThemeMode mode, const std::string& manual) {
+            g_windowTheme = mode;
+            g_windowThemeName = manual;
+            applyWindowTheme();
+        },
     });
     g_settings = settings.get();
     g_settings->setHotkeysActive(!g_state.hidden); // started under a fullscreen app: none until it's gone

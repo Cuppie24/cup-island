@@ -56,7 +56,7 @@ src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interacti
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules and the media widget, SMTC provider for real Windows media: its smtc_reader reads sessions on a thread of its own, decision 144),
                 pomodoro/ (the first panel: a timer card, the rest in its window, decision 106; tasks in groups, task_board, decision 117), search/ (the search card: apps, Settings, files; decisions 077, 079), service_host (Cup Island's service: setup, updates and providers' calls, decisions 076, 078), system/ (Home's theme and Settings widgets:
-                app themes, display, Start with Windows, Copy logs), update/ (updates from GitHub
+                app themes, windows' own theme (decision 150), display, Start with Windows, Copy logs), update/ (updates from GitHub
                 Releases: versions and offers, pure; github.cpp fetches and installs, decision 036)
 src/indexer/    the file index's logic (decision 075), pure: USN records from raw bytes, the index by MFT record,
                 journal changes and resume-or-rescan, queries and ranking, the snapshot file, the pipe's

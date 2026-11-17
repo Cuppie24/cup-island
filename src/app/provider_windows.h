@@ -41,6 +41,7 @@ void setWindowHooks(WindowHooks hooks);
 void syncWindows();
 
 // Tokens changed: recoloured (a theme, a cover) or rebuilt (tokens.json, display scale).
+// Windows in a theme of their own (decision 150) are drawn with app::windowTokens().
 void refreshWindows();
 
 // Glass (decision 104): Windows' acrylic behind every window, now and as

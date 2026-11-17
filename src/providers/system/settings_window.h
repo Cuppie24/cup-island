@@ -11,6 +11,7 @@
 #include "core/tokens.h"
 #include "providers/update/release.h"
 #include "providers/update/update_provider.h"
+#include "providers/system/window_theme.h"
 
 #include <optional>
 #include <set>
@@ -28,6 +29,9 @@ inline constexpr const char* kOpenShortcuts = "shortcuts.open";
 inline constexpr const char* kPickTabRow = "tabrow.pick:";     // + 0 (top) or 1 (bottom): its row's Segments (decision 093)
 inline constexpr const char* kBack = "settings.back";
 inline constexpr const char* kPickTheme = "theme.pick:";       // + its index in tokens().themes
+inline constexpr const char* kOpenWindowTheme = "windowtheme.open";      // decision 150
+inline constexpr const char* kPickWindowThemeMode = "windowtheme.mode:"; // + 0 island, 1 system, 2 manual: its Segments
+inline constexpr const char* kPickWindowTheme = "windowtheme.pick:";     // + its index in tokens().themes (Manual)
 inline constexpr const char* kPickDisplay = "display.pick:";   // + its index in SettingsView::displays
 inline constexpr const char* kEditShortcut = "shortcut.edit:"; // + its index in commands()
 inline constexpr const char* kResetShortcut = "shortcut.reset:"; // + its index in commands(): back to its default (decision 103)
@@ -64,8 +68,8 @@ struct UpdateNote {
 };
 
 // A page within a sidebar page: none (its settings), or one setting's
-// choices. Themes, Displays, MusicColours and Glass are within Appearance, Shortcuts within General.
-enum class SettingsPage { List, Themes, Displays, Shortcuts, MusicColours, Glass };
+// choices. Themes, WindowTheme, Displays, MusicColours and Glass are within Appearance, Shortcuts within General.
+enum class SettingsPage { List, Themes, WindowTheme, Displays, Shortcuts, MusicColours, Glass };
 
 // A setting added after people already had the app (decision 048): shown
 // with a "New" tag until it's been seen, and a dot on its parent's row while
@@ -76,7 +80,7 @@ struct SettingItem {
 };
 
 // Every announced setting, oldest first: add a line when adding a setting.
-// Rows' ids: "theme", "glass" (and "transparency", "glasswindows" on its page), "musiccolours" (and "covercolours", "fade" on its page), "display",
+// Rows' ids: "theme", "windowtheme", "glass" (and "transparency", "glasswindows" on its page), "musiccolours" (and "covercolours", "fade" on its page), "display",
 // "tabrow", "centre", "autostart", "shortcuts", "logs", "updates".
 std::vector<SettingItem> announcedSettings();
 
@@ -100,6 +104,8 @@ struct SettingsView {
     std::optional<bool> glass;              // the island as glass (decision 089); nothing: no row (Windows 10)
     std::optional<Transparency> transparency; // how see-through (decision 096); nothing: no choice
     std::optional<bool> glassWindows;       // windows as glass too (decision 104); nothing: no row
+    std::optional<WindowThemeMode> windowTheme; // where windows take their colours (decision 150); nothing: no row
+    std::string windowThemeName;            // Manual: the theme picked for them
     std::vector<SettingItem> announced;     // what can be new (announcedSettings)...
     std::set<std::string> unseen;           // ...and which of those haven't been seen yet: tagged "New"
 };

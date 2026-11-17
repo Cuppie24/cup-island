@@ -22,6 +22,8 @@ FadeSpeed g_fadeSpeed = FadeSpeed::Medium; // Settings' pick (decision 053)
 bool g_reducedMotion = false;               // Windows' animation setting (decision 080)
 bool g_glass = false;                       // glass picked, and Windows' transparency on (decision 089)
 Transparency g_transparency = Transparency::Medium; // Settings' pick (decision 096)
+std::optional<std::string> g_windowTheme;   // windows' own theme (decision 150); nothing: the island's
+std::optional<Tokens> g_window;             // the tokens it gives them: commit() keeps it in step
 
 void log(const std::string& message)
 {
@@ -53,8 +55,19 @@ std::filesystem::path findTokensFile()
 
 namespace {
 
+// Everything over a theme's colours that isn't one: the display's scale and Settings' picks.
+Tokens finished(const Tokens& themed)
+{
+    Tokens next = scaleTokens(themed, g_scale);
+    next.fadeSpeed = g_fadeSpeed;
+    next.reducedMotion = g_reducedMotion;
+    next.glassTransparency = g_transparency;
+    return withGlass(next, g_glass); // not on a light theme's island (decision 089)
+}
+
 // The file's tokens, the theme's colours over them, the cover's over those,
-// at the display's scale.
+// at the display's scale. The windows' too, in their own theme if they have
+// one (decision 150): no cover colours there, they're the island's. True if either changed.
 bool commit(const std::string& message)
 {
     Tokens themed = withTheme(g_file, g_theme);
@@ -63,12 +76,19 @@ bool commit(const std::string& message)
     // the bottom of a Midnight island: the file's colours as written (decision 090).
     bool glass = withGlass(themed, g_glass).glass;
     if (g_tint) themed = withColors(themed, glass ? glassCoverColors(*g_tint, themed, g_file) : coverColors(*g_tint, themed));
-    Tokens next = scaleTokens(themed, g_scale);
-    next.fadeSpeed = g_fadeSpeed;
-    next.reducedMotion = g_reducedMotion;
-    next.glassTransparency = g_transparency;
-    next = withGlass(next, g_glass); // not on a light theme's island (decision 089)
-    if (next == tokens()) return false;
+    Tokens next = finished(themed);
+    std::optional<Tokens> window;
+    if (g_windowTheme) {
+        Tokens own = withTheme(g_file, *g_windowTheme);
+        own.islandSecondColor = own.islandColor;
+        window = finished(own);
+    }
+    bool windowChanged = window != g_window;
+    g_window = std::move(window);
+    if (next == tokens()) {
+        if (windowChanged) log(message);
+        return windowChanged;
+    }
     warnIfClipped(next);
     setTokens(next);
     log(message);
@@ -124,6 +144,14 @@ bool setTheme(const std::string& name)
     g_theme = name;
     return commit("theme: " + (name.empty() ? std::string("none") : name));
 }
+
+bool setWindowTheme(std::optional<std::string> name)
+{
+    g_windowTheme = std::move(name);
+    return commit("window theme: " + (g_windowTheme ? *g_windowTheme : std::string("the island's")));
+}
+
+const Tokens* windowTokens() { return g_window ? &*g_window : nullptr; }
 
 bool setTint(std::optional<CoverTint> cover)
 {
