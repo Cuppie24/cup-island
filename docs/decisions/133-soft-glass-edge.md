@@ -1,6 +1,6 @@
 # 133: The snapshot's shapes are antialiased (BorderMode Soft)
 
-Status: Accepted; built, not yet run on Windows (amends 018, 089, 097)
+Status: Accepted; confirmed on Windows 11 in 0.12.6, after two releases that didn't fix it (amends 018, 089, 097)
 
 **Context.** On a light desktop the island's rounded corners looked
 pixelated, much more so with glass on. A screenshot showed why: along the
@@ -24,5 +24,25 @@ set to **Soft**, so the snapshot, and the glass's cut and the shadow made
 from it, have antialiased edges like the tint over them. `BorderMode` is
 Windows 10 1511, within decision 015.
 
+**Confirmed.** On Windows 11 at 100% scaling, glass on, over a white
+window, the corners are smooth. Before, they stepped: the bug was first
+reported on 0.12.2 and was still there in 0.12.3 and 0.12.5.
+
+**The rule this leaves:** any visual tree drawn into a
+`CompositionVisualSurface` (a snapshot used as a mask, a shadow or a
+brush) sets `BorderMode` Soft on its root, and on any child that sets its
+own. Composition gives no warning. The tree looks fine on screen and is
+aliased only in the surface, so the bug shows only where the surface is
+used (here, through a see-through tint). The ear's ShapeVisual sets Soft
+itself because `addEars` builds it for the body as well as the twin.
+
+**How it was found.** Pixel values along the curve in a screenshot
+(`python -c` with PIL over a 1:1 capture): an AA edge has a run of in-between
+values; this one jumped from ~75 to ~230 in one pixel, and only under glass.
+The log's `glass:` lines then showed the blur attempts refused, which ruled
+that path out. Read the corner's pixels before guessing again.
+
 **Consequences.** The shadow's mask is smoother too (unseen: it's blurred).
-Needs a Windows run: the corners on a white desktop, glass on and off.
+`glassEdgeSoftness` existed only in 0.12.3–0.12.5. The installer replaces
+tokens.json, but a hand-edited copy that still has it is rejected as a
+whole ("unknown token (typo?)") and the previous values stay: delete the line.
