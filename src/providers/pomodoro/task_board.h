@@ -22,6 +22,11 @@ inline constexpr const char* kDeleteGroupConfirmed = "group.remove."; // + the g
 inline constexpr const char* kMoveGroup = "group.move.";
 // A task: + "<group id>.<task id>"; Action::value = its index in the group it lands in, Action::text = that group's id.
 inline constexpr const char* kMoveTask = "task.move.";
+// "Add task" (decision 132): + the group's id. Opens a task row being written under it, with the keys.
+inline constexpr const char* kWriteTask = "task.write.";
+// The row being written, left (its TextInput::leaveAction): + the group's id; Action::text = what's
+// in it, added if it isn't blank. The row goes either way. (Enter adds through todo_action::kAdd.)
+inline constexpr const char* kTaskWritten = "task.written.";
 // A to-do action (todo_action) on one group's tasks: "tasks.<group id>:" + it.
 inline constexpr const char* kInGroup = "tasks.";
 } // namespace task_action

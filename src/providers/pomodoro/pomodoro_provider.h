@@ -83,6 +83,7 @@ private:
         Todo task;
     };
     std::optional<std::variant<DeletedTask, RemovedGroup>> deleted_;
+    std::optional<std::uint64_t> writingIn_; // the group whose "Add task" opened a row being written (decision 132)
     bool debug_ = false;
     int fake_ = 0; // a made-up history shown (fakeStats), never saved; 0: the real one
 };

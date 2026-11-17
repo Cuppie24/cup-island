@@ -229,7 +229,7 @@ void Blob::applyGlass(Ms duration)
     if (t.glass && !glass_ && !glassTried_) buildGlass();
     if (glassLook_ == Look::Even && glassLuminosityAt(t) != luminosityPainted_) paintLuminosity(glassLuminosityAt(t));
     // Darkened's range is baked into its effect, and the cut's softness into
-    // its mask: a new one from tokens.json makes the brush again (decisions 100, 127).
+    // its mask: a new one from tokens.json makes the brush again (decisions 100, 133).
     const bool newSoftness = t.glassEdgeSoftness != softnessBuilt_;
     if (glass_ && newSoftness) {
         softnessBuilt_ = t.glassEdgeSoftness;

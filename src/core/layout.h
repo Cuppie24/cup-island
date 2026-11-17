@@ -51,6 +51,7 @@ struct Placed {
     // A window's page while something is dragged on it, and just after (decision 132): a move
     // eases there, so the others making room slide. `carried`: the thing dragged, at the pointer.
     bool glides = false;
+    // Following the pointer (a window's drag, decision 129): moved at once, never glided (decision 132).
     bool carried = false;
     bool operator==(const Placed&) const = default;
 };

@@ -149,6 +149,8 @@ void relayout(Shown& s)
     s.scene = windowLayout(*w, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing, maximized);
     if (dropGoneField(s.typing, s.scene)) // the field with the keys went: laid out without it
         s.scene = windowLayout(*w, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing, maximized);
+    if (focusArrived(s.typing, s.scene)) // a row opened to be written takes the keys (decision 132): laid out focused
+        s.scene = windowLayout(*w, s.window->clientSize(), s.scroll, now, g_hooks.measure, &s.typing, maximized);
     if (s.drag) { // carried (decision 129): laid out as if it were where it lands, following the pointer
         s.target = dropTarget(s.scene, *s.drag);
         OpenWindow preview = *w;

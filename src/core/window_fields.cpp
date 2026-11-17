@@ -72,7 +72,7 @@ std::optional<Action> focusField(WindowTyping& typing, const WindowScene& s, con
         }
         d.actionId = input->actionId;
         d.maxLength = input->maxLength;
-        d.sendsOnLeave = input->focusedIcon.has_value();
+        d.leaveAction = input->leaveAction;
         if (input->inPlace) d.text = input->value, d.editing = true; // a text drawn while edited: an edit again
     } else {
         const Text& text = std::get<Text>(p->item);
@@ -100,11 +100,9 @@ std::optional<Action> blurField(WindowTyping& typing, const WindowScene& s)
     typing.draft.reset();
     if (d.editing) return sent(s, d.actionId, d.text); // kept, like any text box (decision 043)
     std::string key = keptKey(s.windowId, d.actionId);
-    if (d.sendsOnLeave) { // a row being written: left, it's added, as with Enter (decision 127); blank, nothing
+    if (!d.leaveAction.empty()) { // a row being written: left, it's added if there's anything, and goes (decisions 127, 132)
         typing.kept.erase(key);
-        bool blank = d.text.find_first_not_of(" \t\r\n") == std::string::npos;
-        if (blank) return std::nullopt;
-        return sent(s, d.actionId, d.text);
+        return sent(s, d.leaveAction, d.text);
     }
     if (d.text.empty()) typing.kept.erase(key);
     else typing.kept[key] = d.text;
@@ -129,6 +127,11 @@ FieldOutcome fieldKey(WindowTyping& typing, const WindowScene& s, FieldKey key, 
         return { send, false };
     }
     case FieldKey::Escape: // stops typing; an edit is dropped, a field's text kept
+        if (!d.leaveAction.empty()) { // a row being written: dropped, and it goes (decision 132)
+            Action drop = sent(s, d.leaveAction, "");
+            typing.draft.reset();
+            return { drop, true };
+        }
         if (d.editing) typing.draft.reset();
         else blurField(typing, s);
         return { std::nullopt, true };
@@ -192,6 +195,17 @@ bool dropGoneField(WindowTyping& typing, const WindowScene& s)
     if (typing.draft->editing) typing.draft.reset(); // the text it edited went (deleted, another page): nothing to send
     else blurField(typing, s);
     return true;
+}
+
+bool focusArrived(WindowTyping& typing, const WindowScene& s)
+{
+    if (typing.draft) return false; // something has the keys: it keeps them
+    for (const Placed& p : s.page)
+        if (auto* input = std::get_if<TextInput>(&p.item); input && input->autoFocus && !input->inPlace) {
+            focusField(typing, s, p.key, std::nullopt); // nothing had the keys: nothing to send
+            return true;
+        }
+    return false;
 }
 
 const Placed* focusedField(const WindowScene& s)

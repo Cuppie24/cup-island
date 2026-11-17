@@ -134,6 +134,7 @@ void follow(WindowScene& preview, const WindowDrag& d)
         spot.activityId = p.activityId;
         shift(p.frame);
         shift(p.hitFrame);
+        p.carried = true;
         if (p.listRow) shift(*p.listRow);
         p.glides = false; // at the pointer at once, not easing after it
         p.carried = true;

@@ -24,7 +24,10 @@ public:
     void init(wuc::Compositor const& compositor, GraphicsDevice& device, wuc::ContainerVisual const& parent);
     // `reveal`: new content starts arriving this much later, when the morph
     // that brought it is far enough along (decision 080).
-    void apply(const std::vector<Placed>& elements, Ms now, Ms reveal = Ms{ 0 });
+    // `glide`: what moved glides to its new place instead of jumping there (a window's page, the
+    // same size and page as before: a row opened above pushes it down, decision 132). Off while the
+    // layout follows a resize, and for what's carried (Placed::carried).
+    void apply(const std::vector<Placed>& elements, Ms now, Ms reveal = Ms{ 0 }, bool glide = false);
     // Tokens changed. Colours only (a theme, a cover): shapes fade to the new
     // colours and text is redrawn in place. Anything else (tokens.json, display
     // scale): every visual is dropped, so the next apply() rebuilds it.
@@ -108,6 +111,7 @@ private:
     std::string hoveredRow_, hoveredSlot_;
     bool revealedNow(const Placed& placed) const; // a reveal-on-hover item: shown now
     Ms reveal_{}; // the latest apply()'s: what's built during it waits this long
+    bool glide_ = false; // ...and whether what moves in it glides
     std::optional<std::string> hoveredTab_;
     bool deviceLost_ = false;
 };

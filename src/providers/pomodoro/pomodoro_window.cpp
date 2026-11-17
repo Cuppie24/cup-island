@@ -81,10 +81,11 @@ std::vector<Row> timerHeader(const PomodoroWindowView& v)
 }
 
 // A group's card (decisions 117, 121): its name, edited in place, its delete
-// at the end on hover; "Add task", then its
-// tasks: open ones first, then solved ones, struck (decision 071). A task's
-// box ticks it, a click on its text edits it, its delete shows on hover.
-WindowSection groupCard(const TaskGroup& g)
+// at the end on hover; "Add task", the row being written under it if it's
+// open (decision 132), then its tasks: open ones first, then solved ones,
+// struck (decision 071). A task's box ticks it, a click on its text edits it,
+// its delete shows on hover.
+WindowSection groupCard(const TaskGroup& g, bool writing)
 {
     namespace task = task_action;
     std::string gid = std::to_string(g.id);
@@ -94,11 +95,18 @@ WindowSection groupCard(const TaskGroup& g)
     card.titleTrailing = { Button{ .glyph = Glyph::Delete, .actionId = task::kDeleteGroup + gid, .compact = true, .revealOnHover = true } };
     card.moveAction = task::kMoveGroup + gid; // dragged by its handle among the groups (decision 129)
     card.takesRows = true;                    // ...and a task from another group dropped in it
-    // "+ Add task" reads as a button; clicked, it's the task it adds, being written: an unticked
-    // box, its text where a task's is, a task row's height (decisions 122, 125).
-    card.rows.push_back(Row{ .items = { TextInput{ .actionId = inGroup(g.id, todo::kAdd), .placeholder = "Add task", .icon = Glyph::Plus,
-                                                   .focusedIcon = Glyph::Unchecked, .maxLength = tokens().todoMaxLength } },
+    // "+ Add task" is a button, the whole row its click, its + where a task's box is (decision 132);
+    // it stays. Clicked, a task row being written opens under it with the keys: an unticked box,
+    // its text where a task's is (decision 125). Enter adds one and keeps it for the next; left,
+    // what's in it is added and the row goes; left blank or Esc'd, it just goes.
+    card.rows.push_back(Row{ .items = { Button{ .glyph = Glyph::Plus, .actionId = task::kWriteTask + gid, .compact = true, .secondary = true },
+                                        Text{ "Add task", TextStyle::Caption } },
+                             .clickAnywhere = true,
                              .id = "add" });
+    if (writing)
+        card.rows.push_back(Row{ .items = { TextInput{ .actionId = inGroup(g.id, todo::kAdd), .placeholder = "New task", .focusedIcon = Glyph::Unchecked,
+                                                       .maxLength = tokens().todoMaxLength, .leaveAction = task::kTaskWritten + gid, .autoFocus = true } },
+                                 .id = "writing" });
     for (const Todo& t : items) {
         std::string id = std::to_string(t.id);
         Button box{ .glyph = t.done ? Glyph::Checked : Glyph::Unchecked, .actionId = inGroup(g.id, todo::kToggle + id), .compact = true };
@@ -117,7 +125,7 @@ WindowPage timerPage(const PomodoroWindowView& v)
     // Under the header, the phase's progress, edge to edge (decision 122); dormant, an empty bar.
     page.headerProgress = v.session ? v.session->timeline : Timeline{ .duration = v.plan.focus };
     static const TaskBoard none;
-    for (const TaskGroup& g : (v.tasks ? *v.tasks : none).groups()) page.sections.push_back(groupCard(g));
+    for (const TaskGroup& g : (v.tasks ? *v.tasks : none).groups()) page.sections.push_back(groupCard(g, v.writingIn == g.id));
     // Quiet (decision 122): a dashed outline, no fill; a caption's words; the whole row its button.
     page.sections.push_back({ .rows = { Row{ .items = { Button{ .glyph = Glyph::Plus, .actionId = task_action::kNewGroup, .compact = true, .secondary = true },
                                                       Text{ "New group", TextStyle::Caption } },

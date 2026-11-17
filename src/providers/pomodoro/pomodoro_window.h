@@ -30,6 +30,7 @@ struct PomodoroWindowView {
     // A group just made: its name's edit action gets the keys (WindowContent::focus, decision 132).
     std::string focus;
     std::uint64_t focusRequest = 0;
+    std::optional<std::uint64_t> writingIn; // the group with a task row being written under its "Add task" (decision 132)
 };
 
 WindowContent pomodoroWindow(const PomodoroWindowView& view);

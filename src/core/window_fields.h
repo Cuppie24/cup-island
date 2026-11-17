@@ -72,6 +72,11 @@ void moveCaretTo(WindowTyping& typing, std::size_t at, bool select);
 // the page, or it lets go (its text kept, an edit dropped). True if it went.
 bool dropGoneField(WindowTyping& typing, const WindowScene& scene);
 
+// After the window's content changed: a field that has the keys as it
+// appears (TextInput::autoFocus, a row opened to be written, decision 132)
+// gets them, if nothing has them. True if it did: lay it out again.
+bool focusArrived(WindowTyping& typing, const WindowScene& scene);
+
 // The focused field on the page, as windowLayout filled it (caret and all); none if nothing has the keys.
 const Placed* focusedField(const WindowScene& scene);
 

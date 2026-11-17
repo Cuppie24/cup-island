@@ -185,6 +185,14 @@ struct TextInput {
     // with the field's whole text, not just Enter (which still sends
     // actionId). Typing, erasing, pasting and cutting all count.
     std::string changeAction;
+    // A row being written (decision 132): left (a click elsewhere, Tab,
+    // another field) or Esc'd, this is sent with what's in it, blank or not
+    // (Esc: blank), instead of keeping it for later; the provider adds it if
+    // there's anything and takes the row away. Enter still sends actionId
+    // and keeps the keys, for the next one. "": an ordinary field (decision 050).
+    std::string leaveAction;
+    // Has the keys as it appears, if nothing else has them: a row just opened to be written (decision 132).
+    bool autoFocus = false;
     bool operator==(const TextInput&) const = default;
 };
 // A bar stretches across its row. A ring is a square: alone in its row it

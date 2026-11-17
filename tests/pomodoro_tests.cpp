@@ -235,13 +235,16 @@ void windowTests()
                std::abs(steps->frame.x - (where->frame.x + where->frame.width) - t.looseItemSpacing) < 0.5f,
            "the round set against its end, the row's loose gap before the steps");
     expect(textIn(timer, "Tasks") && textIn(timer, "New group") && !textIn(timer, "Timer"), "the first group, the new group card; no page title");
-    const Placed* field = nullptr;
-    for (const Placed& p : timer.page)
-        if (auto* input = std::get_if<TextInput>(&p.item); input && input->actionId == inGroup(1, todo_action::kAdd)) field = &p;
-    expect(field && std::get<TextInput>(field->item).placeholder == "Add task", "each group's Add task field");
-    expect(field && std::get<TextInput>(field->item).icon == Glyph::Plus && field->litByRow && field->listRow &&
-               field->hitFrame.width >= field->listRow->width - 0.5f,
-           "Add task: '+ Add task', one field lit by its row, the whole row clicking into it (decision 122)");
+    // "+ Add task" is a button that stays (decision 132): the whole row its click, no field until it's clicked.
+    auto writingField = [](const WindowScene& scene) -> const Placed* {
+        for (const Placed& p : scene.page)
+            if (std::holds_alternative<TextInput>(p.item)) return &p;
+        return nullptr;
+    };
+    const std::string writeTask = std::string(task_action::kWriteTask) + "1", taskWritten = std::string(task_action::kTaskWritten) + "1";
+    const Placed* addTask = buttonIn(timer, writeTask);
+    expect(addTask && textIn(timer, "Add task") && std::get<Button>(addTask->item).glyph == Glyph::Plus && addTask->litByRow && !writingField(timer),
+           "Add task: '+ Add task', a button lit by its row, the whole row its click; no field yet");
 
     // ▶ in the window starts it; the card on the island follows.
     island.inWindow(pomodoro_action::kStart);
@@ -271,42 +274,56 @@ void windowTests()
     island.registry.route({ "pomodoro", PomodoroProvider::kPanelId, pomodoro_action::kStopConfirmed, 0 });
     island.send(DialogClosed{});
 
-    // Tasks, typed into a group's field (decision 105): Enter adds one; a delete has its Undo in place.
+    // Tasks (decisions 105, 132): "Add task" opens a row under it, with the keys; Enter adds one and keeps them.
     WindowTyping typing;
+    island.inWindow(writeTask);
     WindowScene page = island.windowScene();
-    std::string fieldKey;
-    for (const Placed& p : page.page)
-        if (auto* input = std::get_if<TextInput>(&p.item); input && input->actionId == inGroup(1, todo_action::kAdd)) fieldKey = p.key;
-    focusField(typing, page, fieldKey, std::nullopt);
+    const Placed* row = writingField(page);
+    addTask = buttonIn(page, writeTask);
+    expect(row && addTask && row->frame.y > addTask->frame.y && std::get<TextInput>(row->item).actionId == inGroup(1, todo_action::kAdd),
+           "clicked, Add task stays, a row being written under it");
+    expect(focusArrived(typing, page) && typing.draft && typing.draft->actionId == inGroup(1, todo_action::kAdd), "...with the keys at once");
     typeText(typing, page, "Write the report");
-    FieldOutcome enter = fieldKey.empty() ? FieldOutcome{} : cup::fieldKey(typing, page, FieldKey::Enter, false, false);
-    expect(enter.send && enter.send->windowId == PomodoroProvider::kWindowId, "Enter in the group's field sends the task");
+    FieldOutcome enter = cup::fieldKey(typing, page, FieldKey::Enter, false, false);
+    expect(enter.send && enter.send->windowId == PomodoroProvider::kWindowId && !enter.letGo, "Enter in the row sends the task, keeping the keys");
     if (enter.send) island.registry.route(*enter.send);
     page = island.windowScene();
     const Placed* task = textIn(page, "Write the report");
     expect(task && std::get<Text>(task->item).editAction == inGroup(1, std::string(todo_action::kEdit) + "1"), "added: in its group, edited in place");
-    // Clicked, "+ Add task" is the task it adds, being written (decision 125): a task row's height, a box, no field box.
-    WindowTyping writing;
-    focusField(writing, page, fieldKey, std::nullopt);
-    WindowScene written = windowLayout(*island.window(), { 1000, 2000 }, 0, island.now, {}, &writing);
-    const Placed *addField = nullptr, *box = buttonIn(written, inGroup(1, std::string(todo_action::kToggle) + "1"));
-    for (const Placed& p : written.page)
-        if (p.key == fieldKey) addField = &p;
+    expect(writingField(page) && !focusArrived(typing, page) && typing.draft, "...and the row stays, for the next one");
+    // Written, it's drawn as the task it adds (decision 125): a task row's height, a box, no field box.
+    WindowScene written = windowLayout(*island.window(), { 1000, 2000 }, 0, island.now, {}, &typing);
+    const Placed *addField = writingField(written), *box = buttonIn(written, inGroup(1, std::string(todo_action::kToggle) + "1"));
     const TextInput* shown = addField ? std::get_if<TextInput>(&addField->item) : nullptr;
     expect(shown && shown->focused && shown->focusedIcon == Glyph::Unchecked && addField->litByRow && box &&
                addField->frame.height == box->frame.height && addField->frame.x == box->frame.x && addField->listRow &&
                std::abs(addField->listRow->height - box->listRow->height) < 0.01f,
-           "focused: '+ Add task' becomes a task row being written, its height, its box where a task's is");
-    // Left without Enter (a click elsewhere), what's written is added all the same (decision 127); blank, nothing.
-    typeText(writing, written, "Left without Enter");
-    std::optional<Action> left = blurField(writing, written);
-    expect(left && left->actionId == inGroup(1, todo_action::kAdd) && left->text == "Left without Enter" && !writing.draft,
-           "leaving the row being written sends it, as Enter would");
+           "the row being written: a task row's height, its box where a task's is");
+    // Left without Enter (a click elsewhere), what's written is added and the row goes (decisions 127, 132).
+    typeText(typing, written, "Left without Enter");
+    std::optional<Action> left = blurField(typing, written);
+    expect(left && left->actionId == taskWritten && left->text == "Left without Enter" && !typing.draft, "leaving the row sends what's in it");
     if (left) island.registry.route(*left);
-    expect(textIn(island.windowScene(), "Left without Enter") != nullptr, "...and the task is added");
-    focusField(writing, written, fieldKey, std::nullopt);
-    typeText(writing, written, "   ");
-    expect(!blurField(writing, written) && writing.kept.empty(), "left blank: nothing added, nothing kept");
+    page = island.windowScene();
+    expect(textIn(page, "Left without Enter") && !writingField(page), "...added, and the row gone");
+    // Left blank, nothing is added and the row goes; Esc drops what's in it.
+    island.inWindow(writeTask);
+    page = island.windowScene();
+    focusArrived(typing, page);
+    typeText(typing, page, "   ");
+    left = blurField(typing, page);
+    if (left) island.registry.route(*left);
+    page = island.windowScene();
+    expect(left && !writingField(page) && typing.kept.empty() && island.window() && savedTasks.find("[ ]    ") == std::string::npos,
+           "left blank: nothing added, nothing kept, the row gone");
+    island.inWindow(writeTask);
+    page = island.windowScene();
+    focusArrived(typing, page);
+    typeText(typing, page, "Dropped");
+    FieldOutcome esc = cup::fieldKey(typing, page, FieldKey::Escape, false, false);
+    if (esc.send) island.registry.route(*esc.send);
+    page = island.windowScene();
+    expect(esc.letGo && esc.send && esc.send->text.empty() && !writingField(page) && !textIn(page, "Dropped"), "Esc: dropped, the row gone");
     island.inWindow(inGroup(1, std::string(todo_action::kDelete) + "2")); // back to the one task the rest of the test expects
     expect(textIn(page, "1") == nullptr, "no count beside the group's name (decision 121)");
     const Placed* remove = buttonIn(page, inGroup(1, std::string(todo_action::kDelete) + "1"));

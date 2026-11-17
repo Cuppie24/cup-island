@@ -305,7 +305,7 @@ struct Tokens {
     float glassRimWidth = 1;      // the rim's width, inside the edge
     // px: how far the glass's cut is softened (a blur's standard deviation).
     // The cut's mask comes out with hard, stepped curves, while the tint over
-    // it is antialiased, so the glass stair-stepped round the corners (decision 127).
+    // it is antialiased, so the glass stair-stepped round the corners (decision 133).
     float glassEdgeSoftness = 0.6f;
 
     // Expanded's page row along the top of the card (decisions 007, 047, 109): a dot per page,
