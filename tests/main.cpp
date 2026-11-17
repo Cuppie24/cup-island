@@ -41,6 +41,7 @@ void runDoubleTapTests();
 void runSearchTests();
 void runWindowTests();
 void runWindowThemeTests();
+void runWhatsNewTests();
 void runWindowCardTests();
 void runWindowMenuTests();
 void runWindowDragTests();
@@ -87,6 +88,7 @@ int main(int argc, char** argv)
     runSearchTests();
     runWindowTests();
     runWindowThemeTests();
+    runWhatsNewTests();
     runWindowCardTests();
     runWindowMenuTests();
     runWindowDragTests();

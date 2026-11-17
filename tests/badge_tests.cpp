@@ -53,19 +53,20 @@ void runBadgeTests()
                 tabDot = tabDot || near(dot, { tab.frame.x + tab.frame.width, tab.frame.y });
     expect(strip.tabs && tabDot, "badges: a flagged activity's dot gets one, just off its top-right (decision 109)");
 
-    // Home's button: only a widget flagged for it (an update), not any widget with a dot.
-    auto homeDot = [&](const Scene& sc) {
-        return sc.tabs->home && sc.tabs->home->badge; // Home has no dot (decision 115)
-    };
+    // Home's button never has one (decision 152: the update's dot is on Settings' gear).
     IslandState withHome = tabs;
     withHome = reduce(withHome, PanelPublished{ flagged }, Ms{ 0 });
-    expect(!homeDot(layout(withHome, Ms{ 0 })), "badges: a widget's dot doesn't light Home's button");
-    Panel update = flagged;
-    update.id = "update";
-    update.content.badgeHome = true;
-    withHome = reduce(withHome, PanelPublished{ update }, Ms{ 0 });
-    Scene homeLit = layout(withHome, Ms{ 0 });
-    expect(homeDot(homeLit) && homeLit.badges.size() >= 2, "badges: one flagged for Home (an update) lights Home's button too");
+    expect(!layout(withHome, Ms{ 0 }).tabs->home->badge, "badges: a widget's dot doesn't light Home's button");
+
+    // A panel's page-row button (Settings' gear): an update's dot in the accent, apart from the red ones.
+    Panel gear{ .id = "gear", .content = { .label = "g", .badgeAccent = true }, .tapAction = "open", .rowButton = Glyph::Settings };
+    withHome = reduce(withHome, PanelPublished{ gear }, Ms{ 0 });
+    Scene geared = layout(withHome, Ms{ 0 });
+    const Tab& button = geared.tabs->buttons.at(0);
+    expect(button.badge && button.accent && geared.accentBadges.size() == 1 && geared.accentBadges[0].x > button.frame.x &&
+               geared.accentBadges[0].x < button.frame.x + button.frame.width &&
+               std::none_of(geared.badges.begin(), geared.badges.end(), [&](Vec2 c) { return near(c, geared.accentBadges[0]); }),
+           "badges: Content::badgeAccent puts the gear's dot with the accent ones, not the red ones");
 
     // A button: on its top-right corner. In a list, only while in view.
     Slot rows;

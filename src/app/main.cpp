@@ -1158,7 +1158,8 @@ int main()
         .checkForUpdates = [](std::function<void(CheckOutcome, const std::string&)> reply) {
             if (g_update) g_update->checkNow(std::move(reply)); // added just below; there by the first click
         },
-        .installUpdate = [] { if (g_update) g_update->install(); }, // the same as Home's Update card (decision 037)
+        .installUpdate = [] { if (g_update) g_update->install(); }, // decisions 037, 152
+        .openPage = openInBrowser, // What's new, and a failed update's installer (decision 152)
         .placeTabRow = [](bool top) { dispatch(TabRowPlaced{ top }, top ? "tab row on top" : "tab row at the bottom"); }, // decision 048
         .setCoverColours = setCoverColours, // decision 052
         .setFadeSpeed = [](FadeSpeed speed) { app::setFadeSpeed(speed); }, // decision 053: read when a fade starts
@@ -1217,7 +1218,6 @@ int main()
         .install = [](const UpdateOffer& offer, std::function<void(std::string)> failed) {
             downloadAndInstall(offer, CUP_VERSION_STRING, [] { DestroyWindow(g_inputHwnd); }, std::move(failed)); // quit: the installer replaces us
         },
-        .openPage = openInBrowser,
     });
     g_update = update.get();
     // Settings shows the offer too, with its own Update and restart (decision 037).

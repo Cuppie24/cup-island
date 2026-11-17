@@ -212,7 +212,7 @@ void ProviderWindow::drawDecor()
         if (n.picked) sidebarDecor_.Children().InsertAtTop(roundedRect(compositor_, n.frame, scene_.navRadius, t.tabSelectedColor));
         else if (hoveredNav_ == i) sidebarDecor_.Children().InsertAtTop(roundedRect(compositor_, n.frame, scene_.navRadius, t.hoverColor));
         if (n.badge) sidebarDecor_.Children().InsertAtTop(dot(compositor_, { n.frame.x + n.frame.width - 12, n.frame.y + n.frame.height / 2 },
-                                                              t.badgeSize / 2, t.badgeColor));
+                                                              t.badgeSize / 2, n.accent ? t.liveColor : t.badgeColor));
     }
     // A button's dot: a setting with something new inside (decision 048), where the island draws one.
     pageDots_.Children().RemoveAll();

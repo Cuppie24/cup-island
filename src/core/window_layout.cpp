@@ -62,7 +62,7 @@ float placeSidebar(WindowScene& s, const OpenWindow& w, float bar, Ms now, const
         if (!rail) one.items.push_back(Text{ page.title });
         Slot slot = windowStyled({ one });
         placeSlot({ "nav" + std::to_string(i), &slot, entry, rail }, source, t.windowNavRadius, now, s.sidebarItems, measure);
-        s.nav.push_back({ entry, page.id, page.id == w.page, page.badge });
+        s.nav.push_back({ entry, page.id, page.id == w.page, page.badge || page.badgeAccent, page.badgeAccent });
         y += t.windowNavHeight + 4;
     }
     return left;

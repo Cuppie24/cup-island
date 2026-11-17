@@ -90,6 +90,7 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     content_.Clip(c.CreateInsetClip());
     body_.Children().InsertAtTop(content_);
     badges_.build(c, body_, content_); // dots over the content (decision 038)
+    accentBadges_.build(c, body_, content_, true); // ...and an update's, in the accent (decision 152)
     toast_.build(c, device, body_, content_); // a toast floats over the content too (decision 071)
     bind(c, toast_.frame(), L"Size", L"pill.Size", body_, shape_); // clipped to the card, like the content
     elements_.init(c, device, content_);
@@ -131,6 +132,7 @@ void Blob::refreshAnimations(bool coloursOnly)
         if (mark.brush) fadeColor(mark.brush, t.tileColor);
     if (focusRing_.brush) fadeColor(focusRing_.brush, t.focusRingColor);
     badges_.recolor();
+    accentBadges_.recolor();
     topGlow_.recolor();
     toast_.refresh(coloursOnly);
     elements_.refresh(coloursOnly);

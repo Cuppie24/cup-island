@@ -46,7 +46,8 @@ struct SettingsHooks {
     // "Check for updates" (decision 036): checks now, then calls back on the
     // UI thread with what it found (Available: the offer's version). Empty: no row.
     std::function<void(std::function<void(CheckOutcome, const std::string&)>)> checkForUpdates;
-    std::function<void()> installUpdate; // the offer, as Home's Update card installs it (decision 037)
+    std::function<void()> installUpdate; // installs the offer (decisions 037, 152)
+    std::function<void(const std::string&)> openPage; // a page in the browser: What's new (decision 152). Empty: no row
     std::function<void(bool top)> placeTabRow; // the tab row along the card's top or bottom (decision 048)
     // The island in the playing cover's colours, or always the theme's (decision 052). Empty: no row.
     std::function<void(bool on)> setCoverColours;

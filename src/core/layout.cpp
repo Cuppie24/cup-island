@@ -256,6 +256,7 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
         if (row.width > 0 || menu->at) scene.menu = placeMenu(*menu, source, row, bounds, now, measureText);
     }
     scene.badges = badgeCentres(scene);
+    scene.accentBadges = badgeCentres(scene, true);
     return scene;
 }
 

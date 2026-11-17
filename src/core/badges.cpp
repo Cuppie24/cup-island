@@ -20,18 +20,19 @@ Vec2 inCorner(const Rect& r, float cornerRadius)
 
 } // namespace
 
-std::vector<Vec2> badgeCentres(const Scene& scene)
+std::vector<Vec2> badgeCentres(const Scene& scene, bool accent)
 {
     std::vector<Vec2> dots;
     for (const Tile& tile : scene.tiles)
-        if (tile.badge) dots.push_back(inCorner(tile.frame, scene.tileRadius));
+        if (tile.badge && tile.accent == accent) dots.push_back(inCorner(tile.frame, scene.tileRadius));
     if (scene.tabs) { // a page's dot: the badge just off its top-right (decision 109); Home's button: in its corner
         for (const Tab& tab : scene.tabs->tabs)
-            if (tab.badge) dots.push_back({ tab.frame.x + tab.frame.width, tab.frame.y });
-        if (scene.tabs->home && scene.tabs->home->badge) dots.push_back(inCorner(scene.tabs->home->frame, scene.tabs->radius));
+            if (tab.badge && tab.accent == accent) dots.push_back({ tab.frame.x + tab.frame.width, tab.frame.y });
+        if (scene.tabs->home && scene.tabs->home->badge && scene.tabs->home->accent == accent) dots.push_back(inCorner(scene.tabs->home->frame, scene.tabs->radius));
         for (const Tab& button : scene.tabs->buttons) // a panel's button (decision 113): as Home's
-            if (button.badge) dots.push_back(inCorner(button.frame, scene.tabs->radius));
+            if (button.badge && button.accent == accent) dots.push_back(inCorner(button.frame, scene.tabs->radius));
     }
+    if (accent) return dots; // a button on a card: always red
     for (const Placed& p : scene.elements) {
         auto* button = std::get_if<Button>(&p.item);
         if (!button || !button->badge) continue;

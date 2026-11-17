@@ -25,6 +25,7 @@ struct NavEntry {
     std::string page;  // its WindowPage::id
     bool picked = false;
     bool badge = false;
+    bool accent = false; // its dot in the accent (WindowPage::badgeAccent)
 };
 
 struct WindowScene {

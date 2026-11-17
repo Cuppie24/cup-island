@@ -45,54 +45,7 @@ std::optional<UpdateOffer> offerFrom(const std::string& text)
                         .mandatory = lines.size() > 5 && lines[5] == "mandatory" };
 }
 
-Alert offerAlert(const UpdateOffer& offer)
-{
-    std::string v = versionText(offer.version);
-    return { .activityId = UpdateProvider::kPanelId, // a click opens the update's card (core: onClick)
-             .content = { .label = "Update available",
-                          .alertLeading = { row({ Icon{ Glyph::Download } }) },
-                          .alertCenter = { row({ Text{ "Update available", TextStyle::Title } }),
-                                           row({ Text{ "Cup Island " + v + ": click to install", TextStyle::Caption } }) } },
-             .coalesceKey = "update" };
-}
-
 } // namespace
-
-Panel updatePanel(const UpdateOffer& offer, const std::string& running, UpdateStage stage, const std::string& problem)
-{
-    namespace A = update_action;
-    std::string v = versionText(offer.version);
-    std::string caption = stage == UpdateStage::Installing ? "Downloading and installing…"
-                          : stage == UpdateStage::Failed   ? problem
-                          : offer.mandatory                ? "Required: installs at the next start" // decision 041
-                                                           : "You have " + running;
-    Button install{ .actionId = A::kInstall, .label = stage == UpdateStage::Failed ? "Try again" : "Install and restart" };
-    if (stage == UpdateStage::Installing) {
-        install.label = "Installing…";
-        install.enabled = false;
-    }
-    Row buttons = row({ install }, Align::Center);
-    // Failed: the same installer, to download and run by hand (it can't get stuck the same way).
-    if (stage == UpdateStage::Failed) buttons.items.push_back(Button{ .actionId = A::kDownload, .label = "Download" });
-    if (!offer.page.empty()) buttons.items.push_back(Button{ .actionId = A::kWhatsNew, .label = "What's new" });
-    buttons.loose = true;
-    bool waiting = stage != UpdateStage::Installing; // offered, or failed: still the user's to do
-    Content content{
-        .label = "Update to " + v,
-        .card = CardLayout::Centred,
-        // A dot on the widget, and on Home's button: the one widget whose news
-        // is worth seeing from any card (decision 038).
-        .badge = waiting,
-        .badgeHome = waiting,
-        .expandedCenter = { row({ Text{ .value = "Cup Island " + v, .style = TextStyle::Title, .centred = true } }),
-                            row({ Text{ .value = caption, .style = TextStyle::Caption, .centred = true } }),
-                            buttons },
-        // Stacked like the other small widgets (theme, Settings), no square at
-        // the side: it fits a narrow column. The icon and version, then what it is.
-        .tile = { row({ Icon{ Glyph::Download }, Text{ v, TextStyle::Body } }), row({ Text{ "Update", TextStyle::TileTitle } }) },
-    };
-    return { .id = UpdateProvider::kPanelId, .content = content };
-}
 
 void UpdateProvider::start(Host& host)
 {
@@ -186,24 +139,8 @@ void UpdateProvider::checked(const std::optional<GitHubRelease>& release)
     }
     offer_ = offer;
     host_->save(kOfferKey, offerText(*offer_)); // still offered after a restart
-    publish();
-    if (host_->load(kAnnouncedKey) != v) { // once per version: a daily check doesn't nag
-        host_->postAlert(offerAlert(*offer));
-        host_->save(kAnnouncedKey, v);
-    }
+    publish(); // Settings' gear gets its dot: no alert, no widget (decision 152)
     answer(CheckOutcome::Available, v);
-}
-
-void UpdateProvider::onAction(const Action& action)
-{
-    if (!host_ || !offer_ || action.activityId != kPanelId) return;
-    if (action.actionId == update_action::kWhatsNew) {
-        if (hooks_.openPage && !offer_->page.empty()) hooks_.openPage(offer_->page);
-    } else if (action.actionId == update_action::kInstall) {
-        install();
-    } else if (action.actionId == update_action::kDownload) {
-        if (hooks_.openPage) hooks_.openPage(offer_->url.empty() ? std::string(kLatestReleasePage) : offer_->url);
-    }
 }
 
 void UpdateProvider::install()
@@ -225,20 +162,25 @@ void UpdateProvider::onStatus(std::function<void(const std::optional<UpdateStatu
 {
     listener_ = std::move(listener);
     if (!listener_) return;
-    if (offer_) listener_(UpdateStatus{ versionText(offer_->version), stage_, problem_ });
+    if (offer_) listener_(status());
     else listener_(std::nullopt);
+}
+
+UpdateStatus UpdateProvider::status() const
+{
+    return { versionText(offer_->version), stage_, problem_, offer_->page, offer_->url.empty() ? std::string(kLatestReleasePage) : offer_->url,
+             offer_->mandatory };
 }
 
 void UpdateProvider::publish()
 {
     if (!host_ || !offer_) return;
-    host_->publishPanel(updatePanel(*offer_, versionText(*running_), stage_, problem_));
-    if (listener_) listener_(UpdateStatus{ versionText(offer_->version), stage_, problem_ });
+    if (listener_) listener_(status());
 }
 
 void UpdateProvider::restore()
 {
-    // Offered before a restart: back on Home at once, without waiting a day
+    // Offered before a restart: back in Settings at once, without waiting a day
     // for the next check (which withdraws it if it's gone). Already installed
     // (this build is that version): forgotten. No second alert.
     auto saved = offerFrom(host_->load(kOfferKey));
@@ -256,8 +198,8 @@ void UpdateProvider::restore()
 
 // A mandatory release (decision 041): installed at the start after it was
 // found, with no click. The user still knows: an alert says it's updating, and
-// the widget shows it installing. At most kMandatoryTries times per version:
-// an installer that keeps failing falls back to the usual Install button
+// Settings shows it installing. At most kMandatoryTries times per version:
+// an installer that keeps failing falls back to Settings' Update and restart
 // rather than a download on every start.
 void UpdateProvider::installMandatory()
 {
@@ -280,7 +222,6 @@ void UpdateProvider::withdraw(bool forget)
 {
     if (forget && host_) host_->save(kOfferKey, ""); // withdrawn: not back after a restart either
     if (!offer_) return;
-    host_->removePanel(kPanelId);
     offer_.reset();
     stage_ = UpdateStage::Offered;
     if (listener_) listener_(std::nullopt);

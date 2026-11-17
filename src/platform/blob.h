@@ -67,8 +67,12 @@ public:
     // Home's tiles (decision 009): a faint background under each, always shown;
     // hover adds to it. Tabs have none: only hover and selection (decision 072).
     void setTiles(const std::vector<Rect>& tiles, float cornerRadius) { showMarks(tiles_, tiles, cornerRadius, tokens().tileColor); }
-    // Notification dots (decision 038), over the content: Scene::badges.
-    void setBadges(const std::vector<Vec2>& centres) { badges_.show(centres); }
+    // Notification dots (decision 038), over the content: Scene::badges, and Scene::accentBadges in the accent (decision 152).
+    void setBadges(const std::vector<Vec2>& centres, const std::vector<Vec2>& accent)
+    {
+        badges_.show(centres);
+        accentBadges_.show(accent);
+    }
     // A toast floating over the content (decision 071): Scene::toast; nullopt fades it out.
     void setToast(const std::optional<ToastScene>& toast, Ms now) { toast_.show(toast, now); }
     ElementVisuals& toastElements() { return toast_.elements(); } // hover and press on its button
@@ -163,6 +167,7 @@ private:
     std::vector<Mark> tiles_; // grows to the most shown; spare ones stay faded out
     std::vector<Mark> tabDots_; // the page row's dots (decision 109), the same way
     BadgeDots badges_;
+    BadgeDots accentBadges_;
     TopGlow topGlow_;
     ToastLayer toast_;
     ElementVisuals elements_;

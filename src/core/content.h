@@ -469,12 +469,12 @@ struct Content {
     // colour shown stays a moment instead of flashing the theme (decision 058).
     bool tintComing = false;
     CardLayout card = CardLayout::Standard;
-    // Something new needs a look (an update offered, decision 038): a dot on
-    // its widget on Home and on its tab, so the way to it is marked.
+    // Something new needs a look (a setting not seen yet, decision 038): a dot on
+    // its widget on Home, on its tab or its page-row button, so the way to it is marked.
     bool badge = false;
-    // ...and on Home's button too, seen from any card: only for news that
-    // matters that much (an update). Other widgets' dots stay on their widgets.
-    bool badgeHome = false;
+    // ...in the theme's accent (liveColor), not red: something to act on, an
+    // update waiting in Settings (decision 152).
+    bool badgeAccent = false;
     // Its card stays open when a click lands between its controls: a page of
     // settings, where a near miss shouldn't close it. Esc, a click outside
     // the island or the idle timeout still do (decision 030).
