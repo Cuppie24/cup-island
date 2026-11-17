@@ -150,11 +150,9 @@ void dragTests()
     {
         OpenWindow dashed = w;
         dashed.content.pages[0].sections[2].dashed = true; // "New group"
-        WindowContent without = withMove(dashed.content, "p", card, t);
-        expect(without.pages[0].sections.size() == 2 && without.pages[0].sections[1].id == "g0",
-               "a card carried: the dashed card is left out (decision 156)");
-        WindowDrag task = startDrag(s, *r00, inWindow(s, { r00->frame.x + 4, r00->frame.y + 2 }));
-        expect(withMove(dashed.content, "p", task, origin(task)).pages[0].sections.size() == 3, "...a task carried: it stays");
+        WindowContent kept = withMove(dashed.content, "p", card, t);
+        expect(kept.pages[0].sections.size() == 3 && kept.pages[0].sections[2].id == "new",
+               "a card carried: the dashed card still shown, last, so the others don't slide into its room (decision 156)");
     }
     action = dropAction(s, card, t);
     expect(action && action->actionId == "move.g0" && action->value == 1, "let go: the card's move action, its new index");
