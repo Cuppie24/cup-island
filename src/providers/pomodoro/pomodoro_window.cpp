@@ -26,17 +26,6 @@ std::string days(int n) { return std::to_string(n) + (n == 1 ? " day" : " days")
 
 Row caption(const std::string& text) { return row({ Text{ .value = text, .style = TextStyle::Caption, .centred = true } }, Align::Center); }
 
-// A question asked in place (a window has no dialogs over it): what it
-// asks, what it means, then Cancel and the confirm button.
-std::vector<Row> questionRows(const std::string& title, const std::string& message, const std::string& confirmLabel, const char* confirmAction)
-{
-    return { row({ Text{ .value = title, .style = TextStyle::Title, .centred = true } }, Align::Center),
-             Row{ .items = { Text{ .value = message, .style = TextStyle::Caption, .centred = true, .wrap = true } }, .align = Align::Center },
-             Row{ .items = { Button{ .actionId = act::kCancel, .label = "Cancel", .compact = true },
-                             Button{ .actionId = confirmAction, .label = confirmLabel, .compact = true, .destructive = true } },
-                  .align = Align::Center } };
-}
-
 // A length (decisions 044, 064): its name, then − the minutes +, grey until
 // pointed at. The minutes keep a column as wide as the longest length, so
 // both rows line up. While a session runs they're dimmed: the plan can't change under it.
@@ -154,15 +143,9 @@ WindowPage statsPage(const PomodoroWindowView& v)
                               .rows = { valuesRow({ std::to_string(std::max(g.finishedToday, g.bestDay)), shortSpent(std::max(g.focusToday, g.bestFocus)),
                                                     days(std::max(g.daysInARow, g.bestRun)) }),
                                         captionsRow({ { "most cycles", false }, { "best focus day", false }, { "best streak", false } }) } });
-    WindowSection reset;
-    if (v.question == PomodoroQuestion::ResetStats) {
-        Dialog q = resetQuestion();
-        reset.rows = questionRows(q.title, q.message, q.confirmLabel, act::kResetStatsConfirmed);
-    } else {
-        reset.rows = { groupItem(itemText("Reset statistics", "Every day before today is cleared."),
-                                 { Button{ .glyph = Glyph::Reset, .actionId = act::kResetStats, .compact = true } }) };
-    }
-    page.sections.push_back(std::move(reset));
+    // Reset asks with the host's question over the window (decision 128).
+    page.sections.push_back({ .rows = { groupItem(itemText("Reset statistics", "Every day before today is cleared."),
+                                                  { Button{ .glyph = Glyph::Reset, .actionId = act::kResetStats, .compact = true } }) } });
     return page;
 }
 
@@ -189,15 +172,6 @@ WindowPage settingsPage(const PomodoroWindowView& v)
 }
 
 } // namespace
-
-const char* confirmActionOf(PomodoroQuestion question)
-{
-    switch (question) {
-    case PomodoroQuestion::ResetStats: return act::kResetStatsConfirmed;
-    case PomodoroQuestion::None: break;
-    }
-    return "";
-}
 
 WindowContent pomodoroWindow(const PomodoroWindowView& v)
 {

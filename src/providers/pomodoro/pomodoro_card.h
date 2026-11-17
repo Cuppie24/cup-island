@@ -25,7 +25,6 @@ inline constexpr const char* kSkip = "skip";   // ends the current phase early, 
 inline constexpr const char* kStop = "stop";                   // only asks (stopQuestion, or in the window); the confirm sends:
 inline constexpr const char* kStopConfirmed = "stop.confirmed";
 inline constexpr const char* kOpenWindow = "window.open"; // the card's expand button: the timer's window (decision 106)
-inline constexpr const char* kCancel = "confirm.cancel"; // the window's question answered No
 // The settings page's − and + (decision 044): a step shorter or longer.
 inline constexpr const char* kFocusLess = "plan.focus.less";
 inline constexpr const char* kFocusMore = "plan.focus.more";
