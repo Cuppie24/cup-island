@@ -67,6 +67,7 @@ void addEars(Compositor const& c, ShapeVisual const& body, CompositionPropertySe
         bindToBlob(c, stroke, L"StrokeThickness", e, body, shape);
 
         auto ear = c.CreateShapeVisual(); // clips the ring to the ear's square
+        ear.BorderMode(CompositionBorderMode::Soft); // smooth in the twin's snapshot too (decision 133)
         ear.Shapes().Append(stroke);
         // Min(E, Overlap): no sliver of an ear when there's no flare.
         bindToBlob(c, ear, L"Size", L"Vector2(" + e + L" + Min(" + e + L", " + overlap + L"), " + e + L")", body, shape);

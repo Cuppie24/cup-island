@@ -303,10 +303,6 @@ struct Tokens {
     float glassGlowOpacity = 0.8f;  // how strong the glow is along the bottom edge
     float glassGlowCurve = 2.5f;    // how it fades up its reach (glowFade): higher hugs the edge more; past 1, it melts away at the top
     float glassRimWidth = 1;      // the rim's width, inside the edge
-    // px: how far the glass's cut is softened (a blur's standard deviation).
-    // The cut's mask comes out with hard, stepped curves, while the tint over
-    // it is antialiased, so the glass stair-stepped round the corners (decision 133).
-    float glassEdgeSoftness = 0.6f;
 
     // Expanded's page row along the top of the card (decisions 007, 047, 109): a dot per page,
     // the shown one a line, an arrow on each side of them; Home's button and the pin at the edges.
