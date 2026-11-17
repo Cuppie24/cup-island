@@ -621,6 +621,46 @@ void ElementVisuals::paint(View& view)
             paintGlyph(dc, dw, Glyph::OpenApp, t.artHoverGlyphSize, pixelSize(size), t.artHoverGlyphColor);
         });
     if (!drawn) deviceLost_ = true;
+    if (std::holds_alternative<TextInput>(item)) syncCaret(view);
+}
+
+// The caret (decision 131): a sprite of its own on the field, so it blinks on the compositor and
+// an idle field still costs nothing between keys (decision 016). Shown steady at each change (a key,
+// a click), then blinking at Windows' own rate; Windows set to not blink, it doesn't.
+void ElementVisuals::syncCaret(View& view)
+{
+    auto* input = std::get_if<TextInput>(&view.placed.item);
+    auto container = view.visual.try_as<wuc::ContainerVisual>();
+    if (!input || !container) return;
+    std::optional<Rect> at = caretRect(device_->dwrite(), *input, sizeOf(view.placed));
+    if (!at) {
+        if (view.caret) {
+            container.Children().Remove(view.caret);
+            view.caret = nullptr;
+        }
+        return;
+    }
+    if (!view.caret) {
+        view.caret = compositor_.CreateSpriteVisual();
+        container.Children().InsertAtTop(view.caret);
+    }
+    view.caret.Brush(compositor_.CreateColorBrush(toUiColor(tokens().bodyTextColor)));
+    view.caret.Size({ at->width, at->height });
+    view.caret.Offset({ at->x, at->y, 0 });
+    view.caretFrame = *at;
+    // Restarted at every repaint (a key, a click moved it): visible first, as Windows' own caret.
+    view.caret.StopAnimation(L"Opacity");
+    view.caret.Opacity(1.0f);
+    UINT blink = GetCaretBlinkTime();
+    if (blink == 0 || blink == INFINITE) return; // set not to blink
+    auto step = compositor_.CreateStepEasingFunction();
+    auto on = compositor_.CreateScalarKeyFrameAnimation();
+    on.InsertKeyFrame(0.0f, 1.0f);
+    on.InsertKeyFrame(0.5f, 0.0f, step); // on for half the period, off for the other half
+    on.InsertKeyFrame(1.0f, 1.0f, step);
+    on.Duration(std::chrono::milliseconds(2 * blink));
+    on.IterationBehavior(wuc::AnimationIterationBehavior::Forever);
+    view.caret.StartAnimation(L"Opacity", on);
 }
 
 void ElementVisuals::animateBars(View& view)

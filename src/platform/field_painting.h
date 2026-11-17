@@ -12,8 +12,12 @@
 
 namespace cup::platform {
 
-// Its background is a hover shape (element_visuals), not painted here.
+// Its background is a hover shape (element_visuals), not painted here; nor its
+// caret, a sprite of its own that blinks on the compositor (decision 131).
 void paintInput(ID2D1DeviceContext* dc, IDWriteFactory* dw, const TextInput& input, Vec2 size);
+
+// Where its caret is (from the field's top left, as painted): focused only. None: no caret.
+std::optional<Rect> caretRect(IDWriteFactory* dw, const TextInput& input, Vec2 size);
 
 // The byte offset into input.value nearest `at` (from the field's top left).
 std::size_t caretAt(IDWriteFactory* dw, const TextInput& input, Vec2 size, Vec2 at);

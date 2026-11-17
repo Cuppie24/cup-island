@@ -73,6 +73,9 @@ private:
         SwitchParts toggle; // a Switch's track and knob (decision 053)
         SegmentsParts segments; // Segments' track, sliding pill and labels (decision 093)
         RollingText rolling;    // a Hero time: a sprite per character, rolling as it changes (decision 107)
+        // A focused field's caret (decision 131): its own sprite over the text, blinking on the compositor.
+        wuc::SpriteVisual caret{ nullptr };
+        Rect caretFrame; // ...where it is now
         bool lit = false;   // a secondary button under the pointer: drawn at full strength (decision 064)
         bool grey = false;  // drawn muted now: an inactive tab's, its tab not hovered (decision 072)
     };
@@ -86,6 +89,7 @@ private:
     void syncFill(View& view, Ms duration); // a button's filled circle to its colour now: made, or faded
     void fadeInk(View& view, Ms duration);  // a one-colour text's brush to its colour now (decision 102)
     void animateBars(View& view);
+    void syncCaret(View& view); // a field's caret where its text says, blinking anew after each change (decision 131)
     void showHover(const std::string& key, bool on);
     bool greyNow(const Placed& placed) const;
     void setGrey(View& view, bool grey);
