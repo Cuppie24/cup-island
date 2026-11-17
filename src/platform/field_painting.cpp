@@ -113,13 +113,19 @@ void paintInput(ID2D1DeviceContext* dc, IDWriteFactory* dw, const TextInput& inp
     }
     dc->DrawTextLayout(D2D1::Point2F(line.left, line.nudge), line.layout.get(), brushOf(dc, empty ? t.placeholderTextColor : t.bodyTextColor).get(),
                        D2D1_DRAW_TEXT_OPTIONS_CLIP);
-    if (input.focused) {
-        // A still caret, on its line: no blinking, so an idle field costs nothing between keys (decision 016).
-        Spot at = spotOf(line.layout.get(), empty ? 0 : utf16Index(input.value, input.caret));
-        float x = empty ? line.inset : line.left + at.x;
-        dc->FillRectangle(D2D1::RectF(x, at.top + line.nudge, x + kCaretWidth, at.top + line.nudge + at.height), brushOf(dc, t.bodyTextColor).get());
-    }
     dc->PopAxisAlignedClip();
+}
+
+std::optional<Rect> caretRect(IDWriteFactory* dw, const TextInput& input, Vec2 size)
+{
+    if (!input.focused || !dw) return std::nullopt;
+    FieldLine line = lineOf(dw, input, size);
+    bool empty = input.value.empty();
+    Spot at = spotOf(line.layout.get(), empty ? 0 : utf16Index(input.value, input.caret));
+    float x = empty ? line.inset : line.left + at.x;
+    // Kept inside the text area, as the text is (a scrolled field's caret may sit right on its edge).
+    x = std::clamp(x, line.inset - kCaretWidth, line.inset + line.room);
+    return Rect{ x, at.top + line.nudge, kCaretWidth, at.height };
 }
 
 std::size_t caretAt(IDWriteFactory* dw, const TextInput& input, Vec2 size, Vec2 at)
