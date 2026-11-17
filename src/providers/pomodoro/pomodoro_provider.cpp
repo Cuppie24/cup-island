@@ -236,7 +236,7 @@ void PomodoroProvider::showWindow()
 {
     if (!windowOpen_) return;
     host_->updateWindow(kWindowId, pomodoroWindow({ .session = session_, .tasks = &tasks_, .plan = plan_, .glance = glance(), .daysOff = daysOff_,
-                                                    .fake = fakeRow() }));
+                                                    .fake = fakeRow(), .writingIn = writingIn_ }));
 }
 
 // The card's expand button (decision 106): the window opens on the timer, or
@@ -244,8 +244,10 @@ void PomodoroProvider::showWindow()
 // It resizes and maximizes (decision 117): the tasks' cards fill what room there is.
 void PomodoroProvider::openWindow()
 {
-    PomodoroWindowView view{ .session = session_, .tasks = &tasks_, .plan = plan_, .glance = glance(), .daysOff = daysOff_, .fake = fakeRow() };
     bool wasOpen = windowOpen_;
+    if (!wasOpen) writingIn_.reset(); // a row left open when it closed went with it
+    PomodoroWindowView view{ .session = session_, .tasks = &tasks_, .plan = plan_, .glance = glance(), .daysOff = daysOff_, .fake = fakeRow(),
+                             .writingIn = writingIn_ };
     WindowOpen result = host_->openWindow({ .id = kWindowId, .size = WindowSize::Large }, pomodoroWindow(view));
     windowOpen_ = result == WindowOpen::Opened || result == WindowOpen::Raised;
     if (windowOpen_ && !wasOpen) deleted_.reset();

@@ -48,6 +48,8 @@ struct Placed {
     bool muted = false;
     // Art that sits on the card: a soft shadow under it (the expanded card's cover, decision 094).
     bool raised = false;
+    // Following the pointer (a window's drag, decision 129): moved at once, never glided (decision 132).
+    bool carried = false;
     bool operator==(const Placed&) const = default;
 };
 
