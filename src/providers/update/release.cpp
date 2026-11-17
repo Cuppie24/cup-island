@@ -55,6 +55,8 @@ std::string versionText(const Version& v)
     return std::to_string(v.major) + "." + std::to_string(v.minor) + "." + std::to_string(v.patch);
 }
 
+std::string releasePage(const Version& v) { return "https://github.com/Cuppie24/cup-island/releases/tag/v" + versionText(v); }
+
 std::string installerName(const Version& v) { return "CupIsland-Setup-" + versionText(v) + ".exe"; }
 
 std::string indexInstallerName(const Version& v) { return "CupIsland-Index-Setup-" + versionText(v) + ".exe"; }

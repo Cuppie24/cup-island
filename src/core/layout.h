@@ -75,6 +75,7 @@ struct Tab {
     bool badge = false; // its activity's Content::badge (decision 038)
     Rect lit;           // what lights up under the pointer: a button's square, a soft circle round a dot
     float radius = 0;   // ...its corners
+    bool accent = false; // its dot in the accent, not red (Content::badgeAccent, decision 152)
 };
 
 // The strip's buttons' ids (decisions 046, 109): not activities'.
@@ -105,6 +106,7 @@ struct Tile {
     std::string providerId;
     std::string tapAction;  // a click sends this action instead (Panel::tapAction)
     bool badge = false;     // its content's Content::badge (decision 038)
+    bool accent = false;    // ...in the accent (Content::badgeAccent, decision 152)
     bool clickable() const { return opens || !tapAction.empty(); } // lights up under the pointer
 };
 
@@ -147,6 +149,7 @@ struct Scene {
     std::vector<Tile> tiles;       // Home
     float tileRadius = 0;          // tile background corners, nested in the card's
     std::vector<Vec2> badges;      // notification dots' centres (decision 038, core/badges.h)
+    std::vector<Vec2> accentBadges; // ...those drawn in the accent, not red (decision 152)
     std::optional<ToastScene> toast; // a toast floating over the card's bottom (decision 071, core/toast.h)
     std::optional<MenuScene> menu;   // a row's menu, open over the card (decision 086, core/menu.h)
     bool dropTarget = false;       // the dragged bubble is over the pill: letting go swaps them (pill lightens)

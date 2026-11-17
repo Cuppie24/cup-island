@@ -128,7 +128,7 @@ std::vector<Tile> homeTilesFor(const IslandState& s, Vec2 cardSize, float tileRa
         for (const Entry& e : r) {
             Rect frame{ x, y, static_cast<float>(spanOf(e.wide, columns)) * unit, h };
             x += frame.width + gap;
-            tiles.push_back({ frame, e.id, e.opens, e.providerId, e.tapAction, e.content->badge });
+            tiles.push_back({ frame, e.id, e.opens, e.providerId, e.tapAction, e.content->badge || e.content->badgeAccent, e.content->badgeAccent });
             placeTile(e, frame, tileRadius, now, elements);
         }
         y += h + gap;

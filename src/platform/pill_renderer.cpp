@@ -100,7 +100,7 @@ void PillRenderer::apply(const Scene& scene, const SceneMotion& motion)
     std::vector<Rect> tiles;
     for (const Tile& tile : scene.tiles) tiles.push_back(tile.frame);
     pill_.setTiles(tiles, scene.tileRadius);
-    pill_.setBadges(scene.badges);
+    pill_.setBadges(scene.badges, scene.accentBadges);
     // A row's menu at once, not with the queued content: it answers a click or a key (decision 086).
     menu_.show(scene.menu, scene.offset, scene.now);
 

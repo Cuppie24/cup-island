@@ -48,6 +48,8 @@ inline constexpr const char* kCopyLogs = "logs.copy";
 inline constexpr const char* kCentreIsland = "island.centre";
 inline constexpr const char* kCheckUpdates = "updates.check";
 inline constexpr const char* kInstallUpdate = "updates.install"; // the offer: install and restart (decision 037)
+inline constexpr const char* kWhatsNew = "updates.whatsnew";     // its release notes, in the browser (decision 152)
+inline constexpr const char* kDownloadUpdate = "updates.download"; // a failed install: its installer, in the browser, to run by hand
 } // namespace settings_action
 
 inline constexpr const char* kSettingsPanelId = "system.settings"; // the widget's
@@ -98,6 +100,7 @@ struct SettingsView {
     std::string version;                    // the running build's; empty: no line for it
     std::optional<UpdateNote> update;       // nothing: the app can't check, no row
     std::optional<UpdateStatus> offer;      // an update offered (by any check): the updates row says "Update and restart" (decision 091)
+    bool opensPages = false;                // the app can open a page in the browser: What's new, Download installer (decision 152)
     bool tabsOnTop = true;                  // the tab row's place (decision 048)
     std::optional<bool> coverColours;       // the island in the playing cover's colours (decision 052); nothing: no row
     std::optional<FadeSpeed> fadeSpeed;     // how fast colours fade (decision 053); nothing: no choice
@@ -110,6 +113,11 @@ struct SettingsView {
     std::set<std::string> unseen;           // ...and which of those haven't been seen yet: tagged "New"
 };
 
+// What's new (decision 152): the offered update's release notes if one is
+// offered, else this version's; empty for a dev build with nothing offered.
+std::string whatsNewPage(const SettingsView& view);
+// An update offered and still the user's to do (not installing): Settings' gear and its Updates page get an accent dot.
+bool updateWaiting(const SettingsView& view);
 // The announced settings this machine offers: those with a row on some page of
 // the window, pages within pages included. One it lacks (Glass on Windows 10)
 // can never be seen, so it never counts as new (decision 048).

@@ -259,6 +259,10 @@ void SettingsProvider::onAction(const Action& action)
         hooks_.setGlassWindows(glassWindows_); // this window changes at once: the preview
         host_->save(kGlassWindowsKey, glassWindows_ ? "on" : "off");
         publish();
+    } else if (id == settings_action::kWhatsNew) {
+        if (std::string page = whatsNewPage(view()); hooks_.openPage && !page.empty()) hooks_.openPage(page);
+    } else if (id == settings_action::kDownloadUpdate) {
+        if (hooks_.openPage && offer_ && !offer_->download.empty()) hooks_.openPage(offer_->download);
     } else if (id == settings_action::kInstallUpdate) {
         if (hooks_.installUpdate && offer_ && offer_->stage != UpdateStage::Installing) hooks_.installUpdate();
     } else if (id == settings_action::kCheckUpdates) {
@@ -451,6 +455,7 @@ SettingsView SettingsProvider::view() const
                     .shortcutNote = shortcutNote_, .version = hooks_.version, .tabsOnTop = tabsOnTop_, .announced = hooks_.announced };
     if (hooks_.checkForUpdates) v.update = updateNote_;
     v.offer = offer_;
+    v.opensPages = static_cast<bool>(hooks_.openPage);
     if (displays_.size() >= 2) { // one monitor: nothing to choose
         v.displays.push_back(kMainDisplayName);
         for (std::size_t i = 0; i < displays_.size(); ++i) {

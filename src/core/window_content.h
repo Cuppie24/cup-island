@@ -91,6 +91,7 @@ struct WindowPage {
     std::string backAction;
     Glyph glyph = Glyph::Settings;
     bool badge = false; // a dot in the sidebar: something new on it (decision 038)
+    bool badgeAccent = false; // ...in the accent, not red: something to act on (an update, decision 152)
     // At the sidebar's foot instead of under the others (a timer's settings, decision 117).
     bool atFoot = false;
     // Its title over the page. Off: a page whose header says what it is (the timer's).

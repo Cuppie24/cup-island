@@ -5,8 +5,9 @@
 
 namespace cup::platform {
 
-void BadgeDots::build(wuc::Compositor const& compositor, wuc::ContainerVisual const& parent, wuc::Visual const& below)
+void BadgeDots::build(wuc::Compositor const& compositor, wuc::ContainerVisual const& parent, wuc::Visual const& below, bool accent)
 {
+    accent_ = accent;
     compositor_ = compositor;
     parent_ = parent;
     below_ = below;
@@ -22,8 +23,10 @@ void BadgeDots::show(const std::vector<Vec2>& centres)
 void BadgeDots::recolor()
 {
     for (Dot& dot : dots_)
-        if (dot.brush) fadeColor(dot.brush, tokens().badgeColor);
+        if (dot.brush) fadeColor(dot.brush, colour());
 }
+
+Color BadgeDots::colour() const { return accent_ ? tokens().liveColor : tokens().badgeColor; }
 
 void BadgeDots::place(Dot& dot, std::optional<Vec2> at)
 {
@@ -31,7 +34,7 @@ void BadgeDots::place(Dot& dot, std::optional<Vec2> at)
     if (!dot.visual) {
         dot.shape = compositor_.CreateEllipseGeometry();
         auto fill = compositor_.CreateSpriteShape(dot.shape);
-        dot.brush = compositor_.CreateColorBrush(toUiColor(t.badgeColor)); // recolor() fades it
+        dot.brush = compositor_.CreateColorBrush(toUiColor(colour())); // recolor() fades it
         fill.FillBrush(dot.brush);
         dot.visual = compositor_.CreateShapeVisual();
         dot.visual.Shapes().Append(fill);

@@ -30,13 +30,16 @@ Row choiceRow(const std::string& name, bool picked, std::string action, const Th
 // The one updates row (decisions 036, 091). Nothing offered: "Check for
 // updates", and under it what the last check found, until then the running
 // version. An update offered (by any check): "Update and restart", the
-// running and offered versions under it: the same install as Home's Update card.
+// running and offered versions under it. The only place updates are offered (decision 152).
 Row updateRow(const UpdateNote& note, const std::string& running, const std::optional<UpdateStatus>& offer)
 {
     if (offer) {
         bool installing = offer->stage == UpdateStage::Installing;
         std::string versions = running.empty() ? offer->version : running + " → " + offer->version;
-        std::string said = installing ? "Installing…" : offer->stage == UpdateStage::Failed ? offer->problem : versions;
+        std::string said = installing                            ? "Installing…"
+                           : offer->stage == UpdateStage::Failed ? offer->problem
+                           : offer->mandatory                    ? versions + ", required: installs at the next start" // decision 041
+                                                                 : versions;
         return groupItem(itemText(offer->stage == UpdateStage::Failed ? "Try the update again" : "Update and restart", said),
                          { Button{ .glyph = Glyph::Download, .actionId = P::kInstallUpdate, .enabled = !installing, .compact = true } });
     }
@@ -134,8 +137,18 @@ WindowPage updatesPage(const SettingsView& v)
 {
     WindowPage page{ .id = kUpdatesPage, .title = "Updates", .subtitle = "Which version this is, and newer ones.", .glyph = Glyph::Download };
     // With no way to check, which build this is still shows: what a bug report needs (decision 036).
-    if (v.update) page.sections.push_back({ .rows = { marked(updateRow(*v.update, v.version, v.offer), "updates", v) } });
-    else if (!v.version.empty()) page.sections.push_back({ .rows = { groupItem(itemText("Version", "Cup Island " + v.version)) } });
+    std::vector<Row> rows;
+    if (v.update) rows.push_back(marked(updateRow(*v.update, v.version, v.offer), "updates", v));
+    else if (!v.version.empty()) rows.push_back(groupItem(itemText("Version", "Cup Island " + v.version)));
+    // What's new (decision 152): the offer's release notes, or this version's.
+    if (v.opensPages && !whatsNewPage(v).empty()) {
+        std::string in = v.offer && !v.offer->page.empty() ? v.offer->version : v.version;
+        rows.push_back(actionRow("What's new", Glyph::OpenApp, P::kWhatsNew, "In " + in + ", on GitHub"));
+    }
+    // An install that failed: the same installer, to download and run by hand (it can't get stuck the same way).
+    if (v.opensPages && v.offer && v.offer->stage == UpdateStage::Failed && !v.offer->download.empty())
+        rows.push_back(actionRow("Download installer", Glyph::Download, P::kDownloadUpdate, "Cup Island " + v.offer->version + ", to run yourself"));
+    if (!rows.empty()) page.sections.push_back({ .rows = std::move(rows) });
     return page;
 }
 
@@ -291,6 +304,15 @@ std::vector<std::string> shownSettings(const WindowContent& window, const std::s
     return shown;
 }
 
+bool updateWaiting(const SettingsView& v) { return v.offer && v.offer->stage != UpdateStage::Installing; }
+
+std::string whatsNewPage(const SettingsView& v)
+{
+    if (v.offer && !v.offer->page.empty()) return v.offer->page;
+    if (auto running = parseVersion(v.version)) return releasePage(*running);
+    return ""; // a dev build: no release of its own
+}
+
 std::vector<ThemeListRow> themeListRows()
 {
     const auto& themes = tokens().themes;
@@ -315,6 +337,7 @@ Panel settingsPanel(const SettingsView& view)
     Content content{
         .label = "Settings",
         .badge = !view.unseen.empty(), // something new in it: a dot on its button (decision 048)
+        .badgeAccent = updateWaiting(view), // an update to install: the dot in the accent instead (decision 152)
     };
     return { .id = kSettingsPanelId, .content = content, .tapAction = P::kOpenWindow, .rowButton = Glyph::Settings };
 }
@@ -335,7 +358,8 @@ WindowContent settingsWindow(const SettingsView& v)
     case SettingsPage::Shortcuts: general = within(general, "Keyboard shortcuts", v.shortcutNote), shortcutsPage(general, v); break;
     case SettingsPage::List: break;
     }
-    // A dot beside a page that holds something new (decision 048).
+    // A dot beside a page that holds something new (decision 048); an update waiting, in the accent (decision 152).
+    window.pages[2].badgeAccent = updateWaiting(v);
     for (WindowPage& page : window.pages)
         for (const SettingItem& s : v.announced)
             if (v.unseen.count(s.id) && pageOfSetting(s.parent.empty() ? s.id : s.parent) == page.id) page.badge = true;

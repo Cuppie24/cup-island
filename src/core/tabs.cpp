@@ -23,18 +23,6 @@ bool hasTabs(const IslandState& s)
     return s.activities.size() + (home ? 1 : 0) > 1 || (home && (dormantCard || s.homeOpen));
 }
 
-// A dot on Home's button and its dot (decision 038): a widget flagged for it
-// (Content::badgeHome, an update), not any widget with a dot.
-bool homeBadged(const IslandState& s)
-{
-    for (const Panel& p : s.panels) {
-        const Activity* live = findActivity(s, p.id);
-        const Content& c = live ? live->content : p.content;
-        if (c.badge && c.badgeHome) return true;
-    }
-    return false;
-}
-
 // A button's glyph, centred in its square. Keys carry what it is, so it stays
 // the same visual as the strip changes. `muted`: grey until the pointer is on
 // that button itself (decisions 072, 109): its activityId is the button's id,
@@ -84,7 +72,6 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     if (hasWidgets(s)) {
         Rect frame{ p, y, t.homeButtonWidth, h };
         strip.home = button(kHomeTab, frame, p, t.slotGap / 2);
-        strip.home->badge = homeBadged(s);
         placeGlyph("home", kHomeTab, Glyph::Home, frame, !homeShown, elements);
     }
     // Panels' buttons at the right edge, the first in the corner (decision 113): Settings.
@@ -95,7 +82,9 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
         Rect frame{ right - w, y, w, h };
         std::string id = kPanelButtonTab + panel.id;
         strip.buttons.push_back(button(id, frame, between / 2, strip.buttons.empty() ? p : between / 2));
-        strip.buttons.back().badge = (live ? live->content : panel.content).badge;
+        const Content& shows = live ? live->content : panel.content;
+        strip.buttons.back().badge = shows.badge || shows.badgeAccent;
+        strip.buttons.back().accent = shows.badgeAccent; // an update waiting, behind Settings' gear (decision 152)
         placeGlyph("button/" + panel.id, id, *panel.rowButton, frame, true, elements); // grey until hovered, like the arrows
         right -= w + between;
     }

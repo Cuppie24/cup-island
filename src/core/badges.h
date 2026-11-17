@@ -15,6 +15,7 @@ namespace cup {
 // its top-right corner, concentric with its rounding (badgeInset in at
 // least); a button's on its round outline, top right. A button scrolled out
 // of its list's window has none.
-std::vector<Vec2> badgeCentres(const Scene& scene);
+// `accent`: only the dots drawn in the accent (decision 152); otherwise only the red ones.
+std::vector<Vec2> badgeCentres(const Scene& scene, bool accent = false);
 
 } // namespace cup

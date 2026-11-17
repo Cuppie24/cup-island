@@ -22,6 +22,8 @@ struct Version {
 // "0.3.0-5-gabc1234" or "0.0.0-dev" is not a release, so it never updates.
 std::optional<Version> parseVersion(std::string_view text);
 std::string versionText(const Version& v); // "0.4.0"
+// That version's release on GitHub, its notes: what's new in it.
+std::string releasePage(const Version& v); // "https://github.com/Cuppie24/cup-island/releases/tag/v0.4.0"
 
 // Whether a copy running `running` should move to `offered`, GitHub's
 // latest release (decision 040): whenever it's a different version, higher

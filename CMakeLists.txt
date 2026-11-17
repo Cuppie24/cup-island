@@ -157,6 +157,7 @@ if(CUP_BUILD_TESTS)
         tests/tokens_tests.cpp
         tests/window_tests.cpp
         tests/window_theme_tests.cpp
+        tests/whats_new_tests.cpp
         tests/window_card_tests.cpp
         tests/window_menu_tests.cpp
         tests/window_drag_tests.cpp
