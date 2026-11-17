@@ -313,7 +313,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         view.hover = parts.hover;
         // Lit by its row, or by its fill: stays hidden. A text edited in place has none (decision 122): its selection shows it.
         auto* input = std::get_if<TextInput>(&placed.item);
-        view.highlight = placed.litByRow || (button && button->primary) || (input && input->inPlace) ? nullptr : parts.highlight;
+        view.highlight = placed.litByRow || placed.noHoverShape || (button && button->primary) || (input && input->inPlace) ? nullptr : parts.highlight;
         view.glyphHost = parts.glyph;
         syncFill(view, Ms{ 0 }); // a primary's or a toggle's circle, under the glyph
         if (auto ink = inkOf(placed.item, false)) { // its glyph or label in one colour: painted white, coloured through (decision 102)

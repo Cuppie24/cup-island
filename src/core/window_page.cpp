@@ -133,6 +133,7 @@ Placed dragHandle(const std::string& name, Rect card, const Source& source)
     float w = std::min(card.width, t.windowDragHandleWidth), h = t.windowDragHandleHeight;
     handle.frame = handle.hitFrame = { std::round(card.x + (card.width - w) / 2), card.y + t.windowDragHandleTop, w, h };
     handle.cornerRadius = h / 2;
+    handle.noHoverShape = true; // the whole header drags the card (decision 143): no shape round its line (decision 147)
     handle.providerId = source.providerId;
     handle.activityId = source.activityId;
     return handle;

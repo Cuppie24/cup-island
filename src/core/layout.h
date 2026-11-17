@@ -40,6 +40,7 @@ struct Placed {
     std::optional<Rect> wholeRow; // ...listRow before the list's window clipped it: where the keys' highlight goes
     float listRowRadius = 0;
     bool litByRow = false;       // the row's background is its hover: no shape of its own (Row::clickAnywhere)
+    bool noHoverShape = false;   // a button with no shape under the pointer: a card's drag line, the header round it its grip (decision 147)
     std::string providerId;
     std::string activityId;
     std::optional<Timeline> ticking; // time labels: the text changes as playback moves
