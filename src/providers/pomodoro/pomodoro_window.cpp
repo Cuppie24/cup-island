@@ -176,7 +176,8 @@ WindowPage settingsPage(const PomodoroWindowView& v)
 WindowContent pomodoroWindow(const PomodoroWindowView& v)
 {
     std::optional<Color> accent = accentOf(v.session ? v.session->phase : Phase::Focus);
-    return { .title = "Pomodoro", .accent = accent, .pages = { timerPage(v), statsPage(v), settingsPage(v) }, .rail = true };
+    return { .title = "Pomodoro", .accent = accent, .pages = { timerPage(v), statsPage(v), settingsPage(v) }, .rail = true,
+             .focus = v.focus, .focusRequest = v.focusRequest };
 }
 
 } // namespace cup

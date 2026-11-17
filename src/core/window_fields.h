@@ -33,6 +33,11 @@ bool isField(const WindowScene& scene, const std::string& key);
 // Nothing for a key that isn't a field.
 std::optional<Action> focusField(WindowTyping& typing, const WindowScene& scene, const std::string& key, std::optional<std::size_t> caret);
 
+// The field whose action is `action` (WindowContent::focus) gets the keys, all
+// its text selected (decision 132). Whatever had them lets go: its Action, as
+// focusField's. Nothing if no field on the page has that action.
+std::optional<Action> focusByAction(WindowTyping& typing, const WindowScene& scene, const std::string& action);
+
 // The field lets go of the keys: a field's text is kept for later (decision
 // 050); a Text edited in place is done, and its new text is sent, like a
 // click elsewhere on a card. The Action to route, if any.

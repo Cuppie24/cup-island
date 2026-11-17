@@ -47,8 +47,17 @@ DropTarget origin(const WindowDrag& drag);
 // The page's content with it moved to `target`: laid out, the others make room.
 WindowContent withMove(const WindowContent& content, const std::string& page, const WindowDrag& drag, const DropTarget& target);
 
-// On `preview` (laid out from withMove), what's carried follows the pointer.
+// On `preview` (laid out from withMove), what's carried follows the pointer
+// (Placed::carried), a soft outline (kDropSpot) shows where it lands, and the
+// rest glides (Placed::glides) as they make room (decision 132).
 void follow(WindowScene& preview, const WindowDrag& drag);
+
+// Everything on the page glides to where it's laid out: just after a drop, so
+// what was carried eases into its place and nothing jumps (decision 132).
+void settle(WindowScene& scene);
+
+// The drop outline's key on the page: under every card, never a row of one.
+inline constexpr const char* kDropSpot = "drop/spot";
 
 // Let go at `target`: Action{its move action, value = index, text = the
 // card it lands in (a row)}, from the window. None: it lands where it was.

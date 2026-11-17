@@ -1,6 +1,7 @@
 # 129: Dragging in windows: tasks and groups
 
 Status: Accepted (amends 106: lists in windows didn't drag). Core tested; the feel on Windows needs a run.
+Amended by 132: one handle line, gliding, a drop outline.
 
 **Context.** The user asked to drag tasks (within a group, and between
 groups) and groups (by a short drag line shown at a group's top on hover).

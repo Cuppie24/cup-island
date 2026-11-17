@@ -187,6 +187,8 @@ std::string windowRowAt(const WindowScene& s, Vec2 point)
     auto prefix = [](const std::string& key) { return key.substr(0, key.rfind('/')); };
     auto slotOf = [](const std::string& key) { return key.substr(0, key.find('/')); };
     auto isFill = [](const Placed& p) { return std::holds_alternative<GroupFill>(p.item); };
+    // A card's drag handle (decision 129) is no row: over it, it named the card, and the card's last row lit (decision 132).
+    auto notRow = [&](const Placed& p) { return isFill(p) || p.key.ends_with("/handle"); };
     // A card's background (decision 120) says which card; a grouped row's piece is that row.
     std::string card;
     for (const Placed& p : s.page) {
@@ -195,12 +197,12 @@ std::string windowRowAt(const WindowScene& s, Vec2 point)
         else return prefix(p.key);
     }
     for (const Placed& p : s.page)
-        if (!isFill(p) && p.hitFrame.contains(at)) return prefix(p.key);
+        if (!notRow(p) && p.hitFrame.contains(at)) return prefix(p.key);
     // Between its items: the band their click areas span, in this card if over one, and in no card
     // if over none (the gap beside a card is no row of it, decision 122).
     auto inCard = [](const std::string& slot) { return slot.rfind("card.", 0) == 0; };
     for (const Placed& p : s.page) {
-        if (isFill(p) || at.y < p.hitFrame.y || at.y >= p.hitFrame.y + p.hitFrame.height) continue;
+        if (notRow(p) || at.y < p.hitFrame.y || at.y >= p.hitFrame.y + p.hitFrame.height) continue;
         if (p.listRow && (at.x < p.listRow->x || at.x >= p.listRow->x + p.listRow->width)) continue; // a hugging row: its lit part only
         std::string slot = slotOf(p.key);
         if (card.empty() ? !inCard(slot) : slot == card) return prefix(p.key);

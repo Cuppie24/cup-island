@@ -118,6 +118,14 @@ struct Tokens {
     float dashedBorderWidth = 1.5f; // GroupFill::dashed: a card offering to add one (decision 122)
     float windowCardRadius = 18;
     float windowDragHandleHeight = 14; // a movable card's handle at its top: a short line to hold (decision 129)
+    // ...drawn as one rounded line this long and thick, its box this far under the card's top (decision 132)
+    float windowDragLineWidth = 24;
+    float windowDragLineThickness = 3;
+    float windowDragHandleTop = 4;
+    // ...held anywhere in a band this wide and tall from the card's top: easier to find than the line
+    float windowDragHitWidth = 96;
+    float windowDragHitHeight = 18;
+    float windowDropOutlineWidth = 1.5f; // where a carried card or task lands: a soft outline (decision 132)
     float windowDialogWidth = 400;   // a window's question (decision 122): its panel, at most this wide
     float windowDialogPadding = 20;  // ...its content this far in // its corners; its rows' backgrounds nest in them (radius less padding, decision 121)
     float windowCardGap = 16; // between cards, across and down

@@ -332,6 +332,13 @@ void windowTests()
     expect(textIn(page, "Group 2") != nullptr, "a new group, named after the others");
     const Placed* name = textIn(page, "Group 2");
     expect(name && std::get<Text>(name->item).editAction == std::string(task_action::kRenameGroup) + "2", "its name edits in place");
+    // Made, its name gets the keys at once, all of it selected: typed over (decision 132).
+    const WindowContent& made = island.window()->content;
+    WindowTyping naming;
+    focusByAction(naming, page, made.focus);
+    expect(made.focus == std::string(task_action::kRenameGroup) + "2" && made.focusRequest > 0 && naming.draft &&
+               naming.draft->actionId == made.focus && naming.draft->text == "Group 2" && naming.draft->anchor == 0 && naming.draft->caret == 7,
+           "a new group asks for its name to be focused, selected");
     island.registry.route({ "pomodoro", "", std::string(task_action::kRenameGroup) + "2", 0, "Work", PomodoroProvider::kWindowId });
     page = island.windowScene();
     expect(textIn(page, "Work") && !textIn(page, "Group 2"), "renamed");
