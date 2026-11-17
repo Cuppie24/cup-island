@@ -272,7 +272,9 @@ PlacedPage placePage(const WindowPage& page, float paneWidth, const Source& fiel
         std::string name = cardName(section, i);
         Rect f = frames[i];
         out.push_back(cardFill(name, f, fields, section.dashed)); // first: under its rows
-        Rect rows{ f.x + inside, f.y + inside, std::max(0.0f, f.width - 2 * inside), std::max(0.0f, f.height - 2 * inside) };
+        // Its rows at its top, as tall as they need (heights[i]): a card stretched to its row's tallest
+        // (decision 140) has its room at its bottom, not round its rows (decision 148).
+        Rect rows{ f.x + inside, f.y + inside, std::max(0.0f, f.width - 2 * inside), std::max(0.0f, heights[i] - 2 * inside) };
         // Its rows' lit backgrounds nest in its corners: its radius less its padding (decision 121).
         std::size_t first = out.size();
         placeSlot({ name, &cards[i], rows }, fields, std::max(0.0f, t.windowCardRadius - inside), now, out, measure);
