@@ -36,6 +36,11 @@ float seekFraction(const Placed& progress, float x);
 // only over an item (decision 063). Tabs aren't rows.
 std::string rowAt(const Scene& scene, Vec2 point);
 
+// Whether `point` lights `element` up under the pointer (decision 130): a button only over its own
+// shape (its frame), not all of its click area, which reaches into the gaps round it; one lit by its
+// row (Placed::litByRow) and anything else, wherever it takes a click.
+bool lightsAt(const Placed& element, Vec2 point);
+
 // `point` is in the top band of an expanded island (Scene::collapseZone,
 // decision 108): a click there closes it, over tabs and buttons alike.
 bool inCollapseZone(const Scene& scene, Vec2 point);

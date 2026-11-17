@@ -154,6 +154,9 @@ void showHover(Shown& s)
         pageRow = windowRowAt(s.scene, *s.pointer);
         WindowHit hit = windowHitTest(s.scene, *s.pointer);
         if (hit.hit) key = hit.hit->key;
+        // Lit only over its shape (decision 130): a click still takes all of its area. On the page, in page coordinates.
+        for (const Placed& p : s.scene.page)
+            if (p.key == key && !lightsAt(p, toPage(s.scene, *s.pointer))) key.clear();
         if (hit.part == WindowPart::Page)
             for (std::size_t i = 0; i < s.scene.nav.size(); ++i)
                 if (s.scene.nav[i].page == hit.page) nav = i;

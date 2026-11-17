@@ -205,7 +205,8 @@ void updateHover(app::Surface& s)
     if (s.pointer.scrub) {
         key = s.pointer.scrub->key; // stays lit while dragged, even off the bar
     } else if (at && !onTop) {
-        if (auto hit = hitTest(s.scene, *at)) key = hit->key;
+        // Lit only over its shape (decision 130): a click still takes all of its area.
+        if (auto hit = hitTest(s.scene, *at); hit && (!findElement(s, hit->key) || lightsAt(*findElement(s, hit->key), *at))) key = hit->key;
     }
     s.renderer->setHovered(key);
     // A text field shows the I-beam (decision 043): the add field, and a to-do only while it's

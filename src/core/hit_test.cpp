@@ -54,6 +54,12 @@ std::string rowAt(const Scene& scene, Vec2 point)
     return {};
 }
 
+bool lightsAt(const Placed& p, Vec2 point)
+{
+    if (std::holds_alternative<Button>(p.item) && !p.litByRow) return p.frame.contains(point);
+    return p.hitFrame.contains(point);
+}
+
 float seekFraction(const Placed& progress, float x)
 {
     if (progress.frame.width <= 0) return 0;
