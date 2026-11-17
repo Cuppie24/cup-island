@@ -100,6 +100,7 @@ private:
     void setGrey(View& view, bool grey);
     void fadeOutAndRemove(wuc::Visual const& visual);
     void place(View& view); // its offset, in its list's scroller or the content
+    void glideFrom(View& view, Vec2 from); // rebuilt elsewhere on a gliding page: eased there from `from` (decision 132)
 
     wuc::Compositor compositor_{ nullptr };
     GraphicsDevice* device_ = nullptr;

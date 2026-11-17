@@ -2,6 +2,7 @@
 
 #include "core/motion.h"
 #include "core/tokens.h"
+#include "platform/blob_shape.h"
 #include "platform/element_painting.h"
 #include "platform/field_painting.h"
 #include "platform/element_parts.h"
@@ -391,9 +392,11 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     view.visual.Size(toFloat2(pixelSize(visualSize)));
     view.visual.CenterPoint({ visualSize.x / 2, visualSize.y / 2, 0 });
     // A group's background goes under everything, even when it's rebuilt after its row's content (decision 090).
-    if (std::holds_alternative<GroupFill>(placed.item)) lists_.parentFor(placed).Children().InsertAtBottom(view.visual);
+    // One carried in a window (decision 132) goes over everything, its card's background too.
+    if (std::holds_alternative<GroupFill>(placed.item) && !placed.carried) lists_.parentFor(placed).Children().InsertAtBottom(view.visual);
     else lists_.parentFor(placed).Children().InsertAtTop(view.visual);
     if (placed.list) lists_.setGliding(view.visual, !placed.list->dragged); // after its first place: it appears there
+    else if (placed.glides) lists_.setGliding(view.visual, true);            // a window's page making room (decision 132)
 
     if (view.grey && view.track) view.track.Color(toUiColor(greyOf(t.trackColor)));
     if (view.grey && view.knobBrush) view.knobBrush.Color(toUiColor(greyOf(t.knobColor)));
@@ -446,7 +449,9 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
         bool inPlace = (retyped && editable(view.placed.item) && editable(placed.item)) ||
                        ((resnapped || resized) && !retyped && !relisted && !reinked && !changed) ||
                        (relit && !retyped && !relisted); // a field clicked into: its box, in place
+        bool glidesOn = moved && placed.glides && !placed.list; // a card grown or shrunk as it makes room (decision 132)
         view = create(placed, now, !inPlace);
+        if (glidesOn) glideFrom(view, was);
         return true;
     }
     bool wasFocused = focusedField(view.placed.item);
@@ -454,6 +459,14 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     bool wasRevealed = revealsOnHover(view.placed.item);
     bool wasDragged = view.placed.list && view.placed.list->dragged, dragged = placed.list && placed.list->dragged;
     auto parent = lists_.parentFor(placed); // keeps the list's window and scroll in step
+    // On a window's page while something is dragged (decision 132): the others ease to make room,
+    // what's carried follows the pointer at once, over everything.
+    bool glides = placed.glides && !placed.list;
+    if (glides != (view.placed.glides && !view.placed.list)) lists_.setGliding(view.visual, glides);
+    if (placed.carried && !view.placed.carried) {
+        parent.Children().Remove(view.visual);
+        parent.Children().InsertAtTop(view.visual);
+    }
     if (dragged != wasDragged) {
         lists_.setGliding(view.visual, !dragged); // picked up: follows the pointer; let go: glides to its place
         if (dragged) { // carried over the others
@@ -685,6 +698,21 @@ void ElementVisuals::fadeOutAndRemove(wuc::Visual const& visual)
     batch.Completed([visual](auto&&, auto&&) {
         if (auto parent = visual.Parent()) parent.Children().Remove(visual); // the content, or a list's scroller
     });
+}
+
+// Rebuilt somewhere else while its page glides (decision 132): at its new place at rest, eased
+// there from `from` by an animation with both ends, as decision 008 hands a visual over.
+void ElementVisuals::glideFrom(View& view, Vec2 from)
+{
+    Vec2 at = lists_.positionOf(view.placed);
+    view.visual.ImplicitAnimations(nullptr);
+    view.visual.Offset(pixelOffset(at.x - view.lead, at.y));
+    auto ease = compositor_.CreateVector3KeyFrameAnimation();
+    ease.InsertKeyFrame(0.0f, pixelOffset(from.x - view.lead, from.y));
+    ease.InsertKeyFrame(1.0f, pixelOffset(at.x - view.lead, at.y), easingFor(compositor_, tokens().morphEase));
+    ease.Duration(tokens().scrollDuration);
+    view.visual.StartAnimation(L"Offset", ease);
+    lists_.setGliding(view.visual, true);
 }
 
 void ElementVisuals::place(View& view)

@@ -6,6 +6,7 @@
 #include "core/window_drag.h"
 #include "expect.h"
 
+#include <algorithm>
 #include <string>
 
 namespace cup::test {
@@ -54,9 +55,18 @@ void dragTests()
     const Placed* handle = nullptr;
     for (const Placed& p : s.page)
         if (p.key == g0->key + "/handle") handle = &p;
-    expect(handle && std::get<Button>(handle->item).revealWithSlot && handle->frame.y == g0->frame.y &&
+    const Tokens& tk = tokens();
+    expect(handle && std::get<Button>(handle->item).revealWithSlot && handle->frame.y == g0->frame.y + tk.windowDragHandleTop &&
                std::abs(handle->frame.x + handle->frame.width / 2 - (g0->frame.x + g0->frame.width / 2)) < 1,
-           "a movable card's handle: at its top's middle, shown with its card");
+           "a movable card's handle: at its top's middle, a little under its edge, shown with its card");
+    expect(handle->hitFrame.y == g0->frame.y && handle->hitFrame.width > handle->frame.width &&
+               handle->hitFrame.y + handle->hitFrame.height >= handle->frame.y + handle->frame.height,
+           "...held in a wider band than it draws, from the card's very top (decision 132)");
+    auto onHandleEdge = inWindow(s, { handle->hitFrame.x + 2, handle->hitFrame.y + 1 });
+    expect(movableAt(s, onHandleEdge) && movableAt(s, onHandleEdge)->card, "pressed at the band's edge: the card");
+    expect(windowRowAt(s, inWindow(s, { handle->frame.x + 2, handle->frame.y + 2 })).empty() &&
+               windowCardAt(s, inWindow(s, { handle->frame.x + 2, handle->frame.y + 2 })) == g0->key,
+           "over the handle: its card, and no row of it lit (it lit the card's last one, decision 132)");
     auto picked = movableAt(s, inWindow(s, { handle->frame.x + 2, handle->frame.y + 2 }));
     expect(picked && picked->card && picked->key == g0->key, "pressed on the handle: the card");
     picked = movableAt(s, inWindow(s, { r00->frame.x + 20, r00->frame.y + 2 }));
@@ -79,6 +89,23 @@ void dragTests()
     follow(shown, d);
     const Movable* carried = movable(shown, "row.0.0");
     expect(carried && std::abs(carried->frame.y - (d.at.y - d.grab.y)) < 0.5f, "...and the carried row follows the pointer");
+    // Decision 132: the carried row's items at the pointer at once; the rest glide; an outline where it lands.
+    bool carriedOnly = true, othersGlide = true;
+    const Placed* spot = nullptr;
+    for (const Placed& p : shown.page) {
+        bool mine = p.key.rfind(carried->key + "/", 0) == 0;
+        if (mine && (!p.carried || p.glides)) carriedOnly = false;
+        if (!mine && (p.carried || !p.glides)) othersGlide = false;
+        if (p.key == kDropSpot) spot = &p;
+    }
+    WindowScene landed = laid(preview);
+    const Movable* home = movable(landed, "row.0.0");
+    expect(carriedOnly && othersGlide, "carried: follows the pointer, everything else glides to make room");
+    expect(spot && std::get<GroupFill>(spot->item).outline && home && spot->frame == home->frame && &shown.page.front() == spot,
+           "a soft outline where it lands, under everything");
+    settle(landed);
+    expect(std::all_of(landed.page.begin(), landed.page.end(), [](const Placed& p) { return p.glides && !p.carried; }),
+           "let go: everything glides to its place");
     auto action = dropAction(s, d, t);
     expect(action && action->actionId == "row.0.0" && action->value == 1 && action->text == "g0" && action->windowId == "board",
            "let go: its move action, its new index, its card");

@@ -164,6 +164,20 @@ void selectWord(WindowTyping& typing, std::size_t at)
     if (typing.draft) selectWordAt(*typing.draft, at);
 }
 
+std::optional<Action> focusByAction(WindowTyping& typing, const WindowScene& s, const std::string& action)
+{
+    for (const Placed& p : s.page) {
+        auto* input = std::get_if<TextInput>(&p.item);
+        auto* text = std::get_if<Text>(&p.item);
+        bool named = (input && input->actionId == action) || (text && !text->editAction.empty() && text->editAction == action);
+        if (!named) continue;
+        std::optional<Action> left = focusField(typing, s, p.key, std::nullopt);
+        if (typing.draft) selectAll(*typing.draft);
+        return left;
+    }
+    return std::nullopt;
+}
+
 void selectAllText(WindowTyping& typing)
 {
     if (typing.draft) selectAll(*typing.draft);

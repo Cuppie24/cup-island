@@ -113,19 +113,39 @@ WindowContent withMove(const WindowContent& content, const std::string& pageId, 
 
 void follow(WindowScene& preview, const WindowDrag& d)
 {
+    settle(preview); // the others slide to make room (decision 132)
     auto now = std::find_if(preview.movables.begin(), preview.movables.end(), [&](const Movable& m) { return m.action == d.what.action; });
     if (now == preview.movables.end()) return;
     Vec2 delta{ d.at.x - d.grab.x - now->frame.x, d.at.y - d.grab.y - now->frame.y };
     auto shift = [&](Rect& r) { r.x += delta.x, r.y += delta.y; };
     std::string prefix = now->key + "/";
+    // Where it lands, before it's moved to the pointer: a soft outline there (decision 132), as
+    // round as the card, or the row's lit background.
+    Placed spot;
+    spot.key = kDropSpot;
+    spot.item = GroupFill{ .outline = true };
+    spot.frame = now->frame;
+    spot.glides = true;
     for (Placed& p : preview.page) {
         if (p.key.rfind(prefix, 0) != 0) continue;
+        if (now->card && std::holds_alternative<GroupFill>(p.item)) spot.cornerRadius = p.cornerRadius;
+        if (!now->card && p.listRow) spot.cornerRadius = p.listRowRadius;
+        spot.providerId = p.providerId;
+        spot.activityId = p.activityId;
         shift(p.frame);
         shift(p.hitFrame);
         p.carried = true;
         if (p.listRow) shift(*p.listRow);
+        p.glides = false; // at the pointer at once, not easing after it
+        p.carried = true;
     }
     shift(now->frame);
+    preview.page.insert(preview.page.begin(), std::move(spot)); // under everything
+}
+
+void settle(WindowScene& scene)
+{
+    for (Placed& p : scene.page) p.glides = true;
 }
 
 std::optional<Action> dropAction(const WindowScene& s, const WindowDrag& d, const DropTarget& t)
