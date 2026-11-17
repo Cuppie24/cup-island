@@ -128,9 +128,11 @@ WindowContent withMove(const WindowContent& content, const std::string& pageId, 
     if (d.what.card) {
         auto from = sectionWith(d.what.section);
         if (from == sections.end()) return moved;
+        // With no other card that moves (one group), it stays where it was: not after "New group" (decision 157).
+        std::size_t was = static_cast<std::size_t>(from - sections.begin());
         WindowSection carried = std::move(*from);
         sections.erase(from);
-        std::size_t at = insertAt(sections, t.index, [](const WindowSection& sec) { return !sec.moveAction.empty(); }, sections.size());
+        std::size_t at = insertAt(sections, t.index, [](const WindowSection& sec) { return !sec.moveAction.empty(); }, was);
         sections.insert(sections.begin() + static_cast<std::ptrdiff_t>(at), std::move(carried));
         return moved;
     }
