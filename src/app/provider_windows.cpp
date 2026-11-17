@@ -397,8 +397,12 @@ platform::ProviderWindowCallbacks callbacksFor(const WindowKey& id)
             s->pick.reset();
             std::optional<Action> moved;
             if (inside) moved = dropAction(s->scene, carried, s->target);
-            relayout(*s);
+            // Its provider moves it first (its update lands in the registry at once), then the page is
+            // laid out: from the preview straight to the moved page, the carried thing gliding into its
+            // place. Laid out first, the page showed the old order for a frame, and everything slid
+            // back and then forward again when the update came (decision 137).
             if (moved) g_hooks.registry->route(*moved);
+            relayout(*s);
             return;
         }
         if (auto pick = std::exchange(s->pick, std::nullopt)) { // never carried: the click it held back

@@ -57,9 +57,10 @@ public:
     void restore(const Todo& todo); // a deleted one back (its toast's Undo, decision 071), in its place
     // Dragged out (decision 129): gone from this list, and returned. None: no such to-do.
     std::optional<Todo> take(std::uint64_t id);
-    // Dragged in, at `index` among the list's to-dos as shown (open, then solved): a new id
-    // of this list's, an open one's rank between its neighbours'. A solved one stays with the
-    // solved, an open one with the open. Returns its new id.
+    // Dragged in, at `index` among the list's to-dos as shown (open, then solved): its own id if
+    // no to-do here has it (moved within this list, decision 137), else a new one of this list's;
+    // an open one's rank between its neighbours'. A solved one stays with the solved, an open one
+    // with the open. Returns its id.
     std::uint64_t place(Todo todo, std::size_t index);
     // A todo.* action that changes the list (add, toggle, delete, edit, move,
     // a confirmed clear, the Done row). True if it did. The clear buttons' own actions only ask: see clearQuestion.
