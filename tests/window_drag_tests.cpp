@@ -130,8 +130,51 @@ void dragTests()
     expect(action && action->actionId == "move.g0" && action->value == 1, "let go: the card's move action, its new index");
 }
 
+// Decision 135: a tall card dragged under a small one, one column. The small one moves up when the
+// pointer passes its middle; in the room the tall one leaves, it stays up; it goes back down only
+// when the pointer is over its top half as it shows now.
+void tallCardTests()
+{
+    OpenWindow w = board();
+    auto& sections = w.content.pages[0].sections;
+    for (int r = 3; r < 10; ++r) sections[0].rows.push_back(Row{ .items = { Text{ "More " + std::to_string(r) } }, .moveAction = "row.0." + std::to_string(r) });
+    Vec2 size{ 700, 3000 }; // one column
+    auto lay = [&](const OpenWindow& o) { return windowLayout(o, size, 0, Ms{ 0 }, measure); };
+    WindowScene s = lay(w);
+    const Movable* tall = movable(s, "move.g0");
+    const Movable* small = movable(s, "move.g1");
+    expect(tall && small && small->frame.y > tall->frame.y + tall->frame.height - 1 && tall->frame.height > 2 * small->frame.height,
+           "one column: the tall card over the small one");
+    WindowDrag d = startDrag(s, *tall, inWindow(s, { tall->frame.x + tall->frame.width / 2, tall->frame.y + 4 }));
+    DropTarget t = origin(d);
+    auto previewAt = [&](float y) {
+        d.at.y = y;
+        t = cardTarget(s, d, t);
+        OpenWindow preview = w;
+        preview.content = withMove(w.content, "p", d, t);
+        s = lay(preview);
+        follow(s, d);
+        return t.index;
+    };
+    float smallTop = small->frame.y, smallHeight = small->frame.height;
+    expect(previewAt(smallTop + smallHeight * 0.25f) == 0, "over the small card's top half: still before it");
+    expect(previewAt(smallTop + smallHeight * 0.75f) == 1, "past its middle: after it, the small card moves up");
+    const Movable* up = movable(s, "move.g1");
+    expect(up && up->frame.y < smallTop, "...shown up top now");
+    float upTop = up->frame.y, upHeight = up->frame.height;
+    bool stays = true;
+    for (float y = upTop + upHeight + 2; y < upTop + upHeight + 3 * smallHeight; y += 5) stays = stays && previewAt(y) == 1;
+    expect(stays, "the pointer in the room the tall card left: the small one stays up");
+    expect(previewAt(upTop + upHeight * 0.75f) == 1, "over its bottom half as shown: still after it");
+    expect(previewAt(upTop + upHeight * 0.25f) == 0, "over its top half as shown: before it again, it goes back down");
+}
+
 } // namespace
 
-void runWindowDragTests() { dragTests(); }
+void runWindowDragTests()
+{
+    dragTests();
+    tallCardTests();
+}
 
 } // namespace cup::test

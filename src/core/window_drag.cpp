@@ -80,6 +80,24 @@ DropTarget dropTarget(const WindowScene& s, const WindowDrag& d)
     return origin(d); // over no card: back where it was
 }
 
+DropTarget cardTarget(const WindowScene& shown, const WindowDrag& d, const DropTarget& current)
+{
+    std::vector<Rect> others; // the other movable cards, in order, where they show now
+    for (const Movable& m : shown.movables)
+        if (m.card && m.key != d.what.key) others.push_back(m.frame);
+    for (std::size_t k = 0; k < others.size(); ++k) {
+        Rect r = others[k];
+        if (!r.contains(d.at)) continue;
+        bool beside = false; // another card on its row: the cards run left to right there
+        for (std::size_t o = 0; o < others.size(); ++o)
+            if (o != k && others[o].y < r.y + r.height && others[o].y + others[o].height > r.y) beside = true;
+        Vec2 c = centreOf(r);
+        bool past = beside ? d.at.x > c.x : d.at.y > c.y;
+        return { "", k + (past ? 1 : 0) };
+    }
+    return current;
+}
+
 WindowContent withMove(const WindowContent& content, const std::string& pageId, const WindowDrag& d, const DropTarget& t)
 {
     WindowContent moved = content;
