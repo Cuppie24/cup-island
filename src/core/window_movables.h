@@ -18,6 +18,9 @@ struct Movable {
     std::size_t index = 0; // its place among its kind: movable cards on the page, movable rows in its card
     Rect frame;            // page coordinates
     std::string action;    // the move's action (Row::moveAction, WindowSection::moveAction)
+    // A card: where else a press picks it up, its header (its title row, the card's width), but
+    // not on a button there (decision 143); page coordinates. Empty: its handle only.
+    Rect grip;
     bool operator==(const Movable&) const = default;
 };
 

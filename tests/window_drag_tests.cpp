@@ -267,8 +267,38 @@ void sideBySideTests()
 
 } // namespace
 
+// Decision 143: a card's whole header picks it up, its name included, but not a button on it.
+void headerTests()
+{
+    OpenWindow w = board();
+    w.content.pages[0].sections[0].titleTrailing = { Button{ .glyph = Glyph::More, .actionId = "more", .compact = true } };
+    WindowScene s = laid(w);
+    const Movable* g0 = movable(s, "move.g0");
+    const Placed* name = nullptr;
+    const Placed* more = nullptr;
+    const Placed* firstRow = nullptr;
+    for (const Placed& p : s.page) {
+        if (auto* t = std::get_if<Text>(&p.item); t && t->value == "Group 0") name = &p;
+        if (auto* b = std::get_if<Button>(&p.item); b && b->actionId == "more") more = &p;
+        if (auto* t = std::get_if<Text>(&p.item); t && t->value == "Row 0.0") firstRow = &p;
+    }
+    expect(g0 && name && more && firstRow && g0->grip.height > 0 && g0->grip.width == g0->frame.width && g0->grip.y == g0->frame.y &&
+               g0->grip.y + g0->grip.height <= firstRow->frame.y,
+           "a movable card's grip: its header, its whole width, above its first row");
+    auto at = [&](const Placed& p) { return inWindow(s, { p.frame.x + p.frame.width / 2, p.frame.y + p.frame.height / 2 }); };
+    auto onName = movableAt(s, at(*name));
+    expect(onName && onName->card && onName->key == g0->key, "pressed on its name: the card");
+    auto onBlank = movableAt(s, inWindow(s, { g0->frame.x + g0->frame.width * 0.6f, name->frame.y + name->frame.height / 2 }));
+    expect(onBlank && onBlank->card, "...or anywhere else on its header");
+    auto onMore = movableAt(s, at(*more));
+    expect(!onMore || !onMore->card, "on a button in its header: the button's, not a drag");
+    auto onRow = movableAt(s, at(*firstRow));
+    expect(onRow && !onRow->card && onRow->action == "row.0.0", "under its header, a row is still its own");
+}
+
 void runWindowDragTests()
 {
+    headerTests();
     dragTests();
     tallCardTests();
     tallRowTests();
