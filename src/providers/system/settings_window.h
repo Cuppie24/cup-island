@@ -110,6 +110,11 @@ struct SettingsView {
     std::set<std::string> unseen;           // ...and which of those haven't been seen yet: tagged "New"
 };
 
+// The announced settings this machine offers: those with a row on some page of
+// the window, pages within pages included. One it lacks (Glass on Windows 10)
+// can never be seen, so it never counts as new (decision 048).
+std::set<std::string> offeredSettings(const SettingsView& view);
+
 // The announced settings on this page of the window, by their rows' ids: what the user sees of them now.
 std::vector<std::string> shownSettings(const WindowContent& window, const std::string& page, const std::vector<SettingItem>& announced);
 
