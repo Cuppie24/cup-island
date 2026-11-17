@@ -84,6 +84,9 @@ struct Draft {
     // offsets into `text`. Equal: nothing selected.
     std::size_t caret = 0, anchor = 0;
     std::size_t maxLength = 0; // in characters; typing and pasting stop there (decision 045). 0: no limit
+    // A row being written (TextInput::focusedIcon, "+ Add task"): leaving it adds what's in it, as
+    // Enter does, instead of keeping it for later (decision 127).
+    bool sendsOnLeave = false;
     bool operator==(const Draft&) const = default;
 };
 

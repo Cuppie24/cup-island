@@ -72,6 +72,7 @@ std::optional<Action> focusField(WindowTyping& typing, const WindowScene& s, con
         }
         d.actionId = input->actionId;
         d.maxLength = input->maxLength;
+        d.sendsOnLeave = input->focusedIcon.has_value();
         if (input->inPlace) d.text = input->value, d.editing = true; // a text drawn while edited: an edit again
     } else {
         const Text& text = std::get<Text>(p->item);
@@ -99,6 +100,12 @@ std::optional<Action> blurField(WindowTyping& typing, const WindowScene& s)
     typing.draft.reset();
     if (d.editing) return sent(s, d.actionId, d.text); // kept, like any text box (decision 043)
     std::string key = keptKey(s.windowId, d.actionId);
+    if (d.sendsOnLeave) { // a row being written: left, it's added, as with Enter (decision 127); blank, nothing
+        typing.kept.erase(key);
+        bool blank = d.text.find_first_not_of(" \t\r\n") == std::string::npos;
+        if (blank) return std::nullopt;
+        return sent(s, d.actionId, d.text);
+    }
     if (d.text.empty()) typing.kept.erase(key);
     else typing.kept[key] = d.text;
     return std::nullopt;

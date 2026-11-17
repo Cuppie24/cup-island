@@ -297,6 +297,17 @@ void windowTests()
                addField->frame.height == box->frame.height && addField->frame.x == box->frame.x && addField->listRow &&
                std::abs(addField->listRow->height - box->listRow->height) < 0.01f,
            "focused: '+ Add task' becomes a task row being written, its height, its box where a task's is");
+    // Left without Enter (a click elsewhere), what's written is added all the same (decision 127); blank, nothing.
+    typeText(writing, written, "Left without Enter");
+    std::optional<Action> left = blurField(writing, written);
+    expect(left && left->actionId == inGroup(1, todo_action::kAdd) && left->text == "Left without Enter" && !writing.draft,
+           "leaving the row being written sends it, as Enter would");
+    if (left) island.registry.route(*left);
+    expect(textIn(island.windowScene(), "Left without Enter") != nullptr, "...and the task is added");
+    focusField(writing, written, fieldKey, std::nullopt);
+    typeText(writing, written, "   ");
+    expect(!blurField(writing, written) && writing.kept.empty(), "left blank: nothing added, nothing kept");
+    island.inWindow(inGroup(1, std::string(todo_action::kDelete) + "2")); // back to the one task the rest of the test expects
     expect(textIn(page, "1") == nullptr, "no count beside the group's name (decision 121)");
     const Placed* remove = buttonIn(page, inGroup(1, std::string(todo_action::kDelete) + "1"));
     expect(remove && std::get<Button>(remove->item).revealOnHover, "its delete shows on hover");
