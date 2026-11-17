@@ -1,6 +1,6 @@
 # 134: Dragging in windows glides, and a new group's name is focused
 
-Status: Accepted (amends 129). Core tested; the feel on Windows needs a run.
+Status: Accepted (amends 129; its handle's size amended by 139). Core tested; the feel on Windows needs a run.
 
 **Context.** After the first run of dragging (decision 129) the user asked
 for: one line as a group's handle, not the icon font's two bars, a little

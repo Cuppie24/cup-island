@@ -58,11 +58,11 @@ void dragTests()
     expect(handle && std::get<Button>(handle->item).revealWithSlot && handle->frame.y == g0->frame.y + tk.windowDragHandleTop &&
                std::abs(handle->frame.x + handle->frame.width / 2 - (g0->frame.x + g0->frame.width / 2)) < 1,
            "a movable card's handle: at its top's middle, a little under its edge, shown with its card");
-    expect(handle->hitFrame.y == g0->frame.y && handle->hitFrame.width > handle->frame.width &&
-               handle->hitFrame.y + handle->hitFrame.height >= handle->frame.y + handle->frame.height,
-           "...held in a wider band than it draws, from the card's very top (decision 134)");
-    auto onHandleEdge = inWindow(s, { handle->hitFrame.x + 2, handle->hitFrame.y + 1 });
-    expect(movableAt(s, onHandleEdge) && movableAt(s, onHandleEdge)->card, "pressed at the band's edge: the card");
+    expect(handle->hitFrame == handle->frame && handle->frame.width == tk.windowDragHandleWidth &&
+               handle->frame.height == tk.windowDragHandleHeight && handle->frame.width >= 2 * tk.windowDragLineWidth,
+           "...held anywhere it's lit, a box well wider than its line (decision 139)");
+    auto onHandleEdge = inWindow(s, { handle->frame.x + 2, handle->frame.y + 1 });
+    expect(movableAt(s, onHandleEdge) && movableAt(s, onHandleEdge)->card, "pressed at its lit box's corner: the card");
     expect(windowRowAt(s, inWindow(s, { handle->frame.x + 2, handle->frame.y + 2 })).empty() &&
                windowCardAt(s, inWindow(s, { handle->frame.x + 2, handle->frame.y + 2 })) == g0->key,
            "over the handle: its card, and no row of it lit (it lit the card's last one, decision 134)");
