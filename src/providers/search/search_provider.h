@@ -10,7 +10,8 @@
 //   - Settings pages are our own list (launchables.h);
 //   - files come from Cup Island's service, through the host
 //     (Host::callService("index.query"), decision 078); an answer for an
-//     older query is dropped.
+//     older query is dropped. "~" is the user's folder, expanded here
+//     (the service runs as SYSTEM: expandHome).
 // What was started is remembered per user and ranks higher (LaunchHistory),
 // files opened from it too (recent_files, decision 082).
 // Pure, tested on Linux: Windows is behind SearchHooks.
@@ -97,6 +98,7 @@ public:
 
 private:
     void refreshApps();
+    std::string searched() const; // query_ with ~ as the user's folder (expandHome)
     void searchNow(); // ranks what's in memory and asks the service for files
     void setFiles(std::vector<indexer::ResultRow> rows); // the service's, with recent ones worked in
     void publish();

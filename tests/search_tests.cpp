@@ -10,6 +10,7 @@
 #include <cstdio>
 #include "core/tokens.h"
 #include "expect.h"
+#include "indexer/query.h"
 #include "panel_host.h"
 #include "providers/search/recent_files.h"
 #include "providers/search/result_menu.h"
@@ -194,6 +195,13 @@ void providerTests()
     expect(!revealIt.empty() && host.closed.size() == 2, "no reveal hook: nothing happens");
     search.onCardClosed("search");
     expect(search.results().empty() && host.published.back().content.expandedCenter.size() == 1, "closed: it opens empty next time");
+
+    SearchHost homeHost;
+    SearchProvider homed({ .home = "C:\\Users\\me" });
+    homed.start(homeHost);
+    homed.onAction({ "search", "search", search_action::kTyped, 0, "~/doc" });
+    expect(homeHost.calls.size() == 1 && homeHost.calls[0] == R"(index.query {"text":"C:\\Users\\me/doc","limit":8})",
+           "~ is sent to the service as the user's folder");
 }
 
 // A result's menu (decision 086): what each kind offers, in order, with its
@@ -313,6 +321,20 @@ void rowTextTests()
     expect(shortPath("c:\\users\\said", "C:\\Users\\Said") == "~", "in any case");
     expect(shortPath("C:\\Users\\Said2\\x", "C:\\Users\\Said") == "C:\\Users\\Said2\\x", "a neighbour's folder isn't inside");
     expect(shortPath("D:\\x", "") == "D:\\x", "no home known: as it is");
+    const std::string home = "C:\\Users\\Said";
+    expect(expandHome("~\\Documents", home) == "C:\\Users\\Said\\Documents" && expandHome("~/doc", home) == "C:\\Users\\Said/doc",
+           "~ is the user's folder, with either slash");
+    expect(expandHome("~", home) == home && expandHome("report ~/x ext:pdf", home) == "report C:\\Users\\Said/x ext:pdf",
+           "~ alone, and as any word");
+    expect(expandHome("path:~\\music", home) == "path:C:\\Users\\Said\\music" && expandHome("PATH:\"~/my music\"", home) == "PATH:\"C:\\Users\\Said/my music\"",
+           "in a path: filter, quoted or not");
+    expect(expandHome("~notes a~/b \"x ~/y\"", home) == "~notes a~/b \"x ~/y\"", "only a ~ that starts a word and ends at a separator");
+    expect(expandHome("~/doc", "C:\\Users\\Said N") == "\"C:\\Users\\Said N\"/doc" &&
+           indexer::parseQuery(expandHome("~/doc", "C:\\Users\\Said N")).paths.size() == 1, "a home with a space stays one word");
+    expect(expandHome("~/doc", "") == "~/doc", "no home known: as typed");
+    indexer::Query q = indexer::parseQuery(expandHome("~\\Documents", home));
+    expect(q.drive == 'c' && q.paths.size() == 1 && q.paths[0].parts == std::vector<std::string>{ "users", "said", "documents" },
+           "what the index then looks for");
     expect(folderOf("C:\\a\\b.txt") == "C:\\a" && folderOf("C:\\a") == "C:\\", "a file's folder; a drive's top level keeps its slash");
 }
 

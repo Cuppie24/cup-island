@@ -118,8 +118,14 @@ void SearchProvider::onAction(const Action& action)
     }
 }
 
+std::string SearchProvider::searched() const
+{
+    return expandHome(query_, hooks_.home); // "~\\Documents" (result_rows.h): the service can't know whose ~
+}
+
 void SearchProvider::searchNow()
 {
+    std::string query = searched();
     // Apps and the system's pages from memory, at once; files from the service.
     std::vector<Launchable> all;
     all.reserve(apps_.size() + settings_.size());
@@ -129,7 +135,7 @@ void SearchProvider::searchNow()
     for (const Launchable* l : sources) all.push_back(*l);
     Ms wall = host_->wallClock();
     std::vector<const Launchable*> apps, system;
-    for (std::size_t i : rankLaunchables(all, query_, history_, wall, all.size())) {
+    for (std::size_t i : rankLaunchables(all, query, history_, wall, all.size())) {
         const Launchable* l = sources[i];
         auto& group = l->kind == Launchable::Kind::App ? apps : system;
         std::size_t cap = l->kind == Launchable::Kind::App ? tokens().searchAppRows : tokens().searchSettingRows;
@@ -139,7 +145,7 @@ void SearchProvider::searchNow()
     shown_.insert(shown_.end(), system.begin(), system.end());
 
     std::uint64_t ask = ++fileAsk_;
-    bool typed = !indexer::parseQuery(query_).empty();
+    bool typed = !indexer::parseQuery(query).empty();
     if (!typed) { // nothing typed: the field alone (decision 079)
         shown_.clear();
         files_.clear();
@@ -148,7 +154,7 @@ void SearchProvider::searchNow()
         return;
     }
     publish(); // apps show now; files follow when the service answers
-    host_->callService("index.query", indexer::queryParams(query_, tokens().searchFileRows),
+    host_->callService("index.query", indexer::queryParams(query, tokens().searchFileRows),
                        [this, ask, alive = alive_](ServiceReply reply) {
                            if (!*alive || ask != fileAsk_) return; // a newer query's answer is what counts
                            std::vector<indexer::ResultRow> rows;
@@ -170,7 +176,7 @@ void SearchProvider::searchNow()
 void SearchProvider::setFiles(std::vector<indexer::ResultRow> rows)
 {
     std::vector<std::string> gone;
-    files_ = withRecent(std::move(rows), opened_, query_, host_->wallClock(), tokens().searchFileRows, hooks_.exists, gone);
+    files_ = withRecent(std::move(rows), opened_, searched(), host_->wallClock(), tokens().searchFileRows, hooks_.exists, gone);
     if (gone.empty()) return;
     for (const std::string& key : gone) opened_.uses.erase(key); // deleted or moved: not offered again
     host_->save(kOpenedKey, opened_.save());
@@ -289,13 +295,14 @@ void SearchProvider::publish()
     c.hidesTabs = true; // alone on the island while you look (decision 079)
     c.expandedCenter.push_back(fieldRow());
     std::vector<Result> all = results();
-    bool typed = !indexer::parseQuery(query_).empty();
+    std::string query = searched();
+    bool typed = !indexer::parseQuery(query).empty();
     std::string note = !filesNote_.empty() ? filesNote_ : typed && all.empty() ? "Nothing found" : "";
     if (typed && !note.empty()) c.expandedCenter.push_back(row({ Text{ .value = note, .style = TextStyle::Caption, .centred = true } }));
     for (std::size_t i = 0; i < all.size(); ++i) {
         const Result& r = all[i];
         Glyph glyph = r.file ? (r.folder ? Glyph::Folder : Glyph::File) : glyphOf(r.kind);
-        c.expandedCenter.push_back(resultRow(glyph, iconFor(r.target), r, query_, hooks_.home, i));
+        c.expandedCenter.push_back(resultRow(glyph, iconFor(r.target), r, query, hooks_.home, i));
         if (i == 0) c.expandedCenter.back().visibleRows = tokens().searchVisibleRows; // the list's window, from its first row
     }
     // Room under the field: the first result is lit (defaultRow), and two

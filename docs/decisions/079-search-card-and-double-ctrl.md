@@ -157,6 +157,13 @@ listed the apps launched before, as if nothing were typed: they rank by
 plain words, and it had none. Now such a query lists no apps or Settings,
 only files (`rankLaunchables`).
 
+**`~` is the user's folder** in what's typed, as rows already show it:
+`~\Documents`, `~/doc`, `~` alone, `path:~\Music`. The index service runs as
+SYSTEM and can't know whose `~` it is, so the provider expands it with
+`SearchHooks::home` before asking (`expandHome`, result_rows.h). Only a `~`
+starting a word and followed by a separator or nothing: `~notes.txt` is a
+name. A home with a space is quoted so the query keeps it one word.
+
 **Run as administrator** (Ctrl+Shift+Enter, decision 077) and the file
 rows' folder button became a result's menu (decision 086): the host maps an
 item's shortcut to its action, so providers still never see keys.
