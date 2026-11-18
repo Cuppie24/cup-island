@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <string_view>
 
 namespace cup {
 namespace {
@@ -50,6 +51,42 @@ std::string shortPath(const std::string& path, const std::string& home)
     if (indexer::foldCase(path.substr(0, home.size())) != indexer::foldCase(home)) return path;
     if (path.size() > home.size() && path[home.size()] != '\\') return path; // C:\Users\Said2 isn't inside
     return "~" + path.substr(home.size());
+}
+
+std::string expandHome(const std::string& query, const std::string& home)
+{
+    if (home.empty() || query.find('~') == std::string::npos) return query;
+    bool spaced = home.find(' ') != std::string::npos;
+    std::string out;
+    bool quoted = false;
+    for (std::size_t i = 0; i < query.size();) {
+        bool wordStart = !quoted && query[i] != ' ' && (i == 0 || query[i - 1] == ' ');
+        if (wordStart) {
+            // Copy its opening quote and a path: filter, then look for a
+            // leading ~ (indexer/query.cpp's tokenizer splits the same way).
+            auto quote = [&] {
+                if (i < query.size() && query[i] == '"') {
+                    quoted = !quoted;
+                    out += query[i++];
+                }
+            };
+            quote();
+            if (indexer::foldCase(query.substr(i, 5)) == "path:") {
+                out += query.substr(i, 5);
+                i += 5;
+            }
+            quote();
+            bool ends = i + 1 >= query.size() || std::string_view("/\\\" ").find(query[i + 1]) != std::string_view::npos;
+            if (i < query.size() && query[i] == '~' && ends) {
+                out += spaced && !quoted ? '"' + home + '"' : home;
+                ++i;
+            }
+            if (i >= query.size()) break;
+        }
+        if (query[i] == '"') quoted = !quoted;
+        out += query[i++];
+    }
+    return out;
 }
 
 std::string folderOf(const std::string& path)

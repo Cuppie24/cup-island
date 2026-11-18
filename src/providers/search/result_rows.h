@@ -21,6 +21,15 @@ std::vector<std::pair<std::size_t, std::size_t>> matchedParts(const std::string&
 // "~\Documents\report.pdf". Other paths as they are.
 std::string shortPath(const std::string& path, const std::string& home);
 
+// What the user typed with "~" as their own folder (`home`), the other way
+// round from shortPath: "~\\Documents", "~/doc", "~" alone and "path:~\\x"
+// become paths the index understands. The index service runs as SYSTEM and
+// can't know whose "~" it is, so the provider expands it before asking.
+// Only a "~" that starts a word and is followed by a separator, a quote, a
+// space or nothing: "~notes.txt" is a name. A home with a space is quoted
+// so it stays one word. No home known: as typed.
+std::string expandHome(const std::string& query, const std::string& home);
+
 // The folder a path is in ("C:\a\b.txt": "C:\a"; "C:\a": "C:\").
 std::string folderOf(const std::string& path);
 
