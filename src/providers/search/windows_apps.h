@@ -38,6 +38,7 @@ bool copyFileToClipboard(const std::string& path); // the file itself, as Explor
 // calling (UI) thread, with nothing if there's none.
 void loadIcon(const std::string& target, int side, std::function<void(std::shared_ptr<const ImageData>)> done);
 std::string userFolder(); // C:\Users\<name>
+std::string environmentVariable(const std::string& name); // this user's; "" if unset
 
 int windowsBuild();  // 17763 for Windows 10 1809; 22000 and up for 11
 bool russianUi();    // Windows' display language is Russian

@@ -120,7 +120,7 @@ void SearchProvider::onAction(const Action& action)
 
 std::string SearchProvider::searched() const
 {
-    return expandHome(query_, hooks_.home); // "~\\Documents" (result_rows.h): the service can't know whose ~
+    return expandShortcuts(query_, hooks_.home, hooks_.variable); // the service can't know whose ~ (result_rows.h)
 }
 
 void SearchProvider::searchNow()

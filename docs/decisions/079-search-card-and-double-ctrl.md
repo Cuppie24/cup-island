@@ -160,9 +160,14 @@ only files (`rankLaunchables`).
 **`~` is the user's folder** in what's typed, as rows already show it:
 `~\Documents`, `~/doc`, `~` alone, `path:~\Music`. The index service runs as
 SYSTEM and can't know whose `~` it is, so the provider expands it with
-`SearchHooks::home` before asking (`expandHome`, result_rows.h). Only a `~`
+`SearchHooks::home` before asking (`expandShortcuts`, result_rows.h). Only a `~`
 starting a word and followed by a separator or nothing: `~notes.txt` is a
 name. A home with a space is quoted so the query keeps it one word.
+**`%NAME%` is an environment variable**, as in Explorer's address bar and
+the Run dialog: `%APPDATA%\Code`, `%PROGRAMFILES%/vlc`, `path:%TEMP%`. Read
+from the island's own environment (`SearchHooks::variable`,
+GetEnvironmentVariableW, Windows 2000+), by the same rules as `~`; an unset
+one, or `100%`, stays as typed.
 
 **Run as administrator** (Ctrl+Shift+Enter, decision 077) and the file
 rows' folder button became a result's menu (decision 086): the host maps an

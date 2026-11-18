@@ -53,17 +53,34 @@ std::string shortPath(const std::string& path, const std::string& home)
     return "~" + path.substr(home.size());
 }
 
-std::string expandHome(const std::string& query, const std::string& home)
+std::string expandShortcuts(const std::string& query, const std::string& home,
+                            const std::function<std::string(const std::string& name)>& variable)
 {
-    if (home.empty() || query.find('~') == std::string::npos) return query;
-    bool spaced = home.find(' ') != std::string::npos;
+    if (query.find_first_of("~%") == std::string::npos) return query;
     std::string out;
     bool quoted = false;
+    // What the shortcut at `at` stands for, and how long it is; nothing if
+    // it isn't one, or isn't known.
+    auto shortcutAt = [&](std::size_t at, std::size_t& length) -> std::string {
+        if (at >= query.size()) return {};
+        if (query[at] == '~') {
+            length = 1;
+            return home;
+        }
+        if (query[at] != '%' || !variable) return {};
+        std::size_t close = query.find('%', at + 1);
+        if (close == std::string::npos || close == at + 1) return {};
+        std::string name = query.substr(at + 1, close - at - 1);
+        for (char c : name) // a variable's name: PROGRAMFILES(X86) too, never a path or a space
+            if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_' && c != '(' && c != ')') return {};
+        length = close - at + 1;
+        return variable(name);
+    };
     for (std::size_t i = 0; i < query.size();) {
         bool wordStart = !quoted && query[i] != ' ' && (i == 0 || query[i - 1] == ' ');
         if (wordStart) {
             // Copy its opening quote and a path: filter, then look for a
-            // leading ~ (indexer/query.cpp's tokenizer splits the same way).
+            // shortcut (indexer/query.cpp's tokenizer splits the same way).
             auto quote = [&] {
                 if (i < query.size() && query[i] == '"') {
                     quoted = !quoted;
@@ -76,10 +93,14 @@ std::string expandHome(const std::string& query, const std::string& home)
                 i += 5;
             }
             quote();
-            bool ends = i + 1 >= query.size() || std::string_view("/\\\" ").find(query[i + 1]) != std::string_view::npos;
-            if (i < query.size() && query[i] == '~' && ends) {
-                out += spaced && !quoted ? '"' + home + '"' : home;
-                ++i;
+            std::size_t length = 0;
+            std::string value = shortcutAt(i, length);
+            std::size_t after = i + length;
+            bool ends = after >= query.size() || std::string_view("/\\\" ").find(query[after]) != std::string_view::npos;
+            if (!value.empty() && ends) {
+                bool spaced = value.find(' ') != std::string::npos;
+                out += spaced && !quoted ? '"' + value + '"' : value;
+                i = after;
             }
             if (i >= query.size()) break;
         }
