@@ -210,6 +210,20 @@ std::string userFolder()
     return out;
 }
 
+std::string environmentVariable(const std::string& name)
+{
+    // GetEnvironmentVariableW (Windows 2000+, decision 015): the island's
+    // own environment, which it got from this user's session.
+    std::wstring key = wide(name);
+    DWORD size = GetEnvironmentVariableW(key.c_str(), nullptr, 0);
+    if (size == 0) return {};
+    std::wstring value(size, L'\0');
+    DWORD written = GetEnvironmentVariableW(key.c_str(), value.data(), size);
+    if (written == 0 || written >= size) return {};
+    value.resize(written);
+    return utf8(value.c_str());
+}
+
 void loadWindowsApps(std::function<void(std::vector<Launchable>)> done)
 {
     auto queue = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();

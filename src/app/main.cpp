@@ -1261,6 +1261,7 @@ int main()
         .loadIcon = [](const std::string& target, std::function<void(std::shared_ptr<const ImageData>)> done) {
             loadIcon(target, static_cast<int>(std::lround(2 * tokens().resultIconSize)), std::move(done));
         },
+        .variable = environmentVariable, // %APPDATA% in a query
         .home = userFolder(),
         .windowsBuild = windowsBuild(),
         .russian = russianUi(),
