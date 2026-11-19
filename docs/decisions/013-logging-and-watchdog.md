@@ -1,6 +1,6 @@
 # 013: A log file, hang and crash dumps, and a clean exit
 
-Status: Accepted. Amended by 158: an exception leaving a `fire_and_forget` is a fail-fast, not `std::terminate`; and the next start looks for Windows' record for about 30 s.
+Status: Accepted. Amended by 158: an exception leaving a `fire_and_forget` is a fail-fast, not `std::terminate`; and the next start looks for Windows' record for about 30 s. Amended by 159: Copy logs puts the log on the clipboard as a .txt file.
 
 **Context.** Release builds have no console (decision 011), so problems
 reported from real use (the island freezing, Exit leaving the process
@@ -13,7 +13,7 @@ it needs the frozen thread's stack.
   kept), flushed per line, and to the console when there is one. The
   Settings card's "Copy logs" button (`providers/system/settings_provider.h`,
   pure; a Home tile of its own until decision 022) puts its last
-  64 KB on the clipboard. The Windows-only provider files log through it
+  64 KB on the clipboard (as a .txt file since decision 159). The Windows-only provider files log through it
   too: they're platform code in all but folder.
 - `platform/watchdog.h`: every 5 s a background thread sends the UI thread
   `WM_NULL` and waits 5 s for an answer. No answer: the log says HANG and a
