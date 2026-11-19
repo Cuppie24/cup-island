@@ -150,6 +150,9 @@ winrt::fire_and_forget decodeArt(winrt::Windows::Storage::Streams::IRandomAccess
     } catch (winrt::hresult_error const& e) {
         // Unreadable or unsupported art: show the track without it (the provider may read again).
         platform::logLine("media: cover couldn't be read (0x%08x)", static_cast<unsigned>(e.code()));
+    } catch (std::exception const& e) {
+        // bad_alloc and co.: out of a fire_and_forget it would be a fail-fast (decision 158).
+        platform::logLine("media: cover couldn't be read (%s)", e.what());
     }
     done(result);
 }

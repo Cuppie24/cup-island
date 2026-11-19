@@ -2,6 +2,7 @@
 
 #include "indexer/protocol.h"
 #include "platform/log.h"
+#include "platform/watchdog.h"
 #include "platform/win.h"
 #include "service/index_client.h"
 
@@ -56,7 +57,7 @@ winrt::fire_and_forget probe(std::function<void(ServiceProbe)> done)
     } catch (...) {
         co_return; // closing: nobody to tell
     }
-    done(found);
+    platform::guardedTask("after the service probe", [&] { done(found); }); // decision 158
 }
 
 winrt::fire_and_forget send(std::string request, std::function<void(ServiceReply)> done)
@@ -75,7 +76,7 @@ winrt::fire_and_forget send(std::string request, std::function<void(ServiceReply
     } catch (...) {
         co_return;
     }
-    done(std::move(reply));
+    platform::guardedTask("after a service request", [&] { done(std::move(reply)); });
 }
 
 winrt::fire_and_forget run(std::function<void(bool)> done)
@@ -100,7 +101,7 @@ winrt::fire_and_forget run(std::function<void(bool)> done)
     } catch (...) {
         co_return;
     }
-    done(started);
+    platform::guardedTask("after the service setup", [&] { done(started); });
 }
 
 } // namespace

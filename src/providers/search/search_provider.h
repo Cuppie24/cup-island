@@ -10,7 +10,8 @@
 //   - Settings pages are our own list (launchables.h);
 //   - files come from Cup Island's service, through the host
 //     (Host::callService("index.query"), decision 078); an answer for an
-//     older query is dropped.
+//     older query is dropped. "~" and %APPDATA%-style variables are
+//     expanded here (the service runs as SYSTEM: expandShortcuts).
 // What was started is remembered per user and ranks higher (LaunchHistory),
 // files opened from it too (recent_files, decision 082).
 // Pure, tested on Linux: Windows is behind SearchHooks.
@@ -45,6 +46,9 @@ struct SearchHooks {
     // A result's icon as Windows draws it (a file's, an app's), resultIconSize
     // square; `done` on the UI thread, with nothing if there's none.
     std::function<void(const std::string& target, std::function<void(std::shared_ptr<const ImageData>)> done)> loadIcon;
+    // An environment variable's value ("APPDATA": "C:\\Users\\Said\\AppData\\Roaming"),
+    // "" if unset: %APPDATA% in a query (expandShortcuts).
+    std::function<std::string(const std::string& name)> variable;
     std::string home; // the user's folder ("C:\\Users\\Said"): shown as ~ in paths
     int windowsBuild = 0;
     bool russian = false; // Settings pages named in Russian (both names match)
@@ -97,6 +101,7 @@ public:
 
 private:
     void refreshApps();
+    std::string searched() const; // query_ with ~ and %VARIABLES% expanded (expandShortcuts)
     void searchNow(); // ranks what's in memory and asks the service for files
     void setFiles(std::vector<indexer::ResultRow> rows); // the service's, with recent ones worked in
     void publish();

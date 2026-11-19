@@ -3,6 +3,7 @@
 #include "platform/win.h"
 
 #include <shlobj.h>
+#include <oleidl.h> // DROPEFFECT_COPY
 
 #include <clocale>
 #include <cstdarg>
@@ -22,12 +23,12 @@ std::mutex g_mutex; // one line at a time, from any thread
 FILE* g_file = nullptr;
 std::filesystem::path g_path;
 
-std::wstring widen(const std::string& utf8)
+std::string narrow(const std::wstring& wide)
 {
-    int n = MultiByteToWideChar(CP_UTF8, 0, utf8.data(), static_cast<int>(utf8.size()), nullptr, 0);
-    std::wstring wide(static_cast<size_t>(n), L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, utf8.data(), static_cast<int>(utf8.size()), wide.data(), n);
-    return wide;
+    int n = WideCharToMultiByte(CP_UTF8, 0, wide.data(), static_cast<int>(wide.size()), nullptr, 0, nullptr, nullptr);
+    std::string utf8(static_cast<size_t>(n), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, wide.data(), static_cast<int>(wide.size()), utf8.data(), n, nullptr, nullptr);
+    return utf8;
 }
 
 // The last `bytes` of a file: whole lines only. "" if it can't be read.
@@ -119,26 +120,60 @@ void logLine(const char* format, ...)
     }
 }
 
+// Copy logs puts a file on the clipboard, not text: pasted into a chat or a
+// GitHub issue it arrives as an attachment, and in Explorer as the file
+// itself, instead of 64 KB of lines in the message box (decision 159).
 bool copyLogToClipboard(void* ownerHwnd)
 {
     if (g_path.empty()) return false;
-    std::wstring text = L"Cup Island log: " + g_path.wstring() + L"\r\n\r\n" + widen(readTail());
+    std::filesystem::path file = g_path.parent_path() / L"cup-island-log.txt";
+    std::string header = "Cup Island log: " + narrow(g_path.wstring()) + "\r\n\r\n";
+    std::string tail = readTail();
+    bool written = false;
+    if (FILE* out = _wfopen(file.c_str(), L"wb")) {
+        // A BOM, so Notepad and the browsers' previews read it as UTF-8.
+        written = std::fputs("\xEF\xBB\xBF", out) >= 0 && std::fputs(header.c_str(), out) >= 0 &&
+                  std::fwrite(tail.data(), 1, tail.size(), out) == tail.size();
+        written = std::fclose(out) == 0 && written;
+    }
+    if (!written) {
+        logLine("logs: could not write %ls", file.c_str());
+        return false;
+    }
+
+    // CF_HDROP: a DROPFILES header, then the path, then an empty one ending the list.
+    std::wstring path = file.wstring();
+    size_t bytes = sizeof(DROPFILES) + (path.size() + 2) * sizeof(wchar_t);
+    HGLOBAL drop = GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, bytes);
+    if (!drop) return false;
+    if (auto* files = static_cast<DROPFILES*>(GlobalLock(drop))) {
+        files->pFiles = sizeof(DROPFILES);
+        files->fWide = TRUE;
+        std::memcpy(reinterpret_cast<char*>(files) + sizeof(DROPFILES), path.c_str(), path.size() * sizeof(wchar_t));
+        GlobalUnlock(drop);
+    }
+    // Explorer pastes a copy, not a move, of a file that stays ours.
+    HGLOBAL effect = GlobalAlloc(GMEM_MOVEABLE, sizeof(DWORD));
+    if (effect) {
+        if (auto* value = static_cast<DWORD*>(GlobalLock(effect))) {
+            *value = DROPEFFECT_COPY;
+            GlobalUnlock(effect);
+        }
+    }
 
     // OpenClipboard needs a window: with none, SetClipboardData fails.
-    if (!OpenClipboard(static_cast<HWND>(ownerHwnd))) return false;
     bool copied = false;
-    EmptyClipboard();
-    size_t bytes = (text.size() + 1) * sizeof(wchar_t);
-    if (HGLOBAL memory = GlobalAlloc(GMEM_MOVEABLE, bytes)) {
-        if (void* target = GlobalLock(memory)) {
-            std::memcpy(target, text.c_str(), bytes);
-            GlobalUnlock(memory);
-            copied = SetClipboardData(CF_UNICODETEXT, memory) != nullptr;
-        }
-        if (!copied) GlobalFree(memory); // owned by the clipboard only on success
+    if (OpenClipboard(static_cast<HWND>(ownerHwnd))) {
+        EmptyClipboard();
+        copied = SetClipboardData(CF_HDROP, drop) != nullptr;
+        if (copied) drop = nullptr; // the clipboard owns it now
+        UINT effectFormat = RegisterClipboardFormatW(CFSTR_PREFERREDDROPEFFECT);
+        if (copied && effect && effectFormat && SetClipboardData(effectFormat, effect)) effect = nullptr;
+        CloseClipboard();
     }
-    CloseClipboard();
-    logLine("logs %s to the clipboard", copied ? "copied" : "could not be copied");
+    if (drop) GlobalFree(drop);
+    if (effect) GlobalFree(effect);
+    logLine("logs %s to the clipboard as %ls", copied ? "copied" : "could not be copied", file.c_str());
     return copied;
 }
 

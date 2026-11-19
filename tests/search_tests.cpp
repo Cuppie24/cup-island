@@ -10,6 +10,7 @@
 #include <cstdio>
 #include "core/tokens.h"
 #include "expect.h"
+#include "indexer/query.h"
 #include "panel_host.h"
 #include "providers/search/recent_files.h"
 #include "providers/search/result_menu.h"
@@ -194,6 +195,17 @@ void providerTests()
     expect(!revealIt.empty() && host.closed.size() == 2, "no reveal hook: nothing happens");
     search.onCardClosed("search");
     expect(search.results().empty() && host.published.back().content.expandedCenter.size() == 1, "closed: it opens empty next time");
+
+    SearchHost homeHost;
+    SearchProvider homed({ .variable = [](const std::string& n) { return indexer::foldCase(n) == "temp" ? std::string("C:\\Temp") : std::string(); },
+                           .home = "C:\\Users\\me" });
+    homed.start(homeHost);
+    homed.onAction({ "search", "search", search_action::kTyped, 0, "~/doc" });
+    expect(homeHost.calls.size() == 1 && homeHost.calls[0] == R"(index.query {"text":"C:\\Users\\me/doc","limit":8})",
+           "~ is sent to the service as the user's folder");
+    homed.onAction({ "search", "search", search_action::kTyped, 0, "%temp%/log" });
+    expect(homeHost.calls.size() == 2 && homeHost.calls[1] == R"(index.query {"text":"C:\\Temp/log","limit":8})",
+           "...and a variable as its value (Windows' names ignore case; the hook's job)");
 }
 
 // A result's menu (decision 086): what each kind offers, in order, with its
@@ -313,6 +325,37 @@ void rowTextTests()
     expect(shortPath("c:\\users\\said", "C:\\Users\\Said") == "~", "in any case");
     expect(shortPath("C:\\Users\\Said2\\x", "C:\\Users\\Said") == "C:\\Users\\Said2\\x", "a neighbour's folder isn't inside");
     expect(shortPath("D:\\x", "") == "D:\\x", "no home known: as it is");
+    const std::string home = "C:\\Users\\Said";
+    auto variable = [](const std::string& name) -> std::string {
+        if (name == "APPDATA") return "C:\\Users\\Said\\AppData\\Roaming";
+        if (name == "PROGRAMFILES") return "C:\\Program Files";
+        if (name == "PROGRAMFILES(X86)") return "C:\\Program Files (x86)";
+        return "";
+    };
+    auto expandHome = [&](const std::string& query, const std::string& h) { return expandShortcuts(query, h, nullptr); };
+    expect(expandHome("~\\Documents", home) == "C:\\Users\\Said\\Documents" && expandHome("~/doc", home) == "C:\\Users\\Said/doc",
+           "~ is the user's folder, with either slash");
+    expect(expandHome("~", home) == home && expandHome("report ~/x ext:pdf", home) == "report C:\\Users\\Said/x ext:pdf",
+           "~ alone, and as any word");
+    expect(expandHome("path:~\\music", home) == "path:C:\\Users\\Said\\music" && expandHome("PATH:\"~/my music\"", home) == "PATH:\"C:\\Users\\Said/my music\"",
+           "in a path: filter, quoted or not");
+    expect(expandHome("~notes a~/b \"x ~/y\"", home) == "~notes a~/b \"x ~/y\"", "only a ~ that starts a word and ends at a separator");
+    expect(expandHome("~/doc", "C:\\Users\\Said N") == "\"C:\\Users\\Said N\"/doc" &&
+           indexer::parseQuery(expandHome("~/doc", "C:\\Users\\Said N")).paths.size() == 1, "a home with a space stays one word");
+    expect(expandHome("~/doc", "") == "~/doc", "no home known: as typed");
+    auto expand = [&](const std::string& query) { return expandShortcuts(query, home, variable); };
+    expect(expand("%APPDATA%\\Code") == "C:\\Users\\Said\\AppData\\Roaming\\Code" && expand("path:%APPDATA%") == "path:C:\\Users\\Said\\AppData\\Roaming",
+           "%NAME% is an environment variable, as a path word or in a path: filter");
+    expect(expand("%PROGRAMFILES%/vlc") == "\"C:\\Program Files\"/vlc" && expand("\"%PROGRAMFILES(X86)%\\x\"") == "\"C:\\Program Files (x86)\\x\"",
+           "a value with a space is quoted, unless already in quotes; (x86) is part of a name");
+    expect(indexer::parseQuery(expand("%PROGRAMFILES%/vlc")).paths[0].parts == std::vector<std::string>{ "program files", "vlc" },
+           "and the index sees one path");
+    expect(expand("%NOPE%/x 100% %a b% %%/x %APPDATA%x") == "%NOPE%/x 100% %a b% %%/x %APPDATA%x",
+           "unknown, not a name, or not followed by a separator: as typed");
+    expect(expandShortcuts("%APPDATA%", home, nullptr) == "%APPDATA%", "no way to read variables: as typed");
+    indexer::Query q = indexer::parseQuery(expandHome("~\\Documents", home));
+    expect(q.drive == 'c' && q.paths.size() == 1 && q.paths[0].parts == std::vector<std::string>{ "users", "said", "documents" },
+           "what the index then looks for");
     expect(folderOf("C:\\a\\b.txt") == "C:\\a" && folderOf("C:\\a") == "C:\\", "a file's folder; a drive's top level keeps its slash");
 }
 

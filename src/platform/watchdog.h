@@ -10,6 +10,8 @@
 
 #include "platform/win.h"
 
+#include <functional>
+
 namespace cup::platform {
 
 // Installs the crash handlers. Call once, on the UI thread, right after startLog().
@@ -25,5 +27,10 @@ void watchForHangs(HWND uiWindow);
 // it looked alive while clicks went unread (decision 144).
 UINT watchdogPing();
 void answerWatchdog();
+
+// Runs a DispatcherQueue task, logging any exception instead of letting it
+// out. One that escapes becomes a stowed exception (0xC000027B), a fail-fast
+// no handler above sees: the island just vanished, with nothing in the log.
+void guardedTask(const char* what, const std::function<void()>& work);
 
 } // namespace cup::platform

@@ -147,6 +147,23 @@ void dragTests()
     moved = withMove(w.content, "p", card, t);
     expect(moved.pages[0].sections[0].id == "g1" && moved.pages[0].sections[1].id == "g0" && moved.pages[0].sections[2].id == "new",
            "laid out after it; the card that doesn't move stays last");
+    {
+        OpenWindow dashed = w;
+        dashed.content.pages[0].sections[2].dashed = true; // "New group"
+        WindowContent kept = withMove(dashed.content, "p", card, t);
+        expect(kept.pages[0].sections.size() == 3 && kept.pages[0].sections[2].id == "new",
+               "a card carried: the dashed card still shown, last, so the others don't slide into its room (decision 156)");
+        OpenWindow one = dashed;
+        one.content.pages[0].sections.erase(one.content.pages[0].sections.begin() + 1); // one group and "New group"
+        WindowScene alone = laid(one);
+        const Movable* only = movable(alone, "move.g0");
+        WindowDrag lone = startDrag(alone, *only, inWindow(alone, { only->frame.x + only->frame.width / 2, only->frame.y + 3 }));
+        lone.at.x += only->frame.width; // over where "New group" is
+        DropTarget stays = dropTarget(alone, lone, origin(lone));
+        WindowContent preview = withMove(one.content, "p", lone, stays);
+        expect(stays == origin(lone) && preview.pages[0].sections[0].id == "g0" && preview.pages[0].sections[1].id == "new",
+               "one group carried: it stays first, \"New group\" after it (decision 157)");
+    }
     action = dropAction(s, card, t);
     expect(action && action->actionId == "move.g0" && action->value == 1, "let go: the card's move action, its new index");
 }

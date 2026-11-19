@@ -18,14 +18,14 @@ namespace act = pomodoro_action;
 // skip. Stacked and centred: the time is what it's about. It fits the
 // height every card and Home share, so switching tabs doesn't resize the island.
 Content timerCard(Content c, const Timeline& timeline, const Steps& steps, const std::string& name, const std::string& detail,
-                  std::vector<Item> controls)
+                  std::vector<Item> controls, bool windowNew)
 {
     c.card = CardLayout::Centred;
     c.keepOpen = true;      // a click between the controls doesn't close it (Content::keepOpen)
     c.noIdleTimeout = true; // nor does being left alone: a timer kept in view (decision 062)
     Row header{ .leading = { Steps{ .count = 1 }, Text{ name, TextStyle::Title }, Text{ detail, TextStyle::Caption } } };
     if (kPomodoroWindowReady) // hidden while the window isn't finished
-        header.trailing = { Button{ .glyph = Glyph::Expand, .actionId = act::kOpenWindow, .compact = true, .secondary = true } };
+        header.trailing = { Button{ .glyph = Glyph::Expand, .actionId = act::kOpenWindow, .compact = true, .badge = windowNew, .secondary = true } };
     Row time = row({ TimeLabel{ .timeline = timeline, .countdown = true, .style = TextStyle::Hero } }, Align::Center);
     Row phases{ .items = { steps }, .align = Align::Center, .apart = true };
     Row buttons{ .items = std::move(controls), .align = Align::Center, .loose = true, .apart = true }; // well-separated targets
@@ -122,7 +122,7 @@ Dialog resetQuestion()
 // The to-dos, today, the statistics and settings are the window's. The
 // widget is laid out like the running one: the timer icon where the ring
 // goes, the focus time, the rounds.
-Panel pomodoroPanel(const PomodoroPlan& plan)
+Panel pomodoroPanel(const PomodoroPlan& plan, bool windowNew)
 {
     const Tokens& t = tokens();
     std::string rounds = "Focus · " + std::to_string(t.pomodoroRounds) + " rounds";
@@ -133,7 +133,7 @@ Panel pomodoroPanel(const PomodoroPlan& plan)
         .tile = { row({ Text{ formatDuration(plan.focus), TextStyle::TileTitle } }), row({ Text{ rounds, TextStyle::Body } }) },
     };
     content = timerCard(std::move(content), { .duration = plan.focus }, phaseSteps(0, false), "Focus", std::to_string(t.pomodoroRounds) + " rounds",
-                        { Button{ .glyph = Glyph::Play, .actionId = act::kStart, .compact = true, .primary = true } });
+                        { Button{ .glyph = Glyph::Play, .actionId = act::kStart, .compact = true, .primary = true } }, windowNew);
     // New (decision 110): the host shows "New" on its widget until its card is first opened.
     return { .id = kPomodoroPanelId, .content = content, .wide = true, .announce = 1 }; // raise it to announce it again
 }
@@ -142,7 +142,7 @@ Panel pomodoroPanel(const PomodoroPlan& plan)
 // name (the colour says it). Expanded (decision 107): the timer card, the
 // phase and round over the time, its steps under it; the rest is in the
 // window (decision 106). The widget (decision 019): the ring filling, the time left, the phase and round.
-Content pomodoroContent(const PomodoroSession& s, const PomodoroPlan&)
+Content pomodoroContent(const PomodoroSession& s, const PomodoroPlan&, bool windowNew)
 {
     std::string name = phaseName(s.phase);
     std::string glance = s.timeline.playing ? name : "Paused";
@@ -165,7 +165,7 @@ Content pomodoroContent(const PomodoroSession& s, const PomodoroPlan&)
         .tileLeading = { row({ ring }, Align::Center) },
         .tile = { row({ tileLeft }), row({ Text{ glance, TextStyle::Body } }) },
     };
-    return timerCard(std::move(content), s.timeline, phaseSteps(phasesDone(s), s.timeline.playing), name, detail, { stop, pause, skip });
+    return timerCard(std::move(content), s.timeline, phaseSteps(phasesDone(s), s.timeline.playing), name, detail, { stop, pause, skip }, windowNew);
 }
 
 } // namespace cup

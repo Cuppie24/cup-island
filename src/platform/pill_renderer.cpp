@@ -128,6 +128,8 @@ void PillRenderer::apply(const Scene& scene, const SceneMotion& motion)
             applyContent();
         } catch (winrt::hresult_error const& e) {
             logLine("WinRT error building content: 0x%08x %ls", static_cast<unsigned int>(e.code()), e.message().c_str());
+        } catch (std::exception const& e) {
+            logLine("Exception building content: %s", e.what()); // bad_alloc and co.: also fatal if let out
         }
     };
     if (!queued && !queue_.TryEnqueue(winrt::Windows::System::DispatcherQueuePriority::Low, run))

@@ -1,6 +1,6 @@
 # 013: A log file, hang and crash dumps, and a clean exit
 
-Status: Accepted
+Status: Accepted. Amended by 158: an exception leaving a `fire_and_forget` is a fail-fast, not `std::terminate`; and the next start looks for Windows' record for about 30 s. Amended by 159: Copy logs puts the log on the clipboard as a .txt file.
 
 **Context.** Release builds have no console (decision 011), so problems
 reported from real use (the island freezing, Exit leaving the process
@@ -13,13 +13,14 @@ it needs the frozen thread's stack.
   kept), flushed per line, and to the console when there is one. The
   Settings card's "Copy logs" button (`providers/system/settings_provider.h`,
   pure; a Home tile of its own until decision 022) puts its last
-  64 KB on the clipboard. The Windows-only provider files log through it
+  64 KB on the clipboard (as a .txt file since decision 159). The Windows-only provider files log through it
   too: they're platform code in all but folder.
 - `platform/watchdog.h`: every 5 s a background thread sends the UI thread
   `WM_NULL` and waits 5 s for an answer. No answer: the log says HANG and a
   minidump of every thread goes next to the log, once per hang. Crashes and
-  `std::terminate` (an exception escaping a `fire_and_forget` coroutine)
-  log and dump too. This is the island's only periodic wake-up besides the
+  `std::terminate` log and dump too. (Not an exception leaving a
+  `fire_and_forget`: C++/WinRT fail-fasts on that, past every handler;
+  decision 158.) This is the island's only periodic wake-up besides the
   idle clock's: a cheap message every 5 s, never a data source polling (TR §8).
 - **Exit.** `main()` used to block on `ShutdownQueueAsync().get()` on the
   UI thread, but that shutdown completes *on* the UI thread: a deadlock, so
@@ -44,6 +45,12 @@ runs, leaving no log line and no dump. They are covered two ways:
   Application Hang 1002). It reads the event log with `wevtapi`, on a
   background thread, once. No record means it was ended from outside
   (Task Manager, sign-out, power loss).
+- **Queued tasks guarded** (`platform::guardedTask`): an exception out of
+  a DispatcherQueue task is such a fail-fast, and Windows may not have
+  recorded it yet when the next start looks. A run that vanished just after
+  `media: playback changed` showed providers' posted work, moved dispatches
+  and search's callbacks ran unguarded, and the pill's content build caught
+  only WinRT errors (`bad_alloc` got out). They now log and carry on.
 
 **Consequences.** Freeze reports come with a `.dmp`: open it in Visual
 Studio with the build's `CupIsland.pdb` (Debug → Windows → Parallel Stacks

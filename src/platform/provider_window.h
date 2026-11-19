@@ -66,7 +66,7 @@ public:
     void refresh(bool coloursOnly); // tokens changed: recoloured, or rebuilt on the next draw()
     // The keyboard's focus ring (decision 033) around `frame` (window coordinates), or none.
     void setFocusRing(std::optional<Rect> frame, float radius);
-    // Glass (decision 104): Windows 11's acrylic behind it, the window see-through over it; off, solid.
+    // Glass (decision 104): Windows 11's Mica behind it (decision 155), the window see-through over it; off, solid.
     void setGlass(bool on);
     bool glass() const { return glass_; }
     // What's under the pointer: an item's key, a sidebar entry, a lit row (page coordinates), and the

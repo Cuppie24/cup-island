@@ -45,6 +45,7 @@ public:
     static constexpr const char* kPlanKey = "plan"; // focus and break lengths (savePlan)
     static constexpr const char* kStatsKey = "stats";     // saveStats
     static constexpr const char* kDaysOffKey = "daysoff"; // saveDaysOff
+    static constexpr const char* kWindowSeenKey = "windowseen"; // "1": the window was opened (decision 156); "": its button is new
 
     using Phase = PomodoroPhase;
     using Session = PomodoroSession;
@@ -75,6 +76,7 @@ private:
     PomodoroStats stats_;
     DaysOff daysOff_{};
     bool windowOpen_ = false;
+    bool windowSeen_ = false; // ever opened: no "new" dot on the expand button (decision 156)
     // The last task or group deleted, for its toast's Undo (decisions 071, 121); the next change drops it.
     struct DeletedTask {
         std::uint64_t group = 0;

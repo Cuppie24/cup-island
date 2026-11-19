@@ -39,7 +39,8 @@ build has no console: quit from the tray icon (right-click → Exit). See
 [decision 011](docs/decisions/011-installer-before-msix.md).
 
 **Something wrong?** Open Home (click the idle pill), open **Settings** and
-click **Copy logs**: the recent log is copied to the clipboard, ready to paste into a bug report. The
+click **Copy logs**: the recent log is copied to the clipboard as a `.txt` file, ready to paste into a bug report
+or a chat as an attachment. The
 log, plus a `.dmp` file if the island froze or crashed, is in
 `%LOCALAPPDATA%\CupIsland\logs`.
 

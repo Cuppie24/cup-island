@@ -68,10 +68,12 @@ DropTarget cardTarget(const WindowScene& shown, const WindowDrag& d, const DropT
     for (std::size_t k = 0; k < others.size(); ++k) {
         Rect r = others[k];
         if (!r.contains(d.at)) continue;
-        // Another card shown on its row (any card: "New group", where the carried one lands): the cards run left to right there.
+        // Another card shown on its row (where the carried one lands): the cards run left to right there.
+        // Not a dashed one ("New group"): it's shown, in its place, but no card's place depends on it (decision 156).
         bool beside = false;
         for (const Placed& p : shown.page) {
-            if (!std::holds_alternative<GroupFill>(p.item) || p.carried) continue;
+            auto* fill = std::get_if<GroupFill>(&p.item);
+            if (!fill || fill->dashed || p.carried) continue;
             Rect f = p.frame;
             bool sameRow = f.y < r.y + r.height && f.y + f.height > r.y;
             bool apart = f.x >= r.x + r.width || f.x + f.width <= r.x;
@@ -126,9 +128,11 @@ WindowContent withMove(const WindowContent& content, const std::string& pageId, 
     if (d.what.card) {
         auto from = sectionWith(d.what.section);
         if (from == sections.end()) return moved;
+        // With no other card that moves (one group), it stays where it was: not after "New group" (decision 157).
+        std::size_t was = static_cast<std::size_t>(from - sections.begin());
         WindowSection carried = std::move(*from);
         sections.erase(from);
-        std::size_t at = insertAt(sections, t.index, [](const WindowSection& sec) { return !sec.moveAction.empty(); }, sections.size());
+        std::size_t at = insertAt(sections, t.index, [](const WindowSection& sec) { return !sec.moveAction.empty(); }, was);
         sections.insert(sections.begin() + static_cast<std::ptrdiff_t>(at), std::move(carried));
         return moved;
     }

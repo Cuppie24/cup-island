@@ -1,6 +1,7 @@
 #include "providers/search/windows_apps.h"
 
 #include "platform/log.h"
+#include "platform/watchdog.h"
 #include "platform/win.h"
 
 #include <ole2.h>
@@ -167,7 +168,8 @@ void iconWorker()
             g_iconJobs.pop_front();
         }
         auto icon = readIcon(job.target, job.side);
-        if (job.queue) job.queue.TryEnqueue([icon, done = std::move(job.done)] { done(icon); });
+        if (job.queue)
+            job.queue.TryEnqueue([icon, done = std::move(job.done)] { platform::guardedTask("showing an icon", [&] { done(icon); }); });
     }
 }
 
@@ -208,6 +210,20 @@ std::string userFolder()
     return out;
 }
 
+std::string environmentVariable(const std::string& name)
+{
+    // GetEnvironmentVariableW (Windows 2000+, decision 015): the island's
+    // own environment, which it got from this user's session.
+    std::wstring key = wide(name);
+    DWORD size = GetEnvironmentVariableW(key.c_str(), nullptr, 0);
+    if (size == 0) return {};
+    std::wstring value(size, L'\0');
+    DWORD written = GetEnvironmentVariableW(key.c_str(), value.data(), size);
+    if (written == 0 || written >= size) return {};
+    value.resize(written);
+    return utf8(value.c_str());
+}
+
 void loadWindowsApps(std::function<void(std::vector<Launchable>)> done)
 {
     auto queue = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
@@ -217,7 +233,7 @@ void loadWindowsApps(std::function<void(std::vector<Launchable>)> done)
         bool com = SUCCEEDED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED));
         std::vector<Launchable> apps = readApps();
         if (com) CoUninitialize();
-        if (queue) queue.TryEnqueue([apps = std::move(apps), done] { done(apps); });
+        if (queue) queue.TryEnqueue([apps = std::move(apps), done] { platform::guardedTask("listing apps", [&] { done(apps); }); });
     }).detach();
 }
 

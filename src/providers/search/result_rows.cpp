@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <string_view>
 
 namespace cup {
 namespace {
@@ -50,6 +51,63 @@ std::string shortPath(const std::string& path, const std::string& home)
     if (indexer::foldCase(path.substr(0, home.size())) != indexer::foldCase(home)) return path;
     if (path.size() > home.size() && path[home.size()] != '\\') return path; // C:\Users\Said2 isn't inside
     return "~" + path.substr(home.size());
+}
+
+std::string expandShortcuts(const std::string& query, const std::string& home,
+                            const std::function<std::string(const std::string& name)>& variable)
+{
+    if (query.find_first_of("~%") == std::string::npos) return query;
+    std::string out;
+    bool quoted = false;
+    // What the shortcut at `at` stands for, and how long it is; nothing if
+    // it isn't one, or isn't known.
+    auto shortcutAt = [&](std::size_t at, std::size_t& length) -> std::string {
+        if (at >= query.size()) return {};
+        if (query[at] == '~') {
+            length = 1;
+            return home;
+        }
+        if (query[at] != '%' || !variable) return {};
+        std::size_t close = query.find('%', at + 1);
+        if (close == std::string::npos || close == at + 1) return {};
+        std::string name = query.substr(at + 1, close - at - 1);
+        for (char c : name) // a variable's name: PROGRAMFILES(X86) too, never a path or a space
+            if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_' && c != '(' && c != ')') return {};
+        length = close - at + 1;
+        return variable(name);
+    };
+    for (std::size_t i = 0; i < query.size();) {
+        bool wordStart = !quoted && query[i] != ' ' && (i == 0 || query[i - 1] == ' ');
+        if (wordStart) {
+            // Copy its opening quote and a path: filter, then look for a
+            // shortcut (indexer/query.cpp's tokenizer splits the same way).
+            auto quote = [&] {
+                if (i < query.size() && query[i] == '"') {
+                    quoted = !quoted;
+                    out += query[i++];
+                }
+            };
+            quote();
+            if (indexer::foldCase(query.substr(i, 5)) == "path:") {
+                out += query.substr(i, 5);
+                i += 5;
+            }
+            quote();
+            std::size_t length = 0;
+            std::string value = shortcutAt(i, length);
+            std::size_t after = i + length;
+            bool ends = after >= query.size() || std::string_view("/\\\" ").find(query[after]) != std::string_view::npos;
+            if (!value.empty() && ends) {
+                bool spaced = value.find(' ') != std::string::npos;
+                out += spaced && !quoted ? '"' + value + '"' : value;
+                i = after;
+            }
+            if (i >= query.size()) break;
+        }
+        if (query[i] == '"') quoted = !quoted;
+        out += query[i++];
+    }
+    return out;
 }
 
 std::string folderOf(const std::string& path)
