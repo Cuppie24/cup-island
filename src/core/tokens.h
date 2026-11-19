@@ -568,6 +568,7 @@ struct Tokens {
     // reads it again (decision 077).
     std::size_t searchAppRows = 5;
     std::size_t searchSettingRows = 3;
+    std::size_t searchCommandRows = 3; // providers' commands, after the apps (decision 160)
     std::size_t searchFileRows = 8;
     std::size_t searchIconCache = 400; // result icons kept in memory; past it, they're all read again
     float searchVisibleRows = 8.5f;

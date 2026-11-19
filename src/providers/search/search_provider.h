@@ -1,13 +1,15 @@
 #pragma once
 // Search (decisions 077, 079): a Search widget on Home, and its card: a live
-// field and, as you type, apps first, then Settings pages and Control Panel
-// items, then files. Enter starts the top one; a row starts its own; a
+// field and, as you type, apps first, then providers' commands (decision
+// 160), then Settings pages and Control Panel items, then files. Enter starts the top one; a row starts its own; a
 // file's folder button opens Explorer on it. The card closes once something
 // started (Host::closeCard), and opens empty next time.
 //   - apps and Control Panel items come from Windows (SearchHooks::loadApps,
 //     off the UI thread), kept and searched in memory, read again when the
 //     card opens if older than launcherRefresh;
 //   - Settings pages are our own list (launchables.h);
+//   - commands are other providers', listed and run through the host
+//     (Host::listCommands, runCommand: the "commands" grant, decision 160);
 //   - files come from Cup Island's service, through the host
 //     (Host::callService("index.query"), decision 078); an answer for an
 //     older query is dropped. "~" and %APPDATA%-style variables are
@@ -95,6 +97,7 @@ public:
         std::string name, caption, target;
         std::string package, location; // an app's (Launchable): packaged, and its program file
         bool remembered = false;        // in the launch history (or a recent file): it can be removed from it
+        Glyph glyph = Glyph::OpenApp;   // its row's icon until Windows' comes (a command's is its provider's)
     };
     std::vector<Result> results() const;
     const std::string& filesNote() const { return filesNote_; }
@@ -115,6 +118,7 @@ private:
     Host* host_ = nullptr;
     std::vector<Launchable> apps_;     // from Windows, cleaned
     std::vector<Launchable> settings_; // our list, for this build
+    std::vector<Launchable> commands_; // providers' (decision 160), as the host listed them at the last search
     Ms appsAt_{ -1 };                  // when apps_ was read; -1: never
     bool loading_ = false;
     LaunchHistory history_;

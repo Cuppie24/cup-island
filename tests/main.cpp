@@ -40,6 +40,7 @@ void runIndexerProtocolTests();
 void runServiceHostTests();
 void runDoubleTapTests();
 void runSearchTests();
+void runSearchCommandTests();
 void runWindowTests();
 void runWindowThemeTests();
 void runWhatsNewTests();
@@ -88,6 +89,7 @@ int main(int argc, char** argv)
     runServiceHostTests();
     runDoubleTapTests();
     runSearchTests();
+    runSearchCommandTests();
     runWindowTests();
     runWindowThemeTests();
     runWhatsNewTests();
