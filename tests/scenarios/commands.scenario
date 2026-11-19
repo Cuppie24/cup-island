@@ -1,0 +1,45 @@
+# Providers' commands (decision 160): published to the host, run by another
+# provider (Search) for the user, and passing the user's gesture to their owner.
+
+scenario: a provider's list replaces its last; bad and repeated ids are dropped
+publish-commands timer open,pause      -> commands=timer/open,timer/pause
+publish-commands timer open,resume     -> commands=timer/open,timer/resume   # what applies now
+publish-commands theme toggle,toggle,bad/id, -> commands=theme/toggle,timer/open,timer/resume
+publish-commands timer none!           -> commands=theme/toggle             # nothing valid: none
+stop-provider theme                    -> commands=none                     # its commands go with it
+
+scenario: a command runs only right after the user acted on the caller
+publish-commands timer open
+run-command search timer open          -> ran=notnow                        # from a wake-up or a reply: refused
+acted search
+run-command search timer open          -> ran=ran
+wait 3001
+acted search
+wait 3001
+run-command search timer open          -> ran=notnow                        # too long after: windowOpenGrace
+
+scenario: one user action runs one command
+publish-commands timer open,pause
+acted search
+run-command search timer open          -> ran=ran
+run-command search timer pause         -> ran=notnow                        # no chain from one click
+wait 1
+acted search
+run-command search timer pause         -> ran=ran                           # the next click runs the next
+
+scenario: running a command lets its owner open a window, as a click on its card would
+publish-commands timer open
+acted search
+open-window timer full                 -> opened=notnow                     # Search's click isn't Pomodoro's
+run-command search timer open          -> ran=ran
+open-window timer full                 -> opened=opened windows=timer/full
+open-window search results             -> opened=opened                     # the caller keeps its own
+
+scenario: a provider doesn't run its own commands, or ones that aren't there
+publish-commands timer open
+acted timer
+run-command timer timer open           -> ran=own
+acted search
+run-command search timer gone          -> ran=unknown
+run-command search notes open          -> ran=unknown
+run-command search timer open          -> ran=ran                           # a refused run doesn't spend the action

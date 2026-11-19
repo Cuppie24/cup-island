@@ -15,12 +15,22 @@ Panel themePanel(bool dark)
     return { .id = ThemePresenter::kPanelId, .content = content, .tapAction = ThemePresenter::kToggle };
 }
 
+CommandSpec themeCommand(bool dark)
+{
+    return { .id = ThemePresenter::kToggle,
+             .title = dark ? "Switch Windows to light mode" : "Switch Windows to dark mode",
+             .keywords = { "theme", "dark mode", "light mode", "windows theme", "night" },
+             .glyph = dark ? Glyph::Sun : Glyph::Moon,
+             .activityId = ThemePresenter::kPanelId };
+}
+
 void ThemePresenter::show(std::optional<bool> dark)
 {
     if (dark == last_) return;
     last_ = dark;
     if (dark) host_.publishPanel(themePanel(*dark));
     else host_.removePanel(kPanelId);
+    host_.publishCommands(dark ? std::vector<CommandSpec>{ themeCommand(*dark) } : std::vector<CommandSpec>{}); // none if it can't tell
 }
 
 } // namespace cup

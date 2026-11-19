@@ -2,6 +2,7 @@
 // The contract between the island and its data sources (PS §7, Tier 1
 // in-process). Built-ins use exactly this: no private back doors (PS §1 rule 3).
 
+#include "core/commands.h"
 #include "core/island.h"
 #include "core/open_windows.h"
 
@@ -111,6 +112,16 @@ public:
     {
         done({ ServiceReply::Problem::NotInstalled, {} });
     }
+
+    // Commands (decision 160): what this provider can do from anywhere. The
+    // list replaces its last, so it lists only what applies now; running one
+    // sends it Action{spec.activityId, spec.id}, like its own button. Default: nowhere to publish (tests).
+    virtual void publishCommands(std::vector<CommandSpec> /*commands*/) {}
+    // Other providers' commands, and running one for the user: only for a
+    // provider granted "commands" (Search), and only right after the user
+    // acted on it (CommandRun). Defaults: none, NotAllowed.
+    virtual std::vector<PublishedCommand> listCommands() const { return {}; }
+    virtual CommandRun runCommand(const std::string& /*providerId*/, const std::string& /*commandId*/) { return CommandRun::NotAllowed; }
 };
 
 // Keys never reach a provider (decision 035): the host owns focus and

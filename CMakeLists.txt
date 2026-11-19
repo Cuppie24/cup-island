@@ -25,6 +25,7 @@ add_library(cup_core STATIC
     src/core/alert_queue.cpp
     src/core/badges.cpp
     src/core/card_overlays.cpp
+    src/core/commands.cpp
     src/core/content.cpp
     src/core/cover_palette.cpp
     src/core/dialog.cpp
@@ -123,6 +124,7 @@ if(CUP_BUILD_TESTS)
     enable_testing()
     add_executable(cup_tests
         tests/badge_tests.cpp
+        tests/command_tests.cpp
         tests/content_tests.cpp
         tests/cover_tests.cpp
         tests/double_tap_tests.cpp

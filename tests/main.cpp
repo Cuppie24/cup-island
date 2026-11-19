@@ -13,6 +13,7 @@ void runUnitTests();
 void runTokensTests();
 void runContentTests();
 void runProviderTests();
+void runCommandTests();
 void runMediaTests();
 void runFullscreenTests();
 void runHomeTests();
@@ -60,6 +61,7 @@ int main(int argc, char** argv)
     runTokensTests();
     runContentTests();
     runProviderTests();
+    runCommandTests();
     runMediaTests();
     runFullscreenTests();
     runHomeTests();

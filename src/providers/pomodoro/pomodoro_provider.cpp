@@ -38,6 +38,12 @@ void PomodoroProvider::start(Host& host)
     daysOff_ = loadDaysOff(host_->load(kDaysOffKey));
     windowSeen_ = !host_->load(kWindowSeenKey).empty();
     showDormant();
+    // The timer's window from anywhere (decision 160): the card's expand button.
+    host_->publishCommands({ { .id = act::kOpenWindow,
+                               .title = "Open the Pomodoro timer",
+                               .keywords = { "pomodoro", "timer", "focus", "tasks", "window" },
+                               .glyph = Glyph::Timer,
+                               .activityId = kPanelId } });
     // A session from before a restart is back, paused where it was (decision 061).
     session_ = resumeSession(host_->load(kSessionKey), host_->now());
     if (session_) publish();

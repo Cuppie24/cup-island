@@ -10,6 +10,7 @@
 #include <compare>
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -57,6 +58,8 @@ enum class WindowOpen {
 
 // The user acted on a provider, now: it may open or raise a window until windowOpenGrace has passed.
 void userActed(Windows& windows, const std::string& providerId, Ms now);
+// When it did, if that's still within windowOpenGrace of now.
+std::optional<Ms> justActed(const Windows& windows, const std::string& providerId, Ms now);
 
 // Opens the window, or replaces an open one's content and raises it. Both
 // need a recent user action on the provider; replacing the content of a
