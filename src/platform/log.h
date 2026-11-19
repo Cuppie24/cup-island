@@ -20,8 +20,10 @@ void logLine(const char* format, ...);
 // %LOCALAPPDATA%\CupIsland\logs (also where hang and crash dumps go). Empty if unknown.
 std::filesystem::path logFolder();
 
-// Puts the log's last ~64 KB on the clipboard as text. owner: one of our
-// windows (the clipboard needs one). False if anything failed.
+// Writes the log's last ~64 KB to cup-island-log.txt in logFolder() and puts
+// that file on the clipboard (CF_HDROP), so it pastes as an attachment
+// (decision 159). owner: one of our windows (the clipboard needs one).
+// False if anything failed.
 bool copyLogToClipboard(void* ownerHwnd);
 
 } // namespace cup::platform
