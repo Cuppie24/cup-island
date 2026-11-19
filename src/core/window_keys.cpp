@@ -1,8 +1,10 @@
 #include "core/window_keys.h"
 
 #include "core/tokens.h"
+#include "core/window_page.h"
 
 #include <algorithm>
+#include <utility>
 
 namespace cup {
 namespace {
@@ -16,7 +18,22 @@ Scene asScene(const std::vector<Placed>& elements, Vec2 size)
     return s;
 }
 
-Scene pageScene(const WindowScene& w) { return asScene(w.page, { w.pane.width, w.pane.height + w.maxScroll }); }
+// A card's drag line (decision 129) is for the pointer: shown only under it, it's no stop
+// for the keys, which would land on a line that isn't there (decision 035: leaving a
+// clickable out of the stops).
+bool dragLine(const Placed& p)
+{
+    auto* button = std::get_if<Button>(&p.item);
+    return button && button->actionId == kWindowDragHandle;
+}
+
+Scene pageScene(const WindowScene& w)
+{
+    std::vector<Placed> elements;
+    for (const Placed& p : w.page)
+        if (!dragLine(p)) elements.push_back(p);
+    return asScene(elements, { w.pane.width, w.pane.height + w.maxScroll });
+}
 Scene footerScene(const WindowScene& w) { return asScene(w.footer, w.size); }
 
 WindowFocus fromPage(const WindowScene& w, const Focusable& f)
@@ -32,10 +49,32 @@ WindowFocus fromNav(const WindowScene& w, const NavEntry& n)
     return { "nav:" + n.page, n.frame, w.navRadius, {}, { n.frame.x + n.frame.width / 2, n.frame.y + n.frame.height / 2 }, false };
 }
 
+// The card a page's item is in ("card.<id>" from "el:card.<id>/..."); "" for what's not in one.
+std::string cardOf(const std::string& id)
+{
+    if (id.rfind("el:card.", 0) != 0) return "";
+    return id.substr(3, id.find('/') - 3);
+}
+
+// The page's stops in reading order, but a card's all together (decisions 035, 117): cards
+// side by side share rows, and by rows alone Tab would hop between them, a task here, a task
+// there. First what's above the cards (the header, the title), as read; then card by card,
+// row by row of the grid and left to right, each card's stops as read.
 std::vector<WindowFocus> pageStops(const WindowScene& w)
 {
+    std::vector<std::pair<std::string, Rect>> cards; // each card and its frame (its fill's), in where they are
+    for (const Placed& p : w.page)
+        if (std::string card = cardOf("el:" + p.key); !card.empty() && p.key == card + "/fill") cards.push_back({ card, p.frame });
+    std::stable_sort(cards.begin(), cards.end(), [](const auto& a, const auto& b) {
+        return a.second.y != b.second.y ? a.second.y < b.second.y : a.second.x < b.second.x;
+    });
+    std::vector<Focusable> stops = focusables(pageScene(w));
     std::vector<WindowFocus> out;
-    for (const Focusable& f : focusables(pageScene(w))) out.push_back(fromPage(w, f));
+    for (const Focusable& f : stops)
+        if (cardOf(f.id).empty()) out.push_back(fromPage(w, f));
+    for (const auto& card : cards)
+        for (const Focusable& f : stops)
+            if (cardOf(f.id) == card.first) out.push_back(fromPage(w, f));
     return out;
 }
 

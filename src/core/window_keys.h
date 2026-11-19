@@ -5,8 +5,9 @@
 // it. Pure: the app keeps which one has focus and draws its ring.
 //
 // Stops: the sidebar's pages ("nav:<page id>"), then the page's items
-// ("el:<element key>", the island's focusables over the page), then the
-// footer's ("foot:<element key>"). The arrows move within the page as on a
+// ("el:<element key>", the island's focusables over the page; on a page of
+// cards, card by card, never a card's drag line), then the footer's
+// ("foot:<element key>"). The arrows move within the page as on a
 // card; Left from the page's left edge goes to the sidebar, Right from the
 // sidebar into the page; Up and Down go through the sidebar's pages.
 
@@ -28,7 +29,8 @@ struct WindowFocus {
     bool inPage = false;
 };
 
-// Every stop, in order: the sidebar, the page in reading order, the footer.
+// Every stop, in order: the sidebar, the page in reading order (a card's
+// stops together, card after card), the footer.
 std::vector<WindowFocus> windowFocusables(const WindowScene& scene);
 std::optional<WindowFocus> findWindowFocus(const WindowScene& scene, const std::string& id);
 
