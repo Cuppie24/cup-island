@@ -3,10 +3,12 @@
 
 #include "core/dialog.h"
 #include "core/tokens.h"
+#include "core/window_keys.h"
 #include "core/window_layout.h"
 #include "core/window_page.h"
 #include "expect.h"
 
+#include <algorithm>
 #include <cmath>
 #include <string>
 
@@ -179,6 +181,50 @@ void dialogTests()
     expect(!answerWindowDialog(windows, { "p", "w" }, false) && !windows.open[0].dialog, "question: cancelled, no action; gone");
 }
 
+// Tab on a page of cards (decisions 035, 117): the header, then card by card, each card's
+// stops in its own reading order, never jumping to the card beside it; no drag line is a stop.
+void tabOrderTests()
+{
+    auto measure = [](const Text& x) { return 8.0f * static_cast<float>(x.value.size()); };
+    WindowPage page{ .id = "one", .title = "One", .titled = false, .header = { row({ Button{ .actionId = "start", .label = "Start" } }) }, .cards = true };
+    for (int g = 0; g < 3; ++g) {
+        std::string gid = std::to_string(g);
+        WindowSection card{ .title = "Group " + gid, .id = "g" + gid, .moveAction = "move." + gid };
+        card.menu = { MenuItem{ .label = "Delete", .actionId = "delete." + gid } };
+        for (int r = 0; r < 2; ++r)
+            card.rows.push_back(Row{ .items = { Button{ .glyph = Glyph::Unchecked, .actionId = "tick." + gid + "." + std::to_string(r), .compact = true },
+                                                Text{ "Task" } },
+                                     .moveAction = "row." + gid, .id = "t" + std::to_string(r) });
+        page.sections.push_back(card);
+    }
+    WindowContent c{ .title = "Board", .pages = { page } };
+    WindowScene s = windowLayout({ .key = { "p", "w" }, .content = c, .page = "one" }, { 1900, 800 }, 0, Ms{ 0 }, measure);
+    std::vector<std::string> order;
+    for (const WindowFocus& f : windowFocusables(s)) order.push_back(f.id);
+    auto actionOf = [&](const std::string& id) -> std::string {
+        for (const Placed& p : s.page)
+            if ("el:" + p.key == id)
+                if (auto* b = std::get_if<Button>(&p.item)) return b->actionId;
+        return "";
+    };
+    std::vector<std::string> actions;
+    for (const std::string& id : order) actions.push_back(actionOf(id));
+    std::vector<std::string> expected{ "start" };
+    for (int g = 0; g < 3; ++g) {
+        std::string gid = std::to_string(g);
+        expected.insert(expected.end(), { std::string(kWindowCardMenu) + "g" + gid, "tick." + gid + ".0", "tick." + gid + ".1" });
+    }
+    expect(text(s, "Group 0") && text(s, "Group 2") && text(s, "Group 0")->frame.y == text(s, "Group 2")->frame.y,
+           "tab order: the three cards side by side");
+    expect(actions == expected, "tab order: the header, then each card's title and tasks, card after card");
+    expect(std::none_of(actions.begin(), actions.end(), [](const std::string& a) { return a == kWindowDragHandle; }),
+           "tab order: a card's drag line is no stop");
+    auto last = stepWindowFocus(s, "", true);
+    auto fromLastTask = stepWindowFocus(s, order[3], false);
+    expect(last && actionOf(last->id) == "tick.2.1" && fromLastTask && actionOf(fromLastTask->id) == std::string(kWindowCardMenu) + "g1",
+           "tab order: Shift+Tab from nothing, the last card's last task; Tab from a card's last task, the next card's title");
+}
+
 } // namespace
 
 void runWindowCardTests()
@@ -187,6 +233,7 @@ void runWindowCardTests()
     boardTests();
     toastTests();
     dialogTests();
+    tabOrderTests();
 }
 
 } // namespace cup::test
