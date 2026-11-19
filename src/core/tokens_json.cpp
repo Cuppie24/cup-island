@@ -371,6 +371,7 @@ const Field kFields[] = {
     { "foregroundRetries", &Tokens::foregroundRetries },
     { "searchAppRows", &Tokens::searchAppRows, true },
     { "searchSettingRows", &Tokens::searchSettingRows },
+    { "searchCommandRows", &Tokens::searchCommandRows },
     { "searchFileRows", &Tokens::searchFileRows },
     { "searchIconCache", &Tokens::searchIconCache },
     { "searchVisibleRows", &Tokens::searchVisibleRows },

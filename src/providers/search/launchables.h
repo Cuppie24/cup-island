@@ -1,14 +1,17 @@
 #pragma once
 // What search can start (decision 077): apps and Control Panel items, read
-// from Windows' shell folders by the app, and Settings pages, from our own
-// list, since Windows publishes none. Which to keep, how they rank and what
+// from Windows' shell folders by the app, Settings pages, from our own
+// list, since Windows publishes none, and providers' commands, from the host
+// (decision 160). Which to keep, how they rank and what
 // was launched before. Pure, tested on Linux.
 
 #include "core/island.h"
+#include "core/provider.h"
 
 #include <cstddef>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -16,10 +19,11 @@
 namespace cup {
 
 struct Launchable {
-    enum class Kind { App, ControlPanel, Setting };
+    enum class Kind { App, ControlPanel, Setting, Command };
     Kind kind = Kind::App;
     std::string name;   // as Windows shows it, in its language
-    std::string target; // App, ControlPanel: the shell item's parsing name; Setting: its ms-settings: link
+    std::string target; // App, ControlPanel: the shell item's parsing name; Setting: its ms-settings: link;
+                        // Command: commandTarget's
     std::vector<std::string> words; // more to match (a Settings page's "wifi", "вайфай"), lower case
     std::shared_ptr<const ImageData> icon; // App and ControlPanel, if Windows had one
     // An app (decision 086): its package family name, if it's packaged (a Store
@@ -28,8 +32,21 @@ struct Launchable {
     // shortcut starts), what its menu reveals, copies and shows properties of.
     std::string package;
     std::string location;
+    Glyph glyph = Glyph::OpenApp; // a Command's own icon (the others' come from their kind, or Windows)
     bool operator==(const Launchable&) const = default;
 };
+
+// Providers' commands as search's items (decision 160): the title as the
+// name, the keywords as words, so they match and rank as apps do. The target
+// names the command, "command:<provider>/<id>", and is what the launch
+// history remembers.
+std::vector<Launchable> commandLaunchables(const std::vector<PublishedCommand>& commands);
+std::string commandTarget(const std::string& providerId, const std::string& commandId);
+struct CommandRef {
+    std::string providerId, commandId;
+    bool operator==(const CommandRef&) const = default;
+};
+std::optional<CommandRef> commandOf(const std::string& target); // nothing if it isn't one
 
 // Clean-up (decision 077): drops what nobody launches from a search, by
 // name ("Uninstall X", "Удалить X") or target (help files, web links,

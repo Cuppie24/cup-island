@@ -264,4 +264,30 @@ std::vector<std::size_t> rankLaunchables(const std::vector<Launchable>& items, s
     return out;
 }
 
+std::string commandTarget(const std::string& providerId, const std::string& commandId)
+{
+    return "command:" + providerId + "/" + commandId;
+}
+
+std::optional<CommandRef> commandOf(const std::string& target)
+{
+    constexpr std::string_view kPrefix = "command:";
+    if (target.rfind(kPrefix, 0) != 0) return std::nullopt;
+    std::size_t slash = target.find('/', kPrefix.size()); // provider ids have no '/' (reverse-DNS)
+    if (slash == std::string::npos || slash == kPrefix.size() || slash + 1 == target.size()) return std::nullopt;
+    return CommandRef{ target.substr(kPrefix.size(), slash - kPrefix.size()), target.substr(slash + 1) };
+}
+
+std::vector<Launchable> commandLaunchables(const std::vector<PublishedCommand>& commands)
+{
+    std::vector<Launchable> out;
+    for (const PublishedCommand& c : commands)
+        out.push_back({ .kind = Launchable::Kind::Command,
+                        .name = c.spec.title,
+                        .target = commandTarget(c.providerId, c.spec.id),
+                        .words = c.spec.keywords,
+                        .glyph = c.spec.glyph });
+    return out;
+}
+
 } // namespace cup

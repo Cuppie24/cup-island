@@ -1267,6 +1267,7 @@ int main()
         .russian = russianUi(),
     }));
     g_providers->grant(SearchProvider::kId, "index");
+    g_providers->grant(SearchProvider::kId, ProviderRegistry::kCommandsGrant); // providers' commands among its results (decision 160)
     // Home's widgets follow the order panels first appear: media and Pomodoro
     // first (decision 019), then the system tiles.
     g_providers->start("media");

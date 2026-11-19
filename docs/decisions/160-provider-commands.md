@@ -1,7 +1,7 @@
 # 160: Providers' commands, run from Search and from Windows search
 
-Status: Proposed. The host side is built and tested (below); Search's rows,
-`showsCard` and the Start menu are not yet.
+Status: Proposed. The host side and Search's rows are built and tested
+(below); `showsCard` and the Start menu are not yet.
 
 **Context.** Providers can do things that are useful from anywhere, without
 opening their card first: switch the Windows theme, open Pomodoro's window,
@@ -36,10 +36,22 @@ stand in the way:
   (decision 078): `ProviderRegistry::grant("search", "commands")` allows
   `Host::listCommands()` and `Host::runCommand(provider, command)`. Without
   the grant, nothing is listed and every run is refused; the grant is the
-  host's, never a service module. Search shows them as rows among its
-  results; it never reaches Pomodoro, and Pomodoro never reaches it. The
-  host lists them all and Search ranks them with its own scorer (decision
-  077), so a command and an app are matched alike. The rules are pure, in
+  host's, never a service module. Search never reaches Pomodoro, and
+  Pomodoro never reaches it. The host lists them all and Search ranks them
+  with its own scorer (decision 077), so a command and an app are matched
+  alike.
+- **Search's rows.** A command is one more kind of result
+  (`Launchable::Kind::Command`): its title the name, its keywords the words,
+  its provider's glyph the icon (none is asked of Windows), "Cup Island"
+  under it. They come after the apps and before Settings and Control Panel,
+  at most `searchCommandRows`, so the island's own actions sit near the top
+  without pushing Windows' pages off the card. Search asks the host for the
+  list at every search, so a title that changed ("...to light mode") shows
+  at once. Enter or a click runs it (`Host::runCommand`): run, the card
+  closes and the launch history remembers it, by its target
+  `command:<provider>/<id>`, so a used one ranks first, and nothing typed
+  lists it; refused (its provider went), the card stays. Its menu is Open,
+  and Remove from history once remembered: there's nothing to reveal or copy. The rules are pure, in
   `core/commands.h`, tested on Linux. Plugins (PS §8, Tier 2)
   publish the same way: no back doors (PS §1, rule 3).
 - **A command passes the user's gesture to its owner.** Running one counts
@@ -98,9 +110,11 @@ stand in the way:
   settings" (Settings' widget tap), "Switch Windows to dark mode" / "...to
   light mode" (the theme tile's tap, named for the mode it switches to, none
   when the mode can't be read), "Open the Pomodoro timer" (the card's expand
-  button). Nothing runs them until Search lists them.
-- Built in steps, a branch each: the host side (this), Search's rows, then
-  the Start menu export.
+  button).
+- Search's side in `tests/search_command_tests.cpp`, end to end through the
+  registry: Enter on "pomodoro" opens the timer's window.
+- Built in steps, a branch each: the host side, Search's rows, then the
+  Start menu export.
 
 **Open.** Whether a provider may export a command whose title changes
 (rewriting the shortcut each time). Commands' own icons in the Start menu

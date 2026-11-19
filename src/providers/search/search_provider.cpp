@@ -20,11 +20,16 @@ const char* captionOf(Launchable::Kind kind)
     case Launchable::Kind::App: return "App";
     case Launchable::Kind::ControlPanel: return "Control Panel";
     case Launchable::Kind::Setting: return "Settings";
+    case Launchable::Kind::Command: return "Cup Island"; // one of the island's own (decision 160)
     }
     return "";
 }
 
-Glyph glyphOf(Launchable::Kind kind) { return kind == Launchable::Kind::App ? Glyph::OpenApp : Glyph::Settings; }
+Glyph glyphOf(const Launchable& l)
+{
+    if (l.kind == Launchable::Kind::Command) return l.glyph; // its provider's
+    return l.kind == Launchable::Kind::App ? Glyph::OpenApp : Glyph::Settings;
+}
 
 // A result (decision 079): its icon is the row's button, so the whole row
 // opens it; its name, the typed words in it brighter; under it, where it is
@@ -126,22 +131,28 @@ std::string SearchProvider::searched() const
 void SearchProvider::searchNow()
 {
     std::string query = searched();
-    // Apps and the system's pages from memory, at once; files from the service.
+    // Apps, providers' commands and the system's pages from memory, at once;
+    // files from the service. Commands are asked for each time: a provider's
+    // list follows what applies now (the theme's names the other mode).
+    commands_ = commandLaunchables(host_->listCommands());
     std::vector<Launchable> all;
-    all.reserve(apps_.size() + settings_.size());
+    all.reserve(apps_.size() + commands_.size() + settings_.size());
     std::vector<const Launchable*> sources;
     for (const Launchable& a : apps_) sources.push_back(&a);
+    for (const Launchable& c : commands_) sources.push_back(&c);
     for (const Launchable& s : settings_) sources.push_back(&s);
     for (const Launchable* l : sources) all.push_back(*l);
     Ms wall = host_->wallClock();
-    std::vector<const Launchable*> apps, system;
+    std::vector<const Launchable*> apps, commands, system;
     for (std::size_t i : rankLaunchables(all, query, history_, wall, all.size())) {
         const Launchable* l = sources[i];
-        auto& group = l->kind == Launchable::Kind::App ? apps : system;
-        std::size_t cap = l->kind == Launchable::Kind::App ? tokens().searchAppRows : tokens().searchSettingRows;
+        using K = Launchable::Kind;
+        auto& group = l->kind == K::App ? apps : l->kind == K::Command ? commands : system;
+        std::size_t cap = l->kind == K::App ? tokens().searchAppRows : l->kind == K::Command ? tokens().searchCommandRows : tokens().searchSettingRows;
         if (group.size() < cap) group.push_back(l);
     }
-    shown_ = apps;
+    shown_ = apps; // apps, then the island's commands, then Windows' pages (decision 160)
+    shown_.insert(shown_.end(), commands.begin(), commands.end());
     shown_.insert(shown_.end(), system.begin(), system.end());
 
     std::uint64_t ask = ++fileAsk_;
@@ -186,10 +197,11 @@ std::vector<SearchProvider::Result> SearchProvider::results() const
 {
     std::vector<Result> out;
     for (const Launchable* l : shown_)
-        out.push_back({ l->kind, false, false, l->name, captionOf(l->kind), l->target, l->package, l->location, history_.uses.count(l->target) > 0 });
+        out.push_back({ l->kind, false, false, l->name, captionOf(l->kind), l->target, l->package, l->location, history_.uses.count(l->target) > 0,
+                        glyphOf(*l) });
     for (const indexer::ResultRow& f : files_) {
         bool recent = opened_.uses.count(recentKey({ .name = f.name, .path = f.path, .folder = f.folder })) > 0;
-        out.push_back({ Launchable::Kind::App, true, f.folder, f.name, folderOf(f.path), f.path, {}, {}, recent });
+        out.push_back({ Launchable::Kind::App, true, f.folder, f.name, folderOf(f.path), f.path, {}, {}, recent, f.folder ? Glyph::Folder : Glyph::File });
     }
     return out;
 }
@@ -205,6 +217,16 @@ void SearchProvider::open(std::size_t index)
         if (started) { // ranks higher next time (decision 082)
             opened_.record(recentKey({ .name = r.name, .path = r.target, .folder = r.folder }), host_->wallClock());
             host_->save(kOpenedKey, opened_.save());
+        }
+    } else if (r.kind == Launchable::Kind::Command) {
+        // Run through the host, which hands the user's click on to its
+        // provider (decision 160); refused (gone meanwhile), the card stays.
+        // Never Windows' launcher: "command:..." means nothing to it.
+        auto command = commandOf(r.target);
+        started = command && host_->runCommand(command->providerId, command->commandId) == CommandRun::Ran;
+        if (started) {
+            history_.record(r.target, host_->wallClock());
+            host_->save(kHistoryKey, history_.save());
         }
     } else {
         started = hooks_.launch && hooks_.launch(*shown_[index]);
@@ -301,8 +323,8 @@ void SearchProvider::publish()
     if (typed && !note.empty()) c.expandedCenter.push_back(row({ Text{ .value = note, .style = TextStyle::Caption, .centred = true } }));
     for (std::size_t i = 0; i < all.size(); ++i) {
         const Result& r = all[i];
-        Glyph glyph = r.file ? (r.folder ? Glyph::Folder : Glyph::File) : glyphOf(r.kind);
-        c.expandedCenter.push_back(resultRow(glyph, iconFor(r.target), r, query, hooks_.home, i));
+        bool own = r.kind == Launchable::Kind::Command && !r.file; // the island's: no icon from Windows
+        c.expandedCenter.push_back(resultRow(r.glyph, own ? nullptr : iconFor(r.target), r, query, hooks_.home, i));
         if (i == 0) c.expandedCenter.back().visibleRows = tokens().searchVisibleRows; // the list's window, from its first row
     }
     // Room under the field: the first result is lit (defaultRow), and two
