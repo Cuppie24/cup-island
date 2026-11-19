@@ -1,4 +1,4 @@
-# Providers' commands (decision 154): published to the host, run by another
+# Providers' commands (decision 160): published to the host, run by another
 # provider (Search) for the user, and passing the user's gesture to their owner.
 
 scenario: a provider's list replaces its last; bad and repeated ids are dropped

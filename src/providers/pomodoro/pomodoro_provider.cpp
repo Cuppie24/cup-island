@@ -38,7 +38,7 @@ void PomodoroProvider::start(Host& host)
     daysOff_ = loadDaysOff(host_->load(kDaysOffKey));
     windowSeen_ = !host_->load(kWindowSeenKey).empty();
     showDormant();
-    // The timer's window from anywhere (decision 154): the card's expand button.
+    // The timer's window from anywhere (decision 160): the card's expand button.
     host_->publishCommands({ { .id = act::kOpenWindow,
                                .title = "Open the Pomodoro timer",
                                .keywords = { "pomodoro", "timer", "focus", "tasks", "window" },

@@ -408,7 +408,7 @@ struct Tokens {
     // soon after the user acted on it (decision 104): nothing pops up by itself.
     Ms windowOpenGrace{ 3000 };
     std::size_t windowsPerProvider = 4; // open at once; past it, opening another is refused
-    std::size_t commandsPerProvider = 24; // published at once (decision 154); past it, the rest are dropped
+    std::size_t commandsPerProvider = 24; // published at once (decision 160); past it, the rest are dropped
     Ms windowRevealLatest{ 250 }; // a new window shows once its first frame is drawn, or this long after it was asked to, whichever is first
 
     Ms expandedIdleTimeout{ 8000 };

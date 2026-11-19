@@ -47,7 +47,7 @@ std::optional<std::size_t> choiceIndex(const std::string& actionId, const char* 
 void SettingsProvider::start(Host& host)
 {
     host_ = &host;
-    // Settings from anywhere (decision 154): the widget's own tap.
+    // Settings from anywhere (decision 160): the widget's own tap.
     host_->publishCommands({ { .id = settings_action::kOpenWindow,
                                .title = "Cup Island settings",
                                .keywords = { "settings", "preferences", "options", "cup island" },

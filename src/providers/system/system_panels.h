@@ -27,7 +27,7 @@ private:
 
 // Content, pure.
 Panel themePanel(bool dark);
-// The switch as a command (decision 154): named for the mode it switches to.
+// The switch as a command (decision 160): named for the mode it switches to.
 CommandSpec themeCommand(bool dark);
 
 } // namespace cup

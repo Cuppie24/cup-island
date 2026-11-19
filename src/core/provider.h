@@ -113,7 +113,7 @@ public:
         done({ ServiceReply::Problem::NotInstalled, {} });
     }
 
-    // Commands (decision 154): what this provider can do from anywhere. The
+    // Commands (decision 160): what this provider can do from anywhere. The
     // list replaces its last, so it lists only what applies now; running one
     // sends it Action{spec.activityId, spec.id}, like its own button. Default: nowhere to publish (tests).
     virtual void publishCommands(std::vector<CommandSpec> /*commands*/) {}

@@ -1,5 +1,5 @@
 #pragma once
-// Providers' commands (decision 154): things a provider can do from
+// Providers' commands (decision 160): things a provider can do from
 // anywhere, published to the host and run by another provider (Search)
 // for the user. The host keeps them beside the island's state, as it keeps
 // windows. Pure: who published what, and whether a run may go ahead.

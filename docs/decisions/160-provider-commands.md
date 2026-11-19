@@ -1,4 +1,4 @@
-# 154: Providers' commands, run from Search and from Windows search
+# 160: Providers' commands, run from Search and from Windows search
 
 Status: Proposed. The host side is built and tested (below); Search's rows,
 `showsCard` and the Start menu are not yet.

@@ -29,7 +29,7 @@
 //                                                                    (providers' windows, decision 104: open-window's pages are
 //                                                                     a, b, c; update-window's are pages=, default a)
 //            publish-commands <provider> <id,id...>  run-command <caller> <provider> <id>
-//                                                                    (providers' commands, decision 154; stop-provider removes them)
+//                                                                    (providers' commands, decision 160; stop-provider removes them)
 //            tabrow top|bottom                                                       (Settings' Tab row, decision 048)
 //            ask <card>  close-dialog                                               (a provider's dialog, decision 020)
 //            toast <card>  toast-acted                                              (a provider's toast, decision 071)
@@ -114,7 +114,7 @@ struct Runner {
     IslandState state;
     Windows windows; // beside the island, as the registry keeps them (decision 104)
     std::string opened = "none";
-    Commands commands;  // beside it too (decision 154)
+    Commands commands;  // beside it too (decision 160)
     std::string ran = "none";
     Ms now{ 0 };
 

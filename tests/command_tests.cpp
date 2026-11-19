@@ -1,4 +1,4 @@
-// Providers' commands through the registry (decision 154): who may list and
+// Providers' commands through the registry (decision 160): who may list and
 // run them, and the real providers' commands doing what their buttons do.
 // The run rules themselves: scenarios/commands.scenario.
 
