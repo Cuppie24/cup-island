@@ -391,9 +391,10 @@ void windowTests()
     // Its "…" (decision 142): a menu of Rename and Delete; Rename asks again, Cancel keeps it.
     const Placed* more = buttonIn(page, std::string(kWindowCardMenu) + "group-2");
     std::optional<Menu> menu = openCardMenu(*island.window(), "group-2");
-    expect(more && std::get<Button>(more->item).glyph == Glyph::More && menu && menu->items.size() == 2 && menu->items[0].label == "Rename" &&
-               menu->items[1].label == "Delete" && menu->items[1].destructive,
-           "a group's \u2026 opens Rename and Delete");
+    expect(more && std::get<Button>(more->item).glyph == Glyph::More && menu && menu->items.size() == 4 && menu->items[0].label == "Rename" &&
+               menu->items[1].label == "Delete solved tasks" && !menu->items[1].enabled && menu->items[2].label == "Delete all tasks" &&
+               !menu->items[2].enabled && menu->items[3].label == "Delete" && menu->items[3].destructive,
+           "a group's \u2026 opens Rename, Delete solved tasks, Delete all tasks and Delete; the clears dim while it's empty");
     std::optional<Action> rename = menuChoice(page, *menu, 0);
     expect(rename && rename->actionId == std::string(task_action::kAskGroupName) + "2" && rename->windowId == PomodoroProvider::kWindowId,
            "Rename chosen: its action, from the window");
@@ -402,6 +403,34 @@ void windowTests()
     expect(naming && naming->title == "Rename group" && naming->field == std::optional<std::string>("Work"), "Rename: its name in a question's field");
     island.inWindow(kDialogCancel);
     expect(!island.window()->dialog && textIn(island.windowScene(), "Work"), "cancelled: the name stays");
+    // Its menu's Delete solved / all tasks (decision 161): asked over the window; confirmed, only those go.
+    auto ticks = [&] {
+        std::vector<std::string> found;
+        for (const Placed& p : island.windowScene().page)
+            if (auto* b = std::get_if<Button>(&p.item); b && b->actionId.rfind(inGroup(1, todo_action::kToggle), 0) == 0) found.push_back(b->actionId);
+        return found;
+    };
+    std::vector<std::string> before = ticks();
+    island.registry.route({ "pomodoro", "", inGroup(1, todo_action::kAdd), 0, "Solved one", PomodoroProvider::kWindowId });
+    for (const std::string& tick : ticks())
+        if (std::find(before.begin(), before.end(), tick) == before.end()) island.inWindow(tick); // the new one's box: ticked
+    std::optional<Menu> tasksMenu = openCardMenu(*island.window(), "group-1");
+    expect(tasksMenu && tasksMenu->items.size() == 4 && tasksMenu->items[1].enabled && tasksMenu->items[2].enabled,
+           "with a solved task: both clears can be chosen");
+    island.inWindow(inGroup(1, todo_action::kClearDone));
+    const Dialog* clearing = island.window()->dialog ? &*island.window()->dialog : nullptr;
+    expect(clearing && clearing->title == "Delete solved tasks in \u201CTasks\u201D?" && clearing->message == "1 solved task will be deleted." &&
+               clearing->destructive && textIn(island.windowScene(), "Solved one"),
+           "Delete solved tasks asks first, over the window");
+    island.inWindow(kDialogConfirm);
+    page = island.windowScene();
+    expect(!island.window()->dialog && !textIn(page, "Solved one") && textIn(page, "Write the report"), "confirmed: the solved one gone, the open one kept");
+    island.inWindow(inGroup(1, todo_action::kClearAll));
+    clearing = island.window()->dialog ? &*island.window()->dialog : nullptr;
+    expect(clearing && clearing->title == "Delete all tasks in \u201CTasks\u201D?" && clearing->message == "1 task will be deleted.",
+           "Delete all tasks asks first");
+    island.inWindow(kDialogCancel);
+    expect(!island.window()->dialog && textIn(island.windowScene(), "Write the report"), "Cancel: kept");
     // A group with tasks asks first, in a question over the window (decision 122): Cancel keeps it.
     island.inWindow(std::string(task_action::kDeleteGroup) + "1");
     const OpenWindow* asking = island.window();

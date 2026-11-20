@@ -90,10 +90,15 @@ WindowSection groupCard(const TaskGroup& g, bool writing)
     namespace task = task_action;
     std::string gid = std::to_string(g.id);
     const auto& items = g.tasks.items();
-    // Its name is plain text; its "…" holds Rename (a question with its name in a field) and Delete (decision 142).
+    // Its name is plain text; its "…" holds Rename (a question with its name in a field) and Delete (decision 142),
+    // and between them Delete solved tasks and Delete all tasks (decision 161).
     WindowSection card{ .title = g.name, .id = "group-" + gid };
+    // Then its tasks' clears (the to-do list's, asked over the window), dim while there's nothing to clear.
+    bool anyDone = std::any_of(items.begin(), items.end(), [](const Todo& t) { return t.done; });
     card.menu = { MenuItem{ .label = "Rename", .actionId = task::kAskGroupName + gid },
-                  MenuItem{ .label = "Delete", .actionId = task::kDeleteGroup + gid, .destructive = true } };
+                  MenuItem{ .label = "Delete solved tasks", .actionId = inGroup(g.id, todo_action::kClearDone), .enabled = anyDone, .group = 1 },
+                  MenuItem{ .label = "Delete all tasks", .actionId = inGroup(g.id, todo_action::kClearAll), .enabled = !items.empty(), .group = 1 },
+                  MenuItem{ .label = "Delete", .actionId = task::kDeleteGroup + gid, .destructive = true, .group = 2 } };
     card.moveAction = task::kMoveGroup + gid; // dragged by its handle among the groups (decision 129)
     card.takesRows = true;                    // ...and a task from another group dropped in it
     // "+ Add task" is a button, the whole row its click, its + where a task's box is (decision 132);

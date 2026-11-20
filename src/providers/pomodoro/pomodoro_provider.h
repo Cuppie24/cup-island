@@ -64,6 +64,7 @@ private:
     void countTask(const TaskTarget& target);   // a task ticked or unticked: today's count
     void offerUndo();                           // the host's toast with Undo over the window, for what was just deleted
     void askName(const TaskGroup& group, bool made); // its name in a question over the window (decision 142): renamed, or just made
+    Dialog clearGroupQuestion(const TaskGroup& group, bool solved) const; // its solved or all tasks deleted? (decision 161)
     PomodoroDay& today();                       // today's statistics, to change (then saveStats)
     PomodoroGlance glance() const;              // today's, now
     void saveStats();

@@ -128,6 +128,12 @@ bool PomodoroProvider::taskAction(const Action& action)
 
     auto target = tasks_.targetOf(id);
     if (!startsWith(id, task::kNewGroup) && !startsWith(id, task::kRenameGroup) && !target) return startsWith(id, task::kInGroup);
+    // A group's menu's Delete solved / all tasks (decision 161): asked over the window; confirmed, the
+    // to-do list's own confirmed clear, in that group. Gone for good, as a confirmed group delete is.
+    if (target && (target->todoAction == todo::kClearDone || target->todoAction == todo::kClearAll)) {
+        if (const TaskGroup* g = tasks_.group(target->group)) host_->ask(clearGroupQuestion(*g, target->todoAction == todo::kClearDone));
+        return true;
+    }
     std::optional<DeletedTask> deleting;
     if (target)
         if (const Todo* t = named(*tasks_.tasksOf(target->group), target->todoAction, todo::kDelete)) deleting = DeletedTask{ target->group, *t };
@@ -161,6 +167,20 @@ void PomodoroProvider::askName(const TaskGroup& g, bool made)
     host_->ask({ .title = made ? std::string("Name the new group") : std::string("Rename group"), .confirmLabel = made ? std::string("Save") : std::string("Rename"),
                  .confirmAction = task_action::kRenameGroup + std::to_string(g.id), .windowId = kWindowId, .field = g.name,
                  .fieldMaxLength = tokens().taskGroupNameMaxLength });
+}
+
+// Deleting a group's solved or all tasks, asked over the window (decision 161): its name and how many go.
+Dialog PomodoroProvider::clearGroupQuestion(const TaskGroup& g, bool solved) const
+{
+    const auto& items = g.tasks.items();
+    std::size_t count = solved ? static_cast<std::size_t>(std::count_if(items.begin(), items.end(), [](const Todo& t) { return t.done; })) : items.size();
+    std::string tasks = std::to_string(count) + (solved ? " solved" : "") + (count == 1 ? " task" : " tasks");
+    return { .title = (solved ? "Delete solved tasks in \u201C" : "Delete all tasks in \u201C") + g.name + "\u201D?",
+             .message = (count == 1 ? tasks + " will be deleted." : (solved ? "" : "All ") + tasks + " will be deleted."),
+             .confirmLabel = "Delete",
+             .confirmAction = inGroup(g.id, solved ? todo_action::kClearDoneConfirmed : todo_action::kClearAllConfirmed),
+             .destructive = true,
+             .windowId = kWindowId };
 }
 
 // The host's toast over the window (decision 121), as a card's delete has (decision 071).

@@ -60,6 +60,9 @@ wuc::ShapeVisual roundedRect(wuc::Compositor const& c, Rect r, float radius, con
     auto shape = c.CreateSpriteShape(geometry);
     shape.FillBrush(c.CreateColorBrush(toUiColor(color)));
     auto v = c.CreateShapeVisual();
+    // Antialiased corners (decision 161): Inherit resolved to Hard up the window's
+    // tree, so a question's panel (radius 28) stepped round its corners, as 133's did.
+    v.BorderMode(wuc::CompositionBorderMode::Soft);
     v.Size({ r.width, r.height });
     v.Offset({ std::round(r.x), std::round(r.y), 0 });
     v.Shapes().Append(shape);
