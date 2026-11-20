@@ -90,6 +90,14 @@ void runMenuTests()
     }
     expect(labels == 4 && chords == 3, "a label per item; a shortcut where it has one");
     expect(chordsStart > labelsEnd, "shortcuts at the right, after the labels");
+    bool sameSize = true, mutedRight = true;
+    for (const Placed& p : beside.elements) {
+        auto* t = std::get_if<Text>(&p.item);
+        if (!t || t->value.find('+') != std::string::npos || t->value == "Enter") continue;
+        sameSize = sameSize && t->style == TextStyle::Body;
+        mutedRight = mutedRight && p.muted == (t->value == "Copy");
+    }
+    expect(sameSize && mutedRight, "a dim item's label is the others' size, drawn muted (decision 162)");
 
     // Hit-testing: an item, a dim one, and what's under the menu.
     Rect first = beside.items[0], dim = beside.items[2];
