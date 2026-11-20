@@ -34,7 +34,7 @@ bool shownOnIsland(const IslandState& s, const std::string& id) { return !s.home
 
 Text labelOf(const MenuItem& item)
 {
-    Text label{ .value = item.label, .style = item.enabled ? TextStyle::Body : TextStyle::Caption };
+    Text label{ .value = item.label }; // one size, enabled or not: a disabled one is drawn muted (placeMenu)
     if (item.bold) label.bright = { { 0, item.label.size() } }; // the row's own action: as bold as a match (decision 079)
     return label;
 }
@@ -204,7 +204,10 @@ MenuScene placeMenu(const Menu& menu, const Source& source, Rect row, Rect bound
         if (item.chord) r.trailing.push_back(chordOf(item));
         Slot slot{ r };
         Rect inner{ band.x + t.menuItemInset, band.y, std::max(0.0f, band.width - 2 * t.menuItemInset), band.height };
+        std::size_t first = scene.elements.size();
         placeSlot({ "menu/" + std::to_string(i), &slot, inner }, source, itemRadius, now, scene.elements, measure);
+        // Disabled: grey and dim, as an inactive tab's items (decision 072), at the enabled ones' size (decision 162).
+        for (std::size_t e = first; e < scene.elements.size(); ++e) scene.elements[e].muted = !item.enabled;
         itemY += t.menuItemHeight;
     }
     return scene;
