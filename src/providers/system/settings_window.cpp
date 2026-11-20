@@ -206,7 +206,7 @@ void musicColoursPage(WindowPage& page, const SettingsView& v)
 void glassPage(WindowPage& page, const SettingsView& v)
 {
     WindowSection rows;
-    if (v.glass) rows.rows.push_back(toggleRow("Glass effect", *v.glass, P::kToggleGlass));
+    if (v.glass) rows.rows.push_back(toggleRow("Glass effect", *v.glass, P::kToggleGlass, "Only in dark themes")); // decision 089: light themes stay solid
     if (v.transparency) {
         std::size_t picked = *v.transparency == Transparency::Low ? 0 : *v.transparency == Transparency::High ? 2 : 1;
         rows.rows.push_back(marked(segmentsRow("Transparency", "How much shows through",
