@@ -77,7 +77,10 @@ public:
 
     void wakeAt(std::optional<Ms> at) override
     {
-        if (Entry* e = registry_.find(providerId_)) e->wake = at;
+        Entry* e = registry_.find(providerId_);
+        if (!e || e->wake == at) return;
+        e->wake = at;
+        if (registry_.wakesChanged_) registry_.wakesChanged_();
     }
 
     std::string load(const std::string& key) const override

@@ -253,6 +253,14 @@ std::optional<Ms> earliest(std::optional<Ms> a, std::optional<Ms> b)
     return std::min(*a, *b);
 }
 
+// One timer for everything time-based: core deadlines, ticking labels and provider wake-ups.
+void armDeadline(Ms t)
+{
+    auto deadline = earliest(earliest(nextDeadline(g_state), sceneDeadline(g_island.scene)), tintDeadline(g_tint));
+    if (g_providers) deadline = earliest(deadline, g_providers->nextWake());
+    setTimer(TimerId::Deadline, deadline ? std::optional<Ms>(std::max(*deadline - t, Ms{ 0 })) : std::nullopt);
+}
+
 void saveSpot();
 
 // Each announced panel's announcement last opened (decision 110): in the
@@ -310,10 +318,7 @@ void dispatch(const Event& event, const char* reason)
     bool recolour = tint.shown != g_tint.shown;
     g_tint = tint;
 
-    // One timer for everything time-based: core deadlines, ticking labels and provider wake-ups.
-    auto deadline = earliest(earliest(nextDeadline(g_state), sceneDeadline(g_island.scene)), tintDeadline(g_tint));
-    if (g_providers) deadline = earliest(deadline, g_providers->nextWake());
-    setTimer(TimerId::Deadline, deadline ? std::optional<Ms>(std::max(*deadline - t, Ms{ 0 })) : std::nullopt);
+    armDeadline(t);
 
     // Recoloured like a theme change, which dispatches again (the tint is settled by then).
     if (recolour) {
@@ -1137,6 +1142,7 @@ int main()
         .takeKey = [](const WindowKey& window, WPARAM key) { return window.providerId == "system.settings" && app::recordKey(key, true); },
     });
     g_providers->onWindowsChanged(app::syncWindows);
+    g_providers->onWakesChanged([] { armDeadline(now()); }); // a wake asked outside a dispatch (decision 163)
     g_providers->add(std::make_unique<SmtcMediaProvider>(postToUi));
     g_providers->add(std::make_unique<DemoMediaProvider>()); // M key
     g_providers->add(std::make_unique<ThemeProvider>(postToUi));
