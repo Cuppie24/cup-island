@@ -205,6 +205,7 @@ void ElementVisuals::apply(const std::vector<Placed>& elements, Ms now, Ms revea
     reveal_ = reveal;
     glide_ = glide;
     deviceLost_ = false;
+    std::uint64_t generation = device_->generation(); // a reset found in createSurface shows only here (decision 164)
 
     // Laid out again on every frame of a window's resize: a set, not a search per visual (decision 117).
     std::unordered_set<std::string_view> shown;
@@ -234,7 +235,7 @@ void ElementVisuals::apply(const std::vector<Placed>& elements, Ms now, Ms revea
     lists_.prune(elements);
 
     // The GPU was reset mid-apply: the device is rebuilt, but every surface lost its pixels.
-    if (deviceLost_)
+    if (deviceLost_ || device_->generation() != generation)
         for (auto& [key, view] : views_)
             if (view.surface || view.rolling.visual) paint(view);
 }
