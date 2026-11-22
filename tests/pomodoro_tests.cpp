@@ -105,11 +105,22 @@ const Placed* find(const Scene& scene, const std::string& key)
 }
 
 // The widget is information only (decision 019): nothing on it is a button.
-bool noButtonsOn(const Scene& home)
+// The widget's buttons are its controls (decision 163), none in its face.
+bool buttonsOnlyInControls(const Scene& home)
 {
     for (const Placed& p : home.elements)
-        if (p.key.rfind(kTile, 0) == 0 && (std::holds_alternative<Button>(p.item) || std::holds_alternative<TextInput>(p.item))) return false;
+        if (p.key.rfind(kTile, 0) == 0 && p.key.rfind(kTile + "/controls/", 0) != 0 &&
+            (std::holds_alternative<Button>(p.item) || std::holds_alternative<TextInput>(p.item)))
+            return false;
     return true;
+}
+
+std::string glyphAt(const Scene& home, const std::string& place)
+{
+    for (const Placed& p : home.elements)
+        if (p.key == kTile + "/controls/" + place + "/0/0")
+            if (auto* b = std::get_if<Button>(&p.item)) return b->actionId;
+    return "none";
 }
 
 // The cards (decision 107): the phase and round over the time, big and
@@ -527,7 +538,8 @@ void runPomodoroTests()
     const Placed* plannedTime = find(dormantHome, kTile + "/0/0");
     expect(icon && std::get<Icon>(icon->item).glyph == Glyph::Timer, "dormant widget: the timer icon on the left");
     expect(plannedTime && std::get<Text>(plannedTime->item).value == "25:00", "and the focus time");
-    expect(noButtonsOn(dormantHome) && dormantHome.tiles.size() == 1 && dormantHome.tiles[0].opens, "no buttons: it opens the card");
+    expect(buttonsOnlyInControls(dormantHome) && dormantHome.tiles.size() == 1 && dormantHome.tiles[0].opens, "its face opens the card");
+    expect(glyphAt(dormantHome, "primary") == "start" && glyphAt(dormantHome, "before") == "none", "dormant: start alone, in the middle (decision 163)");
 
     // Start from the card. A click on its empty space doesn't close it (Content::keepOpen).
     island.send(TileClicked{ PomodoroProvider::kPanelId });
@@ -556,7 +568,17 @@ void runPomodoroTests()
     expect(tileRing && std::get<Progress>(tileRing->item).shape == ProgressShape::Ring &&
            tileRing->frame.height == home.tiles[0].frame.height - 2 * t.tilePadding, "a ring as tall as the widget");
     expect(glance && std::get<Text>(glance->item).value == "Focus · 1/" + std::to_string(t.pomodoroRounds), "the phase and round");
-    expect(noButtonsOn(home), "still no buttons");
+    expect(buttonsOnlyInControls(home), "still none in its face");
+    expect(glyphAt(home, "before") == "stop" && glyphAt(home, "primary") == "pause" && glyphAt(home, "after") == "skip",
+           "running: stop, pause, skip, as on the card (decision 163)");
+    // Stop from the widget asks, so its card opens for the question (decision 163).
+    island.send(WidgetActed{ PomodoroProvider::kPanelId });
+    expect(island.press(kTile + "/controls/before/0/0"), "the widget's stop");
+    expect(island.state.expandedId == PomodoroProvider::kPanelId && dialogOver(island.state, PomodoroProvider::kPanelId),
+           "stop from the widget: its card opens with the question");
+    island.send(DialogClosed{});
+    expect(island.focus(), "cancelled: the session goes on");
+    island.send(HomeOpened{});
 
     // Compact: the countdown in the middle, the ring on the right, no phase name; red for focus.
     island.send(EscapePressed{});

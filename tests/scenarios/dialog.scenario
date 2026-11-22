@@ -33,6 +33,20 @@ switch timer
 ask timer
 outside                             -> dialog=none Split
 
+scenario: a question asked from a widget's control opens the widget's card (decision 163)
+panel focus
+click                               -> expanded=home
+widget-control focus
+ask focus                           -> Expanded expanded=focus dialog=focus
+close-dialog                        -> Expanded expanded=focus dialog=none # answered: its card stays
+
+scenario: only right after its control: a later question on Home still opens nothing
+panel focus
+click
+widget-control focus
+ask other                           -> dialog=none expanded=home
+ask focus                           -> dialog=none expanded=home
+
 scenario: a dormant panel's card can ask too
 panel focus
 click

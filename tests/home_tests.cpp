@@ -54,8 +54,8 @@ void runHomeTests()
     Scene home = layout(reduce(s, PillClicked{}, Ms{ 0 }), Ms{ 0 });
     // Home always has its strip: Home's button (no pin, decision 121); the row's room (decision 109).
     float stripSpace = t.tabRowInset + t.tabHeight + t.tabRowGap - t.expandedPadding;
-    expect(home.mode == Mode::Expanded && home.size.x == t.expandedSize.x && home.size.y == t.expandedSize.y + stripSpace,
-           "one row: Home keeps Expanded's card size, plus its strip");
+    expect(home.mode == Mode::Expanded && home.size.x == t.homeCardWidth && home.size.y == t.expandedSize.y + stripSpace,
+           "one row: Home is homeCardWidth wide (decision 163) and Expanded's height, plus its strip");
     expect(home.tabs && home.tabs->tabs.empty() && home.tabs->home && !home.tabs->previous,
            "only Home: its button; no dots, no arrows (decision 115)");
     expect(home.label == "Home" && home.activityId.empty(), "Home is no activity's card");

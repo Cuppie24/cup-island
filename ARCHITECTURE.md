@@ -116,7 +116,7 @@ drawing are the host's job, so every provider looks native.
 
 A provider can also publish **panels** (decision 009): always-available
 entries shown as widgets on Expanded's Home, not ranked into the pill.
-Widgets only inform (decision 019): no buttons; a click opens the card. Starting
+Widgets mostly inform (decision 019): a click on one opens its card; a provider may give it a few controls in a column at its right (decision 163). Starting
 an activity with a panel's id makes it live; ending it makes it dormant again.
 A provider can publish **commands** (decision 160): things it does from
 anywhere ("Open the Pomodoro timer"), each the action of one of its own

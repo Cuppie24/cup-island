@@ -187,7 +187,10 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     } else if (scene.mode == Mode::Expanded && source.content) {
         scene.size.y = standardCardHeight(source, scene.size, tokens().canvas.y - tabSpace, measureText);
     }
-    if (scene.mode == Mode::Expanded && state.homeOpen) scene.size.y = homeCardHeight(state, tokens().canvas.y - tabSpace);
+    if (scene.mode == Mode::Expanded && state.homeOpen) {
+        scene.size.x = std::min(tokens().homeCardWidth, tokens().canvas.x); // room for widgets' controls (decision 163)
+        scene.size.y = homeCardHeight(state, tokens().canvas.y - tabSpace);
+    }
     scene.size.y += tabSpace;
     // Where the island rests along the top edge, or lifted under the pointer (decision 026).
     if (isLifted(state)) {
@@ -237,7 +240,10 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     // Laid out as if from the card's top, then moved down under the strip.
     if (tabSpace > 0 && state.tabsOnTop) { // at the bottom, the strip only adds room under the content
         moveDown(scene.elements, contentFrom, tabSpace);
-        for (Tile& tile : scene.tiles) tile.frame.y += tabSpace;
+        for (Tile& tile : scene.tiles) {
+            tile.frame.y += tabSpace;
+            tile.controls.y += tabSpace;
+        }
     }
     // A toast floats over the card's bottom, above its content, which doesn't move for it (decision 071).
     if (scene.mode == Mode::Expanded && source.content && !dialogOver(state, source.activityId))
@@ -295,7 +301,7 @@ Rect interactiveBounds(const Scene& scene)
 const Tile* tileAt(const Scene& scene, Vec2 point)
 {
     for (const Tile& tile : scene.tiles)
-        if (tile.frame.contains(point)) return &tile;
+        if (tile.face().contains(point)) return &tile; // its controls' column isn't the face (decision 163)
     return nullptr;
 }
 

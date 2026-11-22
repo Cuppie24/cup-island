@@ -130,6 +130,7 @@ if(CUP_BUILD_TESTS)
         tests/double_tap_tests.cpp
         tests/fullscreen_tests.cpp
         tests/home_tests.cpp
+        tests/widget_controls_tests.cpp
         tests/indexer_protocol_tests.cpp
         tests/indexer_query_tests.cpp
         tests/indexer_tests.cpp

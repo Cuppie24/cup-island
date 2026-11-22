@@ -230,6 +230,7 @@ struct Runner {
         else if (cmd == "home") apply(HomeOpened{});
         else if (cmd == "open-activity") apply(ActivityOpened{});
         else if (cmd == "tile") apply(TileClicked{ arg(1) });
+        else if (cmd == "widget-control") apply(WidgetActed{ arg(1) }); // a widget's control used (decision 163)
         else if (cmd == "focus") {
             auto max = option(arg(3), "max");
             apply(InputFocused{ "p", arg(1), arg(2), "", false, max ? std::nullopt : at(3), max ? std::stoul(*max) : 0 });

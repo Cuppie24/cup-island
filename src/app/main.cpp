@@ -376,6 +376,8 @@ void act(const Action& action)
         answerDialog(action.actionId == kDialogConfirm);
         return;
     }
+    // On Home, a button is a widget's control (decision 163): a question it asks opens the widget's card.
+    if (g_state.homeOpen) dispatch(WidgetActed{ action.activityId }, "widget control");
     g_providers->route(action);
     const Toast* toast = toastOn(g_state, action.activityId);
     if (toast && action.actionId == toast->actionId) dispatch(ToastClosed{}, "toast acted"); // done: it goes (decision 071)

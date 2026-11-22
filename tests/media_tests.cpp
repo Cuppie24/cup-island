@@ -214,6 +214,11 @@ void runMediaTests()
     expect(playing.tile[0].items[0] == Item{ Text{ .value = "Song", .style = TextStyle::TileTitle, .marquee = true } } &&
            playing.tile[0].trailing[0] == Item{ Waveform{ true } }, "the title swims, the bars beside it");
     expect(std::get<Text>(playing.tile[1].items[0]).value == "Band", "the artist under it");
+    auto controlAction = [](const std::optional<Item>& item) { return item ? std::get<Button>(*item).actionId : std::string("none"); };
+    expect(controlAction(playing.tileControls.before) == media_action::kPrevious && controlAction(playing.tileControls.primary) == media_action::kPlayPause &&
+           std::get<Button>(*playing.tileControls.primary).glyph == Glyph::Pause && controlAction(playing.tileControls.after) == media_action::kNext,
+           "its controls: back, pause in the middle, on (decision 163)");
+    expect(idlePanel.content.tileControls.empty(), "nothing playing: no controls");
     expect(std::get<Text>(playing.alertCenter[0].items[0]).style == TextStyle::Title, "the alert's title is the dense Title, not the card's");
 
     // On Home: the activity's widget replaces the idle one in place, and back.

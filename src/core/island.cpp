@@ -42,6 +42,7 @@ void collapse(IslandState& s)
     s.expandedId.clear();
     s.homeOpen = false;
     s.cardFromHome = false;
+    s.widgetActed.clear();
     s.stayOpen = false; // a pin lasts while it's open (decision 046)
 }
 
@@ -54,6 +55,7 @@ void expand(IslandState& s, const std::string& id, Ms now)
     }
     s.expandedId = id;
     s.homeOpen = false;
+    s.widgetActed.clear();
     s.cardFromHome = false; // opened some other way; TileClicked sets it after
     s.lastPointerAt = now;
 }
@@ -320,6 +322,13 @@ void handle(IslandState& s, const PanelsSeen& e, Ms)
     }
 }
 
+void handle(IslandState& s, const WidgetActed& e, Ms now)
+{
+    if (!s.homeOpen) return;
+    s.widgetActed = e.id;
+    s.lastPointerAt = now;
+}
+
 void handle(IslandState& s, const TileClicked& e, Ms now)
 {
     bool fromHome = s.homeOpen;
@@ -365,7 +374,16 @@ void handle(IslandState& s, const WordSelected& e, Ms now) { if (Draft* d = busy
 void handle(IslandState& s, const AllSelected&, Ms now) { if (Draft* d = busyDraft(s, now)) selectAll(*d); }
 void handle(IslandState& s, const InputSubmitted&, Ms now) { submitText(s, now); }
 void handle(IslandState& s, const InputCancelled&, Ms) { dropDraft(s); } // Esc: stop typing; the text waits (decision 050)
-void handle(IslandState& s, const DialogShown& e, Ms now) { showDialog(s, e, now); }
+void handle(IslandState& s, const DialogShown& e, Ms now)
+{
+    // Asked right after a widget's control was used on Home (Pomodoro's stop,
+    // decision 163): a question needs its card, so the widget's card opens for
+    // it, as a click on the widget would. A question asked any other time doesn't open anything.
+    bool fromWidget = s.homeOpen && mode(s) == Mode::Expanded && !e.dialog.activityId.empty() && e.dialog.activityId == s.widgetActed;
+    s.widgetActed.clear();
+    if (fromWidget) handle(s, TileClicked{ e.dialog.activityId }, now);
+    showDialog(s, e, now);
+}
 void handle(IslandState& s, const DialogClosed&, Ms) { closeDialog(s); }
 void handle(IslandState& s, const ToastShown& e, Ms now) { showToast(s, e, now); }
 void handle(IslandState& s, const ToastClosed&, Ms) { closeToast(s); }

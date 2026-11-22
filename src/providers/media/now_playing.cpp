@@ -31,6 +31,11 @@ Content nowPlayingContent(const NowPlaying& m)
     c.tileLeading = { row({ art }) };
     c.tile = { Row{ .items = { Text{ .value = m.title, .style = TextStyle::TileTitle, .marquee = true } }, .trailing = { Waveform{ playing } } },
                row({ Text{ m.artist.empty() ? m.source : m.artist, TextStyle::Body } }) };
+    // Its controls (decision 163): back, ▶/⏸ in the middle, on; shuffle, repeat and seeking are the card's.
+    c.tileControls = { .before = Button{ .glyph = Glyph::Previous, .actionId = act::kPrevious, .enabled = m.canPrevious, .compact = true },
+                       .primary = Button{ .glyph = playing ? Glyph::Pause : Glyph::Play, .actionId = act::kPlayPause,
+                                          .enabled = m.canPlayPause, .large = true },
+                       .after = Button{ .glyph = Glyph::Next, .actionId = act::kNext, .enabled = m.canNext, .compact = true } };
 
     // Like iOS: the big art opens the app that's playing (only expanded; elsewhere a click expands).
     c.expandedLeading = { row({ Image{ m.art, m.canOpenSource ? act::kOpenSource : "" } }) };

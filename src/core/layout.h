@@ -107,6 +107,10 @@ struct Tile {
     std::string tapAction;  // a click sends this action instead (Panel::tapAction)
     bool badge = false;     // its content's Content::badge (decision 038)
     bool accent = false;    // ...in the accent (Content::badgeAccent, decision 152)
+    // Its controls' column (decision 163), empty if none: not part of the
+    // face, so a click between two controls doesn't open the card.
+    Rect controls;
+    Rect face() const { return controls.width > 0 ? Rect{ frame.x, frame.y, controls.x - frame.x, frame.height } : frame; }
     bool clickable() const { return opens || !tapAction.empty(); } // lights up under the pointer
 };
 

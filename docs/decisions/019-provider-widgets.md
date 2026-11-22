@@ -1,6 +1,6 @@
 # 019: Every provider gets a widget; widgets only inform
 
-Status: Accepted
+Status: Accepted; amended by 163 (a widget can have controls, in a column at its right)
 
 **Context.** Home (decision 009) had grown into a mix: a clock tile with
 the date, a battery tile, and a Pomodoro tile with its own ▶ / ■ buttons.

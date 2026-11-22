@@ -151,7 +151,7 @@ void wrapTests()
     expect(charCount(state.draft->text) == t.todoMaxLength, "and stops at todoMaxLength characters");
     expect(layout(state, Ms{ 0 }).size.y <= t.canvas.y, "the card still fits");
 
-    // A wide card is wider than Home (decision 085): it grows to both sides from the island's centre.
+    // A wide card is wider than a card (decision 085), Home its own width (decision 163): each grows to both sides from the island's centre.
     IslandState wide;
     wide = reduce(wide, ScreenResized{ 1920 }, Ms{ 0 });
     wide = reduce(wide, PanelPublished{ fixture::todoPanel(list) }, Ms{ 0 });
@@ -159,8 +159,8 @@ void wrapTests()
     Scene home = layout(wide, Ms{ 0 });
     wide = reduce(wide, TileClicked{ fixture::kTodoCard }, Ms{ 0 });
     Scene wideCard = layout(wide, Ms{ 0 });
-    expect(home.size.x == tokens().expandedSize.x && wideCard.size.x == tokens().wideCardWidth && wideCard.size.x > home.size.x,
-           "a wide card is wider than Home, which keeps every card's width (decisions 047, 085)");
+    expect(home.size.x == tokens().homeCardWidth && wideCard.size.x == tokens().wideCardWidth && wideCard.size.x > tokens().expandedSize.x,
+           "a wide card is wider than a card; Home is its own width (decisions 085, 163)");
     expect(std::abs((wideCard.offset.x + wideCard.size.x / 2) - (home.offset.x + home.size.x / 2)) < 0.01f &&
            std::abs(wideCard.offset.x + wideCard.size.x / 2 - 960) < 0.01f, "centred where Home was: grown to both sides");
 }

@@ -62,9 +62,34 @@ Slot informationOnly(const Slot& slot)
 
 std::size_t columnCount() { return std::max<std::size_t>(tokens().homeColumns, 1); }
 
+// A widget's controls column (decision 163): small, large, small, the
+// middle on the same line on every widget. Its width, whatever is in it.
+float controlsWidth()
+{
+    const Tokens& t = tokens();
+    return 2 * t.smallButtonSize + t.largeButtonSize + 2 * t.tileControlGap;
+}
+
+// Places the controls in `column`, each centred in its place.
+void placeControls(const Entry& e, Rect column, const Source& source, float radius, Ms now, std::vector<Placed>& elements)
+{
+    const Tokens& t = tokens();
+    const TileControls& c = e.content->tileControls;
+    float side = t.smallButtonSize, middle = t.largeButtonSize, gap = t.tileControlGap;
+    struct Place { const std::optional<Item>* item; const char* name; float x, width; };
+    for (const Place& place : { Place{ &c.before, "before", 0, side }, Place{ &c.primary, "primary", side + gap, middle },
+                                Place{ &c.after, "after", side + gap + middle + gap, side } }) {
+        if (!*place.item) continue;
+        Slot slot = { row({ **place.item }, Align::Center) };
+        Rect frame{ column.x + place.x, column.y, place.width, column.height };
+        placeSlot({ "tile/" + e.id + "/controls/" + place.name, &slot, frame }, source, radius, now, elements);
+    }
+}
+
 // A widget's content inside its frame: the leading square (art, an icon, a
-// ring) as tall as the tile's inside, the rows beside it.
-void placeTile(const Entry& e, Rect frame, float tileRadius, Ms now, std::vector<Placed>& elements)
+// ring) as tall as the tile's inside, the rows beside it, its controls at the
+// right when the rows keep tileTextMinWidth. Returns the controls' column (empty: none).
+Rect placeTile(const Entry& e, Rect frame, float tileRadius, Ms now, std::vector<Placed>& elements)
 {
     const Tokens& t = tokens();
     float inset = t.tilePadding, radius = std::max(0.0f, tileRadius - inset);
@@ -82,10 +107,18 @@ void placeTile(const Entry& e, Rect frame, float tileRadius, Ms now, std::vector
         float shift = std::min(inner.width, inner.height + t.slotGap);
         inner = { inner.x + shift, inner.y, inner.width - shift, inner.height };
     }
+    Rect column;
+    float controls = controlsWidth();
+    if (!e.content->tileControls.empty() && inner.width - controls - t.slotGap >= t.tileTextMinWidth) {
+        column = { inner.x + inner.width - controls, inner.y, controls, inner.height };
+        inner.width -= controls + t.slotGap;
+        placeControls(e, column, source, radius, now, elements);
+    }
     Slot rows = informationOnly(e.content->tile);
     // Announced and never opened (decision 110): "New" after its first line's text, as on a new setting (decision 048).
     if (e.isNew && !rows.empty()) rows.front().items.push_back(Tag{ "New" });
     placeSlot({ key, &rows, inner }, source, radius, now, elements);
+    return column;
 }
 
 } // namespace
@@ -128,8 +161,9 @@ std::vector<Tile> homeTilesFor(const IslandState& s, Vec2 cardSize, float tileRa
         for (const Entry& e : r) {
             Rect frame{ x, y, static_cast<float>(spanOf(e.wide, columns)) * unit, h };
             x += frame.width + gap;
-            tiles.push_back({ frame, e.id, e.opens, e.providerId, e.tapAction, e.content->badge || e.content->badgeAccent, e.content->badgeAccent });
-            placeTile(e, frame, tileRadius, now, elements);
+            Rect controls = placeTile(e, frame, tileRadius, now, elements);
+            tiles.push_back({ frame, e.id, e.opens, e.providerId, e.tapAction, e.content->badge || e.content->badgeAccent, e.content->badgeAccent,
+                              controls });
         }
         y += h + gap;
     }

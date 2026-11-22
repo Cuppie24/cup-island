@@ -59,7 +59,8 @@ std::vector<Focusable> focusables(const Scene& scene)
     if (dialog) return found; // in reading order already: one row, Cancel first
     // Every tile, clickable or not: a static one (no card, no tap) is still a stop,
     // or down from above it would jump a row (decision 033).
-    for (const Tile& tile : scene.tiles) found.push_back({ "tile:" + tile.id, tile.frame, centre(tile.frame), std::nullopt, tile.id, scene.tileRadius });
+    // A widget's controls are stops of their own, after it (decision 163): Enter on the widget clicks its face.
+    for (const Tile& tile : scene.tiles) found.push_back({ "tile:" + tile.id, tile.frame, centre(tile.face()), std::nullopt, tile.id, scene.tileRadius });
     if (scene.tabs)
         for (std::size_t i = 0; i < scene.tabs->tabs.size(); ++i) {
             const Tab& tab = scene.tabs->tabs[i];

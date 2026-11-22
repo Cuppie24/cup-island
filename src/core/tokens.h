@@ -326,6 +326,11 @@ struct Tokens {
     float tileHeight = 64;        // fits a TileTitle and a Body line inside tilePadding (decisions 111, 114)
     float tileGap = 10;
     float tilePadding = 8;        // inside a tile, on every side
+    // Home is wider than the cards (decision 163): two widgets side by side
+    // each keep tileTextMinWidth for their text beside their controls.
+    float homeCardWidth = 680;
+    float tileControlGap = 2;     // between a widget's controls: small, large, small (decision 163)
+    float tileTextMinWidth = 120; // narrower than this beside its controls: the widget shows no controls
     float tileIconSize = 20;      // a widget's leading icon (Icon::large, decisions 111, 114)
     float focusRingWidth = 2;     // the keyboard's focus ring (decision 033), drawn inside what has focus
 

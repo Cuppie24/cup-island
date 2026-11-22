@@ -29,6 +29,9 @@ Spacing:
 - Home's widgets: `tileHeight` 64, `tileGap` 10, `tilePadding` 8, so a
   TileTitle line and a Body line fit with room around them. A widget is a
   little under its card: a glance at many, not one.
+- A widget's controls (decision 163): `tileControls`, compact buttons at the
+  sides and a large one in the middle; Home is `homeCardWidth` (680) wide so
+  two side by side keep `tileTextMinWidth` for their text.
 - Every card and Home share `expandedSize.y` (248) so switching tabs doesn't
   resize the island; a test pins media, the timer and Home to it.
 

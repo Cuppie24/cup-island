@@ -328,6 +328,18 @@ using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Wavefo
 
 enum class Align { Start, Center, End };
 
+// A widget's controls (decision 163): three places in a column of fixed
+// width, so the main control sits on the same line on every widget. A
+// Button or a Switch each; `primary` alone (a lone switch) is centred in the
+// column. Sides: compact buttons; the middle: large or compact primary.
+struct TileControls {
+    std::optional<Item> before;
+    std::optional<Item> primary;
+    std::optional<Item> after;
+    bool empty() const { return !before && !primary && !after; }
+    bool operator==(const TileControls&) const = default;
+};
+
 // How wide a row lays out (decision 014): the slot, or exactly the span of
 // the row above's / below's content, centred with it (a bar as wide as the
 // countdown above it, or the dots below it). The host works out the width.
@@ -516,11 +528,15 @@ struct Content {
     Slot expandedCenter;
     Slot expandedTrailing; // a button-sized square in the top-right corner; the centre narrows only when it's used
     Slot expandedBottom;
-    // A panel's widget on Home (decisions 009, 019): information only, no
-    // buttons (the host leaves them out); a click opens the card. A running
+    // A panel's widget on Home (decisions 009, 019): information, no buttons
+    // in its rows (the host leaves them out); a click opens the card. A running
     // panel's activity can replace it.
     Slot tileLeading; // a square at the widget's left, as tall as it: art, an icon, a ring
     Slot tile;        // the rows beside it
+    // Its controls (decision 163): a fixed column at the widget's right, the
+    // only part of a widget that isn't "open the card". The provider decides
+    // whether there are any; Home leaves them out where the text would be too narrow.
+    TileControls tileControls;
     bool operator==(const Content&) const = default;
 };
 

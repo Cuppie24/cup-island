@@ -131,6 +131,7 @@ Panel pomodoroPanel(const PomodoroPlan& plan, bool windowNew)
         .accent = accentOf(Phase::Focus),
         .tileLeading = { row({ Icon{ Glyph::Timer } }, Align::Center) },
         .tile = { row({ Text{ formatDuration(plan.focus), TextStyle::TileTitle } }), row({ Text{ rounds, TextStyle::Body } }) },
+        .tileControls = { .primary = Button{ .glyph = Glyph::Play, .actionId = act::kStart, .large = true } }, // start, where ⏸ goes (decision 163)
     };
     content = timerCard(std::move(content), { .duration = plan.focus }, phaseSteps(0, false), "Focus", std::to_string(t.pomodoroRounds) + " rounds",
                         { Button{ .glyph = Glyph::Play, .actionId = act::kStart, .compact = true, .primary = true } }, windowNew);
@@ -164,6 +165,10 @@ Content pomodoroContent(const PomodoroSession& s, const PomodoroPlan&, bool wind
         // Same place on Home as the dormant tile, now live (decision 009).
         .tileLeading = { row({ ring }, Align::Center) },
         .tile = { row({ tileLeft }), row({ Text{ glance, TextStyle::Body } }) },
+        // The widget's controls (decision 163): stop · ⏸/▶ · skip, as on the card. Stop asks, over the card.
+        .tileControls = { .before = Button{ .glyph = Glyph::Stop, .actionId = act::kStop, .compact = true },
+                          .primary = Button{ .glyph = pause.glyph, .actionId = act::kPause, .large = true },
+                          .after = Button{ .glyph = Glyph::Next, .actionId = act::kSkip, .compact = true } },
     };
     return timerCard(std::move(content), s.timeline, phaseSteps(phasesDone(s), s.timeline.playing), name, detail, { stop, pause, skip }, windowNew);
 }

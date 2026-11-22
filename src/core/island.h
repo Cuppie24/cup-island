@@ -202,6 +202,7 @@ struct HomeOpened {};                   // Home tab (decision 009)
 struct ActivityOpened {};               // its shortcut (decision 050): the pill's activity's card; again on it, closes
 struct CardCloseRequested { std::string id; }; // its provider is done with it (Host::closeCard, decision 079): closes if shown
 struct TileClicked { std::string id; }; // a Home tile, not on a button: open its card
+struct WidgetActed { std::string id; }; // one of a Home widget's controls was used, just before its action is sent (decision 163)
 struct PanelsSeen { std::map<std::string, int> seen; }; // the app's saved seenPanels, at start (decision 110)
 struct InputFocused {    // a TextInput was clicked, or an edit button (then `text` is what's edited)
     std::string providerId, activityId, actionId;
@@ -250,7 +251,7 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            BubbleClicked, ActivityPromoted, ActivitySwitched,
                            BubbleDragged, BubbleReleased, BubbleDragCancelled,
                            IslandPressed, IslandDragged, IslandReleased, ScreenResized, SpotRestored,
-                           PanelPublished, PanelRemoved, HomeOpened, ActivityOpened, CardCloseRequested, TileClicked, ClockSynced,
+                           PanelPublished, PanelRemoved, HomeOpened, ActivityOpened, CardCloseRequested, TileClicked, WidgetActed, ClockSynced,
                            InputFocused, TextTyped, TextErased, CaretMoved, CaretPlaced, WordSelected, AllSelected,
                            InputSubmitted, InputCancelled,
                            DialogShown, DialogClosed, ToastShown, ToastClosed, MenuOpened, MenuLit, MenuClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,
@@ -278,6 +279,9 @@ struct IslandState {
     std::string expandedId;            // Expanded, showing this activity's card, or a dormant panel's
     bool homeOpen = false;             // Expanded, showing Home (expandedId empty)
     bool cardFromHome = false;         // that card was opened from a Home widget: Esc goes back to Home (decision 033)
+    // The Home widget whose control was just used (decision 163): a question its provider
+    // asks now opens the widget's card. Cleared by the question and by leaving Home.
+    std::string widgetActed;
     Ms lastPointerAt{};
     bool dragging = false;             // an accepted drag is over the island
     bool hidden = false;
