@@ -44,10 +44,47 @@ struct Island {
     }
 };
 
+// Asks for wake-ups the way the media provider does from its reader's posted
+// work: outside any dispatch, nothing on the island changing (decision 163).
+struct WakeAsker : Provider {
+    Host* host = nullptr;
+    int woken = 0;
+    const char* id() const override { return "wake.asker"; }
+    void start(Host& h) override { host = &h; }
+    void stop() override {}
+    void onAction(const Action&) override {}
+    void onWake() override { ++woken; }
+};
+
+void runWakeHookTests()
+{
+    Island island;
+    int armed = 0;
+    island.registry.onWakesChanged([&] { ++armed; });
+    auto asker = std::make_unique<WakeAsker>();
+    WakeAsker* p = asker.get();
+    island.registry.add(std::move(asker));
+    island.registry.start("wake.asker");
+
+    p->host->wakeAt(Ms{ 1500 });
+    expect(armed == 1 && island.registry.nextWake() == Ms{ 1500 },
+           "a wake asked outside a dispatch tells the app at once (media gone: ended without a click)");
+    p->host->wakeAt(Ms{ 1500 });
+    expect(armed == 1, "the same wake again: no re-arm");
+    p->host->wakeAt(std::nullopt);
+    expect(armed == 2 && !island.registry.nextWake(), "cancelling a wake tells the app too");
+
+    p->host->wakeAt(Ms{ 1500 });
+    island.registry.wakeDue(Ms{ 1500 });
+    expect(p->woken == 1 && !island.registry.nextWake(), "the wake comes when due");
+}
+
 } // namespace
 
 void runProviderTests()
 {
+    runWakeHookTests();
+
     Island island;
     island.registry.add(std::make_unique<DemoMediaProvider>());
     island.registry.start("demo");

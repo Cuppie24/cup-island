@@ -76,6 +76,11 @@ public:
     // one timer, and calling onWake() on every provider whose time has come.
     std::optional<Ms> nextWake() const;
     void wakeDue(Ms now);
+    // `changed` runs whenever a provider asks for a different wake-up, so the
+    // app re-arms its timer. A wake asked from posted work (the media
+    // reader's "session gone") changes nothing on the island, so no dispatch
+    // re-armed it: it waited for the next click (decision 163).
+    void onWakesChanged(std::function<void()> changed) { wakesChanged_ = std::move(changed); }
 
 private:
     class Handle; // the Host a provider sees
@@ -99,6 +104,7 @@ private:
     Windows windows_;
     Commands commands_;
     std::function<void()> windowsChanged_;
+    std::function<void()> wakesChanged_;
     void windowsChanged() const
     {
         if (windowsChanged_) windowsChanged_();
