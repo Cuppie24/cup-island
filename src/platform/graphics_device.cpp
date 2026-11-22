@@ -83,12 +83,35 @@ void GraphicsDevice::updateTextParams()
                                          outlineParams_.put());
 }
 
+void GraphicsDevice::recover()
+{
+    // GPU reset or driver update: give Composition a fresh device; all
+    // surfaces lose their pixels, so everything is redrawn.
+    logLine("graphics device lost, recreating");
+    auto deviceInterop = device_.as<abi::ICompositionGraphicsDeviceInterop>();
+    winrt::check_hresult(deviceInterop->SetRenderingDevice(createD2DDevice().get()));
+    ++generation_;
+}
+
 wuc::CompositionDrawingSurface GraphicsDevice::createSurface(Vec2 size)
 {
     winrt::Windows::Foundation::Size pixels{ std::ceil(std::max(size.x, 1.0f)), std::ceil(std::max(size.y, 1.0f)) };
-    return device_.CreateDrawingSurface(pixels,
-        winrt::Windows::Graphics::DirectX::DirectXPixelFormat::B8G8R8A8UIntNormalized,
-        winrt::Windows::Graphics::DirectX::DirectXAlphaMode::Premultiplied);
+    auto create = [&] {
+        return device_.CreateDrawingSurface(pixels,
+            winrt::Windows::Graphics::DirectX::DirectXPixelFormat::B8G8R8A8UIntNormalized,
+            winrt::Windows::Graphics::DirectX::DirectXAlphaMode::Premultiplied);
+    };
+    // Content builds make a surface before drawing on it, so after a GPU
+    // reset this is where the lost device shows first. Only checked in
+    // draw(), every build threw here and the island stayed broken until a
+    // restart (decision 164).
+    try {
+        return create();
+    } catch (winrt::hresult_error const& e) {
+        if (!isDeviceLost(e.code())) throw;
+    }
+    recover();
+    return create();
 }
 
 bool GraphicsDevice::draw(wuc::CompositionDrawingSurface const& surface,
@@ -99,11 +122,7 @@ bool GraphicsDevice::draw(wuc::CompositionDrawingSurface const& surface,
     POINT offset{};
     HRESULT hr = interop->BeginDraw(nullptr, __uuidof(ID2D1DeviceContext), context.put_void(), &offset);
     if (isDeviceLost(hr)) {
-        // GPU reset or driver update: give Composition a fresh device; all
-        // surfaces lose their pixels, so everything is redrawn.
-        logLine("graphics device lost, recreating");
-        auto deviceInterop = device_.as<abi::ICompositionGraphicsDeviceInterop>();
-        winrt::check_hresult(deviceInterop->SetRenderingDevice(createD2DDevice().get()));
+        recover();
         return false;
     }
     winrt::check_hresult(hr);
@@ -119,7 +138,12 @@ bool GraphicsDevice::draw(wuc::CompositionDrawingSurface const& surface,
     if (params) context->SetTextRenderingParams(params);
     context->Clear(D2D1::ColorF(0, 0, 0, 0));
     paint(context.get());
-    winrt::check_hresult(interop->EndDraw());
+    hr = interop->EndDraw();
+    if (isDeviceLost(hr)) { // reset while drawing
+        recover();
+        return false;
+    }
+    winrt::check_hresult(hr);
     return true;
 }
 

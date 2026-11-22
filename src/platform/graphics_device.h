@@ -7,6 +7,7 @@
 #include <d2d1_1.h>
 #include <dwrite.h>
 
+#include <cstdint>
 #include <functional>
 
 namespace cup::platform {
@@ -16,6 +17,8 @@ public:
     // Hardware D3D11, falling back to WARP (software). Throws on failure.
     void create(wuc::Compositor const& compositor);
 
+    // A GPU reset found here rebuilds the device first (decision 164): every
+    // existing surface lost its pixels, which generation() tells the caller.
     wuc::CompositionDrawingSurface createSurface(Vec2 size);
 
     // Clears the surface to transparent, then lets `paint` draw at (0, 0).
@@ -27,8 +30,14 @@ public:
 
     IDWriteFactory* dwrite() const { return dwrite_.get(); }
 
+    // Goes up each time the device is rebuilt after a GPU reset, wherever it
+    // was found: a caller that sees it change redraws every surface it has.
+    std::uint64_t generation() const { return generation_; }
+
 private:
     winrt::com_ptr<ID2D1Device> createD2DDevice();
+    void recover(); // a fresh device for Composition after a GPU reset
+    std::uint64_t generation_ = 0;
 
     winrt::com_ptr<ID2D1Factory1> d2dFactory_;
     winrt::com_ptr<IDWriteFactory> dwrite_;
