@@ -1,6 +1,6 @@
 # 042: No Bluetooth features
 
-Status: Accepted (supersedes the Bluetooth parts of 009 and 039)
+Status: Superseded by 164 (Bluetooth back, read only from Windows' device records). Was: Accepted (supersedes the Bluetooth parts of 009 and 039)
 
 **Context.** Music stuttered while Cup Island ran. The Bluetooth widget
 (Home's connected device and its battery) kept a Windows device watcher over

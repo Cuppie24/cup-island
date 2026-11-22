@@ -84,6 +84,7 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Timer: return L"";
     case Glyph::Stop: return L"\uE71A";
     case Glyph::Home: return L"\uE80F";
+    case Glyph::Bluetooth: return L"\uE702";
     case Glyph::Sun: return L"\uE706";  // Brightness
     case Glyph::Moon: return L"\uE708"; // QuietHours (crescent)
     case Glyph::Copy: return L"\uE8C8";
@@ -322,7 +323,8 @@ std::wstring elidedStart(IDWriteFactory* dw, IDWriteTextFormat* f, const std::ws
 // digits or bright ranges, or plain.
 void paintLine(ID2D1DeviceContext* dc, IDWriteFactory* dw, const Text& text, D2D1_RECT_F rect, std::optional<Color> ink)
 {
-    Color color = ink.value_or(lookOf(text.style).color);
+    // A tone is the text's own colour (a battery's level, decision 164).
+    Color color = text.tone != Tone::Plain ? toneColor(tokens(), text.tone) : ink.value_or(lookOf(text.style).color);
     if (!figures(text.style) && !text.struck && text.wrapped.empty() && !text.brightDigits && text.bright.empty()) {
         drawString(dc, dw, formatOf(dw, text).get(), widen(text.value), rect, color);
         return;

@@ -88,6 +88,8 @@ add_library(cup_providers STATIC
     src/providers/pomodoro/todo_list.cpp
     src/providers/system/settings_window.cpp
     src/providers/system/settings_provider.cpp
+    src/providers/system/bluetooth_panel.cpp
+    src/providers/system/bluetooth_state.cpp
     src/providers/system/system_panels.cpp
     src/providers/system/window_theme.cpp
     src/providers/file_store.cpp
@@ -131,6 +133,7 @@ if(CUP_BUILD_TESTS)
         tests/fullscreen_tests.cpp
         tests/home_tests.cpp
         tests/widget_controls_tests.cpp
+        tests/bluetooth_tests.cpp
         tests/indexer_protocol_tests.cpp
         tests/indexer_query_tests.cpp
         tests/indexer_tests.cpp
@@ -273,6 +276,7 @@ if(WIN32)
         src/providers/search/windows_apps.cpp
         src/providers/service_link.cpp
         src/service/index_client.cpp
+        src/providers/system/bluetooth_provider.cpp
         src/providers/system/theme_provider.cpp
         src/providers/update/github.cpp
     )

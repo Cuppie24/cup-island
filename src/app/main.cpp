@@ -64,6 +64,7 @@
 #include "providers/search/windows_apps.h"
 #include "providers/service_host.h"
 #include "providers/service_link.h"
+#include "providers/system/bluetooth_provider.h"
 #include "providers/system/settings_provider.h"
 #include "providers/system/theme_provider.h"
 #include "providers/system/window_theme.h"
@@ -1142,6 +1143,7 @@ int main()
     g_providers->add(std::make_unique<SmtcMediaProvider>(postToUi));
     g_providers->add(std::make_unique<DemoMediaProvider>()); // M key
     g_providers->add(std::make_unique<ThemeProvider>(postToUi));
+    g_providers->add(std::make_unique<BluetoothProvider>(postToUi)); // device records and the radio only (decision 164)
     // Fake statistics on its settings page (decision 061): Debug builds, or any build started under a
     // debugger (Visual Studio's preset dropdown starts on Release, which has a pdb and debugs fine).
     g_providers->add(std::make_unique<PomodoroProvider>(kDemoKeys || IsDebuggerPresent()));
@@ -1276,6 +1278,7 @@ int main()
     g_providers->start("pomodoro");
     g_providers->start(SearchProvider::kId);
     g_providers->start("system.theme");
+    g_providers->start("system.bluetooth");
     g_providers->start("system.settings");
     g_providers->start("system.update");
     g_providers->start(ServiceHost::kId);

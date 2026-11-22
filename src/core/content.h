@@ -23,7 +23,7 @@ using Ms = std::chrono::milliseconds;
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
                    Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre,
                    Minus, Plus, Pin, Pinned, Fire, Chart, ChevronDown, Search, File, Folder, Close, Refresh, Reset,
-                   Palette, Sliders, Expand, Maximize, Restore, Minimize, CloseWindow, Grip, More };
+                   Palette, Sliders, Expand, Maximize, Restore, Minimize, CloseWindow, Grip, More, Bluetooth };
 
 // Display: a big number, the card's centre (a timer). Heading: a group's label over its rows (Settings'
 // "General", "Dark"): small and quiet, since the group's background already sets it apart (decision 090).
@@ -68,6 +68,10 @@ struct Timeline {
     bool operator==(const Timeline&) const = default;
 };
 
+// What a text's colour says (decision 164): Plain is its style's colour; the
+// rest a battery's level, high to low, in colours made for dark or light islands.
+enum class Tone { Plain, Good, Fair, Low };
+
 // --- Items: the leaves a row is made of ------------------------------------
 struct Text {
     std::string value;
@@ -106,6 +110,9 @@ struct Text {
     // other texts do: a file's folder beside its name, so the name stays
     // readable and the path takes the "…" (search, decision 079).
     bool yields = false;
+    // A meaning shown by its colour, the only colour that isn't the theme's
+    // (decision 164): a battery's level. Text only, never a surface.
+    Tone tone = Tone::Plain;
     // Host-filled: `value` with the spaces where its lines break turned into
     // '\n' (same length, so offsets hold). Empty: one line.
     std::string wrapped;

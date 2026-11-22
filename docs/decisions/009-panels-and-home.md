@@ -42,7 +42,7 @@ nothing could be started from the island. The idle pill also showed nothing.
   Home from any card (including a dormant panel's with nothing running).
   Home with nothing running has no strip.
 - **Static widgets.** Some panels have no card, only a tile that shows
-  something (the connected Bluetooth device was one, until decision 042). Their
+  something (the connected Bluetooth device was one, until decision 042; it came back with a card in 164). Their
   tiles don't react to the pointer and a click on them does nothing (it
   doesn't fall through and close Home either). (A battery tile and a clock
   tile were removed in decision 019.)

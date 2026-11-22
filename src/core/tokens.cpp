@@ -51,6 +51,18 @@ float glowFade(const Tokens& t, float up)
     return std::pow(1.0f - std::clamp(up, 0.0f, 1.0f), std::max(t.glassGlowCurve, 0.0f));
 }
 
+Color toneColor(const Tokens& t, Tone tone)
+{
+    bool light = pale(t.islandColor);
+    switch (tone) {
+    case Tone::Good: return light ? t.toneGoodLightColor : t.toneGoodColor;
+    case Tone::Fair: return light ? t.toneFairLightColor : t.toneFairColor;
+    case Tone::Low: return light ? t.toneLowLightColor : t.toneLowColor;
+    case Tone::Plain: break;
+    }
+    return t.bodyTextColor;
+}
+
 bool pale(Color c)
 {
     return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b > 127.5f;

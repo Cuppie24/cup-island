@@ -519,6 +519,16 @@ struct Tokens {
     Color glassLuminosityColor{ 28, 28, 28, 245 };
     Color pomodoroFocusColor{ 255, 99, 71 };       // accents (decision 010)
     Color pomodoroBreakColor{ 52, 199, 89 };
+    // A battery's level as its text's colour (Text::tone, decision 164), on a
+    // dark island and on a light one (pale islandColor), where the dark set is too faint.
+    Color toneGoodColor{ 52, 199, 89 };
+    Color toneFairColor{ 255, 200, 61 };
+    Color toneLowColor{ 255, 69, 58 };
+    Color toneGoodLightColor{ 26, 158, 75 };
+    Color toneFairLightColor{ 169, 116, 0 };
+    Color toneLowLightColor{ 215, 0, 21 };
+    std::size_t batteryGoodLevel = 70; // above this: Good; above batteryLowLevel: Fair; else Low (decision 164)
+    std::size_t batteryLowLevel = 20;
 
     // Pomodoro (decision 009): focus rounds with short breaks, a long break after the last round.
     Ms pomodoroFocus{ 1500000 };
@@ -614,6 +624,9 @@ constexpr int kGlowStops = 9;
 // A pale colour: perceived brightness past half. A theme whose island is pale
 // is a light theme (decision 030).
 bool pale(Color color);
+
+// A Tone's colour on the island as it is now: the light set on a pale island (decision 164).
+Color toneColor(const Tokens& t, Tone tone);
 
 // `t` as glass if the user picked it (decision 089), except on a pale island
 // (a light theme, or its cover tint): glass there turns its dark text grey on

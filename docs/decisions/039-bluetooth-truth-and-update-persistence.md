@@ -1,6 +1,6 @@
 # 039: Who says a Bluetooth device is connected; an update offer survives a restart
 
-Status: Accepted; the Bluetooth part superseded by 042 (Bluetooth removed)
+Status: Accepted; the Bluetooth part superseded by 042 (Bluetooth removed), then by 164 (device records only)
 
 **Context.** Two things the island showed outlived what they described:
 - The Bluetooth widget kept a device after it disconnected, even after
