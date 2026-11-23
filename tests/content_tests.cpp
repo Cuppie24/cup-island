@@ -30,6 +30,8 @@ IslandState expandedWith(const Content& content)
 
 void runContentTests()
 {
+    // A search card's field is solid under its box on the island (decision 176); an ordinary field isn't.
+    expect(solidBacked(TextInput{ .large = true }) && !solidBacked(TextInput{}), "a search card's field covers the glow under it; a plain field doesn't");
     // A button lights only over its shape; a click takes all of its area (decision 130).
     Placed expand{ .key = "expandedCenter/0/0", .item = Button{ .glyph = Glyph::Expand, .actionId = "open", .compact = true },
                    .frame = { 100, 10, 32, 32 }, .hitFrame = { 90, 0, 60, 52 } };
