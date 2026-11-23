@@ -53,8 +53,7 @@ void widgetAndThemes()
     const Panel& widget = sh.published.back();
     expect(widget.id == SettingsProvider::kPanelId && widget.tapAction == P::kOpenWindow && !hasCard(widget.content) && !sh.window,
            "settings: a panel whose tap opens the window; no card of its own (decision 104)");
-    expect(widget.rowButton == Glyph::Settings && widget.content.tile.empty() && widget.content.tileLeading.empty(),
-           "settings: a gear in the page row, not a Home widget (decision 113)");
+    expect(widget.rowButton == Glyph::Settings && widget.rowSpot == Panel::RowSpot::Corner, "settings: a gear in the page row's right corner (decision 113)");
     expect(applied == "Lime" && saves == 0, "settings: the saved theme applies at start");
 
     settings.onAction({ "system.settings", SettingsProvider::kPanelId, P::kOpenWindow, 0 });

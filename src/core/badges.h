@@ -1,7 +1,7 @@
 #pragma once
 // Notification badges (decision 038): a dot on whatever has something new,
 // so the way to it is marked. Providers set the flags: Content::badge (its
-// widget on Home, its tab) and Button::badge (one button on a card). Where
+// icon or button in the page row) and Button::badge (one button on a card). Where
 // each dot goes is decided here, once, for every kind of element; the
 // renderer draws them all alike.
 

@@ -3,14 +3,14 @@
 // The loop: input -> reduce() -> layout() -> renderer + interaction layer.
 // Tuning: edit assets/tokens.json while it runs; saving applies it live.
 //
-// The idle pill shows the time; clicking it opens Home (decisions 009, 019):
-// the media and Pomodoro widgets, then theme and Settings (the
-// app theme, display, Start with Windows and Copy logs, decisions 022, 030). Press and hold the pill to lift it
+// The idle pill shows the time; clicking it opens the first page's card, with
+// the page row over it (decisions 165, 170): media and Pomodoro's icons,
+// Search, the theme switch and Settings. Press and hold the pill to lift it
 // and move it along the top edge (decision 026).
 //
-// Keys (decision 031): Ctrl+Q opens Home from anywhere (system-wide, off
+// Keys (decision 031): Ctrl+Q opens the island from anywhere (system-wide, off
 // while a fullscreen app hides the island, changeable in Settings, decision 032). On the island, the arrows move
-// between a card's controls and Home's widgets, Enter or Space clicks.
+// between a card's controls, Enter or Space clicks.
 // Demo keys:
 //   M  toggle the demo music player (real media shows by itself)
 //   T  toggle a second activity (Split). Click the bubble to open it, or drag
@@ -222,17 +222,13 @@ void updateHover(app::Surface& s)
     s.renderer->setHoveredRow(at ? rowAt(s.scene, *at) : std::string()); // reveals a to-do's delete button, the plan's − and + (decision 063)
 
     // Tabs light up as a whole, except the active one, which is already marked (decision 007).
-    // Home's tiles too, unless the pointer is on one of their buttons (decision 009).
     const Tab* tab = s.scene.tabs && at && !onTop ? tabAt(*s.scene.tabs, *at) : nullptr;
     if (tab && isCurrent(s, *tab)) tab = nullptr;
     s.renderer->setHoveredTab(tab ? std::optional<std::string>(tab->id) : std::nullopt); // its grey content in colour (decision 072)
-    const Tile* tile = at && key.empty() && !onTop ? tileAt(s.scene, *at) : nullptr;
-    if (tile && !tile->clickable()) tile = nullptr; // widgets without a card or tap action don't react
     // A list item (a to-do) lights up as a whole row, like a tab (Row::listItem).
     bool onMenu = at && s.scene.menu && s.scene.menu->frame.contains(*at); // a row's menu covers what's under it (decision 086)
     const Placed* item = at && !s.pointer.scrub && !onMenu ? contentUnder(s, *at) : nullptr;
     if (tab) s.renderer->setAreaHovered(tab->lit, tab->radius); // a page-row button's shape
-    else if (tile) s.renderer->setAreaHovered(tile->frame, s.scene.tileRadius);
     else if (item && item->listRow) s.renderer->setAreaHovered(item->listRow, item->listRowRadius);
     else if (auto lit = &s == &g_island && escapeCloses(g_state) && !app::keyFocus() ? defaultRow(s.scene) : std::nullopt)
         s.renderer->setAreaHovered(lit->frame, lit->radius); // typing in search: the row Enter opens (decision 079)
@@ -263,13 +259,6 @@ void armDeadline(Ms t)
 
 void saveSpot();
 
-// Each announced panel's announcement last opened (decision 110): in the
-// store under the island's own name, "<id> <n>" a line, so a widget's "New"
-// stays gone after a restart until its provider announces it again.
-constexpr const char* kIslandStore = "island";
-constexpr const char* kSeenPanelsKey = "seenPanels";
-std::map<std::string, int> loadSeenPanels();
-void saveSeenPanels(const std::map<std::string, int>& seen);
 void onLifted();
 void tokensChanged(Vec2 oldCanvas, const char* reason);
 
@@ -289,9 +278,7 @@ void dispatch(const Event& event, const char* reason)
     bool wasHidden = g_state.hidden;
     std::optional<ShownCard> wasCard = shownCard(g_state);
     std::optional<Draft> wasDraft = g_state.draft;
-    std::map<std::string, int> wasSeen = g_state.seenPanels; // a few entries: cheap to compare
     g_state = reduce(g_state, event, t);
-    if (g_state.seenPanels != wasSeen) saveSeenPanels(g_state.seenPanels);
     Scene next = layout(g_state, t, [](const Text& text) { return g_renderer.measure(text); });
     // A bar being dragged: its times show where the pointer is, not where playback is (decision 167).
     if (g_island.pointer.scrub) next = scrubbedTimes(std::move(next), g_island.pointer.scrub->key, g_island.pointer.scrubFraction);
@@ -496,12 +483,6 @@ void onPressDown(app::Surface& s, Vec2 canvasPoint)
         pressField(s, *element, canvasPoint, point);
         return;
     }
-    if (const Tile* tile = element ? nullptr : tileAt(s.scene, point)) {
-        // Opens its card on release, if still on the same tile. A widget with no
-        // card takes the click too, so it doesn't fall through and close Home.
-        s.pointer.tilePress = tile->id;
-        return;
-    }
     if (element && std::holds_alternative<Progress>(element->item)) {
         s.pointer.scrub = *element;
         s.pointer.scrubFraction = hit->action.value;
@@ -573,28 +554,17 @@ void onPointerMoved(app::Surface& s, Vec2 canvasPoint, bool inside)
 // What a click does, by what it's on. The pointer's release and the keyboard's Enter share them.
 void clickTab(const std::string& id)
 {
-    if (id == kHomeTab) return clickTab(""); // Home's button: the one way to Home (decision 115)
-    if (id.rfind(kPanelButtonTab, 0) == 0) { // a panel's button (decision 113): its tap action, like its tile's
+    if (id.rfind(kPanelButtonTab, 0) == 0) { // a panel's button (decision 113): its tap action, or its card
         const Panel* panel = findPanel(g_state, id.substr(std::string(kPanelButtonTab).size()));
         if (panel && !panel->tapAction.empty()) {
             g_providers->route({ panel->providerId, panel->id, panel->tapAction, 0 });
             dispatch(PointerMoved{}, "page row button"); // the user is busy here: keep the card open
         } else if (panel) {
-            dispatch(TileClicked{ panel->id }, "page row button"); // no tap action: its card (Search, decision 165)
+            dispatch(CardOpened{ panel->id }, "page row button"); // no tap action: its card (Search, decision 165)
         }
         return;
     }
-    dispatch(id.empty() ? Event{ HomeOpened{} } : Event{ ActivitySwitched{ id } }, "tab"); // a page's icon: its card, running or not (decision 165)
-}
-
-void clickTile(const Tile& tile)
-{
-    if (!tile.tapAction.empty()) {
-        g_providers->route({ tile.providerId, tile.id, tile.tapAction, 0 }); // a toggle: no card
-        dispatch(PointerMoved{}, "tile action");                              // the user is busy here: keep Home open
-    } else if (tile.opens) {
-        dispatch(TileClicked{ tile.id }, "tile");
-    }
+    dispatch(ActivitySwitched{ id }, "tab"); // a page's icon: its card, running or not (decision 165)
 }
 
 // `at`: where a click was (pill coordinates); none for Enter or Space.
@@ -648,12 +618,6 @@ void onPressRelease(app::Surface& s, Vec2 canvasPoint, Release how)
         std::string id = *std::exchange(s.pointer.tabPress, std::nullopt);
         const Tab* tab = how == Release::Inside && onShape(s, canvasPoint) ? tabUnder(s, toLocal(s, canvasPoint)) : nullptr;
         if (tab && tab->id == id && !isCurrent(s, *tab)) clickTab(id);
-        return;
-    }
-    if (s.pointer.tilePress) {
-        std::string id = *std::exchange(s.pointer.tilePress, std::nullopt);
-        const Tile* tile = how == Release::Inside && onShape(s, canvasPoint) ? tileAt(s.scene, toLocal(s, canvasPoint)) : nullptr;
-        if (tile && tile->id == id) clickTile(*tile);
         return;
     }
     if (s.pointer.bubblePress) {
@@ -812,12 +776,11 @@ void onKey(WPARAM key)
     }
     // Alt combinations (WM_SYSKEYDOWN) are only for recording a shortcut; Windows handles the rest (not Alt+F4: decision 049).
     if (alt) return;
-    if (app::navigationKey(key)) return; // the arrows, Tab, Home/End, 1 to 9, Enter and Space (decisions 031, 033)
+    if (app::navigationKey(key)) return; // the arrows, Tab, Home/End, Enter and Space (decisions 031, 033)
     switch (key) {
     case VK_ESCAPE: {
         // One step back, never out of the app: quitting is the tray's Exit. A
-        // card's own page goes back to its list, a card opened from Home back
-        // to Home, anything else closes (decision 033).
+        // card's own page goes back to its list, anything else closes (decision 033).
         if (mode(g_state) != Mode::Expanded) return;
         std::string back = backAction(g_state);
         if (auto card = shownCard(g_state); card && !back.empty()) act({ card->providerId, card->activityId, back });
@@ -826,7 +789,7 @@ void onKey(WPARAM key)
     }
     }
     // Ctrl+W: asks the shown activity's provider to close it, which may end
-    // it, ask first or ignore it (decision 034). Home and a dormant card have
+    // it, ask first or ignore it (decision 034). A dormant card has
     // no activity to close.
     if (ctrl && key == 'W') {
         auto card = shownActivity(g_state);
@@ -877,28 +840,6 @@ void onLifted()
 }
 
 // Where the island rests on this monitor, kept for the next start (decision 026).
-std::map<std::string, int> loadSeenPanels()
-{
-    std::map<std::string, int> seen;
-    std::istringstream lines(store().load(kIslandStore, kSeenPanelsKey));
-    for (std::string line; std::getline(lines, line);) {
-        std::istringstream fields(line);
-        std::string id;
-        int announce = 1; // a bare id: the first announcement
-        if (!(fields >> id)) continue;
-        fields >> announce;
-        seen[id] = std::max(announce, 1);
-    }
-    return seen;
-}
-
-void saveSeenPanels(const std::map<std::string, int>& seen)
-{
-    std::string text;
-    for (const auto& [id, announce] : seen) text += id + " " + std::to_string(announce) + "\n";
-    store().save(kIslandStore, kSeenPanelsKey, text);
-}
-
 void saveSpot()
 {
     auto it = g_spots.find(g_displayId);
@@ -1054,7 +995,6 @@ int main()
     g_spots = parseSpots(readTextFile(g_spotsFile));
     g_state = reduce(g_state, ScreenResized{ static_cast<float>(render.width) }, now());
     g_state = reduce(g_state, SpotRestored{ savedSpot(g_displayId) }, now());
-    g_state = reduce(g_state, PanelsSeen{ loadSeenPanels() }, now()); // before the providers publish their widgets (decision 110)
     g_island.scene = layout(g_state, now());
     g_island.renderer = &g_renderer;
     g_renderer.setWindow(render.hwnd); // liquid glass captures its monitor (decision 165)
@@ -1093,8 +1033,8 @@ int main()
         applyWindowTheme(); // light or dark mode, as Windows' apps are (decision 150)
     };
     callbacks.onShowRequested = [] {
-        logLine("launched again: opening Home");
-        dispatch(HomeOpened{}, "launched again");
+        logLine("launched again: opening the island");
+        dispatch(IslandOpened{}, "launched again");
     };
 
     Rect bounds = interactiveBounds(g_island.scene);
@@ -1211,7 +1151,6 @@ int main()
         .scene = []() -> const Scene& { return g_island.scene; },
         .dispatch = dispatch,
         .clickTab = clickTab,
-        .clickTile = clickTile,
         .clickElement = [](const Hit& hit) {
             app::Surface& s = g_island;
             s.renderer->pressElement(hit.key); // the same squash a click gives
@@ -1281,8 +1220,7 @@ int main()
     }));
     g_providers->grant(SearchProvider::kId, "index");
     g_providers->grant(SearchProvider::kId, ProviderRegistry::kCommandsGrant); // providers' commands among its results (decision 160)
-    // Home's widgets follow the order panels first appear: media and Pomodoro
-    // first (decision 019), then the system tiles.
+    // The page row's icons follow the order panels first appear: media, then Pomodoro (decision 165).
     g_providers->start("media");
     g_providers->start("pomodoro");
     g_providers->start(SearchProvider::kId);

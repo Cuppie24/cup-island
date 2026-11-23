@@ -26,12 +26,6 @@ Content nowPlayingContent(const NowPlaying& m)
     // The alert is a short banner, not a card: the dense Title like every other alert (design rules).
     c.alertCenter = { row({ Text{ .value = m.title, .style = TextStyle::Title, .marquee = true } }), row({ artist }) };
 
-    // Home's widget (decision 019): the art on the left, the title (swimming
-    // when long) with the bars, the artist under it; a widget's sizes (decisions 111, 114).
-    c.tileLeading = { row({ art }) };
-    c.tile = { Row{ .items = { Text{ .value = m.title, .style = TextStyle::TileTitle, .marquee = true } }, .trailing = { Waveform{ playing } } },
-               row({ Text{ m.artist.empty() ? m.source : m.artist, TextStyle::Body } }) };
-
     // Like iOS: the big art opens the app that's playing (only expanded; elsewhere a click expands).
     c.expandedLeading = { row({ Image{ m.art, m.canOpenSource ? act::kOpenSource : "" } }) };
     c.expandedCenter = { row({ title }), row({ artist }) };
@@ -70,8 +64,6 @@ Content nowPlayingContent(const NowPlaying& m)
 Content nothingPlayingContent()
 {
     Content c{ .label = "Nothing playing", .card = CardLayout::Centred };
-    c.tileLeading = { row({ Icon{ Glyph::Music } }, Align::Center) };
-    c.tile = { row({ Text{ "Not playing", TextStyle::TileTitle } }), row({ Text{ "Play in any app", TextStyle::Body } }) };
     c.expandedCenter = { row({ Icon{ Glyph::Music } }, Align::Center),
                          row({ Text{ .value = "Nothing playing", .style = TextStyle::Title, .centred = true } }),
                          row({ Text{ .value = "Music and videos from any app show here", .style = TextStyle::Caption, .centred = true } }) };

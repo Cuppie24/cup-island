@@ -9,10 +9,8 @@
 //            click  outside  esc  pointer  drag-enter  drag-rejected
 //            drag-leave  drop  hide  show  wait <ms>  top-click (the expanded top band, decision 108)
 //            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel
-//            panel <id> [static|keep|awake|field|menu|menu=changed|new|button]  unpanel <id>  home  tile <id>  (static: a widget with no card;
+//            panel <id> [static|keep|awake|field|menu|menu=changed|button]  unpanel <id>  open-island  card <id>  (static: a panel with no card;
 //                                                                     button: a page-row button, not a widget, decision 113;
-//                                                                     new / new2: announced (1 or 2), "New" until its card opens, decision 110;
-//            seen <id>[:<n>]...  (the app's saved announcements opened, decision 110; n defaults to 1)
 //                                                                     field: a card that is its field "go", decision 079;
 //                                                                     menu: field, then rows 1 and 2 with menus Open, Run (dim), Reveal;
 //                                                                     menu=changed: the same rows, other items;
@@ -40,12 +38,12 @@
 //            pick <card> <list> <row> <y>  carry <y>  put-down
 //            screen <width>  hold  move <dx>  let-go  restore <dock> [fraction]      (lifting the island, decision 026)
 // Checks after "->":  <Mode>  queue=<n>  top=<activity>  bubble=<activity>  alert=<name>
-//                     expanded=<activity|panel|home>  pinned=<activity>  dragging=yes|no  preview=yes|no
+//                     expanded=<activity|panel|none>  pinned=<activity>  dragging=yes|no  preview=yes|no
 //                     draft=<text>|empty|none  (_ for a space)  dialog=<card>|none
 //                     caret=<byte offset>  selected=<text>|none  (_ for a space)
 //                     lifted=yes|no  spot=centre|left|right|free  stay=yes|no  tabs=top|bottom
 //                     scroll=<card>/<list>:<offset>[+reveal]  carried=<row>|none  squash=yes|no (a press on empty space, decision 071)
-//                     toast=<card>|none  new=<panel>,<panel>|none (widgets saying "New", decision 110)
+//                     toast=<card>|none
 //                     menu=<card>/<row>|none  lit=<item>|none   (the island's open menu, and its lit item)
 //                     windows=<provider/id,...>|none  front=<provider/id>|none  page=<provider/id>:<page>  opened=<result>
 //                     commands=<provider/id,...>|none  ran=<run-command result>
@@ -205,7 +203,6 @@ struct Runner {
             if (arg(2) == "button") p.rowButton = Glyph::Settings, p.tapAction = "open"; // a page-row button, decision 113
             p.content.keepOpen = arg(2) == "keep" || arg(2) == "awake";
             p.content.noIdleTimeout = arg(2) == "awake";
-            p.announce = arg(2) == "new" ? 1 : arg(2) == "new2" ? 2 : 0;
             if (arg(2) == "field" || arg(2).rfind("menu", 0) == 0) {
                 p.content.expandedCenter = { row({ TextInput{ .actionId = "go" } }) };
                 p.content.fieldFirst = "go";
@@ -219,17 +216,9 @@ struct Runner {
             apply(PanelPublished{ p });
         }
         else if (cmd == "unpanel") apply(PanelRemoved{ arg(1) });
-        else if (cmd == "seen") {
-            PanelsSeen seen;
-            for (std::size_t i = 1; i < w.size(); ++i) {
-                std::size_t colon = w[i].find(':');
-                seen.seen[w[i].substr(0, colon)] = colon == std::string::npos ? 1 : std::stoi(w[i].substr(colon + 1));
-            }
-            apply(seen);
-        }
-        else if (cmd == "home") apply(HomeOpened{});
+        else if (cmd == "open-island") apply(IslandOpened{});
         else if (cmd == "open-activity") apply(ActivityOpened{});
-        else if (cmd == "tile") apply(TileClicked{ arg(1) });
+        else if (cmd == "card") apply(CardOpened{ arg(1) });
         else if (cmd == "focus") {
             auto max = option(arg(3), "max");
             apply(InputFocused{ "p", arg(1), arg(2), "", false, max ? std::nullopt : at(3), max ? std::stoul(*max) : 0 });
@@ -402,12 +391,6 @@ struct Runner {
             } else if (auto v = option(word, "tabs")) {
                 std::string got = state.tabsOnTop ? "top" : "bottom";
                 if (got != *v) fail("tabs=" + *v + ", got " + got);
-            } else if (auto v = option(word, "new")) {
-                std::string got;
-                for (const Panel& p : state.panels)
-                    if (isNew(state, p)) got += (got.empty() ? "" : ",") + p.id;
-                if (got.empty()) got = "none";
-                if (got != *v) fail("new=" + *v + ", got " + got);
             } else if (auto v = option(word, "stay")) {
                 std::string got = state.stayOpen ? "yes" : "no";
                 if (got != *v) fail("stay=" + *v + ", got " + got);
@@ -415,7 +398,7 @@ struct Runner {
                 std::string got = state.listDrag ? std::to_string(state.listDrag->row) : "none";
                 if (got != *v) fail("carried=" + *v + ", got " + got);
             } else if (auto v = option(word, "expanded")) {
-                std::string id = state.homeOpen ? "home" : state.expandedId.empty() ? "none" : state.expandedId;
+                std::string id = state.expandedId.empty() ? "none" : state.expandedId;
                 if (id != *v) fail("expanded=" + *v + ", got " + id);
             } else if (word != toString(mode(state))) {
                 fail("expected " + word + ", got " + toString(mode(state)));

@@ -296,7 +296,7 @@ void layoutTests()
         IslandState state;
         state = reduce(state, PanelPublished{ panel }, Ms{ 0 });
         state = reduce(state, PillClicked{}, Ms{ 0 });
-        state = reduce(state, TileClicked{ panel.id }, Ms{ 0 });
+        state = reduce(state, CardOpened{ panel.id }, Ms{ 0 });
         return layout(state, Ms{ 0 });
     };
     auto at = [](const Scene& scene, const std::string& key) -> const Placed* {
@@ -304,7 +304,7 @@ void layoutTests()
             if (p.key == key) return &p;
         return nullptr;
     };
-    Panel tall{ .id = "tall", .content = { .label = "Tall", .card = CardLayout::Centred, .tile = { row({ Text{ "Tall" } }) } } };
+    Panel tall{ .id = "tall", .content = { .label = "Tall", .card = CardLayout::Centred } };
     for (int i = 0; i < 6; ++i) tall.content.expandedCenter.push_back(row({ Text{ "line " + std::to_string(i), TextStyle::Title } }));
     Scene main = shown(tall);
     tall.content.sizedLike = tall.content.expandedCenter;

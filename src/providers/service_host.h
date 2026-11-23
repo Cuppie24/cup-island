@@ -9,11 +9,11 @@
 //     older or other release, it sends service.update, silently.
 //   - call() carries a provider's request over the pipe; "not installed"
 //     is answered at once once that's known.
-//   - still old after serviceUpdateTries requests: a widget says so, with a
+//   - still old after serviceUpdateTries requests: a page-row icon and card say so, with a
 //     Download button for the latest release (its installer updates the
 //     service too), and an alert once per app version.
 // Nothing for a dev build, or without a bundled installer (calls still go
-// through, to a service run by hand). Shows nothing: no widget, no setting.
+// through, to a service run by hand). Shows nothing: no icon, no setting.
 // The pipe, Windows and the installer are the app's (ServiceHostHooks), so
 // this is pure and tested on Linux.
 
@@ -88,7 +88,7 @@ public:
 private:
     void found(const ServiceProbe& probe);
     void log(const std::string& line);
-    void showStuck(const std::string& serviceVersion); // a widget and card with the download (and an alert, once per version)
+    void showStuck(const std::string& serviceVersion); // a page-row icon and card with the download (and an alert, once per version)
 
     ServiceHostHooks hooks_;
     Host* host_ = nullptr;

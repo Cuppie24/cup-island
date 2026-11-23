@@ -7,6 +7,7 @@
 #include "core/hit_test.h"
 #include "core/keyboard.h"
 #include "core/shortcuts.h"
+#include "core/tabs.h"
 #include "core/tokens.h"
 #include "expect.h"
 #include "list_card_fixture.h"
@@ -14,13 +15,13 @@
 namespace cup::test {
 namespace {
 
-// The card open, from Home, as the app shows it.
+// The card open, as the app shows it.
 IslandState opened(const Panel& card)
 {
     IslandState s;
     s = reduce(s, PanelPublished{ card }, Ms{ 0 });
-    s = reduce(s, HomeOpened{}, Ms{ 0 });
-    s = reduce(s, TileClicked{ card.id }, Ms{ 0 });
+    s = reduce(s, PanelPublished{ { .id = "gear", .content = { .label = "Settings" }, .tapAction = "open", .rowButton = Glyph::Settings } }, Ms{ 0 }); // the page row, as in the app
+    s = reduce(s, CardOpened{ card.id }, Ms{ 0 });
     return s;
 }
 Scene cardScene(const Panel& card) { return layout(opened(card), Ms{ 0 }); }
@@ -110,7 +111,7 @@ void runKeyboardTests()
         Scene keys = layout(s, Ms{ 0 });
         auto back = moveFocus(keys, "", Arrow::Down);
         auto edit = moveFocus(keys, back->id, Arrow::Down);
-        expect(clicks(keys, edit) == std::string(P::kEditShortcut) + "0" && edit->list, "keys page: down from the back arrow, Open Home's row, in the list");
+        expect(clicks(keys, edit) == std::string(P::kEditShortcut) + "0" && edit->list, "keys page: down from the back arrow, Open the island's row, in the list");
         auto first = edit;
         edit = moveFocus(keys, edit->id, Arrow::Down);
         expect(clicks(keys, edit) == std::string(P::kEditShortcut) + "1", "keys page: down again, Open the activity's row");
@@ -139,10 +140,10 @@ void runKeyboardTests()
         IslandState s;
         Panel p{ .id = "asks", .content = { .label = "asks", .expandedCenter = { row({ Button{ Glyph::Stop, "stop" } }) } } };
         s = reduce(s, PanelPublished{ p }, Ms{ 0 });
-        s = reduce(s, HomeOpened{}, Ms{ 0 });
-        s = reduce(s, TileClicked{ "asks" }, Ms{ 0 });
+        s = reduce(s, PanelPublished{ { .id = "other", .content = { .label = "other", .expandedCenter = { row({ Text{ "o" } }) } } } }, Ms{ 0 });
+        s = reduce(s, CardOpened{ "asks" }, Ms{ 0 });
         Scene card = layout(s, Ms{ 0 });
-        expect(card.tabs && findFocusable(card, std::string("tab:") + kHomeTab), "dialog: before it, the card's tabs are stops");
+        expect(card.tabs && findFocusable(card, "tab:other"), "dialog: before it, the page row's icons are stops");
         s = reduce(s, DialogShown{ { .activityId = "asks", .title = "Stop?", .confirmLabel = "Stop", .confirmAction = "stop.yes", .destructive = true } }, Ms{ 0 });
         Scene asked = layout(s, Ms{ 0 });
         std::vector<Focusable> stops = focusables(asked);
@@ -154,89 +155,61 @@ void runKeyboardTests()
         expect(!moveFocus(asked, cancel->id, Arrow::Down) && !findFocusable(asked, "tab:"), "dialog: nothing below it, not even the tabs");
     }
 
-    // Home: tiles side by side and in rows.
+    // The page row (decision 165): the icons that aren't the shown page's, left to right, then the corner's button.
     IslandState home;
     for (const char* id : { "a", "b", "c", "d", "e" }) {
-        Panel p{ .id = id, .content = { .label = id, .expandedCenter = { row({ Text{ id } }) }, .tile = { row({ Text{ id } }) } } };
+        Panel p{ .id = id, .content = { .label = id, .expandedCenter = { row({ Text{ id } }) } } };
         home = reduce(home, PanelPublished{ p }, Ms{ 0 });
     }
-    home = reduce(home, HomeOpened{}, Ms{ 0 });
+    home = reduce(home, PanelPublished{ { .id = "gear", .content = { .label = "g" }, .tapAction = "open", .rowButton = Glyph::Settings } }, Ms{ 0 });
+    home = reduce(home, PillClicked{}, Ms{ 0 }); // nothing running: the first page's card (decision 170)
     Scene grid = layout(home, Ms{ 0 });
-    f = moveFocus(grid, "", Arrow::Right);
-    expect(f && f->id == "tile:a", "home: the first press lands on the first tile");
+    expect(grid.activityId == "a" && !findFocusable(grid, "tab:a"), "page row: the shown page's icon isn't a stop");
+    f = firstFocus(grid);
+    expect(f && f->id == "tab:b", "page row: a card with nothing to click: the first press lands on the first other icon");
     f = moveFocus(grid, f->id, Arrow::Right);
-    expect(f && f->id == "tile:b", "home: right, the next tile");
-    auto below = moveFocus(grid, "tile:a", Arrow::Down);
-    expect(below && below->id == "tile:e", "home: down, the tile under it");
-    expect(!moveFocus(grid, "tile:d", Arrow::Right), "home: the end of a row: nothing further right");
-    auto toTab = moveFocus(grid, "tile:e", Arrow::Down);
-    expect(!toTab || toTab->id.rfind("tab:", 0) == 0, "home: below the tiles, only the tabs");
-    expect(tileAt(grid, f->point) && tileAt(grid, f->point)->id == "b", "home: a tile's point is on the tile");
-
-    // Tab goes on in reading order and round; Home and End jump to the ends.
-    expect(nextFocus(grid, "")->id == "tile:a" && nextFocus(grid, "tile:d")->id == "tile:e", "tab: the first, then on into the next row");
+    expect(f && f->id == "tab:c", "page row: right, the next icon");
     auto last = lastFocus(grid);
-    expect(last && firstFocus(grid)->id == "tile:a" && nextFocus(grid, last->id)->id == "tile:a", "tab: after the last, round to the first");
-    expect(previousFocus(grid, "tile:e")->id == "tile:d" && previousFocus(grid, "tile:a")->id == last->id && previousFocus(grid, "")->id == "tile:a",
-           "shift+tab: the one before, round to the last; nothing focused, the first");
-    // 1 to 9: the widgets in publish order.
-    expect(homeWidget(grid, 2) && homeWidget(grid, 2)->id == "tile:b" && homeWidget(grid, 5)->id == "tile:e", "digits: the nth widget");
-    expect(!homeWidget(grid, 6) && !homeWidget(grid, 0), "digits: past the last, nothing");
-
-    // Static widgets (no card, no tap action) are stops too, so
-    // down from a row of cards lands on the row under it, not the one after.
-    IslandState mixed;
-    for (const char* id : { "a", "b", "c", "d", "e", "f", "g", "h", "i" }) {
-        bool card = std::string("abcdi").find(id) != std::string::npos;
-        Panel p{ .id = id, .content = { .label = id, .tile = { row({ Text{ id } }) } } };
-        if (card) p.content.expandedCenter = { row({ Text{ id } }) };
-        mixed = reduce(mixed, PanelPublished{ p }, Ms{ 0 });
-    }
-    mixed = reduce(mixed, HomeOpened{}, Ms{ 0 });
-    Scene rows = layout(mixed, Ms{ 0 });
-    auto onStatic = moveFocus(rows, "tile:b", Arrow::Down);
-    expect(onStatic && onStatic->id == "tile:f", "home: down onto a static widget, not past it");
-    expect(tileAt(rows, onStatic->point) && !tileAt(rows, onStatic->point)->clickable(), "home: ...which a click does nothing with");
-    expect(moveFocus(rows, "tile:f", Arrow::Right)->id == "tile:g" && moveFocus(rows, "tile:f", Arrow::Down)->id == "tile:i",
-           "home: and on from it, along the row and down");
-    expect(onStatic->radius == rows.tileRadius, "home: a tile's ring has the tile's corners");
+    expect(last && last->id == std::string("tab:") + kPanelButtonTab + "gear" && nextFocus(grid, last->id)->id == "tab:b",
+           "tab: the corner's button last, then round to the first");
+    expect(previousFocus(grid, "tab:c")->id == "tab:b" && previousFocus(grid, "tab:b")->id == last->id, "shift+tab: the one before, round to the last");
+    expect(tabAt(*grid.tabs, f->point) && tabAt(*grid.tabs, f->point)->id == "c", "page row: an icon's point is on its button");
 
     // Ctrl+Tab steps through the page row's list, round: panels' cards, running or
     // not, then other activities (decision 165); Ctrl+Shift+Tab the other
-    // way. Home isn't one (decision 115): from it, the first or the last.
+    // way. From a card with no icon in the list, the first or the last.
     IslandState tabbed = reduce(home, ActivityStarted{ { .id = "music", .content = { .label = "music", .expandedCenter = { row({ Text{ "m" } }) } } } }, Ms{ 0 });
     tabbed = reduce(tabbed, ActivityStarted{ { .id = "timer", .content = { .label = "timer", .expandedCenter = { row({ Text{ "t" } }) } } } }, Ms{ 0 });
-    tabbed = reduce(tabbed, HomeOpened{}, Ms{ 0 });
-    Scene onHome = layout(tabbed, Ms{ 0 });
-    expect(nextTab(onHome) == std::optional<std::string>("a"), "ctrl+tab: from Home, the first page: a dormant panel's card");
-    expect(previousTab(onHome) == std::optional<std::string>("timer"), "ctrl+shift+tab: from Home, round to the last activity");
+    Scene onFirst = layout(tabbed, Ms{ 0 });
+    expect(nextTab(onFirst) == std::optional<std::string>("b"), "ctrl+tab: the next page, a dormant panel's card");
+    expect(previousTab(onFirst) == std::optional<std::string>("timer"), "ctrl+shift+tab: from the first, round to the last activity");
     tabbed = reduce(tabbed, ActivitySwitched{ "timer" }, Ms{ 0 });
     Scene onLast = layout(tabbed, Ms{ 0 });
-    expect(nextTab(onLast) == std::optional<std::string>("a"), "ctrl+tab: from the last page, round to the first, not Home");
+    expect(nextTab(onLast) == std::optional<std::string>("a"), "ctrl+tab: from the last page, round to the first");
     expect(previousTab(onLast) == std::optional<std::string>("music"), "ctrl+shift+tab: the one before");
-    expect(!nextTab(list) && !previousTab(list), "ctrl+tab: on a dormant panel's card with nothing running, nowhere: Home is its button");
-    expect(nextTab(grid) == std::optional<std::string>("a") && previousTab(grid) == std::optional<std::string>("e"),
+    expect(!nextTab(list) && !previousTab(list), "ctrl+tab: one page and no page row: nowhere");
+    expect(nextTab(grid) == std::optional<std::string>("b") && previousTab(grid) == std::optional<std::string>("e"),
            "ctrl+tab: nothing running, the panels' cards all the same");
 
     // Shortcuts (decision 032): system-wide, rebindable, saved as text.
-    Chord openHome = chordOf(defaultBindings(), Command::OpenHome);
-    expect(chordText(openHome) == "Ctrl+Q", "shortcuts: Open Home is Ctrl+Q");
+    Chord openHome = chordOf(defaultBindings(), Command::OpenIsland);
+    expect(chordText(openHome) == "Ctrl+Q", "shortcuts: Open the island is Ctrl+Q");
     expect(parseChord("Ctrl+Alt+Space") == Chord{ .key = kSpace, .ctrl = true, .alt = true } && parseChord("ctrl+q") == openHome && parseChord(" ctrl + shift + f5 ") == Chord{ .key = kF1 + 4, .ctrl = true, .shift = true } &&
            parseChord("Win+K") == Chord{ .key = 'K', .win = true }, "shortcuts: the text form reads back");
     expect(!parseChord("Ctrl+Enter") && !parseChord("Hyper+X") && !parseChord("Ctrl+") && !parseChord(""), "shortcuts: anything else isn't a chord");
-    Bindings reloaded = loadBindings(saveBindings({ { Command::OpenHome, { .key = 'H', .ctrl = true, .alt = true } } }));
-    expect(chordText(chordOf(reloaded, Command::OpenHome)) == "Ctrl+Alt+H", "shortcuts: saved and loaded");
+    Bindings reloaded = loadBindings(saveBindings({ { Command::OpenIsland, { .key = 'H', .ctrl = true, .alt = true } } }));
+    expect(chordText(chordOf(reloaded, Command::OpenIsland)) == "Ctrl+Alt+H", "shortcuts: saved and loaded");
     expect(loadBindings("home=Nonsense\nother=Ctrl+Alt+X\n") == defaultBindings() && loadBindings("home=K") == defaultBindings(),
            "shortcuts: what can't be read, or bound, stays the default");
-    expect(bindingProblem(defaultBindings(), Command::OpenHome, { .key = 'K' }) == "A shortcut needs Ctrl, Alt or Win" &&
-           bindingProblem(defaultBindings(), Command::OpenHome, { .key = 'K', .shift = true }) == "A shortcut needs Ctrl, Alt or Win" &&
-           bindingProblem(defaultBindings(), Command::OpenHome, { .key = 'K', .win = true }).empty() &&
-           bindingProblem(defaultBindings(), Command::OpenHome, openHome).empty(),
+    expect(bindingProblem(defaultBindings(), Command::OpenIsland, { .key = 'K' }) == "A shortcut needs Ctrl, Alt or Win" &&
+           bindingProblem(defaultBindings(), Command::OpenIsland, { .key = 'K', .shift = true }) == "A shortcut needs Ctrl, Alt or Win" &&
+           bindingProblem(defaultBindings(), Command::OpenIsland, { .key = 'K', .win = true }).empty() &&
+           bindingProblem(defaultBindings(), Command::OpenIsland, openHome).empty(),
            "shortcuts: system-wide needs Ctrl, Alt or Win; its own keys are no conflict");
-    // Open the activity (decision 050): Ctrl+Alt+Q, and it can't take Open Home's keys, or they its.
+    // Open the activity (decision 050): Ctrl+Alt+Q, and it can't take Open the island's keys, or they its.
     expect(chordText(chordOf(defaultBindings(), Command::OpenActivity)) == "Ctrl+Alt+Q", "shortcuts: Open the activity is Ctrl+Alt+Q");
-    expect(bindingProblem(defaultBindings(), Command::OpenActivity, openHome) == "Ctrl+Q is already Open Home" &&
-           bindingProblem(defaultBindings(), Command::OpenHome, *parseChord("Ctrl+Alt+Q")) == "Ctrl+Alt+Q is already Open the activity",
+    expect(bindingProblem(defaultBindings(), Command::OpenActivity, openHome) == "Ctrl+Q is already Open the island" &&
+           bindingProblem(defaultBindings(), Command::OpenIsland, *parseChord("Ctrl+Alt+Q")) == "Ctrl+Alt+Q is already Open the activity",
            "shortcuts: two commands can't share keys");
     expect(chordText(chordOf(loadBindings("home=Ctrl+Alt+H\n"), Command::OpenActivity)) == "Ctrl+Alt+Q",
            "shortcuts: saved before it existed, Open the activity gets its default");

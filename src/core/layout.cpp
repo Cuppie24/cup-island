@@ -3,7 +3,6 @@
 #include "core/badges.h"
 #include "core/dialog.h"
 #include "core/toast.h"
-#include "core/home.h"
 #include "core/lift.h"
 #include "core/menu.h"
 #include "core/slot_layout.h"
@@ -22,7 +21,7 @@ Source sourceFor(const IslandState& s, Mode mode)
     if (mode == Mode::Alert) return { &s.alert->content, s.alert->providerId, s.alert->activityId };
     if (mode != Mode::Compact && mode != Mode::Split && mode != Mode::Expanded) return {};
     if (mode != Mode::Expanded) return { &s.activities[0].content, s.activities[0].providerId, s.activities[0].id }; // the top one
-    // Expanded shows the card that was opened: an activity's, else a dormant panel's (decision 009). Home has none.
+    // Expanded shows the card that was opened: an activity's, else a dormant panel's (decision 009).
     const Draft* draft = s.draft ? &*s.draft : nullptr; // fills its TextInput (decision 016)
     const ListDrag* drag = s.listDrag ? &*s.listDrag : nullptr; // lists: decision 029
     if (const Activity* a = findActivity(s, s.expandedId)) return { &a->content, a->providerId, a->id, draft, &s.scrolls, drag, &s.keptText };
@@ -187,7 +186,6 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     } else if (scene.mode == Mode::Expanded && source.content) {
         scene.size.y = standardCardHeight(source, scene.size, tokens().canvas.y - tabSpace, measureText);
     }
-    if (scene.mode == Mode::Expanded && state.homeOpen) scene.size.y = homeCardHeight(state, tokens().canvas.y - tabSpace);
     scene.size.y += tabSpace;
     // Where the island rests along the top edge, or lifted under the pointer (decision 026).
     if (isLifted(state)) {
@@ -214,12 +212,6 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     Vec2 contentSize{ scene.size.x, scene.size.y - tabSpace };
     std::size_t contentFrom = scene.elements.size();
     float nestedRadius = std::max(0.0f, pillCornerRadius(scene.size) - paddingFor(scene.mode));
-    if (scene.mode == Mode::Expanded && state.homeOpen) {
-        scene.label = "Home";
-        scene.tileRadius = std::min(nestedRadius, tokens().tileHeight / 2);
-        scene.tiles = homeTilesFor(state, contentSize, scene.tileRadius, now, scene.elements);
-    }
-
     if (source.content) {
         scene.label = source.content->label;
         scene.activityId = source.activityId;
@@ -235,10 +227,7 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
             placeSlot(slot, source, nestedRadius, now, scene.elements, measureText);
     }
     // Laid out as if from the card's top, then moved down under the strip.
-    if (tabSpace > 0 && state.tabsOnTop) { // at the bottom, the strip only adds room under the content
-        moveDown(scene.elements, contentFrom, tabSpace);
-        for (Tile& tile : scene.tiles) tile.frame.y += tabSpace;
-    }
+    if (tabSpace > 0 && state.tabsOnTop) moveDown(scene.elements, contentFrom, tabSpace); // at the bottom, the strip only adds room under the content
     // A toast floats over the card's bottom, above its content, which doesn't move for it (decision 071).
     if (scene.mode == Mode::Expanded && source.content && !dialogOver(state, source.activityId))
         if (const Toast* toast = toastOn(state, source.activityId)) {
@@ -290,13 +279,6 @@ Rect interactiveBounds(const Scene& scene)
     if (scene.bubble) grow(scene.bubble->frame);
     if (scene.menu) grow({ scene.offset.x + scene.menu->frame.x, scene.offset.y + scene.menu->frame.y, scene.menu->frame.width, scene.menu->frame.height }); // decision 086
     return pill;
-}
-
-const Tile* tileAt(const Scene& scene, Vec2 point)
-{
-    for (const Tile& tile : scene.tiles)
-        if (tile.frame.contains(point)) return &tile;
-    return nullptr;
 }
 
 const Text* editedText(const Scene& scene, const std::string& activityId, const std::string& actionId)

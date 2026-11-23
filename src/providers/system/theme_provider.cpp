@@ -46,7 +46,7 @@ void ThemeProvider::start(Host& host)
     if (RegOpenKeyExW(HKEY_CURRENT_USER, kKey, 0, KEY_READ | KEY_NOTIFY, &watch_->key) != ERROR_SUCCESS) {
         watch_->key = nullptr;
         platform::logLine("theme: can't open the Personalize key");
-        return; // no tile: we can't tell or change the mode
+        return; // no button: we can't tell or change the mode
     }
     watch_->changed = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     read();

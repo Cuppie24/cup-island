@@ -66,7 +66,7 @@ struct Tokens {
     Vec2 idleSize{ 160, 28 };
     Vec2 compactSize{ 260, 32 };
     Vec2 alertSize{ 320, 64 };
-    // Every card and Home: the width a to-do's text needs (decisions 043, 047); one height for all,
+    // Every card: the width a to-do's text needs (decisions 043, 047); one height for all,
     // room for the tallest (the timer's), so switching tabs never resizes the island (decision 107).
     Vec2 expandedSize{ 480, 248 };
     Vec2 receptiveSize{ 380, 84 };
@@ -142,7 +142,6 @@ struct Tokens {
     float bodyFontSize = 15;
     float captionFontSize = 13; // the smallest text: ~11 px on screen at 100% after islandScale
     float displayFontSize = 48; // TextStyle::Display: a timer in a dial (decision 065)
-    float tileTitleFontSize = 17; // TextStyle::TileTitle: a Home widget's first line, a little under a card's (decision 114)
     float cardTitleFontSize = 20; // TextStyle::CardTitle: a card's main line beside its cover (media's song, decision 107)
     float heroFontSize = 56;    // TextStyle::Hero: the one big number a card is about (Pomodoro's time, decision 107)
     float heroLineHeight = 52;  // ...its line: digits only, no descenders, so tighter than other text's
@@ -159,7 +158,6 @@ struct Tokens {
     float captionFontWeight = 600;
     float displayFontWeight = 300; // big and still the lightest, like a clock face
     float cardTitleFontWeight = 800;
-    float tileTitleFontWeight = 700;
     float heroFontWeight = 800;    // heavy: the card's timer reads from across the desk (decision 107)
     float headingFontWeight = 600; // a group's label is quiet: its group's background sets it apart (decision 090)
     float pageTitleFontWeight = 800; // heavier: the page's one name (decision 112)
@@ -358,22 +356,17 @@ struct Tokens {
     float glassLiquidShineOpacity = 0.45f;
     float glassLiquidSurfaceShineOpacity = 0.32f;
 
-    // Expanded's page row along the top of the card (decisions 007, 047, 109): a dot per page,
-    // the shown one a line, an arrow on each side of them; Home's button and the pin at the edges.
+    // Expanded's page row along the top of the card (decisions 047, 165): an icon per page,
+    // the shown one lit; panels' buttons in the corners.
     float tabHeight = 32;      // the row: its buttons' height, their hover shapes
     float tabRowInset = 12;    // from the card's edge: just inside the top band (collapseZoneHeight), not the card's padding
     float tabRowGap = 6;       // between the row and the card's content
     float tabIconSize = 32;    // a page's icon in the row's list: its button's square, lit for the shown page (decision 165)
     float tabIconGap = 4;      // ...between two of them, and between the buttons at the row's ends
-    float homeButtonWidth = 44;   // Home's icon-only button, apart at the left (decision 009)
-    float tabMutedOpacity = 0.5f; // a page-row icon not shown, Home's included: grey and this strong until hovered (decision 072)
+    float rowButtonWidth = 44;    // a panel's button at one of the row's ends (Settings, Search; decision 113)
+    float tabMutedOpacity = 0.5f; // a page-row icon not shown: grey and this strong until hovered (decision 072)
 
-    // Home: a grid of panel tiles in the Expanded card (decision 009).
-    std::size_t homeColumns = 4;  // columns' worth per Home row; a widget takes one, or two (Panel::wide); rows stretch to full width
-    float tileHeight = 64;        // fits a TileTitle and a Body line inside tilePadding (decisions 111, 114)
-    float tileGap = 10;
-    float tilePadding = 8;        // inside a tile, on every side
-    float tileIconSize = 20;      // a widget's leading icon (Icon::large, decisions 111, 114)
+    float largeIconSize = 20;     // Icon::large: the icon over a window's question
     float focusRingWidth = 2;     // the keyboard's focus ring (decision 033), drawn inside what has focus
 
     // Smaller transitions: the ears and corners folding, a lift sinking, a
@@ -547,8 +540,8 @@ struct Tokens {
     Color stepDoneColor{ 255, 255, 255, 191 };
     Color stepTodoColor{ 255, 255, 255, 51 };
     Color tabSelectedColor{ 255, 255, 255, 41 };
-    Color hoverColor{ 255, 255, 255, 20 };         // a tab or tile under the pointer
-    Color tileColor{ 255, 255, 255, 20 };          // Home's tile backgrounds, always shown (tabs have none, decision 072); a window's groups
+    Color hoverColor{ 255, 255, 255, 20 };         // a page-row button or a list row under the pointer
+    Color tileColor{ 255, 255, 255, 20 };          // grouped rows' background (decision 090); a window's groups
     Color windowPaneColor{ 255, 255, 255, 8 };     // a window's page pane, over islandColor (its sidebar's): a shade lighter (decision 104)
     Color focusRingColor{ 255, 255, 255, 153 };    // around what the keyboard has focus on (decision 033): a theme's accent
     Color inputColor{ 255, 255, 255, 26 };         // a text field's background (decision 016)

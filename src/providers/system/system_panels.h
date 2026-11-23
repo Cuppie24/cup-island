@@ -1,5 +1,5 @@
 #pragma once
-// Home's system widget (decision 009): the theme toggle. The presenter turns
+// The page row's system button (decision 165): the theme toggle. The presenter turns
 // plain readings into a panel: no WinRT here, so every rule is tested on
 // Linux; the Windows provider only reads and feeds readings in. It publishes
 // only on change, and removes the panel when there's nothing to show.
@@ -11,14 +11,14 @@
 
 namespace cup {
 
-// Windows' light/dark mode (apps and system together), as a toggle tile
-// and a command that does what the tile's tap does.
+// Windows' light/dark mode (apps and system together), as a toggle button
+// and a command that does what the button's tap does.
 class ThemePresenter {
 public:
     explicit ThemePresenter(Host& host) : host_(host) {}
-    void show(std::optional<bool> dark); // nullopt = can't tell (no such setting): no tile
+    void show(std::optional<bool> dark); // nullopt = can't tell (no such setting): no button
     static constexpr const char* kPanelId = "system.theme";
-    static constexpr const char* kToggle = "toggle"; // the tile's tap action
+    static constexpr const char* kToggle = "toggle"; // the button's tap action
 
 private:
     Host& host_;

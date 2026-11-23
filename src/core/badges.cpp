@@ -23,13 +23,10 @@ Vec2 inCorner(const Rect& r, float cornerRadius)
 std::vector<Vec2> badgeCentres(const Scene& scene, bool accent)
 {
     std::vector<Vec2> dots;
-    for (const Tile& tile : scene.tiles)
-        if (tile.badge && tile.accent == accent) dots.push_back(inCorner(tile.frame, scene.tileRadius));
     if (scene.tabs) { // every button of the page row: in its corner (decisions 113, 165)
         for (const Tab& tab : scene.tabs->tabs)
             if (tab.badge && tab.accent == accent) dots.push_back(inCorner(tab.frame, tab.radius));
-        if (scene.tabs->home && scene.tabs->home->badge && scene.tabs->home->accent == accent) dots.push_back(inCorner(scene.tabs->home->frame, scene.tabs->radius));
-        for (const Tab& button : scene.tabs->buttons) // a panel's button (decision 113): as Home's
+        for (const Tab& button : scene.tabs->buttons) // a panel's button (decision 113)
             if (button.badge && button.accent == accent) dots.push_back(inCorner(button.frame, scene.tabs->radius));
     }
     if (accent) return dots; // a button on a card: always red

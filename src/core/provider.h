@@ -50,7 +50,7 @@ public:
     virtual void postAlert(Alert alert) = 0;
     virtual Ms now() const = 0; // same clock as Timeline::anchoredAt and expiresAt
 
-    // Always-available entries on Home (decision 009). Start an activity with
+    // Always-available entries in the page row (decisions 009, 165). Start an activity with
     // the panel's id to make it live; end it to make the panel dormant again.
     virtual void publishPanel(Panel panel) = 0; // creates, or replaces one with the same id
     virtual void removePanel(const std::string& panelId) = 0;
@@ -135,7 +135,7 @@ public:
     virtual void stop() = 0;
     virtual void onAction(const Action& action) = 0;
     virtual void onWake() {} // the time asked for with Host::wakeAt() has come
-    // Its card stopped being shown (closed, or Home or another card took its
+    // Its card stopped being shown (closed, or another card took its
     // place). A card with pages within it goes back to its first (Settings).
     virtual void onCardClosed(const std::string& /*activityId*/) {}
     // Its card started being shown: what's on it is in front of the user now

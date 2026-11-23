@@ -1,6 +1,6 @@
 # 009: Panels, Home and the idle clock
 
-Status: Accepted
+Status: Accepted for panels and the idle clock; Home is superseded by 170 (no Home: cards are reached from the page row)
 
 **Context.** Built-ins like Pomodoro, calendar and battery should always be
 reachable, even when nothing is running, without sitting in the pill or the

@@ -21,9 +21,9 @@ std::vector<Page> pagesOf(const IslandState& s)
 {
     std::vector<Page> pages;
     for (const Panel& panel : s.panels) {
-        if (panel.rowButton) continue; // a button of its own, beside Home's or in the corner
+        if (panel.rowButton) continue; // a button of its own, at one of the row's ends
         const Activity* live = findActivity(s, panel.id);
-        if (!live && (!panel.tapAction.empty() || !hasCard(panel.content))) continue; // a toggle or a static widget: no card to show
+        if (!live && !isPage(panel)) continue; // a toggle, or nothing to show: no card
         const Content& shows = live ? live->content : panel.content;
         pages.push_back({ panel.id, panel.icon.value_or(Glyph::Source), shows.badge || shows.badgeAccent, shows.badgeAccent });
     }
@@ -35,7 +35,7 @@ std::vector<Page> pagesOf(const IslandState& s)
     return pages;
 }
 
-// Somewhere else to go: Home (with widgets, by its button), or another page.
+// Somewhere else to go: another page, or a panel's button (Settings, Search).
 bool hasTabs(const IslandState& s)
 {
     if (mode(s) != Mode::Expanded) return false;
@@ -43,7 +43,8 @@ bool hasTabs(const IslandState& s)
         const Content* c = cardContent(s, card->activityId);
         if (c && c->hidesTabs) return false;
     }
-    return hasWidgets(s) || pagesOf(s).size() > 1;
+    bool buttons = std::any_of(s.panels.begin(), s.panels.end(), [](const Panel& p) { return p.rowButton.has_value(); });
+    return buttons || pagesOf(s).size() > 1;
 }
 
 // A button's glyph, centred in its square. Keys carry what it is, so it stays
@@ -82,20 +83,13 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
     auto button = [&](const std::string& id, Rect frame, float reachLeft, float reachRight) {
         return Tab{ frame, { frame.x - reachLeft, top, frame.width + reachLeft + reachRight, bottom - top }, id, false, frame, strip.radius };
     };
-    float w = t.homeButtonWidth, between = t.tabIconGap;
+    float w = t.rowButtonWidth, between = t.tabIconGap;
     float left = p, right = cardSize.x - p; // what the edges' buttons leave for the list
 
-    // Home's button at the left edge, its click area taking in the card's
-    // corner (decision 009). Lit while Home is shown, grey otherwise.
-    if (hasWidgets(s)) {
-        Rect frame{ left, y, w, h };
-        strip.home = button(kHomeTab, frame, p, between / 2);
-        placeGlyph("home", kHomeTab, Glyph::Home, frame, !s.homeOpen, elements);
-        left += w + between;
-    }
     // Panels' buttons (decisions 113, 165), grey until hovered: the corner's
     // from the right edge (Settings), then those beside them (the theme
-    // switch); beside Home's, from the left (Search).
+    // switch); the left corner's from the left edge (Search). A corner's
+    // click area takes in the card's corner.
     auto panelButton = [&](const Panel& panel, Rect frame, float reachLeft, float reachRight) {
         const Activity* live = findActivity(s, panel.id);
         std::string id = kPanelButtonTab + panel.id;
@@ -113,7 +107,7 @@ std::optional<TabStrip> tabStripFor(const IslandState& s, Vec2 cardSize, float n
             right -= w + between;
         }
     for (const Panel& panel : s.panels) {
-        if (!panel.rowButton || panel.rowSpot != Panel::RowSpot::BesideHome) continue;
+        if (!panel.rowButton || panel.rowSpot != Panel::RowSpot::LeftCorner) continue;
         bool corner = left == p;
         panelButton(panel, { left, y, w, h }, corner ? p : between / 2, between / 2);
         left += w + between;
@@ -145,7 +139,6 @@ const Tab* tabAt(const TabStrip& strip, Vec2 point)
 {
     for (const Tab& tab : strip.tabs)
         if (tab.hitFrame.contains(point)) return &tab;
-    if (strip.home && strip.home->hitFrame.contains(point)) return &*strip.home;
     for (const Tab& button : strip.buttons)
         if (button.hitFrame.contains(point)) return &button;
     return nullptr;

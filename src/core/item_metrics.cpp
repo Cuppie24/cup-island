@@ -162,7 +162,7 @@ float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& m
         return bar->wavy ? std::max(height, waveHeight(bar->seekable)) : height; // room for the wave's swing and its knob (decision 167)
     }
     if (auto* label = std::get_if<TimeLabel>(&item)) return lineHeight(label->style);
-    if (auto* icon = std::get_if<Icon>(&item); icon && icon->large) return t.tileIconSize; // decision 111
+    if (auto* icon = std::get_if<Icon>(&item); icon && icon->large) return t.largeIconSize;
     return t.iconSize; // Icon, Waveform
 }
 
@@ -201,7 +201,7 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
         Text text{ widest, label->style };
         return (measure ? measure(text) : estimateTextWidth(text)) + 1; // +1: rounding never trips the "…"
     }
-    if (auto* icon = std::get_if<Icon>(&item); icon && icon->large) return t.tileIconSize; // decision 111
+    if (auto* icon = std::get_if<Icon>(&item); icon && icon->large) return t.largeIconSize;
     return t.iconSize; // Icon, Waveform
 }
 
@@ -223,7 +223,6 @@ float fontSize(TextStyle style)
     case TextStyle::WindowTitle: return t.windowTitleFontSize;
     case TextStyle::WindowBody: return t.windowBodyFontSize;
     case TextStyle::WindowCaption: return t.windowCaptionFontSize;
-    case TextStyle::TileTitle: return t.tileTitleFontSize;
     }
     return t.bodyFontSize;
 }

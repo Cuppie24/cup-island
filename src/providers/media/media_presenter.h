@@ -21,8 +21,8 @@ class MediaPresenter {
 public:
     explicit MediaPresenter(Host& host) : host_(host) {}
 
-    void start(); // publishes the media widget (decision 019), there even when nothing plays
-    void stop();  // ends what's shown, removes the widget
+    void start(); // publishes media's panel: its page-row icon and card, there even when nothing plays (decision 165)
+    void stop();  // ends what's shown, removes the panel
 
     // nullopt = no media session at all. What's shown stays for
     // mediaSessionGoneGrace first (decision 074): some apps (Yandex Music)
@@ -35,7 +35,7 @@ public:
     void showPlayback(const std::string& sessionKey, const NowPlaying& playback);
     void onWake(); // the grace is over: end what's shown, unless a session came back
 
-    static constexpr const char* kActivityId = "media.nowPlaying"; // also the widget's panel (decision 009)
+    static constexpr const char* kActivityId = "media.nowPlaying"; // also its panel's (decision 009)
 
 private:
     void end();

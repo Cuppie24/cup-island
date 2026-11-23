@@ -34,7 +34,7 @@ enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Sour
 // Window*: Title, Body and Caption a step up in a standalone window (decision 112);
 // the window's layout swaps them in, providers write the plain three.
 enum class TextStyle { Title, Body, Caption, Digits, Display, Heading, Result, ResultDetail, PageTitle, Hero, CardTitle,
-                       WindowTitle, WindowBody, WindowCaption, TileTitle }; // TileTitle: a Home widget's first line (decision 114)
+                       WindowTitle, WindowBody, WindowCaption };
 
 // sRGB plus opacity. As an activity's accent (decision 010) it tints only
 // live data: progress fills (bar and ring), the current step, waveform bars.
@@ -118,8 +118,7 @@ struct Image {
 };
 struct Icon {
     Glyph glyph = Glyph::Music;
-    bool quiet = false; // in a Home widget: as strong as a secondary button at rest (buttonOffColor, decision 073)
-    bool large = false; // tileIconSize: a Home widget's leading icon, set by Home (decision 111)
+    bool large = false; // largeIconSize: the icon over a window's question (window_dialog)
     bool disabled = false; // buttonDisabledColor: the glyph of a button with nothing to do (the tab row's arrows with one page, decision 118)
     bool operator==(const Icon&) const = default;
 };
@@ -475,7 +474,7 @@ struct Content {
     bool tintComing = false;
     CardLayout card = CardLayout::Standard;
     // Something new needs a look (a setting not seen yet, decision 038): a dot on
-    // its widget on Home, on its tab or its page-row button, so the way to it is marked.
+    // its icon or its button in the page row, so the way to it is marked.
     bool badge = false;
     // ...in the theme's accent (liveColor), not red: something to act on, an
     // update waiting in Settings (decision 152).
@@ -498,8 +497,8 @@ struct Content {
     // out from what's shown on every layout, so it can't be left on.
     bool hidesTabs = false;
     // A card on one of its own pages (Settings' Theme page): the action Esc
-    // sends, as a click on its back arrow would. Empty: Esc goes back to
-    // Home or closes, as anywhere else (decision 033).
+    // sends, as a click on its back arrow would. Empty: Esc closes,
+    // as anywhere else (decision 033).
     std::string backAction;
     // A page within the card (its statistics, its settings): the card keeps
     // the height these rows, its main view, give it, and the page lays out in
@@ -521,11 +520,6 @@ struct Content {
     Slot expandedCenter;
     Slot expandedTrailing; // a button-sized square in the top-right corner; the centre narrows only when it's used
     Slot expandedBottom;
-    // A panel's widget on Home (decisions 009, 019): information only, no
-    // buttons (the host leaves them out); a click opens the card. A running
-    // panel's activity can replace it.
-    Slot tileLeading; // a square at the widget's left, as tall as it: art, an icon, a ring
-    Slot tile;        // the rows beside it
     bool operator==(const Content&) const = default;
 };
 
@@ -535,7 +529,7 @@ std::string formatDuration(Ms duration);
 // Time of day: "14:05", or "2:05" on a 12-hour clock (no AM/PM: a glance, decision 009).
 std::string formatClock(Ms timeOfDay, bool hour24);
 
-// Any expanded slot filled: there's a card to open (a static Home widget may have none).
+// Any expanded slot filled: there's a card to open (a toggle's panel has none).
 bool hasCard(const Content& content);
 
 } // namespace cup

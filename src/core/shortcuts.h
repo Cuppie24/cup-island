@@ -12,7 +12,7 @@
 
 namespace cup {
 
-enum class Command { OpenHome, OpenActivity, OpenSearch };
+enum class Command { OpenIsland, OpenActivity, OpenSearch };
 
 // A key with its modifiers. `key` uses Windows' virtual-key numbers for the
 // keys a shortcut may use: 'A'..'Z', '0'..'9', kSpace, kF1..kF1 + 11. Core
@@ -42,7 +42,7 @@ std::optional<Chord> parseChord(std::string_view text); // chordText's inverse; 
 struct CommandInfo {
     Command command;
     std::string id;   // "home"
-    std::string does; // "Open Home"
+    std::string does; // "Open the island"
     Chord standard;
 };
 const std::vector<CommandInfo>& commands(); // in the order Settings lists them

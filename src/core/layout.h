@@ -65,46 +65,30 @@ struct BubbleScene {
 };
 
 // One button of Expanded's page row (decision 165): a page's icon in the
-// list, Home's button, or a panel's button. Clicking a page's shows its card.
+// list, or a panel's button. Clicking a page's shows its card.
 struct Tab {
     Rect frame;     // pill coordinates: the button's square
     Rect hitFrame;  // clickable area: the frame, or more (up to the card's edge, half the gaps beside it)
-    std::string id; // a page's: its activity's or panel's id; kHomeTab; kPanelButtonTab + a panel's id
+    std::string id; // a page's: its activity's or panel's id; a button's: kPanelButtonTab + its panel's id
     bool badge = false; // its content's Content::badge (decision 038)
     Rect lit;           // what lights up under the pointer
     float radius = 0;   // ...its corners
     bool accent = false; // its dot in the accent, not red (Content::badgeAccent, decision 152)
 };
 
-// The row's buttons' ids: not activities'.
-inline constexpr const char* kHomeTab = "#home"; // Home's button at the left edge: opens Home, the one way there (decision 115)
 // A panel's button (Panel::rowButton, decision 113): this, then the panel's id.
 inline constexpr const char* kPanelButtonTab = "#panel/";
 
 // Expanded's page row (decision 165): in the middle, an icon per page, always
 // the same ones in the same order: every panel with a card, running or not,
 // then activities that aren't panels. The shown one is lit, the rest grey.
-// Home's button at the left edge with Search beside it; Settings in the
-// right corner with the theme switch beside it.
+// Search in the left corner; Settings in the right one with the theme
+// switch beside it. No Home (decision 170).
 struct TabStrip {
     std::vector<Tab> tabs;  // the pages' icons, in a stable order: a click doesn't reorder them
-    std::optional<std::size_t> active; // the shown page's (lit); none on Home
+    std::optional<std::size_t> active; // the shown page's (lit); none on a row button's card
     float radius = 0;       // the buttons' highlight corners, nested in the card's
-    std::optional<Tab> home;             // Home's button at the left edge (decision 009); with widgets
     std::vector<Tab> buttons;            // panels' buttons (Panel::rowButton), wherever each sits (Panel::rowSpot)
-};
-
-// A panel's widget on Home (decisions 009, 019). A click on it opens its
-// card (TileClicked) if it has one, or sends its tap action.
-struct Tile {
-    Rect frame;     // pill coordinates; the renderer draws a faint background here
-    std::string id; // the panel's (and its activity's) id
-    bool opens = false;     // has a card: a click opens it (TileClicked)
-    std::string providerId;
-    std::string tapAction;  // a click sends this action instead (Panel::tapAction)
-    bool badge = false;     // its content's Content::badge (decision 038)
-    bool accent = false;    // ...in the accent (Content::badgeAccent, decision 152)
-    bool clickable() const { return opens || !tapAction.empty(); } // lights up under the pointer
 };
 
 // A toast (decision 071): a pill floating over the card's bottom, above its
@@ -143,8 +127,6 @@ struct Scene {
     std::string activityId;        // whose content the pill shows (empty: none, or a standalone alert)
     std::optional<BubbleScene> bubble;
     std::optional<TabStrip> tabs;  // Expanded's page row (decision 165)
-    std::vector<Tile> tiles;       // Home
-    float tileRadius = 0;          // tile background corners, nested in the card's
     std::vector<Vec2> badges;      // notification dots' centres (decision 038, core/badges.h)
     std::vector<Vec2> accentBadges; // ...those drawn in the accent, not red (decision 152)
     std::optional<ToastScene> toast; // a toast floating over the card's bottom (decision 071, core/toast.h)
@@ -182,9 +164,6 @@ const TextInput* inputNamed(const Scene& scene, const std::string& activityId, c
 
 // The list element under `point` (pill coordinates), if any: what the wheel scrolls.
 const Placed* listAt(const Scene& scene, Vec2 point);
-
-// The Home tile under `point` (pill coordinates), if any.
-const Tile* tileAt(const Scene& scene, Vec2 point);
 
 // When the scene next changes without any event (a time label's second
 // ticking over, the idle clock's minute), so the app can arm its timer. Nothing = static.

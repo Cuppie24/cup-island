@@ -220,7 +220,6 @@ TextLook lookOf(TextStyle style)
     case TextStyle::WindowTitle: return { t.windowTitleFontSize, t.titleTextColor, t.windowTitleFontWeight }; // decision 112
     case TextStyle::WindowBody: return { t.windowBodyFontSize, t.bodyTextColor, t.windowBodyFontWeight };
     case TextStyle::WindowCaption: return { t.windowCaptionFontSize, t.captionTextColor, t.windowCaptionFontWeight };
-    case TextStyle::TileTitle: return { t.tileTitleFontSize, t.titleTextColor, t.tileTitleFontWeight }; // decision 114
     }
     return { t.bodyFontSize, t.bodyTextColor, t.bodyFontWeight };
 }

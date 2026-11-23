@@ -153,10 +153,7 @@ void PillRenderer::apply(const Scene& scene, const SceneMotion& motion)
     // stays: the app re-aims it after every scene, and clearing it here would
     // blink it on each tick of a countdown on the same card.
     bool listRows = std::any_of(scene.elements.begin(), scene.elements.end(), [](const Placed& p) { return p.listRow.has_value(); });
-    if (!tabs && scene.tiles.empty() && !listRows) pill_.setHovered(std::nullopt, 0);
-    std::vector<Rect> tiles;
-    for (const Tile& tile : scene.tiles) tiles.push_back(tile.frame);
-    pill_.setTiles(tiles, scene.tileRadius);
+    if (!tabs && !listRows) pill_.setHovered(std::nullopt, 0);
     pill_.setBadges(scene.badges, scene.accentBadges);
     // A row's menu at once, not with the queued content: it answers a click or a key (decision 086).
     menu_.show(scene.menu, scene.offset, scene.now);

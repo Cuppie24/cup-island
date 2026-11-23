@@ -330,9 +330,9 @@ void runContentTests()
     for (int i = 0; i < 12; ++i)
         many = reduce(many, PanelPublished{ { .id = "p" + std::to_string(i), .content = { .label = "P", .expandedCenter = { row({ Text{ "x" } }) } } } }, Ms{ 0 });
     Scene crowded = layout(reduce(many, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    expect(crowded.tabs->tabs.front().hitFrame.x >= crowded.tabs->home->frame.x + crowded.tabs->home->frame.width &&
+    expect(crowded.tabs->tabs.front().hitFrame.x >= 0 &&
                crowded.tabs->tabs.back().frame.x + crowded.tabs->tabs.back().frame.width <= crowded.tabs->buttons[0].frame.x,
-           "a crowded list stays between Home's button and the corner's");
+           "a crowded list stays on the card, clear of the corner's button");
     Scene mediaCard = layout(reduce(reduce(three, PillClicked{}, Ms{ 0 }), ActivitySwitched{ "media" }, Ms{ 0 }), Ms{ 0 });
     const Placed* mediaArt = find(mediaCard, "expandedLeading/0/0");
     float stripSpace = rowSpace;
