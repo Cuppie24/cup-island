@@ -13,8 +13,9 @@ picture while it plays.
   a dark island takes `glassCoverColors` (a Midnight island, the glow, an
   open card's lighter glow and its edge line); a light theme keeps
   `coverColors`, the cover's colours whole, since the glow is light on a
-  dark island and has no light counterpart. Solid, the edge line is the
-  rim's stroke in the glow's colour: the rim's own colour stays clear there.
+  dark island and has no light counterpart. Solid, there's no edge line: it is
+  the glass's rim in the glow's colour, a solid island has no rim, and
+  tried there the bright line looked stuck on. The glow itself is the same.
 - **The cover's shadow turns into its glow.** While a cover's glow is set,
   the card's cover (decision 094's raised art) casts `artGlowColor`: the
   card glow's colour, `coverArtGlow` (0.75) strong, `artGlowBlur` (22) soft,
