@@ -409,7 +409,10 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     if (view.grey && view.knobBrush) view.knobBrush.Color(toUiColor(greyOf(t.knobColor)));
     if (view.surface) paint(view);
     if (view.fill) armProgress(compositor_, view.fill, std::get<Progress>(placed.item).timeline, size.x, now);
-    if (view.wave.geometry) ripple(compositor_, view.wave, std::get<Progress>(placed.item).timeline.playing, true); // as it is, no settling
+    if (view.wave.geometry) { // as it is, with no rising
+        const Timeline& timeline = std::get<Progress>(placed.item).timeline;
+        ripple(compositor_, view.wave, timeline.playing, timeline.fractionAt(now) * size.x, true);
+    }
     if (view.arc) armRing(compositor_, view.arc, ringTimeline(placed.item), now);
     if (!view.bars.empty()) animateBars(view);
     if (view.highlight && focusedField(placed.item)) view.highlight.Opacity(1.0f);
@@ -515,7 +518,10 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     // While scrubbing, the bar belongs to the pointer; endScrub() re-arms it.
     if (view.fill && !view.scrubbing) armProgress(compositor_, view.fill, std::get<Progress>(placed.item).timeline, placed.frame.width, now);
     // Paused or playing again: the wave lies flat or rises (decision 167). No change: left running, not restarted.
-    if (view.wave.geometry) ripple(compositor_, view.wave, std::get<Progress>(placed.item).timeline.playing, false);
+    if (view.wave.geometry) {
+        const Timeline& timeline = std::get<Progress>(placed.item).timeline;
+        ripple(compositor_, view.wave, timeline.playing, timeline.fractionAt(now) * placed.frame.width, false);
+    }
     // A Dial changes every second (its time); its ring is re-armed only when its timeline does.
     if (view.arc && (!std::holds_alternative<Dial>(placed.item) || ringTimeline(placed.item) != wasRing))
         armRing(compositor_, view.arc, ringTimeline(placed.item), now);
