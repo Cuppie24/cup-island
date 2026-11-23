@@ -53,9 +53,9 @@ Content nowPlayingContent(const NowPlaying& m)
                          Button{ .glyph = Glyph::Next, .actionId = act::kNext, .enabled = m.canNext, .large = true } },
                        Align::Center);
     controls.loose = true; // big, well-separated targets
-    // Shuffle and repeat beside the skips, with the other controls (decision 107), not
-    // in the bottom corners; ▶ stays centred. Only shown when the app supports them.
-    controls.edgesBeside = true;
+    // Shuffle and repeat at the row's edges, under the ends of the bar's row: the transport
+    // reads as one group, the modes as another (decision 165); ▶ stays centred.
+    // Only shown when the app supports them.
     if (m.canShuffle)
         controls.leading.push_back(Button{ .glyph = Glyph::Shuffle, .actionId = act::kShuffle, .on = m.shuffle, .secondary = true });
     if (m.canRepeat)

@@ -158,8 +158,8 @@ void runProviderTests()
     expect(progress && !progress->timeline.playing && progress->timeline.position == Ms{ 5000 },
            "pause freezes the timeline where it was");
 
-    // Shuffle (leading) and repeat (trailing) are toggles that light up, beside the
-    // skips, the row's loose gap away, not in the corners (decision 107).
+    // Shuffle (leading) and repeat (trailing) are toggles that light up, at the
+    // row's edges, apart from the skips (decision 165).
     const std::string repeat = "expandedBottom/1/3", shuffle = "expandedBottom/1/4";
     {
         Scene controls = island.scene();
@@ -169,8 +169,9 @@ void runProviderTests()
             return Rect{};
         };
         Rect prev = at("expandedBottom/1/0"), next = at("expandedBottom/1/2"), sh = at(shuffle), re = at(repeat), bar = at("expandedBottom/0/1");
-        expect(std::abs(sh.x + sh.width + tk.looseItemSpacing - prev.x) < 0.01f && std::abs(next.x + next.width + tk.looseItemSpacing - re.x) < 0.01f,
-               "shuffle and repeat right beside previous and next");
+        expect(std::abs(sh.x - tk.expandedPadding) < 0.01f && sh.x + sh.width + tk.looseItemSpacing < prev.x &&
+                   next.x + next.width + tk.looseItemSpacing < re.x,
+               "shuffle and repeat at the card's edges, apart from previous and next");
         expect(std::abs(sh.x - (controls.size.x - re.x - re.width)) < 0.01f, "the whole group centred");
         Rect elapsed = at("expandedBottom/0/0"), left = at("expandedBottom/0/2");
         expect(elapsed.width < tk.timeLabelWidth && left.width < tk.timeLabelWidth && elapsed.x + elapsed.width + tk.itemSpacing == bar.x,

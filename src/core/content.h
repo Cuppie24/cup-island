@@ -414,8 +414,8 @@ struct Row {
     // Too wide for the slot: laid out as usual.
     bool hug = false;
     // Its `leading` and `trailing` sit right beside its centred items, the
-    // row's gap away, instead of at its edges: media's shuffle and repeat
-    // with the other controls (decision 107). The items stay centred.
+    // row's gap away, instead of at its edges: a window card's name with
+    // what's at its end (decision 123). The items stay centred.
     bool edgesBeside = false;
     // Columns: its items share the row's width equally, each centred in its
     // share. Rows of the same count line up: a table, value rows over caption
