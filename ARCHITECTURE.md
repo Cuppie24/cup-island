@@ -49,13 +49,14 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 menu.h (a row's context menu: when it opens, its keys, where it goes, decision 086)
                 groups.h (grouped rows: a quiet label, one background, a name over its description, decision 090)
                 keycaps.h (Keys drawn as key caps, decision 092), segments.h (a few options picked in place, decision 093)
+                stat_items.h (measurements: a history graph, a strip of levels, a battery, two overview tiles) + stat_parts.h (where their parts go, decision 172)
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them;
                 blob_backdrop: what's under a blob, its shadow and glass, decision 089; liquid_glass + liquid_capture + liquid_shader: liquid glass, a captured picture of the desktop bent by a shader, decision 165; its shapes in core/liquid_glass), glass (Windows 11's blurred backdrop, decision 089), provider_window (a provider's window, decision 104), figures (tabular digits centred on their line, decision 094), element_visuals (one visual
                 per content item) + rolling_text (a big time's digits rolling as they change, decision 107), top_glow (the top band lit, decision 108), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts) + tap_hook (double-tap shortcuts, decision 079), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules, SMTC provider for real Windows media: its smtc_reader reads sessions on a thread of its own, decision 144),
-                pomodoro/ (the first panel: a timer card, the rest in its window, decision 106; tasks in groups, task_board, decision 117), statistics/ (the machine's vital signs on a page: the reading's contract, formatting, the card and when a reading is asked for, all pure; its Windows reader not yet; decision 171), search/ (the search card: apps, Settings, files; decisions 077, 079), service_host (Cup Island's service: setup, updates and providers' calls, decisions 076, 078), system/ (Home's theme and Settings widgets:
+                pomodoro/ (the first panel: a timer card, the rest in its window, decision 106; tasks in groups, task_board, decision 117), statistics/ (the machine's vital signs: an overview of tiles with a page behind each, the reading's contract, formatting, histories and when a reading is asked for, all pure; its Windows reader not yet; decisions 171, 172), search/ (the search card: apps, Settings, files; decisions 077, 079), service_host (Cup Island's service: setup, updates and providers' calls, decisions 076, 078), system/ (Home's theme and Settings widgets:
                 app themes, windows' own theme (decision 150), display, Start with Windows, Copy logs), update/ (updates from GitHub
                 Releases, offered in Settings with an accent dot, decision 152: versions and offers, pure; github.cpp fetches and installs, decision 036)
 src/indexer/    the file index's logic (decision 075), pure: USN records from raw bytes, the index by MFT record,
@@ -111,7 +112,7 @@ A provider (`core/provider.h`) publishes activities and alerts through a
 the renderer. `ProviderRegistry` gives each provider its own Host, which
 stamps the provider id on everything it posts, and routes actions back.
 Content is declarative (`core/content.h`, decision 004): slots of rows of
-items (text, image, icon, button, progress, time label, waveform, swatch). Layout and
+items (text, image, icon, button, progress, time label, waveform, swatch, graph, levels, battery). Layout and
 drawing are the host's job, so every provider looks native.
 
 A provider can also publish **panels** (decision 009): always-available
@@ -240,7 +241,7 @@ over the file's, so `tokens()` is always what's on screen.
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing), `list_card_tests.cpp` (Settings' List card), `group_tests.cpp` (grouped rows), `badge_tests.cpp` (notification dots),
   `page_row_tests.cpp` (the page row's buttons, the idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop), `command_tests.cpp` (providers' commands through the registry), `search_command_tests.cpp` (commands among Search's results), `pomodoro_stats_tests.cpp` (statistics, days off),
-  `media_tests.cpp` (media presenter), `statistics_tests.cpp` (the statistics page: formatting, the card, when it asks for a reading), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end, on a fixture card: `todo_card_fixture.h`), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install), `window_tests.cpp` (where a window opens; the registry between providers and their windows), `window_field_tests.cpp` (typing in a window, decision 105).**
+  `media_tests.cpp` (media presenter), `stat_item_tests.cpp` (the measurement items, tiles as buttons, the Columns card), `statistics_tests.cpp` (statistics: formatting, lists, histories; `statistics_card_tests.cpp` its overview, `statistics_page_tests.cpp` its pages, `statistics_provider_tests.cpp` its provider; `statistics_fixture.h` their reading), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end, on a fixture card: `todo_card_fixture.h`), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install), `window_tests.cpp` (where a window opens; the registry between providers and their windows), `window_field_tests.cpp` (typing in a window, decision 105).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
 
@@ -284,7 +285,7 @@ over the file's, so `tokens()` is always what's on screen.
 | No Home (decision 170): every card from the page row; the idle pill and Ctrl+Q open the default page | done; rules tested, the Windows side needs a run |
 | The page row: a constant list of providers' icons, the shown one lit; Search in the left corner, the theme switch by Settings' (decisions 165, 170) | done; rules tested, the look needs a Windows run |
 | Theme toggle | presenter tested; the Windows reader needs Windows |
-| Statistics page (decision 171): CPU, GPU, memory, disk, network, battery, Bluetooth batteries; asked for only while shown | pure half done, tested; the Windows reader and its registration in `app/main.cpp` not yet |
+| Statistics (decisions 171, 172): an overview of tiles (CPU, GPU, memory, network, disk, Bluetooth), a page inside the card behind each; asked for only while shown | content model, layout and provider done, tested; drawing the new items, the Windows reader and its registration in `app/main.cpp` not yet |
 | Pomodoro (first panel): focus rounds, breaks, pause/skip/stop, ring, phase dots | done, tested |
 | Pomodoro's window (decision 106): the card a timer at media's size with an expand button; the timer, today, to-dos, statistics and settings in a window, questions asked in place | core and provider tested; the window on Windows needs a run |
 | Progress ring, Steps, accent colour (decision 010) | done; rules tested, drawing needs Windows |

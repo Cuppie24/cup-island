@@ -3,6 +3,7 @@
 #include "core/item_metrics.h"
 #include "core/card_overlays.h"
 #include "core/lists.h"
+#include "core/stat_parts.h"
 #include "core/text_wrap.h"
 #include "core/tokens.h"
 
@@ -59,6 +60,10 @@ Rect clipped(Rect r, Rect clip)
 float radiusFor(const Item& item, Rect frame, float nestedRadius)
 {
     if (std::holds_alternative<Segments>(item)) return frame.height / 2; // a pill: its focus ring too (decision 093)
+    // A tile (decision 172): a group's corners, so its background, its light under the pointer and its focus ring agree.
+    auto* graph = std::get_if<Graph>(&item);
+    if ((graph && graph->tile) || std::holds_alternative<LevelTile>(item) || std::holds_alternative<BatteryTile>(item))
+        return std::min(tokens().groupRadius, std::min(frame.width, frame.height) / 2);
     if (!std::holds_alternative<Image>(item) && !std::holds_alternative<Button>(item) && !std::holds_alternative<TextInput>(item)) return 0;
     if (auto* b = std::get_if<Button>(&item); b && (b->primary || b->round || (b->secondary && b->label.empty())))
         return std::min(frame.width, frame.height) / 2; // circles: their hover and press follow the circle (decisions 066, 067)
@@ -88,6 +93,7 @@ bool groupGoesOn(const Slot& rows, std::size_t r)
 // doesn't scroll away or sit inside the row's lit background.
 float sectionGap(const Row& row)
 {
+    if (row.tileGap) return std::max(0.0f, tokens().itemSpacing - tokens().rowSpacing); // Row::tileGap: a grid's gaps one size (decision 172)
     return row.section ? tokens().sectionGap : row.apart && row.list.empty() ? tokens().groupGap : 0; // Row::apart: decision 066
 }
 

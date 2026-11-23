@@ -89,7 +89,7 @@ struct Tokens {
     // CardLayout::Search (decision 079): wider than other cards, as tall as
     // its rows (just the field when nothing is typed), and a bigger field.
     float searchCardWidth = 640;
-    float wideCardWidth = 640; // a card that asks for more room (Content::wideCard, decision 085); none since the timer moved to its window (decision 106)
+    float wideCardWidth = 640; // a card that asks for more room (Content::wideCard, decision 085): statistics' pages with a list beside graphs (decision 172)
     float searchInputHeight = 48;
     float searchInputFontSize = 19;
     float resultIconSize = 32;           // a search result's icon (Button::picture)
@@ -232,6 +232,28 @@ struct Tokens {
     Ms progressWaveSettle{ 900 };
     float timeLabelWidth = 56;  // fits "-1:02:05" at captionFontSize
     float ringThickness = 3;      // progress ring stroke (decision 010)
+    // Measurements (decision 172, core/stat_items.h).
+    float thickProgressHeight = 10; // Progress::thick
+    float stubBarWidth = 44;        // Progress::stub: a short bar beside a value
+    float progressSecondOpacity = 0.45f; // Progress::second: the fill's colour, this much of its opacity
+    float graphTallHeight = 124;    // GraphSize::Tall: an overview's top tiles
+    float graphLowHeight = 80;      // GraphSize::Low: its bottom tiles; a LevelTile and a BatteryTile too
+    float graphStripHeight = 38;    // GraphSize::Strip: under a big number
+    float graphTallPlotTop = 48;    // a tile's plot starts this far down, under its texts
+    float graphLowPlotTop = 40;
+    float graphInset = 12;          // a tile's texts and rows, in from its sides
+    float graphTextTop = 9;         // ...and its texts' line, down from its top
+    float graphLineWidth = 1.5f;
+    float tileRowGap = 6;           // between a LevelTile's lines, a BatteryTile's glyph, battery and percent
+    float levelsHeight = 38;        // Levels: its bars' height
+    float levelsGap = 3;            // ...between them
+    float levelsRadius = 4;         // ...their corners
+    Vec2 batterySize{ 23, 11 };     // Battery: its body
+    float batteryCapWidth = 2;      // ...the nub at its right end
+    float batteryStroke = 1.5f;     // ...its outline, the gap inside it and before the nub
+    float batteryTextGap = 6;       // ...to its label and its value
+    float sideColumnWidth = 216;    // CardLayout::Columns: the right column
+    float columnGap = 16;           // ...between the two
     float stepDotSize = 9;        // Steps: one dot per step; a pill step's height
     float stepDotGap = 8;
     float stepShortWidth = 14;    // StepLength::Short: a pill a little longer than a dot (the long break, decision 107)
@@ -576,15 +598,20 @@ struct Tokens {
     std::size_t pomodoroRounds = 4;
     // A session counts as finished (decision 061) with at most this many focus phases skipped.
     std::size_t pomodoroFocusSkipsAllowed = 1;
-    // Statistics (decision 171). Whole numbers, so the display's scale never touches them:
+    // Statistics (decisions 171, 172). Whole numbers, so the display's scale never touches them:
     // a load (percent) or a temperature (°C) from here up is high, a battery (percent) down
     // to here low; a temperature past the plausible one is a broken sensor, shown as none.
     std::size_t statsHighLoad = 90;
     std::size_t statsHighTemperature = 85;
     std::size_t statsPlausibleTemperature = 125;
     std::size_t statsLowBattery = 20;
-    std::size_t statsBluetoothShown = 3;       // Bluetooth devices on the card, the "+2 more" included
-    std::size_t statsDeviceNameMaxLength = 16; // a device's name, in characters, before its "…"
+    std::size_t statsBluetoothShown = 3;       // Bluetooth devices on the overview's tile
+    std::size_t statsHistoryLength = 44;       // readings a graph spans: 88 s at statsRefresh
+    std::size_t statsGraphMinTemperature = 30; // a temperature graph's bottom and top, °C
+    std::size_t statsGraphMaxTemperature = 100;
+    std::size_t statsSpeedFloor = 200;         // a speed graph's top is never under this, KB/s: an idle line stays flat
+    std::size_t statsListShown = 5;            // rows in a page's side list (processes, apps)
+    std::size_t statsDrivesShown = 5;          // drives on the disk page
     Ms statsRefresh{ 2000 };                   // while its card is shown: a new reading this often
     std::size_t todoMaxLength = 150; // characters in a to-do: wraps onto a few lines at most (decision 045)
     std::size_t taskGroupNameMaxLength = 40; // a task group's name, edited in place (decision 117)

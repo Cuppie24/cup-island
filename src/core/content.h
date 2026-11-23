@@ -4,6 +4,7 @@
 
 #include "core/geometry.h"
 #include "core/shortcuts.h"
+#include "core/stat_items.h"
 
 #include <chrono>
 #include <cstdint>
@@ -23,7 +24,9 @@ using Ms = std::chrono::milliseconds;
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
                    Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre,
                    Minus, Plus, Pin, Pinned, Fire, Chart, ChevronDown, Search, File, Folder, Close, Refresh, Reset,
-                   Palette, Sliders, Expand, Maximize, Restore, Minimize, CloseWindow, Grip, More, Gauge };
+                   Palette, Sliders, Expand, Maximize, Restore, Minimize, CloseWindow, Grip, More, Gauge,
+                   // Statistics (decision 172): Bluetooth devices by kind (Bluetooth: any other), a drive, how the PC is online.
+                   Headphones, Earbuds, Mouse, Keyboard, Controller, Pen, Bluetooth, Drive, Wifi, Ethernet };
 
 // Display: a big number, the card's centre (a timer). Heading: a group's label over its rows (Settings'
 // "General", "Dark"): small and quiet, since the group's background already sets it apart (decision 090).
@@ -212,6 +215,16 @@ struct Progress {
     // head; the rest a straight track. Seekable, an upright knob is always at its
     // head, bigger under the pointer (decision 167). Its row is at least the wave's height.
     bool wavy = false;
+    // A level that isn't a time (decision 172): filled this far, 0..1, and
+    // the timeline is ignored. A disk's space, a load.
+    std::optional<float> level;
+    // ...and a second part right after the first, in a dimmer fill: this
+    // much more of the bar (memory: in use, then cached). Bars with a level only.
+    std::optional<float> second;
+    bool alert = false; // its fill in dangerColor, whatever the card's accent: this reading is high
+    bool thick = false; // a bar thickProgressHeight tall: one that is read, not glanced at (memory's parts)
+    // A bar stubBarWidth wide instead of stretching: beside a value in a list's row (a process's share).
+    bool stub = false;
     bool operator==(const Progress&) const = default;
 };
 // Elapsed "1:23"; `remaining` "-2:05" (media, right-aligned); `countdown`
@@ -328,7 +341,7 @@ struct GroupFill {
 };
 
 using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch, Tag, Switch, Divider, Dial,
-                          GroupFill, Keys, Segments>;
+                          GroupFill, Keys, Segments, Graph, Levels, Battery, LevelTile, BatteryTile>; // the last five: core/stat_items.h
 
 enum class Align { Start, Center, End };
 
@@ -347,7 +360,12 @@ enum class RowSpan { Slot, MatchAbove, MatchBelow };
 //  Search:   like List, but searchCardWidth wide with rows across all of it,
 //            and only as tall as its rows: the field alone until there are
 //            results (decision 079).
-enum class CardLayout { Standard, Centred, List, Search };
+//  Columns:  `expandedCenter` across the top, as tall as its rows (a page's
+//            header); under it `expandedLeading` at the left and
+//            `expandedTrailing`, sideColumnWidth wide, at the right, each a
+//            stack of rows centred in its column: a block of graphs beside a
+//            list (statistics' pages, decision 172).
+enum class CardLayout { Standard, Centred, List, Search, Columns };
 
 // One entry of a row's menu (decision 086). The provider says what's in it;
 // the host opens it (a right-click, Right, the row's ›), places it, draws it
@@ -443,6 +461,9 @@ struct Row {
     // Its context menu (decision 086): every row may have its own. The host
     // ends the row in a › that opens it, beside the row.
     std::vector<MenuItem> menu;
+    // A row of tiles under another: as far below it as its tiles are from
+    // each other (itemSpacing, not rowSpacing), so a grid's gaps are one size (decision 172).
+    bool tileGap = false;
     bool operator==(const Row&) const = default;
 };
 

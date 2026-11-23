@@ -164,6 +164,27 @@ const Field kFields[] = {
     { "progressPinGap", &Tokens::progressPinGap },
     { "timeLabelWidth", &Tokens::timeLabelWidth },
     { "ringThickness", &Tokens::ringThickness },
+    { "thickProgressHeight", &Tokens::thickProgressHeight },
+    { "stubBarWidth", &Tokens::stubBarWidth },
+    { "progressSecondOpacity", &Tokens::progressSecondOpacity },
+    { "graphTallHeight", &Tokens::graphTallHeight },
+    { "graphLowHeight", &Tokens::graphLowHeight },
+    { "graphStripHeight", &Tokens::graphStripHeight },
+    { "graphTallPlotTop", &Tokens::graphTallPlotTop },
+    { "graphLowPlotTop", &Tokens::graphLowPlotTop },
+    { "graphInset", &Tokens::graphInset },
+    { "graphTextTop", &Tokens::graphTextTop },
+    { "graphLineWidth", &Tokens::graphLineWidth },
+    { "tileRowGap", &Tokens::tileRowGap },
+    { "levelsHeight", &Tokens::levelsHeight },
+    { "levelsGap", &Tokens::levelsGap },
+    { "levelsRadius", &Tokens::levelsRadius },
+    { "batterySize", &Tokens::batterySize },
+    { "batteryCapWidth", &Tokens::batteryCapWidth },
+    { "batteryStroke", &Tokens::batteryStroke },
+    { "batteryTextGap", &Tokens::batteryTextGap },
+    { "sideColumnWidth", &Tokens::sideColumnWidth },
+    { "columnGap", &Tokens::columnGap },
     { "stepDotSize", &Tokens::stepDotSize },
     { "stepDotGap", &Tokens::stepDotGap },
     { "largeButtonSize", &Tokens::largeButtonSize },
@@ -377,7 +398,12 @@ const Field kFields[] = {
     { "statsPlausibleTemperature", &Tokens::statsPlausibleTemperature },
     { "statsLowBattery", &Tokens::statsLowBattery },
     { "statsBluetoothShown", &Tokens::statsBluetoothShown },
-    { "statsDeviceNameMaxLength", &Tokens::statsDeviceNameMaxLength },
+    { "statsHistoryLength", &Tokens::statsHistoryLength },
+    { "statsGraphMinTemperature", &Tokens::statsGraphMinTemperature },
+    { "statsGraphMaxTemperature", &Tokens::statsGraphMaxTemperature },
+    { "statsSpeedFloor", &Tokens::statsSpeedFloor },
+    { "statsListShown", &Tokens::statsListShown },
+    { "statsDrivesShown", &Tokens::statsDrivesShown },
     { "statsRefreshMs", &Tokens::statsRefresh },
     { "todoMaxLength", &Tokens::todoMaxLength, true },
     { "taskGroupNameMaxLength", &Tokens::taskGroupNameMaxLength },
@@ -562,7 +588,7 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
     auto unitless = [](const char* name) {
         std::string_view n(name);
         return n.starts_with("cover") || n == "progressPinGrow" || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" || n == "searchVisibleRows" ||
-               n == "primaryHoverOpacity" || n == "playGlyphNudge" || // a share of an opacity, of a width (decisions 066, 071)
+               n == "primaryHoverOpacity" || n == "progressSecondOpacity" || n == "playGlyphNudge" || // a share of an opacity, of a width (decisions 066, 071)
                (n.starts_with("glass") && n.ends_with("Opacity")) || // opacities (decisions 089, 090, 096)
                n == "glassGlowCurve" || n == "glassCardGlowCurve" ||  // exponents (decisions 090, 166)
                n == "glassLiquidDim" || n == "glassLiquidSaturation" || // shares (decision 165)

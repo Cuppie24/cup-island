@@ -50,6 +50,25 @@ Rect stackFrame(const Content& c, Vec2 size)
 
 } // namespace
 
+namespace {
+
+// CardLayout::Columns (decision 172): the header's rows across the top, then
+// a block at the left and a column sideColumnWidth wide at the right.
+struct ColumnFrames {
+    Rect header, left, right;
+};
+ColumnFrames columnFrames(const Content& c, Vec2 size, const Source& source, const MeasureText& measure)
+{
+    const Tokens& t = tokens();
+    float p = t.expandedPadding, width = std::max(0.0f, size.x - 2 * p);
+    float header = c.expandedCenter.empty() ? 0 : slotHeight(c.expandedCenter, { p, p, width, size.y }, source, measure);
+    float top = p + header + (header > 0 ? t.slotGap : 0), height = std::max(0.0f, size.y - top - p);
+    float side = std::min(t.sideColumnWidth, width / 2); // a narrow card: never more than half
+    return { { p, p, width, header }, { p, top, std::max(0.0f, width - side - t.columnGap), height }, { p + width - side, top, side, height } };
+}
+
+} // namespace
+
 // A stacked card grows to fit its rows (a to-do list), never below Expanded's
 // size and never past `most` (the canvas, on the island: decision 016).
 float centredCardHeight(const Source& source, Vec2 size, float most, const MeasureText& measure)
@@ -60,6 +79,12 @@ float centredCardHeight(const Source& source, Vec2 size, float most, const Measu
     // A page within the card keeps the card's main view's height (Content::sizedLike, decision 070).
     const Slot& sizing = c.sizedLike.empty() ? c.expandedCenter : c.sizedLike;
     float needed = slotHeight(sizing, { frame.x, frame.y, frame.width, size.y }, source, measure) + 2 * frame.y;
+    if (c.card == CardLayout::Columns && c.sizedLike.empty()) { // not a page: its header, then the taller column
+        ColumnFrames columns = columnFrames(c, size, source, measure);
+        float left = slotHeight(c.expandedLeading, { columns.left.x, columns.left.y, columns.left.width, size.y }, source, measure);
+        float right = slotHeight(c.expandedTrailing, { columns.right.x, columns.right.y, columns.right.width, size.y }, source, measure);
+        needed = columns.left.y + std::max(left, right) + t.expandedPadding;
+    }
     // A List card (Settings) is never as squeezed as an activity's: listCardMinHeight at least.
     float least = c.card == CardLayout::List   ? std::max(t.expandedSize.y, t.listCardMinHeight)
                   : c.card == CardLayout::Search ? 0.0f // as tall as its rows: the field alone, then its results
@@ -94,7 +119,7 @@ float paddingFor(Mode mode)
 // Where each slot sits inside the pill (PS §5.1). Every slot keeps the mode's
 // padding from the pill's edges: with the nested corner radius that keeps
 // rounded content concentric with the pill's corners.
-std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
+std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c, const Source& source = {}, const MeasureText& measure = {})
 {
     const Tokens& t = tokens();
     float p = paddingFor(mode);
@@ -114,6 +139,12 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
                  { "alertCenter", &c.alertCenter, { centerX, p, size.x - centerX - p, side } } };
     }
     case Mode::Expanded: {
+        if (c.card == CardLayout::Columns) {
+            ColumnFrames columns = columnFrames(c, size, source, measure);
+            return { { "expandedCenter", &c.expandedCenter, columns.header },
+                     { "expandedLeading", &c.expandedLeading, columns.left },
+                     { "expandedTrailing", &c.expandedTrailing, columns.right } };
+        }
         if (stacked(c)) return { { "expandedCenter", &c.expandedCenter, stackFrame(c, size) } };
         // The bottom slot starts right under the art: its rows spread in what's left (decision 119).
         float art = t.expandedArtSize, y = p, centerX = p + art + t.slotGap, bottomY = y + art;
@@ -223,7 +254,7 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
             source.content = &asked;
             scene.label = d->title;
         }
-        for (const SlotFrame& slot : slotFrames(scene.mode, contentSize, *source.content))
+        for (const SlotFrame& slot : slotFrames(scene.mode, contentSize, *source.content, source, measureText))
             placeSlot(slot, source, nestedRadius, now, scene.elements, measureText);
     }
     // Laid out as if from the card's top, then moved down under the strip.

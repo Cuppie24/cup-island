@@ -11,20 +11,34 @@ namespace {
 
 constexpr double kKilo = 1024; // binary units, as Task Manager counts
 
-// `value` with one decimal, or none when it would be ".0" or `whole` says so.
-std::string number(double value, bool whole)
+// `value` with at most `decimals` decimals, none of them a trailing zero ("16", "10.1", "1.31").
+std::string number(double value, int decimals)
 {
-    double tenths = std::round(value * 10) / 10;
     char text[32];
-    if (whole || tenths == std::floor(tenths)) std::snprintf(text, sizeof text, "%.0f", std::round(whole ? value : tenths));
-    else std::snprintf(text, sizeof text, "%.1f", tenths);
-    return text;
+    std::snprintf(text, sizeof text, "%.*f", decimals, value);
+    std::string s = text;
+    if (s.find('.') != std::string::npos) {
+        while (s.back() == '0') s.pop_back();
+        if (s.back() == '.') s.pop_back();
+    }
+    return s;
 }
 
-std::string gigabytes(std::uint64_t bytes)
+// A size's unit: 0 KB, 1 MB, 2 GB, 3 TB. The next one once this one would show four digits.
+const char* const kSizeUnits[] = { "KB", "MB", "GB", "TB" };
+int sizeUnit(std::uint64_t bytes)
 {
-    double gb = static_cast<double>(bytes) / (kKilo * kKilo * kKilo);
-    return number(gb, gb >= 99.95); // three digits at most: "128", not "128.3"
+    double value = static_cast<double>(bytes) / kKilo;
+    int unit = 0;
+    while (value >= 999.5 && unit < 3) value /= kKilo, ++unit;
+    return unit;
+}
+// `bytes` in that unit: whole under GB, a decimal in GB under 100, two in TB under 10.
+std::string inUnit(std::uint64_t bytes, int unit)
+{
+    double value = static_cast<double>(bytes) / std::pow(kKilo, unit + 1);
+    int decimals = unit == 3 && value < 9.995 ? 2 : unit >= 2 && value < 99.95 ? 1 : 0;
+    return number(value, decimals);
 }
 
 } // namespace
@@ -60,35 +74,85 @@ std::string percentText(std::optional<float> percent)
     return clean ? std::to_string(std::lround(*clean)) + "%" : kNoReading;
 }
 
+std::string shareText(double percent)
+{
+    if (!std::isfinite(percent) || percent < 0) percent = 0;
+    return number(std::min(percent, 100.0), percent < 99.95 ? 1 : 0) + "%";
+}
+
 std::string temperatureText(std::optional<float> celsius)
 {
     auto clean = cleanTemperature(celsius);
-    return clean ? std::to_string(std::lround(*clean)) + " °C" : "";
+    return clean ? std::to_string(std::lround(*clean)) + "°" : "";
 }
 
-std::string memoryText(std::optional<std::uint64_t> used, std::optional<std::uint64_t> total)
+std::string sizeText(std::uint64_t bytes)
+{
+    int unit = sizeUnit(bytes);
+    return inUnit(bytes, unit) + " " + kSizeUnits[unit];
+}
+
+std::string usedOfText(std::optional<std::uint64_t> used, std::optional<std::uint64_t> total)
 {
     if (!used || !total || *total == 0) return "";
-    return gigabytes(std::min(*used, *total)) + " / " + gigabytes(*total) + " GB";
+    int unit = sizeUnit(*total);
+    return inUnit(std::min(*used, *total), unit) + " / " + inUnit(*total, unit) + " " + kSizeUnits[unit];
 }
+
+std::string freeText(std::optional<std::uint64_t> used, std::optional<std::uint64_t> total)
+{
+    if (!used || !total || *total == 0) return "";
+    return sizeText(*total - std::min(*used, *total)) + " free";
+}
+
+namespace {
+
+const char* const kSpeedUnits[] = { "KB/s", "MB/s", "GB/s" };
+// The unit a speed reads in: the next one once this one would round to four digits ("1000 KB/s").
+int speedUnit(float bytesPerSecond)
+{
+    double value = bytesPerSecond / kKilo;
+    int unit = 0;
+    while (value >= 999.5 && unit < 2) value /= kKilo, ++unit;
+    return unit;
+}
+// ...and its number in a unit: whole in KB and from 10 up ("340", "12"), else a decimal ("1.2").
+std::string speedIn(float bytesPerSecond, int unit)
+{
+    double value = bytesPerSecond / std::pow(kKilo, unit + 1);
+    return number(value, unit == 0 || value >= 9.95 ? 0 : 1);
+}
+
+} // namespace
 
 std::string speedText(std::optional<float> bytesPerSecond)
 {
     auto clean = cleanSpeed(bytesPerSecond);
     if (!clean) return "";
-    double value = *clean / kKilo;
-    const char* units[] = { "KB/s", "MB/s", "GB/s" };
-    std::size_t unit = 0;
-    // The next unit once this one would round to four digits ("1000 KB/s").
-    while (value >= 999.5 && unit < 2) value /= kKilo, ++unit;
-    bool whole = unit == 0 || value >= 9.95; // "340 KB/s", "12 MB/s", "1.2 MB/s"
-    return number(value, whole) + " " + units[unit];
+    int unit = speedUnit(*clean);
+    return speedIn(*clean, unit) + " " + kSpeedUnits[unit];
+}
+
+std::string speedPairText(std::optional<float> down, std::optional<float> up)
+{
+    auto d = cleanSpeed(down), u = cleanSpeed(up);
+    if (!d && !u) return "";
+    int unit = speedUnit(std::max(d.value_or(0), u.value_or(0)));
+    return "\u2193 " + (d ? speedIn(*d, unit) : kNoReading) + " \u2191 " + (u ? speedIn(*u, unit) : kNoReading) + " " + kSpeedUnits[unit];
+}
+
+std::string linkText(std::optional<std::uint64_t> bitsPerSecond)
+{
+    if (!bitsPerSecond || *bitsPerSecond == 0) return "";
+    double mega = static_cast<double>(*bitsPerSecond) / 1e6;
+    if (mega >= 999.5) return number(mega / 1000, mega < 9995 ? 1 : 0) + " Gbps";
+    return number(mega, mega < 9.95 ? 1 : 0) + " Mbps";
 }
 
 bool highLoad(std::optional<float> percent)
 {
     auto clean = cleanPercent(percent);
-    return clean && std::lround(*clean) >= static_cast<long>(tokens().statsHighLoad); // as shown: "90%" is high, never "89%"
+    return clean && std::lround(*clean) >= static_cast<long>(tokens().statsHighLoad);
 }
 
 bool highTemperature(std::optional<float> celsius)
@@ -103,45 +167,62 @@ bool lowBattery(std::optional<float> percent)
     return clean && std::lround(*clean) <= static_cast<long>(tokens().statsLowBattery);
 }
 
-bool anythingHigh(const StatsReading& r)
+bool atLinkLimit(std::optional<float> bytesPerSecond, std::optional<std::uint64_t> link)
 {
-    return highLoad(r.cpuLoad) || highLoad(r.gpuLoad) || highLoad(usedPercent(r.memoryUsed, r.memoryTotal)) ||
-           highTemperature(r.cpuTemperature) || highTemperature(r.gpuTemperature);
+    auto speed = cleanSpeed(bytesPerSecond);
+    if (!speed || !link || *link == 0) return false;
+    return highLoad(static_cast<float>(100.0 * 8.0 * *speed / static_cast<double>(*link)));
 }
 
-std::string shortName(const std::string& name)
+std::vector<NamedValue> topValues(const std::vector<NamedValue>& values, std::size_t most)
 {
-    std::size_t most = tokens().statsDeviceNameMaxLength, characters = 0, cut = 0; // cut: where the kept part would end
-    for (std::size_t i = 0; i < name.size(); ++i) {
-        bool starts = (static_cast<unsigned char>(name[i]) & 0xC0) != 0x80; // not a UTF-8 continuation byte
-        if (!starts) continue;
-        // Cut, it keeps one character less: the "…" takes a place.
-        if (most > 0 && characters == most - 1) cut = i;
-        if (characters == most) {
-            std::string kept = name.substr(0, cut);
-            while (!kept.empty() && kept.back() == ' ') kept.pop_back(); // no "Name …"
-            return kept + "…";
-        }
-        ++characters;
-    }
-    return name;
+    std::vector<NamedValue> top;
+    for (const NamedValue& v : values)
+        if (!v.name.empty() && std::isfinite(v.value) && v.value >= 0) top.push_back(v);
+    std::stable_sort(top.begin(), top.end(), [](const NamedValue& a, const NamedValue& b) {
+        return a.value != b.value ? a.value > b.value : a.name < b.name;
+    });
+    if (top.size() > most) top.resize(most);
+    return top;
 }
 
 ShownDevices shownDevices(const std::vector<BluetoothDevice>& devices, std::size_t room)
 {
     ShownDevices shown;
-    for (const BluetoothDevice& d : devices)
-        if (auto battery = cleanPercent(d.battery); battery && !d.name.empty()) shown.devices.push_back({ d.name, battery });
+    for (const BluetoothDevice& d : devices) {
+        BluetoothDevice clean{ d.name, cleanPercent(d.battery), d.kind, {} };
+        std::optional<float> emptiest;
+        for (const NamedValue& part : d.parts)
+            if (auto level = cleanPercent(static_cast<float>(part.value)); level && !part.name.empty()) {
+                clean.parts.push_back({ part.name, *level });
+                emptiest = emptiest ? std::min(*emptiest, *level) : *level;
+            }
+        if (!clean.battery) clean.battery = emptiest; // earbuds that only report their parts
+        if (clean.battery && !clean.name.empty()) shown.devices.push_back(std::move(clean));
+    }
     std::stable_sort(shown.devices.begin(), shown.devices.end(), [](const BluetoothDevice& a, const BluetoothDevice& b) {
         long levelA = std::lround(*a.battery), levelB = std::lround(*b.battery); // as shown, so a wobble under 1% doesn't reorder
         return levelA != levelB ? levelA < levelB : a.name < b.name;
     });
     if (shown.devices.size() > room) {
-        std::size_t kept = room > 0 ? room - 1 : 0; // the last place says how many more
-        shown.more = shown.devices.size() - kept;
-        shown.devices.resize(kept);
+        shown.more = shown.devices.size() - room;
+        shown.devices.resize(room);
     }
     return shown;
+}
+
+std::string kindName(DeviceKind kind)
+{
+    switch (kind) {
+    case DeviceKind::Headphones: return "Headphones";
+    case DeviceKind::Earbuds: return "Earbuds";
+    case DeviceKind::Mouse: return "Mouse";
+    case DeviceKind::Keyboard: return "Keyboard";
+    case DeviceKind::Controller: return "Controller";
+    case DeviceKind::Pen: return "Pen";
+    case DeviceKind::Other: break;
+    }
+    return "Bluetooth device";
 }
 
 } // namespace cup

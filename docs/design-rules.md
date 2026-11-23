@@ -19,14 +19,20 @@ uses it unless a rule below says otherwise.
 | The card's one main action (▶/⏸) | `Button::primary` | 50 circle, 22 px glyph (44 and 18 `compact`, where a row is short) |
 | The controls beside it (previous/next, stop/skip) | `Button::large` | 40, 20 px glyph |
 | Less-used controls (shuffle, repeat, the window's button) | `Button::secondary` | 36 (32 `compact`) |
-| One of several values side by side (statistics' percents, decision 171) | `TextStyle::CardTitle` over a `Progress` bar, its name and detail `Caption`, in `Row::even` rows | 20 px at 800 |
+| A tile of an overview (statistics, decision 172) | `Graph{tile}`, `LevelTile`, `BatteryTile` in `Row::even` rows, the second row `tileGap` | 124 tall on top, 80 under; value `CardTitle`, the rest `Caption` |
+| A page's big reading over its history | `TextStyle::Hero` over a `Graph` strip, its name a `Caption` row above | 56 px at 800; the strip 38 |
+| A row of a page's side list (a process and its share) | `Caption` name, `Progress::stub`, `Caption` value | a 44 bar |
 
 Spacing:
 - A card's row of controls is `loose` (`looseItemSpacing` 24); groups of rows
   on a stacked card sit `apart` (`groupGap` 20). Spare height goes between
   groups, never as a band at the bottom (decision 107).
 - Every card shares `expandedSize.y` (248) so switching pages doesn't
-  resize the island; a test pins media and the timer to it.
+  resize the island; tests pin media, the timer and statistics to it.
+- A page within a card keeps that height (`Content::sizedLike`), with its
+  back arrow at the top left and its title centred (statistics, decision 172).
+- A reading that is high is its own item's `alert` (`dangerColor`), never
+  the card's accent (decision 172).
 - The page row (decisions 165, 170): a page's icon is `tabIconSize` 32
   square, `tabIconGap` 4 apart; a panel's button at the row's end is
   `rowButtonWidth` 44.

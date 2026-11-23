@@ -1,42 +1,25 @@
-// The statistics page (decision 171): cleaning and formatting a reading,
-// which Bluetooth devices show, the card laid out by the real layout(), and
-// the provider's asking, through the registry like the app's loop.
+// Statistics, the numbers (decisions 171, 172): cleaning and formatting a
+// reading, which rows and devices show, and the graphs' histories.
+// The overview is in statistics_card_tests.cpp, its pages in statistics_page_tests.cpp,
+// the provider in statistics_provider_tests.cpp.
 
-#include "core/layout.h"
-#include "core/tabs.h"
 #include "core/tokens.h"
 #include "expect.h"
-#include "providers/media/now_playing.h"
-#include "providers/pomodoro/pomodoro_provider.h"
-#include "providers/provider_registry.h"
-#include "providers/statistics/statistics_provider.h"
+#include "providers/statistics/stats_format.h"
+#include "providers/statistics/stats_history.h"
 
 #include <cmath>
 #include <limits>
-#include <memory>
 
 namespace cup::test {
+void runStatisticsCardTests();
+void runStatisticsPageTests();
+void runStatisticsProviderTests();
 namespace {
 
-constexpr std::uint64_t kGb = 1024ull * 1024 * 1024;
+constexpr std::uint64_t kMb = 1024ull * 1024, kGb = 1024 * kMb, kTb = 1024 * kGb;
 const float kNan = std::numeric_limits<float>::quiet_NaN();
 const float kInf = std::numeric_limits<float>::infinity();
-
-// A laptop with everything readable.
-StatsReading fullReading()
-{
-    return { .cpuLoad = 42.4f, .cpuTemperature = 61.2f, .gpuLoad = 17, .gpuTemperature = 55,
-             .memoryUsed = kGb * 101 / 10, .memoryTotal = 16 * kGb, .diskUsed = 71 * kGb, .diskTotal = 100 * kGb,
-             .networkDown = 1.2f * 1024 * 1024, .networkUp = 340 * 1024.0f, .battery = 82, .charging = false,
-             .bluetooth = { { "AirPods Pro", 80.0f }, { "MX Master 3", 45.0f } } };
-}
-
-std::string textAt(const Slot& slot, std::size_t row, std::size_t item)
-{
-    if (row >= slot.size() || item >= slot[row].items.size()) return "?";
-    auto* text = std::get_if<Text>(&slot[row].items[item]);
-    return text ? text->value : "?";
-}
 
 void cleaningTests()
 {
@@ -46,8 +29,10 @@ void cleaningTests()
     expect(percentText(42.4f) == "42%" && percentText(42.5f) == "43%" && percentText(99.6f) == "100%" && percentText(0.2f) == "0%",
            "to the nearest whole");
     expect(percentText(std::nullopt) == kNoReading && percentText(kNan) == kNoReading && percentText(250.0f) == "100%", "none: a dash");
+    expect(shareText(11.63) == "11.6%" && shareText(9.0) == "9%" && shareText(0.04) == "0%" && shareText(100) == "100%" && shareText(250) == "100%" &&
+           shareText(-2) == "0%" && shareText(std::nan("")) == "0%", "a share: one decimal, cleaned");
 
-    expect(temperatureText(61.2f) == "61 °C" && temperatureText(61.5f) == "62 °C", "a temperature, whole degrees");
+    expect(temperatureText(61.2f) == "61°" && temperatureText(61.5f) == "62°", "a temperature, whole degrees");
     expect(temperatureText(std::nullopt).empty() && temperatureText(kNan).empty(), "none: nothing");
     expect(temperatureText(0.0f).empty() && temperatureText(-273.15f).empty(), "an unread sensor's 0 or below: nothing");
     expect(temperatureText(static_cast<float>(tokens().statsPlausibleTemperature) + 1).empty() &&
@@ -56,11 +41,19 @@ void cleaningTests()
     expect(usedPercent(8 * kGb, 16 * kGb) == 50.0f, "used of total");
     expect(!usedPercent(8 * kGb, std::nullopt) && !usedPercent(std::nullopt, 16 * kGb) && !usedPercent(1, 0), "needs both, and a total");
     expect(usedPercent(20 * kGb, 16 * kGb) == 100.0f, "more used than there is: full");
-    expect(memoryText(kGb * 101 / 10, 16 * kGb) == "10.1 / 16 GB", "one decimal, none for .0");
-    expect(memoryText(kGb * 159 / 10, kGb * 159 / 10) == "15.9 / 15.9 GB" && memoryText(100 * kGb, kGb * 1283 / 10) == "100 / 128 GB",
-           "three digits at most");
-    expect(memoryText(20 * kGb, 16 * kGb) == "16 / 16 GB" && memoryText(std::nullopt, 16 * kGb).empty() && memoryText(1, 0).empty(),
+}
+
+void sizeTests()
+{
+    expect(sizeText(0) == "0 KB" && sizeText(310 * kMb) == "310 MB" && sizeText(kGb * 42 / 10) == "4.2 GB" && sizeText(16 * kGb) == "16 GB" &&
+           sizeText(364 * kGb) == "364 GB", "a size: whole under GB, a decimal in GB");
+    expect(sizeText(999 * kMb) == "999 MB" && sizeText(1000 * kMb) == "1 GB", "never four digits: the next unit");
+    expect(sizeText(kTb * 131 / 100) == "1.31 TB" && sizeText(2 * kTb) == "2 TB" && sizeText(5000 * kTb) == "5000 TB", "terabytes: two decimals, the top unit");
+    expect(usedOfText(kGb * 101 / 10, 16 * kGb) == "10.1 / 16 GB" && usedOfText(364 * kGb, 512 * kGb) == "364 / 512 GB", "used of total, one unit");
+    expect(usedOfText(612 * kGb, 2 * kTb) == "0.6 / 2 TB" && usedOfText(100 * kGb, kGb * 1283 / 10) == "100 / 128 GB", "...the total's");
+    expect(usedOfText(20 * kGb, 16 * kGb) == "16 / 16 GB" && usedOfText(std::nullopt, 16 * kGb).empty() && usedOfText(1, 0).empty(),
            "used capped at the total; nothing without both");
+    expect(freeText(364 * kGb, 512 * kGb) == "148 GB free" && freeText(20 * kGb, 16 * kGb) == "0 KB free" && freeText(std::nullopt, kGb).empty(), "what's free");
 
     expect(speedText(0.0f) == "0 KB/s" && speedText(500.0f) == "0 KB/s" && speedText(340 * 1024.0f) == "340 KB/s", "kilobytes, whole");
     expect(speedText(1.2f * 1024 * 1024) == "1.2 MB/s" && speedText(12.4f * 1024 * 1024) == "12 MB/s" && speedText(2.0f * 1024 * 1024) == "2 MB/s",
@@ -69,6 +62,13 @@ void cleaningTests()
            "never four digits: the next unit");
     expect(speedText(1.1f * 1024 * 1024 * 1024) == "1.1 GB/s" && speedText(5000.0f * 1024 * 1024 * 1024) == "5000 GB/s", "gigabytes at the top");
     expect(speedText(std::nullopt).empty() && speedText(-1.0f).empty() && speedText(kNan).empty() && speedText(kInf).empty(), "bad: nothing");
+    expect(speedPairText(1.7f * kMb, 0.3f * kMb) == "↓ 1.7 ↑ 0.3 MB/s" && speedPairText(340.0f * 1024, 12.0f * 1024) == "↓ 340 ↑ 12 KB/s",
+           "both directions, one unit");
+    expect(speedPairText(12.4f * kMb, 100.0f * 1024) == "↓ 12 ↑ 0.1 MB/s", "...the faster one's");
+    expect(speedPairText(std::nullopt, 2.0f * kMb) == std::string("↓ ") + kNoReading + " ↑ 2 MB/s" && speedPairText(kNan, std::nullopt).empty(),
+           "one missing: a dash; both: nothing");
+    expect(linkText(100'000'000) == "100 Mbps" && linkText(1'000'000'000) == "1 Gbps" && linkText(2'500'000'000ull) == "2.5 Gbps" &&
+           linkText(5'400'000) == "5.4 Mbps" && linkText(0).empty() && linkText(std::nullopt).empty(), "a link's speed, decimal");
 }
 
 void levelTests()
@@ -81,213 +81,82 @@ void levelTests()
     expect(highTemperature(hot) && !highTemperature(hot - 1) && !highTemperature(std::nullopt) && !highTemperature(4000.0f),
            "a hot temperature; a broken sensor's isn't");
     expect(lowBattery(low) && lowBattery(0.0f) && !lowBattery(low + 1) && !lowBattery(std::nullopt), "low down to the threshold");
-
-    StatsReading r = fullReading();
-    expect(!anythingHigh(r) && !anythingHigh({}), "an easy day; nothing read");
-    r.gpuTemperature = hot;
-    expect(anythingHigh(r), "one hot reading is enough");
-    r = fullReading();
-    r.memoryUsed = r.memoryTotal;
-    expect(anythingHigh(r), "memory full counts");
-    r = fullReading();
-    r.diskUsed = r.diskTotal;
-    expect(!anythingHigh(r), "a full disk doesn't");
-    expect(!statisticsContent(fullReading()).accent && statisticsContent(r).accent == std::nullopt, "no accent: the theme's fill");
-    r.cpuLoad = 97;
-    expect(statisticsContent(r).accent == t.dangerColor, "high: the fills in the danger colour");
+    // 100 Mbps is 12.5 MB/s.
+    expect(atLinkLimit(12.4f * 1000 * 1000, 100'000'000) && !atLinkLimit(5.0f * 1000 * 1000, 100'000'000) && !atLinkLimit(1e9f, std::nullopt) &&
+           !atLinkLimit(1e9f, 0) && !atLinkLimit(std::nullopt, 100'000'000), "a direction at its link's speed");
 }
 
-void bluetoothTests()
+void listTests()
 {
-    std::vector<BluetoothDevice> devices = { { "Keyboard", 90.0f }, { "Mouse", 15.2f }, { "Speaker", std::nullopt }, { "", 50.0f },
-                                             { "Buds", 15.4f }, { "Pen", kNan }, { "Headset", 140.0f } };
+    std::vector<NamedValue> raw = { { "Spotify", 2.2 }, { "Chrome", 9.8 }, { "", 50 }, { "Broken", std::nan("") }, { "Negative", -1 },
+                                    { "Code", 6.1 }, { "Beta", 2.2 }, { "Idle", 0 } };
+    auto top = topValues(raw, 4);
+    expect(top.size() == 4 && top[0].name == "Chrome" && top[1].name == "Code" && top[2].name == "Beta" && top[3].name == "Spotify",
+           "the biggest first, by name among equals, cut to fit; no nameless or broken ones");
+    expect(topValues(raw, 99).size() == 5 && topValues(raw, 0).empty() && topValues({}, 3).empty(), "as many as there are");
+
+    std::vector<BluetoothDevice> devices = { { "Keyboard", 90.0f, DeviceKind::Keyboard }, { "Mouse", 15.2f, DeviceKind::Mouse }, { "Speaker", std::nullopt },
+                                             { "", 50.0f }, { "Buds", 15.4f }, { "Pen", kNan, DeviceKind::Pen }, { "Headset", 140.0f } };
     ShownDevices all = shownDevices(devices, 10);
     expect(all.more == 0 && all.devices.size() == 4, "only named devices with a battery level");
     expect(all.devices[0].name == "Buds" && all.devices[1].name == "Mouse" && all.devices[2].name == "Keyboard" && all.devices[3].name == "Headset",
            "the emptiest first; by name where they read the same");
-    expect(all.devices[3].battery == 100.0f, "its level cleaned");
+    expect(all.devices[3].battery == 100.0f && all.devices[1].kind == DeviceKind::Mouse, "its level cleaned, its kind kept");
     ShownDevices three = shownDevices(devices, 3);
-    expect(three.devices.size() == 2 && three.more == 2 && three.devices[1].name == "Mouse", "more than fit: the last place counts the rest");
-    ShownDevices four = shownDevices(devices, 4);
-    expect(four.devices.size() == 4 && four.more == 0, "exactly as many as fit: all of them");
-    expect(shownDevices(devices, 1).devices.empty() && shownDevices(devices, 1).more == 4 && shownDevices(devices, 0).more == 4, "no room: only the count");
-    expect(shownDevices({}, 3) == ShownDevices{}, "none");
+    expect(three.devices.size() == 3 && three.more == 1 && three.devices[2].name == "Keyboard", "more than fit: the emptiest, the rest counted");
+    expect(shownDevices(devices, 0).devices.empty() && shownDevices(devices, 0).more == 4 && shownDevices({}, 3) == ShownDevices{}, "no room; none");
 
-    std::size_t most = tokens().statsDeviceNameMaxLength;
-    std::string exact(most, 'a'), longer(most + 1, 'a');
-    expect(shortName("AirPods Pro") == "AirPods Pro" && shortName(exact) == exact, "a name that fits is left alone");
-    expect(shortName(longer) == std::string(most - 1, 'a') + "…", "too long: cut, the \"…\" in its last place");
-    std::string accented;
-    for (std::size_t i = 0; i < most + 2; ++i) accented += "é"; // two bytes each
-    std::string cut = shortName(accented);
-    expect(cut.size() == 2 * (most - 1) + 3 && cut.substr(0, 2) == "é", "counted in characters, never cut inside one");
-    expect(shortName(std::string(most - 2, 'a') + " bcdef") == std::string(most - 2, 'a') + "…", "no space before the \"…\"");
-
-    StatsReading r;
-    expect(!bluetoothRow(r), "no devices: no row");
-    r.bluetooth = devices;
-    Row row = *bluetoothRow(r);
-    expect(row.items.size() == tokens().statsBluetoothShown && row.even && row.apart, "a column each, in a group of their own");
-    const Text& first = std::get<Text>(row.items[0]);
-    expect(first.value == "Buds 15%" && first.bright == std::vector<std::pair<std::size_t, std::size_t>>{ { 5, 3 } }, "the name, its level bright");
-    expect(std::get<Text>(row.items.back()).value == "+2 more", "then how many more");
+    // Earbuds in parts: each cleaned; with no level of their own, the emptiest part's.
+    BluetoothDevice buds{ "Galaxy Buds", std::nullopt, DeviceKind::Earbuds, { { "Left", 82 }, { "Right", 78 }, { "Case", 40 }, { "", 5 }, { "Bad", std::nan("") } } };
+    ShownDevices parts = shownDevices({ buds, { "Speaker", std::nullopt, DeviceKind::Other, { { "Bad", std::nan("") } } } }, 5);
+    expect(parts.devices.size() == 1 && parts.devices[0].parts.size() == 3 && parts.devices[0].battery == 40.0f && parts.devices[0].parts[2].name == "Case",
+           "parts cleaned; the device as low as its emptiest part");
+    buds.battery = 74;
+    expect(shownDevices({ buds }, 5).devices[0].battery == 74.0f, "its own level wins");
+    expect(kindName(DeviceKind::Earbuds) == "Earbuds" && kindName(DeviceKind::Other) == "Bluetooth device", "a kind's name");
 }
 
-void cardTests()
+void historyTests()
 {
     const Tokens& t = tokens();
-    Content card = statisticsContent(fullReading());
-    const Slot& rows = card.expandedCenter;
-    expect(card.card == CardLayout::Centred && card.noIdleTimeout && rows.size() == 6, "four rows of tiles, the rest, Bluetooth");
-    expect(card.compactCenter.empty() && card.minimal.empty(), "a page only: nothing for the pill");
-    expect(textAt(rows, 0, 0) == "CPU" && textAt(rows, 0, 1) == "GPU" && textAt(rows, 0, 2) == "Memory", "the tiles' names");
-    expect(textAt(rows, 1, 0) == "42%" && textAt(rows, 1, 1) == "17%" && textAt(rows, 1, 2) == "63%", "their percents");
-    expect(std::get<Text>(rows[1].items[0]).style == TextStyle::CardTitle && std::get<Text>(rows[0].items[0]).style == TextStyle::Caption,
-           "the value heavy, its name quiet");
-    const Progress& bar = std::get<Progress>(rows[2].items[0]);
-    expect(std::abs(bar.timeline.fractionAt(Ms{ 0 }) - 0.424f) < 0.001f && bar.timeline.fractionAt(Ms{ 60000 }) == bar.timeline.fractionAt(Ms{ 0 }) &&
-           bar.shape == ProgressShape::Bar && !bar.seekable, "a bar at its level, standing still");
-    expect(textAt(rows, 3, 0) == "61 °C" && textAt(rows, 3, 1) == "55 °C" && textAt(rows, 3, 2) == "10.1 / 16 GB", "the details under the bars");
-    for (std::size_t r = 0; r < 4; ++r) expect(rows[r].even && rows[r].items.size() == 3 && rows[r].loose, "a table: columns line up");
-    expect(otherTexts(fullReading()) == std::vector<std::string>{ "Disk 71%", "↓ 1.2 MB/s", "↑ 340 KB/s", "Battery 82%" }, "the rest, in order");
-    expect(rows[4].apart && rows[4].even && textAt(rows, 4, 3) == "Battery 82%" && std::get<Text>(rows[4].items[3]).brightDigits, "...in a row");
-    StatsReading plugged = fullReading();
-    plugged.charging = true;
-    expect(otherTexts(plugged).back() == "Charging 82%", "on power");
+    StatsHistory history;
+    expect(samplesOf(history, Series::CpuLoad).empty() && !anyReading(samplesOf(history, Series::CpuLoad)), "starts empty");
+    StatsReading first{ .cpuLoad = 50, .cpuTemperature = 65, .memoryUsed = 4 * kGb, .memoryTotal = 16 * kGb, .networkDown = 1024.0f * 1024,
+                        .networkUp = kNan, .diskRead = -5.0f };
+    record(history, first);
+    expect(samplesOf(history, Series::CpuLoad) == StatsHistory::Samples{ 50.0f } && samplesOf(history, Series::Memory) == StatsHistory::Samples{ 25.0f } &&
+           samplesOf(history, Series::CpuTemperature) == StatsHistory::Samples{ 65.0f }, "a sample per series, cleaned");
+    for (Series gap : { Series::GpuLoad, Series::GpuTemperature, Series::Upload, Series::DiskRead, Series::DiskWrite })
+        expect(samplesOf(history, gap) == StatsHistory::Samples{ std::nullopt } && !anyReading(samplesOf(history, gap)),
+               "missing or garbage: a gap, never a made-up value");
+    // A reading that fails once leaves a hole, and the series goes on after it.
+    record(history, {});
+    record(history, { .cpuLoad = 150, .cpuTemperature = 400 });
+    expect(samplesOf(history, Series::CpuLoad) == StatsHistory::Samples{ 50.0f, std::nullopt, 100.0f } &&
+           samplesOf(history, Series::CpuTemperature) == StatsHistory::Samples{ 65.0f, std::nullopt, std::nullopt }, "a gap keeps its place in time");
+    expect(percentSamples(samplesOf(history, Series::CpuLoad)) == std::vector<float>{ 0.5f, -1, 1 }, "as a graph's samples: 0..1, a gap below 0");
 
-    // Nothing read: the same tiles, dashes and empty bars, no other rows.
-    Content empty = statisticsContent({});
-    const Slot& bare = empty.expandedCenter;
-    expect(bare.size() == 4 && textAt(bare, 1, 0) == kNoReading && textAt(bare, 1, 2) == kNoReading && textAt(bare, 3, 0).empty(), "dashes for percents");
-    expect(std::get<Progress>(bare[2].items[1]) == Progress{} && Progress{}.timeline.fractionAt(Ms{ 0 }) == 0, "empty tracks");
-    expect(!otherRow({}) && !bluetoothRow({}), "no rest, no Bluetooth");
-    // A desktop: no temperatures, no battery, no Bluetooth. The details keep their row.
-    StatsReading desktop{ .cpuLoad = 5, .gpuLoad = kNan, .memoryUsed = 4 * kGb, .memoryTotal = 32 * kGb, .networkDown = 0 };
-    const Slot desk = statisticsContent(desktop).expandedCenter;
-    expect(desk.size() == 5 && textAt(desk, 1, 1) == kNoReading && textAt(desk, 3, 0).empty() && textAt(desk, 3, 2) == "4 / 32 GB" &&
-           desk[4].items.size() == 1 && textAt(desk, 4, 0) == "↓ 0 KB/s", "what's missing leaves its place or its row");
+    for (std::size_t i = 0; i < t.statsHistoryLength + 10; ++i) record(history, { .cpuLoad = static_cast<float>(i) });
+    const auto& load = samplesOf(history, Series::CpuLoad);
+    expect(load.size() == t.statsHistoryLength && load.back() == static_cast<float>(t.statsHistoryLength + 9) && load.front() == 10.0f,
+           "capped at statsHistoryLength: the oldest go");
+    for (std::size_t i = 0; i < kSeriesCount; ++i) expect(history.series[i].size() == t.statsHistoryLength, "every series the same length");
 
-    // Laid out: every piece inside the card, at the height every card shares (design rules).
-    IslandState media;
-    NowPlaying song{ .title = "Song", .artist = "Artist", .timeline = { .duration = Ms{ 200000 }, .playing = true } };
-    media = reduce(media, ActivityStarted{ { .id = "media", .content = nowPlayingContent(song) } }, Ms{ 0 });
-    media = reduce(media, PillClicked{}, Ms{ 0 });
-    float mediaHeight = layout(media, Ms{ 0 }).size.y;
-    StatsReading crowded = fullReading(); // the fullest the card gets
-    crowded.bluetooth = { { "A very long device name indeed", 80.0f }, { "MX Master 3", 45.0f }, { "Keyboard", 10.0f }, { "Pen", 5.0f } };
-    for (const StatsReading& reading : { StatsReading{}, desktop, fullReading(), crowded }) {
-        IslandState state;
-        state = reduce(state, PanelPublished{ statisticsPanel(reading) }, Ms{ 0 });
-        state = reduce(state, PillClicked{}, Ms{ 0 }); // the idle pill opens the first page (decision 170)
-        Scene scene = layout(state, Ms{ 0 });
-        float height = scene.size.y - (scene.tabs ? tabStripSpace(state) : 0);
-        expect(mode(state) == Mode::Expanded && height == mediaHeight && height == t.expandedSize.y && scene.size.x == t.expandedSize.x,
-               "media's and the timer's card size (" + std::to_string(int(height)) + ")");
-        std::size_t placed = 0;
-        for (const Placed& p : scene.elements) {
-            if (p.key.rfind("expandedCenter/", 0) != 0) continue;
-            ++placed;
-            expect(p.frame.y >= t.expandedPadding - 0.01f && p.frame.y + p.frame.height <= scene.size.y - t.expandedPadding + 0.01f &&
-                   p.frame.x >= t.expandedPadding - 0.01f && p.frame.x + p.frame.width <= scene.size.x - t.expandedPadding + 0.01f,
-                   "fits the card: " + p.key);
-        }
-        expect(placed >= 12, "the tiles are there");
-        // Columns: a tile's name, percent, bar and detail share one centre.
-        auto centre = [&](const std::string& key) {
-            for (const Placed& p : scene.elements)
-                if (p.key == key) return p.frame.x + p.frame.width / 2;
-            return -1.0f;
-        };
-        for (int column = 0; column < 3; ++column)
-            for (int r = 1; r < 4; ++r)
-                expect(std::abs(centre("expandedCenter/0/" + std::to_string(column)) -
-                                centre("expandedCenter/" + std::to_string(r) + "/" + std::to_string(column))) < 0.5f, "a tile's pieces in one column");
-    }
-}
+    // Temperatures between the graph's bottom and top; the limit line where hot starts.
+    float low = static_cast<float>(t.statsGraphMinTemperature), top = static_cast<float>(t.statsGraphMaxTemperature);
+    auto temps = temperatureSamples({ low, top, (low + top) / 2, low - 20, top + 20, std::nullopt });
+    expect(temps == std::vector<float>{ 0, 1, 0.5f, 0, 1, -1 }, "a temperature on the graph's scale, clamped");
+    expect(std::abs(temperatureLimit() - (static_cast<float>(t.statsHighTemperature) - low) / (top - low)) < 0.0001f && temperatureLimit() > 0 &&
+           temperatureLimit() < 1, "the limit line at statsHighTemperature");
+    expect(temperatureSamples({ static_cast<float>(t.statsHighTemperature) }).front() == temperatureLimit(), "a reading at the threshold sits on the line");
 
-// The registry and the island, driven like the app's loop.
-struct Island {
-    IslandState state;
-    Ms now{ 0 };
-    ProviderRegistry registry;
-    StatisticsProvider* stats = nullptr;
-    int asked = 0;
-    std::optional<ShownCard> shown;
-
-    Island() : registry([this](const Event& e, const char*) { state = reduce(state, e, now); }, [this] { return now; })
-    {
-        auto provider = std::make_unique<StatisticsProvider>([this] { ++asked; });
-        stats = provider.get();
-        registry.add(std::move(provider));
-        registry.start("statistics");
-    }
-    // An event, then what the app does after each: tells providers whose card is shown now.
-    void send(const Event& e)
-    {
-        state = reduce(state, e, now);
-        auto card = shownCard(state);
-        if (card == shown) return;
-        if (shown) registry.cardClosed(*shown);
-        if (card) registry.cardShown(*card);
-        shown = card;
-    }
-    void wake()
-    {
-        if (auto at = registry.nextWake()) now = *at;
-        registry.wakeDue(now);
-    }
-    std::string cpu() const
-    {
-        for (const Panel& p : state.panels)
-            if (p.id == StatisticsProvider::kPanelId) return textAt(p.content.expandedCenter, 1, 0);
-        return "?";
-    }
-};
-
-void providerTests()
-{
-    const Tokens& t = tokens();
-    Island island;
-    expect(island.state.panels.size() == 1 && island.state.panels[0].icon == Glyph::Gauge && isPage(island.state.panels[0]) &&
-           island.state.panels[0].providerId == "statistics", "a page with a gauge in the page row");
-    expect(island.cpu() == kNoReading && island.asked == 0 && !island.registry.nextWake(), "closed: nothing asked, nothing scheduled");
-    island.stats->publish(fullReading());
-    expect(island.cpu() == kNoReading, "a reading nobody is looking at is dropped");
-
-    island.send(PillClicked{});
-    expect(mode(island.state) == Mode::Expanded && island.asked == 1 && island.registry.nextWake() == island.now + t.statsRefresh,
-           "shown: a reading asked for at once, the next statsRefresh on");
-    expect(island.state.activities.empty(), "never an activity: nothing in the pill");
-    island.stats->publish(fullReading());
-    expect(island.cpu() == "42%", "the answer shows");
-    island.wake();
-    expect(island.asked == 2 && island.registry.nextWake() == island.now + t.statsRefresh, "and again each statsRefresh");
-    StatsReading next = fullReading();
-    next.cpuLoad = 97;
-    island.stats->publish(next);
-    expect(island.cpu() == "97%" && island.state.panels[0].content.accent == t.dangerColor, "a new reading replaces the last");
-
-    island.send(EscapePressed{});
-    expect(mode(island.state) != Mode::Expanded && !island.registry.nextWake() && island.cpu() == kNoReading,
-           "closed: no more wake-ups, and no old numbers left for next time");
-    island.stats->publish(fullReading());
-    expect(island.cpu() == kNoReading && island.asked == 2, "a slow read's answer after closing is dropped");
-    island.send(PillClicked{});
-    expect(island.asked == 3 && island.registry.nextWake().has_value(), "opened again: asking again");
-
-    // Beside another page: its card is the height the timer's is.
-    island.registry.add(std::make_unique<PomodoroProvider>());
-    island.registry.start("pomodoro");
-    island.send(CardOpened{ StatisticsProvider::kPanelId });
-    float statsHeight = layout(island.state, island.now).size.y;
-    island.send(CardOpened{ PomodoroProvider::kPanelId });
-    expect(layout(island.state, island.now).size.y == statsHeight && statsHeight == t.expandedSize.y + tabStripSpace(island.state),
-           "switching to the timer doesn't resize the island");
-    expect(!island.registry.nextWake() && island.asked == 3, "the timer's page shown: statistics stopped asking");
-
-    island.registry.stop("statistics");
-    expect(island.state.panels.size() == 1 && island.state.panels[0].id == PomodoroProvider::kPanelId, "stopped: its page is gone");
-    island.stats->publish(fullReading()); // must do nothing, and not crash
+    // Speeds against the series' own peak, never under the floor.
+    float floor = static_cast<float>(t.statsSpeedFloor) * 1024;
+    auto idle = speedSamples({ 0.0f, floor / 4, std::nullopt });
+    expect(idle == std::vector<float>{ 0, 0.25f, -1 }, "an idle line lies low: the floor is the top");
+    auto busy = speedSamples({ floor * 10, floor * 5, 0.0f });
+    expect(busy == std::vector<float>{ 1, 0.5f, 0 }, "a busy one fills its graph: its peak is the top");
+    expect(speedSamples({}).empty() && percentSamples({}).empty(), "nothing in, nothing out");
 }
 
 } // namespace
@@ -295,10 +164,13 @@ void providerTests()
 void runStatisticsTests()
 {
     cleaningTests();
+    sizeTests();
     levelTests();
-    bluetoothTests();
-    cardTests();
-    providerTests();
+    listTests();
+    historyTests();
+    runStatisticsCardTests();
+    runStatisticsPageTests();
+    runStatisticsProviderTests();
 }
 
 } // namespace cup::test

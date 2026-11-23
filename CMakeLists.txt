@@ -54,6 +54,7 @@ add_library(cup_core STATIC
     src/core/shortcuts.cpp
     src/core/slot_layout.cpp
     src/core/split.cpp
+    src/core/stat_parts.cpp
     src/core/tabs.cpp
     src/core/text_edit.cpp
     src/core/text_wrap.cpp
@@ -87,8 +88,11 @@ add_library(cup_providers STATIC
     src/providers/pomodoro/pomodoro_stats.cpp
     src/providers/pomodoro/todo_list.cpp
     src/providers/statistics/statistics_provider.cpp
-    src/providers/statistics/stats_card.cpp
     src/providers/statistics/stats_format.cpp
+    src/providers/statistics/stats_history.cpp
+    src/providers/statistics/stats_overview.cpp
+    src/providers/statistics/stats_pages.cpp
+    src/providers/statistics/stats_pages_wide.cpp
     src/providers/system/settings_window.cpp
     src/providers/system/settings_provider.cpp
     src/providers/system/system_panels.cpp
@@ -157,6 +161,10 @@ if(CUP_BUILD_TESTS)
         tests/settings_tests.cpp
         tests/settings_new_tests.cpp
         tests/shortcut_settings_tests.cpp
+        tests/stat_item_tests.cpp
+        tests/statistics_card_tests.cpp
+        tests/statistics_page_tests.cpp
+        tests/statistics_provider_tests.cpp
         tests/statistics_tests.cpp
         tests/store_tests.cpp
         tests/system_tests.cpp
