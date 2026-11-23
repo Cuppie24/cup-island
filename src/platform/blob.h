@@ -130,6 +130,19 @@ private:
     wuc::CompositionSpriteShape rim_{ nullptr };
     wuc::CompositionColorGradientStop rimTop_{ nullptr }, rimBottom_{ nullptr };
     void buildGlass();
+    // The lens (decision 165): over the glass, under the twin's tint, the
+    // blurred desktop again in a band inside the edge, pulled in from it.
+    // Its band is a ring of strokes snapshotted like the outline (never in
+    // the tree: only its snapshot is drawn), so it follows every morph. Made
+    // with the glass, the first time it has a width and a strength.
+    wuc::ShapeVisual band_{ nullptr };
+    wuc::CompositionVisualSurface bandSnapshot_{ nullptr };
+    wuc::SpriteVisual lens_{ nullptr };
+    bool lensTried_ = false;
+    bool lensOffLogged_ = false; // "no lens" said once while tokens.json has it off
+    void buildLens();
+    void makeLens(const char*& step); // ...its steps, each named in `step` for the log if Windows refuses one
+    void applyLens(Ms duration); // its width, depth and strength from tokens; faded with the glass
     // The glow (decision 090): the cover's colour (islandGlowColor) along the
     // body's bottom edge, fading out glassGlowHeight px up along glowFade's
     // curve, from the bottom stop up. Clear unless glass has a cover's

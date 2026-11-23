@@ -226,6 +226,7 @@ if(WIN32)
         src/platform/blob.cpp
         src/platform/blob_motion.cpp
         src/platform/blob_backdrop.cpp
+        src/platform/blob_lens.cpp
         src/platform/blob_shape.cpp
         src/platform/crash_report.cpp
         src/platform/displays.cpp

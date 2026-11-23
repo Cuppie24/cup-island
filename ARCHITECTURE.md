@@ -51,7 +51,7 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 keycaps.h (Keys drawn as key caps, decision 092), segments.h (a few options picked in place, decision 093)
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them;
-                blob_backdrop: what's under a blob, its shadow and glass, decision 089), glass (Windows 11's blurred backdrop, decision 089), provider_window (a provider's window, decision 104), figures (tabular digits centred on their line, decision 094), element_visuals (one visual
+                blob_backdrop: what's under a blob, its shadow and glass, decision 089; blob_lens: the lens along its edge that makes the glass liquid, decision 165), glass (Windows 11's blurred backdrop, decision 089), provider_window (a provider's window, decision 104), figures (tabular digits centred on their line, decision 094), element_visuals (one visual
                 per content item) + rolling_text (a big time's digits rolling as they change, decision 107), top_glow (the top band lit, decision 108), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts) + tap_hook (double-tap shortcuts, decision 079), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules and the media widget, SMTC provider for real Windows media: its smtc_reader reads sessions on a thread of its own, decision 144),

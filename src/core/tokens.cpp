@@ -30,6 +30,12 @@ float glassShare(const Tokens& t, bool evenBlur)
     return std::clamp(share, 0.0f, 1.0f);
 }
 
+float glassLensShare(const Tokens& t)
+{
+    if (!t.glass || t.glassLensWidth <= 0) return 0.0f;
+    return std::clamp(t.glassLensOpacity, 0.0f, 1.0f);
+}
+
 Color glassLuminosityAt(const Tokens& t)
 {
     float share = t.glassTransparency == Transparency::Low    ? t.glassDenseLuminosity
