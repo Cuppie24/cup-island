@@ -312,7 +312,7 @@ struct Tokens {
     float glassGlowCurve = 2.5f;    // how it fades up its reach (glowFade): higher hugs the edge more; past 1, it melts away at the top
     float glassRimWidth = 1;      // the rim's width, inside the edge
     // Liquid glass (decision 165): the user's other pick. The desktop behind
-    // the island, blurred about glassLiquidBlur px, bent in a rim
+    // the island, blurred glassLiquidBlur px (a Gaussian's sigma, 2 to 16), bent in a rim
     // glassLiquidRim wide inside the edge: there it shows what's further
     // out, up to glassLiquidBend px past the edge at the edge itself, so
     // what's beside the island wraps into its lip. Its brightness times
@@ -321,18 +321,19 @@ struct Tokens {
     // glassLiquidLipOpacity; and the rim's line (glassRimWidth) at
     // glassLiquidHighlightOpacity in place of glassRimColor's own.
     GlassStyle glassStyle = GlassStyle::Frosted; // the user's pick: set by the app from Settings, not by tokens.json
-    float glassLiquidBlur = 2.5f;
-    float glassLiquidRim = 24;
-    float glassLiquidBend = 36;
+    float glassLiquidBlur = 9;
+    float glassLiquidRim = 26;
+    float glassLiquidBend = 44;
     float glassLiquidDim = 0.5f;
-    float glassLiquidSaturation = 1.4f;
-    float glassLiquidHighlightOpacity = 0.45f;
-    float glassLiquidLipOpacity = 0.12f;
-    // What's on liquid glass has a shiny edge, glassRimWidth wide, this
-    // bright at its brightest (liquidShine): a control's, and fainter, a
+    float glassLiquidSaturation = 1.6f;
+    float glassLiquidHighlightOpacity = 0.35f;
+    float glassLiquidLipOpacity = 0.14f;
+    // What's on liquid glass has a shiny edge: a hairline round two of its
+    // corners, the top left and the bottom right, this bright at its
+    // brightest (liquidShine): a control's, and fainter, a
     // surface's (a Home widget, a toast).
-    float glassLiquidShineOpacity = 0.3f;
-    float glassLiquidSurfaceShineOpacity = 0.22f;
+    float glassLiquidShineOpacity = 0.45f;
+    float glassLiquidSurfaceShineOpacity = 0.32f;
 
     // Expanded's page row along the top of the card (decisions 007, 047, 109): a dot per page,
     // the shown one a line, an arrow on each side of them; Home's button and the pin at the edges.

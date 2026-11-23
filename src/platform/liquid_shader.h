@@ -11,10 +11,12 @@ struct LiquidParams {
     float screen[4];   // the picture's size (the render layer's: it's the layer's part of the desktop)
     float shape[2][4]; // each shape's x, y, width, height (render-layer pixels); no width: none
     float radius[4];   // each shape's corner radius
-    float lens[4];     // blur (a mip level), rim, bend (pixels); dim
+    float lens[4];     // unused, rim, bend (pixels); dim
     float light[4];    // saturation, the lip's light
     float ears[4];     // each shape's flared top corners: its left one's size, its right one's (0: none)
     float tops[4];     // each shape's real top (its frame's is carried past the screen edge)
+    float blur[4];     // a blur pass: one tap's step (in the source's 0..1), the Gaussian's sigma (taps), the source's mip level
+    float quarter[4];  // a blur pass: its target's size
 };
 
 inline constexpr char kLiquidShader[] = R"hlsl(
@@ -28,6 +30,8 @@ cbuffer Params : register(b0) {
     float4 light;
     float4 ears;
     float4 tops;
+    float4 blur;
+    float4 quarter;
 };
 
 // One triangle over the whole target; the scissor keeps it to the island.
@@ -90,29 +94,30 @@ float4 ps(float4 at : SV_Position) : SV_Target
     // as a cube: nothing at the rim's inner end, most at the edge, no steps.
     float t = lens.y > 0 ? saturate(1 - inside / lens.y) : 0;
     float2 from = p + n * lens.z * t * t * t;
-    // How many of the desktop's pixels each of ours covers there.
-    float squeeze = lens.y > 0 ? abs(lens.z) * 3 * t * t / lens.y : 0;
-
-    // The blur comes from the picture's smaller copies (its mip levels):
-    // each is already an average, so a few taps are smooth where the same
-    // few on the full picture were a comb of dots. A squeezed picture reads
-    // a smaller copy still. Two rings of taps round the point hide the
-    // copies' own pixels.
-    float level = lens.x + 0.6 * log2(1 + squeeze);
-    float reach = exp2(level);
-    float3 c = 2 * desktop.SampleLevel(clamped, from / screen.xy, level).rgb;
-    for (int i = 0; i < 12; ++i) {
-        float angle = i * 0.5236;
-        float ring = (i % 2 == 0) ? reach : reach * 0.5;
-        c += desktop.SampleLevel(clamped, (from + ring * float2(cos(angle), sin(angle))) / screen.xy, level).rgb;
-    }
-    c /= 14;
+    // The picture is already blurred (blurps, twice): one tap, smooth.
+    float3 c = desktop.SampleLevel(clamped, from / screen.xy, 0).rgb;
     float grey = dot(c, float3(0.2126, 0.7152, 0.0722));
     c = saturate(lerp(grey.xxx, c, light.x)) * lens.w;
     // The lip gathers light, most along the bottom. Soft, and nothing at the
     // edge's own pixel: the crisp line there is the compositor's rim.
     c += light.y * t * t * t * (0.35 + 0.65 * max(n.y, 0));
     return float4(saturate(c), 1);
+}
+
+// One way of a Gaussian blur (decision 165), run across and then down, on a
+// picture a quarter the size: 17 taps there are a blur some 10 pixels wide
+// here, and smooth, where reading a smaller copy alone was blocky.
+float4 blurps(float4 at : SV_Position) : SV_Target
+{
+    float2 uv = at.xy / quarter.xy;
+    float3 c = 0;
+    float total = 0;
+    for (int i = -8; i <= 8; ++i) {
+        float weight = exp(-(i * i) / (2 * blur.z * blur.z));
+        c += weight * desktop.SampleLevel(clamped, uv + i * blur.xy, blur.w).rgb;
+        total += weight;
+    }
+    return float4(c / total, 1);
 }
 )hlsl";
 

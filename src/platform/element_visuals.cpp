@@ -575,7 +575,7 @@ void ElementVisuals::syncFill(View& view, Ms duration)
             visual.Shapes().Append(shape);
         }
         if (shiny_ && !view.shineHost) {
-            view.shine = makeShine(compositor_, std::max(tokens().glassRimWidth, 1.0f));
+            view.shine = makeShine(compositor_);
             // Round the fill's circle; round a plain button's own frame.
             if (fill) placeShine(view.shine, { size.x / 2 - r, size.y / 2 - r, 2 * r, 2 * r }, r);
             else placeShine(view.shine, { 0, 0, size.x, size.y }, view.placed.cornerRadius);
