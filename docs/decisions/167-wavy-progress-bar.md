@@ -13,8 +13,9 @@ provider's bar can have it; media's does.
 - The filled part is a sine line (`progressWaveLength` 28 long, swinging
   `progressWaveAmplitude` 3 to each side, the bar's thickness). The rest is
   the straight track, starting where the wave ends.
-- Playing, it runs to the right, a wave every `progressWavePeriod`
-  (1500 ms). Not playing, it lies flat over `progressWaveSettle` (300 ms):
+- Playing, it runs back from its head, a wave every `progressWavePeriod`
+  (1500 ms): the head leads and the ripples trail it. (Run towards the head
+  first; on Windows that read as backwards.) Not playing, it lies flat over `progressWaveSettle` (300 ms):
   a plain bar. With reduced motion it rises but doesn't run.
 - Its row is at least the wave's height (`waveHeight`); a seekable bar's
   click height already is, so media's card doesn't change size.
@@ -30,7 +31,13 @@ line's Y scale going to almost nothing with a non-scaling stroke.
 doesn't restart the run. The line's points are core's (`wavePoints`),
 tested there. If the path can't be made, it's logged and the bar is plain.
 
-**Consequences.** The wave is cut straight at the playhead, not rounded,
-and sits over the knob's left half while scrubbing. Tested in
+- Neither end is a straight cut (the first build's were, and looked
+  cropped). The head ends in a pin: the bar's thickness wide,
+  `progressWavePinHeight` (12) tall, riding the fill's end, so the wave meets
+  it wherever in its swing it is. The start shows through a window with
+  round ends (a geometric clip), so it's cut along a curve.
+
+**Consequences.** Paused, the bar is a plain one with the pin at its head.
+The wave sits over the knob's left half while scrubbing. Tested in
 `tests/item_tests.cpp` (height, the line) and `tests/media_tests.cpp`.
 How it looks and moves needs a Windows run; the four numbers are live tokens.

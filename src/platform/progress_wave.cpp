@@ -58,6 +58,7 @@ WaveParts createWave(Compositor const& c, ID2D1Factory* factory, Vec2 frame, Com
 {
     const Tokens& t = tokens();
     // A wave longer than the bar: it slides a wave's length and starts over, unseen.
+    // From x = 0: it slides to the left, so the bar's end is always covered.
     std::vector<Vec2> points = wavePoints(frame.x + t.progressWaveLength, frame.y / 2);
     if (!factory || points.size() < 2) return {};
     WaveParts wave;
@@ -77,9 +78,21 @@ WaveParts createWave(Compositor const& c, ID2D1Factory* factory, Vec2 frame, Com
     wave.line.CenterPoint({ 0.0f, frame.y / 2 });
     wave.line.Scale({ 1.0f, kFlat });
 
-    wave.visual = c.CreateShapeVisual();
+    // Seen through a window with round ends, the swing's height: where the wave
+    // starts it's cut along a curve, not straight down. (Its other end is past the bar.)
+    float swing = waveSwing();
+    auto opening = c.CreateRoundedRectangleGeometry();
+    opening.Size({ frame.x + swing, swing });
+    opening.Offset({ 0.0f, (frame.y - swing) / 2 });
+    opening.CornerRadius({ swing / 2, swing / 2 });
+    auto window = c.CreateShapeVisual();
+    window.Size(toFloat2(frame));
+    window.Shapes().Append(wave.line);
+    window.Clip(c.CreateGeometricClip(opening));
+
+    wave.visual = c.CreateContainerVisual();
     wave.visual.Size(toFloat2(frame));
-    wave.visual.Shapes().Append(wave.line);
+    wave.visual.Children().InsertAtTop(window);
     // Shown as far as the bar is filled: the clip's right edge is the fill's live end.
     auto clip = c.CreateInsetClip();
     auto inset = c.CreateExpressionAnimation(L"Max(width - fill.Size.X, 0)");
@@ -109,10 +122,11 @@ void ripple(Compositor const& c, WaveParts& wave, bool playing, bool atOnce)
         wave.line.StopAnimation(L"Offset");
         return;
     }
-    // One wave's length to the right, over and over: both ends given (decision 008).
+    // One wave's length back from the head, over and over: the head leads and the
+    // ripples trail behind it, as behind something swimming. Both ends given (decision 008).
     auto run = c.CreateVector2KeyFrameAnimation();
-    run.InsertKeyFrame(0.0f, { -t.progressWaveLength, 0.0f });
-    run.InsertKeyFrame(1.0f, { 0.0f, 0.0f }, c.CreateLinearEasingFunction());
+    run.InsertKeyFrame(0.0f, { 0.0f, 0.0f });
+    run.InsertKeyFrame(1.0f, { -t.progressWaveLength, 0.0f }, c.CreateLinearEasingFunction());
     run.Duration(t.progressWavePeriod);
     run.IterationBehavior(AnimationIterationBehavior::Forever);
     wave.line.StartAnimation(L"Offset", run);
