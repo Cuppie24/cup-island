@@ -162,6 +162,13 @@ struct Button {
 // a selection. Enter sends the text to the provider as Action{actionId, text};
 // a paste of several lines sends them the same way (the provider splits
 // them). Stretches across its row.
+struct TextInput;
+// A field whose box covers what's under it on the island (decision 176): a
+// search card's (TextInput::large). That card is little more than its
+// field, and the glow along the card's bottom edge showed through the
+// field's see-through box, tinting it.
+bool solidBacked(const TextInput& input);
+
 struct TextInput {
     std::string actionId;
     std::string placeholder; // shown dim while empty
@@ -197,6 +204,8 @@ struct TextInput {
     bool autoFocus = false;
     bool operator==(const TextInput&) const = default;
 };
+inline bool solidBacked(const TextInput& input) { return input.large; }
+
 // A bar stretches across its row. A ring is a square: alone in its row it
 // fills the slot's height (like art); next to other items it matches the
 // row's height (a ring beside a big timer). Drawn as an arc from the top,
