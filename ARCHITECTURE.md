@@ -89,7 +89,7 @@ Nothing includes "upward". `core/` never includes `platform/`.
 3. `layout(state, now, measure)` returns a `Scene`: target size and offset, plus every
    content item with its frame (time labels already formatted for `now`).
    `measure` is the platform's text width (DirectWrite), for the few places
-   that centre text of unknown width (Expanded's tabs); core has no fonts.
+   that centre text of unknown width; core has no fonts.
 4. The renderer sets those targets. **Implicit Composition animations** do the
    actual morph (TR §5), and the interaction layer follows it (decision 001).
    Geometry is set at once; new content is built in a queued call right after,
@@ -116,6 +116,9 @@ drawing are the host's job, so every provider looks native.
 
 A provider can also publish **panels** (decision 009): always-available
 entries shown as widgets on Expanded's Home, not ranked into the pill.
+A panel with a card also has its icon in the page row's list, running or
+not (`Panel::icon`); one with `Panel::rowButton` is a button at the row's
+end instead of a widget (Settings, the theme switch, Search; decisions 113, 165).
 Widgets only inform (decision 019): no buttons; a click opens the card. Starting
 an activity with a panel's id makes it live; ending it makes it dormant again.
 A provider can publish **commands** (decision 160): things it does from
@@ -279,7 +282,8 @@ over the file's, so `tokens()` is always what's on screen.
 | Live-tunable tokens (`assets/tokens.json`, reload on save) | done; parser tested |
 | Panels, Home (tile grid, Home button), tabs at the bottom, idle clock, provider wake-ups (decision 009) | done; rules tested, visuals need Windows |
 | Widgets: one per provider, information only, media always on Home (decision 019) | done; rules tested, visuals need Windows |
-| Theme toggle widget | presenter tested; the Windows reader needs Windows |
+| The page row: a constant list of providers' icons, the shown one lit; Search by Home's button, the theme switch by Settings' (decision 165) | done; rules tested, the look needs a Windows run |
+| Theme toggle | presenter tested; the Windows reader needs Windows |
 | Pomodoro (first panel): focus rounds, breaks, pause/skip/stop, ring, phase dots | done, tested |
 | Pomodoro's window (decision 106): the card a timer at media's size with an expand button; the timer, today, to-dos, statistics and settings in a window, questions asked in place | core and provider tested; the window on Windows needs a run |
 | Progress ring, Steps, accent colour (decision 010) | done; rules tested, drawing needs Windows |

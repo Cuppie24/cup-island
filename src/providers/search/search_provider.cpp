@@ -330,7 +330,8 @@ void SearchProvider::publish()
     // Room under the field: the first result is lit (defaultRow), and two
     // filled shapes rowSpacing apart looked stuck together (decision 079).
     if (c.expandedCenter.size() > 1) c.expandedCenter[1].apart = true;
-    host_->publishPanel({ .id = kPanelId, .content = std::move(c) });
+    // A button in the page row beside Home's (decision 165), not a Home widget: a click opens the card.
+    host_->publishPanel({ .id = kPanelId, .content = std::move(c), .rowButton = Glyph::Search, .rowSpot = Panel::RowSpot::BesideHome });
 }
 
 } // namespace cup

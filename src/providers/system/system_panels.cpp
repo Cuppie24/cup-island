@@ -12,7 +12,9 @@ Panel themePanel(bool dark)
         .tileLeading = { row({ Icon{ dark ? Glyph::Moon : Glyph::Sun } }, Align::Center) },
         .tile = { row({ Text{ mode, TextStyle::TileTitle } }) },
     };
-    return { .id = ThemePresenter::kPanelId, .content = content, .tapAction = ThemePresenter::kToggle };
+    // A button in the page row beside Settings' (decision 165), not a Home widget: the mode it's in, a click switches.
+    return { .id = ThemePresenter::kPanelId, .content = content, .tapAction = ThemePresenter::kToggle,
+             .rowButton = dark ? Glyph::Moon : Glyph::Sun, .rowSpot = Panel::RowSpot::BesideCorner };
 }
 
 CommandSpec themeCommand(bool dark)

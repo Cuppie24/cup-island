@@ -44,8 +44,8 @@ struct Placed {
     std::string providerId;
     std::string activityId;
     std::optional<Timeline> ticking; // time labels: the text changes as playback moves
-    // In a tab that isn't the one shown, or the pin while off (decision 072): drawn grey
-    // and dim, picture and ring included, until the pointer is on its tab.
+    // A page-row icon that isn't the shown page's (decisions 072, 165): drawn grey
+    // and dim until the pointer is on its button.
     bool muted = false;
     // Art that sits on the card: a soft shadow under it (the expanded card's cover, decision 094).
     bool raised = false;
@@ -64,37 +64,34 @@ struct BubbleScene {
     std::optional<Vec2> dragCentre; // being dragged: centred on the cursor here, no easing (decision 007)
 };
 
-// Expanded with several activities, or activities and panels: a tab per
-// activity along the top of the card (decisions 007, 047), and a square Home
-// button apart at the left when there are panels (decision 009). Clicking a
-// tab switches to it (ActivitySwitched, or HomeOpened for Home).
+// One button of Expanded's page row (decision 165): a page's icon in the
+// list, Home's button, or a panel's button. Clicking a page's shows its card.
 struct Tab {
-    Rect frame;     // pill coordinates: its dot (the shown one's line), or a button's square
+    Rect frame;     // pill coordinates: the button's square
     Rect hitFrame;  // clickable area: the frame, or more (up to the card's edge, half the gaps beside it)
-    std::string id; // the activity's id; empty = Home; kPreviousTab, kNextTab: the strip's arrows
-    bool badge = false; // its activity's Content::badge (decision 038)
-    Rect lit;           // what lights up under the pointer: a button's square, a soft circle round a dot
+    std::string id; // a page's: its activity's or panel's id; kHomeTab; kPanelButtonTab + a panel's id
+    bool badge = false; // its content's Content::badge (decision 038)
+    Rect lit;           // what lights up under the pointer
     float radius = 0;   // ...its corners
     bool accent = false; // its dot in the accent, not red (Content::badgeAccent, decision 152)
 };
 
-// The strip's buttons' ids (decisions 046, 109): not activities'.
-inline constexpr const char* kHomeTab = "#home";         // Home's button at the left edge: opens Home, the one way there (decision 115)
-inline constexpr const char* kPreviousTab = "#previous"; // ‹ beside the dots: the page before, round the strip
-inline constexpr const char* kNextTab = "#next";         // › beside the dots: the page after
-// A panel's button right of the pin (Panel::rowButton, decision 113): this, then the panel's id.
+// The row's buttons' ids: not activities'.
+inline constexpr const char* kHomeTab = "#home"; // Home's button at the left edge: opens Home, the one way there (decision 115)
+// A panel's button (Panel::rowButton, decision 113): this, then the panel's id.
 inline constexpr const char* kPanelButtonTab = "#panel/";
 
-// Expanded's page row (decision 109): no tabs drawn, a dot per activity
-// (none for Home, decision 115) with a short line for the shown one, an arrow on
-// each side of the dots; Home's button at the left edge, the pin at the right.
+// Expanded's page row (decision 165): in the middle, an icon per page, always
+// the same ones in the same order: every panel with a card, running or not,
+// then activities that aren't panels. The shown one is lit, the rest grey.
+// Home's button at the left edge with Search beside it; Settings in the
+// right corner with the theme switch beside it.
 struct TabStrip {
-    std::vector<Tab> tabs;  // the dots: activities in start order (Home has none, decision 115): stable, so a click doesn't reorder them
-    std::optional<std::size_t> active; // the dot of what's shown (drawn as a line); none for a dormant panel's card
+    std::vector<Tab> tabs;  // the pages' icons, in a stable order: a click doesn't reorder them
+    std::optional<std::size_t> active; // the shown page's (lit); none on Home
     float radius = 0;       // the buttons' highlight corners, nested in the card's
-    std::optional<Tab> home;             // Home's button at the left edge (decision 009); with panels
-    std::optional<Tab> previous, next;   // the arrows; with somewhere to go
-    std::vector<Tab> buttons;            // panels' buttons at the right end, the first at the far right (decision 113)
+    std::optional<Tab> home;             // Home's button at the left edge (decision 009); with widgets
+    std::vector<Tab> buttons;            // panels' buttons (Panel::rowButton), wherever each sits (Panel::rowSpot)
 };
 
 // A panel's widget on Home (decisions 009, 019). A click on it opens its
@@ -145,7 +142,7 @@ struct Scene {
     std::vector<Placed> elements;  // content of the activity/alert being shown
     std::string activityId;        // whose content the pill shows (empty: none, or a standalone alert)
     std::optional<BubbleScene> bubble;
-    std::optional<TabStrip> tabs;  // Expanded with several activities, or activities and panels
+    std::optional<TabStrip> tabs;  // Expanded's page row (decision 165)
     std::vector<Tile> tiles;       // Home
     float tileRadius = 0;          // tile background corners, nested in the card's
     std::vector<Vec2> badges;      // notification dots' centres (decision 038, core/badges.h)

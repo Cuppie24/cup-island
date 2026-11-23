@@ -124,9 +124,7 @@ void Blob::refreshAnimations(bool coloursOnly)
     fadeFill(recolorDuration(t));
     fadeGlow(recolorDuration(t));
     if (shadow_) fadeColor(shadow_, t.glass ? t.glassShadowColor : t.shadowColor);
-    if (selectedTab_.brush) fadeColor(selectedTab_.brush, t.buttonOffColor); // the page row's line (decision 109)
-    for (Mark& mark : tabDots_)
-        if (mark.brush) fadeColor(mark.brush, t.stepTodoColor);
+    if (selectedTab_.brush) fadeColor(selectedTab_.brush, t.tabSelectedColor); // behind the shown page's icon (decision 165)
     if (hovered_.brush) fadeColor(hovered_.brush, t.hoverColor);
     for (Mark& mark : tiles_)
         if (mark.brush) fadeColor(mark.brush, t.tileColor);
@@ -188,7 +186,7 @@ void Blob::fadeFill(Ms duration)
 }
 
 // The shown page's line: grey like the row's buttons at rest, brighter than the dots (decision 109).
-void Blob::setSelectedTab(std::optional<Rect> tab, float cornerRadius) { showMark(selectedTab_, tab, cornerRadius, tokens().buttonOffColor, true); }
+void Blob::setSelectedTab(std::optional<Rect> tab, float cornerRadius) { showMark(selectedTab_, tab, cornerRadius, tokens().tabSelectedColor, true); }
 
 
 void Blob::setHovered(std::optional<Rect> area, float cornerRadius) { showMark(hovered_, area, cornerRadius, tokens().hoverColor, false); }

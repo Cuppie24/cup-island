@@ -54,8 +54,8 @@ void activate()
     }
 }
 
-// Ctrl+Tab and Ctrl+Shift+Tab (decision 033): the next or previous
-// activity's page, as a click on its dot (Home isn't one, decision 115).
+// Ctrl+Tab and Ctrl+Shift+Tab (decision 033): the next or previous page
+// of the row's list, as a click on its icon (Home isn't one, decision 115).
 void switchTab(bool back)
 {
     auto to = back ? previousTab(scene()) : nextTab(scene());

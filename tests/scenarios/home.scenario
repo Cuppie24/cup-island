@@ -178,3 +178,16 @@ panel settings button               -> Idle
 click                               -> Idle
 panel focus
 click                               -> Expanded expanded=home
+
+scenario: a page-row icon opens a dormant panel's card (decision 165)
+panel timer
+panel theme static
+start media
+switch timer                        -> Compact                  # not open: an icon is only on the card
+click                               -> Expanded expanded=media
+switch timer                        -> Expanded expanded=timer top=media   # dormant: its card, the pill's pick unchanged
+switch theme                        -> Expanded expanded=timer  # no card to show
+switch media                        -> Expanded expanded=media pinned=media
+home                                -> Expanded expanded=home
+switch timer                        -> Expanded expanded=timer
+esc                                 -> Compact top=media

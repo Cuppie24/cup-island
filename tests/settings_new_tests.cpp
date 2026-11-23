@@ -111,7 +111,7 @@ void tabRowTests()
     bottom = reduce(bottom, TabRowPlaced{ false }, Ms{ 0 });
     Scene up = layout(top, Ms{ 0 }), down = layout(bottom, Ms{ 0 });
     const Tokens& t = tokens();
-    auto rowMiddle = [](const Scene& sc) { return sc.tabs->next->frame.y + sc.tabs->next->frame.height / 2; }; // the arrows sit on the row's middle
+    auto rowMiddle = [](const Scene& sc) { return sc.tabs->tabs[0].frame.y + sc.tabs->tabs[0].frame.height / 2; }; // the icons sit on the row's middle
     expect(rowMiddle(up) == t.tabRowInset + t.tabHeight / 2 && rowMiddle(down) == down.size.y - t.tabRowInset - t.tabHeight / 2,
            "tab row: along the top, or the bottom");
     expect(down.size == up.size, "tab row: the card is as tall either way");
@@ -119,7 +119,7 @@ void tabRowTests()
     for (const Placed& p : up.elements) if (p.key.rfind("tab/", 0) != 0) upText = p.frame.y;
     for (const Placed& p : down.elements) if (p.key.rfind("tab/", 0) != 0) downText = p.frame.y;
     expect(std::abs(upText - downText - (t.tabRowInset + t.tabHeight + t.tabRowGap - t.expandedPadding)) < 0.01f, "tab row: the content above a bottom strip, under a top one");
-    expect(down.tabs->next && down.tabs->next->hitFrame.y + down.tabs->next->hitFrame.height == down.size.y, "tab row: at the bottom, its buttons reach the card's bottom edge");
+    expect(down.tabs->tabs[0].hitFrame.y + down.tabs->tabs[0].hitFrame.height == down.size.y, "tab row: at the bottom, its buttons reach the card's bottom edge");
 }
 
 void newTagTests()

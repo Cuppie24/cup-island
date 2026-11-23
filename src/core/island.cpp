@@ -265,7 +265,12 @@ void handle(IslandState& s, const SpotRestored& e, Ms) { s.spot = e.spot; }
 
 void handle(IslandState& s, const ActivitySwitched& e, Ms now)
 {
-    if (!findActivity(s, e.id)) return;
+    if (!findActivity(s, e.id)) {
+        // A dormant panel's icon in the page row (decision 165): its card, as its widget opens it.
+        const Panel* p = findPanel(s, e.id);
+        if (isExpanded(s) && p && p->tapAction.empty() && hasCard(p->content)) expand(s, e.id, now);
+        return;
+    }
     handle(s, ActivityPromoted{ e.id }, now);
     if (isExpanded(s)) expand(s, e.id, now);
 }

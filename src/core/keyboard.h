@@ -75,8 +75,8 @@ std::optional<Focusable> lastFocus(const Scene& scene);
 // The keys 1 to 9 on Home: its `n`th widget (from 1), in publish order. Nothing past the last.
 std::optional<Focusable> homeWidget(const Scene& scene, std::size_t n);
 
-// Ctrl+Tab: the id of the activity after the one shown, round to the first
-// after the last; Ctrl+Shift+Tab: the one before, round to the last. From
+// Ctrl+Tab: the id of the page after the one shown in the row's list (decision
+// 165), round to the first after the last; Ctrl+Shift+Tab: the one before, round to the last. From
 // Home or a dormant panel's card, the first (or the last). Home isn't a
 // page (decision 115): its button is. Nothing without a tab strip.
 std::optional<std::string> nextTab(const Scene& scene);
