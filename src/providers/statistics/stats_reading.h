@@ -71,8 +71,6 @@ struct StatsReading {
     // --- Network: all adapters together ---
     std::optional<float> networkDown; // bytes per second, averaged since the last reading
     std::optional<float> networkUp;
-    std::optional<std::uint64_t> networkDownToday; // bytes since local midnight
-    std::optional<std::uint64_t> networkUpToday;
     std::optional<std::uint64_t> linkSpeed; // bits per second, the adapter in use
     std::string networkName;                // the Wi-Fi network's, or the adapter's
     bool wired = false;                     // ...which is a cable

@@ -116,7 +116,6 @@ void trafficTests()
     expect(trafficSince(before, { adapter(1, 1600, 150), adapter(2, 5000, 500) }) == Traffic{ 600, 50 }, "what went through since: every adapter's difference");
     expect(trafficSince(before, { adapter(1, 40, 7), adapter(2, 5000, 500) }) == Traffic{ 40, 7 }, "a counter lower than before began again: all of it is new");
     expect(trafficSince(before, { adapter(1, 1000, 100), adapter(3, 9000, 900) }) == Traffic{}, "a new adapter says nothing about this span; a gone one neither");
-    expect(trafficSince(before, { adapter(1, 10, 1), adapter(3, 20, 2) }, true) == Traffic{ 30, 3 }, "after a boot every counter began at 0");
     expect(perSecond(500, 250) == 2000.0f && !perSecond(500, 0) && !perSecond(500, -5), "bytes per second; none over no time");
 
     std::vector<AdapterSample> now = { adapter(1, 1600, 150), adapter(2, 5900, 500, true, true), adapter(4, 99999, 0, false) };
@@ -125,29 +124,6 @@ void trafficTests()
     expect(adapterInUse(quiet, before, std::nullopt)->id == 2 && adapterInUse(quiet, before, 1)->id == 1 && adapterInUse(quiet, before, 2)->id == 2,
            "nothing moving: the one picked last time, else the cable");
     expect(!adapterInUse({ adapter(1, 5, 5, false) }, {}, std::nullopt) && !adapterInUse({}, {}, 1), "none connected: none");
-}
-
-void networkDayTests()
-{
-    std::vector<AdapterSample> first = { adapter(1, 1000, 100) };
-    NetworkDay fresh = advanceDay({}, 20261123, 500, true, first);
-    expect(fresh.day == 20261123 && fresh.total == Traffic{ 1000, 100 }, "booted today: everything since boot is today's");
-    NetworkDay lateStart = advanceDay({}, 20261123, 500, false, first);
-    expect(lateStart.total == Traffic{}, "up since yesterday: counted from this first look");
-
-    NetworkDay later = advanceDay(lateStart, 20261123, 503, false, { adapter(1, 1700, 130) });
-    expect(later.total == Traffic{ 700, 30 }, "the same day: what went through since the last look, a wobbling boot time is the same boot");
-    NetworkDay rebooted = advanceDay(later, 20261123, 900, true, { adapter(1, 9000, 10), adapter(2, 50, 5) });
-    expect(rebooted.total == Traffic{ 9750, 45 }, "a boot since: every counter is new in full, even one higher than before");
-    NetworkDay tomorrow = advanceDay(rebooted, 20261124, 900, false, { adapter(1, 9500, 20) });
-    expect(tomorrow.total == Traffic{} && tomorrow.day == 20261124, "a new day starts again; yesterday's bytes aren't today's");
-
-    NetworkDay back = networkDayFromText(toText(rebooted));
-    expect(back.day == rebooted.day && back.bootMinute == 900 && back.total == rebooted.total && back.last.size() == 2 && back.last[1].id == 2 &&
-           back.last[1].received == 50 && back.last[1].sent == 5, "kept as text and read back");
-    expect(advanceDay(back, 20261123, 900, true, { adapter(1, 9100, 10), adapter(2, 50, 5) }).total == Traffic{ 9850, 45 }, "...and counted on from after a restart of the app");
-    expect(networkDayFromText("") == NetworkDay{} && networkDayFromText("2 1 1 1 1") == NetworkDay{} && networkDayFromText("1 20261123 5 x") == NetworkDay{} &&
-           networkDayFromText("1 20261123 5 10 20 7 oops") == NetworkDay{}, "anything unreadable: nothing kept");
 }
 
 void bluetoothTests()
@@ -191,7 +167,6 @@ void runStatisticsReaderTests()
     processTests();
     temperatureTests();
     trafficTests();
-    networkDayTests();
     bluetoothTests();
 }
 

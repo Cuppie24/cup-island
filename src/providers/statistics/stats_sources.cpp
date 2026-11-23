@@ -1,5 +1,5 @@
-// The plain looks: the CPU's name, memory, drives, graphics adapters, the
-// date (decision 173). Every API here is Windows 7 or older, so none needs
+// The plain looks: the CPU's name, memory, drives, graphics adapters
+// (decision 173). Every API here is Windows 7 or older, so none needs
 // a runtime lookup (decision 015).
 #include "providers/statistics/stats_sources.h"
 
@@ -124,21 +124,6 @@ std::vector<GpuAdapter> gpuAdapters()
     }
     factory->Release();
     return found;
-}
-
-Today today()
-{
-    SYSTEMTIME local{};
-    GetLocalTime(&local);
-    FILETIME utc{};
-    GetSystemTimeAsFileTime(&utc);
-    std::uint64_t sinceBoot = GetTickCount64(); // ms, sleep included
-    std::uint64_t sinceMidnight = ((local.wHour * 60ull + local.wMinute) * 60 + local.wSecond) * 1000 + local.wMilliseconds;
-    return {
-        .day = local.wYear * 10000ll + local.wMonth * 100 + local.wDay,
-        .bootMinute = static_cast<std::int64_t>(ticks(utc) / 600'000'000ull) - static_cast<std::int64_t>(sinceBoot / 60'000),
-        .bootedToday = sinceBoot < sinceMidnight,
-    };
 }
 
 } // namespace cup::stats

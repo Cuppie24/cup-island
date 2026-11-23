@@ -615,6 +615,13 @@ struct Tokens {
     std::size_t statsListShown = 5;            // rows in a page's side list (processes, apps)
     std::size_t statsDrivesShown = 5;          // drives on the disk page
     Ms statsRefresh{ 2000 };                   // while its card is shown: a new reading this often
+    // The Windows reader's (decision 173). A rate needs two samples: with none recent enough it takes
+    // one, waits statsFirstSpan and reads; one older than statsStaleAfter isn't recent (the card was
+    // closed meanwhile); asked nothing for statsIdleClose, it closes its counters.
+    Ms statsFirstSpan{ 250 };
+    Ms statsStaleAfter{ 10000 };
+    Ms statsIdleClose{ 30000 };
+    std::size_t statsBluetoothEvery = 5;       // Bluetooth devices are listed every this many readings: the slowest look
     std::size_t todoMaxLength = 150; // characters in a to-do: wraps onto a few lines at most (decision 045)
     std::size_t taskGroupNameMaxLength = 40; // a task group's name, edited in place (decision 117)
     // Lists (Row::list, decision 029): the window shows this many rows (the

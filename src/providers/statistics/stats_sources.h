@@ -75,14 +75,6 @@ std::vector<AdapterSample> networkAdapters();
 // Bluetooth API and nothing sent over the radio (decision 042).
 std::vector<BluetoothNode> bluetoothNodes();
 
-// The local date as yyyymmdd, when the PC booted (minutes, UTC), and whether that was today.
-struct Today {
-    std::int64_t day = 0;
-    std::int64_t bootMinute = 0;
-    bool bootedToday = false;
-};
-Today today();
-
 std::string utf8(const wchar_t* text); // "" for null
 
 } // namespace cup::stats

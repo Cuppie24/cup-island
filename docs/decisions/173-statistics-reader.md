@@ -17,13 +17,13 @@ thread (decision 144); and nothing is watched (decision 042).
   each request with the open page and posts the answer back to the UI
   thread, guarded by an `alive` flag like media's. A request during a read
   is skipped. Closed, the provider stops asking and the thread sleeps;
-  after `idleClose` (30 s) it also closes its counters. `stop()` joins:
+  after `statsIdleClose` (30 s) it also closes its counters. `stop()` joins:
   every look is a local call that takes milliseconds, and exit has its 3 s
   safety net. Every look runs inside a guard (decision 158): one that
   throws or fails leaves its values out, and the page shows its empty state.
 - **Rates need two samples.** With no recent sample (the card just opened,
-  or the last is older than `staleAfter`), the reader samples, waits
-  `firstSpan` (250 ms) and reads: the first card shows numbers at once, and
+  or the last is older than `statsStaleAfter`), the reader samples, waits
+  `statsFirstSpan` (250 ms) and reads: the first card shows numbers at once, and
   never an average over the hour it was closed.
 - **Sources**, all present since Windows 7 unless noted:
 
@@ -53,16 +53,9 @@ thread (decision 144); and nothing is watched (decision 042).
   the battery level `{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2`, class of
   device, connected), and destroys the set. No `DeviceWatcher`, no
   notification, no `Windows.Devices.Bluetooth`, no device opened, nothing
-  sent over the radio. Every `bluetoothEvery` (5) readings, and at once
+  sent over the radio. Every `statsBluetoothEvery` (5) readings, and at once
   when its page opens. A device Windows marks disconnected is left out
   (its level is the last one heard).
-- **"Today" for the network** is bytes since local midnight, kept between
-  runs (`Host::save`, key `network-day`, written when the card closes):
-  adapters' counters go on while the card is closed, so each look adds what
-  went through since the last one, a reboot included. The first look of a
-  day starts from everything since boot if the PC booted today, else from
-  0: what passed between midnight and that look can't be known without
-  reading at midnight, which would mean running with the card closed.
 
 **Deliberately not read, and what shows instead.**
 - **Temperatures.** Windows has no documented, unprivileged API for the
@@ -75,6 +68,13 @@ thread (decision 144); and nothing is watched (decision 042).
   an approximation), nothing where there isn't; per-core and GPU
   temperatures are always empty.
 - **Earbuds' parts** (left, right, case): Windows keeps one level a device.
+- **Network totals "today".** Adapters count bytes since boot, and nothing
+  is read with the card closed, so a total since midnight is exact only on
+  a PC booted that day; anywhere else it would be "since the card was first
+  opened today" under the word "today". The user chose to drop it rather
+  than show that. The Network page shows each direction's peak over the
+  graphs' span instead (`peakOf`, from the histories the provider already
+  keeps): exact, and nothing is kept between runs.
 - **The Wi-Fi network's name.** Asking for it counts as using location on
   Windows 11 24H2 (a prompt or a refusal, and the location icon). The
   adapter's connection name shows instead ("Wi-Fi", "Ethernet 2").
@@ -86,13 +86,13 @@ thread (decision 144); and nothing is watched (decision 042).
 **Not taken.** `NtQuerySystemInformation` for processes: faster, but its
 structures aren't documented. WMI: slow, and a COM server. A WinRT
 `DeviceInformation` query for Bluetooth: it goes through the service that
-042's watcher did. Reader timings as tokens: they'd be the first read off
-the UI thread, and this change stayed out of `core/`; they are
-`StatsReaderSettings`' defaults for now.
+042's watcher did.
 
 **Consequences.** Four more system libraries (pdh, iphlpapi, setupapi,
-psapi), all in every Windows since 7. The first reading takes `firstSpan`
-longer than the rest. To check on Windows, besides 042's test: the log's
+psapi), all in every Windows since 7. Four tokens (`statsFirstSpanMs`,
+`statsStaleAfterMs`, `statsIdleCloseMs`, `statsBluetoothEvery`): the
+provider reads them on the UI thread and hands them over with each request
+(decision 144). The first reading takes `statsFirstSpan` longer than the rest. To check on Windows, besides 042's test: the log's
 `statistics: counters opened (…)` line says which counters the PC has;
 numbers against Task Manager (CPU, GPU, memory, disk, network); a PC with
 two GPUs; a language other than English; closing the card and seeing the

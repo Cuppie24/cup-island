@@ -29,7 +29,7 @@ inline StatsReading fullReading()
     r.gpuProcesses = { { "Chrome", 9.6 }, { "Desktop Window Manager", 5.0 }, { "Spotify", 1.6 }, { "Other", 0.2 } };
     r.memoryUsed = kGb * 186 / 10, r.memoryTotal = 32 * kGb, r.memoryCached = kGb * 61 / 10;
     r.memoryApps = { { "Chrome", 4.6 * kGb }, { "Docker Desktop", 3.8 * kGb }, { "Slack", 1.2 * kGb }, { "Spotify", 700.0 * kMb } };
-    r.networkDown = 0.7f * kMb, r.networkUp = 0.3f * kMb, r.networkDownToday = kGb * 42 / 10, r.networkUpToday = 310 * kMb;
+    r.networkDown = 0.7f * kMb, r.networkUp = 0.3f * kMb;
     r.linkSpeed = 100'000'000, r.networkName = "Orchard-5G";
     r.drives = { { "Windows (C:)", 364 * kGb, 512 * kGb }, { "Data (D:)", 612 * kGb, 1000 * kGb }, { "Backup (E:)", 1310 * kGb, 2000 * kGb } };
     r.diskRead = 8.0f * kMb, r.diskWrite = 3.0f * kMb;

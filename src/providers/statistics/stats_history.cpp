@@ -53,6 +53,14 @@ const StatsHistory::Samples& samplesOf(const StatsHistory& history, Series serie
     return history.series[static_cast<std::size_t>(series)];
 }
 
+std::optional<float> peakOf(const StatsHistory::Samples& samples)
+{
+    std::optional<float> peak;
+    for (const std::optional<float>& s : samples)
+        if (s && (!peak || *s > *peak)) peak = s;
+    return peak;
+}
+
 bool anyReading(const StatsHistory::Samples& samples)
 {
     return std::any_of(samples.begin(), samples.end(), [](const std::optional<float>& s) { return s.has_value(); });

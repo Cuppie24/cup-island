@@ -55,13 +55,12 @@ struct StatsReader::Sources {
     std::optional<stats::CpuTimes> cpuTimes;
     std::optional<std::vector<AdapterSample>> adapters; // none: not looked at yet
     std::optional<std::uint64_t> adapterInUse;
-    NetworkDay day;
 
     std::string cpuName; // what doesn't change while the card is open: read at open()
     std::size_t cores = 1;
     std::vector<GpuAdapter> gpus;
     std::vector<BluetoothDevice> bluetooth; // the last listing, shown until the next
-    int untilBluetooth = 0;
+    std::size_t untilBluetooth = 0;
     StatsPage lastPage = StatsPage::Overview;
 
     void open()
@@ -108,7 +107,7 @@ struct StatsReader::Sources {
         sampled = Clock::now();
     }
 
-    void close() // the day's totals stay: they're kept between cards
+    void close()
     {
         processes.reset();
         counters.reset();
@@ -118,8 +117,7 @@ struct StatsReader::Sources {
     }
 };
 
-StatsReader::StatsReader(Done done, std::string networkDay, StatsReaderSettings settings)
-    : done_(std::move(done)), settings_(settings), networkDay_(std::move(networkDay))
+StatsReader::StatsReader(Done done) : done_(std::move(done))
 {
     thread_ = std::thread([this] { run(); });
 }
@@ -129,12 +127,13 @@ StatsReader::~StatsReader()
     stop();
 }
 
-void StatsReader::request(StatsPage page)
+void StatsReader::request(StatsPage page, const StatsReaderSettings& settings)
 {
     {
         std::lock_guard lock(mutex_);
         if (stopped_ || reading_) return;
         wanted_ = page;
+        settings_ = settings;
     }
     wake_.notify_one();
 }
@@ -158,9 +157,9 @@ bool StatsReader::waitFor(std::chrono::milliseconds span)
 void StatsReader::run()
 {
     Sources sources;
-    guarded("the kept network totals", [&] { sources.day = networkDayFromText(networkDay_); });
     for (;;) {
         StatsPage page = StatsPage::Overview;
+        StatsReaderSettings settings;
         {
             std::unique_lock lock(mutex_);
             reading_ = false;
@@ -173,23 +172,24 @@ void StatsReader::run()
             }
             if (stopped_) return;
             page = *wanted_;
+            settings = settings_;
             wanted_.reset();
             reading_ = true;
         }
-        std::optional<StatsAnswer> answer;
-        guarded("the machine", [&] { answer = read(sources, page); });
+        std::optional<StatsReading> reading;
+        guarded("the machine", [&] { reading = read(sources, page, settings); });
         {
             std::lock_guard lock(mutex_);
             if (stopped_) return;
         }
-        if (answer) guarded("(handing it over)", [&] { done_(std::move(*answer)); });
+        if (reading) guarded("(handing it over)", [&] { done_(std::move(*reading)); });
     }
 }
 
-StatsAnswer StatsReader::read(Sources& s, StatsPage page)
+StatsReading StatsReader::read(Sources& s, StatsPage page, const StatsReaderSettings& settings)
 {
     // Rates are "since the last sample": one from before the card was closed is no use.
-    if (s.counters && Clock::now() - s.sampled > settings_.staleAfter) s.close();
+    if (s.counters && Clock::now() - s.sampled > settings.staleAfter) s.close();
     bool fresh = !s.counters;
     if (fresh) {
         s.open();
@@ -201,10 +201,9 @@ StatsAnswer StatsReader::read(Sources& s, StatsPage page)
         s.processes->collect();
     }
     if (!wantsProcesses(page)) s.processes.reset();
-    if ((fresh || freshProcesses) && !waitFor(settings_.firstSpan)) return {}; // stopped: run() drops it
+    if ((fresh || freshProcesses) && !waitFor(settings.firstSpan)) return {}; // stopped: run() drops it
 
-    StatsAnswer answer;
-    StatsReading& r = answer.reading;
+    StatsReading r;
     std::optional<stats::CpuTimes> timesBefore = s.cpuTimes;
     std::vector<AdapterSample> adaptersBefore = s.adapters.value_or(std::vector<AdapterSample>{});
     bool hadAdapters = s.adapters.has_value();
@@ -258,11 +257,6 @@ StatsAnswer StatsReader::read(Sources& s, StatsPage page)
             r.wired = used->wired;
             if (used->linkSpeed > 0) r.linkSpeed = used->linkSpeed;
         }
-        stats::Today today = stats::today();
-        s.day = advanceDay(s.day, today.day, today.bootMinute, today.bootedToday, *s.adapters);
-        r.networkDownToday = s.day.total.received;
-        r.networkUpToday = s.day.total.sent;
-        answer.networkDay = toText(s.day);
     });
     guarded("the GPU", [&] {
         bool read = false;
@@ -271,15 +265,15 @@ StatsAnswer StatsReader::read(Sources& s, StatsPage page)
     });
     guarded("Bluetooth", [&] {
         bool opened = page == StatsPage::Bluetooth && s.lastPage != StatsPage::Bluetooth;
-        if (s.untilBluetooth <= 0 || opened) {
+        if (s.untilBluetooth == 0 || opened) {
             s.bluetooth = bluetoothDevices(stats::bluetoothNodes());
-            s.untilBluetooth = settings_.bluetoothEvery;
+            s.untilBluetooth = settings.bluetoothEvery > 0 ? settings.bluetoothEvery : 1;
         }
         --s.untilBluetooth;
         r.bluetooth = s.bluetooth;
     });
     s.lastPage = page;
-    return answer;
+    return r;
 }
 
 } // namespace cup

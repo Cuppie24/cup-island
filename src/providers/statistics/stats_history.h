@@ -27,6 +27,8 @@ struct StatsHistory {
 // statsHistoryLength.
 void record(StatsHistory& history, const StatsReading& reading);
 const StatsHistory::Samples& samplesOf(const StatsHistory& history, Series series);
+// The highest reading it holds (the last statsHistoryLength readings); none with only gaps.
+std::optional<float> peakOf(const StatsHistory::Samples& samples);
 // Whether it has any reading at all: a graph of only gaps isn't worth a tile.
 bool anyReading(const StatsHistory::Samples& samples);
 

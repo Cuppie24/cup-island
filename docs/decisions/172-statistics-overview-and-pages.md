@@ -90,8 +90,8 @@ look on both Windows versions. A bar's label under the pointer
 it on. A ring can't take a `level` (it still follows its timeline). In a
 tile's value the unit is as bright as its number, and a caption sits on its
 line's middle, not on the value's baseline. The reader's contract grew: per-core readings,
-process lists, GPU engines and memory, cached memory, today's network
-totals and link speed, every drive, disk activity, device kinds and parts.
+process lists, GPU engines and memory, cached memory, link speed
+(today's network totals were dropped: decision 173), every drive, disk activity, device kinds and parts.
 Every one is optional, and each page was laid out without it. Process
 lists are the costly part, and only three pages need them: the reader can
 ask the provider which page is open (`StatisticsProvider::page`).

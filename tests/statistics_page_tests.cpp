@@ -157,7 +157,7 @@ void standardPageTests()
     const Tokens& t = tokens();
     StatsReading full = fullReading();
 
-    // Network: two graphs on their own scales, today's totals.
+    // Network: two graphs on their own scales, each one's peak over the history.
     Content net = networkPage(viewOf(full, StatsPage::Network));
     expect(net.card == CardLayout::Centred && !net.wideCard && net.backAction == stats_action::kBack && net.expandedCenter.size() == 4 && net.pageAtTop,
            "a page at the card's usual width");
@@ -167,11 +167,12 @@ void standardPageTests()
     const Graph& up = std::get<Graph>(net.expandedCenter[1].items[1]);
     expect(down.tile && down.caption == "↓ Download" && down.value == "717 KB/s" && !down.valueLarge && up.caption == "↑ Upload" && up.value == "307 KB/s" &&
            net.expandedCenter[1].even && !down.alert && down.actionId.empty(), "download and upload, each with its speed");
-    expect(std::get<Text>(net.expandedCenter[2].items[0]).value == "4.2 GB" && std::get<Text>(net.expandedCenter[2].items[1]).value == "310 MB" &&
+    expect(std::get<Text>(net.expandedCenter[2].items[0]).value == "717 KB/s" && std::get<Text>(net.expandedCenter[2].items[1]).value == "307 KB/s" &&
+           std::get<Text>(net.expandedCenter[3].items[0]).value == "Peak down" && std::get<Text>(net.expandedCenter[3].items[1]).value == "Peak up" &&
            std::get<Text>(net.expandedCenter[2].items[2]).value == "100 Mbps" && std::get<Text>(net.expandedCenter[3].items[2]).value == "Link speed" &&
-           std::get<Text>(net.expandedCenter[2].items[0]).style == TextStyle::Title, "today's totals and the link's speed, each over its name");
+           std::get<Text>(net.expandedCenter[2].items[0]).style == TextStyle::Title, "the peaks and the link's speed, each over its name");
     StatsReading wired = full;
-    wired.wired = true, wired.networkName.clear(), wired.networkDown = 12.4f * 1000 * 1000, wired.networkDownToday.reset(), wired.linkSpeed = 100'000'000;
+    wired.wired = true, wired.networkName.clear(), wired.networkDown = 12.4f * 1000 * 1000, wired.networkUp.reset(), wired.linkSpeed = 100'000'000;
     Content cable = networkPage(viewOf(wired, StatsPage::Network));
     expect(std::get<Icon>(cable.expandedCenter[0].trailing[0]).glyph == Glyph::Ethernet && std::get<Text>(cable.expandedCenter[0].trailing[1]).value == "Ethernet" &&
            std::get<Graph>(cable.expandedCenter[1].items[0]).alert && !std::get<Graph>(cable.expandedCenter[1].items[1]).alert &&

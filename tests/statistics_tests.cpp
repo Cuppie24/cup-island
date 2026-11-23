@@ -158,6 +158,7 @@ void historyTests()
     auto busy = speedSamples({ floor * 10, floor * 5, 0.0f });
     expect(busy == std::vector<float>{ 1, 0.5f, 0 }, "a busy one fills its graph: its peak is the top");
     expect(speedSamples({}).empty() && percentSamples({}).empty(), "nothing in, nothing out");
+    expect(peakOf({ 3.0f, std::nullopt, 9.0f, 4.0f }) == 9.0f && !peakOf({ std::nullopt }) && !peakOf({}), "a series' peak: its highest reading; only gaps, none");
 }
 
 } // namespace

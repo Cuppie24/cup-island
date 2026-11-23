@@ -85,7 +85,7 @@ Row listRow(const std::string& name, float level, const std::string& value, cons
                               Text{ .value = value, .style = TextStyle::Caption, .alignEnd = true, .brightDigits = true, .sizedAs = widest } } };
 }
 
-// Download and upload as two graphs, each on its own scale (upload is often a tenth of download), and today's totals.
+// Download and upload as two graphs, each on its own scale (upload is often a tenth of download), and each one's peak over the graph's span.
 Content networkPage(const StatsView& v)
 {
     const StatsReading& r = v.reading;
@@ -99,8 +99,9 @@ Content networkPage(const StatsView& v)
                          Row{ .items = { speedTile("↓ Download", r.networkDown, samplesOf(v.history, Series::Download), atLinkLimit(r.networkDown, r.linkSpeed)),
                                          speedTile("↑ Upload", r.networkUp, samplesOf(v.history, Series::Upload), atLinkLimit(r.networkUp, r.linkSpeed)) },
                               .even = true } };
-    factRows(c.expandedCenter, { { r.networkDownToday ? sizeText(*r.networkDownToday) : "", "Down today" },
-                                 { r.networkUpToday ? sizeText(*r.networkUpToday) : "", "Up today" },
+    // Peaks, not totals "today": those can't be had without reading while closed (decision 173).
+    factRows(c.expandedCenter, { { speedText(peakOf(samplesOf(v.history, Series::Download))), "Peak down" },
+                                 { speedText(peakOf(samplesOf(v.history, Series::Upload))), "Peak up" },
                                  { linkText(r.linkSpeed), "Link speed" } });
     return c;
 }
