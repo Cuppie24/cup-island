@@ -16,9 +16,8 @@ float fontSize(TextStyle style);   // its text's size, px (tokens)
 TextStyle detailStyleOf(TextStyle style);
 bool isRing(const Item& item);
 bool isWavy(const Item& item); // a Progress bar with `wavy` (decision 167)
-// A wavy bar's height: its wave's swing, with the pin at its head riding it.
+// A wavy bar's height: its line, swinging progressWaveAmplitude to each side.
 float waveHeight();
-float waveSwing(); // the line, swinging progressWaveAmplitude to each side
 // The wave's line, left to right: points along a sine from x = 0 to `width`,
 // around y = `middle`, starting on it and rising first. Close enough together
 // to read as a curve. Nothing for a wave with no length.

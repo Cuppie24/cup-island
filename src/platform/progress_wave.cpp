@@ -80,7 +80,7 @@ WaveParts createWave(Compositor const& c, ID2D1Factory* factory, Vec2 frame, Com
 
     // Seen through a window with round ends, the swing's height: where the wave
     // starts it's cut along a curve, not straight down. (Its other end is past the bar.)
-    float swing = waveSwing();
+    float swing = waveHeight();
     auto opening = c.CreateRoundedRectangleGeometry();
     opening.Size({ frame.x + swing, swing });
     opening.Offset({ 0.0f, (frame.y - swing) / 2 });

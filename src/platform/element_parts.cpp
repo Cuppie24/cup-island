@@ -193,13 +193,14 @@ ProgressParts createProgress(Compositor const& c, Vec2 frame, const Color& accen
         top = c.CreateShapeVisual();
         top.RelativeSizeAdjustment({ 1.0f, 1.0f });
         parts.visual.Children().InsertAtTop(top);
-        // A round pin at the head: the wave ends in it, not in a cut. Under the knob.
-        auto pin = c.CreateEllipseGeometry();
-        pin.Radius({ t.progressWavePinSize / 2, t.progressWavePinSize / 2 });
-        pin.StartAnimation(L"Center", center);
-        auto pinShape = c.CreateSpriteShape(pin);
-        pinShape.FillBrush(parts.accent);
-        top.Shapes().Append(pinShape);
+        // The head's round cap: a dot as wide as the line is thick, on the line where it's cut,
+        // so the wave ends round, with nothing bigger than itself there. Under the knob.
+        auto cap = c.CreateEllipseGeometry();
+        cap.Radius({ h / 2, h / 2 });
+        cap.StartAnimation(L"Center", center);
+        auto capShape = c.CreateSpriteShape(cap);
+        capShape.FillBrush(parts.accent);
+        top.Shapes().Append(capShape);
     }
     float r = t.progressKnobSize / 2;
     auto knob = c.CreateEllipseGeometry();
