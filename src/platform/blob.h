@@ -147,6 +147,9 @@ private:
     bool card_ = false; // an open card's glow (glowLook, decision 166)
     void buildGlow(wuc::Compositor const& compositor, wuc::CompositionGeometry const& outline);
     void fadeGlow(Ms duration);
+    // The glow now heading for: the tokens', or going out, the one last shown, clear (glowTowards, decision 173).
+    GlowLook glowNow() const { return glowTowards(glowLook(tokens(), card_), glowShown_); }
+    GlowLook glowShown_; // the last glow with any colour
     void buildRim(wuc::Compositor const& compositor);
     void applyGlass(Ms duration); // tokens().glass: on or off, and the rim's colour and width
     wuc::CompositionPropertySet shape_{ nullptr }; // MaxRadius, FlareRadius, Attached, Flare, Left/RightEar: read by the shape expressions
