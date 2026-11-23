@@ -172,10 +172,12 @@ bool LiquidGlass::anyShown() const
     return false;
 }
 
-void LiquidGlass::place(int which, Rect body, bool attached, const Motion& motion)
+void LiquidGlass::place(int which, Rect body, bool attached, bool leftEar, bool rightEar, const Motion& motion)
 {
     Moving& shape = shapes_[static_cast<std::size_t>(which)];
-    if (body == shape.to && attached == shape.attached) return;
+    if (body == shape.to && attached == shape.attached && leftEar == shape.leftEar && rightEar == shape.rightEar) return;
+    shape.leftEar = leftEar;
+    shape.rightEar = rightEar;
     auto now = Clock::now();
     shape.from = where(shape, now); // an interrupted morph carries on from where it got to
     shape.to = body;
@@ -227,7 +229,7 @@ void LiquidGlass::draw()
     std::vector<LiquidShape> shapes;
     for (const Moving& shape : shapes_) {
         moving = moving || now - shape.started < shape.motion.duration;
-        shapes.push_back(liquidShape(where(shape, now), shape.attached, t));
+        shapes.push_back(liquidShape(where(shape, now), shape.attached, shape.leftEar, shape.rightEar, t));
     }
     if (moving) timer_.Start();
     else timer_.Stop();
@@ -258,6 +260,8 @@ void LiquidGlass::draw()
             const Rect& f = shapes[i].frame;
             p.shape[i][0] = f.x, p.shape[i][1] = f.y, p.shape[i][2] = f.width, p.shape[i][3] = f.height;
             p.radius[i] = shapes[i].radius;
+            p.ears[2 * i] = shapes[i].leftEar, p.ears[2 * i + 1] = shapes[i].rightEar;
+            p.tops[i] = shapes[i].top;
         }
         p.radius[2] = std::max(t.glassRimWidth, 1.0f) * 1.5f; // the highlight: a little wider than the rim's line
         p.lens[0] = std::max(t.glassLiquidBlur, 0.0f);

@@ -70,16 +70,18 @@ void PillRenderer::placeLiquid(const Scene& scene, const Motion& morph)
 {
     const Motion atOnce{ Ms{ 0 }, 0, 0 }; // dragged: it's where the pointer is
     Vec2 size = scene.size;
-    if (scene.lifted) liquid_.place(0, { scene.offset.x, tokens().liftDrop, size.x, size.y }, false, atOnce);
-    else liquid_.place(0, { scene.offset.x, scene.offset.y, size.x, size.y }, true, towardSize(morph, size));
+    // Each shape's flared corners as apply() gives them to its Blob (setEars).
+    bool pillLeft = !scene.flushLeft, pillRight = !(scene.flushRight && !scene.bubble);
+    if (scene.lifted) liquid_.place(0, { scene.offset.x, tokens().liftDrop, size.x, size.y }, false, false, false, atOnce);
+    else liquid_.place(0, { scene.offset.x, scene.offset.y, size.x, size.y }, true, pillLeft, pillRight, towardSize(morph, size));
     const BubbleScene* bubble = scene.bubble ? &*scene.bubble : nullptr;
     if (bubble && bubble->dragCentre) {
         const Rect& f = bubble->frame;
-        liquid_.place(1, { bubble->dragCentre->x - f.width / 2, bubble->dragCentre->y - f.height / 2, f.width, f.height }, false, atOnce);
+        liquid_.place(1, { bubble->dragCentre->x - f.width / 2, bubble->dragCentre->y - f.height / 2, f.width, f.height }, false, false, false, atOnce);
     } else if (bubble) {
-        liquid_.place(1, bubble->frame, true, morph);
+        liquid_.place(1, bubble->frame, true, true, !scene.flushRight, morph);
     } else {
-        liquid_.place(1, { scene.bubbleTuck.x, scene.bubbleTuck.y, 0, 0 }, true, towardSize(morph, {}));
+        liquid_.place(1, { scene.bubbleTuck.x, scene.bubbleTuck.y, 0, 0 }, true, false, false, towardSize(morph, {}));
     }
 }
 

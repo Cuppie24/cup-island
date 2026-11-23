@@ -14,14 +14,22 @@ namespace cup {
 struct LiquidShape {
     Rect frame;
     float radius = 0;
+    // On the screen edge its top corners flare out into the edge (decision
+    // 025): the body's real top (the frame's is carried past it), and each
+    // flare's size; 0: none on that side.
+    float top = 0;
+    float leftEar = 0, rightEar = 0;
     bool operator==(const LiquidShape&) const = default;
 };
 
 // `body` (a pill's or a bubble's bounds) as a shape: the island's corner
 // radius, and while it hangs from the screen edge (`attached`), its top
 // carried far enough past that edge that no rim bends along it: only the
-// sides and the bottom are a pane's lip. Nothing (an empty frame) if it has no size.
-LiquidShape liquidShape(Rect body, bool attached, const Tokens& t);
+// sides and the bottom are a pane's lip, and those sides curve out into the
+// edge where the body has a flared corner (`leftEar`, `rightEar`: decision
+// 026 takes one away where it's flush with the screen's side), so the
+// glass's outline follows them. Nothing (an empty frame) if it has no size.
+LiquidShape liquidShape(Rect body, bool attached, bool leftEar, bool rightEar, const Tokens& t);
 
 // Where a morph from `from` to `to` has got to, `elapsed` after it started:
 // the same spring the compositor runs (springProgress), overshoot included.

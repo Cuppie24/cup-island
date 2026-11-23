@@ -36,7 +36,8 @@ public:
 
     // Shape `which` (0 the pill, 1 the bubble) is heading for `body` along
     // `motion` (no duration: there at once). Kept while stopped, too.
-    void place(int which, Rect body, bool attached, const Motion& motion);
+    // `leftEar`, `rightEar`: it has that flared top corner (Blob::setEars).
+    void place(int which, Rect body, bool attached, bool leftEar, bool rightEar, const Motion& motion);
     void refresh() { render(); } // tokens changed
 
     // It stopped by itself (the GPU was reset, Windows ended the capture): show the frosted glass.
@@ -46,6 +47,7 @@ private:
     struct Moving {
         Rect from, to;
         bool attached = true;
+        bool leftEar = true, rightEar = true;
         Motion motion;
         std::chrono::steady_clock::time_point started{};
     };
