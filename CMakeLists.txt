@@ -242,6 +242,7 @@ if(WIN32)
         src/platform/top_glow.cpp
         src/platform/switch_parts.cpp
         src/platform/segments_parts.cpp
+        src/platform/shine.cpp
         src/platform/list_viewports.cpp
         src/platform/file_watcher.cpp
         src/platform/foreground.cpp

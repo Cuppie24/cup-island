@@ -575,10 +575,16 @@ void ElementVisuals::syncFill(View& view, Ms duration)
         auto visual = compositor_.CreateShapeVisual();
         visual.Size(toFloat2(size));
         visual.Shapes().Append(shape);
+        if (shiny_) { // on the island: its edge catches the light on liquid glass (decision 165)
+            view.shine = makeShine(compositor_, size, r, std::max(tokens().glassRimWidth, 1.0f) * 1.5f);
+            visual.Shapes().Append(view.shine.shape);
+            fadeShine(view.shine, liquidShine(tokens()), Ms{ 1 }); // new: there at once
+        }
         view.glyphHost.Parent().Children().InsertBelow(visual, view.glyphHost);
         return;
     }
     fadeColor(view.buttonFill, fill.value_or(Color{ 0, 0, 0, 0 }), duration); // none now: clear
+    fadeShine(view.shine, fill ? liquidShine(tokens()) : 0.0f, duration);    // with its circle
 }
 
 void ElementVisuals::paint(View& view)

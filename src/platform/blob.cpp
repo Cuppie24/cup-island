@@ -94,6 +94,8 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     toast_.build(c, device, body_, content_); // a toast floats over the content too (decision 071)
     bind(c, toast_.frame(), L"Size", L"pill.Size", body_, shape_); // clipped to the card, like the content
     elements_.init(c, device, content_);
+    elements_.setShiny(true); // filled controls shine on liquid glass (decision 165)
+    toast_.elements().setShiny(true);
 
     buildShadow(c, parent); // under the body
     topGlow_.build(c, body_, shape_, content_, snapshot_); // the top band's glow, cut by the shadow's snapshot (decision 108)
