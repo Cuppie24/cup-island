@@ -175,8 +175,8 @@ void Blob::fadeGlow(Ms duration)
         fadeColor(glow_[i], c, duration);
     }
     // The line along a card's bottom edge: the rim there, in the glow's colour. None: the rim's own.
-    // On liquid glass the pane's bright edge (glassRimAt, decision 165).
-    Color rim = t.glass ? glassRimAt(t, liquidPicked(t)) : clear(t.glassRimColor); // collapsed too (decision 172)
+    // The pane's bright edge (glassRimAt): on either glass (decision 175).
+    Color rim = t.glass ? glassRimAt(t, true) : clear(t.glassRimColor);
     // Glass only: a solid island has no rim, and a bright line on its edge looked stuck on (decision 169).
     fadeColor(rimBottom_, t.glass && look.edge.a > 0 ? look.edge : rim, duration);
 }

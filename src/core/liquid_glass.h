@@ -32,8 +32,8 @@ struct LiquidShape {
 // glass's outline follows them. Nothing (an empty frame) if it has no size.
 LiquidShape liquidShape(Rect body, bool attached, bool leftEar, bool rightEar, const Tokens& t);
 
-// Liquid glass is picked and the island is glass: its shiny edges show,
-// open or collapsed.
+// Liquid glass is picked and the island is glass. (Its shiny edges once went
+// by this; they're on either glass now, decision 175.)
 bool liquidPicked(const Tokens& t);
 
 // ...and its picture of the desktop is drawn (decision 172): only while a

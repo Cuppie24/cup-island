@@ -232,17 +232,17 @@ void runTokensTests()
            "liquid glass: its rim, bend and blur are lengths; its dim, saturation and highlight shares");
     Tokens shiny = glass;
     shiny.glassLiquidShineOpacity = 0.6f;
-    expect(liquidShine(shiny) == 0.0f && liquidShine(solid) == 0.0f, "liquid glass: controls don't shine on frosted glass or a solid island");
+    expect(liquidShine(shiny) == 0.6f && liquidShine(solid) == 0.0f, "shiny edges: on frosted glass too (decision 175), not on a solid island");
     shiny.glassStyle = GlassStyle::Liquid;
     shiny.glassLiquidSurfaceShineOpacity = 0.2f;
     expect(liquidShine(shiny) == 0.6f && liquidShine(shiny, true) == 0.2f,
-           "liquid glass: a control's edge shines, glassLiquidShineOpacity bright; a widget's or a toast's fainter");
+           "shiny edges: a control's glassLiquidShineOpacity bright, on liquid glass as on frosted; a widget's or a toast's fainter");
     shiny.glassRimColor = { 255, 255, 255, 46 };
     shiny.glassLiquidHighlightOpacity = 0.4f;
     expect(glassRimAt(shiny, false) == Color{ 255, 255, 255, 46 } && glassRimAt(shiny, true) == Color{ 255, 255, 255, 102 },
-           "liquid glass: the rim's line is brighter than the frosted glass's");
+           "the rim's line: glassRimColor's own, or shiny, brighter");
     shiny.glass = false;
-    expect(liquidShine(shiny) == 0.0f, "liquid glass: picked, but the island is solid (a light theme): no shine");
+    expect(liquidShine(shiny) == 0.0f, "shiny edges: none on a solid island (a light theme), whatever is picked");
     // A recolour's curve (decision 171): for fades as long as a recolour, not the quick ones.
     Tokens fades;
     fades.recolorFast = Ms{ 800 };

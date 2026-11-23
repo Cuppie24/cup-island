@@ -38,7 +38,7 @@ float glassShare(const Tokens& t, bool evenBlur)
 
 float liquidShine(const Tokens& t, bool surface)
 {
-    if (!t.glass || t.glassStyle != GlassStyle::Liquid) return 0.0f;
+    if (!t.glass) return 0.0f; // either glass (decision 175)
     return std::clamp(surface ? t.glassLiquidSurfaceShineOpacity : t.glassLiquidShineOpacity, 0.0f, 1.0f);
 }
 
