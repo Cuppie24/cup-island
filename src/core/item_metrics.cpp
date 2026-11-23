@@ -90,7 +90,8 @@ bool isWavy(const Item& item)
 float waveHeight()
 {
     const Tokens& t = tokens();
-    return std::max(waveSwing(), t.progressWavePinHeight);
+    // The pin rides the line: at the top of the swing it reaches half its size past the line's middle.
+    return 2 * std::max(t.progressWaveAmplitude, 0.0f) + std::max(t.progressHeight, t.progressWavePinSize);
 }
 
 float waveSwing()
