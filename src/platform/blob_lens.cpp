@@ -36,6 +36,19 @@ void Blob::buildLens()
 {
     lensTried_ = true;
     if (!glass_) return; // only over the glass: Windows 11 (decision 089)
+    const char* step = "band";
+    // Nothing here may take the island down with it (decision 158): a step
+    // Windows refuses is logged by name, and the glass stays without a lens.
+    try {
+        makeLens(step);
+    } catch (winrt::hresult_error const& e) {
+        logGlassError("no lens", step, e);
+        if (lens_) lens_.Opacity(0.0f);
+    }
+}
+
+void Blob::makeLens(const char*& step)
+{
     Compositor const& c = compositor_;
 
     // The band: the lens's mask. Like the rim, clear up the sides until 40%
@@ -43,24 +56,26 @@ void Blob::buildLens()
     band_ = c.CreateShapeVisual();
     band_.BorderMode(CompositionBorderMode::Soft); // a snapshot's root: antialiased only if told (decision 133)
     bindToBlob(c, band_, L"Size", L"pill.Size", body_, shape_);
-    for (const Step& step : kSteps) {
-        const std::wstring width = L"(shape.LensWidth * " + std::to_wstring(step.reach) + L")";
+    for (const Step& ring : kSteps) {
+        const std::wstring width = L"(shape.LensWidth * " + std::to_wstring(ring.reach) + L")";
         auto brush = c.CreateLinearGradientBrush();
         brush.StartPoint({ 0.5f, 0.0f });
         brush.EndPoint({ 0.5f, 1.0f });
         brush.ColorStops().Append(c.CreateColorGradientStop(0.4f, toUiColor(white(0))));
-        brush.ColorStops().Append(c.CreateColorGradientStop(1.0f, toUiColor(white(step.opacity))));
+        brush.ColorStops().Append(c.CreateColorGradientStop(1.0f, toUiColor(white(ring.opacity))));
         auto stroke = c.CreateSpriteShape(insetOutline(c, body_, shape_, width + L" / 2")); // centred: all inside the edge
         stroke.StrokeBrush(brush);
         bindToBlob(c, stroke, L"StrokeThickness", width, body_, shape_);
         band_.Shapes().Append(stroke);
     }
+    step = "band snapshot";
     bandSnapshot_ = c.CreateVisualSurface();
     bandSnapshot_.SourceVisual(band_);
     // As wide as the outline's snapshot (blob_backdrop): the body and its ears.
     bindToBlob(c, bandSnapshot_, L"SourceOffset", L"Vector2(-" + kEarSize + L", 0)", body_, shape_);
     bindToBlob(c, bandSnapshot_, L"SourceSize", L"Vector2(pill.Size.X + 2 * " + kEarSize + L", pill.Size.Y)", body_, shape_);
 
+    step = "brush";
     Lens made = lensBackdrop(c, c.CreateSurfaceBrush(bandSnapshot_));
     if (!made.brush) return; // logged: glass without a lens
     if (made.bend) {
@@ -78,14 +93,19 @@ void Blob::buildLens()
                        body_, shape_);
         } catch (winrt::hresult_error const& e) {
             // Left at the identity: the lip, without the bending.
-            logLine("glass: the lens's bend can't follow the island (0x%08lx)", static_cast<unsigned long>(e.code()));
+            logGlassError("the lens's bend can't follow the island: a lip without bending", "matrix animation", e);
+            made.bend = nullptr;
         }
     }
+    step = "sprite";
     lens_ = c.CreateSpriteVisual();
     lens_.Brush(made.brush);
     lens_.Opacity(0.0f);
     coverBodyAndEars(c, lens_, body_, shape_);
     glass_.Parent().Children().InsertAbove(lens_, glass_); // over the glass, under the twin's tint
+    const Tokens& t = tokens();
+    logLine("glass: lens built for a shape: width %.1f, depth %.1f, opacity %.2f%s", t.glassLensWidth, t.glassLensDepth, glassLensShare(t),
+            made.bend ? "" : ", not bending");
 }
 
 void Blob::applyLens(Ms duration)
@@ -94,6 +114,11 @@ void Blob::applyLens(Ms duration)
     shape_.InsertScalar(L"LensWidth", t.glassLensWidth);
     shape_.InsertScalar(L"LensDepth", t.glassLensDepth);
     if (glassShown_ && !lensTried_ && glassLensShare(t) > 0) buildLens();
+    // Said once: why glass has no lens when tokens.json turned it off.
+    if (glassShown_ && !lensTried_ && !lensOffLogged_) {
+        lensOffLogged_ = true;
+        logLine("glass: no lens: glassLensWidth %.1f, glassLensOpacity %.2f (either at 0 turns it off)", t.glassLensWidth, t.glassLensOpacity);
+    }
     // With the glass: under the twin's layer, which is what fades (decision 097).
     if (lens_) fadeTo(compositor_, lens_, glassShown_ ? glassLensShare(t) : 0.0f, duration);
 }

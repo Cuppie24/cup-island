@@ -50,6 +50,11 @@ struct Lens {
 };
 Lens lensBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush const& band);
 
+// One log line for a glass call Windows refused: "glass: <what> (<step>:
+// 0x<code> <Windows' own message>)". Every glass failure goes through it, so
+// searching the log for "glass:" finds them all, each with its reason.
+void logGlassError(const char* what, const char* step, winrt::hresult_error const& error);
+
 // Windows' "Transparency effects" (Personalisation > Colours). Off, glass is
 // drawn solid, as Windows draws its own; on where it can't be read.
 bool transparencyOn();

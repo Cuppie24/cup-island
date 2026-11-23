@@ -138,7 +138,9 @@ private:
     wuc::CompositionVisualSurface bandSnapshot_{ nullptr };
     wuc::SpriteVisual lens_{ nullptr };
     bool lensTried_ = false;
+    bool lensOffLogged_ = false; // "no lens" said once while tokens.json has it off
     void buildLens();
+    void makeLens(const char*& step); // ...its steps, each named in `step` for the log if Windows refuses one
     void applyLens(Ms duration); // its width, depth and strength from tokens; faded with the glass
     // The glow (decision 090): the cover's colour (islandGlowColor) along the
     // body's bottom edge, fading out glassGlowHeight px up along glowFade's

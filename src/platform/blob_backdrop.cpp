@@ -35,7 +35,10 @@ void Blob::buildShadow(Compositor const& c, ContainerVisual const& parent)
     // CreateVisualSurface is Windows 10 1903+; on 1809 the island just has no
     // shadow (decision 015: newer APIs only behind runtime checks).
     using winrt::Windows::Foundation::Metadata::ApiInformation;
-    if (!ApiInformation::IsMethodPresent(L"Windows.UI.Composition.Compositor", L"CreateVisualSurface")) return;
+    if (!ApiInformation::IsMethodPresent(L"Windows.UI.Composition.Compositor", L"CreateVisualSurface")) {
+        logLine("glass: no snapshot of the island's shape here (before Windows 10 1903): no shadow, no glass");
+        return;
+    }
 
     // The snapshot is of an outline-only twin of the body: the same background
     // and ears, no content. Snapshotting the body itself re-rendered and
@@ -145,7 +148,7 @@ void Blob::buildGlow(Compositor const& c, CompositionGeometry const& outline)
                 bind(c, stop, L"Offset", L"Max(1 - shape.GlowHeight * " + std::to_wstring(i) + L" / " + std::to_wstring(kGlowStops - 1) + L" / " + height + L", 0)", body_, shape_);
             } catch (winrt::hresult_error const& e) {
                 bound = false; // taller on a tall card, then
-                logLine("glass: the glow can't follow the island's height (0x%08lx)", static_cast<unsigned long>(e.code()));
+                logGlassError("the glow can't follow the island's height", "stop offset", e);
             }
         }
         glow_.push_back(stop);
@@ -173,7 +176,10 @@ void Blob::fadeGlow(Ms duration)
 void Blob::buildGlass()
 {
     glassTried_ = true;
-    if (!snapshot_) return; // no snapshot before 1903; glass is Windows 11's anyway
+    if (!snapshot_) { // no snapshot before 1903; glass is Windows 11's anyway
+        logLine("glass: picked, but there's no snapshot to cut it by: solid");
+        return;
+    }
     luminosity_ = device_->createSurface({ 8, 8 }); // stretched over the glass: one colour everywhere
     paintLuminosity(glassLuminosityAt(tokens())); // at the Transparency pick's strength (decision 100)
     auto luminosity = compositor_.CreateSurfaceBrush(luminosity_);
@@ -184,6 +190,10 @@ void Blob::buildGlass()
     Glass made = maskedBackdrop(compositor_, glassMask_, glassLuminosity_, darkenBuilt_);
     if (!made.brush) return; // logged: the island stays solid
     glassLook_ = made.look;
+    const Tokens& t = tokens();
+    logLine("glass: built for a shape: transparency %s, tint %.2f, luminosity opacity %d",
+            t.glassTransparency == Transparency::Low ? "low" : t.glassTransparency == Transparency::High ? "high" : "medium",
+            glassShare(t, glassLook_ != Look::Plain), static_cast<int>(glassLuminosityAt(t).a));
     glass_ = compositor_.CreateSpriteVisual();
     glass_.Brush(made.brush);
     glass_.Opacity(0.0f);
@@ -218,6 +228,7 @@ void Blob::applyGlass(Ms duration)
         darkenBuilt_ = { t.glassDarkenScale, t.glassDarkenLift };
         Glass made = maskedBackdrop(compositor_, glassMask_, glassLuminosity_, darkenBuilt_);
         if (made.brush && made.look == Look::Darkened) glass_.Brush(made.brush);
+        else logLine("glass: the new darkening wasn't taken: the old one stays");
     }
     if (glass_ && t.glass != glassShown_) {
         glassShown_ = t.glass;

@@ -48,6 +48,17 @@ already uses.
 - Any of the three tokens at 0 turns the lens off. The Glass switch,
   Transparency effects and light themes rule it as they rule the glass.
 
+**The log.** Every glass line starts `glass:`, and every refusal goes
+through one helper (`logGlassError`): what failed, the step by name, the
+code and Windows' own message for it. Nothing leaves silently: no backdrop
+on this Windows, no snapshot to cut by, a lens turned off by its tokens, a
+transparency setting that can't be read, each say so once. Building the
+lens can't throw out of the island (decision 158): a refused step is
+logged and the glass stays without it. If the lens can't bend, three probes
+say which part Windows refuses: the transform, animating its matrix, or a
+host backdrop as its source. What the log can't see: an effect Windows
+accepts but draws wrongly or not at all; that needs eyes on the screen.
+
 **What it costs.** Nothing at rest that the glass didn't: Windows already
 blurs the desktop behind the island for the glass; the lens samples that
 same backdrop once more over a thin band (two small shader passes, a few

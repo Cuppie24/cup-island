@@ -11,6 +11,7 @@
 #include <winrt/Windows.UI.ViewManagement.h>
 
 #include <array>
+#include <string>
 #include <vector>
 
 namespace cup::platform {
@@ -55,6 +56,21 @@ IGraphicsEffect cut(IGraphicsEffectSource const& inner)
     return twoLayers(L"Glass", D2D1_COMPOSITE_MODE_SOURCE_IN, CompositionEffectSourceParameter(L"Mask"), inner);
 }
 
+// The lens's effect (decision 165): Direct2D's 2D affine transform, its
+// properties by index: the interpolation, the border mode, the matrix (six
+// floats: identity until an animation sets it), the sharpness. Win2D's
+// defaults for the rest. The matrix is named, so an animation can drive it.
+IGraphicsEffect bendEffect(IGraphicsEffectSource const& source)
+{
+    const std::array<float, 6> identity{ 1, 0, 0, 1, 0, 0 };
+    return makeEffect(L"Lens", CLSID_D2D12DAffineTransform, { source },
+                      { PropertyValue::CreateUInt32(D2D1_2DAFFINETRANSFORM_INTERPOLATION_MODE_LINEAR),
+                        PropertyValue::CreateUInt32(D2D1_BORDER_MODE_SOFT),
+                        PropertyValue::CreateSingleArray(winrt::array_view<float const>(identity.data(), identity.data() + identity.size())),
+                        PropertyValue::CreateSingle(0.0f) },
+                      { { L"TransformMatrix", D2D1_2DAFFINETRANSFORM_PROP_TRANSFORM_MATRIX } });
+}
+
 // Whether Windows takes an effect at all, logged once (decision 100): each
 // tests one guess about why it refuses every effect but the cut.
 void probe(wuc::Compositor const& compositor, const char* what, IGraphicsEffect const& effect)
@@ -63,7 +79,7 @@ void probe(wuc::Compositor const& compositor, const char* what, IGraphicsEffect 
         compositor.CreateEffectFactory(effect);
         logLine("glass: probe: %s: yes", what);
     } catch (winrt::hresult_error const& e) {
-        logLine("glass: probe: %s: no (0x%08lx)", what, static_cast<unsigned long>(e.code()));
+        logGlassError("probe: no", what, e);
     }
 }
 
@@ -89,7 +105,44 @@ void probeOnce(wuc::Compositor const& compositor)
     probe(compositor, "an unnamed blend in the cut", cut(blend(D2D1_BLEND_MODE_MULTIPLY, backdrop, luminosity, L"")));
 }
 
+// The lens couldn't bend: which part does Windows refuse? The transform
+// itself, animating its matrix, or a host backdrop as its source.
+void probeLens(wuc::Compositor const& compositor)
+{
+    static bool probed = false; // once: every shape would say the same
+    if (probed) return;
+    probed = true;
+    auto transform = bendEffect(CompositionEffectSourceParameter(L"Backdrop"));
+    probe(compositor, "a 2D transform, its matrix fixed", transform);
+    try {
+        const std::vector<winrt::hstring> animated{ L"Lens.TransformMatrix" };
+        auto brush = compositor.CreateEffectFactory(transform, animated).CreateBrush();
+        logLine("glass: probe: a 2D transform, its matrix animated: yes");
+        try {
+            brush.SetSourceParameter(L"Backdrop", compositor.CreateHostBackdropBrush());
+            logLine("glass: probe: a host backdrop as its source: yes");
+        } catch (winrt::hresult_error const& e) {
+            logGlassError("probe: no", "a host backdrop as its source", e);
+        }
+    } catch (winrt::hresult_error const& e) {
+        logGlassError("probe: no", "a 2D transform, its matrix animated", e);
+    }
+}
+
 } // namespace
+
+void logGlassError(const char* what, const char* step, winrt::hresult_error const& error)
+{
+    // Windows' own words for the code, when it has any: "The parameter is
+    // incorrect" says more than 0x80070057.
+    std::string message;
+    try {
+        message = winrt::to_string(error.message());
+    } catch (...) {
+    }
+    while (!message.empty() && (message.back() == '\n' || message.back() == '\r' || message.back() == ' ')) message.pop_back();
+    logLine("glass: %s (%s: 0x%08lx %s)", what, step, static_cast<unsigned long>(error.code()), message.c_str());
+}
 
 bool allowBackdrop(HWND window)
 {
@@ -97,11 +150,15 @@ bool allowBackdrop(HWND window)
     // lets a window that isn't UWP use a host backdrop brush. Windows 10's DWM
     // doesn't know the attribute, so it isn't even asked there.
     using winrt::Windows::Foundation::Metadata::ApiInformation;
-    if (!ApiInformation::IsApiContractPresent(L"Windows.Foundation.UniversalApiContract", 14)) return false;
+    if (!ApiInformation::IsApiContractPresent(L"Windows.Foundation.UniversalApiContract", 14)) {
+        logLine("glass: not offered here (Windows 10: no backdrop for a window)");
+        return false;
+    }
     constexpr DWORD kUseHostBackdropBrush = 17; // DWMWA_USE_HOSTBACKDROPBRUSH; older SDKs don't name it
     BOOL on = TRUE;
     HRESULT result = DwmSetWindowAttribute(window, kUseHostBackdropBrush, &on, sizeof on);
     if (FAILED(result)) logLine("glass: Windows refused a backdrop for a window (0x%08lx)", static_cast<unsigned long>(result));
+    else logLine("glass: Windows allows a backdrop for a window");
     return SUCCEEDED(result);
 }
 
@@ -144,7 +201,7 @@ Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush co
         logLine("glass: backdrop ready, at one brightness");
         return { brush, Look::Even };
     } catch (winrt::hresult_error const& e) {
-        logLine("glass: no even brightness (%s: 0x%08lx)", step, static_cast<unsigned long>(e.code()));
+        logGlassError("no even brightness", step, e);
     }
     // Refused: the backdrop's brightness squeezed into a darker range
     // instead, so a white window behind isn't a white island (decision 100).
@@ -153,7 +210,7 @@ Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush co
         logLine("glass: backdrop ready, darkened");
         return { brush, Look::Darkened };
     } catch (winrt::hresult_error const& e) {
-        logLine("glass: no darkening (%s: 0x%08lx)", step, static_cast<unsigned long>(e.code()));
+        logGlassError("no darkening", step, e);
     }
     try {
         step = "factory";
@@ -165,7 +222,7 @@ Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush co
         logLine("glass: backdrop ready, plain blur");
         return { brush, Look::Plain };
     } catch (winrt::hresult_error const& e) {
-        logLine("glass: no backdrop brush (%s: 0x%08lx): the island stays solid", step, static_cast<unsigned long>(e.code()));
+        logGlassError("no backdrop brush, the island stays solid", step, e);
         return {};
     }
 }
@@ -177,17 +234,7 @@ Lens lensBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush const
     // Chained like the glass (decision 100): the transform is a brush of its
     // own over the backdrop, and the cut takes that brush as its input.
     try {
-        // Direct2D's 2D affine transform, its properties by index: the
-        // interpolation, the border mode, the matrix (six floats: identity
-        // until the caller's animation sets it), the sharpness. Win2D's
-        // defaults for the rest.
-        const std::array<float, 6> identity{ 1, 0, 0, 1, 0, 0 };
-        auto transform = makeEffect(L"Lens", CLSID_D2D12DAffineTransform, { CompositionEffectSourceParameter(L"Backdrop") },
-                                    { PropertyValue::CreateUInt32(D2D1_2DAFFINETRANSFORM_INTERPOLATION_MODE_LINEAR),
-                                      PropertyValue::CreateUInt32(D2D1_BORDER_MODE_SOFT),
-                                      PropertyValue::CreateSingleArray(winrt::array_view<float const>(identity.data(), identity.data() + identity.size())),
-                                      PropertyValue::CreateSingle(0.0f) },
-                                    { { L"TransformMatrix", D2D1_2DAFFINETRANSFORM_PROP_TRANSFORM_MATRIX } });
+        auto transform = bendEffect(CompositionEffectSourceParameter(L"Backdrop"));
         step = "bend factory";
         const std::vector<winrt::hstring> animated{ L"Lens.TransformMatrix" };
         CompositionEffectBrush bend = compositor.CreateEffectFactory(transform, animated).CreateBrush();
@@ -202,7 +249,8 @@ Lens lensBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush const
         logLine("glass: lens ready, bending");
         return { brush, bend };
     } catch (winrt::hresult_error const& e) {
-        logLine("glass: the lens can't bend (%s: 0x%08lx)", step, static_cast<unsigned long>(e.code()));
+        logGlassError("the lens can't bend", step, e);
+        probeLens(compositor);
     }
     // The plain cut, the one effect Windows has always taken (decision 100).
     try {
@@ -215,7 +263,7 @@ Lens lensBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush const
         logLine("glass: lens ready, a lip without bending");
         return { brush, nullptr };
     } catch (winrt::hresult_error const& e) {
-        logLine("glass: no lens (%s: 0x%08lx)", step, static_cast<unsigned long>(e.code()));
+        logGlassError("no lens", step, e);
         return {};
     }
 }
@@ -224,7 +272,8 @@ bool transparencyOn()
 {
     try {
         return winrt::Windows::UI::ViewManagement::UISettings().AdvancedEffectsEnabled();
-    } catch (winrt::hresult_error const&) {
+    } catch (winrt::hresult_error const& e) {
+        logGlassError("Windows' transparency setting can't be read, taken as on", "UISettings", e);
         return true; // can't tell: the user's pick decides alone
     }
 }
