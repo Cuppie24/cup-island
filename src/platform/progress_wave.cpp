@@ -60,16 +60,34 @@ CompositionPath pathThrough(ID2D1Factory* factory, const std::vector<Vec2>& poin
     return CompositionPath(winrt::make<GeometrySource>(lineThrough(factory, points)));
 }
 
-// The share of the animation that is the rise (flat to the first phase); the rest is one ripple.
-constexpr float kRise = 0.2f;
+// The share of the animation that is the rise (flat to the full swing); the rest is one ripple.
+constexpr float kRise = 0.4f;
+// Steps in rising or lying down: the swing eases between them, the ripples run on through them.
+constexpr int kSteps = 10;
 
-// Flat, the first phase, then all of one ripple back to the first phase. Never played by its
-// own time: shown() says how far along it is.
+// 0..1, starting and ending with no speed and no jolt (smootherstep): how a swing grows or dies away.
+float eased(float u)
+{
+    u = std::clamp(u, 0.0f, 1.0f);
+    return u * u * u * (u * (u * 6 - 15) + 10);
+}
+
+// How far the ripples run, in turns, while the wave rises or lies down: at their own speed.
+float turnsWhileSettling()
+{
+    const Tokens& t = tokens();
+    if (t.reducedMotion || t.progressWavePeriod <= Ms{ 0 }) return 0;
+    return static_cast<float>(t.progressWaveSettle.count()) / static_cast<float>(t.progressWavePeriod.count());
+}
+
+// Rising (wave.rising: flat, the swing growing as the ripples run), then all of one ripple from
+// where rising left it and back there. Never played by its own time: shown() says how far along it is.
 PathKeyFrameAnimation risingThenRunning(Compositor const& c, const WaveParts& wave)
 {
     auto anim = c.CreatePathKeyFrameAnimation();
     auto steady = c.CreateLinearEasingFunction();
-    anim.InsertKeyFrame(0.0f, wave.flat);
+    anim.InsertKeyFrame(0.0f, wave.rising.front());
+    for (int i = 1; i < kSteps; ++i) anim.InsertKeyFrame(kRise * i / float(kSteps), wave.rising[i], steady);
     for (int i = 0; i <= kPhases; ++i) anim.InsertKeyFrame(kRise + (1 - kRise) * i / float(kPhases), wave.phases[i % kPhases], steady);
     anim.Duration(std::chrono::seconds(1));
     return anim;
@@ -92,11 +110,6 @@ ExpressionAnimation shown(Compositor const& c, const WaveParts& wave)
 
 float fraction(float value) { return value - std::floor(value); }
 
-CompositionEasingFunction gentle(Compositor const& c)
-{
-    return c.CreateCubicBezierEasingFunction({ 0.4f, 0.0f }, { 0.2f, 1.0f }); // in and out: a swing growing or dying away
-}
-
 } // namespace
 
 WaveParts createWave(Compositor const& c, ID2D1Factory* factory, Vec2 frame, CompositionColorBrush const& accent,
@@ -108,7 +121,11 @@ WaveParts createWave(Compositor const& c, ID2D1Factory* factory, Vec2 frame, Com
     WaveParts wave;
     try {
         // As long as the whole bar, from its head back: however far the bar is filled, it reaches the start.
-        for (int i = 0; i < kPhases; ++i) wave.phases.push_back(pathThrough(factory, wavePoints(frame.x, middle, kTurn * i / kPhases)));
+        // The ripple starts where rising leaves the line: the ripples ran on while it rose.
+        float risen = kTurn * turnsWhileSettling();
+        for (int i = 0; i < kSteps; ++i)
+            wave.rising.push_back(pathThrough(factory, wavePoints(frame.x, middle, risen * i / kSteps, eased(i / float(kSteps)))));
+        for (int i = 0; i < kPhases; ++i) wave.phases.push_back(pathThrough(factory, wavePoints(frame.x, middle, risen + kTurn * i / kPhases)));
         wave.flat = pathThrough(factory, wavePoints(frame.x, middle, 0, 0));
         wave.geometry = c.CreatePathGeometry(wave.flat);
         wave.line = c.CreateSpriteShape(wave.geometry);
@@ -163,14 +180,15 @@ void rise(Compositor const& c, WaveParts& wave, float head, bool atOnce)
     wave.state.InsertScalar(L"Clock", 0.0f);
     wave.state.InsertScalar(L"Rise", atOnce ? 1.0f : 0.0f);
     if (!atOnce) {
+        // Steadily: the easing is in the steps' swings, and the ripples run at one speed through them.
         auto up = c.CreateScalarKeyFrameAnimation(); // both ends given (decision 008)
         up.InsertKeyFrame(0.0f, 0.0f);
-        up.InsertKeyFrame(1.0f, 1.0f, gentle(c));
+        up.InsertKeyFrame(1.0f, 1.0f, c.CreateLinearEasingFunction());
         up.Duration(wave.rise);
         wave.state.StartAnimation(L"Rise", up);
     }
     if (wave.runs) {
-        // Starts at 0 as the rise ends: the first phase, where the rise left the line.
+        // Starts at 0 as the rise ends: the ripple's first phase is where rising left the line.
         auto clock = c.CreateScalarKeyFrameAnimation();
         clock.InsertKeyFrame(0.0f, 0.0f);
         clock.InsertKeyFrame(1.0f, 1.0f, c.CreateLinearEasingFunction());
@@ -204,18 +222,32 @@ void lieDown(Compositor const& c, WaveParts& wave, float head, bool atOnce)
         wave.geometry.Path(wave.flat);
         return;
     }
-    // The line as it is now, worked out as shown() does: how far it had risen, or which phase.
+    // The line as it is now, worked out as shown() does: how far it had risen, and which phase.
     auto since = std::chrono::duration_cast<Ms>(std::chrono::steady_clock::now() - wave.roseAt);
-    float swing = 1, phase = 0;
+    float settling = kTurn * turnsWhileSettling();
+    float swing = 1, phase = settling;
     if (since < wave.rise) {
-        swing = static_cast<float>(since.count()) / static_cast<float>(wave.rise.count());
+        float risen = static_cast<float>(since.count()) / static_cast<float>(wave.rise.count());
+        swing = eased(risen);
+        phase = settling * risen;
+    } else if (wave.runs) {
+        float clock = fraction(static_cast<float>((since - wave.rise).count()) / static_cast<float>(t.progressWavePeriod.count()));
+        phase += kTurn * fraction(clock - (head - wave.anchor) / std::max(t.progressWaveLength, 1.0f));
     } else {
-        float clock = wave.runs ? fraction(static_cast<float>((since - wave.rise).count()) / static_cast<float>(t.progressWavePeriod.count())) : 0.0f;
-        phase = kTurn * fraction(clock - (head - wave.anchor) / std::max(t.progressWaveLength, 1.0f));
+        phase += kTurn * fraction(-(head - wave.anchor) / std::max(t.progressWaveLength, 1.0f));
     }
-    auto down = c.CreatePathKeyFrameAnimation(); // both ends given (decision 008): from there to flat
-    down.InsertKeyFrame(0.0f, pathThrough(wave.factory, wavePoints(wave.frame.x, wave.frame.y / 2, phase, swing)));
-    down.InsertKeyFrame(1.0f, wave.flat, gentle(c));
+    // From there to flat, both ends given (decision 008): the ripples run on at their speed as
+    // the swing dies away, as they did while it rose.
+    auto down = c.CreatePathKeyFrameAnimation();
+    auto steady = c.CreateLinearEasingFunction();
+    float middle = wave.frame.y / 2;
+    for (int i = 0; i < kSteps; ++i) {
+        float u = i / float(kSteps);
+        auto path = pathThrough(wave.factory, wavePoints(wave.frame.x, middle, phase + (wave.runs ? settling * u : 0.0f), swing * (1 - eased(u))));
+        if (i == 0) down.InsertKeyFrame(0.0f, path);
+        else down.InsertKeyFrame(u, path, steady);
+    }
+    down.InsertKeyFrame(1.0f, wave.flat, steady);
     down.Duration(std::max(t.progressWaveSettle, Ms{ 1 }));
     wave.geometry.StartAnimation(L"Path", down);
 }

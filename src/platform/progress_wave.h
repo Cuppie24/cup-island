@@ -12,9 +12,11 @@
 //   expression of a clock that loops once a ripple and of how far the head
 //   has moved. So the ripples stay where they are on the bar while the head
 //   is dragged through them, and only the straightening follows the head.
-// Rising is the first stretch of the same animation (flat to the first
-// phase); lying down is a path animation of its own, from the line as it is
-// then to flat. Its start shows through a round-ended window.
+// Rising is the first stretch of the same animation: the swing grows while
+// the ripples already run at their speed, so nothing starts or stops with a
+// jerk. Lying down is a path animation of its own, from the line as it is
+// then, running on as its swing dies away, to flat. Its start shows through
+// a round-ended window.
 
 #include "platform/win.h"
 
@@ -30,6 +32,7 @@ struct WaveParts {
     wuc::CompositionSpriteShape line{ nullptr };
     wuc::CompositionPathGeometry geometry{ nullptr };
     std::vector<wuc::CompositionPath> phases;  // the line at each step of one ripple
+    std::vector<wuc::CompositionPath> rising;  // ...and at each step of rising: its swing growing as it already runs
     wuc::CompositionPath flat{ nullptr };      // ...and lying flat
     // Rise 0..1: how far it has risen. Clock 0..1, looping: how far into a ripple. Anchor: where
     // the head was when it rose; the head's distance from there shifts the phase back, so the
