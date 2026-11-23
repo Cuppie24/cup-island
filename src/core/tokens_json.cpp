@@ -207,6 +207,7 @@ const Field kFields[] = {
     { "shadowBlur", &Tokens::shadowBlur, true },
     { "shadowOffset", &Tokens::shadowOffset },
     { "artShadowBlur", &Tokens::artShadowBlur },
+    { "artGlowBlur", &Tokens::artGlowBlur },
     { "artShadowOffset", &Tokens::artShadowOffset },
     { "toastShadowBlur", &Tokens::toastShadowBlur },
     { "toastShadowOffset", &Tokens::toastShadowOffset },
@@ -325,12 +326,14 @@ const Field kFields[] = {
     { "coverDarkGlowLifted", &Tokens::coverDarkGlowLifted },
     { "coverCardGlowLift", &Tokens::coverCardGlowLift },
     { "coverGlowEdgeLift", &Tokens::coverGlowEdgeLift },
+    { "coverArtGlow", &Tokens::coverArtGlow },
     { "islandColor", &Tokens::islandColor, true },
     { "islandHighlightColor", &Tokens::islandHighlightColor },
     { "islandSecondColor", &Tokens::islandSecondColor }, // set from islandColor and the cover (live_tokens), not the file
     { "islandGlowColor", &Tokens::islandGlowColor },     // set from the cover as glass (decision 090), not the file
     { "islandCardGlowColor", &Tokens::islandCardGlowColor }, // ...an open card's, and its edge line (decision 166)
     { "islandGlowEdgeColor", &Tokens::islandGlowEdgeColor },
+    { "artGlowColor", &Tokens::artGlowColor },           // the glow round a playing cover (decision 169)
     { "titleTextColor", &Tokens::titleTextColor },
     { "bodyTextColor", &Tokens::bodyTextColor },
     { "captionTextColor", &Tokens::captionTextColor },

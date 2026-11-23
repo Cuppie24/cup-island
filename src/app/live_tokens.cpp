@@ -74,10 +74,9 @@ bool commit(const std::string& message)
 {
     Tokens themed = withTheme(g_file, g_theme);
     themed.islandSecondColor = themed.islandColor; // one colour, unless a two-colour cover says otherwise (decision 054)
-    // As glass (a dark theme's island, decision 089), the cover glows along
-    // the bottom of a Midnight island: the file's colours as written (decision 090).
-    bool glass = withGlass(themed, g_glass).glass;
-    if (g_tint) themed = withColors(themed, glass ? glassCoverColors(*g_tint, themed, g_file) : coverColors(*g_tint, themed));
+    // On a dark theme, glass or not, the cover glows along the bottom of a Midnight island: the
+    // file's colours as written (decisions 090, 169). A light theme takes the cover's colours whole.
+    if (g_tint) themed = withColors(themed, islandCoverColors(*g_tint, themed, g_file));
     Tokens next = finished(themed);
     std::optional<Tokens> window;
     if (g_windowTheme) {

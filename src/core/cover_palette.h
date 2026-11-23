@@ -38,4 +38,10 @@ std::vector<ThemeColor> coverColors(const CoverTint& tint, const Tokens& themed)
 // islands only (decision 089).
 std::vector<ThemeColor> glassCoverColors(const CoverTint& tint, const Tokens& themed, const Tokens& midnight);
 
+// What the island takes from a cover (decision 169): on a dark theme, glass
+// or solid, the glow (glassCoverColors); on a light one, the cover's colours
+// whole (coverColors), as the glow is light on a dark island and has no
+// light counterpart.
+std::vector<ThemeColor> islandCoverColors(const CoverTint& tint, const Tokens& themed, const Tokens& midnight);
+
 } // namespace cup

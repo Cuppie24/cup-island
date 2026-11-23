@@ -537,7 +537,7 @@ void ElementVisuals::recolor(View& view)
     if (view.accent) fadeColor(view.accent, toned(accentOf(view.placed), view.grey));
     if (view.knobBrush) fadeColor(view.knobBrush, toned(t.knobColor, view.grey));
     if (view.hover) fadeColor(view.hover, hoverColorOf(view.placed));
-    if (view.shadow) fadeColor(view.shadow, t.artShadowColor);
+    if (view.shadow) fadeArtShadow(compositor_, view.shadow);
     if (view.toggle.knob) {
         bool on = std::get<Switch>(view.placed.item).on;
         fadeColor(view.toggle.track, switchTrackColor(on));

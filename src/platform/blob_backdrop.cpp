@@ -173,7 +173,8 @@ void Blob::fadeGlow(Ms duration)
     }
     // The line along a card's bottom edge: the rim there, in the glow's colour. None: the rim's own.
     Color rim = t.glass ? t.glassRimColor : clear(t.glassRimColor);
-    fadeColor(rimBottom_, t.glass && look.edge.a > 0 ? look.edge : rim, duration);
+    // Solid too (decision 169): there the rim shows only as this line.
+    fadeColor(rimBottom_, look.edge.a > 0 ? look.edge : rim, duration);
 }
 
 void Blob::setCard(bool on)

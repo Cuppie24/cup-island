@@ -284,6 +284,9 @@ struct Tokens {
     // Under the expanded card's cover (decision 094), colour in artShadowColor: it sits on the card, not in it.
     float artShadowBlur = 12;
     Vec2 artShadowOffset{ 0, 3 };
+    // ...and while its music plays on a dark island, a glow of its colour all round it instead
+    // (artGlowColor, decision 169): this soft, straight under it.
+    float artGlowBlur = 22;
     // Under a toast (decision 151), colour in toastShadowColor: it floats over the page, apart from it.
     float toastShadowBlur = 14;
     Vec2 toastShadowOffset{ 0, 3 };
@@ -506,6 +509,7 @@ struct Tokens {
     float coverDarkGlowLifted = 0.56f;
     float coverCardGlowLift = 0.15f;     // an open card's glow: this much lighter than the pill's (decision 166)
     float coverGlowEdgeLift = 0.1f;      // ...and the line along its bottom edge, this much lighter again
+    float coverArtGlow = 0.75f;          // how strong the glow round the cover itself is (artGlowColor, decision 169)
 
     // Colours: every colour the island draws. tokens.json writes [r, g, b] or
     // [r, g, b, alpha], channels 0..255 and alpha 0..1, like CSS rgba().
@@ -520,6 +524,9 @@ struct Tokens {
     // ...an open card's, lighter, and the line along its bottom edge (decision 166). Set the same way.
     Color islandCardGlowColor{ 0, 0, 0, 0 };
     Color islandGlowEdgeColor{ 0, 0, 0, 0 };
+    // The glow round the card's cover while it plays (decision 169): the card glow's colour,
+    // coverArtGlow strong. Set the same way; clear: the cover's plain shadow (artShadowColor).
+    Color artGlowColor{ 0, 0, 0, 0 };
     Color titleTextColor{ 255, 255, 255 };
     Color bodyTextColor{ 255, 255, 255, 179 };
     Color captionTextColor{ 255, 255, 255, 140 }; // also Digits
@@ -667,6 +674,17 @@ struct GlowLook {
     Color edge{ 0, 0, 0, 0 };
 };
 GlowLook glowLook(const Tokens& t, bool card);
+
+// The shadow under the card's cover (decision 094), or, while a cover's glow
+// is set (artGlowColor, decision 169), that glow: its colour, how soft, and
+// where it falls (a glow: straight under the cover, so it shows all round).
+struct ArtShadow {
+    Color color;
+    float blur = 0;
+    Vec2 offset;
+    bool operator==(const ArtShadow&) const = default;
+};
+ArtShadow artShadow(const Tokens& t);
 
 // A pale colour: perceived brightness past half. A theme whose island is pale
 // is a light theme (decision 030).

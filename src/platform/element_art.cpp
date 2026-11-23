@@ -2,6 +2,8 @@
 
 #include "platform/element_parts.h"
 
+#include <algorithm>
+
 namespace cup::platform {
 namespace {
 
@@ -58,14 +60,31 @@ DropShadow addArtShadow(Compositor const& c, ContainerVisual const& container, V
     const Tokens& t = tokens();
     auto shadow = c.CreateDropShadow();
     shadow.Mask(c.CreateSurfaceBrush(shape)); // DropShadow.Mask: Windows 10 1607, so every supported Windows (decision 015)
-    shadow.BlurRadius(t.artShadowBlur);
-    shadow.Offset(toFloat3(t.artShadowOffset));
-    shadow.Color(toUiColor(t.artShadowColor));
+    ArtShadow look = artShadow(t); // its shadow, or its glow while its music plays (decision 169)
+    shadow.BlurRadius(look.blur);
+    shadow.Offset(toFloat3(look.offset));
+    shadow.Color(toUiColor(look.color));
     auto caster = c.CreateSpriteVisual(); // no brush: only its shadow shows
     caster.Size(toFloat2(frame));
     caster.Shadow(shadow);
     container.Children().InsertAtBottom(caster);
     return shadow;
+}
+
+void fadeArtShadow(Compositor const& c, DropShadow const& shadow)
+{
+    ArtShadow look = artShadow(tokens());
+    Ms duration = std::max(recolorDuration(tokens()), Ms{ 1 });
+    fadeColor(shadow, look.color);
+    // Its softness and where it falls change with it: a shadow below, a glow all round.
+    auto blur = c.CreateScalarKeyFrameAnimation();
+    blur.InsertKeyFrame(1.0f, look.blur);
+    blur.Duration(duration);
+    shadow.StartAnimation(L"BlurRadius", blur);
+    auto offset = c.CreateVector3KeyFrameAnimation();
+    offset.InsertKeyFrame(1.0f, toFloat3(look.offset));
+    offset.Duration(duration);
+    shadow.StartAnimation(L"Offset", offset);
 }
 
 void showArtOverlay(Compositor const& c, const ArtParts& parts, bool on)
