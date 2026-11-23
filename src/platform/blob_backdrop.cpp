@@ -197,7 +197,9 @@ void Blob::setCard(bool on)
 {
     if (card_ == on) return;
     card_ = on;
-    Ms duration = recolorDuration(tokens());
+    // With the card's own opening or closing (the morph's time), not a recolour's: that is
+    // seconds long (decision 053), and the glow would still be changing long after the card is open.
+    Ms duration = tokens().morphDuration;
     // The reach glides with the colours: the stops' offsets read it (buildGlow).
     // Both ends explicit, the resting value set first (decision 008).
     float from = glowLook(tokens(), !card_).height, to = glowLook(tokens(), card_).height;

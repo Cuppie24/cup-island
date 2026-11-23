@@ -24,7 +24,9 @@ tall on a 248 px card.
 
 `PillRenderer::apply` tells the pill's blob whether it's a card
 (`Blob::setCard`); the colours fade and the reach glides over
-`recolorDuration`, like any recolour. The bubble never is one.
+`morphDuration`, with the card's opening. (A recolour's time was used
+first: 2 s at the default speed, so the glow lagged the card.) The bubble
+never is one.
 
 **Why it's safe on a card.** Nothing read sits on a card's bottom edge: the
 lowest are a control's glyph and a Home widget's second line, a quarter of
