@@ -1,5 +1,5 @@
-// The measurement items (decision 172): how big they are, where their parts
-// go, which are buttons, and the Columns card they sit in.
+// The measurement tiles (decision 174): how big they are, where their parts
+// go, that they are nothing to click, and the Columns card they sit in.
 
 #include "core/hit_test.h"
 #include "core/item_metrics.h"
@@ -37,227 +37,190 @@ const Placed* at(const Scene& scene, const std::string& key)
     return nullptr;
 }
 
-void graphTests()
+void statTileTests()
 {
     const Tokens& t = tokens();
-    Rect frame{ 10, 20, 200, t.graphTallHeight };
-    expect(graphHeight(GraphSize::Tall) == t.graphTallHeight && graphHeight(GraphSize::Low) == t.graphLowHeight &&
-           graphHeight(GraphSize::Strip) == t.graphStripHeight, "three heights, from tokens");
-    expect(heightOf(Graph{ .size = GraphSize::Low }, {}, 0) == t.graphLowHeight && !fixedWidthOf(Graph{}, 0, {}), "as tall as its size, as wide as it's given");
+    StatTile big{ .glyph = Glyph::Chip, .caption = "CPU", .detail = "46°", .value = "14%", .level = 0.14f, .large = true };
+    StatTile mini{ .glyph = Glyph::Drive, .caption = "Disk", .value = "71%", .level = 0.71f };
+    StatTile line{ .glyph = Glyph::Network, .caption = "Network", .value = "↓ 9.9 ↑ 0.3 MB/s" };
+    expect(heightOf(big, {}, 0) == t.statTileHeight && heightOf(mini, {}, 0) == t.statMiniHeight && heightOf(line, {}, 0) == t.statMiniHeight &&
+           !fixedWidthOf(big, 0, {}) && !fixedWidthOf(mini, 0, {}), "a large tile and a small one, from tokens; as wide as they're given");
 
-    Graph bare{ .samples = { 0, 0.5f, 1 } };
-    GraphParts plain = graphParts(bare, frame);
-    expect(plain.plot == frame && plain.texts.width == 0, "no tile: the plot is the item");
-    Graph tile{ .tile = true, .valueLarge = true };
-    GraphParts parts = graphParts(tile, frame);
-    expect(parts.plot.y == frame.y + t.graphTallPlotTop && parts.plot.y + parts.plot.height == frame.y + frame.height && parts.plot.width == frame.width,
-           "a tile: the plot under its texts, to its bottom and sides");
-    expect(inside(parts.texts, frame) && parts.texts.x == frame.x + t.graphInset && parts.texts.y + parts.texts.height <= parts.plot.y + 0.01f,
-           "its texts inset, over the plot");
-    tile.size = GraphSize::Low;
-    expect(graphParts(tile, { 0, 0, 100, t.graphLowHeight }).plot.y == t.graphLowPlotTop, "a low tile's plot starts higher");
+    Rect frame{ 10, 20, 142, t.statTileHeight };
+    StatTileParts parts = statTileParts(big, frame, {});
+    for (Rect r : { parts.glyph, parts.caption, parts.aside, parts.value, parts.bar }) expect(inside(r, frame), "a large tile's parts inside it");
+    expect(parts.glyph.x == frame.x + t.tileInset && parts.glyph.y == frame.y + t.tileInset && parts.caption.x > parts.glyph.x + parts.glyph.width &&
+           parts.caption.width > 0 && parts.caption.x + parts.caption.width <= parts.aside.x &&
+           std::abs(parts.aside.x + parts.aside.width - (frame.x + frame.width - t.tileInset)) < 0.01f && parts.aside.y == parts.glyph.y,
+           "its glyph and caption at the top left, its detail at the top right");
+    expect(std::abs(parts.bar.y + parts.bar.height - (frame.y + frame.height - t.tileInset)) < 0.01f && parts.bar.height == t.progressHeight &&
+           parts.bar.width == frame.width - 2 * t.tileInset && std::abs(parts.fill - parts.bar.width * 0.14f) < 0.01f, "its level along the bottom");
+    expect(parts.value.height == t.statValueLineHeight && parts.value.y + parts.value.height <= parts.bar.y &&
+           parts.value.y >= parts.glyph.y + parts.glyph.height && parts.value.x == parts.glyph.x, "its reading between them, over the bar");
 
-    // The line: left to right across the plot, 1 at its top.
-    auto runs = graphLines(bare, plain.plot);
-    expect(runs.size() == 1 && runs[0].size() == 3 && runs[0][0] == Vec2{ frame.x, frame.y + frame.height } &&
-           runs[0][2] == Vec2{ frame.x + frame.width, frame.y } && runs[0][1].x == frame.x + frame.width / 2, "samples span the plot");
-    bare.capacity = 5;
-    runs = graphLines(bare, plain.plot);
-    expect(runs[0][0].x == frame.x + frame.width / 2 && runs[0][2].x == frame.x + frame.width, "a history just begun ends at the right edge");
-    bare.capacity = 2; // less than there are: ignored
-    expect(graphLines(bare, plain.plot)[0][0].x == frame.x, "a capacity under the count: the samples span it");
-    Graph gappy{ .samples = { 0.2f, -1, -1, 0.4f, 0.6f, std::numeric_limits<float>::quiet_NaN(), 3, -0.5f } };
-    runs = graphLines(gappy, plain.plot);
-    expect(runs.size() == 3 && runs[0].size() == 1 && runs[1].size() == 2 && runs[2].size() == 1, "no reading breaks the line");
-    expect(runs[2][0].y == frame.y && runs[1][0].x == frame.x + frame.width * 3 / 7, "over 1 is the top; a sample keeps its place in time");
-    expect(graphLines(Graph{}, frame).empty() && graphLines(Graph{ .samples = { 0.5f } }, frame).empty(), "nothing, or one sample alone: no line");
-    expect(!graphLimitY(bare, frame) && graphLimitY(Graph{ .limit = 0.75f }, frame) == frame.y + frame.height / 4, "the limit line's height");
-}
-
-void levelTests()
-{
-    const Tokens& t = tokens();
-    Rect frame{ 5, 5, 100 + 3 * t.levelsGap, t.levelsHeight };
-    Levels levels{ { { 0.5f }, { 1.5f, true }, { -1 }, { std::numeric_limits<float>::quiet_NaN() } } };
-    expect(heightOf(levels, {}, 0) == t.levelsHeight && !fixedWidthOf(levels, 0, {}), "a strip: levelsHeight tall, stretching");
-    auto bars = levelFrames(levels, frame);
-    expect(bars.size() == 4 && bars[0].bar.width == 25 && bars[1].bar.x == frame.x + 25 + t.levelsGap &&
-           std::abs(bars[3].bar.x + bars[3].bar.width - (frame.x + frame.width)) < 0.01f, "equal bars, a gap between, across the frame");
-    expect(bars[0].fill.height == frame.height / 2 && bars[0].fill.y + bars[0].fill.height == frame.y + frame.height, "filled from the bottom");
-    expect(bars[1].fill.height == frame.height && bars[2].fill.height == 0 && bars[3].fill.height == 0, "clamped; garbage is empty");
-    expect(levelAt(levels, frame, { frame.x + 1, frame.y + 1 }) == 0u && levelAt(levels, frame, { frame.x + frame.width - 1, frame.y + 1 }) == 3u &&
-           !levelAt(levels, frame, { frame.x - 1, frame.y }) && !levelAt(Levels{}, frame, { frame.x + 1, frame.y + 1 }), "the bar under the pointer");
-    Levels many;
-    many.bars.resize(64);
-    auto thin = levelFrames(many, { 0, 0, 64, 10 });
-    expect(thin.size() == 64 && thin[1].bar.x == thin[0].bar.x + thin[0].bar.width && thin[0].bar.width == 1, "too many for gaps: bars only");
-    expect(levelFrames(Levels{}, frame).empty(), "none");
+    Rect small{ 0, 0, 218, t.statMiniHeight };
+    StatTileParts disk = statTileParts(mini, small, {});
+    for (Rect r : { disk.glyph, disk.caption, disk.aside, disk.bar }) expect(inside(r, small), "a small tile's parts inside it");
+    expect(disk.value.width == 0 && disk.bar.y > disk.glyph.y + disk.glyph.height && std::abs(disk.fill - disk.bar.width * 0.71f) < 0.01f &&
+           std::abs(disk.glyph.y - (small.height - (disk.bar.y + disk.bar.height))) < 0.01f, "one line over its bar, centred together; no big reading");
+    StatTileParts net = statTileParts(line, small, {});
+    expect(net.bar.width == 0 && net.bar.height == 0 && net.fill == 0 && std::abs(net.glyph.y + net.glyph.height / 2 - small.height / 2) < 0.01f,
+           "no level: one line, centred, no bar");
+    expect(net.aside.width > 0 && inside(net.aside, small) && (net.caption.width == 0 || net.caption.x + net.caption.width <= net.aside.x),
+           "what's at the right keeps its width");
+    // The caption gives way whole when there's no room for it beside what's at the right.
+    StatTileParts tight = statTileParts(line, { 0, 0, 150, t.statMiniHeight }, {});
+    StatTileParts roomy = statTileParts(line, { 0, 0, 400, t.statMiniHeight }, {});
+    expect(tight.caption.width == 0 && tight.aside.width > 0 && roomy.caption.width > 0, "a caption that doesn't fit is left out, not cut");
+    StatTile over{ .value = "x", .level = 7.0f, .large = true };
+    StatTile junk{ .value = "x", .level = std::numeric_limits<float>::quiet_NaN() };
+    expect(statTileParts(over, frame, {}).fill == frame.width - 2 * t.tileInset && statTileParts(junk, small, {}).fill == 0, "a level clamped; garbage empty");
 }
 
 void batteryTests()
 {
     const Tokens& t = tokens();
     float shape = t.batterySize.x + t.batteryStroke + t.batteryCapWidth;
-    Battery plain{ .level = 0.5f };
-    expect(fixedWidthOf(plain, 0, {}) == shape && heightOf(plain, {}, 0) == t.batterySize.y, "alone: its shape's size");
-    Rect frame{ 10, 10, shape, t.batterySize.y };
-    BatteryParts parts = batteryParts(plain, frame, {});
-    expect(parts.body == Rect{ 10, 10, t.batterySize.x, t.batterySize.y } && parts.cap.x > parts.body.x + parts.body.width &&
-           inside(parts.cap, frame) && parts.label.width == 0 && parts.value.width == 0, "the body, then its nub");
+    expect(batteryShapeWidth() == shape, "a battery: its body, a gap and its nub");
+    BatteryParts parts = batteryShape(0.5f, 10, 30);
+    expect(parts.body == Rect{ 10, 30 - t.batterySize.y / 2, t.batterySize.x, t.batterySize.y } && parts.cap.x > parts.body.x + parts.body.width &&
+           std::abs(parts.cap.x + parts.cap.width - (10 + shape)) < 0.01f && std::abs(parts.cap.y + parts.cap.height / 2 - 30) < 0.01f,
+           "the body centred on its line, then its nub");
     float inner = t.batterySize.x - 4 * t.batteryStroke;
     expect(inside(parts.fill, parts.body) && std::abs(parts.fill.width - inner / 2) < 0.01f && parts.fill.x == parts.body.x + 2 * t.batteryStroke,
-           "the fill inside the outline, from the left");
+           "the charge inside the outline, from the left");
+    expect(batteryShape(7, 0, 0).fill.width == inner && batteryShape(-1, 0, 0).fill.width == 0, "clamped");
     expect(parts.bodyRadius > 0 && parts.bodyRadius <= t.batterySize.y / 2 && parts.fillRadius >= 0 && parts.fillRadius < parts.bodyRadius,
-           "its corners: the fill's nested in the outline's");
-    expect(batteryParts({ .level = 7 }, frame, {}).fill.width == inner && batteryParts({ .level = -1 }, frame, {}).fill.width == 0, "clamped");
-
-    Battery labelled{ .level = 0.8f, .label = "Left", .value = "82%" };
-    float width = *fixedWidthOf(labelled, 0, {});
-    expect(width > shape + 2 * t.batteryTextGap && heightOf(labelled, {}, 0) == lineHeight(TextStyle::Caption), "with texts: wider, a caption's line tall");
-    Rect wide{ 0, 0, width, lineHeight(TextStyle::Caption) };
-    BatteryParts all = batteryParts(labelled, wide, {});
-    expect(all.label.x == 0 && all.label.width > 0 && all.body.x == all.label.width + t.batteryTextGap &&
-           all.value.x == all.cap.x + all.cap.width + t.batteryTextGap && std::abs(all.value.x + all.value.width - width) < 0.01f,
-           "the label, the battery, the value, in a row");
-    expect(std::abs(all.body.y + all.body.height / 2 - wide.height / 2) < 0.01f, "the battery centred on the texts' line");
+           "its corners: the charge's nested in the outline's");
 }
 
-void tileTests()
+void batteryTileTests()
 {
     const Tokens& t = tokens();
-    Rect frame{ 20, 30, 142, t.graphLowHeight };
-    LevelTile disk{ .glyph = Glyph::Drive, .caption = "Disk C:", .value = "71%", .level = 0.71f, .detail = "148 GB free", .actionId = "open" };
-    expect(heightOf(disk, {}, 0) == t.graphLowHeight && !fixedWidthOf(disk, 0, {}) && heightOf(BatteryTile{}, {}, 0) == t.graphLowHeight,
-           "tiles: a low graph's height, the width they're given");
-    LevelTileParts parts = levelTileParts(disk, frame, {});
-    for (Rect r : { parts.glyph, parts.caption, parts.value, parts.bar, parts.detail }) expect(inside(r, frame), "a level tile's parts inside it");
-    expect(parts.glyph.x == frame.x + t.graphInset && parts.caption.x > parts.glyph.x + parts.glyph.width - 0.01f &&
-           parts.caption.x + parts.caption.width <= parts.value.x && std::abs(parts.value.x + parts.value.width - (frame.x + frame.width - t.graphInset)) < 0.01f,
-           "glyph, caption, and the value at the right");
-    expect(parts.bar.y > parts.caption.y + parts.caption.height && parts.detail.y > parts.bar.y + parts.bar.height &&
-           std::abs(parts.fill - parts.bar.width * 0.71f) < 0.01f && parts.bar.height == t.progressHeight, "the bar under them, the detail under it");
-    expect(std::abs((parts.caption.y - frame.y) - (frame.y + frame.height - parts.detail.y - parts.detail.height)) < 0.01f, "centred in the tile");
-
-    BatteryTile devices{ .cells = { { Glyph::Headphones, 0.82f, false, "82%" }, { Glyph::Mouse, 0.1f, true, "10%" }, { Glyph::Keyboard, 0.45f, false, "45%" } } };
-    auto cells = batteryTileParts(devices, frame);
-    expect(cells.size() == 3, "a cell per device");
-    for (std::size_t i = 0; i < cells.size(); ++i) {
-        float middle = frame.x + frame.width * (static_cast<float>(i) + 0.5f) / 3;
-        expect(inside(cells[i].glyph, frame) && inside(cells[i].battery.body, frame) && inside(cells[i].value, frame) &&
-               std::abs(cells[i].glyph.x + cells[i].glyph.width / 2 - middle) < 0.01f && cells[i].battery.body.y > cells[i].glyph.y + cells[i].glyph.height &&
-               cells[i].value.y > cells[i].battery.body.y + cells[i].battery.body.height, "glyph over battery over percent, in its column");
+    expect(heightOf(BatteryTile{}, {}, 0) == batteryTileHeight() && batteryTileHeight() == 2 * t.statMiniHeight + t.itemSpacing &&
+           !fixedWidthOf(BatteryTile{}, 0, {}), "as tall as two small tiles and their gap");
+    expect(batteryTileLines() == 3, "three devices' rows fit it");
+    Rect frame{ 5, 7, 218, batteryTileHeight() };
+    BatteryTile three{ .rows = { { Glyph::Headphones, "WH-1000XM5", 0.82f, false, "82%" }, { Glyph::Mouse, "MX Master 3S", 0.1f, true, "10%" },
+                                 { Glyph::Keyboard, "Keychron K3", 0.45f, false, "45%" } } };
+    BatteryTileParts parts = batteryTileParts(three, frame, {});
+    expect(parts.rows.size() == 3 && !parts.alone && parts.note.width == 0, "a row per device");
+    for (std::size_t i = 0; i < parts.rows.size(); ++i) {
+        const BatteryRowParts& row = parts.rows[i];
+        expect(inside(row.glyph, frame) && inside(row.name, frame) && inside(row.battery.body, frame) && inside(row.battery.cap, frame) &&
+               inside(row.value, frame) && row.bubble.width == 0, "a row's parts inside the tile");
+        expect(row.glyph.x == frame.x + t.tileInset && row.name.x > row.glyph.x + row.glyph.width && row.name.x + row.name.width <= row.battery.body.x &&
+               row.battery.cap.x + row.battery.cap.width <= row.value.x && std::abs(row.value.x + row.value.width - (frame.x + frame.width - t.tileInset)) < 0.01f,
+               "glyph, name, battery, percent, left to right");
+        if (i > 0) expect(std::abs(row.name.y - parts.rows[i - 1].name.y - t.batteryRowHeight) < 0.01f && row.value.x == parts.rows[0].value.x,
+                          "rows batteryRowHeight apart, the percents in one column");
     }
-    expect(cells[1].battery.fill.width < cells[0].battery.fill.width && batteryTileParts(BatteryTile{}, frame).empty(), "each its own level; none: no cells");
+    expect(std::abs((parts.rows[0].name.y - frame.y) - (frame.y + frame.height - parts.rows[2].name.y - parts.rows[2].name.height)) < 0.01f,
+           "the rows centred in the tile");
+    expect(parts.rows[1].battery.fill.width < parts.rows[0].battery.fill.width, "each its own charge");
+
+    // A note under the rows takes a row's place.
+    BatteryTile more{ .rows = { three.rows[0], three.rows[1] }, .note = "+3 more" };
+    BatteryTileParts noted = batteryTileParts(more, frame, {});
+    expect(noted.rows.size() == 2 && !noted.alone && inside(noted.note, frame) && std::abs(noted.note.y - noted.rows[1].name.y - t.batteryRowHeight) < 0.01f &&
+           noted.note.height == t.batteryRowHeight, "a note in the next row's place");
+    // No devices: the note alone, across the tile.
+    BatteryTileParts none = batteryTileParts(BatteryTile{ .note = "No devices connected" }, frame, {});
+    expect(none.rows.empty() && none.note == frame && batteryTileParts(BatteryTile{}, frame, {}).note.width == 0, "none: the note is the tile");
+    // One device alone: its glyph in a circle, its name over its battery and percent.
+    BatteryTile one{ .rows = { { Glyph::Earbuds, "Galaxy Buds2 Pro", 0.74f, false, "74%" } } };
+    BatteryTileParts alone = batteryTileParts(one, frame, {});
+    const BatteryRowParts& row = alone.rows[0];
+    expect(alone.alone && alone.rows.size() == 1 && row.bubble.width == t.deviceBubbleSize && row.bubble.height == t.deviceBubbleSize && inside(row.bubble, frame) &&
+           std::abs(row.bubble.y + row.bubble.height / 2 - (frame.y + frame.height / 2)) < 0.01f && inside(row.glyph, row.bubble) &&
+           row.glyph.width == t.largeIconSize, "one device: a circle with its glyph, big");
+    expect(row.name.x > row.bubble.x + row.bubble.width && inside(row.name, frame) && row.battery.body.x == row.name.x &&
+           row.battery.body.y > row.name.y + row.name.height - 0.01f && row.value.x > row.battery.cap.x + row.battery.cap.width && inside(row.value, frame) &&
+           row.value.height == lineHeight(TextStyle::CardTitle) && row.name.height == lineHeight(TextStyle::Body), "its name over its battery and percent");
+    BatteryTile oneNoted{ .rows = one.rows, .note = "+1 more" };
+    expect(!batteryTileParts(oneNoted, frame, {}).alone, "one row and a note: rows, not the large treatment");
 }
 
-void progressTests()
+// Tiles are nothing to click; a grid's gaps are one size; a Stat text has its size.
+void gridTests()
 {
     const Tokens& t = tokens();
-    Progress level{ .level = 0.4f };
-    Progress playing{ .timeline = { .position = Ms{ 500 }, .duration = Ms{ 1000 } } };
-    expect(fractionOf(level, Ms{ 0 }) == 0.4f && fractionOf(playing, Ms{ 0 }) == 0.5f && fractionOf({ .level = 3.0f }, Ms{ 0 }) == 1 &&
-           fractionOf({ .timeline = playing.timeline, .level = 0.1f }, Ms{ 0 }) == 0.1f, "a level wins over the timeline, clamped");
-    expect(heightOf(level, {}, 0) == t.progressHeight && heightOf(Progress{ .level = 0.1f, .thick = true }, {}, 0) == t.thickProgressHeight, "a thick bar");
-    expect(!fixedWidthOf(level, 0, {}) && fixedWidthOf(Progress{ .level = 0.1f, .stub = true }, 0, {}) == t.stubBarWidth, "a stub: a fixed, short bar");
-    Rect bar{ 10, 5, 200, 10 };
-    LevelBarParts one = levelBarParts(level, bar);
-    expect(one.fill == Rect{ 10, 5, 80, 10 } && one.second.width == 0 && one.second.x == 90, "a level's fill, from the left");
-    LevelBarParts two = levelBarParts({ .level = 0.5f, .second = 0.25f }, bar);
-    expect(two.fill.width == 100 && two.second == Rect{ 110, 5, 50, 10 }, "a second part right after the first");
-    LevelBarParts over = levelBarParts({ .level = 0.9f, .second = 0.5f }, bar);
-    expect(std::abs(over.second.x + over.second.width - (bar.x + bar.width)) < 0.01f && levelBarParts({ .second = 0.5f }, bar).fill.width == 0 &&
-           levelBarParts({ .level = -3.0f, .second = 9.0f }, bar).second.width == 200, "never past the bar's end; garbage clamped");
-}
-
-// Tiles are buttons as a whole; a grid's gaps are one size.
-void buttonTests()
-{
-    const Tokens& t = tokens();
-    Content c{ .label = "Tiles", .card = CardLayout::Centred };
-    Row top{ .items = { Graph{ .tile = true, .actionId = "a" }, Graph{ .tile = true }, Graph{ .tile = true, .actionId = "c" } }, .even = true };
-    Row bottom{ .items = { Graph{ .size = GraphSize::Low, .tile = true, .actionId = "d" }, LevelTile{ .actionId = "e" }, BatteryTile{ .actionId = "f" } },
-                .even = true, .tileGap = true };
-    c.expandedCenter = { top, bottom };
+    expect(fontSize(TextStyle::Stat) == t.statValueFontSize, "TextStyle::Stat: its own size");
+    Content c{ .label = "Tiles", .card = CardLayout::Columns };
+    c.expandedCenter = { Row{ .items = { StatTile{ .large = true }, StatTile{ .large = true }, StatTile{ .large = true } }, .even = true } };
+    Row under = row({ StatTile{} });
+    under.tileGap = true;
+    c.expandedLeading = { row({ StatTile{} }), under };
+    c.expandedTrailing = { row({ BatteryTile{} }) };
     Scene scene = shown(c);
-    expect(scene.size.y == t.expandedSize.y, "two rows of tiles fit the height every card has");
+    float p = t.expandedPadding;
+    expect(scene.size.y == t.expandedSize.y && scene.size.x == t.expandedSize.x, "the grid fills the card every page has, exactly");
     const Placed* a = at(scene, "expandedCenter/0/0");
     const Placed* b = at(scene, "expandedCenter/0/1");
-    const Placed* d = at(scene, "expandedCenter/1/0");
-    const Placed* e = at(scene, "expandedCenter/1/1");
-    const Placed* f = at(scene, "expandedCenter/1/2");
-    expect(a && b && d && e && f && a->frame.height == t.graphTallHeight && d->frame.height == t.graphLowHeight && e->frame.height == d->frame.height &&
-           f->frame.y == d->frame.y, "each at its height, a row's tiles level");
-    expect(std::abs((b->frame.x - a->frame.x - a->frame.width) - (d->frame.y - a->frame.y - a->frame.height)) < 0.01f &&
-           std::abs(b->frame.x - a->frame.x - a->frame.width - t.itemSpacing) < 0.01f, "as far under as beside: itemSpacing");
-    expect(a->frame.width == b->frame.width && a->cornerRadius == t.groupRadius && e->cornerRadius == t.groupRadius, "equal columns, a group's corners");
-    auto centre = [](const Placed& p) { return Vec2{ p.frame.x + p.frame.width / 2, p.frame.y + p.frame.height / 2 }; };
-    auto hitA = hitTest(scene, centre(*a));
-    expect(hitA && hitA->action.actionId == "a" && hitA->action.providerId == "p" && hitA->action.activityId == "card" && hitA->key == a->key,
-           "a click anywhere on a tile is its action");
-    expect(!hitTest(scene, centre(*b)), "a tile with no action isn't a button");
-    expect(hitTest(scene, centre(*e))->action.actionId == "e" && hitTest(scene, centre(*f))->action.actionId == "f" &&
-           hitTest(scene, { d->frame.x + 2, d->frame.y + d->frame.height - 2 })->action.actionId == "d", "the other kinds of tile too, to their corners");
-    expect(lightsAt(*a, centre(*a)), "lit under the pointer");
+    const Placed* c3 = at(scene, "expandedCenter/0/2");
+    const Placed* disk = at(scene, "expandedLeading/0/0");
+    const Placed* net = at(scene, "expandedLeading/1/0");
+    const Placed* bt = at(scene, "expandedTrailing/0/0");
+    expect(a && b && c3 && disk && net && bt, "every tile is placed");
+    if (!a || !b || !c3 || !disk || !net || !bt) return;
+    expect(a->frame.y == p && a->frame.x == p && a->frame.height == t.statTileHeight && a->frame.width == b->frame.width &&
+           std::abs(c3->frame.x + c3->frame.width - (scene.size.x - p)) < 0.01f && std::abs(b->frame.x - a->frame.x - a->frame.width - t.itemSpacing) < 0.01f,
+           "the top row: equal tiles across the card, itemSpacing apart");
+    expect(std::abs(disk->frame.y - (a->frame.y + a->frame.height + t.columnGap)) < 0.01f && disk->frame.x == p && disk->frame.height == t.statMiniHeight &&
+           std::abs(net->frame.y - disk->frame.y - disk->frame.height - t.itemSpacing) < 0.01f &&
+           std::abs(net->frame.y + net->frame.height - (scene.size.y - p)) < 0.01f, "the left column: one small tile over another, to the card's padding");
+    expect(std::abs(bt->frame.y - disk->frame.y) < 0.01f && std::abs(bt->frame.y + bt->frame.height - (net->frame.y + net->frame.height)) < 0.01f &&
+           std::abs(bt->frame.width - disk->frame.width) < 0.01f && std::abs(bt->frame.x - (disk->frame.x + disk->frame.width + t.columnGap)) < 0.01f &&
+           std::abs(bt->frame.x + bt->frame.width - (scene.size.x - p)) < 0.01f, "the right column: as tall as both, half the card, columnGap away");
+    expect(t.columnGap == t.itemSpacing, "one gap in the grid, across and down (tokens)");
+    for (const Placed* tile : { a, disk, bt }) {
+        expect(tile->cornerRadius == t.groupRadius, "a group's corners");
+        expect(!hitTest(scene, { tile->frame.x + tile->frame.width / 2, tile->frame.y + tile->frame.height / 2 }), "a click on a tile is no action");
+    }
     auto focus = focusables(scene);
-    auto focusable = [&](const Placed* p) { return std::any_of(focus.begin(), focus.end(), [&](const Focusable& x) { return x.id == "el:" + p->key; }); };
-    expect(focusable(a) && !focusable(b) && focusable(e) && focusable(f), "the keys reach the tiles that are buttons");
-    expect(tileAction(Text{ "x" }).empty() && tileAction(Graph{ .actionId = "g" }) == "g", "tileAction: only the tiles");
+    expect(std::none_of(focus.begin(), focus.end(), [](const Focusable& f) { return f.id.rfind("el:", 0) == 0; }), "the keys have nothing to land on");
 }
 
-// CardLayout::Columns: a header across, a block at the left, a column at the right.
+// CardLayout::Columns: rows across the top, two equal columns under them.
 void columnTests()
 {
     const Tokens& t = tokens();
-    Content c{ .label = "Columns", .card = CardLayout::Columns, .wideCard = true };
+    Content c{ .label = "Columns", .card = CardLayout::Columns };
     c.expandedCenter = { row({ Text{ "Header", TextStyle::Title } }) };
-    c.expandedLeading = { row({ Graph{ .size = GraphSize::Strip } }), row({ Levels{ { { 0.5f } } } }) };
+    c.expandedLeading = { row({ Text{ "left" } }) };
     c.expandedTrailing = { row({ Text{ "one" } }), row({ Text{ "two" } }) };
     Scene scene = shown(c);
     float p = t.expandedPadding;
     const Placed* header = at(scene, "expandedCenter/0/0");
-    const Placed* graph = at(scene, "expandedLeading/0/0");
-    const Placed* strip = at(scene, "expandedLeading/1/0");
+    const Placed* left = at(scene, "expandedLeading/0/0");
     const Placed* one = at(scene, "expandedTrailing/0/0");
     const Placed* two = at(scene, "expandedTrailing/1/0");
-    expect(scene.size.x == t.wideCardWidth && scene.size.y == t.expandedSize.y, "a wide card, the usual height when its columns fit");
-    expect(header && graph && strip && one && two && header->frame.y == p && header->frame.x == p, "the header at the top");
-    float top = p + header->frame.height + t.slotGap;
-    expect(graph->frame.x == p && std::abs(graph->frame.width - (scene.size.x - 2 * p - t.sideColumnWidth - t.columnGap)) < 0.01f &&
-           strip->frame.width == graph->frame.width, "the left block: what the side column leaves");
-    expect(std::abs(one->frame.x - (scene.size.x - p - t.sideColumnWidth)) < 0.01f && one->frame.width == t.sideColumnWidth &&
-           std::abs(one->frame.x - (graph->frame.x + graph->frame.width + t.columnGap)) < 0.01f, "the side column, columnGap from it");
-    for (const Placed* x : { graph, strip, one, two })
-        expect(x->frame.y >= top - 0.01f && x->frame.y + x->frame.height <= scene.size.y - p + 0.01f, "both under the header, inside the card");
+    expect(scene.size.y == t.expandedSize.y && header && left && one && two && header->frame.y == p && header->frame.x == p, "the top rows at the top");
+    if (!header || !left || !one || !two) return;
+    float top = p + header->frame.height + t.columnGap, half = (scene.size.x - 2 * p - t.columnGap) / 2;
+    expect(left->frame.x == p && std::abs(left->frame.width - half) < 0.01f && std::abs(one->frame.width - half) < 0.01f &&
+           std::abs(one->frame.x - (p + half + t.columnGap)) < 0.01f, "two equal columns, columnGap apart");
     float room = scene.size.y - p - top;
-    expect(std::abs((graph->frame.y - top) - (top + room - strip->frame.y - strip->frame.height)) < 0.01f &&
-           std::abs((one->frame.y - top) - (top + room - two->frame.y - two->frame.height)) < 0.01f, "each column's rows centred in it");
-
-    // Not a page: the card grows to its taller column.
-    for (int i = 0; i < 12; ++i) c.expandedTrailing.push_back(row({ Text{ "more" } }));
+    expect(std::abs((left->frame.y - top) - (top + room - left->frame.y - left->frame.height)) < 0.01f &&
+           std::abs((one->frame.y - top) - (top + room - two->frame.y - two->frame.height)) < 0.01f && one->frame.y >= top - 0.01f,
+           "each column's rows centred in it, under the top rows");
+    // The card grows to its taller column; a page keeps the height it's sized like.
+    for (int i = 0; i < 14; ++i) c.expandedTrailing.push_back(row({ Text{ "more" } }));
     Scene tall = shown(c);
-    const Placed* last = at(tall, "expandedTrailing/13/0");
+    const Placed* last = at(tall, "expandedTrailing/15/0");
     expect(tall.size.y > t.expandedSize.y && last && std::abs(last->frame.y + last->frame.height - (tall.size.y - p)) < 0.51f, "it grows for its taller column");
-    // A page: the height of the rows it's sized like, whatever its own.
     c.sizedLike = { row({ Text{ "main" } }) };
     expect(shown(c).size.y == t.expandedSize.y, "a page keeps its main view's height (Content::sizedLike)");
-    // A narrow card: the side column takes half at most.
-    c.wideCard = false;
-    c.expandedTrailing.resize(1);
-    Scene narrow = shown(c);
-    expect(at(narrow, "expandedTrailing/0/0")->frame.width <= (narrow.size.x - 2 * p) / 2 + 0.01f && at(narrow, "expandedLeading/0/0")->frame.width > 0,
-           "never more than half the card");
 }
 
 } // namespace
 
 void runStatItemTests()
 {
-    graphTests();
-    levelTests();
+    statTileTests();
     batteryTests();
-    tileTests();
-    progressTests();
-    buttonTests();
+    batteryTileTests();
+    gridTests();
     columnTests();
 }
 

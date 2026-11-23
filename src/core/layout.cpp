@@ -52,8 +52,8 @@ Rect stackFrame(const Content& c, Vec2 size)
 
 namespace {
 
-// CardLayout::Columns (decision 172): the header's rows across the top, then
-// a block at the left and a column sideColumnWidth wide at the right.
+// CardLayout::Columns (decision 174): the top rows across the card, then
+// two columns of equal width under them, columnGap apart and below.
 struct ColumnFrames {
     Rect header, left, right;
 };
@@ -62,9 +62,9 @@ ColumnFrames columnFrames(const Content& c, Vec2 size, const Source& source, con
     const Tokens& t = tokens();
     float p = t.expandedPadding, width = std::max(0.0f, size.x - 2 * p);
     float header = c.expandedCenter.empty() ? 0 : slotHeight(c.expandedCenter, { p, p, width, size.y }, source, measure);
-    float top = p + header + (header > 0 ? t.slotGap : 0), height = std::max(0.0f, size.y - top - p);
-    float side = std::min(t.sideColumnWidth, width / 2); // a narrow card: never more than half
-    return { { p, p, width, header }, { p, top, std::max(0.0f, width - side - t.columnGap), height }, { p + width - side, top, side, height } };
+    float top = p + header + (header > 0 ? t.columnGap : 0), height = std::max(0.0f, size.y - top - p);
+    float half = std::max(0.0f, (width - t.columnGap) / 2);
+    return { { p, p, width, header }, { p, top, half, height }, { p + width - half, top, half, height } };
 }
 
 } // namespace

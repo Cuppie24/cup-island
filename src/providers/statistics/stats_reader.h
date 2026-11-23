@@ -1,21 +1,22 @@
 #pragma once
-// The statistics reader (decision 173): takes a StatsReading off the UI
-// thread (decision 144: PDH, the device tree and the adapter table are
+// The statistics reader (decisions 173, 174): takes a StatsReading off the
+// UI thread (decision 144: PDH, the device tree and the adapter table are
 // calls into Windows' services, and none has a timeout).
+//
+// It reads what a request asks for and nothing else: each source (the
+// CPU's counter, the GPU's, the thermal zones', the adapters' table) is
+// opened when first asked for and closed once it hasn't been for
+// `idleClose`. A pill showing only memory never opens a counter.
 //
 // Threading: request() and stop() are the UI thread's. Everything else
 // runs on the reader's own thread, which sleeps on a condition variable
-// until a reading is asked for: nothing is polled, and with the card closed
-// the provider stops asking, so nothing runs at all (TR §8). Asked nothing
-// for `idleClose`, it also closes its counters and forgets its last
-// samples. The reading is handed to `done` on the reader's thread; the
-// provider posts it to the UI thread.
+// until a reading is asked for: nothing is polled, and when the provider
+// stops asking nothing runs at all (TR §8). The reading is handed to
+// `done` on the reader's thread; the provider posts it to the UI thread.
 
-#include "providers/statistics/stats_card.h"
 #include "providers/statistics/stats_reading.h"
 
 #include <chrono>
-#include <cstddef>
 #include <condition_variable>
 #include <functional>
 #include <memory>
@@ -29,14 +30,12 @@ namespace cup {
 // Handed over with each request: tokens() is the UI thread's, and a reload
 // rewrites it (decision 144).
 struct StatsReaderSettings {
-    // A rate needs two samples: with none recent enough, the reader takes one, waits this long and takes the reading.
+    // A rate (a load, a speed) needs two samples: with none recent enough of its own, the reader takes one, waits this long and reads.
     std::chrono::milliseconds firstSpan{ 250 };
-    // A sample older than this isn't "since the last reading" any more (the card was closed meanwhile).
+    // A sample older than this isn't "since the last reading" any more.
     std::chrono::milliseconds staleAfter{ 10'000 };
-    // Asked nothing for this long, the counters are closed.
+    // A source not asked for this long is closed.
     std::chrono::milliseconds idleClose{ 30'000 };
-    // Bluetooth devices are listed every this many readings (the slowest look, and the levels move slowly), and at once on their page.
-    std::size_t bluetoothEvery = 5;
 };
 
 class StatsReader {
@@ -48,27 +47,26 @@ public:
     StatsReader(const StatsReader&) = delete;
     StatsReader& operator=(const StatsReader&) = delete;
 
-    // A reading for the card with `page` open; returns at once. Skipped
-    // while one is under way (the next request comes in statsRefresh anyway).
-    void request(StatsPage page, const StatsReaderSettings& settings);
+    // A reading of what `request` asks; returns at once. One asked while
+    // another is under way is read right after it, together with anything
+    // else asked meanwhile: a Bluetooth listing due once a minute is never dropped.
+    void request(const StatsRequest& request, const StatsReaderSettings& settings);
     // Ends the thread and waits for it: at most a reading's length, and no
     // `done` after it returns.
     void stop();
 
 private:
-    struct Sources; // the counters and the last samples: the reader thread's only
+    struct Sources; // what's open and the last samples: the reader thread's only
 
     void run();
-    StatsReading read(Sources& sources, StatsPage page, const StatsReaderSettings& settings);
+    std::optional<StatsReading> read(Sources& sources, const StatsRequest& request, const StatsReaderSettings& settings); // none: stopped meanwhile
     bool waitFor(std::chrono::milliseconds span); // false: stopped meanwhile
 
     Done done_;
-
     std::mutex mutex_;
     std::condition_variable wake_;
-    std::optional<StatsPage> wanted_; // a request not yet taken
-    StatsReaderSettings settings_;    // ...and the settings it came with
-    bool reading_ = false;
+    StatsRequest wanted_;          // asked and not yet taken; nothing in it: nothing asked
+    StatsReaderSettings settings_; // ...and the settings the last request came with
     bool stopped_ = false;
     std::thread thread_;
 };

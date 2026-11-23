@@ -2,7 +2,6 @@
 
 #include "core/dialog.h"
 #include "core/segments.h"
-#include "core/stat_parts.h"
 #include "core/tokens.h"
 
 #include <algorithm>
@@ -22,7 +21,6 @@ bool clickable(const Item& item)
     if (auto* toggle = std::get_if<Switch>(&item)) return toggle->enabled;
     if (auto* segments = std::get_if<Segments>(&item)) return segments->enabled && segments->options.size() > 1;
     if (auto* image = std::get_if<Image>(&item)) return !image->actionId.empty();
-    if (!tileAction(item).empty()) return true; // a tile that opens its page (decision 172)
     return std::holds_alternative<TextInput>(item);
 }
 

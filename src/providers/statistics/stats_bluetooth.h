@@ -30,8 +30,7 @@ struct BluetoothNode {
 // its device node (else its shortest name, without a service's suffix);
 // the level is whichever node has one. A device Windows says is
 // disconnected is left out: its level is the last one heard, maybe days
-// old. One without a level stays (shownDevices drops it), parts stay empty:
-// Windows keeps one level a device.
+// old. One without a level stays (shownDevices drops it).
 std::vector<BluetoothDevice> bluetoothDevices(const std::vector<BluetoothNode>& nodes);
 
 // What a class of device says it is: headphones and headsets, mice,

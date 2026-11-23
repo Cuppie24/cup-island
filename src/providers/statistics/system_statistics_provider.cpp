@@ -7,12 +7,11 @@
 namespace cup {
 
 SystemStatisticsProvider::SystemStatisticsProvider(PostToUi postToUi)
-    // Asked on the UI thread, where page() and tokens() are read; the reader returns at once.
-    : StatisticsProvider([this] {
+    // Asked on the UI thread, where tokens() is read; the reader returns at once.
+    : StatisticsProvider([this](const StatsRequest& request) {
           if (!reader_) return;
           const Tokens& t = tokens();
-          reader_->request(page(), { .firstSpan = t.statsFirstSpan, .staleAfter = t.statsStaleAfter, .idleClose = t.statsIdleClose,
-                                     .bluetoothEvery = t.statsBluetoothEvery });
+          reader_->request(request, { .firstSpan = t.statsFirstSpan, .staleAfter = t.statsStaleAfter, .idleClose = t.statsIdleClose });
       }),
       post_(std::move(postToUi))
 {
@@ -29,10 +28,11 @@ void SystemStatisticsProvider::start(Host& host)
     alive_ = std::make_shared<bool>(true);
     // The reader answers on its own thread: each reading is posted here, and
     // dropped if the provider stopped meanwhile (alive_ is only read and
-    // written on this thread, as media's is).
+    // written on this thread, as media's is). Before the base's start():
+    // with readings picked for the pill it asks for one at once.
     reader_ = std::make_unique<StatsReader>([this, post = post_, alive = alive_](StatsReading reading) {
         post([this, alive, reading = std::move(reading)] {
-            if (*alive) publish(reading); // drops it itself if the card closed meanwhile
+            if (*alive) publish(reading); // drops it itself if nobody is waiting any more
         });
     });
     StatisticsProvider::start(host);

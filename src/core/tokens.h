@@ -89,7 +89,7 @@ struct Tokens {
     // CardLayout::Search (decision 079): wider than other cards, as tall as
     // its rows (just the field when nothing is typed), and a bigger field.
     float searchCardWidth = 640;
-    float wideCardWidth = 640; // a card that asks for more room (Content::wideCard, decision 085): statistics' pages with a list beside graphs (decision 172)
+    float wideCardWidth = 640; // a card that asks for more room (Content::wideCard, decision 085); none since the timer moved to its window (decision 106)
     float searchInputHeight = 48;
     float searchInputFontSize = 19;
     float resultIconSize = 32;           // a search result's icon (Button::picture)
@@ -232,30 +232,20 @@ struct Tokens {
     Ms progressWaveSettle{ 900 };
     float timeLabelWidth = 56;  // fits "-1:02:05" at captionFontSize
     float ringThickness = 3;      // progress ring stroke (decision 010)
-    // Measurements (decision 172, core/stat_items.h).
-    float thickProgressHeight = 10; // Progress::thick
-    float stubBarWidth = 44;        // Progress::stub: a short bar beside a value
-    float progressSecondOpacity = 0.45f; // Progress::second: the fill's colour, this much of its opacity
-    float graphTallHeight = 124;    // GraphSize::Tall: an overview's top tiles
-    float graphLowHeight = 80;      // GraphSize::Low: its bottom tiles; a LevelTile and a BatteryTile too
-    float graphStripHeight = 38;    // GraphSize::Strip: under a big number
-    float graphTallPlotTop = 48;    // a tile's plot starts this far down, under its texts
-    float graphLowPlotTop = 40;
-    float graphInset = 12;          // a tile's texts and rows, in from its sides
-    float graphTextTop = 9;         // ...and its texts' line, down from its top
-    float graphLineWidth = 1.5f;
-    float graphAreaOpacity = 0.3f;      // the area under a graph's line: the line's colour, this much of it at the top...
-    float graphAreaFadeOpacity = 0.03f; // ...fading to this at the plot's bottom
-    float tileRowGap = 6;           // between a LevelTile's lines, a BatteryTile's glyph, battery and percent
-    float levelsHeight = 38;        // Levels: its bars' height
-    float levelsGap = 3;            // ...between them
-    float levelsRadius = 4;         // ...their corners
-    Vec2 batterySize{ 23, 11 };     // Battery: its body
+    // Measurement tiles (decision 174, core/stat_items.h).
+    float statTileHeight = 100;     // StatTile::large
+    float statMiniHeight = 48;      // a small StatTile; a BatteryTile is two of them and their gap
+    float tileInset = 12;           // a tile's content, in from its edges
+    float tileRowGap = 6;           // between a small tile's line and its bar, a glyph and its caption
+    float statValueFontSize = 28;   // TextStyle::Stat: a large tile's reading
+    float statValueFontWeight = 800;
+    float statValueLineHeight = 30; // ...its line: digits and a "%", so tighter than other text's
+    float batteryRowHeight = 28;    // BatteryTile: a device's row
+    float deviceBubbleSize = 52;    // ...one device alone: the circle behind its glyph
+    Vec2 batterySize{ 23, 11 };     // a battery's body
     float batteryCapWidth = 2;      // ...the nub at its right end
     float batteryStroke = 1.5f;     // ...its outline, the gap inside it and before the nub
-    float batteryTextGap = 6;       // ...to its label and its value
-    float sideColumnWidth = 216;    // CardLayout::Columns: the right column
-    float columnGap = 16;           // ...between the two
+    float columnGap = 8;            // CardLayout::Columns: between its two columns, and under its top rows
     float stepDotSize = 9;        // Steps: one dot per step; a pill step's height
     float stepDotGap = 8;
     float stepShortWidth = 14;    // StepLength::Short: a pill a little longer than a dot (the long break, decision 107)
@@ -600,28 +590,26 @@ struct Tokens {
     std::size_t pomodoroRounds = 4;
     // A session counts as finished (decision 061) with at most this many focus phases skipped.
     std::size_t pomodoroFocusSkipsAllowed = 1;
-    // Statistics (decisions 171, 172). Whole numbers, so the display's scale never touches them:
+    // Statistics (decisions 171, 174). Whole numbers, so the display's scale never touches them:
     // a load (percent) or a temperature (°C) from here up is high, a battery (percent) down
     // to here low; a temperature past the plausible one is a broken sensor, shown as none.
     std::size_t statsHighLoad = 90;
     std::size_t statsHighTemperature = 85;
     std::size_t statsPlausibleTemperature = 125;
     std::size_t statsLowBattery = 20;
-    std::size_t statsBluetoothShown = 3;       // Bluetooth devices on the overview's tile
-    std::size_t statsHistoryLength = 44;       // readings a graph spans: 88 s at statsRefresh
-    std::size_t statsGraphMinTemperature = 30; // a temperature graph's bottom and top, °C
-    std::size_t statsGraphMaxTemperature = 100;
-    std::size_t statsSpeedFloor = 200;         // a speed graph's top is never under this, KB/s: an idle line stays flat
-    std::size_t statsListShown = 5;            // rows in a page's side list (processes, apps)
-    std::size_t statsDrivesShown = 5;          // drives on the disk page
+    std::size_t statsPillReadings = 2;         // readings the pill shows at once: picking one more drops the one picked longest ago
+    std::size_t statsKnownDevices = 8;         // Bluetooth devices remembered for Settings' list, the latest seen
+    std::size_t statsPillNameLength = 12;      // a device's name in the pill, in characters, before its "…"
     Ms statsRefresh{ 2000 };                   // while its card is shown: a new reading this often
+    Ms statsBluetoothRefresh{ 10000 };         // ...and Bluetooth devices listed this often: the slowest look, and levels move slowly
+    Ms statsPillRefresh{ 5000 };               // its card closed, readings picked for the pill: those, this often
+    Ms statsPillBluetoothRefresh{ 60000 };     // ...and a picked device's battery: once a minute, on the minute like the idle clock (TR §8)
     // The Windows reader's (decision 173). A rate needs two samples: with none recent enough it takes
     // one, waits statsFirstSpan and reads; one older than statsStaleAfter isn't recent (the card was
     // closed meanwhile); asked nothing for statsIdleClose, it closes its counters.
     Ms statsFirstSpan{ 250 };
     Ms statsStaleAfter{ 10000 };
     Ms statsIdleClose{ 30000 };
-    std::size_t statsBluetoothEvery = 5;       // Bluetooth devices are listed every this many readings: the slowest look
     std::size_t todoMaxLength = 150; // characters in a to-do: wraps onto a few lines at most (decision 045)
     std::size_t taskGroupNameMaxLength = 40; // a task group's name, edited in place (decision 117)
     // Lists (Row::list, decision 029): the window shows this many rows (the

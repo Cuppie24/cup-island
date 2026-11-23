@@ -74,12 +74,6 @@ std::string percentText(std::optional<float> percent)
     return clean ? std::to_string(std::lround(*clean)) + "%" : kNoReading;
 }
 
-std::string shareText(double percent)
-{
-    if (!std::isfinite(percent) || percent < 0) percent = 0;
-    return number(std::min(percent, 100.0), percent < 99.95 ? 1 : 0) + "%";
-}
-
 std::string temperatureText(std::optional<float> celsius)
 {
     auto clean = cleanTemperature(celsius);
@@ -97,12 +91,6 @@ std::string usedOfText(std::optional<std::uint64_t> used, std::optional<std::uin
     if (!used || !total || *total == 0) return "";
     int unit = sizeUnit(*total);
     return inUnit(std::min(*used, *total), unit) + " / " + inUnit(*total, unit) + " " + kSizeUnits[unit];
-}
-
-std::string freeText(std::optional<std::uint64_t> used, std::optional<std::uint64_t> total)
-{
-    if (!used || !total || *total == 0) return "";
-    return sizeText(*total - std::min(*used, *total)) + " free";
 }
 
 namespace {
@@ -125,28 +113,12 @@ std::string speedIn(float bytesPerSecond, int unit)
 
 } // namespace
 
-std::string speedText(std::optional<float> bytesPerSecond)
-{
-    auto clean = cleanSpeed(bytesPerSecond);
-    if (!clean) return "";
-    int unit = speedUnit(*clean);
-    return speedIn(*clean, unit) + " " + kSpeedUnits[unit];
-}
-
 std::string speedPairText(std::optional<float> down, std::optional<float> up)
 {
     auto d = cleanSpeed(down), u = cleanSpeed(up);
     if (!d && !u) return "";
     int unit = speedUnit(std::max(d.value_or(0), u.value_or(0)));
     return "\u2193 " + (d ? speedIn(*d, unit) : kNoReading) + " \u2191 " + (u ? speedIn(*u, unit) : kNoReading) + " " + kSpeedUnits[unit];
-}
-
-std::string linkText(std::optional<std::uint64_t> bitsPerSecond)
-{
-    if (!bitsPerSecond || *bitsPerSecond == 0) return "";
-    double mega = static_cast<double>(*bitsPerSecond) / 1e6;
-    if (mega >= 999.5) return number(mega / 1000, mega < 9995 ? 1 : 0) + " Gbps";
-    return number(mega, mega < 9.95 ? 1 : 0) + " Mbps";
 }
 
 bool highLoad(std::optional<float> percent)
@@ -167,62 +139,33 @@ bool lowBattery(std::optional<float> percent)
     return clean && std::lround(*clean) <= static_cast<long>(tokens().statsLowBattery);
 }
 
-bool atLinkLimit(std::optional<float> bytesPerSecond, std::optional<std::uint64_t> link)
+std::vector<BluetoothDevice> shownDevices(const std::vector<BluetoothDevice>& devices)
 {
-    auto speed = cleanSpeed(bytesPerSecond);
-    if (!speed || !link || *link == 0) return false;
-    return highLoad(static_cast<float>(100.0 * 8.0 * *speed / static_cast<double>(*link)));
-}
-
-std::vector<NamedValue> topValues(const std::vector<NamedValue>& values, std::size_t most)
-{
-    std::vector<NamedValue> top;
-    for (const NamedValue& v : values)
-        if (!v.name.empty() && std::isfinite(v.value) && v.value >= 0) top.push_back(v);
-    std::stable_sort(top.begin(), top.end(), [](const NamedValue& a, const NamedValue& b) {
-        return a.value != b.value ? a.value > b.value : a.name < b.name;
-    });
-    if (top.size() > most) top.resize(most);
-    return top;
-}
-
-ShownDevices shownDevices(const std::vector<BluetoothDevice>& devices, std::size_t room)
-{
-    ShownDevices shown;
-    for (const BluetoothDevice& d : devices) {
-        BluetoothDevice clean{ d.name, cleanPercent(d.battery), d.kind, {} };
-        std::optional<float> emptiest;
-        for (const NamedValue& part : d.parts)
-            if (auto level = cleanPercent(static_cast<float>(part.value)); level && !part.name.empty()) {
-                clean.parts.push_back({ part.name, *level });
-                emptiest = emptiest ? std::min(*emptiest, *level) : *level;
-            }
-        if (!clean.battery) clean.battery = emptiest; // earbuds that only report their parts
-        if (clean.battery && !clean.name.empty()) shown.devices.push_back(std::move(clean));
-    }
-    std::stable_sort(shown.devices.begin(), shown.devices.end(), [](const BluetoothDevice& a, const BluetoothDevice& b) {
+    std::vector<BluetoothDevice> shown;
+    for (const BluetoothDevice& d : devices)
+        if (auto battery = cleanPercent(d.battery); battery && !d.name.empty()) shown.push_back({ d.name, battery, d.kind });
+    std::stable_sort(shown.begin(), shown.end(), [](const BluetoothDevice& a, const BluetoothDevice& b) {
         long levelA = std::lround(*a.battery), levelB = std::lround(*b.battery); // as shown, so a wobble under 1% doesn't reorder
         return levelA != levelB ? levelA < levelB : a.name < b.name;
     });
-    if (shown.devices.size() > room) {
-        shown.more = shown.devices.size() - room;
-        shown.devices.resize(room);
-    }
     return shown;
 }
 
-std::string kindName(DeviceKind kind)
+std::string shortName(const std::string& name, std::size_t most)
 {
-    switch (kind) {
-    case DeviceKind::Headphones: return "Headphones";
-    case DeviceKind::Earbuds: return "Earbuds";
-    case DeviceKind::Mouse: return "Mouse";
-    case DeviceKind::Keyboard: return "Keyboard";
-    case DeviceKind::Controller: return "Controller";
-    case DeviceKind::Pen: return "Pen";
-    case DeviceKind::Other: break;
+    std::size_t characters = 0, cut = 0; // cut: where the kept part would end
+    for (std::size_t i = 0; i < name.size(); ++i) {
+        bool starts = (static_cast<unsigned char>(name[i]) & 0xC0) != 0x80; // not a UTF-8 continuation byte
+        if (!starts) continue;
+        if (most > 0 && characters == most - 1) cut = i; // cut, it keeps one character less: the "…" takes a place
+        if (characters == most) {
+            std::string kept = name.substr(0, cut);
+            while (!kept.empty() && kept.back() == ' ') kept.pop_back(); // no "Name …"
+            return kept + "\u2026";
+        }
+        ++characters;
     }
-    return "Bluetooth device";
+    return name;
 }
 
 } // namespace cup

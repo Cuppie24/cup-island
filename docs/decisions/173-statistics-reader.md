@@ -1,100 +1,126 @@
-# 173: The statistics reader: documented, unprivileged sources only; one-shot Bluetooth
+# 173: The statistics reader: unprivileged sources only, opened per request; one-shot Bluetooth
 
-Status: Accepted (completes 171 and 172; under 042's condition). Windows-only
-code, written on Linux: it compiles in CI, and **nothing here has run on a
-real PC yet**. The Bluetooth part must not ship before 042's test: music
-over Bluetooth headphones, the card open for a few minutes, no stutter.
+Status: Accepted (completes 171; rewritten for 174's contract; under 042's
+condition). Windows-only code, written on Linux: it compiles in CI, and
+**nothing here has run on a real PC yet**. The Bluetooth part must not ship
+before 042's test: music over Bluetooth headphones, the card open for a few
+minutes and then a device picked for the pill, no stutter.
 
-**Context.** 171 and 172 left the Windows half open: something has to fill
-`StatsReading`. Much of what the pages show has no clean source on Windows,
-and three things had to hold: it runs on Windows 10 1809 (decision 015),
-without admin rights, a driver or a vendor's SDK; nothing is read on the UI
-thread (decision 144); and nothing is watched (decision 042).
+**Context.** Something has to fill `StatsReading`. Much of what a system
+monitor shows has no clean source on Windows, and four things had to hold:
+it runs on Windows 10 1809 (decision 015), without admin rights, a driver
+or a vendor's SDK; nothing is read on the UI thread (decision 144); nothing
+is watched (decision 042); and since 174 a reading is asked for every few
+seconds for as long as the app runs when the pill shows one, so a request
+must cost only what it asks for.
 
 **Decision.**
 - **`StatsReader` owns one thread** that sleeps on a condition variable.
   `SystemStatisticsProvider` (the pure provider plus the reader) hands it
-  each request with the open page and posts the answer back to the UI
-  thread, guarded by an `alive` flag like media's. A request during a read
-  is skipped. Closed, the provider stops asking and the thread sleeps;
-  after `statsIdleClose` (30 s) it also closes its counters. `stop()` joins:
-  every look is a local call that takes milliseconds, and exit has its 3 s
-  safety net. Every look runs inside a guard (decision 158): one that
-  throws or fails leaves its values out, and the page shows its empty state.
-- **Rates need two samples.** With no recent sample (the card just opened,
-  or the last is older than `statsStaleAfter`), the reader samples, waits
-  `statsFirstSpan` (250 ms) and reads: the first card shows numbers at once, and
-  never an average over the hour it was closed.
-- **Sources**, all present since Windows 7 unless noted:
+  each `StatsRequest` with the reader's timings and posts the reading back
+  to the UI thread, guarded by an `alive` flag like media's. A request
+  that comes during a read is added to what's waiting and read right after
+  (a Bluetooth listing due once a minute is never dropped). When the
+  provider stops asking, the thread sleeps. `stop()` joins: every look is a
+  local call that takes milliseconds, and exit has its 3 s safety net.
+  Every look runs inside a guard (decision 158): one that throws or fails
+  leaves its values out, and the tile shows its empty state.
+- **A source is opened when a request first asks for it, and closed when
+  none has for `statsIdleClose`** (30 s). Each has its own PDH query, so
+  collecting one never touches another:
 
-  | Reading | Source |
-  | --- | --- |
-  | CPU load, per core | PDH `\Processor Information(*)\% Processor Utility` (Windows 8+, Task Manager's number), else `% Processor Time`, else `\Processor(*)`; the total falls back to `GetSystemTimes` where the counters are broken |
-  | CPU name | registry, `HARDWARE\DESCRIPTION\System\CentralProcessor\0` |
-  | Memory | `GlobalMemoryStatusEx`; cached = the three `\Memory\Standby Cache … Bytes` counters, else `GetPerformanceInfo`'s system cache |
-  | Drives | `GetLogicalDrives`, fixed ones only (a dead network drive hangs), `GetVolumeInformation`, `GetDiskFreeSpaceEx`; activity: `\PhysicalDisk(_Total)\Disk Read/Write Bytes/sec` |
-  | Network | `GetIfTable2`, hardware interfaces only (filter and virtual layers repeat their adapter's bytes) |
-  | GPU load, engines, processes | PDH `\GPU Engine(*)\Utilization Percentage` (Windows 10 1709+) |
-  | GPU memory, name | PDH `\GPU Adapter Memory(*)\Dedicated Usage`; DXGI `EnumAdapters1` for the total and the name |
-  | Processes | PDH `\Process(*)\% Processor Time`, `Working Set - Private`, `ID Process`: no process is opened; only on the CPU, GPU and memory pages |
-  | CPU temperature | PDH `\Thermal Zone Information(*)\High Precision Temperature`, the hottest zone |
-  | Bluetooth | SetupAPI, the nodes under `BTHENUM`, `BTHLE`, `BTHLEDEVICE` |
+  | Asked | Opened and read | Rate |
+  | --- | --- | --- |
+  | `cpuLoad` | a query with one counter, `\Processor Information(_Total)\% Processor Utility` (Windows 8+, Task Manager's number), else `% Processor Time`, else `\Processor(_Total)`; `GetSystemTimes` as the fallback where the counters are broken; `GetActiveProcessorCount` for `cpuCores` | yes |
+  | `cpuTemperature` | a query with `\Thermal Zone Information(*)\High Precision Temperature` and `Temperature`: the hottest zone | no |
+  | `gpuLoad` | a query with `\GPU Engine(*)\Utilization Percentage` (Windows 10 1709+): the costly one, an instance per process and engine; the adapter list | yes |
+  | `gpuTemperature` | the adapter list, and `D3DKMTQueryAdapterInfo` on the chosen one (below) | no |
+  | `memory` | `GlobalMemoryStatusEx`: nothing opened | no |
+  | `disk` | `GetDiskFreeSpaceEx` on the system drive: nothing opened | no |
+  | `network` | `GetIfTable2`, hardware interfaces only (filter and virtual layers repeat their adapter's bytes): nothing stays open | yes |
+  | `bluetooth` | SetupAPI, the nodes under `BTHENUM`, `BTHLE`, `BTHLEDEVICE`: nothing stays open | no |
 
-  PDH counters are added by their English names (`PdhAddEnglishCounter`).
-  A counter a PC doesn't have isn't added, and its values stay empty.
+  So a pill of memory alone never opens a counter, and one of the CPU's
+  load keeps a single counter open. With something picked, requests come
+  every `statsPillRefresh` (5 s), sooner than the idle close: what the pill
+  reads stays open, which is the cheapest (a query opened again would need
+  a first sample each time); what only the card read (the GPU's engines)
+  closes 30 s after the card does.
+- **Rates need two samples, each source its own.** A rate asked for with
+  no sample of its own newer than `statsStaleAfter` gets one, and the
+  reading waits `statsFirstSpan` (250 ms): the first card shows numbers at
+  once, and never an average over the hour it was closed. A request with
+  no such source (memory, the disk, Bluetooth, or rates read 5 s ago)
+  doesn't wait.
+- **The GPU is the busiest hardware adapter**, the one with the most
+  dedicated memory among equals (idle, or when only its temperature is
+  asked: the discrete card). DXGI (`EnumAdapters1`) is kept for exactly
+  this: it says which adapters are hardware (the counters also list the
+  software renderer, which would give a PC without a GPU a GPU tile at 0 %)
+  and their memory. Listed once per use, not per reading.
+- **GPU temperature is the adapter's own report to Windows**, the number
+  Task Manager shows: `D3DKMTQueryAdapterInfo` with
+  `KMTQAITYPE_ADAPTERPERFDATA` (`D3DKMT_ADAPTER_PERFDATA::Temperature`,
+  tenths of a degree Celsius; Windows 10 1803+, WDDM 2.4+ drivers), on the
+  adapter opened by its luid and closed again at once. No admin rights, no
+  vendor SDK. The three functions are found in gdi32 by name at runtime
+  (decision 015), the structures are the Windows SDK's own header's
+  (`d3dkmthk.h`, used only if the kit has it: `__has_include`), and a
+  failure of any step, or a 0, is no reading. **Unverified**: Microsoft's
+  documentation couldn't be reached while writing it. The function names,
+  the three call structures and the query's number (62) match Wine's
+  header; the performance structure and its unit are from memory, which is
+  why it is never declared here. Whether a normal user's process gets an
+  answer, and from which drivers, only a real PC can say.
 - **What the counters mean is pure and tested** (`stats_counters`,
-  `stats_network`, `stats_bluetooth`): instance names taken apart, a GPU's
-  load (an engine's processes added, the adapter's busiest engine, the
-  busiest hardware adapter), processes gathered by name, adapters' deltas,
-  the adapter in use, devices from nodes. The Windows files only fetch.
-- **Bluetooth is one listing, of what Windows already keeps.** Each
-  `bluetoothNodes()` call builds a device-information set of present nodes,
-  reads six properties per node from the PnP manager (name, container,
-  the battery level `{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2`, class of
-  device, connected), and destroys the set. No `DeviceWatcher`, no
-  notification, no `Windows.Devices.Bluetooth`, no device opened, nothing
-  sent over the radio. Every `statsBluetoothEvery` (5) readings, and at once
-  when its page opens. A device Windows marks disconnected is left out
-  (its level is the last one heard).
+  `stats_network`, `stats_bluetooth`): a GPU's load (an engine's processes
+  added, the adapter's busiest engine), which adapter is the reading's,
+  adapters' byte deltas, devices from nodes. The Windows files only fetch.
+  PDH counters are added by their English names (`PdhAddEnglishCounter`);
+  one a PC doesn't have isn't added, and its value stays empty.
+- **Bluetooth is one listing, only when the request asks, of what Windows
+  already keeps.** Each `bluetoothNodes()` call builds a device-information
+  set of present nodes, reads six properties per node from the PnP manager
+  (name, container, the battery level
+  `{104EA319-6EE2-4701-BD47-8DDBF425BBE5} 2`, class of device, connected),
+  and destroys the set. No `DeviceWatcher`, no notification, no
+  `Windows.Devices.Bluetooth`, no device opened, nothing sent over the
+  radio. How often is the provider's (174: every 10 s with the card shown,
+  once a minute for the pill). A device Windows marks disconnected is left
+  out (its level is the last one heard). A reading that wasn't asked for
+  the listing leaves `bluetooth` unset, and the provider keeps the last.
 
 **Deliberately not read, and what shows instead.**
-- **Temperatures.** Windows has no documented, unprivileged API for the
-  CPU's or the GPU's sensors: every tool that shows them loads a kernel
-  driver or a vendor SDK, and WMI's thermal zone class needs admin. The one
-  source taken is the ACPI thermal zone counter, which needs neither. On
-  many laptops it is the CPU's zone; most desktops have none, and some
-  boards report a constant made-up value. So: the CPU page shows that
-  zone's temperature where there is one (labelled as the CPU's, which is
-  an approximation), nothing where there isn't; per-core and GPU
-  temperatures are always empty.
-- **Earbuds' parts** (left, right, case): Windows keeps one level a device.
-- **Network totals "today".** Adapters count bytes since boot, and nothing
-  is read with the card closed, so a total since midnight is exact only on
-  a PC booted that day; anywhere else it would be "since the card was first
-  opened today" under the word "today". The user chose to drop it rather
-  than show that. The Network page shows each direction's peak over the
-  graphs' span instead (`peakOf`, from the histories the provider already
-  keeps): exact, and nothing is kept between runs.
-- **The Wi-Fi network's name.** Asking for it counts as using location on
-  Windows 11 24H2 (a prompt or a refusal, and the location icon). The
-  adapter's connection name shows instead ("Wi-Fi", "Ethernet 2").
-- **Apps' display names.** Lists show process names ("chrome", "dwm"):
-  a display name means opening each process and its file's version info.
+- **The CPU's temperature has no proper source.** Windows has no
+  documented, unprivileged API for its sensors: every tool that shows them
+  loads a kernel driver or a vendor SDK, and WMI's thermal zone class needs
+  admin. What is read is the ACPI thermal zone counter, which needs
+  neither. On many laptops it is the CPU's zone; most desktops have none,
+  and some boards report a constant made-up value. So the CPU tile shows
+  that zone's temperature where there is one (an approximation), and the
+  number of cores where there isn't.
 - **Bluetooth LE devices' levels** show only where Windows itself put one
   on the node; the reader never asks a device (that is radio traffic).
+- **Everything 174 took off the card**: per-core loads, the CPU's and
+  GPU's names, GPU memory and engines, process lists, cached memory, the
+  link's speed and name, other drives, disk activity, network totals
+  "today" (exact only on a PC booted that day). Their sources are deleted,
+  not switched off.
 
-**Not taken.** `NtQuerySystemInformation` for processes: faster, but its
-structures aren't documented. WMI: slow, and a COM server. A WinRT
-`DeviceInformation` query for Bluetooth: it goes through the service that
-042's watcher did.
+**Not taken.** WMI: slow, and a COM server. A WinRT `DeviceInformation`
+query for Bluetooth: it goes through the service that 042's watcher did.
+One PDH query for everything: a collect would read the GPU's hundreds of
+instances for a pill that shows the CPU. Declaring the D3DKMT structures
+ourselves so the temperature builds with any kit: a layout typed from
+memory, passed to the kernel.
 
-**Consequences.** Four more system libraries (pdh, iphlpapi, setupapi,
-psapi), all in every Windows since 7. Four tokens (`statsFirstSpanMs`,
-`statsStaleAfterMs`, `statsIdleCloseMs`, `statsBluetoothEvery`): the
-provider reads them on the UI thread and hands them over with each request
-(decision 144). The first reading takes `statsFirstSpan` longer than the rest. To check on Windows, besides 042's test: the log's
-`statistics: counters opened (…)` line says which counters the PC has;
-numbers against Task Manager (CPU, GPU, memory, disk, network); a PC with
-two GPUs; a language other than English; closing the card and seeing the
-thread idle; the connected property (`{83DA6326-…} 15`), which is not
+**Consequences.** Three system libraries (pdh, iphlpapi, setupapi), in
+every Windows since 7. Three tokens (`statsFirstSpanMs`,
+`statsStaleAfterMs`, `statsIdleCloseMs`): the provider reads them on the UI
+thread and hands them over with each request (decision 144). To check on
+Windows, besides 042's test: the log's `statistics: … counter opened (…)`
+lines say what the PC has; the numbers against Task Manager (CPU, GPU and
+its temperature, memory, the system drive, network); a PC with two GPUs; a
+language other than English; a pill of one reading, and the thread's CPU
+time with it; the connected property (`{83DA6326-…} 15`), which is not
 documented: a paired but switched-off headset must not be listed.

@@ -1,6 +1,6 @@
 #pragma once
 // The Settings window (decisions 030, 032, 104): built from a SettingsView by
-// one pure function. Pages in a sidebar (Appearance, General, Updates) of
+// one pure function. Pages in a sidebar (Appearance, General, Updates, Statistics) of
 // grouped settings; a setting with choices (themes, displays, music colours)
 // or the keyboard shortcuts opens a page within its page, with a back arrow.
 // Its button in the page row only opens it.
@@ -52,6 +52,7 @@ inline constexpr const char* kCheckUpdates = "updates.check";
 inline constexpr const char* kInstallUpdate = "updates.install"; // the offer: install and restart (decision 037)
 inline constexpr const char* kWhatsNew = "updates.whatsnew";     // its release notes, in the browser (decision 152)
 inline constexpr const char* kDownloadUpdate = "updates.download"; // a failed install: its installer, in the browser, to run by hand
+inline constexpr const char* kToggleStatistic = "statistic.toggle:"; // + its index in SettingsView::statistics (decision 174)
 } // namespace settings_action
 
 inline constexpr const char* kSettingsPanelId = "system.settings"; // its button's panel
@@ -60,6 +61,7 @@ inline constexpr const char* kSettingsWindowId = "main";           // its window
 inline constexpr const char* kAppearancePage = "appearance";
 inline constexpr const char* kGeneralPage = "general";
 inline constexpr const char* kUpdatesPage = "updates";
+inline constexpr const char* kStatisticsPage = "statistics"; // what the pill shows of the statistics (decision 174)
 inline constexpr const char* kMainDisplayName = "Main display";    // the first display choice
 
 enum class LogsNote { Ready, Copied, Failed }; // what the Copy logs button says
@@ -69,6 +71,17 @@ struct UpdateNote {
     bool checking = false;
     std::optional<CheckOutcome> found;
     std::string version; // Available: the offer's
+};
+
+// A reading statistics can show in the pill (decision 174): a switch on the
+// Statistics page. The readings and the rule for picking are the statistics
+// provider's; Settings only lists them and passes a flip on.
+struct SettingsChoice {
+    std::string id;   // the provider's own
+    std::string name; // "CPU load", a Bluetooth device's
+    bool on = false;
+    bool device = false; // a Bluetooth device's battery: under its own heading
+    bool operator==(const SettingsChoice&) const = default;
 };
 
 // A page within a sidebar page: none (its settings), or one setting's
@@ -112,6 +125,8 @@ struct SettingsView {
     std::optional<bool> glassWindows;       // windows as glass too (decision 104); nothing: no row
     std::optional<WindowThemeMode> windowTheme; // where windows take their colours (decision 150); nothing: no row
     std::string windowThemeName;            // Manual: the theme picked for them
+    std::vector<SettingsChoice> statistics; // the pill's readings (decision 174); empty: no Statistics page
+    std::size_t statisticsMost = 0;         // ...and how many it shows at once, for the page's note
     std::vector<SettingItem> announced;     // what can be new (announcedSettings)...
     std::set<std::string> unseen;           // ...and which of those haven't been seen yet: tagged "New"
 };

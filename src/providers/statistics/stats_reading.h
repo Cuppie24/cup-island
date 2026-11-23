@@ -1,14 +1,15 @@
 #pragma once
-// One look at the machine: what the statistics pages show (decisions 171,
-// 172). The contract between the Windows reader, which fills it, and the
-// pure half, which cleans, formats and lays it out. Plain data.
+// One look at the machine: what the statistics card and pill show
+// (decisions 171, 174), and what a look is asked for. The contract between
+// the Windows reader, which fills a reading, and the pure half, which
+// cleans, formats and lays it out. Plain data.
 //
-// Every value is optional, every list may be empty: Windows often can't say
-// (a temperature without admin rights or a vendor's API, no GPU counters,
-// earbuds that report one level). The reader leaves out what it couldn't
-// read and passes on what it got as it is: garbage (NaN, -1, 4000 %) is
-// dealt with in stats_format.h, in one tested place, never in the reader.
-// Lists come in any order and any length: the pages sort and cut them.
+// Every value is optional: Windows often can't say (a temperature without
+// admin rights or a vendor's API, no GPU counters), and a request often
+// doesn't ask (StatsRequest). The reader leaves out what it couldn't read
+// or wasn't asked for, and passes on what it got as it is: garbage (NaN,
+// -1, 4000 %) is dealt with in stats_format.h, in one tested place, never
+// in the reader.
 
 #include <cstdint>
 #include <optional>
@@ -17,72 +18,55 @@
 
 namespace cup {
 
-// A name with a number: a process and its share, a GPU engine and its load.
-struct NamedValue {
-    std::string name; // UTF-8, as Windows names it ("Chrome", "Video decode")
-    double value = 0; // what the list it's in says: percent, or bytes
-    bool operator==(const NamedValue&) const = default;
-};
-
-struct DriveReading {
-    std::string label; // "Windows (C:)"
-    std::optional<std::uint64_t> used;  // bytes; both or neither
-    std::optional<std::uint64_t> total;
-    bool operator==(const DriveReading&) const = default;
+// What one reading should hold. With the card closed only what the pill
+// shows is wanted, so the reader opens only those counters; nothing wanted
+// is never asked.
+struct StatsRequest {
+    bool cpuLoad = false;        // ...and the number of cores, which comes with it
+    bool cpuTemperature = false;
+    bool gpuLoad = false;
+    bool gpuTemperature = false;
+    bool memory = false;
+    bool disk = false;
+    bool network = false;
+    // List the Bluetooth devices this time. The slowest look, and the one
+    // that must stay rare (decision 042): asked every statsBluetoothRefresh
+    // with the card shown, once a minute for the pill. Not asked: the
+    // reading's `bluetooth` stays empty and the last listing stands.
+    bool bluetooth = false;
+    bool any() const { return cpuLoad || cpuTemperature || gpuLoad || gpuTemperature || memory || disk || network || bluetooth; }
+    bool operator==(const StatsRequest&) const = default;
 };
 
 enum class DeviceKind { Other, Headphones, Earbuds, Mouse, Keyboard, Controller, Pen };
 
-// A connected Bluetooth device. Shown only with a battery level, its own or its parts'.
+// A connected Bluetooth device. Shown only with a battery level.
 struct BluetoothDevice {
     std::string name;             // as Windows names it, UTF-8
     std::optional<float> battery; // percent, 0..100
     DeviceKind kind = DeviceKind::Other;
-    // Earbuds that say so: "Left", "Right", "Case", each with its level
-    // (`value`, percent). Most report one level only: leave it empty.
-    std::vector<NamedValue> parts;
     bool operator==(const BluetoothDevice&) const = default;
 };
 
 struct StatsReading {
-    // --- CPU ---
-    std::optional<float> cpuLoad;        // percent of all cores, 0..100
-    std::optional<float> cpuTemperature; // °C
-    std::string cpuName;                 // "AMD Ryzen 7 7840U"
-    std::vector<float> coreLoads;        // percent, a logical core each, in Windows' order
-    std::vector<float> coreTemperatures; // °C, a core each; empty: not reported
-    std::vector<NamedValue> cpuProcesses; // percent of all cores
-
-    // --- GPU: all of it absent on a PC with no GPU counters; its tile and page go ---
-    std::optional<float> gpuLoad;        // percent, 0..100: the busiest adapter's
-    std::optional<float> gpuTemperature; // °C
-    std::string gpuName;
-    std::optional<std::uint64_t> gpuMemoryUsed;  // dedicated memory, bytes; both or neither
-    std::optional<std::uint64_t> gpuMemoryTotal;
-    std::vector<NamedValue> gpuEngines;   // "3D", "Video decode": percent
-    std::vector<NamedValue> gpuProcesses; // percent
-
-    // --- Memory: physical, bytes ---
-    std::optional<std::uint64_t> memoryUsed;  // in use; with the total: both or neither
+    std::optional<float> cpuLoad;         // percent of all cores, 0..100
+    std::optional<float> cpuTemperature;  // °C
+    std::optional<std::uint32_t> cpuCores; // logical processors: shown where there's no temperature
+    // All of it absent on a PC with no GPU counters: its tile goes.
+    std::optional<float> gpuLoad;         // percent, 0..100: the busiest adapter's
+    std::optional<float> gpuTemperature;  // °C
+    // Physical memory, bytes: both or neither.
+    std::optional<std::uint64_t> memoryUsed;
     std::optional<std::uint64_t> memoryTotal;
-    std::optional<std::uint64_t> memoryCached; // standby: held, given up when asked for. Free is what's left
-    std::vector<NamedValue> memoryApps;        // bytes, an app's processes together
-
-    // --- Network: all adapters together ---
-    std::optional<float> networkDown; // bytes per second, averaged since the last reading
+    // The system drive, bytes: both or neither.
+    std::optional<std::uint64_t> diskUsed;
+    std::optional<std::uint64_t> diskTotal;
+    // All adapters together, bytes per second, averaged since the last reading.
+    std::optional<float> networkDown;
     std::optional<float> networkUp;
-    std::optional<std::uint64_t> linkSpeed; // bits per second, the adapter in use
-    std::string networkName;                // the Wi-Fi network's, or the adapter's
-    bool wired = false;                     // ...which is a cable
-
-    // --- Disks ---
-    std::vector<DriveReading> drives;  // every fixed drive, the system's first
-    std::optional<float> diskRead;     // bytes per second, all drives together
-    std::optional<float> diskWrite;
-
-    // --- Bluetooth: connected devices, in any order (shownDevices picks and sorts) ---
-    std::vector<BluetoothDevice> bluetooth;
-
+    // Connected devices, in any order (shownDevices sorts). None: not listed
+    // this time (StatsRequest::bluetooth); an empty list: listed, none connected.
+    std::optional<std::vector<BluetoothDevice>> bluetooth;
     bool operator==(const StatsReading&) const = default;
 };
 

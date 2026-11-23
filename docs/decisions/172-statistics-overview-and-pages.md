@@ -1,9 +1,8 @@
 # 172: Statistics is an overview of tiles with a page behind each; measurement items
 
-Status: Accepted (replaces 171's card, its laptop battery and its card-wide
-high colour; 171's pull model, cleaning rules and 042 condition stand).
-Core, layout and the provider tested. The renderer's side is written but
-was never run: it needs a Windows build, and a look.
+Status: Superseded by 174 (no graphs, no detail pages: one card of tiles,
+and a pill picked in Settings). Kept for why the content model stayed flat
+and why new fields go at a struct's end, which 174 keeps.
 
 **Context.** 171's card was a table of three numbers with bars. The user
 picked a design from a mockup instead: an overview of six tiles (CPU, GPU

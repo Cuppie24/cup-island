@@ -1,91 +1,56 @@
 #pragma once
-// Where the parts of the measurement items go (core/stat_items.h, decision
-// 172): a graph's plot and line, a strip's bars, a battery's body and fill,
-// a tile's lines. The layout gives each item one frame; the renderer asks
-// here for what's inside it, so no geometry is decided twice. Pure.
+// Where the parts of the measurement tiles go (core/stat_items.h, decision
+// 174): a tile's lines and bar, a device row's glyph, name, battery and
+// percent. The layout gives each tile one frame; the renderer asks here for
+// what's inside it, so no geometry is decided twice. Pure.
 
 #include "core/layout.h"
 
-#include <string>
 #include <vector>
 
 namespace cup {
 
-float graphHeight(GraphSize size);
-
-// A Graph in `frame`: its plot, and with a tile, the line of its texts over it.
-struct GraphParts {
-    Rect plot;  // the line and its area; the limit line crosses it
-    Rect texts; // caption and detail from its left, the value to its right; zero without a tile
+// A StatTile in `frame`, tileInset in from its edges.
+struct StatTileParts {
+    Rect glyph;   // a small icon at the top left, a caption's line square
+    Rect caption; // Caption, beside it; zero wide when it doesn't fit beside `aside`
+    Rect aside;   // Caption, right-aligned, its digits bright: a large tile's detail, a small one's value
+    Rect value;   // a large tile's reading (TextStyle::Stat); zero for a small one
+    Rect bar;     // progressHeight tall along the bottom; zero without a level
+    float fill = 0; // ...filled this wide, from its left
 };
-GraphParts graphParts(const Graph& graph, Rect frame);
-// The line through the samples, in `plot`: one run of points per unbroken
-// stretch of readings (a sample below 0 breaks it), left to right. The area
-// under a run goes down to the plot's bottom.
-std::vector<std::vector<Vec2>> graphLines(const Graph& graph, Rect plot);
-// The limit line's height in `plot`, if the graph has one.
-std::optional<float> graphLimitY(const Graph& graph, Rect plot);
+StatTileParts statTileParts(const StatTile& tile, Rect frame, const MeasureText& measure);
+float statTileHeight(const StatTile& tile);
 
-// A strip's bars across `frame`, left to right, and the filled part of each
-// (from its bottom). Narrower than its gaps would allow: no gaps.
-struct LevelFrame {
-    Rect bar;  // its track, levelsRadius corners
-    Rect fill; // clipped to the bar's shape
-};
-std::vector<LevelFrame> levelFrames(const Levels& levels, Rect frame);
-// The bar under `point`, if any: whose label to show (LevelBar::label).
-std::optional<std::size_t> levelAt(const Levels& levels, Rect frame, Vec2 point);
-
-// A battery in `frame`: its label, then its body (an outline batteryStroke
-// thick) with the nub at its right, the fill inside, then its value.
+// A battery's shape: its body (an outline batteryStroke thick) with the nub
+// at its right and the charge inside, the body's left edge at `left`,
+// centred on `middle` (a y).
 struct BatteryParts {
-    Rect label; // Caption; zero width without one
     Rect body;
     Rect cap;
     Rect fill;
-    Rect value; // Caption, bright; zero width without one
     float bodyRadius = 0; // the outline's corners, and the fill's inside it
     float fillRadius = 0;
 };
-float batteryWidth(const Battery& battery, const MeasureText& measure);
-BatteryParts batteryParts(const Battery& battery, Rect frame, const MeasureText& measure);
-// The body, nub and fill alone, the body's left edge at `left`, centred on
-// `middle` (a y): a tile's cells draw the same battery.
 BatteryParts batteryShape(float level, float left, float middle);
+float batteryShapeWidth(); // body, gap and nub
 
-// A LevelTile in `frame`: three lines centred in it, graphInset in.
-struct LevelTileParts {
-    Rect glyph;   // a small icon, the caption's height
-    Rect caption; // Caption
-    Rect value;   // Caption, right-aligned, its digits bright
-    Rect bar;     // progressHeight tall
-    float fill = 0; // ...filled this wide, from its left
-    Rect detail;  // Caption, its digits bright
-};
-LevelTileParts levelTileParts(const LevelTile& tile, Rect frame, const MeasureText& measure);
-
-// A BatteryTile in `frame`: its cells in equal columns, each a glyph
-// (iconSize) over a battery over its value, centred.
-struct BatteryCellParts {
+// A BatteryTile in `frame`.
+struct BatteryRowParts {
+    Rect bubble;  // one device alone: the circle behind its glyph (tileColor); zero otherwise
     Rect glyph;
-    BatteryParts battery; // no label or value: the shape
-    Rect value;           // Caption, centred
+    Rect name;    // Caption; alone: Body, in the title's colour
+    BatteryParts battery;
+    Rect value;   // Caption, right-aligned, its digits bright; alone: CardTitle, from the battery's right
 };
-std::vector<BatteryCellParts> batteryTileParts(const BatteryTile& tile, Rect frame);
-
-// What a click on this item sends, "" if it isn't one of the items that are
-// a button as a whole (a Graph, a LevelTile or a BatteryTile with an action).
-std::string tileAction(const Item& item);
-
-// How full a Progress is at `now`, 0..1: its level, else its timeline's.
-float fractionOf(const Progress& progress, Ms now);
-// A bar with a level (Progress::level) in `frame`: its filled part from the
-// left, and its second part (Progress::second) right after it, never past the
-// bar's end; zero wide without one.
-struct LevelBarParts {
-    Rect fill;
-    Rect second;
+struct BatteryTileParts {
+    std::vector<BatteryRowParts> rows;
+    Rect note;        // Caption, centred; zero without one
+    bool alone = false; // one device with the tile to itself: the large treatment
 };
-LevelBarParts levelBarParts(const Progress& progress, Rect frame);
+BatteryTileParts batteryTileParts(const BatteryTile& tile, Rect frame, const MeasureText& measure);
+float batteryTileHeight(); // two small StatTiles and the gap between them
+// How many lines (devices, and a note under them) fit a BatteryTile.
+std::size_t batteryTileLines();
 
 } // namespace cup

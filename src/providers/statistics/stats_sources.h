@@ -4,14 +4,14 @@
 // thread. Plain Win32, nothing newer than Windows 10 1809 (decision 015),
 // nothing that needs admin rights. None throws; one that fails returns
 // nothing, and its values stay out of the reading. No Windows types here.
-// stats_sources.cpp: the CPU's name, memory, drives, graphics adapters;
+// stats_sources.cpp: cores, memory, the system drive; stats_sources_gpu.cpp:
+// graphics adapters and their temperature;
 // stats_sources_pdh.cpp: performance counters; stats_sources_network.cpp:
 // adapters; stats_sources_bluetooth.cpp: the device tree's Bluetooth nodes.
 
 #include "providers/statistics/stats_bluetooth.h"
 #include "providers/statistics/stats_counters.h"
 #include "providers/statistics/stats_network.h"
-#include "providers/statistics/stats_reading.h"
 
 #include <cstdint>
 #include <optional>
@@ -33,7 +33,7 @@ public:
     CounterSet(const CounterSet&) = delete;
     CounterSet& operator=(const CounterSet&) = delete;
 
-    Counter add(const wchar_t* path);                          // "\Memory\Cache Bytes", "\GPU Engine(*)\Utilization Percentage"
+    Counter add(const wchar_t* path);                          // "\GPU Engine(*)\Utilization Percentage"
     bool collect();                                            // one sample of all of them
     std::optional<double> value(Counter counter) const;        // a single counter's
     // A wildcard's instances with a value; `read` (optional) says whether
@@ -44,9 +44,7 @@ private:
     void* query_ = nullptr;
 };
 
-// "AMD Ryzen 7 7840U w/ Radeon 780M Graphics", from the registry; "" if it isn't there.
-std::string cpuName();
-std::size_t coreCount(); // logical cores, all processor groups; at least 1
+std::uint32_t coreCount(); // logical processors, all processor groups; at least 1
 
 // The CPU's times since boot, in 100 ns (GetSystemTimes): kernel includes idle.
 struct CpuTimes {
@@ -54,18 +52,20 @@ struct CpuTimes {
 };
 std::optional<CpuTimes> cpuTimes();
 
-// Physical memory: used and total (both or neither), and what GetPerformanceInfo calls the system cache.
-struct Memory {
+// Used and total bytes: of physical memory, and of the system drive.
+struct Space {
     std::uint64_t used = 0, total = 0;
-    std::optional<std::uint64_t> cache; // standby and the system's own: only where the standby counters aren't read
 };
-std::optional<Memory> memory();
+std::optional<Space> memory();
+std::optional<Space> systemDrive();
 
-// Every fixed drive with its label and space, the system's first.
-std::vector<DriveReading> drives();
-
-// Graphics adapters (DXGI): names, dedicated memory, which is software.
+// Graphics adapters (DXGI): which are hardware, and their dedicated memory,
+// to choose the reading's GPU by (stats_counters.h).
 std::vector<GpuAdapter> gpuAdapters();
+// An adapter's temperature in °C as its driver reports it to Windows (what
+// Task Manager shows), by its luid. None where the driver or this Windows
+// doesn't say. stats_sources_gpu.cpp.
+std::optional<float> gpuTemperature(std::uint64_t luid);
 
 // Hardware network adapters with their byte counters (GetIfTable2).
 std::vector<AdapterSample> networkAdapters();

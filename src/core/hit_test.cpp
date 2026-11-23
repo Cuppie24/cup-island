@@ -1,7 +1,6 @@
 #include "core/hit_test.h"
 
 #include "core/segments.h"
-#include "core/stat_parts.h"
 
 #include <algorithm>
 #include <string>
@@ -21,8 +20,6 @@ std::optional<Hit> hitIn(const std::vector<Placed>& elements, Vec2 point)
             return Hit{ { p.providerId, p.activityId, toggle->actionId, 0 }, p.key };
         if (auto* image = std::get_if<Image>(&p.item); image && !image->actionId.empty())
             return Hit{ { p.providerId, p.activityId, image->actionId, 0 }, p.key };
-        if (std::string action = tileAction(p.item); !action.empty()) // a tile that's a button as a whole (decision 172)
-            return Hit{ { p.providerId, p.activityId, action, 0 }, p.key };
         if (auto* input = std::get_if<TextInput>(&p.item)) // the app focuses it (InputFocused), nothing is sent yet
             return Hit{ { p.providerId, p.activityId, input->actionId, 0 }, p.key };
         if (auto* text = std::get_if<Text>(&p.item); text && !text->editAction.empty()) // the app starts editing it (decision 043)

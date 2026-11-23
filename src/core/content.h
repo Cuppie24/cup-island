@@ -25,8 +25,9 @@ enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Sour
                    Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre,
                    Minus, Plus, Pin, Pinned, Fire, Chart, ChevronDown, Search, File, Folder, Close, Refresh, Reset,
                    Palette, Sliders, Expand, Maximize, Restore, Minimize, CloseWindow, Grip, More, Gauge,
-                   // Statistics (decision 172): Bluetooth devices by kind (Bluetooth: any other), a drive, how the PC is online.
-                   Headphones, Earbuds, Mouse, Keyboard, Controller, Pen, Bluetooth, Drive, Wifi, Ethernet };
+                   // Statistics (decision 174): Bluetooth devices by kind (Bluetooth: any other), a drive, and the
+                   // tiles' own, drawn as lines, not from the icon font: a processor, a graphics card, memory, the network.
+                   Headphones, Earbuds, Mouse, Keyboard, Controller, Pen, Bluetooth, Drive, Chip, GraphicsCard, Memory, Network };
 
 // Display: a big number, the card's centre (a timer). Heading: a group's label over its rows (Settings'
 // "General", "Dark"): small and quiet, since the group's background already sets it apart (decision 090).
@@ -36,8 +37,9 @@ enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Sour
 // Hero: the one big number a card is about, heavy (Pomodoro's time); its digits roll as they change (decision 107).
 // Window*: Title, Body and Caption a step up in a standalone window (decision 112);
 // the window's layout swaps them in, providers write the plain three.
+// Stat: a tile's reading, between CardTitle and Hero; its digits bright, a unit beside them quiet (statistics, decision 174).
 enum class TextStyle { Title, Body, Caption, Digits, Display, Heading, Result, ResultDetail, PageTitle, Hero, CardTitle,
-                       WindowTitle, WindowBody, WindowCaption };
+                       WindowTitle, WindowBody, WindowCaption, Stat };
 
 // sRGB plus opacity. As an activity's accent (decision 010) it tints only
 // live data: progress fills (bar and ring), the current step, waveform bars.
@@ -215,16 +217,6 @@ struct Progress {
     // head; the rest a straight track. Seekable, an upright knob is always at its
     // head, bigger under the pointer (decision 167). Its row is at least the wave's height.
     bool wavy = false;
-    // A level that isn't a time (decision 172): filled this far, 0..1, and
-    // the timeline is ignored. A disk's space, a load.
-    std::optional<float> level;
-    // ...and a second part right after the first, in a dimmer fill: this
-    // much more of the bar (memory: in use, then cached). Bars with a level only.
-    std::optional<float> second;
-    bool alert = false; // its fill in dangerColor, whatever the card's accent: this reading is high
-    bool thick = false; // a bar thickProgressHeight tall: one that is read, not glanced at (memory's parts)
-    // A bar stubBarWidth wide instead of stretching: beside a value in a list's row (a process's share).
-    bool stub = false;
     bool operator==(const Progress&) const = default;
 };
 // Elapsed "1:23"; `remaining` "-2:05" (media, right-aligned); `countdown`
@@ -341,7 +333,7 @@ struct GroupFill {
 };
 
 using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch, Tag, Switch, Divider, Dial,
-                          GroupFill, Keys, Segments, Graph, Levels, Battery, LevelTile, BatteryTile>; // the last five: core/stat_items.h
+                          GroupFill, Keys, Segments, StatTile, BatteryTile>; // the last two: core/stat_items.h
 
 enum class Align { Start, Center, End };
 
@@ -360,11 +352,11 @@ enum class RowSpan { Slot, MatchAbove, MatchBelow };
 //  Search:   like List, but searchCardWidth wide with rows across all of it,
 //            and only as tall as its rows: the field alone until there are
 //            results (decision 079).
-//  Columns:  `expandedCenter` across the top, as tall as its rows (a page's
-//            header); under it `expandedLeading` at the left and
-//            `expandedTrailing`, sideColumnWidth wide, at the right, each a
-//            stack of rows centred in its column: a block of graphs beside a
-//            list (statistics' pages, decision 172).
+//  Columns:  `expandedCenter` across the top, as tall as its rows; under it
+//            `expandedLeading` and `expandedTrailing` side by side, each
+//            half the width, columnGap apart and that far under the top
+//            rows, each a stack of rows centred in its column: a grid of
+//            tiles where one is as tall as two (statistics, decision 174).
 enum class CardLayout { Standard, Centred, List, Search, Columns };
 
 // One entry of a row's menu (decision 086). The provider says what's in it;
@@ -462,7 +454,7 @@ struct Row {
     // ends the row in a › that opens it, beside the row.
     std::vector<MenuItem> menu;
     // A row of tiles under another: as far below it as its tiles are from
-    // each other (itemSpacing, not rowSpacing), so a grid's gaps are one size (decision 172).
+    // each other (itemSpacing, not rowSpacing), so a grid's gaps are one size (decision 174).
     bool tileGap = false;
     bool operator==(const Row&) const = default;
 };

@@ -6,6 +6,7 @@
 #include "core/text_edit.h"
 #include "core/tokens.h"
 #include "platform/figures.h"
+#include "platform/stat_glyphs.h"
 #include "platform/text_format.h"
 
 #include <d2d1effects.h>
@@ -123,7 +124,8 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::More: return L"\uE712";     // More (…): a window card's menu (decision 142)
     case Glyph::Gauge: return L"\uEC4A";    // SpeedHigh: something costs performance (liquid glass's question, decision 165)
     case Glyph::Fire: return L"\U0001F525"; // not in the icon fonts: Segoe UI Emoji's, in colour (paintGlyph)
-    // Statistics (decision 172): Bluetooth devices by kind, a drive, how the PC is online.
+    // Statistics (decision 174): Bluetooth devices by kind, a drive. Its tiles' own (Chip, GraphicsCard, Memory,
+    // Network) are drawn as lines, not from the font (stat_glyphs).
     case Glyph::Headphones: return L"\uE7F6"; // Headphone
     case Glyph::Earbuds: return L"\uF4C0";    // Earbud: Segoe Fluent Icons only; paintGlyph draws Headphones without it
     case Glyph::Mouse: return L"\uE962";
@@ -132,8 +134,10 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Pen: return L"\uEDC6";        // PenWorkspace
     case Glyph::Bluetooth: return L"\uE702";
     case Glyph::Drive: return L"\uEDA2";      // HardDrive
-    case Glyph::Wifi: return L"\uE701";
-    case Glyph::Ethernet: return L"\uE839";
+    case Glyph::Chip:
+    case Glyph::GraphicsCard:
+    case Glyph::Memory:
+    case Glyph::Network: break; // paintDrawnGlyph
     }
     return L"?";
 }
@@ -234,6 +238,8 @@ TextLook lookOf(TextStyle style)
     case TextStyle::WindowTitle: return { t.windowTitleFontSize, t.titleTextColor, t.windowTitleFontWeight }; // decision 112
     case TextStyle::WindowBody: return { t.windowBodyFontSize, t.bodyTextColor, t.windowBodyFontWeight };
     case TextStyle::WindowCaption: return { t.windowCaptionFontSize, t.captionTextColor, t.windowCaptionFontWeight };
+    // A tile's reading (decision 174): drawn with bright digits, so its own colour is what's beside them: a quiet "%".
+    case TextStyle::Stat: return { t.statValueFontSize, t.captionTextColor, t.statValueFontWeight };
     }
     return { t.bodyFontSize, t.bodyTextColor, t.bodyFontWeight };
 }
@@ -540,6 +546,7 @@ void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float f
         dc->FillRoundedRectangle(D2D1_ROUNDED_RECT{ D2D1::RectF(x, y, x + w, y + h), h / 2, h / 2 }, brushOf(dc, color).get());
         return;
     }
+    if (paintDrawnGlyph(dc, glyph, fontSize, size, color)) return; // the few the icon font doesn't have (decision 174)
     // Fire (days in a row, decision 061) is an emoji: Segoe UI Emoji, on every Windows 10 and 11, drawn in its own colours.
     bool emoji = glyph == Glyph::Fire;
     auto f = format(dw, emoji ? L"Segoe UI Emoji" : iconFamily(dw), fontSize, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_TEXT_ALIGNMENT_CENTER); // icons: as designed

@@ -2,7 +2,7 @@
 // Statistics on Windows (decision 173): StatisticsProvider with its reader
 // behind it. The pure provider decides when a reading is wanted and what
 // the card shows; this starts the reader with it, hands it each request
-// with the open page, and posts its readings back to the UI thread.
+// (what to read, and the timings), and posts its readings back to the UI thread.
 
 #include "providers/statistics/statistics_provider.h"
 #include "providers/statistics/stats_reader.h"

@@ -1,7 +1,5 @@
 #include "providers/statistics/stats_network.h"
 
-#include <algorithm>
-
 namespace cup {
 namespace {
 
@@ -41,26 +39,6 @@ std::optional<float> perSecond(std::uint64_t bytes, double elapsedMs)
 {
     if (!(elapsedMs > 0)) return std::nullopt;
     return static_cast<float>(static_cast<double>(bytes) * 1000.0 / elapsedMs);
-}
-
-const AdapterSample* adapterInUse(const std::vector<AdapterSample>& now, const std::vector<AdapterSample>& before, std::optional<std::uint64_t> lastId)
-{
-    const AdapterSample* best = nullptr;
-    std::uint64_t bestMoved = 0;
-    for (const AdapterSample& adapter : now) {
-        if (!adapter.up) continue;
-        Traffic traffic = trafficOf(adapter, before);
-        std::uint64_t moved = traffic.received + traffic.sent;
-        bool better = !best || moved > bestMoved;
-        if (best && moved == bestMoved) {
-            bool wasLast = lastId && adapter.id == *lastId, bestWasLast = lastId && best->id == *lastId;
-            better = wasLast || (!bestWasLast && adapter.wired && !best->wired);
-        }
-        if (!better) continue;
-        best = &adapter;
-        bestMoved = moved;
-    }
-    return best;
 }
 
 } // namespace cup

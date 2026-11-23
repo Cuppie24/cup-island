@@ -1,10 +1,10 @@
 # 171: A statistics page; readings asked for only while it's shown
 
-Status: Accepted; amended by 172, which replaces the card (an overview of
-tiles with pages), drops the laptop's battery and the card-wide high
-colour, and extends the reading. The pull model, the cleaning rules and
-the Bluetooth condition below stand. The Windows reader and its
-registration in `app/main.cpp` are decision 173. Amends 042: Bluetooth
+Status: Accepted; amended by 174 (through 172, now superseded): the card
+is a grid of tiles, the laptop's battery and the card-wide high colour are
+gone, and with readings picked for the pill it is an activity that keeps
+asking for those while the card is closed. The pull model, the cleaning
+rules and the Bluetooth condition below stand. Amends 042: Bluetooth
 battery levels may come back, under its condition.
 
 **Context.** The user asked for a page of the machine's statistics: CPU,

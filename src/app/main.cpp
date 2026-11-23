@@ -122,6 +122,7 @@ std::filesystem::path g_spotsFile;     // where the island rests on each monitor
 std::map<std::string, Spot> g_spots;   // ...as last saved, by display id
 std::unique_ptr<ProviderRegistry> g_providers;
 SettingsProvider* g_settings = nullptr; // owned by g_providers; told when tokens.json reloads
+StatisticsProvider* g_statistics = nullptr; // owned by g_providers; Settings' Statistics page lists and flips its picks (decision 174)
 UpdateProvider* g_update = nullptr;     // owned by g_providers; Settings' "Check for updates" asks it
 
 // The island as a surface: its scene, its renderer, the pointer on it.
@@ -1091,8 +1092,12 @@ int main()
     // Fake statistics on its settings page (decision 061): Debug builds, or any build started under a
     // debugger (Visual Studio's preset dropdown starts on Release, which has a pdb and debugs fine).
     g_providers->add(std::make_unique<PomodoroProvider>(kDemoKeys || IsDebuggerPresent()));
-    // The machine's vital signs (decisions 171 to 173): read on its own thread, and only while its card is shown.
-    g_providers->add(std::make_unique<SystemStatisticsProvider>(postToUi));
+    // The machine's vital signs (decisions 171 to 174): read on its own thread, only while its card is
+    // shown or a reading is picked for the pill. A Bluetooth device seen for the first time joins Settings' list.
+    auto statistics = std::make_unique<SystemStatisticsProvider>(postToUi);
+    g_statistics = statistics.get();
+    g_statistics->onChoicesChanged([] { if (g_settings) g_settings->statisticsChanged(); });
+    g_providers->add(std::move(statistics));
     auto settings = std::make_unique<SettingsProvider>(SettingsHooks{
         .applyTheme = applyTheme,
         .copyLogs = [] { return copyLogToClipboard(g_inputHwnd); },
@@ -1146,6 +1151,14 @@ int main()
             g_windowThemeName = manual;
             applyWindowTheme();
         },
+        // The pill's readings (decision 174): the statistics provider's own list and rule.
+        .listStatistics = [] {
+            std::vector<SettingsChoice> choices;
+            for (const StatsChoice& c : g_statistics->choices()) choices.push_back({ c.id, c.name, c.on, c.device });
+            return choices;
+        },
+        .toggleStatistic = [](const std::string& id) { g_statistics->toggleChoice(id); },
+        .statisticsMost = tokens().statsPillReadings,
     });
     g_settings = settings.get();
     g_settings->setHotkeysActive(!g_state.hidden); // started under a fullscreen app: none until it's gone

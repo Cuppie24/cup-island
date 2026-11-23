@@ -65,6 +65,11 @@ struct SettingsHooks {
     // Windows' own theme (decision 150): like the island, like Windows' app
     // mode, or the named theme (Manual). The app resolves it (windowThemeFor). Empty: no row.
     std::function<void(WindowThemeMode, const std::string& manual)> applyWindowTheme;
+    // The statistics' readings for the pill (decision 174): its switches, as the statistics
+    // provider has them, and one flipped (its SettingsChoice::id). Empty: no Statistics page.
+    std::function<std::vector<SettingsChoice>()> listStatistics;
+    std::function<void(const std::string& id)> toggleStatistic;
+    std::size_t statisticsMost = 0; // how many the pill shows at once (statsPillReadings), for the page's note
     // What can be tagged "New" (decision 048): the shipped list, unless a test brings its own.
     std::vector<SettingItem> announced = announcedSettings();
 };
@@ -84,6 +89,8 @@ public:
     // install under way or failed, or none. Settings' "Check for updates" row turns into it (decision 091).
     void updateStatusChanged(const std::optional<UpdateStatus>& offer);
 
+    // The statistics' list changed by itself (a Bluetooth device seen for the first time): its page follows.
+    void statisticsChanged();
     // tokens.json was reloaded: its themes may have changed (one renamed, removed).
     void refresh();
     // A key pressed while captureKeys is on: the new keys for the shortcut

@@ -19,9 +19,8 @@ uses it unless a rule below says otherwise.
 | The card's one main action (▶/⏸) | `Button::primary` | 50 circle, 22 px glyph (44 and 18 `compact`, where a row is short) |
 | The controls beside it (previous/next, stop/skip) | `Button::large` | 40, 20 px glyph |
 | Less-used controls (shuffle, repeat, the window's button) | `Button::secondary` | 36 (32 `compact`) |
-| A tile of an overview (statistics, decision 172) | `Graph{tile}`, `LevelTile`, `BatteryTile` in `Row::even` rows, the second row `tileGap` | 124 tall on top, 80 under; value `CardTitle`, the rest `Caption` |
-| A page's big reading over its history | `TextStyle::Hero` over a `Graph` strip, its name a `Caption` row above | 56 px at 800; the strip 38 |
-| A row of a page's side list (a process and its share) | `Caption` name, `Progress::stub`, `Caption` value | a 44 bar |
+| A reading on a tile (statistics, decision 174) | `StatTile{large}`: `TextStyle::Stat` over a level, its name and detail `Caption` | 28 px at 800 in a 100 tile; a small tile 48 |
+| Devices' batteries | `BatteryTile`: a row each, `Caption`; one alone `Body` over `CardTitle` | rows 28; as tall as two small tiles |
 
 Spacing:
 - A card's row of controls is `loose` (`looseItemSpacing` 24); groups of rows
@@ -29,10 +28,10 @@ Spacing:
   groups, never as a band at the bottom (decision 107).
 - Every card shares `expandedSize.y` (248) so switching pages doesn't
   resize the island; tests pin media, the timer and statistics to it.
-- A page within a card keeps that height (`Content::sizedLike`), with its
-  back arrow at the top left and its title centred (statistics, decision 172).
+- A grid of tiles has one gap, `itemSpacing`, across and down (`Row::even`,
+  `Row::tileGap`, `columnGap`; statistics, decision 174).
 - A reading that is high is its own item's `alert` (`dangerColor`), never
-  the card's accent (decision 172).
+  the card's accent (decision 174).
 - The page row (decisions 165, 170): a page's icon is `tabIconSize` 32
   square, `tabIconGap` 4 apart; a panel's button at the row's end is
   `rowButtonWidth` 44.

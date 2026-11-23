@@ -137,12 +137,9 @@ float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& m
 {
     const Tokens& t = tokens();
     if (auto* dial = std::get_if<Dial>(&item)) return dialDiameter(*dial, measure);
-    // Measurements (decision 172): a graph by its size; the two tiles as tall as a Low graph, to sit beside one.
-    if (auto* graph = std::get_if<Graph>(&item)) return graphHeight(graph->size);
-    if (std::holds_alternative<LevelTile>(item) || std::holds_alternative<BatteryTile>(item)) return t.graphLowHeight;
-    if (std::holds_alternative<Levels>(item)) return t.levelsHeight;
-    if (auto* battery = std::get_if<Battery>(&item)) // with a label or a value, their line
-        return battery->label.empty() && battery->value.empty() ? t.batterySize.y : std::max(t.batterySize.y, lineHeight(TextStyle::Caption));
+    // Measurements (decision 174): a tile by its kind; the devices' as tall as two small ones and their gap.
+    if (auto* tile = std::get_if<StatTile>(&item)) return statTileHeight(*tile);
+    if (std::holds_alternative<BatteryTile>(item)) return batteryTileHeight();
     if (auto* text = std::get_if<Text>(&item)) // a detail line under it: a caption's height more (decision 079)
         return lineHeight(text->style) + (text->detail.empty() ? 0.0f : lineHeight(detailStyleOf(text->style)));
     if (std::holds_alternative<Image>(item)) return std::min(slot.width, slot.height);
@@ -165,7 +162,7 @@ float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& m
     if (std::holds_alternative<Segments>(item)) return t.segmentHeight;
     // Seekable bars get a taller row to be easy to click; a bar nobody clicks is just its line.
     if (auto* bar = std::get_if<Progress>(&item)) {
-        float height = bar->seekable ? t.progressHitHeight : bar->thick ? t.thickProgressHeight : t.progressHeight;
+        float height = bar->seekable ? t.progressHitHeight : t.progressHeight;
         return bar->wavy ? std::max(height, waveHeight(bar->seekable)) : height; // room for the wave's swing and its knob (decision 167)
     }
     if (auto* label = std::get_if<TimeLabel>(&item)) return lineHeight(label->style);
@@ -177,15 +174,10 @@ float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& m
 std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureText& measure)
 {
     const Tokens& t = tokens();
-    if (auto* bar = std::get_if<Progress>(&item); bar && bar->stub && !isRing(item)) return t.stubBarWidth;
     if (std::holds_alternative<Text>(item) || std::holds_alternative<TextInput>(item) || std::holds_alternative<Divider>(item) ||
         (std::holds_alternative<Progress>(item) && !isRing(item)))
         return std::nullopt;
-    // A graph, a strip of levels and a tile take the width they're given (decision 172).
-    if (std::holds_alternative<Graph>(item) || std::holds_alternative<Levels>(item) || std::holds_alternative<LevelTile>(item) ||
-        std::holds_alternative<BatteryTile>(item))
-        return std::nullopt;
-    if (auto* battery = std::get_if<Battery>(&item)) return batteryWidth(*battery, measure);
+    if (std::holds_alternative<StatTile>(item) || std::holds_alternative<BatteryTile>(item)) return std::nullopt; // a tile: its share of the row (decision 174)
     if (std::holds_alternative<Image>(item) || isRing(item) || std::holds_alternative<Dial>(item)) return height; // squares
     if (auto* steps = std::get_if<Steps>(&item)) {
         float width = 2 * t.stepHaloWidth; // room for the current one's ring
@@ -236,6 +228,7 @@ float fontSize(TextStyle style)
     case TextStyle::WindowTitle: return t.windowTitleFontSize;
     case TextStyle::WindowBody: return t.windowBodyFontSize;
     case TextStyle::WindowCaption: return t.windowCaptionFontSize;
+    case TextStyle::Stat: return t.statValueFontSize;
     }
     return t.bodyFontSize;
 }

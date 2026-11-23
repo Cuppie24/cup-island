@@ -1,5 +1,5 @@
-// Network adapters and their byte counters (GetIfTable2, Windows Vista+;
-// decision 173). One table read per look: nothing is subscribed to.
+// Network adapters' byte counters (GetIfTable2, Windows Vista+; decision
+// 173). One table read per look: nothing is subscribed to.
 #include "providers/statistics/stats_sources.h"
 
 #include "platform/win.h"
@@ -24,15 +24,7 @@ std::vector<AdapterSample> networkAdapters()
         // once per filter and virtual layer on it (a firewall's, a VPN's),
         // each counting the same bytes. Only the hardware is counted.
         if (!row.InterfaceAndOperStatusFlags.HardwareInterface || row.Type == IF_TYPE_SOFTWARE_LOOPBACK) continue;
-        found.push_back(AdapterSample{
-            .id = row.InterfaceLuid.Value,
-            .name = utf8(row.Alias),
-            .received = row.InOctets,
-            .sent = row.OutOctets,
-            .linkSpeed = row.ReceiveLinkSpeed,
-            .wired = row.Type == IF_TYPE_ETHERNET_CSMACD,
-            .up = row.OperStatus == IfOperStatusUp,
-        });
+        found.push_back(AdapterSample{ .id = row.InterfaceLuid.Value, .received = row.InOctets, .sent = row.OutOctets });
     }
     FreeMibTable(table);
     return found;
