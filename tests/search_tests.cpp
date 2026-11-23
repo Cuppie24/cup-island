@@ -137,7 +137,8 @@ void providerTests()
                             .windowsBuild = 22621 });
     search.start(host);
     const Panel& first = host.published.back();
-    expect(first.id == "search" && textAt(first, 0, 0) == "Search", "a Search widget on Home");
+    expect(first.id == "search" && first.rowButton == Glyph::Search && first.rowSpot == Panel::RowSpot::LeftCorner,
+           "Search: a button in the page row's left corner (decisions 165, 170)");
     auto* field = std::get_if<TextInput>(&first.content.expandedCenter[0].items[0]);
     expect(field && field->changeAction == search_action::kTyped && field->actionId == search_action::kGo, "its card's live field");
     expect(host.calls.empty(), "nothing typed: no files asked for");
@@ -380,7 +381,7 @@ void layoutTests()
         s = reduce(s, TabRowPlaced{ tabsOnTop }, Ms{ 0 });
         s = reduce(s, PanelPublished{ p }, Ms{ 0 });
         s = reduce(s, PanelPublished{ Panel{ .id = "other", .content = { .label = "other", .expandedCenter = { row({ Text{ "x" } }) } } } }, Ms{ 0 });
-        s = reduce(s, TileClicked{ "search" }, Ms{ 0 });
+        s = reduce(s, CardOpened{ "search" }, Ms{ 0 });
         return std::pair{ s, layout(s, Ms{ 0 }, [](const Text& t) { return 8.0f * static_cast<float>(t.value.size()); }) };
     };
     auto [none, bare] = cardWith(0);

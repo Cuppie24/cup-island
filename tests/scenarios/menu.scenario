@@ -3,13 +3,13 @@
 
 scenario: opened by the keys, its first item is lit
 panel search menu
-tile search                         -> Expanded expanded=search draft=empty
+card search                         -> Expanded expanded=search draft=empty
 menu search 1                       -> menu=search/1 lit=0
 menu-close                          -> menu=none Expanded draft=empty   # the card and its field stay
 
 scenario: opened by a right-click, nothing is lit until the pointer moves onto an item
 panel search menu
-tile search
+card search
 menu search 2 pointer               -> menu=search/2 lit=none
 menu-light 2                        -> lit=2
 menu-light none                     -> lit=none
@@ -18,7 +18,7 @@ menu-light 7                        -> lit=none                         # nor on
 
 scenario: the keys pass over dim items and go round
 panel search menu
-tile search
+card search
 menu search 1                       -> lit=0
 menu-step 1                         -> lit=2                            # Run is dim: skipped
 menu-step 1                         -> lit=0                            # round to the first
@@ -32,32 +32,32 @@ scenario: only on a row that has a menu, on the card that's shown
 panel search menu
 panel other
 menu search 1                       -> menu=none                        # not shown
-tile search
+card search
 menu search 0                       -> menu=none                        # the field's row has none
 menu other 1                        -> menu=none                        # not this card
 menu search 9                       -> menu=none                        # no such row
 
 scenario: one at a time: another row's replaces it
 panel search menu
-tile search
+card search
 menu search 1
 menu search 2                       -> menu=search/2 lit=0
 
 scenario: it goes with its card
 panel search menu
-tile search
+card search
 menu search 1
 esc                                 -> menu=none Idle
 
 scenario: typing closes it: the rows under it change
 panel search menu
-tile search
+card search
 menu search 1
 type a                              -> menu=none draft=a
 
 scenario: scrolling the list closes it, a dialog covers it
 panel search menu
-tile search
+card search
 menu search 1
 wheel search results 0 40 200       -> menu=none
 menu search 1
@@ -66,14 +66,14 @@ menu search 1                       -> menu=none                        # not un
 
 scenario: a republish that keeps its items leaves it open; new items close it
 panel search menu
-tile search
+card search
 menu search 1
 panel search menu                   -> menu=search/1 lit=0              # an icon arrived: the same items
 panel search menu=changed           -> menu=none
 
 scenario: an open menu holds the card open, like typing
 panel search menu
-tile search
+card search
 menu search 1
 wait 60000                          -> Expanded menu=search/1
 menu-close

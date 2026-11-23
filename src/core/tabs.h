@@ -2,9 +2,9 @@
 // Expanded's page row (decision 165): along the top of the card (decision
 // 047), an icon per page centred in it, always the same ones: every panel
 // with a card, running or not, then activities that aren't panels. The
-// shown page's icon is lit, the others grey. Home's button sits at the left
-// edge (decision 009) and panels' buttons (Panel::rowButton, decision 113)
-// beside it or in the right corner: Search by Home, the theme switch by Settings.
+// shown page's icon is lit, the others grey. Panels' buttons
+// (Panel::rowButton, decision 113) sit in the corners: Search at the left,
+// Settings at the right with the theme switch beside it. No Home (decision 170).
 
 #include "core/layout.h"
 
@@ -17,7 +17,7 @@ namespace cup {
 float tabStripSpace(const IslandState& state);
 
 // The row, with each button's glyph appended to `elements` (pill coordinates).
-// Nothing unless Expanded with somewhere else to go: Home's widgets, or two pages.
+// Nothing unless Expanded with somewhere else to go: two pages, or a panel's button.
 std::optional<TabStrip> tabStripFor(const IslandState& state, Vec2 cardSize, float nestedRadius, const MeasureText& measure,
                                     std::vector<Placed>& elements);
 

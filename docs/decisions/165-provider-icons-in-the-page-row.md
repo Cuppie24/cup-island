@@ -1,8 +1,8 @@
 # 165: The page row is a constant list of providers' icons
 
-Status: Accepted (replaces 109's dots and 118's arrows; amends 113: where a
+Status: Accepted; amended by 170 (no Home: its button is gone, Search is in the left corner, Home's widgets too). Replaces 109's dots and 118's arrows; amends 113: where a
 panel's button sits; 115: Ctrl+Tab; 019: Search and the theme switch were
-widgets). Core tested; the look on Windows needs a run.
+widgets. Core tested; the look on Windows needs a run.
 
 **Context.** The page row showed a dot per running activity with ‹ and ›
 beside them (decisions 109, 118). Nothing said which activity a dot was,

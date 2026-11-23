@@ -35,7 +35,6 @@ add_library(cup_core STATIC
     src/core/open_windows.cpp
     src/core/fullscreen.cpp
     src/core/hit_test.cpp
-    src/core/home.cpp
     src/core/island.cpp
     src/core/island_tint.cpp
     src/core/island_queries.cpp
@@ -130,11 +129,11 @@ if(CUP_BUILD_TESTS)
         tests/cover_tests.cpp
         tests/double_tap_tests.cpp
         tests/fullscreen_tests.cpp
-        tests/home_tests.cpp
-        tests/indexer_protocol_tests.cpp
+            tests/indexer_protocol_tests.cpp
         tests/indexer_query_tests.cpp
         tests/indexer_tests.cpp
         tests/item_tests.cpp
+        tests/page_row_tests.cpp
         tests/keyboard_tests.cpp
         tests/list_card_tests.cpp
         tests/group_tests.cpp

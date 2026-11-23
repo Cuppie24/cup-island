@@ -96,7 +96,7 @@ void wrapTests()
     IslandState state;
     state = reduce(state, PanelPublished{ fixture::todoPanel(list) }, Ms{ 0 });
     state = reduce(state, PillClicked{}, Ms{ 0 });
-    state = reduce(state, TileClicked{ fixture::kTodoCard }, Ms{ 0 });
+    state = reduce(state, CardOpened{ fixture::kTodoCard }, Ms{ 0 });
     Scene card = layout(state, Ms{ 0 });
     auto named = [&](const Scene& sc, const std::string& start) {
         return firstOf(sc, [&](const Placed& p) { auto* x = std::get_if<Text>(&p.item); return x && x->value.rfind(start, 0) == 0; });
@@ -151,18 +151,18 @@ void wrapTests()
     expect(charCount(state.draft->text) == t.todoMaxLength, "and stops at todoMaxLength characters");
     expect(layout(state, Ms{ 0 }).size.y <= t.canvas.y, "the card still fits");
 
-    // A wide card is wider than Home (decision 085): it grows to both sides from the island's centre.
+    // A wide card is wider than an ordinary one (decision 085): it grows to both sides from the island's centre.
     IslandState wide;
     wide = reduce(wide, ScreenResized{ 1920 }, Ms{ 0 });
     wide = reduce(wide, PanelPublished{ fixture::todoPanel(list) }, Ms{ 0 });
-    wide = reduce(wide, PillClicked{}, Ms{ 0 });
-    Scene home = layout(wide, Ms{ 0 });
-    wide = reduce(wide, TileClicked{ fixture::kTodoCard }, Ms{ 0 });
+    wide = reduce(wide, PillClicked{}, Ms{ 0 }); // nothing running: the first page's card (decision 170)
     Scene wideCard = layout(wide, Ms{ 0 });
+    IslandState ordinary = reduce(reduce(IslandState{}, ScreenResized{ 1920 }, Ms{ 0 }), PanelPublished{ { .id = "plain", .content = { .label = "p", .expandedCenter = { row({ Text{ "p" } }) } } } }, Ms{ 0 });
+    Scene home = layout(reduce(ordinary, PillClicked{}, Ms{ 0 }), Ms{ 0 });
     expect(home.size.x == tokens().expandedSize.x && wideCard.size.x == tokens().wideCardWidth && wideCard.size.x > home.size.x,
-           "a wide card is wider than Home, which keeps every card's width (decisions 047, 085)");
+           "a wide card is wider than an ordinary one, which keeps every card's width (decisions 047, 085)");
     expect(std::abs((wideCard.offset.x + wideCard.size.x / 2) - (home.offset.x + home.size.x / 2)) < 0.01f &&
-           std::abs(wideCard.offset.x + wideCard.size.x / 2 - 960) < 0.01f, "centred where Home was: grown to both sides");
+           std::abs(wideCard.offset.x + wideCard.size.x / 2 - 960) < 0.01f, "centred where an ordinary card is: grown to both sides");
 }
 
 // The add field's unsent text survives its card closing (decision 050): shown in the field, unfocused.
@@ -171,11 +171,11 @@ void keptTextTests()
     IslandState state;
     state = reduce(state, PanelPublished{ fixture::todoPanel() }, Ms{ 0 });
     state = reduce(state, PillClicked{}, Ms{ 0 });
-    state = reduce(state, TileClicked{ fixture::kTodoCard }, Ms{ 0 });
+    state = reduce(state, CardOpened{ fixture::kTodoCard }, Ms{ 0 });
     state = reduce(state, InputFocused{ fixture::kTodoProvider, fixture::kTodoCard, todo_action::kAdd }, Ms{ 0 });
     state = reduce(state, TextTyped{ "Water plants" }, Ms{ 0 });
     state = reduce(state, EscapePressed{}, Ms{ 0 }); // the card goes back to Home
-    state = reduce(state, TileClicked{ fixture::kTodoCard }, Ms{ 0 });
+    state = reduce(state, CardOpened{ fixture::kTodoCard }, Ms{ 0 });
     Scene card = layout(state, Ms{ 0 });
     const Placed* field = firstOf(card, [](const Placed& p) { return std::holds_alternative<TextInput>(p.item); });
     expect(field && !std::get<TextInput>(field->item).focused && std::get<TextInput>(field->item).value == "Water plants",
@@ -255,7 +255,7 @@ void runTodoTests()
     registry.start(fixture::kTodoProvider);
     auto send = [&](const Event& e) { state = reduce(state, e, now); };
     send(PillClicked{});
-    send(TileClicked{ fixture::kTodoCard });
+    send(CardOpened{ fixture::kTodoCard });
     Scene card = layout(state, now);
     expect(card.activityId == fixture::kTodoCard, "the dormant card is open");
     const Placed* field = firstOf(card, [](const Placed& p) { return std::holds_alternative<TextInput>(p.item); });
@@ -564,7 +564,7 @@ void runTodoTests()
     send(EscapePressed{});
     expect(!dialogOver(state, fixture::kTodoCard) && !saved.empty(), "Esc (closing the card) dismisses it: nothing cleared");
     send(PillClicked{});
-    send(TileClicked{ fixture::kTodoCard });
+    send(CardOpened{ fixture::kTodoCard });
     registry.route({ fixture::kTodoProvider, fixture::kTodoCard, todo_action::kClearAll, 0 });
     registry.route({ fixture::kTodoProvider, fixture::kTodoCard, todo_action::kClearAllConfirmed, 0 });
     send(DialogClosed{});

@@ -103,13 +103,6 @@ template <typename T> const T* itemOf(const Row* r)
     return nullptr;
 }
 
-inline std::string textAt(const Panel& p, std::size_t row, std::size_t item)
-{
-    if (row >= p.content.tile.size() || item >= p.content.tile[row].items.size()) return "?";
-    auto* text = std::get_if<Text>(&p.content.tile[row].items[item]);
-    return text ? text->value : "?";
-}
-
 // A card row's text, or its button's label.
 inline std::string cardText(const Panel& p, std::size_t row)
 {
@@ -128,14 +121,6 @@ inline std::string cardItem(const Panel& p, std::size_t row, std::size_t item)
     if (auto* keys = std::get_if<Keys>(&card[row].items[item])) return keys->text; // key caps (decision 092)
     auto* text = std::get_if<Text>(&card[row].items[item]);
     return text ? text->value : "?";
-}
-
-// The widget's side-square icon (tileLeading, decision 073).
-inline Glyph leadGlyph(const Panel& p)
-{
-    if (p.content.tileLeading.empty() || p.content.tileLeading[0].items.empty()) return Glyph::Warning;
-    auto* icon = std::get_if<Icon>(&p.content.tileLeading[0].items[0]);
-    return icon ? icon->glyph : Glyph::Warning;
 }
 
 // The card's row whose first item is this text (a setting's name), or nullptr.

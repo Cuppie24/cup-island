@@ -1,6 +1,6 @@
 # 115: Home has no dot in the page row; its button is the way there
 
-Status: Accepted (amends 109: the page row's dots; 033: Ctrl+Tab). Core tested; the look on Windows needs a run.
+Status: Superseded by 170 (no Home). Was: Accepted (amends 109: the page row's dots; 033: Ctrl+Tab). Core tested; the look on Windows needs a run.
 
 **Context.** The page row had a dot for Home first, then one per activity,
 and Home's button at the left edge did the same thing as Home's dot. The

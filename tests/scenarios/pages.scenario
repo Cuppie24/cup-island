@@ -1,0 +1,153 @@
+# Panels and their pages (decisions 009, 165, 170): always-available entries
+# that aren't live until started, each a card reached by its icon in the page
+# row. There is no Home: the idle pill opens the first page's card.
+
+scenario: clicking idle opens the first page's card
+panel focus                         -> Idle
+panel notes
+click                               -> Expanded expanded=focus
+click                               -> Idle                     # a card closes on a click, as any does
+
+scenario: nothing with a card, nothing to open
+click                               -> Idle
+panel battery static                -> Idle
+click                               -> Idle
+panel settings button               -> Idle                     # a page-row button isn't a page (decision 113)
+click                               -> Idle
+open-island                         -> Idle
+panel focus
+click                               -> Expanded expanded=focus  # the first with a card, past the others
+
+scenario: a panel never takes the pill or the bubble
+panel focus
+panel battery
+start media                         -> Compact top=media
+
+scenario: a dormant card closes like any Expanded view
+panel focus
+click                               -> Expanded expanded=focus
+esc                                 -> Idle
+click
+outside                             -> Idle
+click
+wait 7999                           -> Expanded
+wait 1                              -> Idle
+
+scenario: compact still opens the top activity, a dormant page is an icon away
+panel focus
+start media
+click                               -> Expanded expanded=media
+switch focus                        -> Expanded expanded=focus top=media
+switch media                        -> Expanded expanded=media
+
+scenario: a panel with no card opens nothing
+panel battery static
+panel focus
+click
+card battery                        -> Expanded expanded=focus
+switch battery                      -> Expanded expanded=focus
+
+scenario: starting from the card shows the live card, stopping shows the dormant one
+panel focus
+click
+start focus                         -> Expanded expanded=focus top=focus
+end focus                           -> Expanded expanded=focus top=none
+
+scenario: a running panel's card opened by name makes it the pick
+panel focus
+start focus
+start media                         -> top=media
+click                               -> expanded=media
+card focus                          -> Expanded expanded=focus pinned=focus top=focus
+
+scenario: removing a panel closes its dormant card
+panel focus
+click
+unpanel focus                       -> Idle
+
+scenario: republishing a panel keeps its card open
+panel focus
+click
+panel focus                         -> Expanded expanded=focus
+
+scenario: alerts wait while a card is open
+panel focus
+click
+alert copied                        -> Expanded queue=1
+esc                                 -> Alert alert=copied
+
+scenario: a card that keeps open stays on a click between its controls (decision 030)
+panel settings keep
+click                               -> Expanded expanded=settings
+click                               -> Expanded expanded=settings
+esc                                 -> Idle
+click
+outside                             -> Idle
+click
+wait 8000                           -> Idle
+
+scenario: a card with no idle timeout stays when left alone, still closes on Esc or outside (decision 062)
+panel focus awake
+click                               -> Expanded expanded=focus
+wait 60000                          -> Expanded expanded=focus
+outside                             -> Idle
+click
+start focus awake                   -> Expanded expanded=focus top=focus
+wait 60000                          -> Expanded expanded=focus
+esc                                 -> Compact
+
+scenario: a press on empty space squashes only where the click would close something (decision 071)
+panel settings keep
+start media                         -> Compact squash=yes
+click                               -> Expanded expanded=media squash=yes
+switch settings                     -> Expanded expanded=settings squash=no
+
+scenario: the island's shortcut (Ctrl+Q) opens the default page from anywhere (decisions 032, 170)
+panel focus
+open-island                         -> Expanded expanded=focus  # nothing running: the first page
+open-island                         -> Expanded expanded=focus  # open already: reduce leaves it (the app sends Esc instead)
+esc                                 -> Idle
+start media
+open-island                         -> Expanded expanded=media  # something running: the pill's activity
+switch focus                        -> Expanded expanded=focus
+open-island                         -> Expanded expanded=focus
+esc                                 -> Compact
+
+scenario: Esc closes, however the card was reached (decisions 033, 170)
+panel focus
+start media
+click                               -> Expanded expanded=media
+esc                                 -> Compact
+card focus                          -> Expanded expanded=focus
+esc                                 -> Compact
+click
+switch focus                        -> Expanded expanded=focus
+esc                                 -> Compact
+alert copied
+click                               -> Expanded expanded=media
+esc                                 -> Compact
+
+scenario: a provider closes its own card when it's done (search, decision 079)
+panel search
+card search                         -> Expanded expanded=search
+close-card other                    -> Expanded expanded=search   # someone else's: nothing
+close-card search                   -> Idle
+card search
+pin                                 -> Expanded stay=yes
+close-card search                   -> Expanded expanded=search   # pinned: it stays (decision 046)
+
+scenario: a page-row button's card opens by name, and isn't the default page
+panel search button
+panel focus
+click                               -> Expanded expanded=focus
+
+scenario: a page-row icon opens a dormant panel's card (decision 165)
+panel timer
+panel theme static
+start media
+switch timer                        -> Compact                  # not open: an icon is only on the card
+click                               -> Expanded expanded=media
+switch timer                        -> Expanded expanded=timer top=media   # dormant: its card, the pill's pick unchanged
+switch theme                        -> Expanded expanded=timer  # no card to show
+switch media                        -> Expanded expanded=media pinned=media
+esc                                 -> Compact top=media

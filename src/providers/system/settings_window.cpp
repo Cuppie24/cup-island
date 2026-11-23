@@ -116,7 +116,7 @@ WindowPage appearancePage(const SettingsView& v)
     if (!v.displays.empty()) look.push_back(marked(settingRow("Display", v.displays[v.display], P::kOpenDisplays), "display", v));
     if (!look.empty()) page.sections.push_back({ .rows = std::move(look) });
     // Picked in place (decision 093): two options don't need a page.
-    page.sections.push_back({ .rows = { marked(segmentsRow("Tab row", "Home and pin buttons", { "Top", "Bottom" }, v.tabsOnTop ? 0u : 1u, P::kPickTabRow), "tabrow", v),
+    page.sections.push_back({ .rows = { marked(segmentsRow("Tab row", "Pages, Search and Settings", { "Top", "Bottom" }, v.tabsOnTop ? 0u : 1u, P::kPickTabRow), "tabrow", v),
                                         marked(actionRow("Centre island", Glyph::Centre, P::kCentreIsland), "centre", v) } });
     return page;
 }
@@ -340,7 +340,7 @@ std::vector<ThemeListRow> themeListRows()
 }
 
 // A gear, like Windows' own Settings, in the page row right of the pin
-// (decision 113), not a Home widget. A tap opens the window; it has no card
+// (decision 113). A tap opens the window; it has no card
 // of its own (decision 104).
 Panel settingsPanel(const SettingsView& view)
 {

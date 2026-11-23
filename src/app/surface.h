@@ -29,8 +29,7 @@ struct Pointer {
     std::optional<Vec2> bubblePress; // mouse-down on the Split bubble, render-layer coordinates
     bool dragged = false;            // ...and core took it as a drag (BubbleDragged): not a click
     bool topPress = false;           // mouse-down in the expanded top band: closes on release there (decision 108)
-    std::optional<std::string> tabPress;  // mouse-down on an Expanded tab: its activity ("" = Home)
-    std::optional<std::string> tilePress; // mouse-down on a Home tile, off its buttons: its panel
+    std::optional<std::string> tabPress;  // mouse-down on a page-row button: its id
     std::optional<Vec2> islandPress; // mouse-down on the pill that may lift it (decision 026): where it went down
     std::optional<Placed> listPress; // mouse-down on a list row that can be dragged (decision 029)
     float listPressY = 0;            // ...where, its own coordinates: dragged dragStartDistance, it's picked up

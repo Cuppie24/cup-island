@@ -102,7 +102,7 @@ std::optional<Chord> parseChord(std::string_view text)
 const std::vector<CommandInfo>& commands()
 {
     static const std::vector<CommandInfo> all{
-        { Command::OpenHome, "home", "Open Home", Chord{ .key = 'Q', .ctrl = true } }, // takes Ctrl+Q (Quit in some apps) from other apps: the user's pick (decision 032)
+        { Command::OpenIsland, "home", "Open the island", Chord{ .key = 'Q', .ctrl = true } }, // takes Ctrl+Q (Quit in some apps) from other apps: the user's pick (decision 032)
         { Command::OpenActivity, "activity", "Open the activity", Chord{ .key = 'Q', .ctrl = true, .alt = true } }, // decision 050
         { Command::OpenSearch, "search", "Search apps and files", Chord{ .key = kCtrl, .twice = true } }, // decision 079
     };
@@ -117,7 +117,6 @@ const std::vector<FixedKey>& fixedKeys()
         { "Home or End", "First or last item" },
         { "Ctrl+Tab", "Next tab" },
         { "Ctrl+Shift+Tab", "Previous tab" },
-        { "1 to 9", "Open a widget on Home" },
         { "Enter or Space", "Select" },
         { "Esc", "Back or close" },
         { "Ctrl+W", "Close the activity" },

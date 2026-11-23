@@ -88,7 +88,7 @@ void runDoubleTapTests()
            "and it can be rebound to an ordinary chord");
     Bindings b = defaultBindings();
     expect(bindingProblem(b, Command::OpenSearch, doubleCtrl).empty(), "a double tap is a valid binding");
-    expect(!bindingProblem(b, Command::OpenHome, doubleCtrl).empty(), "...but not two commands' at once");
+    expect(!bindingProblem(b, Command::OpenIsland, doubleCtrl).empty(), "...but not two commands' at once");
     expect(!bindingProblem(b, Command::OpenSearch, Chord{ .key = 'Q', .twice = true }).empty(), "only modifiers are tapped twice");
 }
 

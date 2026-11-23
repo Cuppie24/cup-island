@@ -6,16 +6,9 @@ start timer
 click                               -> Expanded expanded=timer
 top-click                           -> Compact
 
-scenario: Home closes from the top, though an empty click there keeps it
-panel focus
-home                                -> Expanded expanded=home
-click                               -> Expanded expanded=home
-top-click                           -> Idle
-
 scenario: a card that keeps open on a click closes from the top
 panel notes keep
-home
-tile notes                          -> Expanded expanded=notes
+card notes                          -> Expanded expanded=notes
 click                               -> Expanded expanded=notes
 top-click                           -> Idle
 

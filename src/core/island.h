@@ -36,30 +36,23 @@ struct Activity {
     std::uint64_t startOrder = 0; // set by reduce(); ranking tiebreak
 };
 
-// Always available, without being live (decision 009): a tile on Home and a
-// card. Starting an activity with the panel's id makes it live; ending it
-// makes the panel dormant again.
+// Always available, without being live (decision 009): a card, with its
+// icon in the page row (decision 165), or a button there. Starting an activity
+// with the panel's id makes it live; ending it makes the panel dormant again.
 struct Panel {
     std::string id;         // also the id of the activity it turns into
-    Content content;        // `tile` for Home, `expanded*` for its card
-    bool wide = false;      // two Home columns instead of one
+    Content content;        // `expanded*` for its card
     std::string providerId; // set by the host
-    // The tile's primary tap action (PS §7.2): a click on the tile sends this
-    // to the provider instead of opening a card. For a quick toggle (theme).
+    // Its page-row button's tap action (PS §7.2): a click sends this to the
+    // provider instead of opening a card. For a quick toggle (theme).
     std::string tapAction;
-    // New (decision 110): its widget says "New" until its card is opened
-    // (IslandState::seenPanels, which the app keeps). 0: not announced. The
-    // provider says which widgets are worth announcing, and when again: a
-    // higher number than the one last seen is new again (a feature added to
-    // it). The host tracks and draws it.
-    int announce = 0;
-    // Set: not a widget but this glyph as a button in the page row (decisions
-    // 113, 165). A click sends tapAction, or opens its card with none;
-    // Content::badge puts a dot on it. Settings: always at hand, without a Home tile.
+    // Set: this glyph as a button at one end of the page row (decisions
+    // 113, 165), not an icon in its list. A click sends tapAction, or opens
+    // its card with none; Content::badge puts a dot on it.
     std::optional<Glyph> rowButton;
     // ...and where in the row: the right corner (Settings), left of the
-    // corner's (the theme switch), or right of Home's button (Search).
-    enum class RowSpot { Corner, BesideCorner, BesideHome };
+    // corner's (the theme switch), or the left corner (Search).
+    enum class RowSpot { Corner, BesideCorner, LeftCorner };
     RowSpot rowSpot = RowSpot::Corner;
     // Its icon in the page row's list (decision 165), live or dormant. None: a plain one.
     std::optional<Glyph> icon;
@@ -181,7 +174,7 @@ struct ActivityEnded { std::string id; };
 struct AlertPosted { Alert alert; };
 struct PillClicked {};
 // A click in the top band of an expanded island (Scene::collapseZone): it always
-// closes, on Home, a card that keeps open, or pinned (decision 108).
+// closes, a card that keeps open or a pinned island too (decision 108).
 struct TopClicked {};
 struct ClickedOutside {};
 struct EscapePressed {};
@@ -202,13 +195,12 @@ struct IslandDragged { Vec2 drag; };    // that press moved: offset from where i
 struct IslandReleased {};               // that press ended (let go, or capture lost): lifted, it lands there
 struct ScreenResized { float width; };  // the island's monitor is this wide, in render-layer pixels
 struct SpotRestored { Spot spot; };     // its saved place on this monitor, or Spot{} to centre it (decision 026)
-struct PanelPublished { Panel panel; }; // existing id = replace, keeping its place on Home
+struct PanelPublished { Panel panel; }; // existing id = replace, keeping its place in the page row
 struct PanelRemoved { std::string id; };
-struct HomeOpened {};                   // Home tab (decision 009)
+struct IslandOpened {};                 // its shortcut, or the app launched again: the default page's card, if nothing is open (decision 170)
 struct ActivityOpened {};               // its shortcut (decision 050): the pill's activity's card; again on it, closes
 struct CardCloseRequested { std::string id; }; // its provider is done with it (Host::closeCard, decision 079): closes if shown
-struct TileClicked { std::string id; }; // a Home tile, not on a button: open its card
-struct PanelsSeen { std::map<std::string, int> seen; }; // the app's saved seenPanels, at start (decision 110)
+struct CardOpened { std::string id; };  // open this card from anywhere (a page-row button, Search's shortcut): a live activity becomes the pick
 struct InputFocused {    // a TextInput was clicked, or an edit button (then `text` is what's edited)
     std::string providerId, activityId, actionId;
     std::string text;      // the draft starts with this
@@ -256,11 +248,11 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            BubbleClicked, ActivityPromoted, ActivitySwitched,
                            BubbleDragged, BubbleReleased, BubbleDragCancelled,
                            IslandPressed, IslandDragged, IslandReleased, ScreenResized, SpotRestored,
-                           PanelPublished, PanelRemoved, HomeOpened, ActivityOpened, CardCloseRequested, TileClicked, ClockSynced,
+                           PanelPublished, PanelRemoved, IslandOpened, ActivityOpened, CardCloseRequested, CardOpened, ClockSynced,
                            InputFocused, TextTyped, TextErased, CaretMoved, CaretPlaced, WordSelected, AllSelected,
                            InputSubmitted, InputCancelled,
                            DialogShown, DialogClosed, ToastShown, ToastClosed, MenuOpened, MenuLit, MenuClosed, ListScrolled, ListRevealed, ListDragStarted, ListDragMoved,
-                           ListDragEnded, StayOpenToggled, TabRowPlaced, PanelsSeen>;
+                           ListDragEnded, StayOpenToggled, TabRowPlaced>;
 
 // --- State --------------------------------------------------------------
 struct WallClock {
@@ -270,7 +262,7 @@ struct WallClock {
 
 struct IslandState {
     std::vector<Activity> activities;  // ranked, best first (PS §6.2)
-    std::vector<Panel> panels;         // in publish order: Home's tile order (decision 009)
+    std::vector<Panel> panels;         // in publish order: the page row's (decision 165)
     std::string pinnedId;              // the user's pick for the pill; cleared when it ends (decision 007)
     std::optional<Vec2> bubbleDrag;    // the Split bubble is being dragged, this far from home
     float screenWidth = 0;             // the island's monitor, render-layer pixels; 0 = not told (canvas width)
@@ -282,8 +274,6 @@ struct IslandState {
     Ms alertUntil{};
     std::deque<Alert> alertQueue;      // waiting alerts, oldest first (PS §6.3)
     std::string expandedId;            // Expanded, showing this activity's card, or a dormant panel's
-    bool homeOpen = false;             // Expanded, showing Home (expandedId empty)
-    bool cardFromHome = false;         // that card was opened from a Home widget: Esc goes back to Home (decision 033)
     Ms lastPointerAt{};
     bool dragging = false;             // an accepted drag is over the island
     bool hidden = false;
@@ -300,10 +290,6 @@ struct IslandState {
     // outside the island or on a card's empty space doesn't close it. Esc
     // and the card going away still do; closing unpins it.
     bool stayOpen = false;
-    // Each announced panel's highest announcement whose card has been opened
-    // (decision 110): its widget says "New" while its announce is higher. The
-    // app saves it and gives it back (PanelsSeen).
-    std::map<std::string, int> seenPanels;
     bool tabsOnTop = true; // the tab row along the card's top (decision 047), or its bottom: the user's pick (decision 048)
     std::uint64_t nextStartOrder = 1;
 };
@@ -317,7 +303,7 @@ Mode restingMode(const IslandState& state); // Idle / Compact / Split, ignoring 
 // lightens to say so (decision 007).
 bool swapPreview(const IslandState& state);
 
-// Home or a card is open (a drag or Hidden may still cover it).
+// A card is open (a drag or Hidden may still cover it).
 bool isExpanded(const IslandState& state);
 
 // Lookups by id: nullptr if there's none.
@@ -327,7 +313,7 @@ const Panel* findPanel(const IslandState& state, const std::string& id);
 const Content* cardContent(const IslandState& state, const std::string& id);
 
 // The card Expanded shows (an activity's, or a dormant panel's): whose it is.
-// Nothing on Home, or when nothing is expanded. A change from one is the
+// Nothing when nothing is expanded. A change from one is the
 // card closing for its provider (Provider::onCardClosed).
 struct ShownCard {
     std::string providerId, activityId;
@@ -335,14 +321,13 @@ struct ShownCard {
 };
 std::optional<ShownCard> shownCard(const IslandState& state);
 
-// Home has something to show: a panel that's a widget, not a page-row button (decision 113).
-bool hasWidgets(const IslandState& state);
+// A panel with a card of its own in the page row's list: not a button there, a toggle or a card-less one.
+bool isPage(const Panel& panel);
+// The card the island opens with when nothing says which (an idle click, its
+// shortcut; decision 170): the pill's activity's, else the first page's. "" = none.
+std::string defaultPage(const IslandState& state);
 
-// Its widget says "New" (decision 110): announced, it opens a card, and that
-// card hasn't been opened since this announcement.
-bool isNew(const IslandState& state, const Panel& panel);
-
-// The shown card, if it's a live activity's (not Home, not a dormant
+// The shown card, if it's a live activity's (not a dormant
 // panel's): what Ctrl+W asks to close (decision 034).
 std::optional<ShownCard> shownActivity(const IslandState& state);
 
@@ -355,7 +340,7 @@ bool escapeCloses(const IslandState& state);
 
 // Whether a press on the island's empty space squashes it (the press
 // feedback of a click that collapses it). Not where that click does nothing:
-// Home, a card that stays open on it (Content::keepOpen), a pinned island (decision 071).
+// a card that stays open on it (Content::keepOpen), a pinned island (decision 071).
 bool pressSquashes(const IslandState& state);
 
 // Local time of day at `now`, once the platform has synced the clock.

@@ -1,5 +1,5 @@
 #pragma once
-// Search (decisions 077, 079): a Search widget on Home, and its card: a live
+// Search (decisions 077, 079): a Search button in the page row, and its card: a live
 // field and, as you type, apps first, then providers' commands (decision
 // 160), then Settings pages and Control Panel items, then files. Enter starts the top one; a row starts its own; a
 // file's folder button opens Explorer on it. The card closes once something

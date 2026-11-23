@@ -64,7 +64,7 @@ void tabRowTests()
     openWindow(s);
     const Segments* choice = itemOf<Segments>(windowRow(h, "Tab row"));
     expect(choice && choice->options == std::vector<std::string>{ "Top", "Bottom" } && choice->picked == 1 && choice->actionId == P::kPickTabRow &&
-           detailOf(h, "Tab row") == "Home and pin buttons",
+           detailOf(h, "Tab row") == "Pages, Search and Settings",
            "tab row: a row with Top and Bottom side by side (decision 104), Bottom picked");
     s.onAction(fromWindow(std::string(P::kPickTabRow) + "0"));
     expect(placed.back() && h.store[SettingsProvider::kTabRowKey] == "top" && itemOf<Segments>(windowRow(h, "Tab row"))->picked == 0,
@@ -85,13 +85,11 @@ void tabRowTests()
     // ...and on a card: Enter on the control picks the next one (decision 093).
     {
         Panel card{ .id = "seg", .content = { .label = "seg", .card = CardLayout::List,
-                                             .expandedCenter = { row({ Text{ "Tab row" }, Segments{ .options = { "Top", "Bottom" }, .actionId = P::kPickTabRow } }) },
-                                             .tile = { row({ Text{ "seg" } }) } },
+                                             .expandedCenter = { row({ Text{ "Tab row" }, Segments{ .options = { "Top", "Bottom" }, .actionId = P::kPickTabRow } }) } },
                     .providerId = "p" };
         IslandState st;
         st = reduce(st, PanelPublished{ card }, Ms{ 0 });
-        st = reduce(st, HomeOpened{}, Ms{ 0 });
-        st = reduce(st, TileClicked{ "seg" }, Ms{ 0 });
+        st = reduce(st, CardOpened{ "seg" }, Ms{ 0 });
         Scene scene = layout(st, Ms{ 0 });
         const Placed* control = nullptr;
         for (const Placed& e : scene.elements)

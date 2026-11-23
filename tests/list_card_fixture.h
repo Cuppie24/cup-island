@@ -33,8 +33,7 @@ inline Row pageTitle(const char* title)
 
 inline Panel card(const char* id, Slot rows, bool page)
 {
-    Content content{ .label = id, .card = CardLayout::List, .keepOpen = true, .backAction = page ? kBack : "", .expandedCenter = std::move(rows),
-                     .tile = { row({ Text{ id } }) } };
+    Content content{ .label = id, .card = CardLayout::List, .keepOpen = true, .backAction = page ? kBack : "", .expandedCenter = std::move(rows) };
     return { .id = id, .content = content, .providerId = "fixture" };
 }
 
@@ -49,7 +48,7 @@ inline Panel settingsList()
     Slot rows;
     addGroup(rows, "Appearance",
              { button("Theme", Glyph::ChevronRight, kOpenThemes, "Grape"),
-               groupItem(itemText("Tab row", "Home and pin buttons"), { Segments{ .options = { "Top", "Bottom" }, .actionId = kPickTabRow } }),
+               groupItem(itemText("Tab row", "Pages, Search and Settings"), { Segments{ .options = { "Top", "Bottom" }, .actionId = kPickTabRow } }),
                button("Centre island", Glyph::Centre, kCentre) },
              kSettingsList);
     addGroup(rows, "General",

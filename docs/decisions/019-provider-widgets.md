@@ -1,6 +1,6 @@
 # 019: Every provider gets a widget; widgets only inform
 
-Status: Accepted
+Status: Superseded by 170 (no Home, no widgets)
 
 **Context.** Home (decision 009) had grown into a mix: a clock tile with
 the date, a battery tile, and a Pomodoro tile with its own ▶ / ■ buttons.

@@ -19,10 +19,10 @@ promote media                       # the pick changes the pill: the shortcut fo
 open-activity                       -> Expanded expanded=media
 open-activity                       -> Split top=media
 
-scenario: from Home or another card it goes to the activity's card
+scenario: from another card it goes to the activity's card
 panel focus
 start media
-home                                -> Expanded expanded=home
+card focus                          -> Expanded expanded=focus
 open-activity                       -> Expanded expanded=media
 esc                                 -> Compact
 start timer timeSensitive

@@ -1,6 +1,6 @@
 # 033: Tab, Ctrl+Tab, the digits, Esc one step back, a focus ring
 
-Status: Accepted (extends 031)
+Status: Accepted (extends 031); amended by 170: no digits, Esc always closes
 
 **Context.** Decision 031 left two things open: Tab didn't move focus, and
 focus looked exactly like hover, so with the pointer resting on one item

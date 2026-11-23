@@ -3,7 +3,7 @@
 // one pure function. Pages in a sidebar (Appearance, General, Updates) of
 // grouped settings; a setting with choices (themes, displays, music colours)
 // or the keyboard shortcuts opens a page within its page, with a back arrow.
-// The widget on Home only opens it.
+// Its button in the page row only opens it.
 
 #include "core/island.h"
 #include "core/window_content.h"
@@ -22,7 +22,7 @@ namespace cup {
 
 // What the window's buttons send. A choice's action is its prefix and its index in the page's list.
 namespace settings_action {
-inline constexpr const char* kOpenWindow = "settings.window"; // the widget's tap: opens the window (decision 104)
+inline constexpr const char* kOpenWindow = "settings.window"; // its button's tap: opens the window (decision 104)
 inline constexpr const char* kOpenThemes = "theme.open";
 inline constexpr const char* kOpenDisplays = "display.open";
 inline constexpr const char* kOpenShortcuts = "shortcuts.open";
@@ -53,7 +53,7 @@ inline constexpr const char* kWhatsNew = "updates.whatsnew";     // its release 
 inline constexpr const char* kDownloadUpdate = "updates.download"; // a failed install: its installer, in the browser, to run by hand
 } // namespace settings_action
 
-inline constexpr const char* kSettingsPanelId = "system.settings"; // the widget's
+inline constexpr const char* kSettingsPanelId = "system.settings"; // its button's panel
 inline constexpr const char* kSettingsWindowId = "main";           // its window's (WindowSpec::id)
 // The sidebar's pages (WindowPage::id).
 inline constexpr const char* kAppearancePage = "appearance";
@@ -128,7 +128,7 @@ std::set<std::string> offeredSettings(const SettingsView& view);
 // The announced settings on this page of the window, by their rows' ids: what the user sees of them now.
 std::vector<std::string> shownSettings(const WindowContent& window, const std::string& page, const std::vector<SettingItem>& announced);
 
-// The widget: a tap opens the window (Panel::tapAction), a dot while something's new in it.
+// Its button: a tap opens the window (Panel::tapAction), a dot while something's new in it.
 Panel settingsPanel(const SettingsView& view);
 // The window (decision 104).
 WindowContent settingsWindow(const SettingsView& view);

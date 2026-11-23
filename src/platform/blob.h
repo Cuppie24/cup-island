@@ -58,16 +58,12 @@ public:
     // the shape behind the shown page's icon glides to a newly picked one;
     // hover is fainter and just fades.
     void setSelectedTab(std::optional<Rect> tab, float cornerRadius);
-    void setHovered(std::optional<Rect> area, float cornerRadius); // a tab or a Home tile under the pointer
+    void setHovered(std::optional<Rect> area, float cornerRadius); // a page-row button or a list row under the pointer
     // The top band glowing under the pointer, where a click closes (decision 108).
     void setTopGlow(bool on) { topGlow_.show(on); }
     // The keyboard's focus (decision 033): a ring inside `area`, over the
     // content, so it shows which one Enter clicks even with the pointer elsewhere.
     void setFocusRing(std::optional<Rect> area, float cornerRadius);
-    // Home's tiles (decision 009): a faint background under each, always shown;
-    // hover adds to it. Tabs have none: only hover and selection (decision 072).
-    // On liquid glass each has a shiny edge (decision 165).
-    void setTiles(const std::vector<Rect>& tiles, float cornerRadius) { showMarks(tiles_, tiles, cornerRadius, tokens().tileColor, true); }
     // Notification dots (decision 038), over the content: Scene::badges, and Scene::accentBadges in the accent (decision 152).
     void setBadges(const std::vector<Vec2>& centres, const std::vector<Vec2>& accent)
     {
@@ -164,10 +160,8 @@ private:
         wuc::CompositionRoundedRectangleGeometry shape{ nullptr };
         wuc::CompositionColorBrush brush{ nullptr };
         std::optional<Rect> at;
-        Shine shine; // a Home widget's shiny edge on liquid glass (decision 165); made only for those
     };
-    void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide, bool shiny = false);
-    void showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius, const Color& color, bool shiny = false); // one per rect
+    void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide);
     Mark selectedTab_, hovered_;
     struct Ring { // the focus ring: stroked, not filled; over content_, not under it
         wuc::ShapeVisual visual{ nullptr };
@@ -177,7 +171,6 @@ private:
         std::optional<Rect> at;
         float radius = 0;
     } focusRing_;
-    std::vector<Mark> tiles_; // grows to the most shown; spare ones stay faded out
     BadgeDots badges_;
     BadgeDots accentBadges_;
     TopGlow topGlow_;

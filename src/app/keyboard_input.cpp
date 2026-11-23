@@ -17,7 +17,6 @@ namespace {
 
 KeyboardHooks g_hooks;
 std::string g_focus;               // a Focusable's id; "" = none, the pointer leads
-std::string g_homeTile;            // the Home widget the keys last clicked: focus goes back to it on Home (decision 033)
 std::optional<Vec2> g_lastPointer; // the last move's point, to tell a real move from a repeat
 bool g_capturing = false;
 
@@ -37,8 +36,7 @@ void land(const std::optional<Focusable>& f)
     dispatch(PointerMoved{}, "keys");
 }
 
-// Enter or Space: a click on what has focus. A static widget takes it and
-// nothing happens, as with a click.
+// Enter or Space: a click on what has focus.
 void activate()
 {
     std::optional<Focusable> focused;
@@ -46,30 +44,17 @@ void activate()
     if (!focused) return;
     if (focused->id.rfind("tab:", 0) == 0) {
         g_hooks.clickTab(focused->activityId);
-    } else if (focused->id.rfind("tile:", 0) == 0) {
-        g_homeTile = focused->id;
-        if (const Tile* tile = tileAt(scene(), focused->point)) g_hooks.clickTile(*tile);
     } else if (auto hit = hitTest(scene(), focused->point)) {
         g_hooks.clickElement(*hit);
     }
 }
 
 // Ctrl+Tab and Ctrl+Shift+Tab (decision 033): the next or previous page
-// of the row's list, as a click on its icon (Home isn't one, decision 115).
+// of the row's list, as a click on its icon.
 void switchTab(bool back)
 {
     auto to = back ? previousTab(scene()) : nextTab(scene());
     if (to) g_hooks.clickTab(*to);
-}
-
-// 1 to 9 on Home (decision 033): its nth widget gets focus and is clicked,
-// as if arrowed to and Enter pressed. A static one just shows focus.
-void openWidget(std::size_t n)
-{
-    auto widget = homeWidget(scene(), n);
-    if (!widget) return;
-    land(widget);
-    activate();
 }
 
 // A system-wide shortcut was pressed (decision 032). The island comes to
@@ -78,13 +63,13 @@ void openWidget(std::size_t n)
 void run(Command command)
 {
     switch (command) {
-    case Command::OpenHome:
-        if (state().homeOpen) { // pressed again: it closes, like Esc
+    case Command::OpenIsland: // the default page's card (decision 170); pressed again while open, it closes, like Esc
+        if (isExpanded(state())) {
             dispatch(EscapePressed{}, "shortcut");
             return;
         }
-        dispatch(HomeOpened{}, "shortcut");
-        if (state().homeOpen) platform::bringToFront(g_hooks.window);
+        dispatch(IslandOpened{}, "shortcut");
+        if (isExpanded(state())) platform::bringToFront(g_hooks.window);
         return;
     case Command::OpenActivity: // the pill's activity's card; again on it, closes (decision 050)
         dispatch(ActivityOpened{}, "shortcut");
@@ -92,11 +77,11 @@ void run(Command command)
         return;
     case Command::OpenSearch: { // search's card, typing in its field at once; again, it closes (decision 079)
         const std::string id = SearchProvider::kPanelId;
-        if (state().expandedId == id && !state().homeOpen) {
+        if (state().expandedId == id) {
             dispatch(CardCloseRequested{ id }, "shortcut");
             return;
         }
-        dispatch(TileClicked{ id }, "shortcut");
+        dispatch(CardOpened{ id }, "shortcut");
         if (state().expandedId != id) return;
         platform::bringToFront(g_hooks.window); // focused: the card's field has the keys already (Content::fieldFirst)
         dispatch(AllSelected{}, "shortcut"); // open already: its words selected, typing replaces them
@@ -111,21 +96,15 @@ void setKeyboardHooks(KeyboardHooks hooks) { g_hooks = std::move(hooks); }
 
 std::optional<Focusable> keyFocus()
 {
-    // Focus is on an open card or Home: once it closes, the next one starts afresh,
+    // Focus is on an open card: once it closes, the next one starts afresh,
     // and the pill's own buttons in Compact never light up from an old focus.
-    if (mode(state()) != Mode::Expanded) {
-        g_focus.clear();
-        g_homeTile.clear();
-    }
+    if (mode(state()) != Mode::Expanded) g_focus.clear();
     if (g_focus.empty()) return std::nullopt;
     if (auto focused = findFocusable(scene(), g_focus)) return focused;
     if (state().draft) return std::nullopt; // typing: the field has the keys
     // What had focus is gone: a card or page opened, a tab switched, Esc went
-    // back. The keys carry on there: back on Home, at the widget they last
-    // clicked (decision 033); anywhere else, at the first item.
-    std::optional<Focusable> next;
-    if (state().homeOpen && !g_homeTile.empty()) next = findFocusable(scene(), g_homeTile);
-    if (!next) next = firstFocus(scene());
+    // back. The keys carry on there, at the first item.
+    std::optional<Focusable> next = firstFocus(scene());
     g_focus = next ? next->id : std::string();
     return next;
 }
@@ -156,7 +135,7 @@ bool recordKey(WPARAM key, bool inSettings)
 bool navigationKey(WPARAM key)
 {
     bool shift = GetKeyState(VK_SHIFT) < 0, ctrl = GetKeyState(VK_CONTROL) < 0;
-    bool expanded = mode(state()) == Mode::Expanded; // focus only moves on an open card or Home
+    bool expanded = mode(state()) == Mode::Expanded; // focus only moves on an open card
     if (key == VK_RETURN || key == VK_SPACE) {
         activate();
         return true;
@@ -190,13 +169,7 @@ bool navigationKey(WPARAM key)
     case VK_TAB: to = shift ? previousFocus(scene(), g_focus) : nextFocus(scene(), g_focus); break;
     case VK_HOME: to = firstFocus(scene()); break;
     case VK_END: to = lastFocus(scene()); break;
-    default: {
-        // 1 to 9, on the top row or the number pad: Home's widgets, bare keys only.
-        bool digit = (key >= '1' && key <= '9') || (key >= VK_NUMPAD1 && key <= VK_NUMPAD9);
-        if (!digit || ctrl || !expanded || !state().homeOpen) return false;
-        openWidget(key >= VK_NUMPAD1 ? key - VK_NUMPAD1 + 1 : key - '0');
-        return true;
-    }
+    default: return false;
     }
     if (expanded) land(to);
     return true;

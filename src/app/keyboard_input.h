@@ -25,8 +25,7 @@ struct KeyboardHooks {
     std::function<const IslandState&()> state;
     std::function<const Scene&()> scene;
     std::function<void(const Event&, const char* reason)> dispatch;
-    std::function<void(const std::string& id)> clickTab; // "" = Home
-    std::function<void(const Tile&)> clickTile;
+    std::function<void(const std::string& id)> clickTab; // a page's id, or a row button's
     std::function<void(const Hit&)> clickElement;        // with the press feedback a click gives
     HWND window{};                                       // the interaction window: comes to the front with a shortcut
     SettingsProvider* settings = nullptr;                // records new keys for a shortcut
@@ -53,7 +52,7 @@ bool recordKey(WPARAM key, bool inSettings);
 
 // The keys that move around the island (decisions 031, 033): the arrows,
 // Tab and Shift+Tab, Home/End, Ctrl+Tab and Ctrl+Shift+Tab (the next and
-// previous tab), 1 to 9 (Home's widgets), and
+// previous tab), and
 // Enter/Space. True if `key` was one.
 bool navigationKey(WPARAM key);
 

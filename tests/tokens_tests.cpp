@@ -122,8 +122,8 @@ void runTokensTests()
            "an unknown or empty theme changes nothing");
     TokensParse themesBack = parseTokens(toJson(themes.tokens));
     expect(themesBack.ok() && themesBack.tokens == themes.tokens, "themes round-trip through toJson");
-    expect(mentions(parseTokens("{\n\"themes\": {\n\"A\": { \"tileHeight\": 4 } } }"), "line 3") &&
-           mentions(parseTokens(R"({"themes": {"A": {"tileHeight": 4}}})"), "not a colour token"), "a theme only recolours");
+    expect(mentions(parseTokens("{\n\"themes\": {\n\"A\": { \"tabHeight\": 4 } } }"), "line 3") &&
+           mentions(parseTokens(R"({"themes": {"A": {"tabHeight": 4}}})"), "not a colour token"), "a theme only recolours");
     expect(mentions(parseTokens(R"({"themes": {"A": {"islandColr": [0, 0, 0]}}})"), "unknown token"), "a typo in a theme is reported");
     expect(mentions(parseTokens(R"({"themes": {"A": {"islandColor": [0, 0, 300]}}})"), "0..255"), "a theme's colours are checked");
     expect(mentions(parseTokens(R"({"themes": {"A": {}, "A": {}}})"), "appears twice"), "theme names are unique");

@@ -7,7 +7,7 @@ namespace cup {
 namespace {
 
 // Lands where it is now, snapping (placement.h). Dropped because its mode
-// can't stay lifted (it hid, Home opened), it's placed by the resting one.
+// can't stay lifted (it hid, a card opened), it's placed by the resting one.
 void land(IslandState& s)
 {
     Mode m = canLift(mode(s)) ? mode(s) : restingMode(s);

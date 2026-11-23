@@ -47,8 +47,8 @@ inline constexpr const char* kSeek = "seek"; // value = 0..1 fraction
 
 Content nowPlayingContent(const NowPlaying& media);
 
-// The media widget and card while nothing plays (decision 019): Home always
-// has the media widget, so there's one place to look for what's playing.
+// Media's card while nothing plays: its icon is always in the page row
+// (decision 165), so there's one place to look for what's playing.
 Content nothingPlayingContent();
 
 // "Track 3 of 12", "Track 3", or "" when the app doesn't say. It's the

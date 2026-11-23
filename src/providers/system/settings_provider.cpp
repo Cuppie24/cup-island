@@ -47,7 +47,7 @@ std::optional<std::size_t> choiceIndex(const std::string& actionId, const char* 
 void SettingsProvider::start(Host& host)
 {
     host_ = &host;
-    // Settings from anywhere (decision 160): the widget's own tap.
+    // Settings from anywhere (decision 160): its button's own tap.
     host_->publishCommands({ { .id = settings_action::kOpenWindow,
                                .title = "Cup Island settings",
                                .keywords = { "settings", "preferences", "options", "cup island" },
@@ -186,7 +186,7 @@ void SettingsProvider::stop()
 void SettingsProvider::onAction(const Action& action)
 {
     if (!host_) return;
-    if (action.activityId == kPanelId && action.actionId == settings_action::kOpenWindow) return openWindow(); // the widget's tap
+    if (action.activityId == kPanelId && action.actionId == settings_action::kOpenWindow) return openWindow(); // its button's tap
     if (action.windowId != kSettingsWindowId) return;
     const std::string& id = action.actionId;
     const auto& themes = tokens().themes;
@@ -323,7 +323,7 @@ void SettingsProvider::open(SettingsPage page)
     publish();
 }
 
-// From the widget's tap: the window opens on Appearance, or comes to the
+// From its button's tap: the window opens on Appearance, or comes to the
 // front where the user left it (decision 104).
 void SettingsProvider::openWindow()
 {
@@ -362,7 +362,7 @@ void SettingsProvider::rebind(Command command, const Chord& chord)
     }
 }
 
-// All at once, not one by one (decision 103): swapped keys (Home on Ctrl+Alt+Q,
+// All at once, not one by one (decision 103): swapped keys (the island on Ctrl+Alt+Q,
 // the activity on Ctrl+Q) would each clash with the other's on the way back.
 // The defaults never clash among themselves, so everything is let go and
 // registered afresh; one another app has stays the default, and the note says so.

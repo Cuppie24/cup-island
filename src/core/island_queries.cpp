@@ -12,7 +12,7 @@ constexpr Ms kDay{ 24 * 60 * 60 * 1000 };
 
 } // namespace
 
-bool isExpanded(const IslandState& s) { return s.homeOpen || !s.expandedId.empty(); }
+bool isExpanded(const IslandState& s) { return !s.expandedId.empty(); }
 
 const Activity* findActivity(const IslandState& s, const std::string& id)
 {
@@ -30,24 +30,20 @@ const Panel* findPanel(const IslandState& s, const std::string& id)
 
 std::optional<ShownCard> shownCard(const IslandState& s)
 {
-    if (!isExpanded(s) || s.homeOpen) return std::nullopt;
+    if (!isExpanded(s)) return std::nullopt;
     if (const Activity* a = findActivity(s, s.expandedId)) return ShownCard{ a->providerId, a->id };
     if (const Panel* p = findPanel(s, s.expandedId)) return ShownCard{ p->providerId, p->id };
     return std::nullopt;
 }
 
-bool hasWidgets(const IslandState& s)
-{
-    for (const Panel& p : s.panels)
-        if (!p.rowButton) return true;
-    return false;
-}
+bool isPage(const Panel& p) { return !p.rowButton && p.tapAction.empty() && hasCard(p.content); }
 
-bool isNew(const IslandState& s, const Panel& p)
+std::string defaultPage(const IslandState& s)
 {
-    bool opens = p.tapAction.empty() && hasCard(p.content); // a toggle or a static widget has no card to open
-    auto seen = s.seenPanels.find(p.id);
-    return p.announce > 0 && opens && (seen == s.seenPanels.end() || seen->second < p.announce);
+    if (!s.activities.empty()) return s.activities.front().id;
+    for (const Panel& p : s.panels)
+        if (isPage(p)) return p.id;
+    return {};
 }
 
 const Content* cardContent(const IslandState& s, const std::string& id)

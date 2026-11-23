@@ -9,10 +9,11 @@ ask other                           -> dialog=none          # not this card
 ask timer                           -> Expanded dialog=timer
 close-dialog                        -> Expanded dialog=none # answered: the card stays
 
-scenario: not over Home
+scenario: not over another card
 panel focus
-click                               -> expanded=home
-ask focus                           -> dialog=none
+panel notes
+click                               -> expanded=focus
+ask notes                           -> dialog=none
 
 scenario: a question stops typing, and the field can't take focus under it
 start timer
@@ -36,17 +37,17 @@ outside                             -> dialog=none Split
 scenario: a dormant panel's card can ask too
 panel focus
 click
-tile focus
+card focus
 ask focus                           -> dialog=focus
 
 scenario: a toast at a card's bottom goes by itself, when acted on, or with its card (decision 071)
 panel notes keep
 click
-tile notes                          -> Expanded expanded=notes
+card notes                          -> Expanded expanded=notes
 toast notes                         -> Expanded toast=notes
 wait 4999                           -> Expanded toast=notes
 wait 1                              -> Expanded toast=none
 toast notes                         -> Expanded toast=notes
 toast-acted                         -> Expanded toast=none
 toast notes                         -> Expanded toast=notes
-esc                                 -> Expanded expanded=home toast=none
+esc                                 -> Idle toast=none

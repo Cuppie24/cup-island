@@ -8,7 +8,7 @@ namespace cup {
 namespace {
 
 // On the island: typing, a question and a note belong to the shown card.
-bool shown(const IslandState& s, const std::string& activityId) { return !s.homeOpen && !activityId.empty() && s.expandedId == activityId; }
+bool shown(const IslandState& s, const std::string& activityId) { return !activityId.empty() && s.expandedId == activityId; }
 
 } // namespace
 

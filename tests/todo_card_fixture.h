@@ -22,13 +22,12 @@ inline constexpr const char* kGoLive = "live"; // the card becomes an activity's
 // The card: wide, kept open, its rows the list's (appendTodoRows).
 inline Content todoCard(const TodoList& list)
 {
-    Content c{ .label = "To-dos", .card = CardLayout::Centred, .keepOpen = true, .noIdleTimeout = true, .wideCard = true,
-               .tile = { row({ Text{ "To-dos" } }) } };
+    Content c{ .label = "To-dos", .card = CardLayout::Centred, .keepOpen = true, .noIdleTimeout = true, .wideCard = true };
     appendTodoRows(c.expandedCenter, list);
     return c;
 }
 
-inline Panel todoPanel(const TodoList& list = {}) { return { .id = kTodoCard, .content = todoCard(list), .wide = true }; }
+inline Panel todoPanel(const TodoList& list = {}) { return { .id = kTodoCard, .content = todoCard(list) }; }
 
 class TodoCardProvider : public Provider {
 public:

@@ -28,7 +28,7 @@ IslandState cardWithMenus(float screen)
     IslandState s;
     s = reduce(s, ScreenResized{ screen }, Ms{ 0 });
     s = reduce(s, PanelPublished{ { .id = "card", .content = c, .providerId = "p" } }, Ms{ 0 });
-    return reduce(s, TileClicked{ "card" }, Ms{ 0 });
+    return reduce(s, CardOpened{ "card" }, Ms{ 0 });
 }
 
 bool inside(Rect inner, Rect outer)

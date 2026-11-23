@@ -1,6 +1,6 @@
 # 114: Home's widgets a little smaller than the cards
 
-Status: Accepted (amends 111: a widget's sizes). Core tested; the look on Windows needs a run.
+Status: Superseded by 170 (no widgets). Was: Accepted (amends 111: a widget's sizes). Core tested; the look on Windows needs a run.
 
 **Context.** Decision 111 put Home's widgets on the cards' scale: the
 22 px CardTitle at 800, 74 px tiles 12 apart, a 24 px icon. Beside each

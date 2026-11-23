@@ -1,5 +1,5 @@
 #pragma once
-// Settings (decisions 022, 030, 104): a widget on Home that opens the
+// Settings (decisions 022, 030, 104): a button in the page row that opens the
 // Settings window, and what the window's actions do. The app theme, colours
 // from music (decision 052), glass (decision 089), the display (decision 023), Start with Windows, the keyboard
 // shortcuts (decisions 031, 032), Copy logs and Centre island (decision 026).
@@ -76,7 +76,7 @@ public:
     const char* id() const override { return "system.settings"; }
     void start(Host& host) override; // applies the saved theme and display, Start with Windows the first time
     void stop() override;
-    void onAction(const Action& action) override; // the widget's tap (opens the window), the window's rows and choices
+    void onAction(const Action& action) override; // the button's tap (opens the window), the window's rows and choices
     void onWake() override;                       // the note has shown for logsNoteMs: back to "Copy logs"
     void onWindowClosed(const std::string& windowId) override; // reopened, it starts at its pages; what was seen stays seen
 
