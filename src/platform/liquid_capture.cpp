@@ -117,7 +117,7 @@ void LiquidCapture::take(wgc::Direct3D11CaptureFramePool const& pool)
     // Called by Windows: nothing may be thrown back at it (decision 158).
     if (switching_) {
         // In the middle of start(), which holds `guard`: locking it again
-        // from its own thread throws (decision 173). The frame waits in the pool.
+        // from its own thread throws (decision 174). The frame waits in the pool.
         missed_ = true;
         return;
     }

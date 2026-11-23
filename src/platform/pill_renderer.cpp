@@ -1,6 +1,7 @@
 #include "platform/pill_renderer.h"
 #include "platform/log.h"
 
+#include "core/liquid_glass.h"
 #include "core/tokens.h"
 #include "core/tokens_json.h"
 #include "platform/blob_shape.h"
@@ -28,8 +29,9 @@ void PillRenderer::build(wuc::Compositor const& c, wuc::ContainerVisual const& r
     liquid_.onLost = [this] {
         liquidFailed_ = true; // the frosted glass, until liquid is picked again
         pill_.setLiquid(nullptr);
-        bubble_.setLiquid(nullptr);
     };
+    // A fresh picture is up: the open card fades to it (if it's still open).
+    liquid_.onReady = [this] { pill_.showLiquid(liquidDrawn(tokens(), cardOpen_)); };
     syncLiquid();
 }
 
@@ -41,7 +43,6 @@ void PillRenderer::syncLiquid()
         liquidFailed_ = false;
         if (!liquid_.running()) return;
         pill_.setLiquid(nullptr);
-        bubble_.setLiquid(nullptr);
         liquid_.stop();
         return;
     }
@@ -52,18 +53,27 @@ void PillRenderer::syncLiquid()
             return;
         }
     }
+    // The pill only: the bubble is never an open card (decision 172).
     pill_.setLiquid(liquid_.picture());
-    bubble_.setLiquid(liquid_.picture());
     liquid_.refresh(); // the tokens it draws with may be new
+    activateLiquid();
 }
 
 void PillRenderer::layerChanged()
 {
     if (!liquid_.running()) return;
     pill_.setLiquid(nullptr);
-    bubble_.setLiquid(nullptr);
     liquid_.stop();
     syncLiquid();
+}
+
+void PillRenderer::activateLiquid()
+{
+    if (!liquid_.running()) return;
+    bool drawn = liquidDrawn(tokens(), cardOpen_);
+    // Collapsing: the frosted glass back at once, as the capture stops. Opening: onReady shows it.
+    if (!drawn) pill_.showLiquid(false);
+    liquid_.setActive(drawn);
 }
 
 void PillRenderer::placeLiquid(const Scene& scene, const Motion& morph)
@@ -138,6 +148,8 @@ void PillRenderer::apply(const Scene& scene, const SceneMotion& motion)
     pill_.place(scene.size, scene.offset, motion.morph);
     pill_.lift(scene.lifted ? std::optional<float>(scene.offset.x + scene.size.x / 2) : std::nullopt, motion.fling);
     placeLiquid(scene, motion.morph);
+    cardOpen_ = scene.mode == Mode::Expanded;
+    activateLiquid();
     if (motion.pulse) pill_.pulse();
     if (motion.reveal > Ms{ 0 }) revealAt_ = std::chrono::steady_clock::now() + motion.reveal;
     // A side flush with the screen's edge has no ear: it would hang off the

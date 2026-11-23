@@ -283,7 +283,7 @@ void dispatch(const Event& event, const char* reason)
     if (g_applying && g_uiQueue) {
         // Called while the scene before it is still being applied: the
         // renderer let Windows run this thread's messages (a capture
-        // starting, decision 173) and the fullscreen watcher answered one.
+        // starting, decision 174) and the fullscreen watcher answered one.
         // Carried on from here, the outer dispatch would then put its older
         // scene over this one. So: after it.
         logLine("dispatch (%s) came in the middle of another: after it", reason);

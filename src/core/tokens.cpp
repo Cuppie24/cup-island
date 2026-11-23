@@ -82,6 +82,15 @@ GlowLook glowLook(const Tokens& t, bool card)
     return { t.islandCardGlowColor, t.glassCardGlowHeight, t.glassCardGlowCurve, t.islandGlowEdgeColor };
 }
 
+GlowLook glowTowards(const GlowLook& next, const GlowLook& shown)
+{
+    if (next.color.a != 0 || shown.color.a == 0) return next;
+    GlowLook out = shown;
+    out.color.a = 0;
+    out.edge = next.edge; // the edge line goes back to the rim's own, as before
+    return out;
+}
+
 ArtShadow artShadow(const Tokens& t)
 {
     if (t.artGlowColor.a == 0) return { t.artShadowColor, t.artShadowBlur, t.artShadowOffset };

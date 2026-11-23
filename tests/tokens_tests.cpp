@@ -252,6 +252,17 @@ void runTokensTests()
     expect(!recolorCurve(fades, Ms{ 120 }) && !recolorCurve(fades, Ms{ 799 }), "a quick fade (hover, a switch) keeps the compositor's curve");
     expect(parseTokens(R"({"recolorEase": [0.6, 0, 0.4, 1]})").tokens.recolorEase == Bezier{ { 0.6f, 0 }, { 0.4f, 1 } }, "recolorEase is a token");
     expect(Tokens{}.recolorEase.c1.y == 0 && Tokens{}.recolorEase.c2.y == 1, "by default a recolour starts and ends at rest");
+    // A glow going out keeps what was shown, only clear (decision 173).
+    GlowLook cardGlow{ Color{ 200, 120, 40, 180 }, 120.0f, 1.5f, Color{ 220, 150, 60, 90 } };
+    GlowLook gone{ Color{ 0, 0, 0, 0 }, 40.0f, 2.5f };
+    GlowLook leaving = glowTowards(gone, cardGlow);
+    expect(leaving.color == Color{ 200, 120, 40, 0 } && leaving.height == 120.0f && leaving.curve == 1.5f && leaving.edge.a == 0,
+           "a glow going out: the colour it had, clear; the reach and curve it had; no edge line");
+    GlowLook nextCover{ Color{ 40, 90, 200, 160 }, 40.0f, 2.5f };
+    GlowLook arriving = glowTowards(nextCover, cardGlow);
+    expect(arriving.color == nextCover.color && arriving.height == 40.0f, "another cover's glow: as it is");
+    expect(glowTowards(cardGlow, gone).height == 120.0f && glowTowards(gone, gone).height == 40.0f,
+           "a glow coming in from none, or none from none: as it is");
     // Acrylic's even brightness at each Transparency pick (decision 100):
     // its colour's opacity times the pick's share, clearer as the pick goes up.
     Tokens lum = solid;

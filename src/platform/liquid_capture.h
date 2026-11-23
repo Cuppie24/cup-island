@@ -30,7 +30,7 @@ public:
     bool running() const { return session_ != nullptr; }
     // Inside start() or stop(). Both call into another process, and Windows
     // runs this thread's messages while they wait: the app can be called in
-    // the middle of one, `guard` held (decision 173). No frame is taken then.
+    // the middle of one, `guard` held (decision 174). No frame is taken then.
     bool switching() const { return switching_; }
     // Takes a frame that came during a switch. Call with `guard` not held.
     void catchUp();

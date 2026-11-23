@@ -1,4 +1,4 @@
-# 173: The island is called back while the capture switches (a crash under Snipping Tool)
+# 174: The island is called back while the capture switches (a crash under Snipping Tool)
 
 Status: Accepted; built, not yet run on Windows (amends 165)
 
@@ -29,7 +29,7 @@ inner one compared against a scene the outer one hadn't stored yet.
 
 **Decision.**
 - **`LiquidCapture::switching()`** is true inside its `start()` and
-  `stop()`. While it is, on the UI thread, `LiquidGlass::place()`,
+  `stop()`. While it is, on the UI thread, `LiquidGlass::place()`, `setActive()`,
   `refresh()` and `render()` don't lock (their caller up the stack holds
   the lock): they record what's wanted, set `again_`, and leave.
   `syncCapture()` loops while `again_`, so a capture started for a shape

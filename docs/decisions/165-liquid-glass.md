@@ -1,6 +1,6 @@
 # 165: Liquid glass: a second glass, from a captured picture of the desktop
 
-Status: Accepted; built, not yet run on Windows (amends 089, which ruled refraction out; 096's Glass page)
+Status: Accepted; built, not yet run on Windows (amends 089, which ruled refraction out; 096's Glass page); drawn only for an open card by 172
 
 **Context.** The island's glass (decision 089) is frosted: Windows' blurred
 desktop at one brightness under a tint. The user asked for liquid glass
@@ -115,8 +115,8 @@ frosted glass stays as it was and stays the default.
   refresh later; with the lip's light that showed as a band of light off
   the edge on a collapse, so the shapes are drawn where they are, and the
   lip's light, the one thing in the picture with a sharp place of its
-  own, is out while a shape moves and back within 50 ms of it coming home (at
-  first over 220 ms, which read as the light arriving late).) The capture itself, and
+  own, is out while a shape moves and fades back in over 200 ms once it's home
+  (50 ms was tried, to have it back at once; the user took it back).) The capture itself, and
   anything that touches a visual, stays on the UI thread.
 - **Fallbacks.** Anything refused (no hardware device, the window can't be
   left out of captures, the capture, a shader) is logged with its step and

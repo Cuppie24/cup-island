@@ -83,10 +83,12 @@ public:
     wuc::ShapeVisual const& body() const { return body_; } // for the liquid bridge's expressions
 
     // Liquid glass (decision 165): `picture` is the bent desktop, as large as
-    // the render layer and aligned with it; shown through this shape's outline
-    // in place of Windows' blur while tokens().glassStyle is Liquid. Null: the
-    // frosted glass again.
+    // the render layer and aligned with it. Kept ready in a sprite of its own
+    // over the frosted glass, cut by the same outline; null: none.
     void setLiquid(wuc::ICompositionSurface const& picture);
+    // ...and shown or not (decision 172: only while a card is open): it
+    // fades in over the frosted glass, which is always under it, and out.
+    void showLiquid(bool on);
 
 private:
     void playScale(float scale, Ms duration, Bezier curve);
@@ -129,7 +131,8 @@ private:
     GraphicsDevice* device_ = nullptr; // build()'s: draws the brightness surface
     wuc::CompositionBrush frosted_{ nullptr };      // the glass's own brush: Windows' blur, cut (decision 089)
     wuc::ICompositionSurface liquid_{ nullptr };    // setLiquid()'s picture
-    bool liquidShown_ = false;                      // the glass shows it now
+    wuc::SpriteVisual liquidGlass_{ nullptr };      // ...in its own sprite, over glass_, under the twin's tint
+    bool liquidShown_ = false;                      // showLiquid(): faded in
     wuc::CompositionBrush liquidBrush();            // the picture where the desktop is, cut by the outline
     bool glassTried_ = false; // made once, or failed once: not tried again
     bool glassShown_ = false;
@@ -144,6 +147,9 @@ private:
     bool card_ = false; // an open card's glow (glowLook, decision 166)
     void buildGlow(wuc::Compositor const& compositor, wuc::CompositionGeometry const& outline);
     void fadeGlow(Ms duration);
+    // The glow now heading for: the tokens', or going out, the one last shown, clear (glowTowards, decision 173).
+    GlowLook glowNow() const { return glowTowards(glowLook(tokens(), card_), glowShown_); }
+    GlowLook glowShown_; // the last glow with any colour
     void buildRim(wuc::Compositor const& compositor);
     void applyGlass(Ms duration); // tokens().glass: on or off, and the rim's colour and width
     wuc::CompositionPropertySet shape_{ nullptr }; // MaxRadius, FlareRadius, Attached, Flare, Left/RightEar: read by the shape expressions
