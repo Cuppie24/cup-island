@@ -19,6 +19,7 @@ uses it unless a rule below says otherwise.
 | The card's one main action (▶/⏸) | `Button::primary` | 50 circle, 22 px glyph (44 and 18 `compact`, where a row is short) |
 | The controls beside it (previous/next, stop/skip) | `Button::large` | 40, 20 px glyph |
 | Less-used controls (shuffle, repeat, the window's button) | `Button::secondary` | 36 (32 `compact`) |
+| One of several values side by side (statistics' percents, decision 171) | `TextStyle::CardTitle` over a `Progress` bar, its name and detail `Caption`, in `Row::even` rows | 20 px at 800 |
 
 Spacing:
 - A card's row of controls is `loose` (`looseItemSpacing` 24); groups of rows

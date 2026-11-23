@@ -576,6 +576,16 @@ struct Tokens {
     std::size_t pomodoroRounds = 4;
     // A session counts as finished (decision 061) with at most this many focus phases skipped.
     std::size_t pomodoroFocusSkipsAllowed = 1;
+    // Statistics (decision 171). Whole numbers, so the display's scale never touches them:
+    // a load (percent) or a temperature (°C) from here up is high, a battery (percent) down
+    // to here low; a temperature past the plausible one is a broken sensor, shown as none.
+    std::size_t statsHighLoad = 90;
+    std::size_t statsHighTemperature = 85;
+    std::size_t statsPlausibleTemperature = 125;
+    std::size_t statsLowBattery = 20;
+    std::size_t statsBluetoothShown = 3;       // Bluetooth devices on the card, the "+2 more" included
+    std::size_t statsDeviceNameMaxLength = 16; // a device's name, in characters, before its "…"
+    Ms statsRefresh{ 2000 };                   // while its card is shown: a new reading this often
     std::size_t todoMaxLength = 150; // characters in a to-do: wraps onto a few lines at most (decision 045)
     std::size_t taskGroupNameMaxLength = 40; // a task group's name, edited in place (decision 117)
     // Lists (Row::list, decision 029): the window shows this many rows (the

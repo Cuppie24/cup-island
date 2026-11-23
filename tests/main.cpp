@@ -19,6 +19,7 @@ void runFullscreenTests();
 void runPageRowTests();
 void runPomodoroTests();
 void runPomodoroStatsTests();
+void runStatisticsTests();
 void runSystemTests();
 void runItemTests();
 void runTodoTests();
@@ -68,6 +69,7 @@ int main(int argc, char** argv)
     runPageRowTests();
     runPomodoroTests();
     runPomodoroStatsTests();
+    runStatisticsTests();
     runSystemTests();
     runItemTests();
     runTodoTests();

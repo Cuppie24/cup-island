@@ -86,6 +86,9 @@ add_library(cup_providers STATIC
     src/providers/pomodoro/pomodoro_session.cpp
     src/providers/pomodoro/pomodoro_stats.cpp
     src/providers/pomodoro/todo_list.cpp
+    src/providers/statistics/statistics_provider.cpp
+    src/providers/statistics/stats_card.cpp
+    src/providers/statistics/stats_format.cpp
     src/providers/system/settings_window.cpp
     src/providers/system/settings_provider.cpp
     src/providers/system/system_panels.cpp
@@ -154,6 +157,7 @@ if(CUP_BUILD_TESTS)
         tests/settings_tests.cpp
         tests/settings_new_tests.cpp
         tests/shortcut_settings_tests.cpp
+        tests/statistics_tests.cpp
         tests/store_tests.cpp
         tests/system_tests.cpp
         tests/todo_tests.cpp
