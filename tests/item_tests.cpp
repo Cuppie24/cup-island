@@ -73,10 +73,9 @@ void runItemTests()
         Rect slot{ 0, 0, 200, 100 };
         Progress plain{ .timeline = running }, wavy{ .timeline = running, .wavy = true };
         Progress seekWavy{ .timeline = running, .seekable = true, .wavy = true };
-        expect(heightOf(wavy, slot, 0) == waveHeight() && waveSwing() == t.progressHeight + 2 * t.progressWaveAmplitude &&
-                   waveHeight() == 2 * t.progressWaveAmplitude + std::max(t.progressHeight, t.progressWavePinSize) &&
+        expect(heightOf(wavy, slot, 0) == waveHeight() && waveHeight() == t.progressHeight + 2 * t.progressWaveAmplitude &&
                    heightOf(wavy, slot, 0) > heightOf(plain, slot, 0),
-               "a wavy bar is as tall as its wave's swing with the pin riding it");
+               "a wavy bar is as tall as its wave's swing");
         expect(heightOf(seekWavy, slot, 0) == std::max(t.progressHitHeight, waveHeight()), "a seekable wavy bar keeps its click height");
         expect(isWavy(wavy) && !isWavy(plain) && !isWavy(Progress{ .timeline = running, .shape = ProgressShape::Ring, .wavy = true }),
                "only a bar is wavy, never a ring");

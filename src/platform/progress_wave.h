@@ -5,7 +5,7 @@
 // it follows playback and scrubbing with no code of its own; it ripples
 // back from its head while playing and lies flat, a plain bar, when not.
 // Neither end is a straight cut: its start shows through a round-ended
-// window, and its head ends in a pin (createProgress). All on the
+// window, and its head has a round cap that rides it (createProgress). All on the
 // compositor (TR §5).
 
 #include "platform/win.h"

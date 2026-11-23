@@ -32,14 +32,17 @@ doesn't restart the run. The line's points are core's (`wavePoints`),
 tested there. If the path can't be made, it's logged and the bar is plain.
 
 - Neither end is a straight cut (the first build's were, and looked
-  cropped). The head ends in a round pin (`progressWavePinSize`, 8) that
-  rides up and down with the line: its centre is an expression of the
-  line's slide and of how flat it lies, the same sine the path was made
-  from. (An upright pin fixed on the bar's line was tried first: it didn't
-  move with the head.) The hover knob rides the same point, and both are in
-  a layer over the wave, so the knob covers it. The start shows through a window with
-  round ends (a geometric clip), so it's cut along a curve.
+  cropped). The head has a round cap: a dot as wide as the line is thick,
+  whose centre is an expression of the line's slide and of how flat it
+  lies, the same sine the path was made from, so it stays on the line's end
+  as that rides up and down. The start shows through a window with round
+  ends (a geometric clip), so it's cut along a curve. The hover knob rides
+  the head too, and it and the cap are in a layer over the wave, so the
+  knob covers it.
+- **Not taken.** A pin at the head, bigger than the line: upright and fixed
+  on the bar's line, the wave slid up and down against it; round and riding
+  the head, it bobbed. Both were tried on Windows and turned down.
 
-**Consequences.** Paused, the bar is a plain one with the pin at its head. Tested in
+**Consequences.** Paused, the bar is a plain one with round ends. Tested in
 `tests/item_tests.cpp` (height, the line) and `tests/media_tests.cpp`.
 How it looks and moves needs a Windows run; the four numbers are live tokens.
