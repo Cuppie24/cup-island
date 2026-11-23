@@ -157,7 +157,7 @@ const Field kFields[] = {
     { "progressKnobSize", &Tokens::progressKnobSize },
     { "progressWaveLength", &Tokens::progressWaveLength },
     { "progressWaveAmplitude", &Tokens::progressWaveAmplitude },
-    { "progressWavePinHeight", &Tokens::progressWavePinHeight },
+    { "progressWavePinSize", &Tokens::progressWavePinSize },
     { "timeLabelWidth", &Tokens::timeLabelWidth },
     { "ringThickness", &Tokens::ringThickness },
     { "stepDotSize", &Tokens::stepDotSize },

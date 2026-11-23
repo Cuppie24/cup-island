@@ -218,7 +218,7 @@ struct Tokens {
     // the bar's line, how long one wave takes to pass, and how long it takes to lie flat or rise again.
     float progressWaveLength = 28;
     float progressWaveAmplitude = 3;
-    float progressWavePinHeight = 12; // the pin at the wave's head, as wide as the bar is thick: the wave ends in it, not in a cut
+    float progressWavePinSize = 8; // the round pin at the wave's head, riding up and down with it: the wave ends in it, not in a cut
     Ms progressWavePeriod{ 1500 };
     Ms progressWaveSettle{ 300 };
     float timeLabelWidth = 56;  // fits "-1:02:05" at captionFontSize
