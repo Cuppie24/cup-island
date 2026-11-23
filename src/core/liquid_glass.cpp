@@ -22,6 +22,8 @@ LiquidShape liquidShape(Rect body, bool attached, bool leftEar, bool rightEar, c
     return { body, radius, top, leftEar ? ear : 0.0f, rightEar ? ear : 0.0f };
 }
 
+bool liquidRing(const Button& button) { return button.large && !button.primary; }
+
 Rect morphRect(Rect from, Rect to, const Motion& motion, Ms elapsed)
 {
     if (motion.duration <= Ms{ 0 } || elapsed >= motion.duration) return to;

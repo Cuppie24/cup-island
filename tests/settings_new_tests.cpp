@@ -313,16 +313,22 @@ void glassTests()
     liquid.onAction(fromWindow(std::string(P::kPickGlass) + "2"));
     expect(said.back() == "on" && said[said.size() - 2] == "liquid" && lh.store[SettingsProvider::kGlassKey] == "liquid" && effect().picked == 2,
            "liquid glass: picked, saved, the page stays");
+    expect(lh.toasts.size() == 1 && lh.toasts[0].text == "Liquid glass uses more GPU and battery" && !lh.toasts[0].windowId.empty() &&
+               detailOf(lh, "Glass effect") == "Uses more GPU and battery. Hides the island from screenshots",
+           "liquid glass: picking it warns what it costs, over the page, and its row keeps saying so");
+    liquid.onAction(fromWindow(std::string(P::kPickGlass) + "2"));
+    expect(lh.toasts.size() == 1, "liquid glass: picked again while on: no second warning");
     liquid.onAction(fromWindow(P::kBack));
     expect(detailOf(lh, "Glass") == "Liquid", "liquid glass: Appearance says so");
     liquid.stop();
     said.clear();
     liquid.start(lh);
-    expect(said == std::vector<std::string>{ "liquid", "on" }, "liquid glass: kept over a restart");
+    expect(said == std::vector<std::string>{ "liquid", "on" } && lh.toasts.size() == 1, "liquid glass: kept over a restart, without warning again");
     openWindow(liquid);
     liquid.onAction(fromWindow(P::kOpenGlass));
     liquid.onAction(fromWindow(std::string(P::kPickGlass) + "0"));
     expect(said.back() == "off" && lh.store[SettingsProvider::kGlassKey] == "off" && effect().picked == 0, "liquid glass: off is the first pick");
+    expect(detailOf(lh, "Glass effect") == "Only in dark themes", "liquid glass: off or frosted, the row says what it always said");
     liquid.onAction(fromWindow(std::string(P::kPickGlass) + "1"));
     expect(said.back() == "on" && said[said.size() - 2] == "frosted" && lh.store[SettingsProvider::kGlassKey] == "on" && effect().picked == 1,
            "liquid glass: and frosted again is the old glass, saved as before");

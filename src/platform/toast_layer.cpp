@@ -42,6 +42,16 @@ void ToastLayer::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Co
     elements_.init(c, device, layer_); // its text and button, above the pill
 }
 
+void ToastLayer::setShiny()
+{
+    if (shine_.shape) return;
+    const Tokens& t = tokens();
+    shine_ = makeShine(compositor_, std::max(t.glassRimWidth, 1.0f) * 1.5f);
+    background_.Shapes().Append(shine_.shape); // over the pill's own edge; placed with the next toast
+    fadeShine(shine_, liquidShine(t), Ms{ 1 });
+    elements_.setShiny(true); // its button too
+}
+
 void ToastLayer::show(const std::optional<ToastScene>& toast, Ms now)
 {
     elements_.apply(toast ? toast->elements : std::vector<Placed>{}, now);
@@ -52,6 +62,7 @@ void ToastLayer::show(const std::optional<ToastScene>& toast, Ms now)
         background_.Size({ f.width, f.height });
         shape_.Size({ f.width, f.height });
         shape_.CornerRadius({ toast->radius, toast->radius });
+        placeShine(shine_, { 0, 0, f.width, f.height }, toast->radius);
     }
     if (toast) slide_ = toast->slide;
     if (toast.has_value() != shown_) animate(toast.has_value(), slide_); // a new one over a shown one just takes its place
@@ -90,6 +101,7 @@ void ToastLayer::refresh(bool coloursOnly)
 {
     fadeColor(fill_, tokens().islandHighlightColor);
     fadeColor(edge_, tokens().trackColor);
+    fadeShine(shine_, liquidShine(tokens()), recolorDuration(tokens()));
     applyShadow(); // a light theme's is fainter; tokens.json may have changed its size
     elements_.refresh(coloursOnly);
 }

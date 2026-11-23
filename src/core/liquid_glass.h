@@ -4,6 +4,7 @@
 // the compositor; this only says where the rim's bend goes, so a pixel or
 // two of difference mid-morph doesn't show. Pure: time is passed in.
 
+#include "core/content.h"
 #include "core/geometry.h"
 #include "core/motion.h"
 #include "core/tokens.h"
@@ -30,6 +31,12 @@ struct LiquidShape {
 // 026 takes one away where it's flush with the screen's side), so the
 // glass's outline follows them. Nothing (an empty frame) if it has no size.
 LiquidShape liquidShape(Rect body, bool attached, bool leftEar, bool rightEar, const Tokens& t);
+
+// On liquid glass, a button with no fill of its own that still gets a shiny
+// edge round its frame: a card's main controls beside its primary one
+// (media's skips, Button::large). The small ones (a row's, the page row's)
+// stay bare: a ring round each would be noise. Filled buttons shine with their fill.
+bool liquidRing(const Button& button);
 
 // Where a morph from `from` to `to` has got to, `elapsed` after it started:
 // the same spring the compositor runs (springProgress), overshoot included.

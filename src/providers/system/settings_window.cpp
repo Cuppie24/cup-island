@@ -209,7 +209,10 @@ void glassPage(WindowPage& page, const SettingsView& v)
     // Where liquid glass can be drawn, three picks in place (decision 165);
     // elsewhere the switch (decision 089). Light themes stay solid either way.
     if (v.glass && v.liquidGlass)
-        rows.rows.push_back(marked(segmentsRow("Glass effect", "Only in dark themes. Liquid hides the island from screenshots", { "Off", "Frosted", "Liquid" },
+        // While Liquid is picked the row says what it costs (decision 165).
+        rows.rows.push_back(marked(segmentsRow("Glass effect",
+                                               *v.glass && *v.liquidGlass ? "Uses more GPU and battery. Hides the island from screenshots" : "Only in dark themes",
+                                               { "Off", "Frosted", "Liquid" },
                                                !*v.glass ? 0u : *v.liquidGlass ? 2u : 1u, P::kPickGlass),
                                    "liquidglass", v));
     else if (v.glass) rows.rows.push_back(toggleRow("Glass effect", *v.glass, P::kToggleGlass, "Only in dark themes"));
