@@ -145,26 +145,43 @@ bool LiquidGlass::anyShown() const
     return false;
 }
 
+bool LiquidGlass::move(int which, Rect body, bool attached, bool leftEar, bool rightEar, const Motion& motion)
+{
+    Moving& shape = shapes_[static_cast<std::size_t>(which)];
+    if (body == shape.to && attached == shape.attached && leftEar == shape.leftEar && rightEar == shape.rightEar) return false;
+    shape.leftEar = leftEar;
+    shape.rightEar = rightEar;
+    auto now = Clock::now();
+    shape.from = where(shape, now); // an interrupted morph carries on from where it got to
+    shape.to = body;
+    shape.attached = attached;
+    shape.motion = motion;
+    shape.started = now;
+    return true;
+}
+
 void LiquidGlass::place(int which, Rect body, bool attached, bool leftEar, bool rightEar, const Motion& motion)
 {
+    if (capture_.switching()) {
+        // Called from inside syncCapture(): this thread holds lock_ already,
+        // and taking it again throws (decision 173). syncCapture() goes on from here.
+        if (move(which, body, attached, leftEar, rightEar, motion)) again_ = true;
+        return;
+    }
     {
         std::lock_guard<std::mutex> held(lock_);
-        Moving& shape = shapes_[static_cast<std::size_t>(which)];
-        if (body == shape.to && attached == shape.attached && leftEar == shape.leftEar && rightEar == shape.rightEar) return;
-        shape.leftEar = leftEar;
-        shape.rightEar = rightEar;
-        auto now = Clock::now();
-        shape.from = where(shape, now); // an interrupted morph carries on from where it got to
-        shape.to = body;
-        shape.attached = attached;
-        shape.motion = motion;
-        shape.started = now;
+        if (!move(which, body, attached, leftEar, rightEar, motion)) return;
     }
     render();
 }
 
 void LiquidGlass::refresh()
 {
+    if (capture_.switching()) { // as in place()
+        look_ = tokens();
+        again_ = true;
+        return;
+    }
     {
         std::lock_guard<std::mutex> held(lock_);
         look_ = tokens();
@@ -174,21 +191,30 @@ void LiquidGlass::refresh()
 
 void LiquidGlass::syncCapture()
 {
-    bool shown = anyShown();
-    if (shown && !capture_.running()) {
-        capture_.start(layer_, device_.get(), lock_, [this] { render(); });
-        logLine("glass: liquid: capturing the screen (%.0fx%.0f); the island is left out of screenshots", capture_.size().x, capture_.size().y);
-    } else if (!shown && capture_.running()) {
-        // Hidden (a fullscreen app, decision 032): nothing is captured, nothing costs.
-        capture_.stop();
-        logLine("glass: liquid: the island has no size: the capture is paused");
-    }
+    // Again if a shape was placed while the capture switched (decision 173):
+    // what was started for a shape may by now be for none.
+    do {
+        again_ = false;
+        bool shown = anyShown();
+        if (shown && !capture_.running()) {
+            capture_.start(layer_, device_.get(), lock_, [this] { render(); });
+            logLine("glass: liquid: capturing the screen (%.0fx%.0f); the island is left out of screenshots", capture_.size().x, capture_.size().y);
+        } else if (!shown && capture_.running()) {
+            // Hidden (a fullscreen app, decision 032): nothing is captured, nothing costs.
+            capture_.stop();
+            logLine("glass: liquid: the island has no size: the capture is paused");
+        }
+    } while (again_);
 }
 
 void LiquidGlass::render()
 {
     // The UI thread's, called by the app or by Windows (a new picture):
     // nothing thrown back (decision 158).
+    if (capture_.switching()) { // from inside syncCapture(), which draws when it's done (decision 173)
+        again_ = true;
+        return;
+    }
     bool moving = false;
     try {
         std::lock_guard<std::mutex> held(lock_);
@@ -199,8 +225,12 @@ void LiquidGlass::render()
     } catch (winrt::hresult_error const& e) {
         lost("frame", e); // not holding lock_
         return;
+    } catch (std::exception const& e) { // not Windows' own: still nothing thrown back
+        logLine("glass: liquid: a frame failed (%s)", e.what());
+        return;
     }
     if (moving) wake_.notify_one(); // the thread takes it from here
+    capture_.catchUp();             // a picture that came while the capture switched
 }
 
 void LiquidGlass::pass(ID3D11RenderTargetView* target, SIZE size, D3D11_RECT scissor, ID3D11PixelShader* shader, ID3D11ShaderResourceView* source,

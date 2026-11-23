@@ -114,6 +114,13 @@ HWND g_inputHwnd{};
 // dispatch from any other is re-queued here (decision 060).
 std::thread::id g_uiThread;
 winrt::Windows::System::DispatcherQueue g_uiQueue{ nullptr };
+bool g_applying = false; // dispatch() is between the new state and its scene being the shown one
+struct Applying {
+    Applying() { g_applying = true; }
+    ~Applying() { g_applying = false; }
+    Applying(const Applying&) = delete;
+    Applying& operator=(const Applying&) = delete;
+};
 std::filesystem::path g_tokensFile;
 RenderLayer g_render;
 std::string g_displayId; // the monitor the island is on (decision 023); "" = the main display
@@ -273,6 +280,18 @@ void dispatch(const Event& event, const char* reason)
         });
         return;
     }
+    if (g_applying && g_uiQueue) {
+        // Called while the scene before it is still being applied: the
+        // renderer let Windows run this thread's messages (a capture
+        // starting, decision 173) and the fullscreen watcher answered one.
+        // Carried on from here, the outer dispatch would then put its older
+        // scene over this one. So: after it.
+        logLine("dispatch (%s) came in the middle of another: after it", reason);
+        g_uiQueue.TryEnqueue([event, why = std::string(reason)] {
+            guardedTask("in a put-off dispatch", [&] { dispatch(event, why.c_str()); });
+        });
+        return;
+    }
     Ms t = now();
     Spot spot = g_state.spot;
     bool wasHidden = g_state.hidden;
@@ -288,6 +307,7 @@ void dispatch(const Event& event, const char* reason)
     }
     // One motion for the renderer and the window that follows it (decisions 001, 080).
     SceneMotion motion = sceneMotion(g_island.scene, next, flingVelocity(g_drag, t, tokens()), tokens());
+    Applying applying; // until the scene is the shown one, or this is left by an exception
     g_renderer.apply(next, motion);
     Rect bounds = interactiveBounds(next), was = interactiveBounds(g_island.scene);
     // Lifted, the window stays where the press went down: it has capture, so
@@ -297,6 +317,7 @@ void dispatch(const Event& event, const char* reason)
     if (!next.lifted && (bounds != was || g_island.scene.lifted)) followMorph({ bounds.width, bounds.height }, { bounds.x, bounds.y }, motion);
     bool lifted = next.lifted && !g_island.scene.lifted;
     g_island.scene = next;
+    g_applying = false; // from here a dispatch inside this one is meant (tokensChanged, Settings)
     if (lifted) onLifted();
     if (g_state.spot != spot) saveSpot();
     if (shownCard(g_state) != wasCard) pointerStill(g_island); // a card opened or switched under the pointer (decision 087)
