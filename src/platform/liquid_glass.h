@@ -6,8 +6,12 @@
 // shapes are (core/liquid_glass.h), which it works out from the same springs.
 // Unlike the rest of the renderer it draws per frame: whenever the desktop
 // changes, and while a shape moves. Nothing while the island has no size.
+// While a shape moves the frames come from a thread of its own, one a screen
+// refresh: the UI thread is busy just then (a collapse builds the pill's
+// content), and frames drawn from it came late, the rim trailing the edge.
 
 #include "core/liquid_glass.h"
+#include "core/tokens.h"
 #include "platform/liquid_capture.h"
 #include "platform/win.h"
 
@@ -16,7 +20,10 @@
 
 #include <array>
 #include <chrono>
+#include <condition_variable>
 #include <functional>
+#include <mutex>
+#include <thread>
 
 namespace cup::platform {
 
@@ -24,6 +31,11 @@ struct LiquidParams; // liquid_shader.h
 
 class LiquidGlass {
 public:
+    LiquidGlass() = default;
+    ~LiquidGlass(); // its thread is stopped first
+    LiquidGlass(const LiquidGlass&) = delete;
+    LiquidGlass& operator=(const LiquidGlass&) = delete;
+
     // Where Windows can draw it at all (liquidCaptureOffered).
     static bool offered() { return liquidCaptureOffered(); }
 
@@ -40,7 +52,7 @@ public:
     // `motion` (no duration: there at once). Kept while stopped, too.
     // `leftEar`, `rightEar`: it has that flared top corner (Blob::setEars).
     void place(int which, Rect body, bool attached, bool leftEar, bool rightEar, const Motion& motion);
-    void refresh() { render(); } // tokens changed
+    void refresh(); // tokens changed
 
     // It stopped by itself (the GPU was reset, Windows ended the capture): show the frosted glass.
     std::function<void()> onLost;
@@ -56,10 +68,22 @@ private:
     Rect where(const Moving& shape, std::chrono::steady_clock::time_point now) const;
     bool anyShown() const; // a shape with a size, or still shrinking to none
     void build(wuc::Compositor const& compositor, const char*& step);
-    void syncCapture();    // on while there's a shape to draw, off otherwise
+    // The UI thread's: the capture on or off, then a frame. Errors end it (lost).
     void render();
-    void draw();
-    void lost(const char* step, winrt::hresult_error const& error);
+    void syncCapture(); // on while there's a shape to draw, off otherwise; lock_ held
+    void draw();        // one frame; lock_ held, either thread
+    void lost(const char* step, winrt::hresult_error const& error); // UI thread, lock_ not held
+    void tick();        // the thread's: frames while moving_
+
+    // Everything below is shared with the thread and touched only with lock_
+    // held (Direct3D's context takes one thread at a time).
+    std::mutex lock_;
+    std::condition_variable wake_;
+    std::thread ticker_;
+    bool moving_ = false; // a shape is on its way: the thread draws
+    bool quit_ = false;
+    Tokens look_;         // tokens(), copied on the UI thread: the thread never reads the live ones
+    winrt::Windows::System::DispatcherQueue queue_{ nullptr }; // the UI thread's: where the thread hands back
 
     bool running_ = false;
     HWND layer_ = nullptr;
@@ -67,8 +91,6 @@ private:
     SIZE layerSize_{};
     std::array<Moving, 2> shapes_;
     LiquidCapture capture_;
-    winrt::Windows::System::DispatcherQueueTimer timer_{ nullptr }; // frames while a shape moves and the desktop doesn't
-    winrt::event_token tick_{};
     wuc::ICompositionSurface surface_{ nullptr };
     winrt::com_ptr<ID3D11Device> device_;
     winrt::com_ptr<ID3D11DeviceContext> context_;

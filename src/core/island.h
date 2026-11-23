@@ -133,6 +133,9 @@ struct Dialog {
     // the confirm action's Action::text is what's in it ("Rename group").
     std::optional<std::string> field;
     std::size_t fieldMaxLength = 0; // ...at most this many characters; 0: no limit
+    // Over a window only (decision 165): an icon over the title, saying what
+    // kind of question it is at a glance (a gauge: this costs performance).
+    std::optional<Glyph> glyph;
     bool operator==(const Dialog&) const = default;
 };
 

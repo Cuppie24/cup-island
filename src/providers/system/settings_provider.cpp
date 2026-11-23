@@ -139,7 +139,6 @@ void SettingsProvider::pickFade(FadeSpeed speed)
 
 void SettingsProvider::pickGlass(bool on, bool liquid)
 {
-    bool wasLiquid = liquid_;
     glass_ = on;
     liquid_ = on && liquid;
     // The style first, so glass coming on is the picked one from its first frame.
@@ -147,9 +146,6 @@ void SettingsProvider::pickGlass(bool on, bool liquid)
     hooks_.setGlass(glass_);
     host_->save(kGlassKey, !glass_ ? "off" : liquid_ ? "liquid" : "on");
     publish();
-    // Said when it's picked, over the page (decision 121): liquid glass is the
-    // one look that costs something while it's on (decision 165).
-    if (liquid_ && !wasLiquid) host_->toast({ .text = "Liquid glass uses more GPU and battery", .windowId = kSettingsWindowId });
 }
 
 void SettingsProvider::pickTransparency(Transparency level)
@@ -278,7 +274,22 @@ void SettingsProvider::onAction(const Action& action)
         pickGlass(!glass_, false);
     } else if (auto at = choiceIndex(id, settings_action::kPickGlass); at && hooks_.setGlass && hooks_.setGlassStyle) {
         // The page stays: the island, changed at once, is the preview.
-        if (*at <= 2) pickGlass(*at != 0, *at == 2);
+        // Liquid is asked about first (decision 165): it's the one look that
+        // costs something while it's on. Nothing changes until it's answered
+        // yes; the row is drawn again as it was, under the question.
+        if (*at == 2 && !liquid_) {
+            publish();
+            host_->ask({ .title = "Turn on liquid glass?",
+                         .message = "It uses more GPU and battery while the screen changes, and hides the island from screenshots and recordings.",
+                         .confirmLabel = "Turn on",
+                         .confirmAction = settings_action::kConfirmLiquid,
+                         .windowId = kSettingsWindowId,
+                         .glyph = Glyph::Gauge });
+        } else if (*at <= 2) {
+            pickGlass(*at != 0, *at == 2);
+        }
+    } else if (id == settings_action::kConfirmLiquid && hooks_.setGlass && hooks_.setGlassStyle) {
+        pickGlass(true, true);
     } else if (id == settings_action::kToggleGlassWindows && hooks_.setGlassWindows) {
         glassWindows_ = !glassWindows_;
         hooks_.setGlassWindows(glassWindows_); // this window changes at once: the preview

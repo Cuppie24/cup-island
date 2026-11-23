@@ -10,6 +10,7 @@
 #include <winrt/Windows.Graphics.Capture.h>
 
 #include <functional>
+#include <mutex>
 
 namespace cup::platform {
 
@@ -22,7 +23,9 @@ public:
     // Captures `window`'s monitor on `device`, `window` left out. `onFrame`
     // runs on this thread (it needs a DispatcherQueue) whenever the desktop
     // changed. Throws winrt::hresult_error; stop() undoes a half-made start.
-    void start(HWND window, ID3D11Device* device, std::function<void()> onFrame);
+    // `guard` is held while the picture is swapped for a newer one: another
+    // thread may be drawing from it (LiquidGlass's). Hold it round stop() too.
+    void start(HWND window, ID3D11Device* device, std::mutex& guard, std::function<void()> onFrame);
     void stop(); // ...and lets `window` into captures again
     bool running() const { return session_ != nullptr; }
 
@@ -44,6 +47,7 @@ private:
     winrt::Windows::Graphics::Capture::Direct3D11CaptureFrame frame_{ nullptr }; // kept: it owns picture_
     winrt::com_ptr<ID3D11Texture2D> picture_;
     std::function<void()> onFrame_;
+    std::mutex* guard_ = nullptr;
 };
 
 } // namespace cup::platform

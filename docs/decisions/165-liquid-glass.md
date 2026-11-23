@@ -22,10 +22,12 @@ nor a displacement effect.
 frosted glass stays as it was and stays the default.
 - **Settings → Glass**: where liquid glass can be drawn, "Glass effect" is
   three picks in place of the switch: **Off, Frosted, Liquid** (saved in
-  the same key: "off", "on", "liquid"). Picking Liquid **warns** what it
-  costs: a toast over the page ("Liquid glass uses more GPU and battery"),
-  and while it's picked the row says so, and that the island is hidden
-  from screenshots. Elsewhere it's the switch.
+  the same key: "off", "on", "liquid"). Picking Liquid **asks first**: a
+  question over the window (decision 122) under a gauge icon (`Dialog::glyph`,
+  new: an icon over a window question's title), saying it uses more GPU
+  and battery and hides the island from screenshots; nothing changes until
+  it's answered "Turn on". (First a toast: it went by itself, read or
+  not.) While Liquid is picked the row keeps saying what it costs. Elsewhere it's the switch.
   `Tokens::glassStyle` is the app's, like `glassTransparency`.
 - **The picture.** Windows.Graphics.Capture of the island's monitor, on a
   Direct3D device of our own (`platform/liquid_capture`). The island's
@@ -95,6 +97,17 @@ frosted glass stays as it was and stays the default.
   at every frame of a morph; the shader only needs to know roughly where
   the shapes are, which it works out from the same spring
   (`morphRect`, core).
+- **Frames while a shape moves come from a thread of its own.** They first
+  came from a timer on the UI thread, and on a collapse the rim sometimes
+  trailed the edge: that's just when the UI thread is busy (the pill's
+  content is built), so its frames came late while the compositor's morph
+  ran on. Now a thread wakes when a shape starts moving, draws one frame
+  after each of the compositor's (`DwmFlush`), and sleeps when the shapes
+  are home. Everything it shares with the UI thread (the Direct3D
+  context, the shapes, the capture's picture, a copy of the tokens) is
+  behind one lock. Each frame draws the shapes where they'll be a refresh
+  later, when the frame reaches the screen. The capture itself, and
+  anything that touches a visual, stays on the UI thread.
 - **Fallbacks.** Anything refused (no hardware device, the window can't be
   left out of captures, the capture, a shader) is logged with its step and
   the frosted glass stays. Lost while running (a GPU reset): the frosted

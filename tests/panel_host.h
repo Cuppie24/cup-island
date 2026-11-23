@@ -26,7 +26,8 @@ struct PanelHost : Host {
     void publishPanel(Panel p) override { published.push_back(std::move(p)); }
     void removePanel(const std::string& id) override { removed.push_back(id); }
     void wakeAt(std::optional<Ms> at) override { wake = at; }
-    void ask(Dialog) override {}
+    std::vector<Dialog> questions;
+    void ask(Dialog d) override { questions.push_back(std::move(d)); }
     std::vector<Toast> toasts;
     void toast(Toast t) override { toasts.push_back(std::move(t)); }
     std::string revealed; // "<list>@<row>"

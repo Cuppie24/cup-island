@@ -11,6 +11,7 @@
 #include "core/segments.h"
 #include "core/tokens.h"
 #include "core/tokens_json.h"
+#include "core/window_dialog.h"
 #include "core/window_layout.h"
 #include "providers/system/settings_provider.h"
 
@@ -311,19 +312,40 @@ void glassTests()
     expect(effect().options == std::vector<std::string>{ "Off", "Frosted", "Liquid" } && effect().picked == 1,
            "liquid glass: three picks in place of the switch, frosted picked");
     liquid.onAction(fromWindow(std::string(P::kPickGlass) + "2"));
+    expect(lh.questions.size() == 1 && lh.questions[0].title == "Turn on liquid glass?" && lh.questions[0].glyph == Glyph::Gauge &&
+               lh.questions[0].message.find("GPU and battery") != std::string::npos && lh.questions[0].confirmLabel == "Turn on" &&
+               !lh.questions[0].windowId.empty() && !lh.questions[0].destructive && lh.toasts.empty(),
+           "liquid glass: picking it asks first, over the window, with a gauge and what it costs; no toast");
+    expect(said.back() == "on" && said[said.size() - 2] == "frosted" && lh.store[SettingsProvider::kGlassKey].empty() && effect().picked == 1,
+           "liquid glass: until it's answered nothing changes, and the row still shows frosted");
+    liquid.onAction(fromWindow(P::kConfirmLiquid));
     expect(said.back() == "on" && said[said.size() - 2] == "liquid" && lh.store[SettingsProvider::kGlassKey] == "liquid" && effect().picked == 2,
-           "liquid glass: picked, saved, the page stays");
-    expect(lh.toasts.size() == 1 && lh.toasts[0].text == "Liquid glass uses more GPU and battery" && !lh.toasts[0].windowId.empty() &&
-               detailOf(lh, "Glass effect") == "Uses more GPU and battery. Hides the island from screenshots",
-           "liquid glass: picking it warns what it costs, over the page, and its row keeps saying so");
+           "liquid glass: answered yes: picked, saved, the page stays");
+    expect(detailOf(lh, "Glass effect") == "Uses more GPU and battery. Hides the island from screenshots", "liquid glass: its row keeps saying what it costs");
     liquid.onAction(fromWindow(std::string(P::kPickGlass) + "2"));
-    expect(lh.toasts.size() == 1, "liquid glass: picked again while on: no second warning");
+    expect(lh.questions.size() == 1, "liquid glass: picked again while on: not asked again");
+    // The question laid out: its icon over its title.
+    WindowDialogScene asked = placeWindowDialog(lh.questions[0], { 600, 500 }, 40, Source{}, Ms{ 0 }, [](const Text& text) { return 7.0f * text.value.size(); });
+    auto iconAt = std::find_if(asked.elements.begin(), asked.elements.end(), [](const Placed& e) { return std::holds_alternative<Icon>(e.item); });
+    auto titleAt = std::find_if(asked.elements.begin(), asked.elements.end(), [](const Placed& e) {
+        auto* text = std::get_if<Text>(&e.item);
+        return text && text->value == "Turn on liquid glass?";
+    });
+    expect(iconAt != asked.elements.end() && titleAt != asked.elements.end() && std::get<Icon>(iconAt->item).glyph == Glyph::Gauge &&
+               iconAt->frame.y < titleAt->frame.y,
+           "a window's question with an icon: the icon over the title");
+    Dialog plainQuestion = lh.questions[0];
+    plainQuestion.glyph.reset();
+    WindowDialogScene plainScene = placeWindowDialog(plainQuestion, { 600, 500 }, 40, Source{}, Ms{ 0 }, [](const Text& text) { return 7.0f * text.value.size(); });
+    expect(std::none_of(plainScene.elements.begin(), plainScene.elements.end(), [](const Placed& e) { return std::holds_alternative<Icon>(e.item); }) &&
+               plainScene.panel.height < asked.panel.height,
+           "a window's question without one: no icon, a lower panel");
     liquid.onAction(fromWindow(P::kBack));
     expect(detailOf(lh, "Glass") == "Liquid", "liquid glass: Appearance says so");
     liquid.stop();
     said.clear();
     liquid.start(lh);
-    expect(said == std::vector<std::string>{ "liquid", "on" } && lh.toasts.size() == 1, "liquid glass: kept over a restart, without warning again");
+    expect(said == std::vector<std::string>{ "liquid", "on" } && lh.questions.size() == 1, "liquid glass: kept over a restart, without asking again");
     openWindow(liquid);
     liquid.onAction(fromWindow(P::kOpenGlass));
     liquid.onAction(fromWindow(std::string(P::kPickGlass) + "0"));

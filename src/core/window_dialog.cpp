@@ -23,6 +23,8 @@ WindowDialogScene placeWindowDialog(const Dialog& d, Vec2 size, float top, const
                     .align = Align::End,
                     .apart = true } };
     if (d.message.empty()) rows.erase(rows.begin() + 1);
+    // Its icon (decision 165): over the title, a Home widget's size.
+    if (d.glyph) rows.insert(rows.begin(), row({ Icon{ .glyph = *d.glyph, .large = true } }));
     // Its field (decision 142): above the buttons, with the keys as it appears (window_fields: dialogTakesKeys).
     if (d.field)
         rows.insert(rows.end() - 1, Row{ .items = { TextInput{ .actionId = kDialogField, .value = *d.field, .maxLength = d.fieldMaxLength,

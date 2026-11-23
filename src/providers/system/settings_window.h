@@ -43,6 +43,7 @@ inline constexpr const char* kPickFade = "fade.pick:";                     // + 
 inline constexpr const char* kToggleGlass = "glass.toggle";                // decision 089
 inline constexpr const char* kOpenGlass = "glass.open";                    // decision 096
 inline constexpr const char* kPickGlass = "glass.pick:";                   // + 0 off, 1 frosted, 2 liquid (decision 165)
+inline constexpr const char* kConfirmLiquid = "glass.liquid.confirm";      // ...liquid's question answered yes
 inline constexpr const char* kPickTransparency = "transparency.pick:";     // + 0 low, 1 medium, 2 high
 inline constexpr const char* kToggleGlassWindows = "glasswindows.toggle";  // decision 104
 inline constexpr const char* kCopyLogs = "logs.copy";
