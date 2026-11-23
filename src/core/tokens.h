@@ -306,6 +306,12 @@ struct Tokens {
     float glassGlowHeight = 40.0f;  // px: the glow's reach up from the bottom edge, the same on the pill and a tall card
     float glassGlowOpacity = 0.8f;  // how strong the glow is along the bottom edge
     float glassGlowCurve = 2.5f;    // how it fades up its reach (glowFade): higher hugs the edge more; past 1, it melts away at the top
+    // ...on an open card it's light, not a stain (decision 166): lighter (coverCardGlowLift), reaching
+    // higher and fading slower, with a bright line of it along the bottom edge. Nothing a card has to
+    // be read sits that low; the pill's text does, so the pill keeps the dark glow.
+    float glassCardGlowHeight = 48.0f;
+    float glassCardGlowCurve = 1.6f;
+    float glassGlowEdgeOpacity = 0.9f; // the line's strength; 0: none, the rim as it is
     float glassRimWidth = 1;      // the rim's width, inside the edge
 
     // Expanded's page row along the top of the card (decisions 007, 047, 109): a dot per page,
@@ -463,6 +469,8 @@ struct Tokens {
     // from coverDarkGlow at a cusp of .x (red, purple, blue stay) to coverDarkGlowLifted at .y and up (yellow, green, cyan).
     Vec2 coverGlowLiftCusp{ 0.64f, 0.74f };
     float coverDarkGlowLifted = 0.56f;
+    float coverCardGlowLift = 0.15f;     // an open card's glow: this much lighter than the pill's (decision 166)
+    float coverGlowEdgeLift = 0.1f;      // ...and the line along its bottom edge, this much lighter again
 
     // Colours: every colour the island draws. tokens.json writes [r, g, b] or
     // [r, g, b, alpha], channels 0..255 and alpha 0..1, like CSS rgba().
@@ -474,6 +482,9 @@ struct Tokens {
     // The glow along the island's bottom edge (decision 090): glass with the
     // cover's colours. Not in tokens.json: none (clear) unless a cover sets it.
     Color islandGlowColor{ 0, 0, 0, 0 };
+    // ...an open card's, lighter, and the line along its bottom edge (decision 166). Set the same way.
+    Color islandCardGlowColor{ 0, 0, 0, 0 };
+    Color islandGlowEdgeColor{ 0, 0, 0, 0 };
     Color titleTextColor{ 255, 255, 255 };
     Color bodyTextColor{ 255, 255, 255, 179 };
     Color captionTextColor{ 255, 255, 255, 140 }; // also Digits
@@ -602,7 +613,20 @@ Color glassLuminosityAt(const Tokens& t);
 // the edge, so the colour hugs it; flat at the top, so it melts into the card
 // with no line. Drawn as kGlowStops gradient stops sampling it, evenly.
 float glowFade(const Tokens& t, float up);
+float glowFade(float curve, float up); // ...along another curve (a card's)
 constexpr int kGlowStops = 9;
+
+// How the glow is drawn on the pill, alerts and the bubble, or on an open
+// card (decision 166): its colour at the bottom edge, how far up it reaches
+// and along which curve it fades, and the line along the edge (clear: none,
+// the glass's rim as it is).
+struct GlowLook {
+    Color color;
+    float height = 0;
+    float curve = 1;
+    Color edge{ 0, 0, 0, 0 };
+};
+GlowLook glowLook(const Tokens& t, bool card);
 
 // A pale colour: perceived brightness past half. A theme whose island is pale
 // is a light theme (decision 030).
