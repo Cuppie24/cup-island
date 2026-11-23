@@ -72,6 +72,7 @@ private:
         wuc::CompositionEllipseGeometry arc{ nullptr };             // progress ring
         wuc::CompositionSpriteShape knob{ nullptr };                // progress
         WaveParts wave;                                             // a wavy bar's wave (decision 167)
+        bool pinned = false;                                        // ...and its knob always shown
         std::vector<wuc::CompositionRoundedRectangleGeometry> bars; // waveform
         wuc::ShapeVisual waveform{ nullptr };
         bool scrubbing = false;

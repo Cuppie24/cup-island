@@ -38,15 +38,19 @@ struct ProgressParts {
     wuc::CompositionSpriteShape knob{ nullptr };
     wuc::CompositionColorBrush track{ nullptr }, accent{ nullptr }, knobBrush{ nullptr }; // faded on a recolour
     WaveParts wave; // a wavy bar's (decision 167): the fill is then unseen, and only sets where the wave ends
+    bool pinned = false; // ...and its knob is the upright one, always there
 };
 float progressOverhang();
 // `wavy` (Progress::wavy): `factory` makes the wave's path; if it can't be made, a plain bar.
-ProgressParts createProgress(wuc::Compositor const& c, Vec2 frame, const Color& accent, bool wavy = false, ID2D1Factory* factory = nullptr);
+// `pinned`: wavy and seekable, so its knob is always shown.
+ProgressParts createProgress(wuc::Compositor const& c, Vec2 frame, const Color& accent, bool wavy = false, bool pinned = false,
+                             ID2D1Factory* factory = nullptr);
 // Fill grows from where playback is now to full width, entirely on the compositor.
 void armProgress(wuc::Compositor const& c, wuc::CompositionRoundedRectangleGeometry const& fill, const Timeline& timeline,
                  float width, Ms now);
 void holdProgress(wuc::CompositionRoundedRectangleGeometry const& fill, float fillWidth); // scrubbing: stop and pin
-void showKnob(wuc::Compositor const& c, wuc::CompositionSpriteShape const& knob, bool visible);
+// `visible`: under the pointer or dragged. `pinned` (ProgressParts::pinned): always there, bigger then.
+void showKnob(wuc::Compositor const& c, wuc::CompositionSpriteShape const& knob, bool visible, bool pinned = false);
 
 // Ring (decision 010): a faint full circle under an accent arc that starts
 // at the top and runs clockwise, filling as the timeline runs. The arc is

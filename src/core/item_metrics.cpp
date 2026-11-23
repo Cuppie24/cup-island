@@ -87,24 +87,34 @@ bool isWavy(const Item& item)
     return progress && progress->wavy && progress->shape == ProgressShape::Bar;
 }
 
-float waveHeight()
+float waveSwing()
 {
     const Tokens& t = tokens();
     return t.progressHeight + 2 * std::max(t.progressWaveAmplitude, 0.0f);
 }
 
-std::vector<Vec2> wavePoints(float width, float middle)
+float waveHeight(bool seekable)
+{
+    const Tokens& t = tokens();
+    return seekable ? std::max(waveSwing(), t.progressPinHeight * std::max(t.progressPinGrow, 1.0f)) : waveSwing();
+}
+
+std::vector<Vec2> wavePoints(float length, float middle, float phase, float swing)
 {
     const Tokens& t = tokens();
     std::vector<Vec2> points;
-    if (t.progressWaveLength <= 0 || width <= 0) return points;
+    if (t.progressWaveLength <= 0 || length <= 0) return points;
     constexpr int kPerWave = 16; // straight pieces per wave: smooth at any size a bar is drawn
     constexpr float kTurn = 6.2831853f;
-    int count = static_cast<int>(std::ceil(width / t.progressWaveLength * kPerWave));
+    int count = static_cast<int>(std::ceil(length / t.progressWaveLength * kPerWave));
     for (int i = 0; i <= count; ++i) {
-        float x = std::min(width, i * t.progressWaveLength / kPerWave);
-        // Up first: y grows downwards on screen.
-        points.push_back({ x, middle - t.progressWaveAmplitude * std::sin(kTurn * x / t.progressWaveLength) });
+        float back = std::min(length, i * t.progressWaveLength / kPerWave); // how far behind the head
+        // Straight at the head, the full swing a taper back: eased both ways, so no kink at either end.
+        float grown = t.progressWaveTaper > 0 ? std::min(back / t.progressWaveTaper, 1.0f) : 1.0f;
+        grown = grown * grown * (3 - 2 * grown);
+        // sin(k * x - phase): a growing phase carries the ripples towards the head (+x).
+        float y = middle - swing * grown * t.progressWaveAmplitude * std::sin(kTurn * -back / t.progressWaveLength - phase);
+        points.push_back({ -back, y });
     }
     return points;
 }
@@ -149,7 +159,7 @@ float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& m
     // Seekable bars get a taller row to be easy to click; a bar nobody clicks is just its line.
     if (auto* bar = std::get_if<Progress>(&item)) {
         float height = bar->seekable ? t.progressHitHeight : t.progressHeight;
-        return bar->wavy ? std::max(height, waveHeight()) : height; // room for the wave's swing (decision 167)
+        return bar->wavy ? std::max(height, waveHeight(bar->seekable)) : height; // room for the wave's swing and its knob (decision 167)
     }
     if (auto* label = std::get_if<TimeLabel>(&item)) return lineHeight(label->style);
     if (auto* icon = std::get_if<Icon>(&item); icon && icon->large) return t.tileIconSize; // decision 111

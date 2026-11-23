@@ -16,10 +16,10 @@ namespace {
 
 using namespace winrt::Windows::UI::Composition;
 
-// Lying flat: the wave squashed to its middle line. Its stroke thins with it (Windows scales
-// it whatever IsStrokeNonScaling says, seen on a build), so flat it's faded out and the bar's
-// straight fill is shown instead.
-constexpr float kFlat = 0.02f;
+// Steps in one ripple: the path glides in a straight line from each to the next, so the
+// swing dips a little between them; at twelve, by 3%, which isn't seen.
+constexpr int kPhases = 12;
+constexpr float kTurn = 6.2831853f;
 
 // How Composition takes a Direct2D geometry: an object that hands it over.
 struct GeometrySource : winrt::implements<GeometrySource, winrt::Windows::Graphics::IGeometrySource2D,
@@ -53,108 +53,101 @@ winrt::com_ptr<ID2D1Geometry> lineThrough(ID2D1Factory* factory, const std::vect
     return path;
 }
 
+CompositionPath pathThrough(ID2D1Factory* factory, const std::vector<Vec2>& points)
+{
+    return CompositionPath(winrt::make<GeometrySource>(lineThrough(factory, points)));
+}
+
+// All of one ripple, phase 0 to phase 0 again, over and over.
+PathKeyFrameAnimation runOf(Compositor const& c, const WaveParts& wave)
+{
+    auto run = c.CreatePathKeyFrameAnimation();
+    auto steady = c.CreateLinearEasingFunction();
+    for (int i = 0; i <= kPhases; ++i) run.InsertKeyFrame(i / float(kPhases), wave.phases[i % kPhases], steady);
+    run.Duration(std::max(tokens().progressWavePeriod, Ms{ 1 }));
+    run.IterationBehavior(AnimationIterationBehavior::Forever);
+    return run;
+}
+
 } // namespace
 
 WaveParts createWave(Compositor const& c, ID2D1Factory* factory, Vec2 frame, CompositionColorBrush const& accent,
                      CompositionRoundedRectangleGeometry const& fill)
 {
     const Tokens& t = tokens();
-    // A wave longer than the bar: it slides a wave's length and starts over, unseen.
-    // From x = 0: it slides to the left, so the bar's end is always covered.
-    std::vector<Vec2> points = wavePoints(frame.x + t.progressWaveLength, frame.y / 2);
-    if (!factory || points.size() < 2) return {};
+    float middle = frame.y / 2;
+    if (!factory || wavePoints(frame.x, middle, 0).size() < 2) return {};
     WaveParts wave;
     try {
-        CompositionPath path(winrt::make<GeometrySource>(lineThrough(factory, points)));
-        wave.line = c.CreateSpriteShape(c.CreatePathGeometry(path));
+        // As long as the whole bar, from its head back: however far the bar is filled, it reaches the start.
+        for (int i = 0; i < kPhases; ++i) wave.phases.push_back(pathThrough(factory, wavePoints(frame.x, middle, kTurn * i / kPhases)));
+        wave.flat = pathThrough(factory, wavePoints(frame.x, middle, 0, 0));
+        wave.geometry = c.CreatePathGeometry(wave.flat);
+        wave.line = c.CreateSpriteShape(wave.geometry);
+        wave.line.StrokeBrush(accent);
+        wave.line.StrokeThickness(t.progressHeight);
+        wave.line.StrokeLineJoin(CompositionStrokeLineJoin::Round);
+        wave.line.StrokeStartCap(CompositionStrokeCap::Round);
+        wave.line.StrokeEndCap(CompositionStrokeCap::Round);
+        // Its head (the path's x = 0) is the fill's live end.
+        auto head = c.CreateExpressionAnimation(L"Vector2(fill.Size.X, 0)");
+        head.SetReferenceParameter(L"fill", fill);
+        wave.line.StartAnimation(L"Offset", head);
+
+        // Seen through a window with round ends, the swing's height: where the bar starts the
+        // wave is cut along a curve, not straight down. (The window's other end is past the bar.)
+        float swing = waveSwing();
+        auto opening = c.CreateRoundedRectangleGeometry();
+        opening.Size({ frame.x + swing, swing });
+        opening.Offset({ 0.0f, (frame.y - swing) / 2 });
+        opening.CornerRadius({ swing / 2, swing / 2 });
+        wave.visual = c.CreateShapeVisual();
+        wave.visual.Size(toFloat2(frame));
+        wave.visual.Shapes().Append(wave.line);
+        wave.visual.Clip(c.CreateGeometricClip(opening));
     } catch (winrt::hresult_error const& e) {
         logLine("progress: no wave, a plain bar (0x%08lx)", static_cast<unsigned long>(e.code()));
         return {};
     }
-    wave.line.StrokeBrush(accent);
-    wave.line.StrokeThickness(t.progressHeight);
-    wave.line.StrokeLineJoin(CompositionStrokeLineJoin::Round);
-    wave.line.StrokeStartCap(CompositionStrokeCap::Round);
-    wave.line.StrokeEndCap(CompositionStrokeCap::Round);
-    wave.line.CenterPoint({ 0.0f, frame.y / 2 });
-    wave.line.Scale({ 1.0f, kFlat });
-
-    // Seen through a window with round ends, the swing's height: where the wave
-    // starts it's cut along a curve, not straight down. (Its other end is past the bar.)
-    float swing = waveHeight();
-    auto opening = c.CreateRoundedRectangleGeometry();
-    opening.Size({ frame.x + swing, swing });
-    opening.Offset({ 0.0f, (frame.y - swing) / 2 });
-    opening.CornerRadius({ swing / 2, swing / 2 });
-    auto window = c.CreateShapeVisual();
-    window.Size(toFloat2(frame));
-    window.Shapes().Append(wave.line);
-    window.Clip(c.CreateGeometricClip(opening));
-
-    wave.visual = c.CreateContainerVisual();
-    wave.visual.Size(toFloat2(frame));
-    wave.visual.Children().InsertAtTop(window);
-    // Shown as far as the bar is filled: the clip's right edge is the fill's live end.
-    auto clip = c.CreateInsetClip();
-    auto inset = c.CreateExpressionAnimation(L"Max(width - fill.Size.X, 0)");
-    inset.SetReferenceParameter(L"fill", fill);
-    inset.SetScalarParameter(L"width", frame.x);
-    clip.StartAnimation(L"RightInset", inset);
-    wave.visual.Clip(clip);
+    wave.turn = std::make_shared<int>(0);
     return wave;
 }
 
 void ripple(Compositor const& c, WaveParts& wave, bool playing, bool atOnce)
 {
-    if (!wave.line || wave.rippling == playing) return;
+    if (!wave.geometry || wave.rippling == playing) return;
     wave.rippling = playing;
     const Tokens& t = tokens();
-    // Three things at once: the wave's swing, how much of it is seen, and the straight fill's
-    // thickness, growing from the bar's line as the wave sinks into it.
-    wfn::float2 swing{ 1.0f, playing ? 1.0f : kFlat }, straight{ 1.0f, playing ? 0.0f : 1.0f };
-    float seen = playing ? 1.0f : 0.0f;
-    if (atOnce) {
-        wave.line.Scale(swing);
-        wave.visual.Opacity(seen);
-        if (wave.flat) wave.flat.Scale(straight);
-    } else {
-        auto ease = c.CreateCubicBezierEasingFunction(toFloat2(t.morphEase.c1), toFloat2(t.morphEase.c2));
-        Ms duration = std::max(t.progressWaveSettle, Ms{ 1 });
-        auto to = [&](wfn::float2 scale) {
-            auto anim = c.CreateVector2KeyFrameAnimation();
-            anim.InsertKeyFrame(1.0f, scale, ease);
-            anim.Duration(duration);
-            return anim;
-        };
-        wave.line.StartAnimation(L"Scale", to(swing));
-        if (wave.flat) wave.flat.StartAnimation(L"Scale", to(straight));
-        auto fade = c.CreateScalarKeyFrameAnimation();
-        fade.InsertKeyFrame(1.0f, seen, ease);
-        fade.Duration(duration);
-        wave.visual.StartAnimation(L"Opacity", fade);
+    int turn = ++*wave.turn;
+    bool runs = playing && !t.reducedMotion && t.progressWavePeriod > Ms{ 0 }; // reduced motion: it rises, and stays (decision 080)
+    try {
+        if (atOnce) {
+            wave.geometry.StopAnimation(L"Path");
+            wave.geometry.Path(playing ? wave.phases.front() : wave.flat);
+            if (runs) wave.geometry.StartAnimation(L"Path", runOf(c, wave));
+            return;
+        }
+        // From however it is now to flat, or to where a ripple starts.
+        auto settle = c.CreatePathKeyFrameAnimation();
+        settle.InsertKeyFrame(1.0f, playing ? wave.phases.front() : wave.flat,
+                              c.CreateCubicBezierEasingFunction(toFloat2(t.morphEase.c1), toFloat2(t.morphEase.c2)));
+        settle.Duration(std::max(t.progressWaveSettle, Ms{ 1 }));
+        auto risen = c.CreateScopedBatch(CompositionBatchTypes::Animation);
+        wave.geometry.StartAnimation(L"Path", settle);
+        risen.End();
+        if (!runs) return;
+        // Risen, it runs: unless it was told otherwise meanwhile (paused again).
+        risen.Completed([c, wave, turn](auto&&, auto&&) {
+            if (*wave.turn != turn) return;
+            try {
+                wave.geometry.StartAnimation(L"Path", runOf(c, wave));
+            } catch (winrt::hresult_error const& e) { // nothing may leave a handler (decision 158)
+                logLine("progress: the wave couldn't run (0x%08lx)", static_cast<unsigned long>(e.code()));
+            }
+        });
+    } catch (winrt::hresult_error const& e) {
+        logLine("progress: the wave couldn't change (0x%08lx)", static_cast<unsigned long>(e.code()));
     }
-    // Still when paused (it's flat: nothing to see move), and for reduced motion (decision 080).
-    if (!playing || t.reducedMotion || t.progressWavePeriod <= Ms{ 0 }) {
-        wave.line.StopAnimation(L"Offset");
-        return;
-    }
-    // One wave's length back from the head, over and over: the head leads and the
-    // ripples trail behind it, as behind something swimming. Both ends given (decision 008).
-    auto run = c.CreateVector2KeyFrameAnimation();
-    run.InsertKeyFrame(0.0f, { 0.0f, 0.0f });
-    run.InsertKeyFrame(1.0f, { -t.progressWaveLength, 0.0f }, c.CreateLinearEasingFunction());
-    run.Duration(t.progressWavePeriod);
-    run.IterationBehavior(AnimationIterationBehavior::Forever);
-    wave.line.StartAnimation(L"Offset", run);
-}
-
-void rideHead(Compositor const& c, const WaveParts& wave, bool riding)
-{
-    if (!wave.knob) return;
-    auto anim = c.CreateScalarKeyFrameAnimation();
-    anim.InsertKeyFrame(1.0f, riding ? 1.0f : 0.0f);
-    anim.Duration(std::max(tokens().hoverFadeDuration, Ms{ 1 }));
-    wave.knob.StartAnimation(L"Riding", anim);
 }
 
 } // namespace cup::platform

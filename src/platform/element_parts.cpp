@@ -131,7 +131,7 @@ void playScale(Compositor const& c, Visual const& visual, float scale, Ms durati
 
 float progressOverhang() { return tokens().progressKnobSize / 2; }
 
-ProgressParts createProgress(Compositor const& c, Vec2 frame, const Color& accent, bool wavy, ID2D1Factory* factory)
+ProgressParts createProgress(Compositor const& c, Vec2 frame, const Color& accent, bool wavy, bool pinned, ID2D1Factory* factory)
 {
     const Tokens& t = tokens();
     float h = t.progressHeight, x = progressOverhang(), y = (frame.y - h) / 2;
@@ -156,20 +156,23 @@ ProgressParts createProgress(Compositor const& c, Vec2 frame, const Color& accen
     parts.visual.Shapes().Append(fillShape);
     parts.fill = fill;
     if (wavy) parts.wave = createWave(c, factory, frame, parts.accent, fill);
+    parts.pinned = parts.wave.visual && pinned;
     if (parts.wave.visual) {
-        // The wave is the filled part (decision 167). The fill stays: its width is what
-        // playback animates, and the wave's clip, the knob and the track read it.
-        // Seen only while the wave lies flat (ripple()): it thins to nothing about the bar's line.
-        fillShape.CenterPoint({ 0.0f, frame.y / 2 });
-        parts.wave.flat = fillShape;
+        // The wave is the filled part (decision 167). The fill stays, unseen: its width is what
+        // playback animates, and the wave's head, the knob and the track read it.
+        fillShape.FillBrush(brushOf(c, Color{ 0, 0, 0, 0 }));
         parts.wave.visual.Offset({ x, 0.0f, 0.0f });
         parts.visual.Children().InsertAtTop(parts.wave.visual);
-        // The track starts where the wave ends, so no straight line shows under it.
-        auto start = c.CreateExpressionAnimation(L"Vector2(fill.Offset.X + fill.Size.X, fill.Offset.Y)");
+        // The track starts past the head, and past the knob with a little gap if there is one.
+        float gap = parts.pinned ? t.progressPinWidth / 2 + t.progressPinGap : 0.0f;
+        auto start = c.CreateExpressionAnimation(L"Vector2(Min(fill.Offset.X + fill.Size.X + gap, fill.Offset.X + width), fill.Offset.Y)");
         start.SetReferenceParameter(L"fill", fill);
+        start.SetScalarParameter(L"gap", gap);
+        start.SetScalarParameter(L"width", frame.x);
         track.StartAnimation(L"Offset", start);
-        auto rest = c.CreateExpressionAnimation(L"Vector2(Max(width - fill.Size.X, 0), fill.Size.Y)");
+        auto rest = c.CreateExpressionAnimation(L"Vector2(Max(width - fill.Size.X - gap, 0), fill.Size.Y)");
         rest.SetReferenceParameter(L"fill", fill);
+        rest.SetScalarParameter(L"gap", gap);
         rest.SetScalarParameter(L"width", frame.x);
         track.StartAnimation(L"Size", rest);
     }
@@ -178,46 +181,27 @@ ProgressParts createProgress(Compositor const& c, Vec2 frame, const Color& accen
     // playback on the compositor with no app code per frame.
     auto center = c.CreateExpressionAnimation(L"Vector2(fill.Offset.X + fill.Size.X, fill.Offset.Y + fill.Size.Y / 2)");
     center.SetReferenceParameter(L"fill", fill);
-    // What the knob is drawn in: the bar's own shapes, or, on a wavy bar, a layer over the wave.
-    ShapeVisual top = parts.visual;
-    if (parts.wave.visual) {
-        // The wave's head (decision 167): where the line is at the fill's end right now, from the
-        // line's own slide (Offset) and how flat it lies (Scale), so what's there rides up and down with it.
-        center = c.CreateExpressionAnimation(
-            L"Vector2(fill.Offset.X + fill.Size.X, middle - swing * line.Scale.Y * Sin(turn * (fill.Size.X - line.Offset.X) / length))");
-        center.SetReferenceParameter(L"fill", fill);
-        center.SetReferenceParameter(L"line", parts.wave.line);
-        center.SetScalarParameter(L"middle", frame.y / 2);
-        center.SetScalarParameter(L"swing", t.progressWaveAmplitude);
-        center.SetScalarParameter(L"turn", 6.2831853f);
-        center.SetScalarParameter(L"length", std::max(t.progressWaveLength, 1.0f));
-        // Over the wave, which is a child visual and so over every shape of the bar's own.
-        top = c.CreateShapeVisual();
+    if (parts.pinned) {
+        // A wavy bar's (decision 167): an upright pill on the bar's line at the wave's head, where
+        // the wave has straightened to meet it. Always there; showKnob grows it under the pointer.
+        // In a layer over the wave, which is a child visual and so over every shape of the bar's own.
+        float w = t.progressPinWidth, tall = t.progressPinHeight;
+        auto pin = c.CreateRoundedRectangleGeometry();
+        pin.Size({ w, tall });
+        pin.CornerRadius({ w / 2, w / 2 });
+        auto corner = c.CreateExpressionAnimation(L"Vector2(fill.Offset.X + fill.Size.X - half, top)");
+        corner.SetReferenceParameter(L"fill", fill);
+        corner.SetScalarParameter(L"half", w / 2);
+        corner.SetScalarParameter(L"top", (frame.y - tall) / 2);
+        pin.StartAnimation(L"Offset", corner);
+        parts.knob = c.CreateSpriteShape(pin);
+        parts.knob.FillBrush(parts.knobBrush);
+        parts.knob.StartAnimation(L"CenterPoint", center); // grows from its own middle
+        auto top = c.CreateShapeVisual();
         top.RelativeSizeAdjustment({ 1.0f, 1.0f });
+        top.Shapes().Append(parts.knob);
         parts.visual.Children().InsertAtTop(top);
-        // The head's round cap: a dot as wide as the line is thick, on the line where it's cut,
-        // so the wave ends round, with nothing bigger than itself there. Under the knob.
-        auto cap = c.CreateEllipseGeometry();
-        cap.Radius({ h / 2, h / 2 });
-        cap.StartAnimation(L"Center", center);
-        auto capShape = c.CreateSpriteShape(cap);
-        capShape.FillBrush(parts.accent);
-        top.Shapes().Append(capShape);
-    }
-    if (parts.wave.visual) {
-        // The knob rides the head too under the pointer; dragged, it's on the bar's line, where
-        // the pointer aims (rideHead: Riding 1 or 0).
-        parts.wave.knob = c.CreatePropertySet();
-        parts.wave.knob.InsertScalar(L"Riding", 1.0f);
-        center = c.CreateExpressionAnimation(L"Vector2(fill.Offset.X + fill.Size.X, middle - knob.Riding * swing * line.Scale.Y * "
-                                             L"Sin(turn * (fill.Size.X - line.Offset.X) / length))");
-        center.SetReferenceParameter(L"fill", fill);
-        center.SetReferenceParameter(L"line", parts.wave.line);
-        center.SetReferenceParameter(L"knob", parts.wave.knob);
-        center.SetScalarParameter(L"middle", frame.y / 2);
-        center.SetScalarParameter(L"swing", t.progressWaveAmplitude);
-        center.SetScalarParameter(L"turn", 6.2831853f);
-        center.SetScalarParameter(L"length", std::max(t.progressWaveLength, 1.0f));
+        return parts;
     }
     float r = t.progressKnobSize / 2;
     auto knob = c.CreateEllipseGeometry();
@@ -227,7 +211,7 @@ ProgressParts createProgress(Compositor const& c, Vec2 frame, const Color& accen
     parts.knob.FillBrush(parts.knobBrush);
     parts.knob.StartAnimation(L"CenterPoint", center); // grows from its own middle
     parts.knob.Scale({ 0.0f, 0.0f });
-    top.Shapes().Append(parts.knob);
+    parts.visual.Shapes().Append(parts.knob);
     return parts;
 }
 
@@ -252,9 +236,10 @@ void holdProgress(CompositionRoundedRectangleGeometry const& fill, float fillWid
     fill.Size({ fillWidth, tokens().progressHeight });
 }
 
-void showKnob(Compositor const& c, CompositionSpriteShape const& knob, bool visible)
+void showKnob(Compositor const& c, CompositionSpriteShape const& knob, bool visible, bool pinned)
 {
-    float s = visible ? 1.0f : 0.0f;
+    // A plain bar's knob is there only under the pointer; a wavy bar's always, and bigger then (decision 167).
+    float s = pinned ? (visible ? std::max(tokens().progressPinGrow, 1.0f) : 1.0f) : (visible ? 1.0f : 0.0f);
     auto anim = c.CreateVector2KeyFrameAnimation();
     anim.InsertKeyFrame(1.0f, { s, s }, easeOf(c, tokens().morphEase));
     anim.Duration(atLeast1(tokens().hoverFadeDuration));
