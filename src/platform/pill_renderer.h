@@ -9,6 +9,7 @@
 #include "platform/blob.h"
 #include "platform/graphics_device.h"
 #include "platform/liquid_bridge.h"
+#include "platform/liquid_glass.h"
 #include "platform/menu_layer.h"
 #include "platform/win.h"
 
@@ -24,6 +25,11 @@ namespace cup::platform {
 class PillRenderer {
 public:
     void build(wuc::Compositor const& compositor, wuc::ContainerVisual const& root, const Scene& initial);
+    // The render layer's window, before build(): liquid glass captures its
+    // monitor and leaves it out of the picture (decision 165).
+    void setWindow(HWND layer) { window_ = layer; }
+    // The layer was resized or moved to another monitor: liquid glass starts over there.
+    void layerChanged();
     GraphicsDevice& device() { return device_; } // shared with providers' windows, on the same Compositor (decision 104)
     // Starts the morph now, along `motion` (decision 080); content follows in a
     // queued call, so building it doesn't hold back the frame the morph starts on (decision 012).
@@ -74,6 +80,15 @@ private:
     void applyContent(); // the latest pending scene's content, for both blobs
     static bool isToast(const std::string& key) { return key.rfind("toast/", 0) == 0; }
     ElementVisuals& elementsFor(const std::string& key) { return isToast(key) ? pill_.toastElements() : pill_.elements(); }
+
+    // Liquid glass on or off as tokens() say (glass, glassStyle), handed to
+    // both blobs; a failed start isn't tried again until it's picked anew.
+    void syncLiquid();
+    void placeLiquid(const Scene& scene, const Motion& morph); // where the shapes are heading, for its shader
+    wuc::Compositor compositor_{ nullptr };
+    HWND window_ = nullptr;
+    LiquidGlass liquid_;
+    bool liquidFailed_ = false;
 
     GraphicsDevice device_;
     Blob pill_;

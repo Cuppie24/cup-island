@@ -20,6 +20,7 @@ std::string g_theme;    // the app theme (decision 022)
 std::optional<CoverTint> g_tint; // the playing cover's colours, over the theme (decisions 051, 054)
 FadeSpeed g_fadeSpeed = FadeSpeed::Medium; // Settings' pick (decision 053)
 bool g_reducedMotion = false;               // Windows' animation setting (decision 080)
+GlassStyle g_glassStyle = GlassStyle::Frosted; // which glass (decision 165)
 bool g_glass = false;                       // glass picked, and Windows' transparency on (decision 089)
 Transparency g_transparency = Transparency::Medium; // Settings' pick (decision 096)
 std::optional<std::string> g_windowTheme;   // windows' own theme (decision 150); nothing: the island's
@@ -62,6 +63,7 @@ Tokens finished(const Tokens& themed)
     next.fadeSpeed = g_fadeSpeed;
     next.reducedMotion = g_reducedMotion;
     next.glassTransparency = g_transparency;
+    next.glassStyle = g_glassStyle;
     return withGlass(next, g_glass); // not on a light theme's island (decision 089)
 }
 
@@ -180,6 +182,12 @@ bool setTransparency(Transparency level)
     g_transparency = level;
     const char* name = level == Transparency::Low ? "low" : level == Transparency::High ? "high" : "medium";
     return commit(std::string("glass transparency: ") + name);
+}
+
+bool setGlassStyle(GlassStyle style)
+{
+    g_glassStyle = style;
+    return commit(style == GlassStyle::Liquid ? "glass style: liquid" : "glass style: frosted");
 }
 
 bool setGlass(bool on)

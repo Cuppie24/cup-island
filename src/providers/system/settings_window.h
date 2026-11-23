@@ -42,6 +42,7 @@ inline constexpr const char* kOpenMusicColours = "musiccolours.open";      // de
 inline constexpr const char* kPickFade = "fade.pick:";                     // + 0 fast, 1 medium, 2 slow
 inline constexpr const char* kToggleGlass = "glass.toggle";                // decision 089
 inline constexpr const char* kOpenGlass = "glass.open";                    // decision 096
+inline constexpr const char* kPickGlass = "glass.pick:";                   // + 0 off, 1 frosted, 2 liquid (decision 165)
 inline constexpr const char* kPickTransparency = "transparency.pick:";     // + 0 low, 1 medium, 2 high
 inline constexpr const char* kToggleGlassWindows = "glasswindows.toggle";  // decision 104
 inline constexpr const char* kCopyLogs = "logs.copy";
@@ -105,6 +106,7 @@ struct SettingsView {
     std::optional<bool> coverColours;       // the island in the playing cover's colours (decision 052); nothing: no row
     std::optional<FadeSpeed> fadeSpeed;     // how fast colours fade (decision 053); nothing: no choice
     std::optional<bool> glass;              // the island as glass (decision 089); nothing: no row (Windows 10)
+    std::optional<bool> liquidGlass;        // ...as liquid glass (decision 165); nothing: no such pick, Glass is a switch
     std::optional<Transparency> transparency; // how see-through (decision 096); nothing: no choice
     std::optional<bool> glassWindows;       // windows as glass too (decision 104); nothing: no row
     std::optional<WindowThemeMode> windowTheme; // where windows take their colours (decision 150); nothing: no row

@@ -85,6 +85,12 @@ public:
 
     wuc::ShapeVisual const& body() const { return body_; } // for the liquid bridge's expressions
 
+    // Liquid glass (decision 165): `picture` is the bent desktop, as large as
+    // the render layer and aligned with it; shown through this shape's outline
+    // in place of Windows' blur while tokens().glassStyle is Liquid. Null: the
+    // frosted glass again.
+    void setLiquid(wuc::ICompositionSurface const& picture);
+
 private:
     void playScale(float scale, Ms duration, Bezier curve);
     void setAttached(bool on); // to the screen edge: flared top corners; off it (dragged): round
@@ -124,24 +130,15 @@ private:
     Color luminosityPainted_{ 0, 0, 0, 0 };
     void paintLuminosity(Color color);
     GraphicsDevice* device_ = nullptr; // build()'s: draws the brightness surface
+    wuc::CompositionBrush frosted_{ nullptr };      // the glass's own brush: Windows' blur, cut (decision 089)
+    wuc::ICompositionSurface liquid_{ nullptr };    // setLiquid()'s picture
+    bool liquidShown_ = false;                      // the glass shows it now
+    wuc::CompositionBrush liquidBrush();            // the picture where the desktop is, cut by the outline
     bool glassTried_ = false; // made once, or failed once: not tried again
     bool glassShown_ = false;
     wuc::CompositionSpriteShape rim_{ nullptr };
     wuc::CompositionColorGradientStop rimTop_{ nullptr }, rimBottom_{ nullptr };
     void buildGlass();
-    // The lens (decision 165): over the glass, under the twin's tint, the
-    // blurred desktop again in a band inside the edge, pulled in from it.
-    // Its band is a ring of strokes snapshotted like the outline (never in
-    // the tree: only its snapshot is drawn), so it follows every morph. Made
-    // with the glass, the first time it has a width and a strength.
-    wuc::ShapeVisual band_{ nullptr };
-    wuc::CompositionVisualSurface bandSnapshot_{ nullptr };
-    wuc::SpriteVisual lens_{ nullptr };
-    bool lensTried_ = false;
-    bool lensOffLogged_ = false; // "no lens" said once while tokens.json has it off
-    void buildLens();
-    void makeLens(const char*& step); // ...its steps, each named in `step` for the log if Windows refuses one
-    void applyLens(Ms duration); // its width, depth and strength from tokens; faded with the glass
     // The glow (decision 090): the cover's colour (islandGlowColor) along the
     // body's bottom edge, fading out glassGlowHeight px up along glowFade's
     // curve, from the bottom stop up. Clear unless glass has a cover's
