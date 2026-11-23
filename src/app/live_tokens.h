@@ -60,6 +60,10 @@ bool setReducedMotion(bool reduced);
 // the theme is light, kept over every reload. Returns true if tokens changed.
 bool setGlass(bool on);
 
+// Which glass (decision 165): frosted or liquid, the Settings pick, kept
+// over reloads. True if the tokens changed.
+bool setGlassStyle(GlassStyle style);
+
 // How see-through the glass is (decision 096): the Settings pick, kept over
 // every reload like the theme. Returns true if tokens changed.
 bool setTransparency(Transparency level);

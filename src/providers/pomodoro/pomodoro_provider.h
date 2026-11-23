@@ -1,8 +1,8 @@
 #pragma once
-// Pomodoro: the first panel (decision 009). Dormant, its Home widget opens
+// Pomodoro: the first panel (decision 009). Dormant, its page-row icon opens
 // a card that starts a session; running, it's an activity that counts down
 // focus rounds and breaks. It ends by itself after the long break, or with
-// its stop button, once confirmed. The widget only informs (decision 019).
+// its stop button, once confirmed.
 // The card is the time and its controls; its expand button opens the
 // timer's window (decision 106) with the rest: the tasks in groups
 // (decisions 016, 117), statistics and settings (decision 061).

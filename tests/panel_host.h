@@ -26,7 +26,10 @@ struct PanelHost : Host {
     void publishPanel(Panel p) override { published.push_back(std::move(p)); }
     void removePanel(const std::string& id) override { removed.push_back(id); }
     void wakeAt(std::optional<Ms> at) override { wake = at; }
-    void ask(Dialog) override {}
+    std::vector<Dialog> questions;
+    void ask(Dialog d) override { questions.push_back(std::move(d)); }
+    std::vector<Toast> toasts;
+    void toast(Toast t) override { toasts.push_back(std::move(t)); }
     std::string revealed; // "<list>@<row>"
     void reveal(const std::string&, const std::string& list, std::size_t row) override { revealed = list + "@" + std::to_string(row); }
     std::map<std::string, std::string> store; // Host::load/save
@@ -101,13 +104,6 @@ template <typename T> const T* itemOf(const Row* r)
     return nullptr;
 }
 
-inline std::string textAt(const Panel& p, std::size_t row, std::size_t item)
-{
-    if (row >= p.content.tile.size() || item >= p.content.tile[row].items.size()) return "?";
-    auto* text = std::get_if<Text>(&p.content.tile[row].items[item]);
-    return text ? text->value : "?";
-}
-
 // A card row's text, or its button's label.
 inline std::string cardText(const Panel& p, std::size_t row)
 {
@@ -126,14 +122,6 @@ inline std::string cardItem(const Panel& p, std::size_t row, std::size_t item)
     if (auto* keys = std::get_if<Keys>(&card[row].items[item])) return keys->text; // key caps (decision 092)
     auto* text = std::get_if<Text>(&card[row].items[item]);
     return text ? text->value : "?";
-}
-
-// The widget's side-square icon (tileLeading, decision 073).
-inline Glyph leadGlyph(const Panel& p)
-{
-    if (p.content.tileLeading.empty() || p.content.tileLeading[0].items.empty()) return Glyph::Warning;
-    auto* icon = std::get_if<Icon>(&p.content.tileLeading[0].items[0]);
-    return icon ? icon->glyph : Glyph::Warning;
 }
 
 // The card's row whose first item is this text (a setting's name), or nullptr.

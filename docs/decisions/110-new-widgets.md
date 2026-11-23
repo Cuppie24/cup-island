@@ -1,6 +1,6 @@
 # 110: "New" on a widget until its card is first opened
 
-Status: Accepted. Core and scenarios tested; the saved list on Windows needs a run.
+Status: Superseded by 170 (no widgets to say "New" on). Core and scenarios tested; the saved list on Windows needs a run.
 
 **Context.** The user asked for a "New" tag on Pomodoro's widget, once,
 until they open it. A tag item exists (`Tag`, decision 048) and widgets

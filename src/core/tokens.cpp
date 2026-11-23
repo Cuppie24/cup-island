@@ -30,6 +30,19 @@ float glassShare(const Tokens& t, bool evenBlur)
     return std::clamp(share, 0.0f, 1.0f);
 }
 
+float liquidShine(const Tokens& t, bool surface)
+{
+    if (!t.glass || t.glassStyle != GlassStyle::Liquid) return 0.0f;
+    return std::clamp(surface ? t.glassLiquidSurfaceShineOpacity : t.glassLiquidShineOpacity, 0.0f, 1.0f);
+}
+
+Color glassRimAt(const Tokens& t, bool liquid)
+{
+    Color c = t.glassRimColor;
+    if (liquid) c.a = static_cast<std::uint8_t>(std::lround(255 * std::clamp(t.glassLiquidHighlightOpacity, 0.0f, 1.0f)));
+    return c;
+}
+
 Color glassLuminosityAt(const Tokens& t)
 {
     float share = t.glassTransparency == Transparency::Low    ? t.glassDenseLuminosity
@@ -48,7 +61,25 @@ Color islandFill(const Tokens& t, Color color, bool evenBlur)
 
 float glowFade(const Tokens& t, float up)
 {
-    return std::pow(1.0f - std::clamp(up, 0.0f, 1.0f), std::max(t.glassGlowCurve, 0.0f));
+    return glowFade(t.glassGlowCurve, up);
+}
+
+float glowFade(float curve, float up)
+{
+    return std::pow(1.0f - std::clamp(up, 0.0f, 1.0f), std::max(curve, 0.0f));
+}
+
+GlowLook glowLook(const Tokens& t, bool card)
+{
+    // No card colour set (a test's tokens, a cover gone): the pill's, everywhere.
+    if (!card || t.islandCardGlowColor.a == 0) return { t.islandGlowColor, t.glassGlowHeight, t.glassGlowCurve };
+    return { t.islandCardGlowColor, t.glassCardGlowHeight, t.glassCardGlowCurve, t.islandGlowEdgeColor };
+}
+
+ArtShadow artShadow(const Tokens& t)
+{
+    if (t.artGlowColor.a == 0) return { t.artShadowColor, t.artShadowBlur, t.artShadowOffset };
+    return { t.artGlowColor, t.artGlowBlur, {} };
 }
 
 bool pale(Color c)

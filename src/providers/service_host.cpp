@@ -29,10 +29,9 @@ void ServiceHost::showStuck(const std::string& serviceVersion)
         .expandedCenter = { row({ Text{ .value = "File search needs an update", .style = TextStyle::Title, .centred = true } }),
                             row({ Text{ .value = caption, .style = TextStyle::Caption, .centred = true } }),
                             row({ Button{ .actionId = service_action::kDownload, .label = "Download the installer" } }, Align::Center) },
-        .tile = { row({ Icon{ Glyph::Download }, Text{ "Search", TextStyle::Body } }), row({ Text{ "Update", TextStyle::TileTitle } }) },
     };
-    host_->publishPanel({ .id = kPanelId, .content = std::move(c) });
-    if (host_->load(kStuckKey) == hooks_.appVersion) return; // said once for this version: the widget stays
+    host_->publishPanel({ .id = kPanelId, .content = std::move(c), .icon = Glyph::Warning });
+    if (host_->load(kStuckKey) == hooks_.appVersion) return; // said once for this version: its page-row icon stays
     host_->save(kStuckKey, hooks_.appVersion);
     host_->postAlert({ .activityId = kPanelId, // a click opens the card
                        .content = { .label = "File search needs an update",

@@ -9,6 +9,7 @@
 #include "platform/graphics_device.h"
 #include "platform/win.h"
 
+#include <cstdint>
 #include <optional>
 
 namespace cup::platform {
@@ -21,22 +22,33 @@ public:
     // bottom edge. The blob binds its size to the card's.
     wuc::ContainerVisual const& frame() const { return frame_; }
     void show(const std::optional<ToastScene>& toast, Ms now); // nullopt: it slides back down, fading out
+    // On the island (not a provider's window): its edge shines on liquid glass (decision 165). After build().
+    void setShiny();
     void refresh(bool coloursOnly);                            // tokens changed: its fill fades, its content follows
     ElementVisuals& elements() { return elements_; }           // hover and press on its button
 
 private:
     void animate(bool in, float slide);
-    void applyShadow(); // toastShadowBlur, -Offset, -Color
+    void applyShadow();        // toastShadowBlur, -Offset, -Color
+    void paintShadowMask(Vec2 size, float radius); // the pill's shape for the shadow, redrawn when it changes
 
     wuc::Compositor compositor_{ nullptr };
     wuc::ContainerVisual frame_{ nullptr };                   // still, clipped to the card
     wuc::ContainerVisual layer_{ nullptr };                   // slides and fades as one: the pill and its content
-    wuc::LayerVisual pillLayer_{ nullptr };                   // the pill, casting its shadow (decision 151)
+    // The shadow (decisions 151, 170): a sprite under the pill that draws nothing itself
+    // and casts a DropShadow masked by the pill's shape, as raised art's (decision 094).
+    wuc::SpriteVisual caster_{ nullptr };
     wuc::DropShadow shadow_{ nullptr };
+    wuc::CompositionDrawingSurface shadowMask_{ nullptr };
+    GraphicsDevice* device_ = nullptr;
+    Vec2 maskSize_{};             // what shadowMask_ was last painted for...
+    float maskRadius_ = 0;
+    std::uint64_t maskGeneration_ = 0; // ...and on which device (decision 164)
     wuc::ShapeVisual background_{ nullptr };
     wuc::CompositionRoundedRectangleGeometry shape_{ nullptr };
     wuc::CompositionColorBrush fill_{ nullptr };
     wuc::CompositionColorBrush edge_{ nullptr }; // trackColor, as the menu's
+    Shine shine_;                                // over it on liquid glass: a shiny edge (decision 165)
     ElementVisuals elements_;
     bool shown_ = false;
     float slide_ = 0; // the shown one's: how far it goes back down

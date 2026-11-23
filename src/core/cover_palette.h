@@ -33,8 +33,15 @@ std::vector<ThemeColor> coverColors(const CoverTint& tint, const Tokens& themed)
 // (the colours as written, one of them: no gradient), and the cover's main
 // hue glows up from its bottom edge (islandGlowColor, at coverDarkGlow,
 // lighter up to coverDarkGlowLifted for a hue only vivid when light, like
-// yellow or cyan (decision 098), glassGlowOpacity strong, glassGlowHeight px up). Glass is for dark
+// yellow or cyan (decision 098), glassGlowOpacity strong, glassGlowHeight px up), lighter on an open
+// card with a line of it along the edge (islandCardGlowColor, islandGlowEdgeColor, decision 166). Glass is for dark
 // islands only (decision 089).
 std::vector<ThemeColor> glassCoverColors(const CoverTint& tint, const Tokens& themed, const Tokens& midnight);
+
+// What the island takes from a cover (decision 169): on a dark theme, glass
+// or solid, the glow (glassCoverColors); on a light one, the cover's colours
+// whole (coverColors), as the glow is light on a dark island and has no
+// light counterpart.
+std::vector<ThemeColor> islandCoverColors(const CoverTint& tint, const Tokens& themed, const Tokens& midnight);
 
 } // namespace cup

@@ -6,6 +6,7 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace cup {
 
@@ -14,6 +15,17 @@ float fontSize(TextStyle style);   // its text's size, px (tokens)
 // The style of a Text::detail line under text in `style` (decision 079).
 TextStyle detailStyleOf(TextStyle style);
 bool isRing(const Item& item);
+bool isWavy(const Item& item); // a Progress bar with `wavy` (decision 167)
+// A wavy bar's height: its line's swing, or its knob grown under the pointer if it has one.
+float waveHeight(bool seekable = false);
+float waveSwing(); // the line, swinging progressWaveAmplitude to each side
+// The wave's line as it is `phase` (radians) into its ripple, in its head's
+// own coordinates: x from -length (its start) to 0 (its head), around
+// y = `middle`. A sine whose swing shrinks to nothing over the last
+// progressWaveTaper before the head, so it meets the head on the bar's
+// line; as `phase` grows the ripples run towards the head. `swing` 0: flat.
+// The same number of points whatever the phase, so one line can turn into another.
+std::vector<Vec2> wavePoints(float length, float middle, float phase, float swing = 1);
 // Step i's length on screen, from its StepLength (decision 107).
 float stepWidth(const Steps& steps, int i);
 // A primary button's circle (decision 064) and the glyph in it; a compact

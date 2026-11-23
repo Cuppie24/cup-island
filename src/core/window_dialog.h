@@ -2,7 +2,8 @@
 // A window's question laid out (decision 122): Host::ask with a windowId puts
 // it over that window, as the island's dialog is over a card (decision 020).
 // Everything under the title bar is dimmed; a panel in the middle holds the
-// title, the message, then Cancel and the confirm button. Pure.
+// title (under its icon, if it has one), the message, then Cancel and the
+// confirm button. Pure.
 
 #include "core/island.h"
 #include "core/layout.h"

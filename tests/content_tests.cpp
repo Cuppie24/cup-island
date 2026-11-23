@@ -70,6 +70,24 @@ void runContentTests()
     const Placed* art = find(scene, "expandedLeading/0/0");
     expect(art && art->frame == Rect{ t.expandedPadding, t.expandedPadding, t.expandedArtSize, t.expandedArtSize }, "art fills the leading square");
 
+    // Dragged, the bar's times show where the pointer is (decision 167); nothing else changes.
+    {
+        Scene dragged = scrubbedTimes(scene, "expandedBottom/0/1", 0.5f);
+        const Placed* at = find(dragged, "expandedBottom/0/0");
+        const Placed* togo = find(dragged, "expandedBottom/0/2");
+        Ms half = playing.duration / 2;
+        expect(at && std::get<Text>(at->item).value == formatDuration(half) && togo &&
+                   std::get<Text>(togo->item).value == "-" + formatDuration(playing.duration - half),
+               "a dragged bar's times show the time under the pointer");
+        expect(find(dragged, "expandedBottom/0/1")->item == find(scene, "expandedBottom/0/1")->item &&
+                   find(dragged, "expandedCenter/0/0")->item == find(scene, "expandedCenter/0/0")->item,
+               "a drag changes only the times");
+        expect(scrubbedTimes(scene, "expandedBottom/1/0", 0.5f).elements == scene.elements && scrubbedTimes(scene, "nothing", 0.5f).elements == scene.elements,
+               "not a bar: the scene as it was");
+        expect(std::get<Text>(find(scrubbedTimes(scene, "expandedBottom/0/1", 7.0f), "expandedBottom/0/0")->item).value == formatDuration(playing.duration),
+               "a drag past the end shows the end");
+    }
+
     const Placed* elapsed = find(scene, "expandedBottom/0/0");
     const Placed* bar = find(scene, "expandedBottom/0/1");
     const Placed* left = find(scene, "expandedBottom/0/2");
@@ -257,59 +275,64 @@ void runContentTests()
         .compactLeading = { row({ Icon{ Glyph::Timer } }) } } } }, Ms{ 0 });
     three = reduce(three, ActivityStarted{ { .id = "sync", .content = { .label = "Sync" } } }, Ms{ 0 });
     Scene opened = layout(reduce(three, PillClicked{}, Ms{ 0 }), Ms{ 0 }); // opens the top one: sync
-    expect(opened.tabs && opened.tabs->tabs.size() == 3, "a dot per activity, the shown one included");
+    expect(opened.tabs && opened.tabs->tabs.size() == 3, "an icon per page, the shown one included");
     const TabStrip& strip = *opened.tabs;
     expect(strip.tabs[0].id == "media" && strip.tabs[2].id == "sync" && strip.active == 2,
-           "dots in start order (stable), the shown one marked active");
+           "activities without a panel in start order (stable), the shown one marked active");
     // The row sits tabRowInset from the top, tabRowGap over the content, which keeps its padding beyond that (decision 109).
     float rowSpace = t.tabRowInset + t.tabHeight + t.tabRowGap - t.expandedPadding;
     expect(opened.size.y == t.expandedSize.y + rowSpace, "the card grows by the strip");
     expect(opened.size.y <= t.canvas.y, "the taller card fits on the canvas");
-    // The page row (decision 109): no tabs, a dot per page and a line for the shown one, ‹ and › beside them.
-    expect(strip.tabs[0].frame.width == t.tabDotSize && strip.tabs[0].frame.height == t.tabDotSize && strip.tabs[2].frame.width == t.tabLineWidth,
-           "dots, and a line for the shown page");
-    for (const auto& p : opened.elements)
-        expect(p.key.rfind("tab/media", 0) != 0 && p.key.rfind("tab/sync", 0) != 0, "no tab content drawn: " + p.key);
-    expect(strip.previous && strip.next && strip.previous->frame.x + strip.previous->frame.width + t.tabArrowGap == strip.tabs.front().frame.x &&
-           strip.tabs.back().frame.x + strip.tabs.back().frame.width + t.tabArrowGap == strip.next->frame.x, "‹ and › right beside the dots");
-    float groupLeft = strip.previous->frame.x, groupRight = strip.next->frame.x + strip.next->frame.width;
-    expect(std::abs(groupLeft - (opened.size.x - groupRight)) < 0.01f, "dots and arrows centred together");
-    expect(find(opened, "tab/previous/lead") && std::get<Icon>(find(opened, "tab/previous/lead")->item).glyph == Glyph::ChevronLeft &&
-           find(opened, "tab/next/lead") && std::get<Icon>(find(opened, "tab/next/lead")->item).glyph == Glyph::ChevronRight, "their chevrons");
-    expect(!find(opened, "tab/pin/lead"), "no pin in the row (decision 121)");
-    expect(strip.next->frame.y + strip.next->frame.height / 2 == t.tabRowInset + t.tabHeight / 2 && t.tabRowInset >= t.collapseZoneHeight,
+    // The page row (decision 165): an icon per page, centred as one group; no dots, no arrows.
+    expect(strip.tabs[0].frame.width == t.tabIconSize && strip.tabs[0].frame.height == t.tabIconSize &&
+               strip.tabs[1].frame.x == strip.tabs[0].frame.x + t.tabIconSize + t.tabIconGap,
+           "icon buttons, tabIconGap apart");
+    float groupLeft = strip.tabs.front().frame.x, groupRight = strip.tabs.back().frame.x + strip.tabs.back().frame.width;
+    expect(std::abs(groupLeft - (opened.size.x - groupRight)) < 0.01f, "the list centred on the card");
+    expect(!find(opened, "tab/previous/lead") && !find(opened, "tab/next/lead") && !find(opened, "tab/pin/lead"),
+           "no arrows (decision 165), no pin (decision 121)");
+    expect(strip.tabs[0].frame.y + strip.tabs[0].frame.height / 2 == t.tabRowInset + t.tabHeight / 2 && t.tabRowInset >= t.collapseZoneHeight,
            "the row along the top, just under the top band (decisions 047, 108)");
     expect(strip.radius == std::min(pillCornerRadius(opened.size) - t.expandedPadding, t.tabHeight / 2), "buttons' corners nested");
-    expect(find(opened, "tab/previous/lead")->muted && find(opened, "tab/next/lead")->muted, "the arrows grey until hovered");
-    // Each glyph lights only under its own button: its activityId is the button's, never a page's,
-    // so hovering a dot (Home's is "") doesn't light Home's button (decision 109).
-    for (const auto& p : opened.elements)
-        if (p.key.rfind("tab/", 0) == 0)
-            expect(!p.activityId.empty() && p.activityId[0] == '#', "a row glyph keyed to its own button: " + p.key);
-    const Tab& dot = strip.tabs[0];
-    expect(dot.hitFrame.height > t.tabHeight && dot.hitFrame.width > dot.frame.width && dot.lit.width > dot.frame.width,
-           "a dot is easy to hit, and lights up as a soft circle round it");
+    const Placed* shownIcon = find(opened, "tab/page/sync/lead");
+    const Placed* otherIcon = find(opened, "tab/page/media/lead");
+    expect(shownIcon && otherIcon && !shownIcon->muted && otherIcon->muted, "the shown page's icon in colour, the others grey (decision 165)");
+    expect(otherIcon->activityId == "media", "a grey icon lights under its own button only: keyed to its page");
+    const Tab& first = strip.tabs[0];
+    expect(first.hitFrame.height > t.tabHeight && first.hitFrame.width > first.frame.width && first.lit == first.frame,
+           "an icon is easy to hit, and lights up as its square");
 
     Vec2 onTimer{ strip.tabs[1].frame.x + 3, strip.tabs[1].frame.y + 3 };
-    expect(tabAt(strip, onTimer) && tabAt(strip, onTimer)->id == "timer", "a point finds its dot");
-    Vec2 onNext{ strip.next->frame.x + 3, strip.next->frame.y + 3 };
-    expect(tabAt(strip, onNext) && tabAt(strip, onNext)->id == kNextTab, "...and an arrow");
+    expect(tabAt(strip, onTimer) && tabAt(strip, onTimer)->id == "timer", "a point finds its icon");
     expect(!tabAt(strip, { 1, 1 }), "outside the strip: no tab");
-    // One page, shown (Home's widgets make the row): the arrows stay, dim, with nothing to click (decision 118).
+    // Constant (decision 165): a panel with a card has its icon whether it runs or not, where it was published;
+    // a toggle, a static widget and a row button have none.
     IslandState one;
-    one = reduce(one, PanelPublished{ { .id = "widget", .content = { .label = "Widget" } } }, Ms{ 0 });
+    one = reduce(one, PanelPublished{ { .id = "timer", .content = { .label = "Timer", .expandedCenter = { row({ Text{ "25:00" } }) } }, .icon = Glyph::Timer } }, Ms{ 0 });
+    one = reduce(one, PanelPublished{ { .id = "theme", .content = { .label = "Dark" }, .tapAction = "toggle" } }, Ms{ 0 });
+    one = reduce(one, PanelPublished{ { .id = "static", .content = { .label = "Static" } } }, Ms{ 0 });
+    one = reduce(one, PanelPublished{ { .id = "gear", .content = { .label = "Settings" }, .tapAction = "open", .rowButton = Glyph::Settings } }, Ms{ 0 });
     one = reduce(one, ActivityStarted{ { .id = "media", .content = { .label = "Song" } } }, Ms{ 0 });
     Scene single = layout(reduce(one, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    const Placed* prev = find(single, "tab/previous/lead");
-    const Placed* next = find(single, "tab/next/lead");
-    expect(single.tabs && single.tabs->tabs.size() == 1 && prev && next && std::get<Icon>(prev->item).disabled &&
-               std::get<Icon>(next->item).disabled && !prev->muted,
-           "one page: ‹ and › shown, disabled");
-    expect(!single.tabs->previous && !single.tabs->next && !tabAt(*single.tabs, { prev->frame.x + 3, prev->frame.y + 3 }),
-           "...nothing to click, hover or focus");
-    float arrowsLeft = prev->frame.x, arrowsRight = next->frame.x + next->frame.width;
-    expect(std::abs(arrowsLeft - (single.size.x - arrowsRight)) < 1, "the dot and its arrows centred, as with more pages");
-    expect(!std::get<Icon>(find(opened, "tab/previous/lead")->item).disabled, "several pages: live arrows");
+    expect(single.tabs && single.tabs->tabs.size() == 2 && single.tabs->tabs[0].id == "timer" && single.tabs->tabs[1].id == "media" &&
+               single.tabs->active == 1,
+           "a dormant panel's icon is in the list, before activities without a panel; toggles, static widgets and row buttons aren't");
+    const Placed* dormant = find(single, "tab/page/timer/lead");
+    expect(dormant && std::get<Icon>(dormant->item).glyph == Glyph::Timer && dormant->muted, "its own icon (Panel::icon), grey while not shown");
+    IslandState onDormant = reduce(reduce(one, PillClicked{}, Ms{ 0 }), ActivitySwitched{ "timer" }, Ms{ 0 });
+    Scene dormantCard = layout(onDormant, Ms{ 0 });
+    expect(dormantCard.activityId == "timer" && dormantCard.tabs->active == 0 && !find(dormantCard, "tab/page/timer/lead")->muted,
+           "a click on a dormant panel's icon opens its card, and its icon is the lit one");
+    IslandState liveTimer = reduce(onDormant, ActivityStarted{ { .id = "timer", .content = { .label = "Timer" } } }, Ms{ 0 });
+    expect(layout(liveTimer, Ms{ 0 }).tabs->tabs[0].id == "timer", "running, its icon stays where it was");
+    // Too many to fit between the edges' buttons: squeezed, still centred, never over them.
+    IslandState many = one;
+    for (int i = 0; i < 12; ++i)
+        many = reduce(many, PanelPublished{ { .id = "p" + std::to_string(i), .content = { .label = "P", .expandedCenter = { row({ Text{ "x" } }) } } } }, Ms{ 0 });
+    Scene crowded = layout(reduce(many, PillClicked{}, Ms{ 0 }), Ms{ 0 });
+    expect(crowded.tabs->tabs.front().hitFrame.x >= 0 &&
+               crowded.tabs->tabs.back().frame.x + crowded.tabs->tabs.back().frame.width <= crowded.tabs->buttons[0].frame.x,
+           "a crowded list stays on the card, clear of the corner's button");
     Scene mediaCard = layout(reduce(reduce(three, PillClicked{}, Ms{ 0 }), ActivitySwitched{ "media" }, Ms{ 0 }), Ms{ 0 });
     const Placed* mediaArt = find(mediaCard, "expandedLeading/0/0");
     float stripSpace = rowSpace;

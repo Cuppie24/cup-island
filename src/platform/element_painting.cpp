@@ -118,6 +118,7 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::CloseWindow: return L"\uE8BB"; // ChromeClose
     case Glyph::Grip: return L"\uE76F";     // GripperBarHorizontal; paintGlyph draws a card's handle as one line instead (decision 134)
     case Glyph::More: return L"\uE712";     // More (…): a window card's menu (decision 142)
+    case Glyph::Gauge: return L"\uEC4A";    // SpeedHigh: something costs performance (liquid glass's question, decision 165)
     case Glyph::Fire: return L"\U0001F525"; // not in the icon fonts: Segoe UI Emoji's, in colour (paintGlyph)
     }
     return L"?";
@@ -219,7 +220,6 @@ TextLook lookOf(TextStyle style)
     case TextStyle::WindowTitle: return { t.windowTitleFontSize, t.titleTextColor, t.windowTitleFontWeight }; // decision 112
     case TextStyle::WindowBody: return { t.windowBodyFontSize, t.bodyTextColor, t.windowBodyFontWeight };
     case TextStyle::WindowCaption: return { t.windowCaptionFontSize, t.captionTextColor, t.windowCaptionFontWeight };
-    case TextStyle::TileTitle: return { t.tileTitleFontSize, t.titleTextColor, t.tileTitleFontWeight }; // decision 114
     }
     return { t.bodyFontSize, t.bodyTextColor, t.bodyFontWeight };
 }

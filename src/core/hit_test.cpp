@@ -71,4 +71,23 @@ bool inCollapseZone(const Scene& scene, Vec2 point)
     return scene.collapseZone && scene.collapseZone->contains(point);
 }
 
+Scene scrubbedTimes(Scene scene, const std::string& bar, float fraction)
+{
+    const Progress* dragged = nullptr;
+    for (const Placed& p : scene.elements)
+        if (p.key == bar) dragged = std::get_if<Progress>(&p.item);
+    if (!dragged || dragged->timeline.duration <= Ms{ 0 }) return scene;
+    Timeline timeline = dragged->timeline;
+    Ms position{ static_cast<long long>(static_cast<double>(timeline.duration.count()) * std::clamp(fraction, 0.0f, 1.0f)) };
+    std::string row = bar.substr(0, bar.rfind('/') + 1); // "<slot>/<row>/"
+    for (Placed& p : scene.elements) {
+        auto* text = std::get_if<Text>(&p.item);
+        if (!text || p.ticking != timeline || p.key.compare(0, row.size(), row) != 0) continue;
+        // A laid-out TimeLabel is a Text (slot_layout): a remaining one is right-aligned, a countdown centred.
+        std::string left = formatDuration(timeline.duration - position);
+        text->value = text->centred ? left : text->alignEnd ? "-" + left : formatDuration(position);
+    }
+    return scene;
+}
+
 } // namespace cup

@@ -11,6 +11,7 @@
 #include "core/segments.h"
 #include "core/tokens.h"
 #include "core/tokens_json.h"
+#include "core/window_dialog.h"
 #include "core/window_layout.h"
 #include "providers/system/settings_provider.h"
 
@@ -64,7 +65,7 @@ void tabRowTests()
     openWindow(s);
     const Segments* choice = itemOf<Segments>(windowRow(h, "Tab row"));
     expect(choice && choice->options == std::vector<std::string>{ "Top", "Bottom" } && choice->picked == 1 && choice->actionId == P::kPickTabRow &&
-           detailOf(h, "Tab row") == "Home and pin buttons",
+           detailOf(h, "Tab row") == "Pages, Search and Settings",
            "tab row: a row with Top and Bottom side by side (decision 104), Bottom picked");
     s.onAction(fromWindow(std::string(P::kPickTabRow) + "0"));
     expect(placed.back() && h.store[SettingsProvider::kTabRowKey] == "top" && itemOf<Segments>(windowRow(h, "Tab row"))->picked == 0,
@@ -85,13 +86,11 @@ void tabRowTests()
     // ...and on a card: Enter on the control picks the next one (decision 093).
     {
         Panel card{ .id = "seg", .content = { .label = "seg", .card = CardLayout::List,
-                                             .expandedCenter = { row({ Text{ "Tab row" }, Segments{ .options = { "Top", "Bottom" }, .actionId = P::kPickTabRow } }) },
-                                             .tile = { row({ Text{ "seg" } }) } },
+                                             .expandedCenter = { row({ Text{ "Tab row" }, Segments{ .options = { "Top", "Bottom" }, .actionId = P::kPickTabRow } }) } },
                     .providerId = "p" };
         IslandState st;
         st = reduce(st, PanelPublished{ card }, Ms{ 0 });
-        st = reduce(st, HomeOpened{}, Ms{ 0 });
-        st = reduce(st, TileClicked{ "seg" }, Ms{ 0 });
+        st = reduce(st, CardOpened{ "seg" }, Ms{ 0 });
         Scene scene = layout(st, Ms{ 0 });
         const Placed* control = nullptr;
         for (const Placed& e : scene.elements)
@@ -111,7 +110,7 @@ void tabRowTests()
     bottom = reduce(bottom, TabRowPlaced{ false }, Ms{ 0 });
     Scene up = layout(top, Ms{ 0 }), down = layout(bottom, Ms{ 0 });
     const Tokens& t = tokens();
-    auto rowMiddle = [](const Scene& sc) { return sc.tabs->next->frame.y + sc.tabs->next->frame.height / 2; }; // the arrows sit on the row's middle
+    auto rowMiddle = [](const Scene& sc) { return sc.tabs->tabs[0].frame.y + sc.tabs->tabs[0].frame.height / 2; }; // the icons sit on the row's middle
     expect(rowMiddle(up) == t.tabRowInset + t.tabHeight / 2 && rowMiddle(down) == down.size.y - t.tabRowInset - t.tabHeight / 2,
            "tab row: along the top, or the bottom");
     expect(down.size == up.size, "tab row: the card is as tall either way");
@@ -119,7 +118,7 @@ void tabRowTests()
     for (const Placed& p : up.elements) if (p.key.rfind("tab/", 0) != 0) upText = p.frame.y;
     for (const Placed& p : down.elements) if (p.key.rfind("tab/", 0) != 0) downText = p.frame.y;
     expect(std::abs(upText - downText - (t.tabRowInset + t.tabHeight + t.tabRowGap - t.expandedPadding)) < 0.01f, "tab row: the content above a bottom strip, under a top one");
-    expect(down.tabs->next && down.tabs->next->hitFrame.y + down.tabs->next->hitFrame.height == down.size.y, "tab row: at the bottom, its buttons reach the card's bottom edge");
+    expect(down.tabs->tabs[0].hitFrame.y + down.tabs->tabs[0].hitFrame.height == down.size.y, "tab row: at the bottom, its buttons reach the card's bottom edge");
 }
 
 void newTagTests()
@@ -295,6 +294,73 @@ void glassTests()
     settings.onAction(fromWindow(P::kToggleGlass));
     expect(applied.back() == true && h.store[SettingsProvider::kGlassKey] == "on", "glass: and back on");
     settings.stop();
+
+    // Liquid glass (decision 165): where the app can draw it, the switch is
+    // three picks: off, the frosted glass as before, liquid. Saved in the same key.
+    PanelHost lh;
+    std::vector<std::string> said;
+    SettingsProvider liquid({ .setGlass = [&](bool on) { said.push_back(on ? "on" : "off"); },
+                              .setGlassStyle = [&](GlassStyle s) { said.push_back(s == GlassStyle::Liquid ? "liquid" : "frosted"); },
+                              .setTransparency = [](Transparency) {} });
+    liquid.start(lh);
+    openWindow(liquid);
+    expect(said == std::vector<std::string>{ "frosted", "on" } && detailOf(lh, "Glass") == "On", "liquid glass: frosted and on by default, the style told first");
+    liquid.onAction(fromWindow(P::kOpenGlass));
+    auto effect = [&] { return *itemOf<Segments>(windowRow(lh, "Glass effect")); };
+    expect(effect().options == std::vector<std::string>{ "Off", "Frosted", "Liquid" } && effect().picked == 1,
+           "liquid glass: three picks in place of the switch, frosted picked");
+    liquid.onAction(fromWindow(std::string(P::kPickGlass) + "2"));
+    expect(lh.questions.size() == 1 && lh.questions[0].title == "Turn on liquid glass?" && lh.questions[0].glyph == Glyph::Gauge &&
+               lh.questions[0].message.find("GPU and battery") != std::string::npos && lh.questions[0].message.find("experimental") != std::string::npos && lh.questions[0].confirmLabel == "Turn on" &&
+               !lh.questions[0].windowId.empty() && !lh.questions[0].destructive && lh.toasts.empty(),
+           "liquid glass: picking it asks first, over the window, with a gauge, that it's experimental and what it costs; no toast");
+    expect(said.back() == "on" && said[said.size() - 2] == "frosted" && lh.store[SettingsProvider::kGlassKey].empty() && effect().picked == 1,
+           "liquid glass: until it's answered nothing changes, and the row still shows frosted");
+    liquid.onAction(fromWindow(P::kConfirmLiquid));
+    expect(said.back() == "on" && said[said.size() - 2] == "liquid" && lh.store[SettingsProvider::kGlassKey] == "liquid" && effect().picked == 2,
+           "liquid glass: answered yes: picked, saved, the page stays");
+    expect(detailOf(lh, "Glass effect") == "Uses more GPU and battery. Hides the island from screenshots", "liquid glass: its row keeps saying what it costs");
+    liquid.onAction(fromWindow(std::string(P::kPickGlass) + "2"));
+    expect(lh.questions.size() == 1, "liquid glass: picked again while on: not asked again");
+    // The question laid out: its icon over its title.
+    WindowDialogScene asked = placeWindowDialog(lh.questions[0], { 600, 500 }, 40, Source{}, Ms{ 0 }, [](const Text& text) { return 7.0f * text.value.size(); });
+    auto iconAt = std::find_if(asked.elements.begin(), asked.elements.end(), [](const Placed& e) { return std::holds_alternative<Icon>(e.item); });
+    auto titleAt = std::find_if(asked.elements.begin(), asked.elements.end(), [](const Placed& e) {
+        auto* text = std::get_if<Text>(&e.item);
+        return text && text->value == "Turn on liquid glass?";
+    });
+    expect(iconAt != asked.elements.end() && titleAt != asked.elements.end() && std::get<Icon>(iconAt->item).glyph == Glyph::Gauge &&
+               iconAt->frame.y < titleAt->frame.y,
+           "a window's question with an icon: the icon over the title");
+    Dialog plainQuestion = lh.questions[0];
+    plainQuestion.glyph.reset();
+    WindowDialogScene plainScene = placeWindowDialog(plainQuestion, { 600, 500 }, 40, Source{}, Ms{ 0 }, [](const Text& text) { return 7.0f * text.value.size(); });
+    expect(std::none_of(plainScene.elements.begin(), plainScene.elements.end(), [](const Placed& e) { return std::holds_alternative<Icon>(e.item); }) &&
+               plainScene.panel.height < asked.panel.height,
+           "a window's question without one: no icon, a lower panel");
+    liquid.onAction(fromWindow(P::kBack));
+    expect(detailOf(lh, "Glass") == "Liquid", "liquid glass: Appearance says so");
+    liquid.stop();
+    said.clear();
+    liquid.start(lh);
+    expect(said == std::vector<std::string>{ "liquid", "on" } && lh.questions.size() == 1, "liquid glass: kept over a restart, without asking again");
+    openWindow(liquid);
+    liquid.onAction(fromWindow(P::kOpenGlass));
+    liquid.onAction(fromWindow(std::string(P::kPickGlass) + "0"));
+    expect(said.back() == "off" && lh.store[SettingsProvider::kGlassKey] == "off" && effect().picked == 0, "liquid glass: off is the first pick");
+    expect(detailOf(lh, "Glass effect") == "Only in dark themes", "liquid glass: off or frosted, the row says what it always said");
+    liquid.onAction(fromWindow(std::string(P::kPickGlass) + "1"));
+    expect(said.back() == "on" && said[said.size() - 2] == "frosted" && lh.store[SettingsProvider::kGlassKey] == "on" && effect().picked == 1,
+           "liquid glass: and frosted again is the old glass, saved as before");
+    liquid.stop();
+    // Saved as liquid, but this Windows can't draw it: the frosted glass, the switch on.
+    SettingsProvider plain({ .setGlass = [&](bool on) { said.push_back(on ? "on" : "off"); }, .setTransparency = [](Transparency) {} });
+    lh.store[SettingsProvider::kGlassKey] = "liquid";
+    plain.start(lh);
+    openWindow(plain);
+    plain.onAction(fromWindow(P::kOpenGlass));
+    expect(said.back() == "on" && itemOf<Switch>(windowRow(lh, "Glass effect"))->on, "liquid glass: saved where it can't be drawn: glass, on, a switch");
+    plain.stop();
 
     // Glass for windows (decision 104): on the Glass page, on until turned off; its window changes at once.
     PanelHost wh;

@@ -155,6 +155,13 @@ const Field kFields[] = {
     { "progressHeight", &Tokens::progressHeight },
     { "progressHitHeight", &Tokens::progressHitHeight },
     { "progressKnobSize", &Tokens::progressKnobSize },
+    { "progressWaveLength", &Tokens::progressWaveLength },
+    { "progressWaveAmplitude", &Tokens::progressWaveAmplitude },
+    { "progressWaveTaper", &Tokens::progressWaveTaper },
+    { "progressPinWidth", &Tokens::progressPinWidth },
+    { "progressPinHeight", &Tokens::progressPinHeight },
+    { "progressPinGrow", &Tokens::progressPinGrow },
+    { "progressPinGap", &Tokens::progressPinGap },
     { "timeLabelWidth", &Tokens::timeLabelWidth },
     { "ringThickness", &Tokens::ringThickness },
     { "stepDotSize", &Tokens::stepDotSize },
@@ -186,6 +193,8 @@ const Field kFields[] = {
     { "waveformBarWidth", &Tokens::waveformBarWidth },
     { "waveformBarGap", &Tokens::waveformBarGap },
     { "waveformPeriodMs", &Tokens::waveformPeriod },
+    { "progressWavePeriodMs", &Tokens::progressWavePeriod },
+    { "progressWaveSettleMs", &Tokens::progressWaveSettle },
     { "bubbleSize", &Tokens::bubbleSize, true },
     { "bubbleGap", &Tokens::bubbleGap },
     { "dragStartDistance", &Tokens::dragStartDistance },
@@ -198,6 +207,7 @@ const Field kFields[] = {
     { "shadowBlur", &Tokens::shadowBlur, true },
     { "shadowOffset", &Tokens::shadowOffset },
     { "artShadowBlur", &Tokens::artShadowBlur },
+    { "artGlowBlur", &Tokens::artGlowBlur },
     { "artShadowOffset", &Tokens::artShadowOffset },
     { "toastShadowBlur", &Tokens::toastShadowBlur },
     { "toastShadowOffset", &Tokens::toastShadowOffset },
@@ -210,7 +220,19 @@ const Field kFields[] = {
     { "glassGlowHeight", &Tokens::glassGlowHeight },
     { "glassGlowOpacity", &Tokens::glassGlowOpacity },
     { "glassGlowCurve", &Tokens::glassGlowCurve },
+    { "glassCardGlowHeight", &Tokens::glassCardGlowHeight },
+    { "glassCardGlowCurve", &Tokens::glassCardGlowCurve },
+    { "glassGlowEdgeOpacity", &Tokens::glassGlowEdgeOpacity },
     { "glassRimWidth", &Tokens::glassRimWidth },
+    { "glassLiquidBlur", &Tokens::glassLiquidBlur }, // liquid glass (decision 165)
+    { "glassLiquidRim", &Tokens::glassLiquidRim },
+    { "glassLiquidBend", &Tokens::glassLiquidBend },
+    { "glassLiquidDim", &Tokens::glassLiquidDim },
+    { "glassLiquidSaturation", &Tokens::glassLiquidSaturation },
+    { "glassLiquidHighlightOpacity", &Tokens::glassLiquidHighlightOpacity },
+    { "glassLiquidLipOpacity", &Tokens::glassLiquidLipOpacity },
+    { "glassLiquidShineOpacity", &Tokens::glassLiquidShineOpacity },
+    { "glassLiquidSurfaceShineOpacity", &Tokens::glassLiquidSurfaceShineOpacity },
     { "glassDarkenScale", &Tokens::glassDarkenScale },
     { "glassDarkenLift", &Tokens::glassDarkenLift },
     { "glassDenseLuminosity", &Tokens::glassDenseLuminosity },
@@ -219,20 +241,11 @@ const Field kFields[] = {
     { "tabHeight", &Tokens::tabHeight, true },
     { "tabRowInset", &Tokens::tabRowInset },
     { "tabRowGap", &Tokens::tabRowGap },
-    { "tabDotSize", &Tokens::tabDotSize },
-    { "tabDotGap", &Tokens::tabDotGap },
-    { "tabLineWidth", &Tokens::tabLineWidth },
-    { "tabArrowSize", &Tokens::tabArrowSize },
-    { "tabArrowGap", &Tokens::tabArrowGap },
-    { "homeButtonWidth", &Tokens::homeButtonWidth },
+    { "tabIconSize", &Tokens::tabIconSize },
+    { "tabIconGap", &Tokens::tabIconGap },
+    { "rowButtonWidth", &Tokens::rowButtonWidth },
     { "tabMutedOpacity", &Tokens::tabMutedOpacity },
-    { "homeColumns", &Tokens::homeColumns, true },
-    { "tileHeight", &Tokens::tileHeight },
-    { "tileGap", &Tokens::tileGap },
-    { "tilePadding", &Tokens::tilePadding },
-    { "tileIconSize", &Tokens::tileIconSize },
-    { "tileTitleFontSize", &Tokens::tileTitleFontSize },
-    { "tileTitleFontWeight", &Tokens::tileTitleFontWeight },
+    { "largeIconSize", &Tokens::largeIconSize },
     { "focusRingWidth", &Tokens::focusRingWidth },
     { "morphDurationMs", &Tokens::morphDuration, true },
     { "morphEase", &Tokens::morphEase },
@@ -304,10 +317,16 @@ const Field kFields[] = {
     { "coverDarkGlow", &Tokens::coverDarkGlow },
     { "coverGlowLiftCusp", &Tokens::coverGlowLiftCusp },
     { "coverDarkGlowLifted", &Tokens::coverDarkGlowLifted },
+    { "coverCardGlowLift", &Tokens::coverCardGlowLift },
+    { "coverGlowEdgeLift", &Tokens::coverGlowEdgeLift },
+    { "coverArtGlow", &Tokens::coverArtGlow },
     { "islandColor", &Tokens::islandColor, true },
     { "islandHighlightColor", &Tokens::islandHighlightColor },
     { "islandSecondColor", &Tokens::islandSecondColor }, // set from islandColor and the cover (live_tokens), not the file
     { "islandGlowColor", &Tokens::islandGlowColor },     // set from the cover as glass (decision 090), not the file
+    { "islandCardGlowColor", &Tokens::islandCardGlowColor }, // ...an open card's, and its edge line (decision 166)
+    { "islandGlowEdgeColor", &Tokens::islandGlowEdgeColor },
+    { "artGlowColor", &Tokens::artGlowColor },           // the glow round a playing cover (decision 169)
     { "titleTextColor", &Tokens::titleTextColor },
     { "bodyTextColor", &Tokens::bodyTextColor },
     { "captionTextColor", &Tokens::captionTextColor },
@@ -535,10 +554,11 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
     // lightnesses and chromas (decision 051), nor the shares below.
     auto unitless = [](const char* name) {
         std::string_view n(name);
-        return n.starts_with("cover") || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" || n == "searchVisibleRows" ||
+        return n.starts_with("cover") || n == "progressPinGrow" || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" || n == "searchVisibleRows" ||
                n == "primaryHoverOpacity" || n == "playGlyphNudge" || // a share of an opacity, of a width (decisions 066, 071)
                (n.starts_with("glass") && n.ends_with("Opacity")) || // opacities (decisions 089, 090, 096)
-               n == "glassGlowCurve" ||                               // an exponent (decision 090)
+               n == "glassGlowCurve" || n == "glassCardGlowCurve" ||  // exponents (decisions 090, 166)
+               n == "glassLiquidDim" || n == "glassLiquidSaturation" || // shares (decision 165)
                n.starts_with("glassDarken") ||                        // a colour scale and lift (decision 100)
                (n.starts_with("glass") && n.ends_with("Luminosity")) || // shares of an opacity (decision 100)
                n.ends_with("Bounce") || n == "contentArriveScale" || n == "contentRevealAt" || n == "morphSpringSettle" || n == "alertPulseScale" || // shares (decision 080)
@@ -567,6 +587,7 @@ bool onlyColorsDiffer(const Tokens& a, const Tokens& b)
     mixed.reducedMotion = a.reducedMotion; // read when a motion starts, like the fade speed
     mixed.glass = a.glass;                 // glass on or off only fades the fill (decision 089)
     mixed.glassTransparency = a.glassTransparency; // ...and so does how see-through it is (decision 096)
+    mixed.glassStyle = a.glassStyle;       // ...and which glass: another picture under the same tint (decision 165)
     for (const Field& f : kFields)
         if (auto* member = std::get_if<Color Tokens::*>(&f.member)) mixed.*(*member) = a.*(*member);
     return mixed == a;

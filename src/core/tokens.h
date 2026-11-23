@@ -46,6 +46,10 @@ enum class FadeSpeed { Fast, Medium, Slow };
 // How see-through the glass is (decision 096): the user's pick in Settings.
 enum class Transparency { Low, Medium, High };
 
+// Which glass (decision 165): Frosted is Windows' blurred desktop (decision
+// 089); Liquid bends a sharp picture of it along the island's edge.
+enum class GlassStyle { Frosted, Liquid };
+
 struct Tokens {
     // Render layer: as wide as the island's monitor, so the island can move
     // along its top edge (decision 026), and this tall (TR §5, §9.1). The
@@ -62,7 +66,7 @@ struct Tokens {
     Vec2 idleSize{ 160, 28 };
     Vec2 compactSize{ 260, 32 };
     Vec2 alertSize{ 320, 64 };
-    // Every card and Home: the width a to-do's text needs (decisions 043, 047); one height for all,
+    // Every card: the width a to-do's text needs (decisions 043, 047); one height for all,
     // room for the tallest (the timer's), so switching tabs never resizes the island (decision 107).
     Vec2 expandedSize{ 480, 248 };
     Vec2 receptiveSize{ 380, 84 };
@@ -138,7 +142,6 @@ struct Tokens {
     float bodyFontSize = 15;
     float captionFontSize = 13; // the smallest text: ~11 px on screen at 100% after islandScale
     float displayFontSize = 48; // TextStyle::Display: a timer in a dial (decision 065)
-    float tileTitleFontSize = 17; // TextStyle::TileTitle: a Home widget's first line, a little under a card's (decision 114)
     float cardTitleFontSize = 20; // TextStyle::CardTitle: a card's main line beside its cover (media's song, decision 107)
     float heroFontSize = 56;    // TextStyle::Hero: the one big number a card is about (Pomodoro's time, decision 107)
     float heroLineHeight = 52;  // ...its line: digits only, no descenders, so tighter than other text's
@@ -155,7 +158,6 @@ struct Tokens {
     float captionFontWeight = 600;
     float displayFontWeight = 300; // big and still the lightest, like a clock face
     float cardTitleFontWeight = 800;
-    float tileTitleFontWeight = 700;
     float heroFontWeight = 800;    // heavy: the card's timer reads from across the desk (decision 107)
     float headingFontWeight = 600; // a group's label is quiet: its group's background sets it apart (decision 090)
     float pageTitleFontWeight = 800; // heavier: the page's one name (decision 112)
@@ -214,6 +216,20 @@ struct Tokens {
     float progressHeight = 4;
     float progressHitHeight = 16; // taller than drawn, so it's easy to click
     float progressKnobSize = 12;  // the scrub handle shown on hover
+    // A wavy bar (Progress::wavy, decision 167): one wave's length, how far it swings to each side of
+    // the bar's line, how far back from its head it straightens out, how long one wave takes to
+    // pass, and how long it takes to lie flat or rise again.
+    float progressWaveLength = 28;
+    float progressWaveAmplitude = 3;
+    float progressWaveTaper = 26;
+    // ...and its knob, when it can be dragged: an upright pill at the head, always there,
+    // progressPinGrow times bigger under the pointer or dragged; the track starts progressPinGap past it.
+    float progressPinWidth = 4;
+    float progressPinHeight = 12;
+    float progressPinGrow = 1.3f;
+    float progressPinGap = 3;
+    Ms progressWavePeriod{ 1500 };
+    Ms progressWaveSettle{ 900 };
     float timeLabelWidth = 56;  // fits "-1:02:05" at captionFontSize
     float ringThickness = 3;      // progress ring stroke (decision 010)
     float stepDotSize = 9;        // Steps: one dot per step; a pill step's height
@@ -266,9 +282,12 @@ struct Tokens {
     // Under the expanded card's cover (decision 094), colour in artShadowColor: it sits on the card, not in it.
     float artShadowBlur = 12;
     Vec2 artShadowOffset{ 0, 3 };
+    // ...and while its music plays on a dark island, a glow of its colour all round it instead
+    // (artGlowColor, decision 169): this soft, straight under it.
+    float artGlowBlur = 22;
     // Under a toast (decision 151), colour in toastShadowColor: it floats over the page, apart from it.
-    float toastShadowBlur = 14;
-    Vec2 toastShadowOffset{ 0, 3 };
+    float toastShadowBlur = 10;
+    Vec2 toastShadowOffset{ 0, 6 }; // well down: a shadow below the pill, not a haze around it (decision 170)
 
     // Glass (decision 089): the blurred desktop behind the island, at one
     // brightness (glassLuminosityColor) like Windows' own acrylic, the island's
@@ -306,27 +325,48 @@ struct Tokens {
     float glassGlowHeight = 40.0f;  // px: the glow's reach up from the bottom edge, the same on the pill and a tall card
     float glassGlowOpacity = 0.8f;  // how strong the glow is along the bottom edge
     float glassGlowCurve = 2.5f;    // how it fades up its reach (glowFade): higher hugs the edge more; past 1, it melts away at the top
+    // ...on an open card it's light, not a stain (decision 166): lighter (coverCardGlowLift), reaching
+    // higher and fading slower, with a bright line of it along the bottom edge. Nothing a card has to
+    // be read sits that low; the pill's text does, so the pill keeps the dark glow.
+    float glassCardGlowHeight = 48.0f;
+    float glassCardGlowCurve = 1.6f;
+    float glassGlowEdgeOpacity = 0.9f; // the line's strength; 0: none, the rim as it is
     float glassRimWidth = 1;      // the rim's width, inside the edge
+    // Liquid glass (decision 165): the user's other pick. The desktop behind
+    // the island, blurred glassLiquidBlur px (a Gaussian's sigma, 2 to 16), bent in a rim
+    // glassLiquidRim wide inside the edge: there it shows what's further
+    // out, up to glassLiquidBend px past the edge at the edge itself, so
+    // what's beside the island wraps into its lip. Its brightness times
+    // glassLiquidDim, so white text reads over a white window; its colours
+    // glassLiquidSaturation as strong; the lip lighter by up to
+    // glassLiquidLipOpacity; and the rim's line (glassRimWidth) at
+    // glassLiquidHighlightOpacity in place of glassRimColor's own.
+    GlassStyle glassStyle = GlassStyle::Frosted; // the user's pick: set by the app from Settings, not by tokens.json
+    float glassLiquidBlur = 9;
+    float glassLiquidRim = 26;
+    float glassLiquidBend = 44;
+    float glassLiquidDim = 0.5f;
+    float glassLiquidSaturation = 1.6f;
+    float glassLiquidHighlightOpacity = 0.35f;
+    float glassLiquidLipOpacity = 0.14f;
+    // What's on liquid glass has a shiny edge: a hairline round two of its
+    // corners, the top left and the bottom right, this bright at its
+    // brightest (liquidShine): a control's, and fainter, a
+    // surface's (a Home widget, a toast).
+    float glassLiquidShineOpacity = 0.45f;
+    float glassLiquidSurfaceShineOpacity = 0.32f;
 
-    // Expanded's page row along the top of the card (decisions 007, 047, 109): a dot per page,
-    // the shown one a line, an arrow on each side of them; Home's button and the pin at the edges.
+    // Expanded's page row along the top of the card (decisions 047, 165): an icon per page,
+    // the shown one lit; panels' buttons in the corners.
     float tabHeight = 32;      // the row: its buttons' height, their hover shapes
     float tabRowInset = 12;    // from the card's edge: just inside the top band (collapseZoneHeight), not the card's padding
     float tabRowGap = 6;       // between the row and the card's content
-    float tabDotSize = 6;
-    float tabDotGap = 10;      // each dot's click area: its width and this
-    float tabLineWidth = 18;   // the shown page's line
-    float tabArrowSize = 32;   // ‹ and ›: round buttons beside the dots, the row's height
-    float tabArrowGap = 4;     // ...this far from the dots
-    float homeButtonWidth = 44;   // Home's icon-only button, apart at the left (decision 009)
-    float tabMutedOpacity = 0.5f; // a tab not shown, Home and the pin included: its content grey and this strong until hovered (decision 072)
+    float tabIconSize = 32;    // a page's icon in the row's list: its button's square, lit for the shown page (decision 165)
+    float tabIconGap = 4;      // ...between two of them, and between the buttons at the row's ends
+    float rowButtonWidth = 44;    // a panel's button at one of the row's ends (Settings, Search; decision 113)
+    float tabMutedOpacity = 0.5f; // a page-row icon not shown: grey and this strong until hovered (decision 072)
 
-    // Home: a grid of panel tiles in the Expanded card (decision 009).
-    std::size_t homeColumns = 4;  // columns' worth per Home row; a widget takes one, or two (Panel::wide); rows stretch to full width
-    float tileHeight = 64;        // fits a TileTitle and a Body line inside tilePadding (decisions 111, 114)
-    float tileGap = 10;
-    float tilePadding = 8;        // inside a tile, on every side
-    float tileIconSize = 20;      // a widget's leading icon (Icon::large, decisions 111, 114)
+    float largeIconSize = 20;     // Icon::large: the icon over a window's question
     float focusRingWidth = 2;     // the keyboard's focus ring (decision 033), drawn inside what has focus
 
     // Smaller transitions: the ears and corners folding, a lift sinking, a
@@ -464,6 +504,9 @@ struct Tokens {
     // from coverDarkGlow at a cusp of .x (red, purple, blue stay) to coverDarkGlowLifted at .y and up (yellow, green, cyan).
     Vec2 coverGlowLiftCusp{ 0.64f, 0.74f };
     float coverDarkGlowLifted = 0.56f;
+    float coverCardGlowLift = 0.15f;     // an open card's glow: this much lighter than the pill's (decision 166)
+    float coverGlowEdgeLift = 0.1f;      // ...and the line along its bottom edge, this much lighter again
+    float coverArtGlow = 0.75f;          // how strong the glow round the cover itself is (artGlowColor, decision 169)
 
     // Colours: every colour the island draws. tokens.json writes [r, g, b] or
     // [r, g, b, alpha], channels 0..255 and alpha 0..1, like CSS rgba().
@@ -475,6 +518,12 @@ struct Tokens {
     // The glow along the island's bottom edge (decision 090): glass with the
     // cover's colours. Not in tokens.json: none (clear) unless a cover sets it.
     Color islandGlowColor{ 0, 0, 0, 0 };
+    // ...an open card's, lighter, and the line along its bottom edge (decision 166). Set the same way.
+    Color islandCardGlowColor{ 0, 0, 0, 0 };
+    Color islandGlowEdgeColor{ 0, 0, 0, 0 };
+    // The glow round the card's cover while it plays (decision 169): the card glow's colour,
+    // coverArtGlow strong. Set the same way; clear: the cover's plain shadow (artShadowColor).
+    Color artGlowColor{ 0, 0, 0, 0 };
     Color titleTextColor{ 255, 255, 255 };
     Color bodyTextColor{ 255, 255, 255, 179 };
     Color captionTextColor{ 255, 255, 255, 140 }; // also Digits
@@ -491,8 +540,8 @@ struct Tokens {
     Color stepDoneColor{ 255, 255, 255, 191 };
     Color stepTodoColor{ 255, 255, 255, 51 };
     Color tabSelectedColor{ 255, 255, 255, 41 };
-    Color hoverColor{ 255, 255, 255, 20 };         // a tab or tile under the pointer
-    Color tileColor{ 255, 255, 255, 20 };          // Home's tile backgrounds, always shown (tabs have none, decision 072); a window's groups
+    Color hoverColor{ 255, 255, 255, 20 };         // a page-row button or a list row under the pointer
+    Color tileColor{ 255, 255, 255, 20 };          // grouped rows' background (decision 090); a window's groups
     Color windowPaneColor{ 255, 255, 255, 8 };     // a window's page pane, over islandColor (its sidebar's): a shade lighter (decision 104)
     Color focusRingColor{ 255, 255, 255, 153 };    // around what the keyboard has focus on (decision 033): a theme's accent
     Color inputColor{ 255, 255, 255, 26 };         // a text field's background (decision 016)
@@ -594,6 +643,17 @@ Color islandFill(const Tokens& t, Color color, bool evenBlur = true);
 // over the glass applies it to a whole layer (decision 097).
 float glassShare(const Tokens& t, bool evenBlur = true);
 
+// How bright a shiny edge is (decision 165): a control's
+// (glassLiquidShineOpacity) or, `surface`, a widget's or a toast's
+// (glassLiquidSurfaceShineOpacity), while the island is liquid glass, within
+// 0..1; none on frosted glass or a solid island.
+float liquidShine(const Tokens& t, bool surface = false);
+
+// The rim's line at its brightest (decision 089): glassRimColor, or on liquid
+// glass (`liquid`: it's what the island shows) that colour at
+// glassLiquidHighlightOpacity: the pane's bright edge.
+Color glassRimAt(const Tokens& t, bool liquid);
+
 // The colour acrylic's even brightness takes its lightness from:
 // glassLuminosityColor, its opacity times the Transparency pick's share
 // (glassDense/-/ClearLuminosity, decision 100).
@@ -604,7 +664,31 @@ Color glassLuminosityAt(const Tokens& t);
 // the edge, so the colour hugs it; flat at the top, so it melts into the card
 // with no line. Drawn as kGlowStops gradient stops sampling it, evenly.
 float glowFade(const Tokens& t, float up);
+float glowFade(float curve, float up); // ...along another curve (a card's)
 constexpr int kGlowStops = 9;
+
+// How the glow is drawn on the pill, alerts and the bubble, or on an open
+// card (decision 166): its colour at the bottom edge, how far up it reaches
+// and along which curve it fades, and the line along the edge (clear: none,
+// the glass's rim as it is).
+struct GlowLook {
+    Color color;
+    float height = 0;
+    float curve = 1;
+    Color edge{ 0, 0, 0, 0 };
+};
+GlowLook glowLook(const Tokens& t, bool card);
+
+// The shadow under the card's cover (decision 094), or, while a cover's glow
+// is set (artGlowColor, decision 169), that glow: its colour, how soft, and
+// where it falls (a glow: straight under the cover, so it shows all round).
+struct ArtShadow {
+    Color color;
+    float blur = 0;
+    Vec2 offset;
+    bool operator==(const ArtShadow&) const = default;
+};
+ArtShadow artShadow(const Tokens& t);
 
 // A pale colour: perceived brightness past half. A theme whose island is pale
 // is a light theme (decision 030).

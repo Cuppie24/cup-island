@@ -14,6 +14,7 @@
 #include "platform/element_visuals.h"
 #include "platform/glass.h"
 #include "platform/graphics_device.h"
+#include "platform/shine.h"
 #include "platform/win.h"
 
 #include <optional>
@@ -49,24 +50,20 @@ public:
     void lift(std::optional<float> centreX, Vec2 fling = {});
     void setEars(bool left, bool right);     // false: that side is flush with the screen edge, no ear (decision 026)
     void setHighlighted(bool on);            // drop target: the background lightens (decision 007)
+    void setCard(bool on);                   // an open card: its glow lighter, a line of it along the bottom edge (decision 166)
     // `reveal`: new content waits this long (the morph's, decision 080).
     void setContent(const std::vector<Placed>& elements, Ms now, Ms reveal) { elements_.apply(elements, now, reveal); }
     ElementVisuals& elements() { return elements_; } // hover, press, scrub feedback on content
-    // Expanded's page row (pill coordinates; nullopt = none, decision 109):
-    // the shown page's line glides, growing or shrinking, to a newly picked
-    // dot; hover is fainter and just fades.
+    // Expanded's page row (pill coordinates; nullopt = none, decision 165):
+    // the shape behind the shown page's icon glides to a newly picked one;
+    // hover is fainter and just fades.
     void setSelectedTab(std::optional<Rect> tab, float cornerRadius);
-    // ...and the other pages' dots, faint (stepTodoColor), under the content.
-    void setTabDots(const std::vector<Rect>& dots, float cornerRadius) { showMarks(tabDots_, dots, cornerRadius, tokens().stepTodoColor); }
-    void setHovered(std::optional<Rect> area, float cornerRadius); // a tab or a Home tile under the pointer
+    void setHovered(std::optional<Rect> area, float cornerRadius); // a page-row button or a list row under the pointer
     // The top band glowing under the pointer, where a click closes (decision 108).
     void setTopGlow(bool on) { topGlow_.show(on); }
     // The keyboard's focus (decision 033): a ring inside `area`, over the
     // content, so it shows which one Enter clicks even with the pointer elsewhere.
     void setFocusRing(std::optional<Rect> area, float cornerRadius);
-    // Home's tiles (decision 009): a faint background under each, always shown;
-    // hover adds to it. Tabs have none: only hover and selection (decision 072).
-    void setTiles(const std::vector<Rect>& tiles, float cornerRadius) { showMarks(tiles_, tiles, cornerRadius, tokens().tileColor); }
     // Notification dots (decision 038), over the content: Scene::badges, and Scene::accentBadges in the accent (decision 152).
     void setBadges(const std::vector<Vec2>& centres, const std::vector<Vec2>& accent)
     {
@@ -84,6 +81,12 @@ public:
     void pulse();
 
     wuc::ShapeVisual const& body() const { return body_; } // for the liquid bridge's expressions
+
+    // Liquid glass (decision 165): `picture` is the bent desktop, as large as
+    // the render layer and aligned with it; shown through this shape's outline
+    // in place of Windows' blur while tokens().glassStyle is Liquid. Null: the
+    // frosted glass again.
+    void setLiquid(wuc::ICompositionSurface const& picture);
 
 private:
     void playScale(float scale, Ms duration, Bezier curve);
@@ -124,6 +127,10 @@ private:
     Color luminosityPainted_{ 0, 0, 0, 0 };
     void paintLuminosity(Color color);
     GraphicsDevice* device_ = nullptr; // build()'s: draws the brightness surface
+    wuc::CompositionBrush frosted_{ nullptr };      // the glass's own brush: Windows' blur, cut (decision 089)
+    wuc::ICompositionSurface liquid_{ nullptr };    // setLiquid()'s picture
+    bool liquidShown_ = false;                      // the glass shows it now
+    wuc::CompositionBrush liquidBrush();            // the picture where the desktop is, cut by the outline
     bool glassTried_ = false; // made once, or failed once: not tried again
     bool glassShown_ = false;
     wuc::CompositionSpriteShape rim_{ nullptr };
@@ -134,6 +141,7 @@ private:
     // curve, from the bottom stop up. Clear unless glass has a cover's
     // colours.
     std::vector<wuc::CompositionColorGradientStop> glow_;
+    bool card_ = false; // an open card's glow (glowLook, decision 166)
     void buildGlow(wuc::Compositor const& compositor, wuc::CompositionGeometry const& outline);
     void fadeGlow(Ms duration);
     void buildRim(wuc::Compositor const& compositor);
@@ -154,7 +162,6 @@ private:
         std::optional<Rect> at;
     };
     void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide);
-    void showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius, const Color& color); // one per rect
     Mark selectedTab_, hovered_;
     struct Ring { // the focus ring: stroked, not filled; over content_, not under it
         wuc::ShapeVisual visual{ nullptr };
@@ -164,8 +171,6 @@ private:
         std::optional<Rect> at;
         float radius = 0;
     } focusRing_;
-    std::vector<Mark> tiles_; // grows to the most shown; spare ones stay faded out
-    std::vector<Mark> tabDots_; // the page row's dots (decision 109), the same way
     BadgeDots badges_;
     BadgeDots accentBadges_;
     TopGlow topGlow_;

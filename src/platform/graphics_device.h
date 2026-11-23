@@ -29,6 +29,7 @@ public:
     bool draw(wuc::CompositionDrawingSurface const& surface, const std::function<void(ID2D1DeviceContext*)>& paint, bool bigText = false);
 
     IDWriteFactory* dwrite() const { return dwrite_.get(); }
+    ID2D1Factory* d2dFactory() const { return d2dFactory_.get(); } // for a path's geometry (a wavy bar, decision 167)
 
     // Goes up each time the device is rebuilt after a GPU reset, wherever it
     // was found: a caller that sees it change redraws every surface it has.

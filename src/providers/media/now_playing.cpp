@@ -26,12 +26,6 @@ Content nowPlayingContent(const NowPlaying& m)
     // The alert is a short banner, not a card: the dense Title like every other alert (design rules).
     c.alertCenter = { row({ Text{ .value = m.title, .style = TextStyle::Title, .marquee = true } }), row({ artist }) };
 
-    // Home's widget (decision 019): the art on the left, the title (swimming
-    // when long) with the bars, the artist under it; a widget's sizes (decisions 111, 114).
-    c.tileLeading = { row({ art }) };
-    c.tile = { Row{ .items = { Text{ .value = m.title, .style = TextStyle::TileTitle, .marquee = true } }, .trailing = { Waveform{ playing } } },
-               row({ Text{ m.artist.empty() ? m.source : m.artist, TextStyle::Body } }) };
-
     // Like iOS: the big art opens the app that's playing (only expanded; elsewhere a click expands).
     c.expandedLeading = { row({ Image{ m.art, m.canOpenSource ? act::kOpenSource : "" } }) };
     c.expandedCenter = { row({ title }), row({ artist }) };
@@ -42,7 +36,9 @@ Content nowPlayingContent(const NowPlaying& m)
 
     if (m.timeline.duration > Ms{ 0 })
         // The times as wide as they get, so they sit close to the bar (decision 107).
-        c.expandedBottom.push_back(row({ TimeLabel{ .timeline = m.timeline, .fitted = true }, Progress{ m.timeline, m.canSeek },
+        // The played part a wave, rippling while it plays and flat when paused (decision 167).
+        c.expandedBottom.push_back(row({ TimeLabel{ .timeline = m.timeline, .fitted = true },
+                                         Progress{ .timeline = m.timeline, .seekable = m.canSeek, .wavy = true },
                                          TimeLabel{ .timeline = m.timeline, .remaining = true, .fitted = true } }));
     // Three weights (decision 094): ▶/⏸ the filled circle, the skips bright,
     // shuffle and repeat quiet until on or pointed at.
@@ -53,9 +49,9 @@ Content nowPlayingContent(const NowPlaying& m)
                          Button{ .glyph = Glyph::Next, .actionId = act::kNext, .enabled = m.canNext, .large = true } },
                        Align::Center);
     controls.loose = true; // big, well-separated targets
-    // Shuffle and repeat beside the skips, with the other controls (decision 107), not
-    // in the bottom corners; ▶ stays centred. Only shown when the app supports them.
-    controls.edgesBeside = true;
+    // Shuffle and repeat at the row's edges, under the ends of the bar's row: the transport
+    // reads as one group, the modes as another (decision 168); ▶ stays centred.
+    // Only shown when the app supports them.
     if (m.canShuffle)
         controls.leading.push_back(Button{ .glyph = Glyph::Shuffle, .actionId = act::kShuffle, .on = m.shuffle, .secondary = true });
     if (m.canRepeat)
@@ -68,8 +64,6 @@ Content nowPlayingContent(const NowPlaying& m)
 Content nothingPlayingContent()
 {
     Content c{ .label = "Nothing playing", .card = CardLayout::Centred };
-    c.tileLeading = { row({ Icon{ Glyph::Music } }, Align::Center) };
-    c.tile = { row({ Text{ "Not playing", TextStyle::TileTitle } }), row({ Text{ "Play in any app", TextStyle::Body } }) };
     c.expandedCenter = { row({ Icon{ Glyph::Music } }, Align::Center),
                          row({ Text{ .value = "Nothing playing", .style = TextStyle::Title, .centred = true } }),
                          row({ Text{ .value = "Music and videos from any app show here", .style = TextStyle::Caption, .centred = true } }) };

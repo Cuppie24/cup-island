@@ -20,6 +20,7 @@ std::string g_theme;    // the app theme (decision 022)
 std::optional<CoverTint> g_tint; // the playing cover's colours, over the theme (decisions 051, 054)
 FadeSpeed g_fadeSpeed = FadeSpeed::Medium; // Settings' pick (decision 053)
 bool g_reducedMotion = false;               // Windows' animation setting (decision 080)
+GlassStyle g_glassStyle = GlassStyle::Frosted; // which glass (decision 165)
 bool g_glass = false;                       // glass picked, and Windows' transparency on (decision 089)
 Transparency g_transparency = Transparency::Medium; // Settings' pick (decision 096)
 std::optional<std::string> g_windowTheme;   // windows' own theme (decision 150); nothing: the island's
@@ -62,6 +63,7 @@ Tokens finished(const Tokens& themed)
     next.fadeSpeed = g_fadeSpeed;
     next.reducedMotion = g_reducedMotion;
     next.glassTransparency = g_transparency;
+    next.glassStyle = g_glassStyle;
     return withGlass(next, g_glass); // not on a light theme's island (decision 089)
 }
 
@@ -72,10 +74,9 @@ bool commit(const std::string& message)
 {
     Tokens themed = withTheme(g_file, g_theme);
     themed.islandSecondColor = themed.islandColor; // one colour, unless a two-colour cover says otherwise (decision 054)
-    // As glass (a dark theme's island, decision 089), the cover glows along
-    // the bottom of a Midnight island: the file's colours as written (decision 090).
-    bool glass = withGlass(themed, g_glass).glass;
-    if (g_tint) themed = withColors(themed, glass ? glassCoverColors(*g_tint, themed, g_file) : coverColors(*g_tint, themed));
+    // On a dark theme, glass or not, the cover glows along the bottom of a Midnight island: the
+    // file's colours as written (decisions 090, 169). A light theme takes the cover's colours whole.
+    if (g_tint) themed = withColors(themed, islandCoverColors(*g_tint, themed, g_file));
     Tokens next = finished(themed);
     std::optional<Tokens> window;
     if (g_windowTheme) {
@@ -180,6 +181,12 @@ bool setTransparency(Transparency level)
     g_transparency = level;
     const char* name = level == Transparency::Low ? "low" : level == Transparency::High ? "high" : "medium";
     return commit(std::string("glass transparency: ") + name);
+}
+
+bool setGlassStyle(GlassStyle style)
+{
+    g_glassStyle = style;
+    return commit(style == GlassStyle::Liquid ? "glass style: liquid" : "glass style: frosted");
 }
 
 bool setGlass(bool on)

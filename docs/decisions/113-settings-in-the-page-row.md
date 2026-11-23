@@ -1,6 +1,6 @@
 # 113: Settings is a button in the page row, right of the pin
 
-Status: Accepted (amends 104: Settings' widget; 019: every panel a widget). Core tested; the look on Windows needs a run.
+Status: Accepted; amended by 165 (`Panel::rowSpot`: Search by Home's button, the theme switch by Settings') (amends 104: Settings' widget; 019: every panel a widget). Core tested; the look on Windows needs a run.
 
 **Context.** Settings was a Home widget whose tap opened its window
 (decision 104). It took a tile that shows nothing live, and it was only at

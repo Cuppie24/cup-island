@@ -1,6 +1,6 @@
 # 073: Quieter widget icons, one-line widgets
 
-Status: Accepted
+Status: Superseded by 170 (no widgets)
 
 **Context.** On Home, a widget's icon (the theme's sun or moon, Settings'
 gear, the update's download arrow) was drawn as strong as its text. The theme

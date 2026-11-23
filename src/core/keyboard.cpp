@@ -40,7 +40,7 @@ std::vector<Focusable> focusables(const Scene& scene)
 {
     std::vector<Focusable> found;
     // A dialog keeps focus to itself (decision 033): Cancel and its answer,
-    // not the tabs or Home behind it, as a dialog does anywhere.
+    // not the tabs behind it, as a dialog does anywhere.
     bool dialog = std::any_of(scene.elements.begin(), scene.elements.end(), [](const Placed& p) { return dialogButton(p.item); });
     for (const Placed& p : scene.elements) {
         if (!clickable(p.item) || (dialog && !dialogButton(p.item))) continue;
@@ -57,20 +57,13 @@ std::vector<Focusable> focusables(const Scene& scene)
         found.push_back({ "el:" + p.key, frame, point, p.list, p.activityId, radius });
     }
     if (dialog) return found; // in reading order already: one row, Cancel first
-    // Every tile, clickable or not: a static one (no card, no tap) is still a stop,
-    // or down from above it would jump a row (decision 033).
-    for (const Tile& tile : scene.tiles) found.push_back({ "tile:" + tile.id, tile.frame, centre(tile.frame), std::nullopt, tile.id, scene.tileRadius });
     if (scene.tabs)
         for (std::size_t i = 0; i < scene.tabs->tabs.size(); ++i) {
             const Tab& tab = scene.tabs->tabs[i];
             if (scene.tabs->active == i) continue; // shown already: nothing to switch to
             found.push_back({ "tab:" + tab.id, tab.frame, centre(tab.hitFrame), std::nullopt, tab.id, tab.radius });
         }
-    // Home's button and the arrows (decisions 109, 115): Enter or Space clicks them.
-    if (scene.tabs)
-        for (const std::optional<Tab>* button : { &scene.tabs->home, &scene.tabs->previous, &scene.tabs->next })
-            if (*button) found.push_back({ "tab:" + (*button)->id, (*button)->frame, centre((*button)->hitFrame), std::nullopt, (*button)->id, (*button)->radius });
-    if (scene.tabs) // panels' buttons at the row's right end (decision 113)
+    if (scene.tabs) // panels' buttons at the row's ends (decisions 113, 165)
         for (const Tab& button : scene.tabs->buttons)
             found.push_back({ "tab:" + button.id, button.frame, centre(button.hitFrame), std::nullopt, button.id, button.radius });
     // Reading order, but the tab row last: it sits on top (decision 047), and the
@@ -201,15 +194,9 @@ std::optional<Focusable> lastFocus(const Scene& scene)
     return all.back();
 }
 
-std::optional<Focusable> homeWidget(const Scene& scene, std::size_t n)
-{
-    if (n == 0 || n > scene.tiles.size()) return std::nullopt;
-    return findFocusable(scene, "tile:" + scene.tiles[n - 1].id); // tiles are laid out in publish order
-}
-
 namespace {
 
-// The tab after (or before) the one shown, round the strip; the first (or the last) with none shown (Home, a dormant card).
+// The tab after (or before) the one shown, round the strip; the first (or the last) with none shown (a row button's card).
 std::optional<std::string> tabFrom(const Scene& scene, bool back)
 {
     if (!scene.tabs || scene.tabs->tabs.empty()) return std::nullopt;

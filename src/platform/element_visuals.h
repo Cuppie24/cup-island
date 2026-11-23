@@ -8,8 +8,10 @@
 #include "platform/element_art.h"
 #include "platform/graphics_device.h"
 #include "platform/list_viewports.h"
+#include "platform/progress_wave.h"
 #include "platform/rolling_text.h"
 #include "platform/segments_parts.h"
+#include "platform/shine.h"
 #include "platform/switch_parts.h"
 
 #include <map>
@@ -22,6 +24,9 @@ namespace cup::platform {
 class ElementVisuals {
 public:
     void init(wuc::Compositor const& compositor, GraphicsDevice& device, wuc::ContainerVisual const& parent);
+    // On the island (not a provider's window): on liquid glass, filled
+    // controls get a shiny edge (decision 165). Before any content.
+    void setShiny(bool on) { shiny_ = on; }
     // `reveal`: new content starts arriving this much later, when the morph
     // that brought it is far enough along (decision 080).
     // `glide`: what moved glides to its new place instead of jumping there (a window's page, the
@@ -54,6 +59,8 @@ private:
         // button, a toggle that's on): a shape whose colour fades (decision 101).
         wuc::SpriteVisual glyphHost{ nullptr };
         wuc::CompositionColorBrush buttonFill{ nullptr };
+        Shine shine; // ...and on liquid glass, its shiny edge (decision 165), or a large plain button's; only where shiny_
+        bool shineHost = false; // shine is made and in a visual
         // A one-colour text's colour: it's painted white and shown through
         // this brush, so a recolour fades it like a shape (decision 102).
         wuc::CompositionColorBrush ink{ nullptr };
@@ -70,6 +77,8 @@ private:
         wuc::CompositionRoundedRectangleGeometry fill{ nullptr };   // progress bar
         wuc::CompositionEllipseGeometry arc{ nullptr };             // progress ring
         wuc::CompositionSpriteShape knob{ nullptr };                // progress
+        WaveParts wave;                                             // a wavy bar's wave (decision 167)
+        bool pinned = false;                                        // ...and its knob always shown
         std::vector<wuc::CompositionRoundedRectangleGeometry> bars; // waveform
         wuc::ShapeVisual waveform{ nullptr };
         bool scrubbing = false;
@@ -113,6 +122,7 @@ private:
     bool glide_ = false; // ...and whether what moves in it glides
     std::optional<std::string> hoveredTab_;
     bool deviceLost_ = false;
+    bool shiny_ = false; // setShiny()
 };
 
 } // namespace cup::platform

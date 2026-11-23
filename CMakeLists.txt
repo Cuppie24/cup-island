@@ -35,7 +35,6 @@ add_library(cup_core STATIC
     src/core/open_windows.cpp
     src/core/fullscreen.cpp
     src/core/hit_test.cpp
-    src/core/home.cpp
     src/core/island.cpp
     src/core/island_tint.cpp
     src/core/island_queries.cpp
@@ -50,6 +49,7 @@ add_library(cup_core STATIC
     src/core/lift.cpp
     src/core/lists.cpp
     src/core/motion.cpp
+    src/core/liquid_glass.cpp
     src/core/placement.cpp
     src/core/shortcuts.cpp
     src/core/slot_layout.cpp
@@ -129,11 +129,11 @@ if(CUP_BUILD_TESTS)
         tests/cover_tests.cpp
         tests/double_tap_tests.cpp
         tests/fullscreen_tests.cpp
-        tests/home_tests.cpp
-        tests/indexer_protocol_tests.cpp
+            tests/indexer_protocol_tests.cpp
         tests/indexer_query_tests.cpp
         tests/indexer_tests.cpp
         tests/item_tests.cpp
+        tests/page_row_tests.cpp
         tests/keyboard_tests.cpp
         tests/list_card_tests.cpp
         tests/group_tests.cpp
@@ -235,11 +235,13 @@ if(WIN32)
         src/platform/figures.cpp
         src/platform/effects.cpp
         src/platform/element_parts.cpp
+        src/platform/progress_wave.cpp
         src/platform/element_visuals.cpp
         src/platform/rolling_text.cpp
         src/platform/top_glow.cpp
         src/platform/switch_parts.cpp
         src/platform/segments_parts.cpp
+        src/platform/shine.cpp
         src/platform/list_viewports.cpp
         src/platform/file_watcher.cpp
         src/platform/foreground.cpp
@@ -250,6 +252,9 @@ if(WIN32)
         src/platform/interaction_layer.cpp
         src/platform/log.cpp
         src/platform/liquid_bridge.cpp
+        src/platform/liquid_capture.cpp
+        src/platform/liquid_glass.cpp
+        src/platform/liquid_glass_build.cpp
         src/platform/pill_renderer.cpp
         src/platform/render_layer.cpp
         src/platform/single_instance.cpp
@@ -279,7 +284,7 @@ if(WIN32)
     set_source_files_properties(assets/cup_island.rc PROPERTIES OBJECT_DEPENDS
         "${CMAKE_SOURCE_DIR}/assets/cup_island.ico;${CMAKE_SOURCE_DIR}/assets/grab.cur;${CMAKE_SOURCE_DIR}/assets/grabbing.cur")
     target_include_directories(CupIsland PRIVATE "${CMAKE_BINARY_DIR}/generated") # cup_version.h, for the code and the .rc
-    target_link_libraries(CupIsland PRIVATE cup_providers WindowsApp CoreMessaging User32 Advapi32 Ole32 Dbghelp d3d11 d2d1 dxguid dwrite dxgi dwmapi shell32 Shcore wevtapi)
+    target_link_libraries(CupIsland PRIVATE cup_providers WindowsApp CoreMessaging User32 Advapi32 Ole32 Dbghelp d3d11 d3dcompiler d2d1 dxguid dwrite dxgi dwmapi shell32 Shcore wevtapi)
     # Release: a GUI app, no console window (quit from the tray icon). Debug keeps
     # the console for the log. mainCRTStartup lets main() stay the entry point.
     # /DEBUG writes the pdb; it would turn off /OPT:REF and /OPT:ICF, so they're asked back.

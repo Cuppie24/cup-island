@@ -23,7 +23,7 @@ bool sameTimeline(const Timeline& a, const Timeline& b, Ms now)
 
 void MediaPresenter::start()
 {
-    host_.publishPanel({ .id = kActivityId, .content = nothingPlayingContent(), .wide = true });
+    host_.publishPanel({ .id = kActivityId, .content = nothingPlayingContent(), .icon = Glyph::Music });
 }
 
 void MediaPresenter::stop()

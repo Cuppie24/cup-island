@@ -15,10 +15,9 @@ namespace cup {
 enum class Arrow { Up, Down, Left, Right };
 
 // Something the keyboard can land on: a button, a text field or clickable
-// art; any Home tile, even one a click does nothing with (so the arrows
-// never skip a row of static widgets); a tab that isn't the one shown.
+// art; a page-row icon that isn't the shown page's, or a button there.
 struct Focusable {
-    std::string id;             // "el:<element key>", "tile:<panel id>", "tab:<activity id>" ("tab:" = Home)
+    std::string id;             // "el:<element key>", "tab:<a page-row button's id>"
     Rect frame;                 // where it is, to aim arrows (a list row out of its window: where it would be)
     Vec2 point;                 // where Enter clicks: inside its hit area, so hit-testing finds it
     std::optional<InList> list; // in a scrolling list: scroll it into view before landing (ListRevealed)
@@ -72,13 +71,9 @@ std::optional<Focusable> previousFocus(const Scene& scene, const std::string& cu
 std::optional<Focusable> firstFocus(const Scene& scene);
 std::optional<Focusable> lastFocus(const Scene& scene);
 
-// The keys 1 to 9 on Home: its `n`th widget (from 1), in publish order. Nothing past the last.
-std::optional<Focusable> homeWidget(const Scene& scene, std::size_t n);
-
-// Ctrl+Tab: the id of the activity after the one shown, round to the first
-// after the last; Ctrl+Shift+Tab: the one before, round to the last. From
-// Home or a dormant panel's card, the first (or the last). Home isn't a
-// page (decision 115): its button is. Nothing without a tab strip.
+// Ctrl+Tab: the id of the page after the one shown in the row's list (decision
+// 165), round to the first after the last; Ctrl+Shift+Tab: the one before, round to the last. From
+// a card with no icon in the list (Search's), the first (or the last). Nothing without a page row.
 std::optional<std::string> nextTab(const Scene& scene);
 std::optional<std::string> previousTab(const Scene& scene);
 

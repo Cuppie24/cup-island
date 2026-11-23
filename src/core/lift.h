@@ -17,7 +17,7 @@ void pressIsland(IslandState& s, Ms now);
 void dragIsland(IslandState& s, Vec2 drag);
 void releaseIsland(IslandState& s);
 // Every event: lifts a press held long enough; drops (where it is) a lift
-// whose mode can't be lifted any more, e.g. Home opened or the island hid.
+// whose mode can't be lifted any more, e.g. a card opened or the island hid.
 void settleLift(IslandState& s, Ms now);
 // When a held press will lift, if one is waiting.
 std::optional<Ms> liftDeadline(const IslandState& s);

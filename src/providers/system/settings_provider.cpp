@@ -47,7 +47,7 @@ std::optional<std::size_t> choiceIndex(const std::string& actionId, const char* 
 void SettingsProvider::start(Host& host)
 {
     host_ = &host;
-    // Settings from anywhere (decision 160): the widget's own tap.
+    // Settings from anywhere (decision 160): its button's own tap.
     host_->publishCommands({ { .id = settings_action::kOpenWindow,
                                .title = "Cup Island settings",
                                .keywords = { "settings", "preferences", "options", "cup island" },
@@ -80,7 +80,11 @@ void SettingsProvider::start(Host& host)
     std::string fade = trimmed(host_->load(kFadeKey));
     fadeSpeed_ = fade == "fast" ? FadeSpeed::Fast : fade == "slow" ? FadeSpeed::Slow : FadeSpeed::Medium;
     if (hooks_.setFadeSpeed) hooks_.setFadeSpeed(fadeSpeed_);
-    glass_ = trimmed(host_->load(kGlassKey)) != "off"; // on until turned off, after an update too (decision 089)
+    std::string glass = trimmed(host_->load(kGlassKey));
+    glass_ = glass != "off"; // on until turned off, after an update too (decision 089)
+    // Liquid only where it can be drawn: saved on another Windows, it's the frosted glass here (decision 165).
+    liquid_ = glass == "liquid" && hooks_.setGlassStyle;
+    if (hooks_.setGlassStyle) hooks_.setGlassStyle(liquid_ ? GlassStyle::Liquid : GlassStyle::Frosted); // first: the glass comes on as what it is
     if (hooks_.setGlass) hooks_.setGlass(glass_);
     std::string level = trimmed(host_->load(kTransparencyKey));
     transparency_ = level == "low" ? Transparency::Low : level == "high" ? Transparency::High : Transparency::Medium;
@@ -133,6 +137,17 @@ void SettingsProvider::pickFade(FadeSpeed speed)
     publish();
 }
 
+void SettingsProvider::pickGlass(bool on, bool liquid)
+{
+    glass_ = on;
+    liquid_ = on && liquid;
+    // The style first, so glass coming on is the picked one from its first frame.
+    if (hooks_.setGlassStyle && on) hooks_.setGlassStyle(liquid_ ? GlassStyle::Liquid : GlassStyle::Frosted);
+    hooks_.setGlass(glass_);
+    host_->save(kGlassKey, !glass_ ? "off" : liquid_ ? "liquid" : "on");
+    publish();
+}
+
 void SettingsProvider::pickTransparency(Transparency level)
 {
     transparency_ = level;
@@ -167,7 +182,7 @@ void SettingsProvider::stop()
 void SettingsProvider::onAction(const Action& action)
 {
     if (!host_) return;
-    if (action.activityId == kPanelId && action.actionId == settings_action::kOpenWindow) return openWindow(); // the widget's tap
+    if (action.activityId == kPanelId && action.actionId == settings_action::kOpenWindow) return openWindow(); // its button's tap
     if (action.windowId != kSettingsWindowId) return;
     const std::string& id = action.actionId;
     const auto& themes = tokens().themes;
@@ -256,10 +271,25 @@ void SettingsProvider::onAction(const Action& action)
         host_->save(kCoverColoursKey, coverColours_ ? "on" : "off");
         publish();
     } else if (id == settings_action::kToggleGlass && hooks_.setGlass) {
-        glass_ = !glass_;
-        hooks_.setGlass(glass_);
-        host_->save(kGlassKey, glass_ ? "on" : "off");
-        publish();
+        pickGlass(!glass_, false);
+    } else if (auto at = choiceIndex(id, settings_action::kPickGlass); at && hooks_.setGlass && hooks_.setGlassStyle) {
+        // The page stays: the island, changed at once, is the preview.
+        // Liquid is asked about first (decision 165): it's the one look that
+        // costs something while it's on. Nothing changes until it's answered
+        // yes; the row is drawn again as it was, under the question.
+        if (*at == 2 && !liquid_) {
+            publish();
+            host_->ask({ .title = "Turn on liquid glass?",
+                         .message = "This is an experimental feature. It uses more GPU and battery while the screen changes, and hides the island from screenshots and recordings.",
+                         .confirmLabel = "Turn on",
+                         .confirmAction = settings_action::kConfirmLiquid,
+                         .windowId = kSettingsWindowId,
+                         .glyph = Glyph::Gauge });
+        } else if (*at <= 2) {
+            pickGlass(*at != 0, *at == 2);
+        }
+    } else if (id == settings_action::kConfirmLiquid && hooks_.setGlass && hooks_.setGlassStyle) {
+        pickGlass(true, true);
     } else if (id == settings_action::kToggleGlassWindows && hooks_.setGlassWindows) {
         glassWindows_ = !glassWindows_;
         hooks_.setGlassWindows(glassWindows_); // this window changes at once: the preview
@@ -304,7 +334,7 @@ void SettingsProvider::open(SettingsPage page)
     publish();
 }
 
-// From the widget's tap: the window opens on Appearance, or comes to the
+// From its button's tap: the window opens on Appearance, or comes to the
 // front where the user left it (decision 104).
 void SettingsProvider::openWindow()
 {
@@ -343,7 +373,7 @@ void SettingsProvider::rebind(Command command, const Chord& chord)
     }
 }
 
-// All at once, not one by one (decision 103): swapped keys (Home on Ctrl+Alt+Q,
+// All at once, not one by one (decision 103): swapped keys (the island on Ctrl+Alt+Q,
 // the activity on Ctrl+Q) would each clash with the other's on the way back.
 // The defaults never clash among themselves, so everything is let go and
 // registered afresh; one another app has stays the default, and the note says so.
@@ -472,6 +502,7 @@ SettingsView SettingsProvider::view() const
     if (hooks_.startsWithWindows) v.startsWithWindows = hooks_.startsWithWindows();
     if (hooks_.setCoverColours) v.coverColours = coverColours_;
     if (hooks_.setGlass) v.glass = glass_;
+    if (hooks_.setGlass && hooks_.setGlassStyle) v.liquidGlass = liquid_; // a third pick beside off and on (decision 165)
     if (hooks_.setGlass && hooks_.setTransparency) v.transparency = transparency_; // on Glass' page
     if (hooks_.setGlass && hooks_.setGlassWindows) v.glassWindows = glassWindows_;  // ...and this
     if (hooks_.setCoverColours && hooks_.setFadeSpeed) v.fadeSpeed = fadeSpeed_; // on Music colours' page

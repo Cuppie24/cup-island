@@ -96,13 +96,13 @@ wait 400
 alert ping                          -> Alert lifted=yes
 let-go                              -> Alert lifted=no
 
-scenario: opening Home or hiding while lifted lands the island where it is
+scenario: opening a card or hiding while lifted lands the island where it is
 screen 1000
 panel p
 hold
 wait 400
 move -200
-home                                -> Expanded lifted=no spot=free
+open-island                         -> Expanded lifted=no spot=free
 outside
 hold
 wait 400

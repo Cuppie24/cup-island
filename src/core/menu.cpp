@@ -20,7 +20,7 @@ const Slot* slotNamed(const Content& c, std::string_view name)
                                        { "expandedTrailing", &Content::expandedTrailing }, { "expandedBottom", &Content::expandedBottom } };
     for (const Named& n : slots)
         if (name == n.name) return &(c.*n.slot);
-    return nullptr; // menus are a card's: not on the pill's slots or Home's widgets
+    return nullptr; // menus are a card's: not on the pill's slots
 }
 
 std::string providerOf(const IslandState& s, const std::string& id)
@@ -30,7 +30,7 @@ std::string providerOf(const IslandState& s, const std::string& id)
     return p ? p->providerId : std::string();
 }
 
-bool shownOnIsland(const IslandState& s, const std::string& id) { return !s.homeOpen && s.expandedId == id; }
+bool shownOnIsland(const IslandState& s, const std::string& id) { return s.expandedId == id; }
 
 Text labelOf(const MenuItem& item)
 {

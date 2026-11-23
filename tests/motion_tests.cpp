@@ -2,6 +2,7 @@
 // The renderer and the interaction layer both run these curves (decision 001),
 // so their ends and overshoot are what keeps the click area on the pill.
 
+#include "core/liquid_glass.h"
 #include "core/motion.h"
 #include "expect.h"
 
@@ -185,10 +186,52 @@ void flingTests()
     expect(flingVelocity(track, Ms{ 1050 }, reduced) == Vec2{}, "reduced motion: no fling");
 }
 
+// Liquid glass (decision 165): the shapes its shader bends follow the same
+// spring, and a shape on the screen edge has no rim along its top.
+void liquidShapeTests()
+{
+    Tokens t;
+    t.maxCornerRadius = 20;
+    t.glassLiquidRim = 10;
+    t.flareRadius = 12;
+    LiquidShape pill = liquidShape({ 100, 0, 200, 36 }, true, true, true, t);
+    expect(pill.radius == 18 && pill.frame == Rect{ 100, -28, 200, 64 },
+           "liquid: a pill on the edge: half its height round, its top a radius and a rim past the edge");
+    expect(pill.top == 0 && pill.leftEar == 12 && pill.rightEar == 12, "liquid: its top corners flare into the edge, from its real top (decision 025)");
+    LiquidShape flush = liquidShape({ 0, 0, 200, 36 }, true, false, true, t);
+    expect(flush.leftEar == 0 && flush.rightEar == 12, "liquid: no flare on a side flush with the screen's (decision 026)");
+    expect(liquidShape({ 100, 0, 200, 8 }, true, true, true, t).leftEar == 8, "liquid: a flare is no taller than the shape");
+    LiquidShape card = liquidShape({ 100, 0, 400, 300 }, true, true, true, t);
+    expect(card.radius == 20 && card.frame.y == -30 && card.frame.height == 330, "liquid: a card: the radius capped, the bottom where it was");
+    LiquidShape lifted = liquidShape({ 100, 40, 200, 36 }, false, true, true, t);
+    expect(lifted.frame == Rect{ 100, 40, 200, 36 } && lifted.leftEar == 0 && lifted.rightEar == 0,
+           "liquid: off the edge: round all over, a rim all round, no flares");
+    expect(liquidShape({ 100, 0, 0, 36 }, true, true, true, t) == LiquidShape{}, "liquid: no size, no shape");
+
+    expect(liquidRing(Button{ .large = true }) && !liquidRing(Button{}) && !liquidRing(Button{ .compact = true }) &&
+               !liquidRing(Button{ .large = true, .primary = true }),
+           "liquid: a card's large controls get a shiny ring; small ones don't, a primary shines with its fill");
+
+    Motion plain{ Ms{ 300 }, 0, t.morphSpringSettle };
+    Rect from{ 0, 0, 100, 40 }, to{ 50, 0, 300, 200 };
+    expect(morphRect(from, to, plain, Ms{ 0 }) == from && morphRect(from, to, plain, Ms{ 300 }) == to && morphRect(from, to, plain, Ms{ 900 }) == to,
+           "liquid: a morph starts where it was and ends where it's going, and stays");
+    Rect mid = morphRect(from, to, plain, Ms{ 150 });
+    float p = springProgress(plain, 0.5f);
+    expect(near(mid.width, 100 + 200 * p, 0.01f) && near(mid.x, 50 * p, 0.01f) && mid.width > 100 && mid.width < 300,
+           "liquid: on the way, the spring's own progress");
+    expect(morphRect(from, to, Motion{ Ms{ 0 }, 0, 6 }, Ms{ 0 }) == to, "liquid: no duration: there at once");
+    expect(morphRect(to, Rect{ 50, 0, 0, 0 }, Motion{ Ms{ 300 }, 0.4f, 6 }, Ms{ 290 }).width >= 0, "liquid: never a negative size");
+
+    expect(liquidBounds({ pill, lifted }, 4) == Rect{ 96, -32, 208, 112 }, "liquid: a frame draws around every shape, a margin wider");
+    expect(liquidBounds({ LiquidShape{} }, 4) == Rect{} && liquidBounds({}, 4) == Rect{}, "liquid: nothing to draw");
+}
+
 } // namespace
 
 void runMotionTests()
 {
+    liquidShapeTests();
     springTests();
     morphTests();
     pulseTests();

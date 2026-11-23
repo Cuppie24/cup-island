@@ -197,6 +197,59 @@ void paletteTests()
     for (Color light : { Color{ 240, 210, 20 }, Color{ 40, 200, 60 }, Color{ 40, 200, 220 }, Color{ 120, 70, 30 } })
         expect(lightness(glowOf(light)) > lightness(plainGlowOf(light)) + 20, "glass: yellow, green, cyan and brown glow lighter");
     expect(Tokens{}.islandGlowColor.a == 0, "no cover: no glow");
+
+    // An open card's glow (decision 166): the same hue, lighter than the
+    // pill's, reaching higher and fading slower, a lighter line along its edge.
+    for (Color main : kHues) {
+        Tokens over = withColors(parsed.tokens, glassCoverColors({ .main = main, .vividness = 1 }, parsed.tokens, parsed.tokens));
+        GlowLook pill = glowLook(over, false), card = glowLook(over, true);
+        std::string hue = std::to_string(main.r) + "," + std::to_string(main.g) + "," + std::to_string(main.b);
+        expect(pill.color == over.islandGlowColor && pill.height == over.glassGlowHeight && pill.edge.a == 0,
+               "glass: the pill's glow is as it was, no line: " + hue);
+        expect(lightness(card.color) > lightness(pill.color) + 15 && lightness(card.edge) > lightness(card.color),
+               "glass: a card's glow is lighter, its edge line lighter again: " + hue);
+        expect(strongest(card.color) == strongest(pill.color) && card.color.a == pill.color.a, "glass: a card's glow keeps the hue and strength: " + hue);
+        expect(card.height > pill.height && glowFade(card.curve, 0.5f) > glowFade(pill.curve, 0.5f), "glass: a card's glow reaches higher and fades slower");
+        // The lowest thing read on a card (a control's glyph, a widget's line) sits a
+        // quarter of the reach up or more: white reads over the glow there, on glass at its brightest.
+        Color backdrop = glassLuminosityOverWhite(parsed.tokens);
+        double a = card.color.a / 255.0 * glowFade(card.curve, 0.25f);
+        auto blend = [&](std::uint8_t f, std::uint8_t b) { return static_cast<std::uint8_t>(std::lround(f * a + b * (1 - a))); };
+        Color seen{ blend(card.color.r, backdrop.r), blend(card.color.g, backdrop.g), blend(card.color.b, backdrop.b) };
+        expect(contrast(over.titleTextColor, seen) >= 4.5, "glass: white reads over a card's glow where its controls are: " + hue);
+    }
+    // Glass off (decision 169): a dark theme glows just the same; a light one takes the cover's colours whole.
+    for (const Theme& theme : parsed.tokens.themes) {
+        Tokens themed = withTheme(parsed.tokens, theme.name);
+        CoverTint tint{ .main = { 220, 30, 40 }, .second = Color{ 30, 60, 220 }, .vividness = 1 };
+        expect(!withGlass(themed, false).glass, "glass off: " + theme.name);
+        auto colours = islandCoverColors(tint, themed, parsed.tokens);
+        Tokens tinted = withColors(themed, colours);
+        if (theme.light)
+            expect(colours == coverColors(tint, themed) && tinted.islandGlowColor.a == 0, "a light theme: the cover's colours whole, no glow: " + theme.name);
+        else
+            expect(colours == glassCoverColors(tint, themed, parsed.tokens) && tinted.islandColor == parsed.tokens.islandColor &&
+                       tinted.islandGlowColor.a > 0 && glowLook(tinted, true).edge.a > 0,
+                   "a dark theme, solid: a Midnight island with the glow and a card's line: " + theme.name);
+    }
+    // The cover itself glows while its colours are on (decision 169): its shadow turns into
+    // a glow of the card glow's colour, softer, straight under it; without them, its plain shadow.
+    {
+        Tokens over = withColors(parsed.tokens, glassCoverColors({ .main = { 40, 200, 220 }, .vividness = 1 }, parsed.tokens, parsed.tokens));
+        ArtShadow glow = artShadow(over), shade = artShadow(parsed.tokens);
+        Color card = glowLook(over, true).color;
+        expect(glow.color.r == card.r && glow.color.g == card.g && glow.color.b == card.b &&
+                   glow.color.a == static_cast<std::uint8_t>(std::lround(parsed.tokens.coverArtGlow * 255)),
+               "a playing cover glows in the card glow's colour, coverArtGlow strong");
+        expect(glow.blur == over.artGlowBlur && glow.blur > shade.blur && glow.offset == Vec2{}, "the glow is softer than the shadow, and all round");
+        expect(shade == ArtShadow{ parsed.tokens.artShadowColor, parsed.tokens.artShadowBlur, parsed.tokens.artShadowOffset },
+               "no cover colours: the cover's plain shadow");
+        Tokens paper = withTheme(parsed.tokens, "Paper");
+        expect(artShadow(withColors(paper, islandCoverColors({ .main = { 40, 200, 220 }, .vividness = 1 }, paper, parsed.tokens))).color == paper.artShadowColor,
+               "a light theme: no glow round the cover");
+    }
+    Tokens plain;
+    expect(glowLook(plain, true).color.a == 0 && glowLook(plain, true).edge.a == 0, "no cover: no card glow, no line");
 }
 
 void tintTests()

@@ -3,7 +3,7 @@
 // one pure function. Pages in a sidebar (Appearance, General, Updates) of
 // grouped settings; a setting with choices (themes, displays, music colours)
 // or the keyboard shortcuts opens a page within its page, with a back arrow.
-// The widget on Home only opens it.
+// Its button in the page row only opens it.
 
 #include "core/island.h"
 #include "core/window_content.h"
@@ -22,7 +22,7 @@ namespace cup {
 
 // What the window's buttons send. A choice's action is its prefix and its index in the page's list.
 namespace settings_action {
-inline constexpr const char* kOpenWindow = "settings.window"; // the widget's tap: opens the window (decision 104)
+inline constexpr const char* kOpenWindow = "settings.window"; // its button's tap: opens the window (decision 104)
 inline constexpr const char* kOpenThemes = "theme.open";
 inline constexpr const char* kOpenDisplays = "display.open";
 inline constexpr const char* kOpenShortcuts = "shortcuts.open";
@@ -42,6 +42,8 @@ inline constexpr const char* kOpenMusicColours = "musiccolours.open";      // de
 inline constexpr const char* kPickFade = "fade.pick:";                     // + 0 fast, 1 medium, 2 slow
 inline constexpr const char* kToggleGlass = "glass.toggle";                // decision 089
 inline constexpr const char* kOpenGlass = "glass.open";                    // decision 096
+inline constexpr const char* kPickGlass = "glass.pick:";                   // + 0 off, 1 frosted, 2 liquid (decision 165)
+inline constexpr const char* kConfirmLiquid = "glass.liquid.confirm";      // ...liquid's question answered yes
 inline constexpr const char* kPickTransparency = "transparency.pick:";     // + 0 low, 1 medium, 2 high
 inline constexpr const char* kToggleGlassWindows = "glasswindows.toggle";  // decision 104
 inline constexpr const char* kCopyLogs = "logs.copy";
@@ -52,7 +54,7 @@ inline constexpr const char* kWhatsNew = "updates.whatsnew";     // its release 
 inline constexpr const char* kDownloadUpdate = "updates.download"; // a failed install: its installer, in the browser, to run by hand
 } // namespace settings_action
 
-inline constexpr const char* kSettingsPanelId = "system.settings"; // the widget's
+inline constexpr const char* kSettingsPanelId = "system.settings"; // its button's panel
 inline constexpr const char* kSettingsWindowId = "main";           // its window's (WindowSpec::id)
 // The sidebar's pages (WindowPage::id).
 inline constexpr const char* kAppearancePage = "appearance";
@@ -105,6 +107,7 @@ struct SettingsView {
     std::optional<bool> coverColours;       // the island in the playing cover's colours (decision 052); nothing: no row
     std::optional<FadeSpeed> fadeSpeed;     // how fast colours fade (decision 053); nothing: no choice
     std::optional<bool> glass;              // the island as glass (decision 089); nothing: no row (Windows 10)
+    std::optional<bool> liquidGlass;        // ...as liquid glass (decision 165); nothing: no such pick, Glass is a switch
     std::optional<Transparency> transparency; // how see-through (decision 096); nothing: no choice
     std::optional<bool> glassWindows;       // windows as glass too (decision 104); nothing: no row
     std::optional<WindowThemeMode> windowTheme; // where windows take their colours (decision 150); nothing: no row
@@ -126,7 +129,7 @@ std::set<std::string> offeredSettings(const SettingsView& view);
 // The announced settings on this page of the window, by their rows' ids: what the user sees of them now.
 std::vector<std::string> shownSettings(const WindowContent& window, const std::string& page, const std::vector<SettingItem>& announced);
 
-// The widget: a tap opens the window (Panel::tapAction), a dot while something's new in it.
+// Its button: a tap opens the window (Panel::tapAction), a dot while something's new in it.
 Panel settingsPanel(const SettingsView& view);
 // The window (decision 104).
 WindowContent settingsWindow(const SettingsView& view);

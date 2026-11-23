@@ -32,13 +32,13 @@ cmake --preset core && cmake --build --preset core && ctest --preset core   # Li
 with the installer attached. Tick *Dry run* to build and test without
 publishing; the installer is then in the run's artifacts. No file holds the
 version: it's the tag. Installed islands see the release at their next daily
-check and offer it on Home. See [decision 036](docs/decisions/036-releases-and-updates.md).
+check and offer it in Settings. See [decision 036](docs/decisions/036-releases-and-updates.md).
 
 The exe has the C++ runtime built in, so users need nothing else. The Release
 build has no console: quit from the tray icon (right-click → Exit). See
 [decision 011](docs/decisions/011-installer-before-msix.md).
 
-**Something wrong?** Open Home (click the idle pill), open **Settings** and
+**Something wrong?** Click the idle pill, open **Settings** (the gear, top right) and
 click **Copy logs**: the recent log is copied to the clipboard as a `.txt` file, ready to paste into a bug report
 or a chat as an attachment. The
 log, plus a `.dmp` file if the island froze or crashed, is in
@@ -48,7 +48,7 @@ log, plus a `.dmp` file if the island froze or crashed, is in
 (sizes, durations, easing curves, colours) and save. Changes apply instantly. See
 ARCHITECTURE.md → Tuning.
 
-**Themes:** Home → **Settings** → the arrows beside the theme name. Dark:
+**Themes:** **Settings** → the arrows beside the theme name. Dark:
 Midnight (plain black), Grape, Lagoon, Ember, Lime, Bubblegum, Sapphire.
 Light: Paper (plain white), Sorbet (pastel peach).
 They're colour sets under `"themes"` in tokens.json: edit one or add your own

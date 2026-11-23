@@ -35,7 +35,7 @@ So "why did X happen?" is always answered in `core/`, by a scenario test.
 
 ```
 src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (what providers show), layout.h, dialog.h + toast.h (a card's question and note, decisions 020, 071)
-                (+ slot_layout.h), split.h, tabs.h, home.h, hit_test.h, provider.h (Provider/Host API), commands.h (providers' commands: who published what, when one may run, decision 160),
+                (+ slot_layout.h), split.h, tabs.h (the page row: providers' icons, panels' buttons; decisions 165, 170), hit_test.h, provider.h (Provider/Host API), commands.h (providers' commands: who published what, when one may run, decision 160),
                 lift.h + placement.h (moving the island along the top edge, decision 026),
                 keyboard.h (arrow, Tab and digit focus, decisions 031, 033) + shortcuts.h (the shortcut table, decision 031)
                 + double_tap.h (Double Ctrl, decision 079),
@@ -51,10 +51,10 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 keycaps.h (Keys drawn as key caps, decision 092), segments.h (a few options picked in place, decision 093)
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them;
-                blob_backdrop: what's under a blob, its shadow and glass, decision 089), glass (Windows 11's blurred backdrop, decision 089), provider_window (a provider's window, decision 104), figures (tabular digits centred on their line, decision 094), element_visuals (one visual
+                blob_backdrop: what's under a blob, its shadow and glass, decision 089; liquid_glass + liquid_capture + liquid_shader: liquid glass, a captured picture of the desktop bent by a shader, decision 165; its shapes in core/liquid_glass), glass (Windows 11's blurred backdrop, decision 089), provider_window (a provider's window, decision 104), figures (tabular digits centred on their line, decision 094), element_visuals (one visual
                 per content item) + rolling_text (a big time's digits rolling as they change, decision 107), top_glow (the top band lit, decision 108), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts) + tap_hook (double-tap shortcuts, decision 079), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
-                MediaPresenter rules and the media widget, SMTC provider for real Windows media: its smtc_reader reads sessions on a thread of its own, decision 144),
+                MediaPresenter rules, SMTC provider for real Windows media: its smtc_reader reads sessions on a thread of its own, decision 144),
                 pomodoro/ (the first panel: a timer card, the rest in its window, decision 106; tasks in groups, task_board, decision 117), search/ (the search card: apps, Settings, files; decisions 077, 079), service_host (Cup Island's service: setup, updates and providers' calls, decisions 076, 078), system/ (Home's theme and Settings widgets:
                 app themes, windows' own theme (decision 150), display, Start with Windows, Copy logs), update/ (updates from GitHub
                 Releases, offered in Settings with an accent dot, decision 152: versions and offers, pure; github.cpp fetches and installs, decision 036)
@@ -89,7 +89,7 @@ Nothing includes "upward". `core/` never includes `platform/`.
 3. `layout(state, now, measure)` returns a `Scene`: target size and offset, plus every
    content item with its frame (time labels already formatted for `now`).
    `measure` is the platform's text width (DirectWrite), for the few places
-   that centre text of unknown width (Expanded's tabs); core has no fonts.
+   that centre text of unknown width; core has no fonts.
 4. The renderer sets those targets. **Implicit Composition animations** do the
    actual morph (TR §5), and the interaction layer follows it (decision 001).
    Geometry is set at once; new content is built in a queued call right after,
@@ -115,8 +115,11 @@ items (text, image, icon, button, progress, time label, waveform, swatch). Layou
 drawing are the host's job, so every provider looks native.
 
 A provider can also publish **panels** (decision 009): always-available
-entries shown as widgets on Expanded's Home, not ranked into the pill.
-Widgets only inform (decision 019): no buttons; a click opens the card. Starting
+entries not ranked into the pill. A panel with a card has its icon in the
+page row's list, running or not (`Panel::icon`); one with `Panel::rowButton`
+is a button at the row's end instead (Settings, the theme switch, Search;
+decisions 113, 165). There is no Home (decision 170): the idle pill opens
+the first page's card. Starting
 an activity with a panel's id makes it live; ending it makes it dormant again.
 A provider can publish **commands** (decision 160): things it does from
 anywhere ("Open the Pomodoro timer"), each the action of one of its own
@@ -235,9 +238,9 @@ over the file's, so `tokens()` is always what's on screen.
   expected mode after it. Readable as a spec and runnable anywhere. The
   format is documented at the top of `tests/scenario_runner.cpp`.
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing), `list_card_tests.cpp` (Settings' List card), `group_tests.cpp` (grouped rows), `badge_tests.cpp` (notification dots),
-  `home_tests.cpp` (tiles, Home tab, idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
+  `page_row_tests.cpp` (the page row's buttons, the idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop), `command_tests.cpp` (providers' commands through the registry), `search_command_tests.cpp` (commands among Search's results), `pomodoro_stats_tests.cpp` (statistics, days off),
-  `media_tests.cpp` (media presenter and widget), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end, on a fixture card: `todo_card_fixture.h`), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install), `window_tests.cpp` (where a window opens; the registry between providers and their windows), `window_field_tests.cpp` (typing in a window, decision 105).**
+  `media_tests.cpp` (media presenter), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end, on a fixture card: `todo_card_fixture.h`), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install), `window_tests.cpp` (where a window opens; the registry between providers and their windows), `window_field_tests.cpp` (typing in a window, decision 105).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
 
@@ -277,9 +280,10 @@ over the file's, so `tokens()` is always what's on screen.
 | Activity expiry (`expiresAt`) | done, tested |
 | Rate limits, stale activities (PS §4, §6.3) | not yet |
 | Live-tunable tokens (`assets/tokens.json`, reload on save) | done; parser tested |
-| Panels, Home (tile grid, Home button), tabs at the bottom, idle clock, provider wake-ups (decision 009) | done; rules tested, visuals need Windows |
-| Widgets: one per provider, information only, media always on Home (decision 019) | done; rules tested, visuals need Windows |
-| Theme toggle widget | presenter tested; the Windows reader needs Windows |
+| Panels, idle clock, provider wake-ups (decision 009) | done; rules tested, visuals need Windows |
+| No Home (decision 170): every card from the page row; the idle pill and Ctrl+Q open the default page | done; rules tested, the Windows side needs a run |
+| The page row: a constant list of providers' icons, the shown one lit; Search in the left corner, the theme switch by Settings' (decisions 165, 170) | done; rules tested, the look needs a Windows run |
+| Theme toggle | presenter tested; the Windows reader needs Windows |
 | Pomodoro (first panel): focus rounds, breaks, pause/skip/stop, ring, phase dots | done, tested |
 | Pomodoro's window (decision 106): the card a timer at media's size with an expand button; the timer, today, to-dos, statistics and settings in a window, questions asked in place | core and provider tested; the window on Windows needs a run |
 | Progress ring, Steps, accent colour (decision 010) | done; rules tested, drawing needs Windows |
@@ -287,16 +291,16 @@ over the file's, so `tokens()` is always what's on screen.
 | Release: no-console exe, static C++ runtime, tray icon with Exit, Inno Setup installer (decision 011) | done; needs a Windows build to verify |
 | MSIX, code signing, StartupTask (TR §9, §10) | not yet |
 | Log file, Copy logs (in Settings), hang/crash minidumps, exit without deadlock (decision 013) | done; button rules tested, the rest needs Windows |
-| Settings widget, app themes (dark and light) from tokens.json, saved per user (decision 022) | done; rules tested, visuals need Windows |
+| Settings, app themes (dark and light) from tokens.json, saved per user (decision 022) | done; rules tested, visuals need Windows |
 | The island in the playing cover's colours, in the theme's recipe; the theme back when paused (decision 051); on/off in Settings (decision 052) | done; rules and contrast tested, the look and fade need Windows |
 | Settings as a list: Theme and Display pages of choices, Start with Windows on by default, stays open on a near miss (decision 030) | done; rules tested, visuals need Windows |
-| Keyboard: arrows move focus on cards and Home, Enter/Space click (decision 031) | done; navigation tested, key handling needs Windows |
-| Keyboard: Tab/Shift+Tab, Home/End, Ctrl+Tab switches tabs, 1–9 open Home's widgets, Esc one step back, a focus ring (decision 033) | done; navigation and Esc tested, keys and ring need Windows |
+| Keyboard: arrows move focus on cards, Enter/Space click (decision 031) | done; navigation tested, key handling needs Windows |
+| Keyboard: Tab/Shift+Tab, Home/End, Ctrl+Tab switches pages, Esc closes (decision 170), a focus ring (decision 033) | done; navigation and Esc tested, keys and ring need Windows |
 | Ctrl+W asks the activity's provider to close it: Pomodoro confirms, media ignores (decision 034) | done; tested, the key needs Windows |
-| System-wide shortcuts (Ctrl+Q: Home; Ctrl+Alt+Q: the activity's card, decision 050), off while a fullscreen app hides the island, rebindable in Settings, a change aborted on any conflict (decision 032) | done; rules tested, registration needs Windows |
+| System-wide shortcuts (Ctrl+Q: the island; Ctrl+Alt+Q: the activity's card, decision 050), off while a fullscreen app hides the island, rebindable in Settings, a change aborted on any conflict (decision 032) | done; rules tested, registration needs Windows |
 | Releases from a workflow, version from the tag, updates from GitHub Releases: daily check, widget + alert, SHA-256-checked silent install (decision 036) | rules tested; the workflow and the Windows side need a run |
 | Settings: Update and restart under Check for updates, every action a list row, headings that stand out (decision 037) | done; rules tested, visuals need Windows |
-| Notification badges: a dot on a widget, tab or button with something new; Settings' widget and its Update row when an update waits (decision 038) | done; placement tested, drawing needs Windows |
+| Notification badges: a dot on a page-row icon or button with something new; Settings' gear and its Update row when an update waits (decision 038) | done; placement tested, drawing needs Windows |
 | An update offer survives a restart (decision 039); Bluetooth removed (decision 042) | rules tested |
 | Grouped rows (decision 090): a quiet label over rows on one background, each a name over its description; every Settings page uses them. One updates row that turns into Update and restart (decision 091). Key caps on the shortcuts page (decision 092). Segments: Tab row and Colour fade picked in place (decision 093) | done; layout tested, the look needs a Windows run |
 | Mandatory releases: the Release workflow's checkbox; installed by itself at the next start, with an alert, 3 tries at most (decision 041) | rules tested; the workflow's first mandatory run confirms it |

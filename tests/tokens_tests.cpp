@@ -122,8 +122,8 @@ void runTokensTests()
            "an unknown or empty theme changes nothing");
     TokensParse themesBack = parseTokens(toJson(themes.tokens));
     expect(themesBack.ok() && themesBack.tokens == themes.tokens, "themes round-trip through toJson");
-    expect(mentions(parseTokens("{\n\"themes\": {\n\"A\": { \"tileHeight\": 4 } } }"), "line 3") &&
-           mentions(parseTokens(R"({"themes": {"A": {"tileHeight": 4}}})"), "not a colour token"), "a theme only recolours");
+    expect(mentions(parseTokens("{\n\"themes\": {\n\"A\": { \"tabHeight\": 4 } } }"), "line 3") &&
+           mentions(parseTokens(R"({"themes": {"A": {"tabHeight": 4}}})"), "not a colour token"), "a theme only recolours");
     expect(mentions(parseTokens(R"({"themes": {"A": {"islandColr": [0, 0, 0]}}})"), "unknown token"), "a typo in a theme is reported");
     expect(mentions(parseTokens(R"({"themes": {"A": {"islandColor": [0, 0, 300]}}})"), "0..255"), "a theme's colours are checked");
     expect(mentions(parseTokens(R"({"themes": {"A": {}, "A": {}}})"), "appears twice"), "theme names are unique");
@@ -220,6 +220,29 @@ void runTokensTests()
     expect(scaleTokens(solid, 2).glassDarkenScale == solid.glassDarkenScale && scaleTokens(solid, 2).glassDarkenLift == solid.glassDarkenLift &&
                solid.glassDarkenScale + solid.glassDarkenLift < 0.5f,
            "the darkened glass's range is unitless, and white behind it comes out under half (decision 100)");
+    // Liquid glass (decision 165): which glass is the app's pick, and a pick
+    // rebuilds nothing; its lengths scale, its shares don't.
+    expect(onlyColorsDiffer(glass, [&] { Tokens t = glass; t.glassStyle = GlassStyle::Liquid; return t; }()),
+           "liquid glass: picking it rebuilds nothing");
+    expect(scaleTokens(solid, 2).glassLiquidRim == solid.glassLiquidRim * 2 * solid.islandScale &&
+               scaleTokens(solid, 2).glassLiquidBend == solid.glassLiquidBend * 2 * solid.islandScale &&
+               scaleTokens(solid, 2).glassLiquidBlur == solid.glassLiquidBlur * 2 * solid.islandScale &&
+               scaleTokens(solid, 2).glassLiquidDim == solid.glassLiquidDim && scaleTokens(solid, 2).glassLiquidSaturation == solid.glassLiquidSaturation &&
+               scaleTokens(solid, 2).glassLiquidHighlightOpacity == solid.glassLiquidHighlightOpacity,
+           "liquid glass: its rim, bend and blur are lengths; its dim, saturation and highlight shares");
+    Tokens shiny = glass;
+    shiny.glassLiquidShineOpacity = 0.6f;
+    expect(liquidShine(shiny) == 0.0f && liquidShine(solid) == 0.0f, "liquid glass: controls don't shine on frosted glass or a solid island");
+    shiny.glassStyle = GlassStyle::Liquid;
+    shiny.glassLiquidSurfaceShineOpacity = 0.2f;
+    expect(liquidShine(shiny) == 0.6f && liquidShine(shiny, true) == 0.2f,
+           "liquid glass: a control's edge shines, glassLiquidShineOpacity bright; a widget's or a toast's fainter");
+    shiny.glassRimColor = { 255, 255, 255, 46 };
+    shiny.glassLiquidHighlightOpacity = 0.4f;
+    expect(glassRimAt(shiny, false) == Color{ 255, 255, 255, 46 } && glassRimAt(shiny, true) == Color{ 255, 255, 255, 102 },
+           "liquid glass: the rim's line is brighter than the frosted glass's");
+    shiny.glass = false;
+    expect(liquidShine(shiny) == 0.0f, "liquid glass: picked, but the island is solid (a light theme): no shine");
     // Acrylic's even brightness at each Transparency pick (decision 100):
     // its colour's opacity times the pick's share, clearer as the pick goes up.
     Tokens lum = solid;

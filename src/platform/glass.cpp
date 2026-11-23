@@ -11,6 +11,7 @@
 #include <winrt/Windows.UI.ViewManagement.h>
 
 #include <array>
+#include <string>
 #include <vector>
 
 namespace cup::platform {
@@ -63,7 +64,7 @@ void probe(wuc::Compositor const& compositor, const char* what, IGraphicsEffect 
         compositor.CreateEffectFactory(effect);
         logLine("glass: probe: %s: yes", what);
     } catch (winrt::hresult_error const& e) {
-        logLine("glass: probe: %s: no (0x%08lx)", what, static_cast<unsigned long>(e.code()));
+        logGlassError("probe: no", what, e);
     }
 }
 
@@ -91,17 +92,34 @@ void probeOnce(wuc::Compositor const& compositor)
 
 } // namespace
 
+void logGlassError(const char* what, const char* step, winrt::hresult_error const& error)
+{
+    // Windows' own words for the code, when it has any: "The parameter is
+    // incorrect" says more than 0x80070057.
+    std::string message;
+    try {
+        message = winrt::to_string(error.message());
+    } catch (...) {
+    }
+    while (!message.empty() && (message.back() == '\n' || message.back() == '\r' || message.back() == ' ')) message.pop_back();
+    logLine("glass: %s (%s: 0x%08lx %s)", what, step, static_cast<unsigned long>(error.code()), message.c_str());
+}
+
 bool allowBackdrop(HWND window)
 {
     // Universal API contract 14 is Windows 11 (build 22000): the first that
     // lets a window that isn't UWP use a host backdrop brush. Windows 10's DWM
     // doesn't know the attribute, so it isn't even asked there.
     using winrt::Windows::Foundation::Metadata::ApiInformation;
-    if (!ApiInformation::IsApiContractPresent(L"Windows.Foundation.UniversalApiContract", 14)) return false;
+    if (!ApiInformation::IsApiContractPresent(L"Windows.Foundation.UniversalApiContract", 14)) {
+        logLine("glass: not offered here (Windows 10: no backdrop for a window)");
+        return false;
+    }
     constexpr DWORD kUseHostBackdropBrush = 17; // DWMWA_USE_HOSTBACKDROPBRUSH; older SDKs don't name it
     BOOL on = TRUE;
     HRESULT result = DwmSetWindowAttribute(window, kUseHostBackdropBrush, &on, sizeof on);
     if (FAILED(result)) logLine("glass: Windows refused a backdrop for a window (0x%08lx)", static_cast<unsigned long>(result));
+    else logLine("glass: Windows allows a backdrop for a window");
     return SUCCEEDED(result);
 }
 
@@ -144,7 +162,7 @@ Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush co
         logLine("glass: backdrop ready, at one brightness");
         return { brush, Look::Even };
     } catch (winrt::hresult_error const& e) {
-        logLine("glass: no even brightness (%s: 0x%08lx)", step, static_cast<unsigned long>(e.code()));
+        logGlassError("no even brightness", step, e);
     }
     // Refused: the backdrop's brightness squeezed into a darker range
     // instead, so a white window behind isn't a white island (decision 100).
@@ -153,7 +171,7 @@ Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush co
         logLine("glass: backdrop ready, darkened");
         return { brush, Look::Darkened };
     } catch (winrt::hresult_error const& e) {
-        logLine("glass: no darkening (%s: 0x%08lx)", step, static_cast<unsigned long>(e.code()));
+        logGlassError("no darkening", step, e);
     }
     try {
         step = "factory";
@@ -165,7 +183,7 @@ Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush co
         logLine("glass: backdrop ready, plain blur");
         return { brush, Look::Plain };
     } catch (winrt::hresult_error const& e) {
-        logLine("glass: no backdrop brush (%s: 0x%08lx): the island stays solid", step, static_cast<unsigned long>(e.code()));
+        logGlassError("no backdrop brush, the island stays solid", step, e);
         return {};
     }
 }
@@ -174,7 +192,8 @@ bool transparencyOn()
 {
     try {
         return winrt::Windows::UI::ViewManagement::UISettings().AdvancedEffectsEnabled();
-    } catch (winrt::hresult_error const&) {
+    } catch (winrt::hresult_error const& e) {
+        logGlassError("Windows' transparency setting can't be read, taken as on", "UISettings", e);
         return true; // can't tell: the user's pick decides alone
     }
 }

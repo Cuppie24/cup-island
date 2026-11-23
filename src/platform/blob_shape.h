@@ -33,6 +33,18 @@ inline std::wstring earSize(bool left) { return L"(" + kEarSize + (left ? L" * s
 wuc::CompositionRoundedRectangleGeometry addBackground(wuc::Compositor const& c, wuc::ShapeVisual const& target,
                                                        wuc::CompositionPropertySet const& shape, wuc::CompositionBrush const& fill);
 
+// The background's outline inset by `inset` px (an expression): what a stroke
+// just inside the edge is drawn on (the rim, decision 089). A radius taller and shifted up like the background, so on
+// the screen edge its top is clipped away.
+wuc::CompositionRoundedRectangleGeometry insetOutline(wuc::Compositor const& c, wuc::ShapeVisual const& body,
+                                                      wuc::CompositionPropertySet const& shape, std::wstring const& inset);
+
+// `visual` covers the body and its ears (decision 025), through every morph,
+// press and drag: the shadow's caster and the glass, each cut to a
+// snapshot that's as wide.
+void coverBodyAndEars(wuc::Compositor const& c, wuc::Visual const& visual, wuc::ShapeVisual const& body,
+                      wuc::CompositionPropertySet const& shape);
+
 // Adds the two flared top corners ("ears") beside the body's top edge, as
 // children of the body, each in its end's colour (decisions 025, 054).
 // `overlap`: how far each reaches into the body, px (an expression):

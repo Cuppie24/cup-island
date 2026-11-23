@@ -40,29 +40,12 @@ void rank(IslandState& s)
 void collapse(IslandState& s)
 {
     s.expandedId.clear();
-    s.homeOpen = false;
-    s.cardFromHome = false;
     s.stayOpen = false; // a pin lasts while it's open (decision 046)
 }
 
 void expand(IslandState& s, const std::string& id, Ms now)
 {
-    // An announced panel's card opened: this announcement seen (decision 110). Its activity's id is the panel's.
-    if (const Panel* p = findPanel(s, id); p && p->announce > 0) {
-        int& seen = s.seenPanels[id];
-        seen = std::max(seen, p->announce);
-    }
     s.expandedId = id;
-    s.homeOpen = false;
-    s.cardFromHome = false; // opened some other way; TileClicked sets it after
-    s.lastPointerAt = now;
-}
-
-void openHome(IslandState& s, Ms now)
-{
-    s.expandedId.clear();
-    s.homeOpen = true;
-    s.cardFromHome = false;
     s.lastPointerAt = now;
 }
 
@@ -76,7 +59,6 @@ bool busy(const IslandState& s) { return typing(s) || s.card.menu.has_value(); }
 // panel exists: a panel's activity ending shows the dormant card (decision 009).
 bool expandedViewExists(const IslandState& s)
 {
-    if (s.homeOpen) return hasWidgets(s);
     return findActivity(s, s.expandedId) || findPanel(s, s.expandedId);
 }
 
@@ -139,12 +121,12 @@ void onClick(IslandState& s, Ms now)
         expand(s, s.activities.front().id, now);
         break;
     case Mode::Expanded:
-        // Home stays: it's where things are started from (decision 009). Cards
-        // close, unless theirs says to stay (Content::keepOpen: Settings, decision 030).
-        if (!s.homeOpen && !shownCardKeepsOpen(s) && !s.stayOpen) collapse(s);
+        // Cards close, unless theirs says to stay (Content::keepOpen, decision 030).
+        if (!shownCardKeepsOpen(s) && !s.stayOpen) collapse(s);
         break;
     case Mode::Idle:
-        if (hasWidgets(s)) openHome(s, now); // decision 009
+        // Nothing running: the first page's card, so the row's icons are at hand (decision 170).
+        if (std::string page = defaultPage(s); !page.empty()) expand(s, page, now);
         break;
     case Mode::Receptive:
     case Mode::Hidden:
@@ -197,13 +179,8 @@ void handle(IslandState& s, const StayOpenToggled&, Ms now)
     s.stayOpen = !s.stayOpen;
     s.lastPointerAt = now; // unpinned: the idle timeout starts over from here
 }
-// Esc steps back one level (decision 033): a card opened from a Home widget
-// goes back to Home; anything else closes.
-void handle(IslandState& s, const EscapePressed&, Ms now)
-{
-    if (s.cardFromHome && !s.homeOpen && hasWidgets(s)) openHome(s, now);
-    else collapse(s);
-}
+// Esc closes (decision 033; a card's own step back is its provider's, Content::backAction).
+void handle(IslandState& s, const EscapePressed&, Ms) { collapse(s); }
 void handle(IslandState& s, const PointerMoved&, Ms now) { s.lastPointerAt = now; }
 
 void handle(IslandState& s, const DragEntered& e, Ms)
@@ -265,7 +242,12 @@ void handle(IslandState& s, const SpotRestored& e, Ms) { s.spot = e.spot; }
 
 void handle(IslandState& s, const ActivitySwitched& e, Ms now)
 {
-    if (!findActivity(s, e.id)) return;
+    if (!findActivity(s, e.id)) {
+        // A dormant panel's icon in the page row (decision 165): its card.
+        const Panel* p = findPanel(s, e.id);
+        if (isExpanded(s) && p && p->tapAction.empty() && hasCard(p->content)) expand(s, e.id, now);
+        return;
+    }
     handle(s, ActivityPromoted{ e.id }, now);
     if (isExpanded(s)) expand(s, e.id, now);
 }
@@ -274,7 +256,7 @@ void handle(IslandState& s, const PanelPublished& e, Ms)
 {
     for (Panel& p : s.panels) {
         if (p.id == e.panel.id) {
-            p = e.panel; // keeps its place on Home
+            p = e.panel; // keeps its place in the page row
             return;
         }
     }
@@ -286,51 +268,39 @@ void handle(IslandState& s, const PanelRemoved& e, Ms)
     std::erase_if(s.panels, [&](const Panel& p) { return p.id == e.id; });
 }
 
-void handle(IslandState& s, const HomeOpened&, Ms now)
+// The island's shortcut, or the app launched again (decision 170): with nothing open, the default page's card.
+void handle(IslandState& s, const IslandOpened&, Ms now)
 {
-    if (hasWidgets(s)) openHome(s, now);
+    if (isExpanded(s)) return;
+    if (std::string page = defaultPage(s); !page.empty()) expand(s, page, now);
 }
 
 // A provider closing its card (search, after starting an app: decision 079).
-// Only that card, while it's shown and not pinned (decision 046); from Home,
-// it closes all the way, like a launch from the Start menu.
+// Only that card, while it's shown and not pinned (decision 046).
 void handle(IslandState& s, const CardCloseRequested& e, Ms)
 {
-    if (s.expandedId == e.id && !s.homeOpen && !s.stayOpen) collapse(s);
+    if (s.expandedId == e.id && !s.stayOpen) collapse(s);
 }
 
 // The activity shortcut (decision 050): the card of the pill's activity, the
-// one a click on the pill opens, from anywhere (Home, another card, an alert).
-// Pressed again on that card, it closes, like Open Home's.
+// one a click on the pill opens, from anywhere (another card, an alert).
+// Pressed again on that card, it closes.
 void handle(IslandState& s, const ActivityOpened&, Ms now)
 {
     if (s.activities.empty()) return;
     const std::string& top = s.activities.front().id;
-    if (!s.homeOpen && s.expandedId == top) collapse(s);
+    if (s.expandedId == top) collapse(s);
     else expand(s, top, now);
 }
 
-// A running panel opens like its tab (and becomes the pick); a dormant one shows its card.
-void handle(IslandState& s, const PanelsSeen& e, Ms)
+// A running panel opens like its icon (and becomes the pick); a dormant one shows its card.
+void handle(IslandState& s, const CardOpened& e, Ms now)
 {
-    for (const auto& [id, announce] : e.seen) {
-        if (id.empty()) continue;
-        int& seen = s.seenPanels[id];
-        seen = std::max(seen, announce);
-    }
-}
-
-void handle(IslandState& s, const TileClicked& e, Ms now)
-{
-    bool fromHome = s.homeOpen;
     if (findActivity(s, e.id)) {
         handle(s, ActivityPromoted{ e.id }, now);
         expand(s, e.id, now);
-        s.cardFromHome = fromHome;
     } else if (const Panel* p = findPanel(s, e.id); p && p->tapAction.empty() && hasCard(p->content)) {
-        // Static widgets have no card; a toggle's tap goes to its provider.
-        expand(s, e.id, now);
-        s.cardFromHome = fromHome;
+        expand(s, e.id, now); // a toggle's tap goes to its provider: no card
     }
 }
 
@@ -389,7 +359,7 @@ void handle(IslandState& s, const ClockSynced& e, Ms now) { s.clock = WallClock{
 bool pressSquashes(const IslandState& s)
 {
     if (mode(s) != Mode::Expanded) return true;
-    return !s.homeOpen && !shownCardKeepsOpen(s) && !s.stayOpen;
+    return !shownCardKeepsOpen(s) && !s.stayOpen;
 }
 
 // --- Public API -------------------------------------------------------------

@@ -1,7 +1,6 @@
 #pragma once
 // Places one slot's rows of items inside a frame: sizes, alignment, edge
-// groups and click areas (PS §5.1). Shared by the pill, the bubble, and
-// Home's tiles (decision 009).
+// groups and click areas (PS §5.1). Shared by the pill and the bubble.
 
 #include "core/layout.h"
 

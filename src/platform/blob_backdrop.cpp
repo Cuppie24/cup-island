@@ -22,17 +22,6 @@ using namespace winrt::Windows::UI::Composition;
 
 constexpr auto bind = bindToBlob;
 
-// `visual` covers the body and its ears (decision 025), through every morph,
-// press and drag: the shadow's caster and the glass, both cut to the
-// outline's snapshot, which is as wide.
-void coverBodyAndEars(Compositor const& c, Visual const& visual, ShapeVisual const& body, CompositionPropertySet const& shape)
-{
-    bind(c, visual, L"Size", L"Vector2(pill.Size.X + 2 * " + kEarSize + L", pill.Size.Y)", body, shape);
-    bind(c, visual, L"Offset", L"pill.Offset - Vector3(" + kEarSize + L", 0, 0)", body, shape);
-    bind(c, visual, L"CenterPoint", L"pill.CenterPoint + Vector3(" + kEarSize + L", 0, 0)", body, shape);
-    bind(c, visual, L"Scale", L"pill.Scale", body, shape);
-}
-
 Color clear(Color c)
 {
     c.a = 0;
@@ -46,7 +35,10 @@ void Blob::buildShadow(Compositor const& c, ContainerVisual const& parent)
     // CreateVisualSurface is Windows 10 1903+; on 1809 the island just has no
     // shadow (decision 015: newer APIs only behind runtime checks).
     using winrt::Windows::Foundation::Metadata::ApiInformation;
-    if (!ApiInformation::IsMethodPresent(L"Windows.UI.Composition.Compositor", L"CreateVisualSurface")) return;
+    if (!ApiInformation::IsMethodPresent(L"Windows.UI.Composition.Compositor", L"CreateVisualSurface")) {
+        logLine("glass: no snapshot of the island's shape here (before Windows 10 1903): no shadow, no glass");
+        return;
+    }
 
     // The snapshot is of an outline-only twin of the body: the same background
     // and ears, no content. Snapshotting the body itself re-rendered and
@@ -113,19 +105,10 @@ void Blob::applyShadow()
 
 void Blob::buildRim(Compositor const& c)
 {
-    // The background's outline (blob_shape.cpp) inset by half the rim's
-    // width: a stroke is centred on its outline, so it's all inside the edge,
-    // over the glass, never past it. A radius taller and shifted up like the
-    // background, so with the island on the screen edge its top is clipped
-    // away. RimInset is set by applyGlass().
-    const std::wstring radius = L"Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius)";
-    auto outline = c.CreateRoundedRectangleGeometry();
-    bind(c, outline, L"CornerRadius", L"Vector2(Max(" + radius + L" - shape.RimInset, 0), Max(" + radius + L" - shape.RimInset, 0))",
-         body_, shape_);
-    bind(c, outline, L"Offset", L"Vector2(shape.RimInset, shape.RimInset - shape.Attached * " + radius + L")", body_, shape_);
-    bind(c, outline, L"Size",
-         L"Vector2(Max(pill.Size.X - 2 * shape.RimInset, 0), Max(pill.Size.Y + shape.Attached * " + radius + L" - 2 * shape.RimInset, 0))",
-         body_, shape_);
+    // The background's outline inset by half the rim's width
+    // (insetOutline): a stroke is centred on its outline, so it's all inside
+    // the edge, over the glass, never past it. RimInset is set by applyGlass().
+    auto outline = insetOutline(c, body_, shape_, L"shape.RimInset");
     // Brightest along the bottom, fading out up the sides before the top: the
     // island hangs from the screen edge, so its bottom is the edge in the
     // light, and the rim never meets the ears (which have none). Relative to
@@ -165,7 +148,7 @@ void Blob::buildGlow(Compositor const& c, CompositionGeometry const& outline)
                 bind(c, stop, L"Offset", L"Max(1 - shape.GlowHeight * " + std::to_wstring(i) + L" / " + std::to_wstring(kGlowStops - 1) + L" / " + height + L", 0)", body_, shape_);
             } catch (winrt::hresult_error const& e) {
                 bound = false; // taller on a tall card, then
-                logLine("glass: the glow can't follow the island's height (0x%08lx)", static_cast<unsigned long>(e.code()));
+                logGlassError("the glow can't follow the island's height", "stop offset", e);
             }
         }
         glow_.push_back(stop);
@@ -182,18 +165,45 @@ void Blob::buildGlow(Compositor const& c, CompositionGeometry const& outline)
 void Blob::fadeGlow(Ms duration)
 {
     const Tokens& t = tokens();
-    const Color& glow = t.islandGlowColor;
+    GlowLook look = glowLook(t, card_); // the pill's, or an open card's (decision 166)
     for (std::size_t i = 0; i < glow_.size(); ++i) {
-        Color c = glow;
-        c.a = static_cast<std::uint8_t>(std::lround(glow.a * glowFade(t, i / float(kGlowStops - 1))));
+        Color c = look.color;
+        c.a = static_cast<std::uint8_t>(std::lround(look.color.a * glowFade(look.curve, i / float(kGlowStops - 1))));
         fadeColor(glow_[i], c, duration);
     }
+    // The line along a card's bottom edge: the rim there, in the glow's colour. None: the rim's own.
+    // On liquid glass the pane's bright edge (glassRimAt, decision 165).
+    Color rim = t.glass ? glassRimAt(t, liquidShown_) : clear(t.glassRimColor);
+    // Glass only: a solid island has no rim, and a bright line on its edge looked stuck on (decision 169).
+    fadeColor(rimBottom_, t.glass && look.edge.a > 0 ? look.edge : rim, duration);
+}
+
+void Blob::setCard(bool on)
+{
+    if (card_ == on) return;
+    card_ = on;
+    // With the card's own opening or closing (the morph's time), not a recolour's: that is
+    // seconds long (decision 053), and the glow would still be changing long after the card is open.
+    Ms duration = tokens().morphDuration;
+    // The reach glides with the colours: the stops' offsets read it (buildGlow).
+    // Both ends explicit, the resting value set first (decision 008).
+    float from = glowLook(tokens(), !card_).height, to = glowLook(tokens(), card_).height;
+    shape_.InsertScalar(L"GlowHeight", to);
+    auto reach = compositor_.CreateScalarKeyFrameAnimation();
+    reach.InsertKeyFrame(0.0f, from);
+    reach.InsertKeyFrame(1.0f, to);
+    reach.Duration(std::max(duration, Ms{ 1 }));
+    shape_.StartAnimation(L"GlowHeight", reach);
+    fadeGlow(duration);
 }
 
 void Blob::buildGlass()
 {
     glassTried_ = true;
-    if (!snapshot_) return; // no snapshot before 1903; glass is Windows 11's anyway
+    if (!snapshot_) { // no snapshot before 1903; glass is Windows 11's anyway
+        logLine("glass: picked, but there's no snapshot to cut it by: solid");
+        return;
+    }
     luminosity_ = device_->createSurface({ 8, 8 }); // stretched over the glass: one colour everywhere
     paintLuminosity(glassLuminosityAt(tokens())); // at the Transparency pick's strength (decision 100)
     auto luminosity = compositor_.CreateSurfaceBrush(luminosity_);
@@ -204,8 +214,13 @@ void Blob::buildGlass()
     Glass made = maskedBackdrop(compositor_, glassMask_, glassLuminosity_, darkenBuilt_);
     if (!made.brush) return; // logged: the island stays solid
     glassLook_ = made.look;
+    const Tokens& t = tokens();
+    logLine("glass: built for a shape: transparency %s, tint %.2f, luminosity opacity %d",
+            t.glassTransparency == Transparency::Low ? "low" : t.glassTransparency == Transparency::High ? "high" : "medium",
+            glassShare(t, glassLook_ != Look::Plain), static_cast<int>(glassLuminosityAt(t).a));
     glass_ = compositor_.CreateSpriteVisual();
-    glass_.Brush(made.brush);
+    frosted_ = made.brush;
+    glass_.Brush(frosted_);
     glass_.Opacity(0.0f);
     coverBodyAndEars(compositor_, glass_, body_, shape_);
     twin_.Parent().Children().InsertBelow(glass_, twin_); // under the twin's layer, its tint (decision 097)
@@ -228,7 +243,7 @@ void Blob::applyGlass(Ms duration)
     shape_.InsertScalar(L"RimInset", t.glassRimWidth / 2);
     rim_.StrokeThickness(t.glassRimWidth);
     fadeColor(rimTop_, clear(t.glassRimColor), duration);
-    fadeColor(rimBottom_, t.glass ? t.glassRimColor : clear(t.glassRimColor), duration);
+    // rimBottom_: fadeGlow's, right after: a card's edge line may tint it (decision 166).
 
     if (t.glass && !glass_ && !glassTried_) buildGlass();
     if (glassLook_ == Look::Even && glassLuminosityAt(t) != luminosityPainted_) paintLuminosity(glassLuminosityAt(t));
@@ -237,7 +252,24 @@ void Blob::applyGlass(Ms duration)
     if (glass_ && glassLook_ == Look::Darkened && (t.glassDarkenScale != darkenBuilt_.scale || t.glassDarkenLift != darkenBuilt_.lift)) {
         darkenBuilt_ = { t.glassDarkenScale, t.glassDarkenLift };
         Glass made = maskedBackdrop(compositor_, glassMask_, glassLuminosity_, darkenBuilt_);
-        if (made.brush && made.look == Look::Darkened) glass_.Brush(made.brush);
+        if (made.brush && made.look == Look::Darkened) {
+            frosted_ = made.brush;
+            if (!liquidShown_) glass_.Brush(frosted_);
+        } else logLine("glass: the new darkening wasn't taken: the old one stays");
+    }
+    // Liquid glass (decision 165): the same sprite, another picture under the same tint.
+    bool liquid = glass_ && liquid_ && t.glass && t.glassStyle == GlassStyle::Liquid;
+    if (glass_ && liquid != liquidShown_) {
+        try {
+            glass_.Brush(liquid ? liquidBrush() : frosted_);
+            liquidShown_ = liquid;
+            logLine("glass: a shape shows %s", liquid ? "liquid glass" : "the frosted glass");
+        } catch (winrt::hresult_error const& e) {
+            logGlassError("liquid: a shape can't show it, frosted instead", "brush", e);
+            glass_.Brush(frosted_);
+            liquidShown_ = false;
+            liquid_ = nullptr; // not tried again until it's handed over anew
+        }
     }
     if (glass_ && t.glass != glassShown_) {
         glassShown_ = t.glass;
@@ -250,7 +282,39 @@ void Blob::applyGlass(Ms duration)
     // 097): seamless, since the layer is see-through as one, and with no
     // opaque fringe along the curves (the reason it was hidden before). A
     // Transparency pick fades it too. Solid, it's opaque under the body.
-    if (twin_) fadeTo(compositor_, twin_, glassShown_ ? glassShare(t, glassLook_ != Look::Plain) : 1.0f, duration);
+    // Liquid glass keeps its own brightness in hand (glassLiquidDim): the clearer opacities.
+    if (twin_) fadeTo(compositor_, twin_, glassShown_ ? glassShare(t, liquidShown_ || glassLook_ != Look::Plain) : 1.0f, duration);
+}
+
+void Blob::setLiquid(wuc::ICompositionSurface const& picture)
+{
+    if (picture == liquid_) return;
+    liquid_ = picture;
+    if (liquidShown_ && glass_) { // another picture, or none: not the old one a moment longer
+        glass_.Brush(frosted_);
+        liquidShown_ = false;
+    }
+    applyGlass(recolorDuration(tokens()));
+    fadeGlow(recolorDuration(tokens())); // the rim's line: brighter on liquid glass (decisions 165, 166)
+}
+
+wuc::CompositionBrush Blob::liquidBrush()
+{
+    // The picture is the render layer's size and drawn at its pixels: not
+    // stretched, and moved back by where this sprite is (the body's corner,
+    // an ear to the left), so each of its pixels stays where the desktop's
+    // is through every morph and drag.
+    auto picture = compositor_.CreateSurfaceBrush(liquid_);
+    picture.Stretch(wuc::CompositionStretch::None);
+    picture.HorizontalAlignmentRatio(0.0f);
+    picture.VerticalAlignmentRatio(0.0f);
+    bind(compositor_, picture, L"Offset", L"Vector2(" + kEarSize + L" - pill.Offset.X, -pill.Offset.Y)", body_, shape_);
+    auto mask = compositor_.CreateSurfaceBrush(snapshot_); // the outline: exact, the compositor's (decision 018)
+    mask.Stretch(wuc::CompositionStretch::Fill);
+    auto cut = compositor_.CreateMaskBrush();
+    cut.Source(picture);
+    cut.Mask(mask);
+    return cut;
 }
 
 } // namespace cup::platform

@@ -94,6 +94,8 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     toast_.build(c, device, body_, content_); // a toast floats over the content too (decision 071)
     bind(c, toast_.frame(), L"Size", L"pill.Size", body_, shape_); // clipped to the card, like the content
     elements_.init(c, device, content_);
+    elements_.setShiny(true); // filled controls shine on liquid glass (decision 165)
+    toast_.setShiny();
 
     buildShadow(c, parent); // under the body
     topGlow_.build(c, body_, shape_, content_, snapshot_); // the top band's glow, cut by the shadow's snapshot (decision 108)
@@ -115,7 +117,7 @@ void Blob::refreshAnimations(bool coloursOnly)
     }
     shape_.InsertScalar(L"MaxRadius", t.maxCornerRadius);
     shape_.InsertScalar(L"FlareRadius", t.flareRadius);
-    shape_.InsertScalar(L"GlowHeight", t.glassGlowHeight);
+    shape_.InsertScalar(L"GlowHeight", glowLook(t, card_).height);
 
     // Colours are tokens too, and every one fades, so a cover's colours or a
     // new theme ease in (decision 051): the fill, the shadow, the marks. Glass
@@ -124,12 +126,8 @@ void Blob::refreshAnimations(bool coloursOnly)
     fadeFill(recolorDuration(t));
     fadeGlow(recolorDuration(t));
     if (shadow_) fadeColor(shadow_, t.glass ? t.glassShadowColor : t.shadowColor);
-    if (selectedTab_.brush) fadeColor(selectedTab_.brush, t.buttonOffColor); // the page row's line (decision 109)
-    for (Mark& mark : tabDots_)
-        if (mark.brush) fadeColor(mark.brush, t.stepTodoColor);
+    if (selectedTab_.brush) fadeColor(selectedTab_.brush, t.tabSelectedColor); // behind the shown page's icon (decision 165)
     if (hovered_.brush) fadeColor(hovered_.brush, t.hoverColor);
-    for (Mark& mark : tiles_)
-        if (mark.brush) fadeColor(mark.brush, t.tileColor);
     if (focusRing_.brush) fadeColor(focusRing_.brush, t.focusRingColor);
     badges_.recolor();
     accentBadges_.recolor();
@@ -188,7 +186,7 @@ void Blob::fadeFill(Ms duration)
 }
 
 // The shown page's line: grey like the row's buttons at rest, brighter than the dots (decision 109).
-void Blob::setSelectedTab(std::optional<Rect> tab, float cornerRadius) { showMark(selectedTab_, tab, cornerRadius, tokens().buttonOffColor, true); }
+void Blob::setSelectedTab(std::optional<Rect> tab, float cornerRadius) { showMark(selectedTab_, tab, cornerRadius, tokens().tabSelectedColor, true); }
 
 
 void Blob::setHovered(std::optional<Rect> area, float cornerRadius) { showMark(hovered_, area, cornerRadius, tokens().hoverColor, false); }
@@ -227,13 +225,6 @@ void Blob::setFocusRing(std::optional<Rect> area, float cornerRadius)
     ring.shape.CornerRadius({ std::max(0.0f, cornerRadius - half), std::max(0.0f, cornerRadius - half) });
     // It moves at once, like hover, and only fades: no glide to hand off (decision 008).
     fadeTo(compositor_, ring.visual, 1.0f, tokens().hoverFadeDuration);
-}
-
-void Blob::showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius, const Color& color)
-{
-    if (marks.size() < at.size()) marks.resize(at.size());
-    for (std::size_t i = 0; i < marks.size(); ++i)
-        showMark(marks[i], i < at.size() ? std::optional<Rect>(at[i]) : std::nullopt, cornerRadius, color, false);
 }
 
 void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide)

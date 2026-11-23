@@ -242,7 +242,22 @@ std::vector<ThemeColor> glassCoverColors(const CoverTint& tint, const Tokens& th
     double lift = std::clamp((cuspLightness(hue) - themed.coverGlowLiftCusp.x) / span, 0.0, 1.0);
     double lightness = themed.coverDarkGlow + (std::max(themed.coverDarkGlowLifted, themed.coverDarkGlow) - themed.coverDarkGlow) * lift;
     out.push_back({ "islandGlowColor", fromLch(lightness, chroma, hue, static_cast<std::uint8_t>(std::lround(alpha))) });
+    // An open card's (decision 166): lighter, so it reads as light, and lighter
+    // again for the line along its bottom edge. The same hue, as vivid as it can be there.
+    double card = std::min(lightness + themed.coverCardGlowLift, 1.0);
+    out.push_back({ "islandCardGlowColor", fromLch(card, chroma, hue, static_cast<std::uint8_t>(std::lround(alpha))) });
+    double edgeAlpha = std::clamp(themed.glassGlowEdgeOpacity, 0.0f, 1.0f) * 255;
+    out.push_back({ "islandGlowEdgeColor", fromLch(std::min(card + themed.coverGlowEdgeLift, 1.0), chroma, hue,
+                                                   static_cast<std::uint8_t>(std::lround(edgeAlpha))) });
+    // ...and round the cover itself (decision 169): the card glow's colour, in place of its shadow.
+    double artAlpha = std::clamp(themed.coverArtGlow, 0.0f, 1.0f) * 255;
+    out.push_back({ "artGlowColor", fromLch(card, chroma, hue, static_cast<std::uint8_t>(std::lround(artAlpha))) });
     return out;
+}
+
+std::vector<ThemeColor> islandCoverColors(const CoverTint& tint, const Tokens& themed, const Tokens& midnight)
+{
+    return pale(themed.islandColor) ? coverColors(tint, themed) : glassCoverColors(tint, themed, midnight);
 }
 
 } // namespace cup

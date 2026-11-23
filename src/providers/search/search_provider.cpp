@@ -305,8 +305,6 @@ void SearchProvider::publish()
 {
     Content c;
     c.label = "Search";
-    c.tileLeading = { row({ Icon{ Glyph::Search } }, Align::Center) };
-    c.tile = { row({ Text{ "Search", TextStyle::TileTitle } }) };
     // Wide, with a big field (CardLayout::Search, decision 079), which has
     // the keys at once and closes with one Esc (Content::fieldFirst). A near
     // miss between rows doesn't close it. As tall as its rows: the field
@@ -330,7 +328,8 @@ void SearchProvider::publish()
     // Room under the field: the first result is lit (defaultRow), and two
     // filled shapes rowSpacing apart looked stuck together (decision 079).
     if (c.expandedCenter.size() > 1) c.expandedCenter[1].apart = true;
-    host_->publishPanel({ .id = kPanelId, .content = std::move(c) });
+    // A button in the page row's left corner (decisions 165, 170): a click opens the card.
+    host_->publishPanel({ .id = kPanelId, .content = std::move(c), .rowButton = Glyph::Search, .rowSpot = Panel::RowSpot::LeftCorner });
 }
 
 } // namespace cup

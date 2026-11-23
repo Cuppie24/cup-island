@@ -6,13 +6,10 @@ namespace cup {
 Panel themePanel(bool dark)
 {
     const char* mode = dark ? "Dark" : "Light";
-    Content content{
-        .label = std::string(mode) + " mode",
-        // One line: the icon in the square at the side, like the media and timer widgets', so they line up (decision 073).
-        .tileLeading = { row({ Icon{ dark ? Glyph::Moon : Glyph::Sun } }, Align::Center) },
-        .tile = { row({ Text{ mode, TextStyle::TileTitle } }) },
-    };
-    return { .id = ThemePresenter::kPanelId, .content = content, .tapAction = ThemePresenter::kToggle };
+    Content content{ .label = std::string(mode) + " mode" };
+    // A button in the page row beside Settings' (decision 165): the mode it's in, a click switches.
+    return { .id = ThemePresenter::kPanelId, .content = content, .tapAction = ThemePresenter::kToggle,
+             .rowButton = dark ? Glyph::Moon : Glyph::Sun, .rowSpot = Panel::RowSpot::BesideCorner };
 }
 
 CommandSpec themeCommand(bool dark)

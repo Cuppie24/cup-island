@@ -17,6 +17,7 @@ namespace cup::platform {
 void PillRenderer::build(wuc::Compositor const& c, wuc::ContainerVisual const& root, const Scene& initial)
 {
     queue_ = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
+    compositor_ = c;
     device_.create(c);
     applied_ = tokens();
     pill_.build(c, device_, root, initial.size, initial.offset);
@@ -24,6 +25,64 @@ void PillRenderer::build(wuc::Compositor const& c, wuc::ContainerVisual const& r
     bridge_.build(c, root, pill_, bubble_);
     menu_.build(c, device_, root); // last: over the pill and the bubble
     apply(initial, {});
+    liquid_.onLost = [this] {
+        liquidFailed_ = true; // the frosted glass, until liquid is picked again
+        pill_.setLiquid(nullptr);
+        bubble_.setLiquid(nullptr);
+    };
+    syncLiquid();
+}
+
+void PillRenderer::syncLiquid()
+{
+    const Tokens& t = tokens();
+    bool wanted = compositor_ && window_ && t.glass && t.glassStyle == GlassStyle::Liquid;
+    if (!wanted) {
+        liquidFailed_ = false;
+        if (!liquid_.running()) return;
+        pill_.setLiquid(nullptr);
+        bubble_.setLiquid(nullptr);
+        liquid_.stop();
+        return;
+    }
+    if (!liquid_.running()) {
+        if (liquidFailed_) return;
+        if (!liquid_.start(compositor_, window_)) {
+            liquidFailed_ = true;
+            return;
+        }
+    }
+    pill_.setLiquid(liquid_.picture());
+    bubble_.setLiquid(liquid_.picture());
+    liquid_.refresh(); // the tokens it draws with may be new
+}
+
+void PillRenderer::layerChanged()
+{
+    if (!liquid_.running()) return;
+    pill_.setLiquid(nullptr);
+    bubble_.setLiquid(nullptr);
+    liquid_.stop();
+    syncLiquid();
+}
+
+void PillRenderer::placeLiquid(const Scene& scene, const Motion& morph)
+{
+    const Motion atOnce{ Ms{ 0 }, 0, 0 }; // dragged: it's where the pointer is
+    Vec2 size = scene.size;
+    // Each shape's flared corners as apply() gives them to its Blob (setEars).
+    bool pillLeft = !scene.flushLeft, pillRight = !(scene.flushRight && !scene.bubble);
+    if (scene.lifted) liquid_.place(0, { scene.offset.x, tokens().liftDrop, size.x, size.y }, false, false, false, atOnce);
+    else liquid_.place(0, { scene.offset.x, scene.offset.y, size.x, size.y }, true, pillLeft, pillRight, towardSize(morph, size));
+    const BubbleScene* bubble = scene.bubble ? &*scene.bubble : nullptr;
+    if (bubble && bubble->dragCentre) {
+        const Rect& f = bubble->frame;
+        liquid_.place(1, { bubble->dragCentre->x - f.width / 2, bubble->dragCentre->y - f.height / 2, f.width, f.height }, false, false, false, atOnce);
+    } else if (bubble) {
+        liquid_.place(1, bubble->frame, true, true, !scene.flushRight, morph);
+    } else {
+        liquid_.place(1, { scene.bubbleTuck.x, scene.bubbleTuck.y, 0, 0 }, true, false, false, towardSize(morph, {}));
+    }
 }
 
 void PillRenderer::refreshAnimations()
@@ -35,6 +94,7 @@ void PillRenderer::refreshAnimations()
     bridge_.refreshAnimations();
     menu_.refresh(coloursOnly);
     measured_.clear();
+    syncLiquid(); // glass on or off, or another style (decision 165)
 }
 
 float PillRenderer::measure(const Text& text)
@@ -77,29 +137,23 @@ void PillRenderer::apply(const Scene& scene, const SceneMotion& motion)
     // the glide knows where that is.
     pill_.place(scene.size, scene.offset, motion.morph);
     pill_.lift(scene.lifted ? std::optional<float>(scene.offset.x + scene.size.x / 2) : std::nullopt, motion.fling);
+    placeLiquid(scene, motion.morph);
     if (motion.pulse) pill_.pulse();
     if (motion.reveal > Ms{ 0 }) revealAt_ = std::chrono::steady_clock::now() + motion.reveal;
     // A side flush with the screen's edge has no ear: it would hang off the
     // monitor. In Split the right edge is the bubble's.
     pill_.setEars(!scene.flushLeft, !(scene.flushRight && !scene.bubble));
     pill_.setHighlighted(scene.dropTarget);
+    pill_.setCard(scene.mode == Mode::Expanded); // the open card's glow (decision 166); the bubble never is one
     const TabStrip* tabs = scene.tabs ? &*scene.tabs : nullptr;
-    // The page row (decision 109): a faint dot per page, the shown one's line gliding to it.
-    std::vector<Rect> dots;
-    if (tabs)
-        for (std::size_t i = 0; i < tabs->tabs.size(); ++i)
-            if (tabs->active != i) dots.push_back(tabs->tabs[i].frame);
-    pill_.setTabDots(dots, tokens().tabDotSize / 2);
-    std::optional<Rect> line = tabs && tabs->active ? std::optional<Rect>(tabs->tabs[*tabs->active].frame) : std::nullopt;
-    pill_.setSelectedTab(line, line ? line->height / 2 : 0);
+    // The page row (decision 165): the shown page's icon lit, the shape gliding to a newly picked one.
+    std::optional<Rect> lit = tabs && tabs->active ? std::optional<Rect>(tabs->tabs[*tabs->active].lit) : std::nullopt;
+    pill_.setSelectedTab(lit, lit ? tabs->tabs[*tabs->active].radius : 0);
     // Nothing left that lights up as an area: drop a stale hover. A list row's
     // stays: the app re-aims it after every scene, and clearing it here would
     // blink it on each tick of a countdown on the same card.
     bool listRows = std::any_of(scene.elements.begin(), scene.elements.end(), [](const Placed& p) { return p.listRow.has_value(); });
-    if (!tabs && scene.tiles.empty() && !listRows) pill_.setHovered(std::nullopt, 0);
-    std::vector<Rect> tiles;
-    for (const Tile& tile : scene.tiles) tiles.push_back(tile.frame);
-    pill_.setTiles(tiles, scene.tileRadius);
+    if (!tabs && !listRows) pill_.setHovered(std::nullopt, 0);
     pill_.setBadges(scene.badges, scene.accentBadges);
     // A row's menu at once, not with the queued content: it answers a click or a key (decision 086).
     menu_.show(scene.menu, scene.offset, scene.now);
