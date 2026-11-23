@@ -41,6 +41,27 @@ CompositionRoundedRectangleGeometry addBackground(Compositor const& c, ShapeVisu
     return background;
 }
 
+CompositionRoundedRectangleGeometry insetOutline(Compositor const& c, ShapeVisual const& body, CompositionPropertySet const& shape,
+                                                 std::wstring const& inset)
+{
+    const std::wstring radius = L"Min(Min(pill.Size.X, pill.Size.Y) / 2, shape.MaxRadius)";
+    auto outline = c.CreateRoundedRectangleGeometry();
+    bindToBlob(c, outline, L"CornerRadius", L"Vector2(Max(" + radius + L" - " + inset + L", 0), Max(" + radius + L" - " + inset + L", 0))", body, shape);
+    bindToBlob(c, outline, L"Offset", L"Vector2(" + inset + L", " + inset + L" - shape.Attached * " + radius + L")", body, shape);
+    bindToBlob(c, outline, L"Size",
+               L"Vector2(Max(pill.Size.X - 2 * " + inset + L", 0), Max(pill.Size.Y + shape.Attached * " + radius + L" - 2 * " + inset + L", 0))",
+               body, shape);
+    return outline;
+}
+
+void coverBodyAndEars(Compositor const& c, Visual const& visual, ShapeVisual const& body, CompositionPropertySet const& shape)
+{
+    bindToBlob(c, visual, L"Size", L"Vector2(pill.Size.X + 2 * " + kEarSize + L", pill.Size.Y)", body, shape);
+    bindToBlob(c, visual, L"Offset", L"pill.Offset - Vector3(" + kEarSize + L", 0, 0)", body, shape);
+    bindToBlob(c, visual, L"CenterPoint", L"pill.CenterPoint + Vector3(" + kEarSize + L", 0, 0)", body, shape);
+    bindToBlob(c, visual, L"Scale", L"pill.Scale", body, shape);
+}
+
 void addEars(Compositor const& c, ShapeVisual const& body, CompositionPropertySet const& shape, CompositionBrush const& leftFill,
              CompositionBrush const& rightFill, std::wstring const& overlap)
 {

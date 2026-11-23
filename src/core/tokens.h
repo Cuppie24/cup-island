@@ -307,6 +307,14 @@ struct Tokens {
     float glassGlowOpacity = 0.8f;  // how strong the glow is along the bottom edge
     float glassGlowCurve = 2.5f;    // how it fades up its reach (glowFade): higher hugs the edge more; past 1, it melts away at the top
     float glassRimWidth = 1;      // the rim's width, inside the edge
+    // Liquid glass (decision 165): a lens along the island's sides and bottom.
+    // In a band glassLensWidth wide inside the edge, the blurred desktop shows
+    // again, as bright as it is, pulled glassLensDepth px in from the edge (a
+    // thick pane bending what's behind it), glassLensOpacity strong at the
+    // edge and fading inward. Any of the three at 0: no lens.
+    float glassLensWidth = 10;
+    float glassLensDepth = 14;
+    float glassLensOpacity = 0.45f;
 
     // Expanded's page row along the top of the card (decisions 007, 047, 109): a dot per page,
     // the shown one a line, an arrow on each side of them; Home's button and the pin at the edges.
@@ -593,6 +601,11 @@ Color islandFill(const Tokens& t, Color color, bool evenBlur = true);
 // ...the share it keeps of a colour's opacity: 1 when not glass. The island
 // over the glass applies it to a whole layer (decision 097).
 float glassShare(const Tokens& t, bool evenBlur = true);
+
+// How strong the lens along the island's edge is drawn (decision 165):
+// glassLensOpacity as glass, kept within 0..1; 0 when solid, or when the
+// lens has no width.
+float glassLensShare(const Tokens& t);
 
 // The colour acrylic's even brightness takes its lightness from:
 // glassLuminosityColor, its opacity times the Transparency pick's share

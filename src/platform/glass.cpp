@@ -170,6 +170,56 @@ Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush co
     }
 }
 
+Lens lensBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush const& band)
+{
+    using wuc::CompositionEffectBrush;
+    const char* step = "";
+    // Chained like the glass (decision 100): the transform is a brush of its
+    // own over the backdrop, and the cut takes that brush as its input.
+    try {
+        // Direct2D's 2D affine transform, its properties by index: the
+        // interpolation, the border mode, the matrix (six floats: identity
+        // until the caller's animation sets it), the sharpness. Win2D's
+        // defaults for the rest.
+        const std::array<float, 6> identity{ 1, 0, 0, 1, 0, 0 };
+        auto transform = makeEffect(L"Lens", CLSID_D2D12DAffineTransform, { CompositionEffectSourceParameter(L"Backdrop") },
+                                    { PropertyValue::CreateUInt32(D2D1_2DAFFINETRANSFORM_INTERPOLATION_MODE_LINEAR),
+                                      PropertyValue::CreateUInt32(D2D1_BORDER_MODE_SOFT),
+                                      PropertyValue::CreateSingleArray(winrt::array_view<float const>(identity.data(), identity.data() + identity.size())),
+                                      PropertyValue::CreateSingle(0.0f) },
+                                    { { L"TransformMatrix", D2D1_2DAFFINETRANSFORM_PROP_TRANSFORM_MATRIX } });
+        step = "bend factory";
+        const std::vector<winrt::hstring> animated{ L"Lens.TransformMatrix" };
+        CompositionEffectBrush bend = compositor.CreateEffectFactory(transform, animated).CreateBrush();
+        step = "backdrop";
+        bend.SetSourceParameter(L"Backdrop", compositor.CreateHostBackdropBrush());
+        step = "factory";
+        CompositionEffectBrush brush = compositor.CreateEffectFactory(cut(CompositionEffectSourceParameter(L"Inner"))).CreateBrush();
+        step = "band";
+        brush.SetSourceParameter(L"Mask", band);
+        step = "inner";
+        brush.SetSourceParameter(L"Inner", bend);
+        logLine("glass: lens ready, bending");
+        return { brush, bend };
+    } catch (winrt::hresult_error const& e) {
+        logLine("glass: the lens can't bend (%s: 0x%08lx)", step, static_cast<unsigned long>(e.code()));
+    }
+    // The plain cut, the one effect Windows has always taken (decision 100).
+    try {
+        step = "factory";
+        CompositionEffectBrush brush = compositor.CreateEffectFactory(cut(CompositionEffectSourceParameter(L"Backdrop"))).CreateBrush();
+        step = "band";
+        brush.SetSourceParameter(L"Mask", band);
+        step = "backdrop";
+        brush.SetSourceParameter(L"Backdrop", compositor.CreateHostBackdropBrush());
+        logLine("glass: lens ready, a lip without bending");
+        return { brush, nullptr };
+    } catch (winrt::hresult_error const& e) {
+        logLine("glass: no lens (%s: 0x%08lx)", step, static_cast<unsigned long>(e.code()));
+        return {};
+    }
+}
+
 bool transparencyOn()
 {
     try {

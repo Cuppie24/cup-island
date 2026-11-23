@@ -211,6 +211,9 @@ const Field kFields[] = {
     { "glassGlowOpacity", &Tokens::glassGlowOpacity },
     { "glassGlowCurve", &Tokens::glassGlowCurve },
     { "glassRimWidth", &Tokens::glassRimWidth },
+    { "glassLensWidth", &Tokens::glassLensWidth }, // the lens along the edge (decision 165)
+    { "glassLensDepth", &Tokens::glassLensDepth },
+    { "glassLensOpacity", &Tokens::glassLensOpacity },
     { "glassDarkenScale", &Tokens::glassDarkenScale },
     { "glassDarkenLift", &Tokens::glassDarkenLift },
     { "glassDenseLuminosity", &Tokens::glassDenseLuminosity },
