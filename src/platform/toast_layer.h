@@ -21,6 +21,8 @@ public:
     // bottom edge. The blob binds its size to the card's.
     wuc::ContainerVisual const& frame() const { return frame_; }
     void show(const std::optional<ToastScene>& toast, Ms now); // nullopt: it slides back down, fading out
+    // On the island (not a provider's window): its edge shines on liquid glass (decision 165). After build().
+    void setShiny();
     void refresh(bool coloursOnly);                            // tokens changed: its fill fades, its content follows
     ElementVisuals& elements() { return elements_; }           // hover and press on its button
 
@@ -37,6 +39,7 @@ private:
     wuc::CompositionRoundedRectangleGeometry shape_{ nullptr };
     wuc::CompositionColorBrush fill_{ nullptr };
     wuc::CompositionColorBrush edge_{ nullptr }; // trackColor, as the menu's
+    Shine shine_;                                // over it on liquid glass: a shiny edge (decision 165)
     ElementVisuals elements_;
     bool shown_ = false;
     float slide_ = 0; // the shown one's: how far it goes back down

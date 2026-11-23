@@ -1,5 +1,7 @@
 #include "platform/element_visuals.h"
 
+#include "core/liquid_glass.h"
+
 #include "core/motion.h"
 #include "core/tokens.h"
 #include "platform/element_painting.h"
@@ -566,31 +568,46 @@ void ElementVisuals::fadeInk(View& view, Ms duration)
 void ElementVisuals::syncFill(View& view, Ms duration)
 {
     std::optional<Color> fill = buttonFillOf(view.placed, view.lit);
+    auto* button = std::get_if<Button>(&view.placed.item);
+    // On the island, liquid glass: a filled control's edge shines, and so
+    // does a large plain one's frame (the skips; decision 165).
+    bool ring = shiny_ && button && liquidRing(*button);
+    float shine = fill || ring ? liquidShine(tokens()) : 0.0f;
     if (!view.buttonFill) {
-        if (!fill || !view.glyphHost) return;
+        if ((!fill && !ring) || !view.glyphHost) return;
+        if (view.shineHost && !fill) { // a ring already, still no fill
+            fadeShine(view.shine, shine, duration);
+            return;
+        }
         // Made once, the first time it has a colour: a circle in the glyph's
         // whole pixels (where the glyph is centred), under it.
         Vec2 size = pixelSize(sizeOf(view.placed));
         float r = std::min(size.x, size.y) / 2;
-        auto circle = compositor_.CreateEllipseGeometry();
-        circle.Center({ size.x / 2, size.y / 2 });
-        circle.Radius({ r, r });
-        view.buttonFill = compositor_.CreateColorBrush(toUiColor(*fill)); // new: set, not faded
-        auto shape = compositor_.CreateSpriteShape(circle);
-        shape.FillBrush(view.buttonFill);
         auto visual = compositor_.CreateShapeVisual();
         visual.Size(toFloat2(size));
-        visual.Shapes().Append(shape);
-        if (shiny_) { // on the island: its edge catches the light on liquid glass (decision 165)
-            view.shine = makeShine(compositor_, size, r, std::max(tokens().glassRimWidth, 1.0f) * 1.5f);
+        if (fill) {
+            auto circle = compositor_.CreateEllipseGeometry();
+            circle.Center({ size.x / 2, size.y / 2 });
+            circle.Radius({ r, r });
+            view.buttonFill = compositor_.CreateColorBrush(toUiColor(*fill)); // new: set, not faded
+            auto shape = compositor_.CreateSpriteShape(circle);
+            shape.FillBrush(view.buttonFill);
+            visual.Shapes().Append(shape);
+        }
+        if (shiny_ && !view.shineHost) {
+            view.shine = makeShine(compositor_, std::max(tokens().glassRimWidth, 1.0f) * 1.5f);
+            // Round the fill's circle; round a plain button's own frame.
+            if (fill) placeShine(view.shine, { size.x / 2 - r, size.y / 2 - r, 2 * r, 2 * r }, r);
+            else placeShine(view.shine, { 0, 0, size.x, size.y }, view.placed.cornerRadius);
             visual.Shapes().Append(view.shine.shape);
-            fadeShine(view.shine, liquidShine(tokens()), Ms{ 1 }); // new: there at once
+            view.shineHost = true;
+            fadeShine(view.shine, shine, Ms{ 1 }); // new: there at once
         }
         view.glyphHost.Parent().Children().InsertBelow(visual, view.glyphHost);
         return;
     }
     fadeColor(view.buttonFill, fill.value_or(Color{ 0, 0, 0, 0 }), duration); // none now: clear
-    fadeShine(view.shine, fill ? liquidShine(tokens()) : 0.0f, duration);    // with its circle
+    fadeShine(view.shine, shine, duration);                                  // with its circle
 }
 
 void ElementVisuals::paint(View& view)

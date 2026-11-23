@@ -95,7 +95,7 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     bind(c, toast_.frame(), L"Size", L"pill.Size", body_, shape_); // clipped to the card, like the content
     elements_.init(c, device, content_);
     elements_.setShiny(true); // filled controls shine on liquid glass (decision 165)
-    toast_.elements().setShiny(true);
+    toast_.setShiny();
 
     buildShadow(c, parent); // under the body
     topGlow_.build(c, body_, shape_, content_, snapshot_); // the top band's glow, cut by the shadow's snapshot (decision 108)
@@ -130,8 +130,10 @@ void Blob::refreshAnimations(bool coloursOnly)
     for (Mark& mark : tabDots_)
         if (mark.brush) fadeColor(mark.brush, t.stepTodoColor);
     if (hovered_.brush) fadeColor(hovered_.brush, t.hoverColor);
-    for (Mark& mark : tiles_)
+    for (Mark& mark : tiles_) {
         if (mark.brush) fadeColor(mark.brush, t.tileColor);
+        fadeShine(mark.shine, liquidShine(t), recolorDuration(t)); // liquid glass picked, or not (decision 165)
+    }
     if (focusRing_.brush) fadeColor(focusRing_.brush, t.focusRingColor);
     badges_.recolor();
     accentBadges_.recolor();
@@ -231,14 +233,14 @@ void Blob::setFocusRing(std::optional<Rect> area, float cornerRadius)
     fadeTo(compositor_, ring.visual, 1.0f, tokens().hoverFadeDuration);
 }
 
-void Blob::showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius, const Color& color)
+void Blob::showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius, const Color& color, bool shiny)
 {
     if (marks.size() < at.size()) marks.resize(at.size());
     for (std::size_t i = 0; i < marks.size(); ++i)
-        showMark(marks[i], i < at.size() ? std::optional<Rect>(at[i]) : std::nullopt, cornerRadius, color, false);
+        showMark(marks[i], i < at.size() ? std::optional<Rect>(at[i]) : std::nullopt, cornerRadius, color, false, shiny);
 }
 
-void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide)
+void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide, bool shiny)
 {
     if (at == mark.at) return;
     std::optional<Rect> from = std::exchange(mark.at, at);
@@ -261,6 +263,14 @@ void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, cons
     mark.shape.Size({ at->width, at->height });
     mark.shape.CornerRadius({ cornerRadius, cornerRadius });
     mark.visual.Offset({ at->x, at->y, 0 });
+    if (shiny) { // a Home widget: its edge shines on liquid glass (decision 165)
+        if (!mark.shine.shape) {
+            mark.shine = makeShine(compositor_, std::max(tokens().glassRimWidth, 1.0f) * 1.5f);
+            mark.visual.Shapes().Append(mark.shine.shape);
+        }
+        placeShine(mark.shine, { 0, 0, at->width, at->height }, cornerRadius);
+        fadeShine(mark.shine, liquidShine(tokens()), Ms{ 1 }); // it fades in with its tile
+    }
     if (slide && from) {
         // Glide from the old page to the new one: the one motion that says
         // "switched". Both ends explicit (decision 008). Its length too: a

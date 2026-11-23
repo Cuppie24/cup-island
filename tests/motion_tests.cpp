@@ -208,6 +208,10 @@ void liquidShapeTests()
            "liquid: off the edge: round all over, a rim all round, no flares");
     expect(liquidShape({ 100, 0, 0, 36 }, true, true, true, t) == LiquidShape{}, "liquid: no size, no shape");
 
+    expect(liquidRing(Button{ .large = true }) && !liquidRing(Button{}) && !liquidRing(Button{ .compact = true }) &&
+               !liquidRing(Button{ .large = true, .primary = true }),
+           "liquid: a card's large controls get a shiny ring; small ones don't, a primary shines with its fill");
+
     Motion plain{ Ms{ 300 }, 0, t.morphSpringSettle };
     Rect from{ 0, 0, 100, 40 }, to{ 50, 0, 300, 200 };
     expect(morphRect(from, to, plain, Ms{ 0 }) == from && morphRect(from, to, plain, Ms{ 300 }) == to && morphRect(from, to, plain, Ms{ 900 }) == to,
