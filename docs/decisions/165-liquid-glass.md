@@ -1,6 +1,6 @@
 # 165: Liquid glass: a second glass, from a captured picture of the desktop
 
-Status: Accepted; built, not yet run on Windows (amends 089, which ruled refraction out; 096's Glass page)
+Status: Accepted; built, not yet run on Windows (amends 089, which ruled refraction out; 096's Glass page); drawn only for an open card by 172
 
 **Context.** The island's glass (decision 089) is frosted: Windows' blurred
 desktop at one brightness under a tint. The user asked for liquid glass

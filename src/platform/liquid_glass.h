@@ -53,6 +53,11 @@ public:
     // `leftEar`, `rightEar`: it has that flared top corner (Blob::setEars).
     void place(int which, Rect body, bool attached, bool leftEar, bool rightEar, const Motion& motion);
     void refresh(); // tokens changed
+    // Drawn or not (decision 172: only while a card is open). Off, nothing is
+    // captured or drawn, the island is in screenshots again, and the last
+    // picture stays as it was. On, onReady says when a fresh one is up.
+    void setActive(bool on);
+    std::function<void()> onReady; // on the UI thread
 
     // It stopped by itself (the GPU was reset, Windows ended the capture): show the frosted glass.
     std::function<void()> onLost;
@@ -80,6 +85,8 @@ private:
     std::mutex lock_;
     std::condition_variable wake_;
     std::thread ticker_;
+    bool active_ = false; // setActive()
+    bool ready_ = false;  // a picture has been drawn since it was last turned on
     bool moving_ = false; // a shape is on its way: the thread draws
     bool quit_ = false;
     Tokens look_;         // tokens(), copied on the UI thread: the thread never reads the live ones
