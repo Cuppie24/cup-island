@@ -50,27 +50,37 @@ float4 ps(float4 at : SV_Position) : SV_Target
     // Which way is out: the distance's slope.
     float2 n = float2(nearest(p + float2(1, 0)) - nearest(p - float2(1, 0)), nearest(p + float2(0, 1)) - nearest(p - float2(0, 1)));
     n /= max(length(n), 1e-4);
+    // Past the edge counts as on it: the outline is cut by the compositor,
+    // smoothly, a pixel or so either side of where this thinks the edge is.
+    // Anything that changed at the edge here would show through that cut as
+    // a staircase.
     float inside = max(-d, 0);
-    // The rim: 1 at the edge, 0 where it ends. A pane's rounded lip is a
-    // quarter circle in section, so the bend grows that way: gentle at the
-    // rim's inner end, steep at the edge. No steps.
-    float t = (d < 0 && lens.y > 0) ? saturate(1 - inside / lens.y) : 0;
-    float lip = 1 - sqrt(1 - t * t);
-    float2 from = p - n * lens.z * lip; // what's further in shows here
+    // The rim: 1 at the edge, 0 where it ends. The bend grows as its square:
+    // gentle at the rim's inner end, steepest at the edge, but never so
+    // steep that the desktop is squeezed into single pixels there (a
+    // circle's section is, and it glittered). No steps.
+    float t = lens.y > 0 ? saturate(1 - inside / lens.y) : 0;
+    float2 from = p - n * lens.z * t * t; // what's further in shows here
+    // How many of the desktop's pixels each of ours covers there: blurred
+    // over as many, so the squeezed picture is smooth, not sampled in dots.
+    float squeeze = lens.y > 0 ? abs(lens.z) * 2 * t / lens.y : 0;
 
     // A little blur: a spiral of taps around that point.
     float3 c = 0;
     for (int i = 0; i < 13; ++i) {
         float angle = i * 2.39996;
-        float reach = lens.x * sqrt(i / 12.0);
+        float reach = (lens.x + 1.5 * squeeze) * sqrt(i / 12.0);
         c += desktop.SampleLevel(clamped, (from + screen.zw + reach * float2(cos(angle), sin(angle))) / screen.xy, 0).rgb;
     }
     c /= 13;
     float grey = dot(c, float3(0.2126, 0.7152, 0.0722));
     c = saturate(lerp(grey.xxx, c, light.x)) * lens.w;
 
-    // The edge catches the light from the top left, and again opposite it.
-    float edge = (d < 0) ? saturate(1 - inside / max(radius.z, 0.5)) : 0;
+    // The edge catches the light from the top left, and again opposite it:
+    // a line just inside the edge, fading out both ways, and the same past
+    // the edge as on it.
+    float width = max(radius.z, 1);
+    float edge = 1 - smoothstep(0, width, abs(inside - width / 2) * 2);
     float facing = dot(n, normalize(float2(-1, -1)));
     c += edge * light.y * facing * facing;
     return float4(saturate(c), 1);

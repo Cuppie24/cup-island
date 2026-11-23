@@ -32,12 +32,19 @@ frosted glass stays as it was and stays the default.
 - **The shader** (`platform/liquid_shader.h`, one pass, compiled when first
   turned on). For each pixel, its depth inside the nearest shape (a
   rounded rectangle's signed distance). In a rim `glassLiquidRim` wide it
-  shows what's up to `glassLiquidBend` px further in, growing as a quarter
-  circle does (a pane's rounded lip): smooth, no steps. Then a little blur
+  shows what's up to `glassLiquidBend` px further in, growing as a square:
+  gentle inside, steepest at the edge, no steps. Then a little blur
   (`glassLiquidBlur`), stronger colours (`glassLiquidSaturation`), darker
   (`glassLiquidDim`, so white text reads over a white window), and a
   highlight on the edge lit from the top left (`glassLiquidHighlightOpacity`).
   A shape on the screen edge has no rim along its top (`liquidShape`, core).
+  Nothing in the shader changes *at* the edge: pixels past it are drawn as
+  if on it, and the highlight fades both ways. The first run cut the bend
+  and the highlight off at the shader's own idea of the edge, a hard step
+  that showed through the compositor's smooth cut as a staircase; and the
+  bend then grew as a quarter circle, infinitely steep at the edge, which
+  squeezed the desktop into single glittering pixels. Now it grows as a
+  square, and the blur widens with the squeeze.
 - **Shown by the compositor.** The shader draws into a swap chain as large
   as the render layer; each Blob's glass sprite shows it through a mask
   brush cut by the same outline snapshot as before (decisions 018, 133),
