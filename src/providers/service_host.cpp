@@ -31,7 +31,7 @@ void ServiceHost::showStuck(const std::string& serviceVersion)
                             row({ Button{ .actionId = service_action::kDownload, .label = "Download the installer" } }, Align::Center) },
         .tile = { row({ Icon{ Glyph::Download }, Text{ "Search", TextStyle::Body } }), row({ Text{ "Update", TextStyle::TileTitle } }) },
     };
-    host_->publishPanel({ .id = kPanelId, .content = std::move(c) });
+    host_->publishPanel({ .id = kPanelId, .content = std::move(c), .icon = Glyph::Warning });
     if (host_->load(kStuckKey) == hooks_.appVersion) return; // said once for this version: the widget stays
     host_->save(kStuckKey, hooks_.appVersion);
     host_->postAlert({ .activityId = kPanelId, // a click opens the card

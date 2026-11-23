@@ -1,6 +1,6 @@
 # 109: The tab row is page dots with arrows
 
-Status: Accepted (amends 007, 047, 072: tabs are no longer drawn). Core tested; the dots, the gliding line and the arrows on Windows need a run.
+Status: Superseded by 165 (the dots and arrows are a list of icons; the row's height and place stand). Amended 007, 047, 072: tabs are no longer drawn. Core tested; the dots, the gliding line and the arrows on Windows need a run.
 
 **Context.** Expanded's tab row showed a tab per activity, its icon or art
 and a short title, 36 px tall (decisions 007, 047). With the cards now one

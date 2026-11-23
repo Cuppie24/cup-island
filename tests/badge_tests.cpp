@@ -33,8 +33,10 @@ void runBadgeTests()
     home = reduce(home, HomeOpened{}, Ms{ 0 });
     Scene grid = layout(home, Ms{ 0 });
     const Tile& tile = grid.tiles[1];
-    expect(grid.badges.size() == 1 && tile.badge && !grid.tiles[0].badge &&
-           near(grid.badges[0], { tile.frame.x + tile.frame.width - corner(grid.tileRadius), tile.frame.y + corner(grid.tileRadius) }),
+    // ...and one on its icon in the page row (decision 165), so the way to it is marked from any card.
+    Vec2 onTile{ tile.frame.x + tile.frame.width - corner(grid.tileRadius), tile.frame.y + corner(grid.tileRadius) };
+    expect(grid.badges.size() == 2 && tile.badge && !grid.tiles[0].badge && grid.tabs->tabs[1].badge && !grid.tabs->tabs[0].badge &&
+               std::any_of(grid.badges.begin(), grid.badges.end(), [&](Vec2 d) { return near(d, onTile); }),
            "badges: a flagged widget, a dot at its corner's arc centre (concentric with its rounding); the rest none");
     expect(grid.tileRadius >= r + t.badgeInset, "badges: (a widget's rounding is round enough to set the dot's place)");
 
@@ -50,8 +52,8 @@ void runBadgeTests()
     for (const Tab& tab : strip.tabs->tabs)
         if (tab.id == "media")
             for (Vec2 dot : strip.badges)
-                tabDot = tabDot || near(dot, { tab.frame.x + tab.frame.width, tab.frame.y });
-    expect(strip.tabs && tabDot, "badges: a flagged activity's dot gets one, just off its top-right (decision 109)");
+                tabDot = tabDot || near(dot, { tab.frame.x + tab.frame.width - corner(tab.radius), tab.frame.y + corner(tab.radius) });
+    expect(strip.tabs && tabDot, "badges: a flagged activity's icon gets one, in its corner like a button's (decision 165)");
 
     // Home's button never has one (decision 152: the update's dot is on Settings' gear).
     IslandState withHome = tabs;

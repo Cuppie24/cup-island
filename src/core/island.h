@@ -53,10 +53,16 @@ struct Panel {
     // higher number than the one last seen is new again (a feature added to
     // it). The host tracks and draws it.
     int announce = 0;
-    // Set: not a widget but this glyph as a button in the page row, right of
-    // the pin (decision 113). A click sends tapAction; Content::badge puts a
-    // dot on it. Settings: always at hand, without a Home tile of its own.
+    // Set: not a widget but this glyph as a button in the page row (decisions
+    // 113, 165). A click sends tapAction, or opens its card with none;
+    // Content::badge puts a dot on it. Settings: always at hand, without a Home tile.
     std::optional<Glyph> rowButton;
+    // ...and where in the row: the right corner (Settings), left of the
+    // corner's (the theme switch), or right of Home's button (Search).
+    enum class RowSpot { Corner, BesideCorner, BesideHome };
+    RowSpot rowSpot = RowSpot::Corner;
+    // Its icon in the page row's list (decision 165), live or dormant. None: a plain one.
+    std::optional<Glyph> icon;
     bool operator==(const Panel&) const = default;
 };
 
@@ -187,7 +193,7 @@ struct HiddenChanged { bool hidden; };  // fullscreen app, user toggle, locked s
 struct Tick {};                         // a deadline from nextDeadline() was reached
 struct BubbleClicked {};                // Split: expand the bubble's (2nd-ranked) activity
 struct ActivityPromoted { std::string id; }; // user's pick for the pill: drag-swap or Expanded's pin (decision 007)
-struct ActivitySwitched { std::string id; }; // Expanded tab: make it the pick and show its card (decision 007)
+struct ActivitySwitched { std::string id; }; // a page-row icon: a live activity becomes the pick and shows its card (decision 007); a dormant panel's card opens (decision 165)
 struct BubbleDragged { Vec2 drag; };    // pressed bubble moved: offset from its home (counts once past dragStartDistance)
 struct BubbleReleased {};               // drag let go: over the pill = swap (promote the bubble's activity)
 struct BubbleDragCancelled {};          // drag interrupted (capture lost): no swap

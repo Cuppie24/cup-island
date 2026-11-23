@@ -201,20 +201,22 @@ void runKeyboardTests()
            "home: and on from it, along the row and down");
     expect(onStatic->radius == rows.tileRadius, "home: a tile's ring has the tile's corners");
 
-    // Ctrl+Tab switches between activities, round; Ctrl+Shift+Tab the other
+    // Ctrl+Tab steps through the page row's list, round: panels' cards, running or
+    // not, then other activities (decision 165); Ctrl+Shift+Tab the other
     // way. Home isn't one (decision 115): from it, the first or the last.
     IslandState tabbed = reduce(home, ActivityStarted{ { .id = "music", .content = { .label = "music", .expandedCenter = { row({ Text{ "m" } }) } } } }, Ms{ 0 });
     tabbed = reduce(tabbed, ActivityStarted{ { .id = "timer", .content = { .label = "timer", .expandedCenter = { row({ Text{ "t" } }) } } } }, Ms{ 0 });
     tabbed = reduce(tabbed, HomeOpened{}, Ms{ 0 });
     Scene onHome = layout(tabbed, Ms{ 0 });
-    expect(nextTab(onHome) == std::optional<std::string>("music"), "ctrl+tab: from Home, the first activity");
+    expect(nextTab(onHome) == std::optional<std::string>("a"), "ctrl+tab: from Home, the first page: a dormant panel's card");
     expect(previousTab(onHome) == std::optional<std::string>("timer"), "ctrl+shift+tab: from Home, round to the last activity");
     tabbed = reduce(tabbed, ActivitySwitched{ "timer" }, Ms{ 0 });
     Scene onLast = layout(tabbed, Ms{ 0 });
-    expect(nextTab(onLast) == std::optional<std::string>("music"), "ctrl+tab: from the last tab, round to the first, not Home");
+    expect(nextTab(onLast) == std::optional<std::string>("a"), "ctrl+tab: from the last page, round to the first, not Home");
     expect(previousTab(onLast) == std::optional<std::string>("music"), "ctrl+shift+tab: the one before");
     expect(!nextTab(list) && !previousTab(list), "ctrl+tab: on a dormant panel's card with nothing running, nowhere: Home is its button");
-    expect(!nextTab(grid) && !previousTab(grid), "ctrl+tab: no tabs, nothing");
+    expect(nextTab(grid) == std::optional<std::string>("a") && previousTab(grid) == std::optional<std::string>("e"),
+           "ctrl+tab: nothing running, the panels' cards all the same");
 
     // Shortcuts (decision 032): system-wide, rebindable, saved as text.
     Chord openHome = chordOf(defaultBindings(), Command::OpenHome);

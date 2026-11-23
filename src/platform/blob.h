@@ -54,12 +54,10 @@ public:
     // `reveal`: new content waits this long (the morph's, decision 080).
     void setContent(const std::vector<Placed>& elements, Ms now, Ms reveal) { elements_.apply(elements, now, reveal); }
     ElementVisuals& elements() { return elements_; } // hover, press, scrub feedback on content
-    // Expanded's page row (pill coordinates; nullopt = none, decision 109):
-    // the shown page's line glides, growing or shrinking, to a newly picked
-    // dot; hover is fainter and just fades.
+    // Expanded's page row (pill coordinates; nullopt = none, decision 165):
+    // the shape behind the shown page's icon glides to a newly picked one;
+    // hover is fainter and just fades.
     void setSelectedTab(std::optional<Rect> tab, float cornerRadius);
-    // ...and the other pages' dots, faint (stepTodoColor), under the content.
-    void setTabDots(const std::vector<Rect>& dots, float cornerRadius) { showMarks(tabDots_, dots, cornerRadius, tokens().stepTodoColor); }
     void setHovered(std::optional<Rect> area, float cornerRadius); // a tab or a Home tile under the pointer
     // The top band glowing under the pointer, where a click closes (decision 108).
     void setTopGlow(bool on) { topGlow_.show(on); }
@@ -180,7 +178,6 @@ private:
         float radius = 0;
     } focusRing_;
     std::vector<Mark> tiles_; // grows to the most shown; spare ones stay faded out
-    std::vector<Mark> tabDots_; // the page row's dots (decision 109), the same way
     BadgeDots badges_;
     BadgeDots accentBadges_;
     TopGlow topGlow_;

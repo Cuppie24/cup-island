@@ -1,6 +1,6 @@
 # 118: The tab row's arrows show with one page, disabled
 
-Status: Accepted (amends 109: the arrows were shown only with somewhere to go). Core tested; the look on Windows needs a run.
+Status: Superseded by 165 (no arrows). Amended 109 (the arrows were shown only with somewhere to go). Core tested; the look on Windows needs a run.
 
 **Context.** With one activity and Home's widgets, the page row showed Home's
 button, one line and the pin, and no arrows; with a second activity the

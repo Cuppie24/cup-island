@@ -356,13 +356,10 @@ struct Tokens {
     float tabHeight = 32;      // the row: its buttons' height, their hover shapes
     float tabRowInset = 12;    // from the card's edge: just inside the top band (collapseZoneHeight), not the card's padding
     float tabRowGap = 6;       // between the row and the card's content
-    float tabDotSize = 6;
-    float tabDotGap = 10;      // each dot's click area: its width and this
-    float tabLineWidth = 18;   // the shown page's line
-    float tabArrowSize = 32;   // ‹ and ›: round buttons beside the dots, the row's height
-    float tabArrowGap = 4;     // ...this far from the dots
+    float tabIconSize = 32;    // a page's icon in the row's list: its button's square, lit for the shown page (decision 165)
+    float tabIconGap = 4;      // ...between two of them, and between the buttons at the row's ends
     float homeButtonWidth = 44;   // Home's icon-only button, apart at the left (decision 009)
-    float tabMutedOpacity = 0.5f; // a tab not shown, Home and the pin included: its content grey and this strong until hovered (decision 072)
+    float tabMutedOpacity = 0.5f; // a page-row icon not shown, Home's included: grey and this strong until hovered (decision 072)
 
     // Home: a grid of panel tiles in the Expanded card (decision 009).
     std::size_t homeColumns = 4;  // columns' worth per Home row; a widget takes one, or two (Panel::wide); rows stretch to full width

@@ -231,7 +231,7 @@ void updateHover(app::Surface& s)
     // A list item (a to-do) lights up as a whole row, like a tab (Row::listItem).
     bool onMenu = at && s.scene.menu && s.scene.menu->frame.contains(*at); // a row's menu covers what's under it (decision 086)
     const Placed* item = at && !s.pointer.scrub && !onMenu ? contentUnder(s, *at) : nullptr;
-    if (tab) s.renderer->setAreaHovered(tab->lit, tab->radius); // a soft circle round a dot, a button's round shape
+    if (tab) s.renderer->setAreaHovered(tab->lit, tab->radius); // a page-row button's shape
     else if (tile) s.renderer->setAreaHovered(tile->frame, s.scene.tileRadius);
     else if (item && item->listRow) s.renderer->setAreaHovered(item->listRow, item->listRowRadius);
     else if (auto lit = &s == &g_island && escapeCloses(g_state) && !app::keyFocus() ? defaultRow(s.scene) : std::nullopt)
@@ -573,21 +573,18 @@ void onPointerMoved(app::Surface& s, Vec2 canvasPoint, bool inside)
 // What a click does, by what it's on. The pointer's release and the keyboard's Enter share them.
 void clickTab(const std::string& id)
 {
-    if (id == kPreviousTab || id == kNextTab) { // the arrows beside the dots: the page before or after, round the strip (decision 109)
-        std::optional<std::string> to = id == kPreviousTab ? previousTab(g_island.scene) : nextTab(g_island.scene);
-        if (to) clickTab(*to);
-        return;
-    }
     if (id == kHomeTab) return clickTab(""); // Home's button: the one way to Home (decision 115)
-    if (id.rfind(kPanelButtonTab, 0) == 0) { // a panel's button right of the pin (decision 113): its tap action, like its tile's
+    if (id.rfind(kPanelButtonTab, 0) == 0) { // a panel's button (decision 113): its tap action, like its tile's
         const Panel* panel = findPanel(g_state, id.substr(std::string(kPanelButtonTab).size()));
         if (panel && !panel->tapAction.empty()) {
             g_providers->route({ panel->providerId, panel->id, panel->tapAction, 0 });
             dispatch(PointerMoved{}, "page row button"); // the user is busy here: keep the card open
+        } else if (panel) {
+            dispatch(TileClicked{ panel->id }, "page row button"); // no tap action: its card (Search, decision 165)
         }
         return;
     }
-    else dispatch(id.empty() ? Event{ HomeOpened{} } : Event{ ActivitySwitched{ id } }, "tab");
+    dispatch(id.empty() ? Event{ HomeOpened{} } : Event{ ActivitySwitched{ id } }, "tab"); // a page's icon: its card, running or not (decision 165)
 }
 
 void clickTile(const Tile& tile)

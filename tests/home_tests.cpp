@@ -56,8 +56,8 @@ void runHomeTests()
     float stripSpace = t.tabRowInset + t.tabHeight + t.tabRowGap - t.expandedPadding;
     expect(home.mode == Mode::Expanded && home.size.x == t.expandedSize.x && home.size.y == t.expandedSize.y + stripSpace,
            "one row: Home keeps Expanded's card size, plus its strip");
-    expect(home.tabs && home.tabs->tabs.empty() && home.tabs->home && !home.tabs->previous,
-           "only Home: its button; no dots, no arrows (decision 115)");
+    expect(home.tabs && home.tabs->tabs.size() == 3 && !home.tabs->active && home.tabs->home,
+           "only Home: its button, and every panel's icon in the list, none lit (decisions 115, 165)");
     expect(home.label == "Home" && home.activityId.empty(), "Home is no activity's card");
     float p = t.expandedPadding, gap = t.tileGap, unit = (home.size.x - 2 * p - 2 * gap) / 4;
     expect(home.tiles.size() == 3, "a b(wide) c: one full row");
@@ -135,25 +135,24 @@ void runHomeTests()
     expect(runningLabel && std::get<Text>(runningLabel->item).value == "running", "running: the activity's tile");
     expect(liveScene.tiles[0].frame.x == a.frame.x, "the tile stays where it was");
 
-    // The page row (decision 109): the activities' dots, centred with ‹ and ›
-    // beside them; Home has no dot, only its button apart at the top left (decision 115).
+    // The page row (decision 165): every page's icon, centred, running or not;
+    // Home has none, only its button apart at the top left (decision 115).
     IslandState tabbed = reduce(running, ActivityStarted{ { .id = "media", .content = { .label = "Song" } } }, Ms{ 0 });
     tabbed = reduce(tabbed, HomeOpened{}, Ms{ 0 });
     Scene strip = layout(tabbed, Ms{ 0 });
-    expect(strip.tabs && strip.tabs->tabs.size() == 2 && strip.tabs->tabs[0].id == "a" && !strip.tabs->active,
-           "a dot per activity, none of them Home's: on Home, none is shown");
-    expect(strip.tabs->previous && strip.tabs->next, "the arrows: from Home to the activities");
+    expect(strip.tabs && strip.tabs->tabs.size() == 4 && strip.tabs->tabs[0].id == "a" && strip.tabs->tabs[3].id == "media" && !strip.tabs->active,
+           "the panels' icons, live or dormant, then the other activity's; none of them Home's: on Home, none is shown");
     expect(strip.tabs->home && strip.tabs->home->id == kHomeTab, "and Home's button");
     const Tab& homeButton = *strip.tabs->home;
     expect(homeButton.frame == Rect{ p, t.tabRowInset, t.homeButtonWidth, t.tabHeight }, "Home: a button at the top left (decisions 047, 109)");
     expect(tabAt(*strip.tabs, { 1, 1 }) == &homeButton, "its click area takes in the card's corner");
-    expect(tabAt(*strip.tabs, { p + t.homeButtonWidth + t.slotGap / 2 - 1, homeButton.frame.y + t.tabHeight + t.tabRowGap / 2 - 1 }) == &homeButton,
+    expect(tabAt(*strip.tabs, { p + t.homeButtonWidth + t.tabIconGap / 2 - 1, homeButton.frame.y + t.tabHeight + t.tabRowGap / 2 - 1 }) == &homeButton,
            "and half the gaps around it");
-    expect(!tabAt(*strip.tabs, { p + t.homeButtonWidth + t.slotGap / 2 + 1, homeButton.frame.y + 2 }), "but no further");
-    const Tab& before = *strip.tabs->previous;
-    const Tab& after = *strip.tabs->next;
-    expect(before.frame.x >= homeButton.frame.x + homeButton.frame.width + t.slotGap, "set apart from the dots and arrows");
-    expect(std::abs(before.frame.x - (strip.size.x - after.frame.x - after.frame.width)) < 0.01f, "the dots and arrows stay centred on the card");
+    expect(!tabAt(*strip.tabs, { p + t.homeButtonWidth + t.tabIconGap / 2 + 1, homeButton.frame.y + 2 }), "but no further");
+    const Tab& before = strip.tabs->tabs.front();
+    const Tab& after = strip.tabs->tabs.back();
+    expect(before.frame.x >= homeButton.frame.x + homeButton.frame.width + t.slotGap, "set apart from the list");
+    expect(std::abs(before.frame.x - (strip.size.x - after.frame.x - after.frame.width)) < 0.01f, "the list stays centred on the card");
     expect(before.frame.y + before.frame.height / 2 == homeButton.frame.y + homeButton.frame.height / 2, "one row");
     float highest = strip.size.y;
     for (const Tile& tile : strip.tiles) highest = std::min(highest, tile.frame.y);
@@ -162,20 +161,21 @@ void runHomeTests()
     expect(homeIcon && std::get<Icon>(homeIcon->item).glyph == Glyph::Home && !find(strip, "tab/home/title"), "Home: icon only");
     expect(std::abs(homeIcon->frame.x + homeIcon->frame.width / 2 - (homeButton.frame.x + t.homeButtonWidth / 2)) < 0.01f, "icon centred");
     Scene card = layout(reduce(tabbed, TileClicked{ "b" }, Ms{ 0 }), Ms{ 0 });
-    expect(card.activityId == "b" && !card.tabs->active && card.tiles.empty(),
-           "a dormant card: nothing selected, so Home's button is a way back");
+    expect(card.activityId == "b" && card.tabs->active == 1 && card.tiles.empty(),
+           "a dormant card: its icon is the lit one (decision 165); Home's button is a way back");
     Scene media = layout(reduce(tabbed, ActivitySwitched{ "media" }, Ms{ 0 }), Ms{ 0 });
     expect(media.tabs->active && media.tabs->tabs[*media.tabs->active].id == "media" && media.tiles.empty(),
-           "an activity's tab shows its card");
+           "an activity's icon shows its card");
     expect(!homeIcon->muted && find(card, "tab/home/lead")->muted && find(media, "tab/home/lead")->muted,
            "Home's button in colour only on Home: grey on a card, a dormant one's too (decision 072)");
     Scene single = layout(reduce(reduce(s, ActivityStarted{ { .id = "solo" } }, Ms{ 0 }), PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    expect(single.tabs && single.tabs->tabs.size() == 1 && single.tabs->home, "one activity plus panels: its dot and Home's button");
+    expect(single.tabs && single.tabs->tabs.size() == 4 && single.tabs->active == 3 && single.tabs->home,
+           "one activity plus panels: its icon after theirs, and Home's button");
     Scene bare = layout(reduce(s, PillClicked{}, Ms{ 0 }), Ms{ 0 });
-    expect(bare.tabs && bare.tabs->tabs.empty() && bare.tabs->home, "Home with nothing running: Home's button");
+    expect(bare.tabs && bare.tabs->tabs.size() == 3 && bare.tabs->home, "Home with nothing running: Home's button, the same icons");
     Scene dormant = layout(reduce(reduce(s, PillClicked{}, Ms{ 0 }), TileClicked{ "a" }, Ms{ 0 }), Ms{ 0 });
-    expect(dormant.tabs && dormant.tabs->tabs.empty() && dormant.tabs->home && !dormant.tabs->previous,
-           "a dormant card with nothing running: just Home's button, the way back");
+    expect(dormant.tabs && dormant.tabs->tabs.size() == 3 && dormant.tabs->active == 0 && dormant.tabs->home,
+           "a dormant card with nothing running: the same icons, its own lit, and Home's button, the way back");
 
     // A panel's page-row button (decision 113): Settings' gear in the right corner; not a widget.
     Panel gear{ .id = "gear", .content = { .label = "Settings", .badge = true }, .providerId = "sys", .tapAction = "open", .rowButton = Glyph::Settings };
@@ -200,6 +200,35 @@ void runHomeTests()
     expect(!quietScene.tabs->buttons[0].badge && quietScene.badges.size() + 1 == geared.badges.size(), "nothing new: no dot");
     const Placed* gearIcon = find(geared, "tab/button/gear/lead");
     expect(gearIcon && std::get<Icon>(gearIcon->item).glyph == Glyph::Settings && gearIcon->muted, "the gear's glyph, grey until hovered");
+
+    // Search beside Home's button, the theme switch beside the gear (decision 165), whatever order they're published in.
+    Panel moon{ .id = "theme", .content = { .label = "Dark mode" }, .providerId = "sys", .tapAction = "toggle",
+                .rowButton = Glyph::Moon, .rowSpot = Panel::RowSpot::BesideCorner };
+    Panel lens{ .id = "search", .content = { .label = "Search", .expandedCenter = { row({ Text{ "find" } }) } }, .providerId = "search",
+                .rowButton = Glyph::Search, .rowSpot = Panel::RowSpot::BesideHome };
+    IslandState ends = s;
+    for (const Panel& extra : { moon, lens, gear }) ends = reduce(ends, PanelPublished{ extra }, Ms{ 0 });
+    ends = reduce(ends, PillClicked{}, Ms{ 0 });
+    Scene ended = layout(ends, Ms{ 0 });
+    auto buttonOf = [&](const std::string& id) {
+        for (const Tab& b : ended.tabs->buttons)
+            if (b.id == std::string(kPanelButtonTab) + id) return b;
+        return Tab{};
+    };
+    Tab gearAt = buttonOf("gear"), moonAt = buttonOf("theme"), lensAt = buttonOf("search");
+    expect(ended.tabs->buttons.size() == 3 && std::abs(gearAt.frame.x + gearAt.frame.width - (ended.size.x - p)) < 0.01f,
+           "Settings stays in the right corner, though the theme switch was published first");
+    expect(std::abs(moonAt.frame.x + moonAt.frame.width + t.tabIconGap - gearAt.frame.x) < 0.01f, "the theme switch right beside it");
+    expect(ended.tabs->home->frame.x == p && std::abs(lensAt.frame.x - (p + t.homeButtonWidth + t.tabIconGap)) < 0.01f,
+           "Home's button stays at the left edge, Search right beside it");
+    expect(ended.tiles.size() == bare.tiles.size() && ended.tabs->tabs.size() == 3, "neither is a Home widget or a page in the list");
+    for (const Tab& b : ended.tabs->buttons) {
+        const Tab* found = tabAt(*ended.tabs, { b.frame.x + b.frame.width / 2, b.frame.y + b.frame.height / 2 });
+        expect(found && found->id == b.id, "each button takes its own click: " + b.id);
+    }
+    expect(ended.tabs->tabs.front().frame.x >= lensAt.frame.x + lensAt.frame.width && ended.tabs->tabs.back().frame.x + t.tabIconSize <= moonAt.frame.x,
+           "the list between them");
+    expect(layout(reduce(ends, TileClicked{ "search" }, Ms{ 0 }), Ms{ 0 }).activityId == "search", "Search's button opens its card, as its widget did");
 
     // Idle clock: the local time, centred, re-laid out at the next minute.
     IslandState idle;
