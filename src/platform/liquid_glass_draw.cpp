@@ -15,13 +15,6 @@ namespace {
 
 using Clock = std::chrono::steady_clock;
 
-// The lip's light is the one thing here with a sharp place of its own: a
-// frame or two off the compositor's edge mid-morph, it showed as a light
-// band trailing the edge on a collapse (decision 165). So it's out while a
-// shape moves and fades back in over this long once the shapes are home.
-// (50 ms was tried, to have it back at once: the user took it back to this.)
-constexpr std::chrono::milliseconds kLipReturn{ 200 };
-
 } // namespace
 
 void LiquidGlass::pass(ID3D11RenderTargetView* target, SIZE size, D3D11_RECT scissor, ID3D11PixelShader* shader, ID3D11ShaderResourceView* source,
@@ -57,15 +50,11 @@ void LiquidGlass::draw()
         moving = moving || now - shape.started < shape.motion.duration;
         shapes.push_back(liquidShape(where(shape, now), shape.attached, shape.leftEar, shape.rightEar, t));
     }
-    // How much of the lip's light: none while a shape moves, then back in.
-    float lip = 1;
-    for (const Moving& shape : shapes_) {
-        auto home = shape.started + shape.motion.duration;
-        if (shape.started == Clock::time_point{}) continue; // never moved
-        lip = std::min(lip, now < home ? 0.0f : std::chrono::duration<float>(now - home) / std::chrono::duration<float>(kLipReturn));
-    }
-    lip = std::clamp(lip, 0.0f, 1.0f);
-    moving_ = moving || lip < 1; // the thread draws the next frames (the light's return too), or sleeps
+    // The lip's light stays on while a shape moves. Drawn here, it can sit a
+    // frame or two off the compositor's edge mid-morph, a light band off the
+    // edge on a collapse; switching it off for the morph was tried, and the
+    // user chose the band over the light going out (decision 165).
+    moving_ = moving; // the thread draws the next frames, or sleeps
     if (!active_) { // collapsed: the frosted glass shows; nothing to draw
         moving_ = false;
         return;
@@ -136,7 +125,7 @@ void LiquidGlass::draw()
         p.lens[2] = t.glassLiquidBend;
         p.lens[3] = std::clamp(t.glassLiquidDim, 0.0f, 1.0f);
         p.light[0] = std::max(t.glassLiquidSaturation, 0.0f);
-        p.light[1] = std::clamp(t.glassLiquidLipOpacity, 0.0f, 1.0f) * lip * lip * (3 - 2 * lip); // eased
+        p.light[1] = std::clamp(t.glassLiquidLipOpacity, 0.0f, 1.0f);
         pass(target, layerSize_, scissor, pixel_.get(), blurred_.view.get(), p);
     }
     // No waiting for the screen: a frame the compositor doesn't get to is replaced by the next.
