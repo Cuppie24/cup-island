@@ -54,7 +54,7 @@ Content nowPlayingContent(const NowPlaying& m)
                        Align::Center);
     controls.loose = true; // big, well-separated targets
     // Shuffle and repeat at the row's edges, under the ends of the bar's row: the transport
-    // reads as one group, the modes as another (decision 165); ▶ stays centred.
+    // reads as one group, the modes as another (decision 168); ▶ stays centred.
     // Only shown when the app supports them.
     if (m.canShuffle)
         controls.leading.push_back(Button{ .glyph = Glyph::Shuffle, .actionId = act::kShuffle, .on = m.shuffle, .secondary = true });

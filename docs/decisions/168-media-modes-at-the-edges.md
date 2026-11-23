@@ -1,4 +1,4 @@
-# 165: Media's shuffle and repeat sit at the card's edges
+# 168: Media's shuffle and repeat sit at the card's edges
 
 Status: Accepted (amends 107). Needs a look on Windows.
 

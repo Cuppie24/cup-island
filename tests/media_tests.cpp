@@ -176,7 +176,7 @@ void runMediaTests()
     auto* repeatButton = toggles.trailing.size() == 1 ? std::get_if<Button>(&toggles.trailing[0]) : nullptr;
     expect(repeatButton && repeatButton->glyph == Glyph::RepeatOne && repeatButton->on == true,
            "repeat-one alone in the bottom-right corner");
-    expect(!toggles.edgesBeside, "shuffle and repeat at the row's edges, apart from the skips (decision 165)");
+    expect(!toggles.edgesBeside, "shuffle and repeat at the row's edges, apart from the skips (decision 168)");
 
     // The source switch lives in the top-right corner, not with the playback controls.
     Content withSwitch = nowPlayingContent({ .title = "T", .showSourceSwitch = true });
