@@ -11,6 +11,12 @@ Tokens g_tokens;
 const Tokens& tokens() { return g_tokens; }
 void setTokens(const Tokens& tokens) { g_tokens = tokens; }
 
+std::optional<Bezier> recolorCurve(const Tokens& t, Ms duration)
+{
+    if (duration < std::min({ t.recolorFast, t.recolorMedium, t.recolorSlow })) return std::nullopt;
+    return t.recolorEase;
+}
+
 Ms recolorDuration(const Tokens& t)
 {
     switch (t.fadeSpeed) {

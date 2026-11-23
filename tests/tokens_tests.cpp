@@ -243,6 +243,15 @@ void runTokensTests()
            "liquid glass: the rim's line is brighter than the frosted glass's");
     shiny.glass = false;
     expect(liquidShine(shiny) == 0.0f, "liquid glass: picked, but the island is solid (a light theme): no shine");
+    // A recolour's curve (decision 171): for fades as long as a recolour, not the quick ones.
+    Tokens fades;
+    fades.recolorFast = Ms{ 800 };
+    fades.recolorEase = Bezier{ { 0.5f, 0 }, { 0.5f, 1 } };
+    expect(recolorCurve(fades, Ms{ 800 }) == fades.recolorEase && recolorCurve(fades, Ms{ 4000 }) == fades.recolorEase,
+           "a fade as long as a recolour eases off the mark and in to land");
+    expect(!recolorCurve(fades, Ms{ 120 }) && !recolorCurve(fades, Ms{ 799 }), "a quick fade (hover, a switch) keeps the compositor's curve");
+    expect(parseTokens(R"({"recolorEase": [0.6, 0, 0.4, 1]})").tokens.recolorEase == Bezier{ { 0.6f, 0 }, { 0.4f, 1 } }, "recolorEase is a token");
+    expect(Tokens{}.recolorEase.c1.y == 0 && Tokens{}.recolorEase.c2.y == 1, "by default a recolour starts and ends at rest");
     // Acrylic's even brightness at each Transparency pick (decision 100):
     // its colour's opacity times the pick's share, clearer as the pick goes up.
     Tokens lum = solid;

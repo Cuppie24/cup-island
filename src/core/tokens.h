@@ -287,7 +287,7 @@ struct Tokens {
     float artGlowBlur = 22;
     // Under a toast (decision 151), colour in toastShadowColor: it floats over the page, apart from it.
     float toastShadowBlur = 10;
-    Vec2 toastShadowOffset{ 0, 6 }; // well down: a shadow below the pill, not a haze around it (decision 170)
+    Vec2 toastShadowOffset{ 0, 6 }; // well down: a shadow below the pill, not a haze around it (decision 171)
 
     // Glass (decision 089): the blurred desktop behind the island, at one
     // brightness (glassLuminosityColor) like Windows' own acrylic, the island's
@@ -418,6 +418,10 @@ struct Tokens {
     // Colours easing to new ones (a cover's tint, a theme pick; decision 051):
     // the island's fill, the shadow, marks and content shapes. Text switches
     // at once. One duration per speed the user can pick in Settings (decision 053).
+    // How a recolour moves (decision 171): slow off the mark, slow to land.
+    // With no curve of ours Windows eases a fade its own way, quick at the
+    // start: over seconds, a cover's colours leaving looked like a jump.
+    Bezier recolorEase{ { 0.55f, 0.0f }, { 0.45f, 1.0f } };
     Ms recolorFast{ 800 };
     Ms recolorMedium{ 2000 };
     Ms recolorSlow{ 4000 };
@@ -632,6 +636,12 @@ struct Tokens {
 
 // The colour fade's duration at the picked speed (recolorFast/Medium/Slow).
 Ms recolorDuration(const Tokens& t);
+
+// The curve a colour fade `duration` long runs along (decision 171):
+// recolorEase if it's as long as a recolour (the shortest of the three
+// speeds); none for the quick ones (hover, a switch), which answer a click
+// and keep the compositor's own.
+std::optional<Bezier> recolorCurve(const Tokens& t, Ms duration);
 
 // The island's fill as drawn (decision 089): `color`, or as glass, see-through
 // by glassOpacity; by glassPlainOpacity over the plain blur (`evenBlur`

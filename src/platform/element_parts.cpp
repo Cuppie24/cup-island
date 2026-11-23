@@ -81,7 +81,9 @@ void fadeColor(CompositionObject const& target, const Color& color, Ms duration)
 {
     // Animated from wherever it is, so a fade cut short by the next one carries on smoothly.
     auto anim = target.Compositor().CreateColorKeyFrameAnimation();
-    anim.InsertKeyFrame(1.0f, toUiColor(color));
+    // A recolour eases off the mark (recolorEase, decision 171); a quick fade keeps the compositor's own curve.
+    if (auto curve = recolorCurve(tokens(), duration)) anim.InsertKeyFrame(1.0f, toUiColor(color), easeOf(target.Compositor(), *curve));
+    else anim.InsertKeyFrame(1.0f, toUiColor(color));
     anim.Duration(atLeast1(duration));
     // Straight from colour to colour. The default goes round the hue wheel, so
     // orange to teal passed through a bright green: a second change (decision 051).
