@@ -8,6 +8,7 @@
 #include "platform/element_art.h"
 #include "platform/graphics_device.h"
 #include "platform/list_viewports.h"
+#include "platform/progress_wave.h"
 #include "platform/rolling_text.h"
 #include "platform/segments_parts.h"
 #include "platform/switch_parts.h"
