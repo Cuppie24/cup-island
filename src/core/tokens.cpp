@@ -63,6 +63,12 @@ GlowLook glowLook(const Tokens& t, bool card)
     return { t.islandCardGlowColor, t.glassCardGlowHeight, t.glassCardGlowCurve, t.islandGlowEdgeColor };
 }
 
+ArtShadow artShadow(const Tokens& t)
+{
+    if (t.artGlowColor.a == 0) return { t.artShadowColor, t.artShadowBlur, t.artShadowOffset };
+    return { t.artGlowColor, t.artGlowBlur, {} };
+}
+
 bool pale(Color c)
 {
     return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b > 127.5f;

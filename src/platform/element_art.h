@@ -26,6 +26,8 @@ ArtParts createActionArt(wuc::Compositor const& c, Vec2 frame, float cornerRadiu
 // Blur, offset and colour from tokens; a recolour fades the colour (fadeColor).
 wuc::DropShadow addArtShadow(wuc::Compositor const& c, wuc::ContainerVisual const& container, Vec2 frame,
                              wuc::CompositionDrawingSurface const& shape);
+// A recolour: to the shadow, or to the cover's glow while its music plays (core artShadow, decision 169).
+void fadeArtShadow(wuc::Compositor const& c, wuc::DropShadow const& shadow);
 
 // Hover in: the overlay fades in and the glyph springs up (with the press
 // release's overshoot). Hover out: both settle back.

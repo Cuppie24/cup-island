@@ -249,7 +249,15 @@ std::vector<ThemeColor> glassCoverColors(const CoverTint& tint, const Tokens& th
     double edgeAlpha = std::clamp(themed.glassGlowEdgeOpacity, 0.0f, 1.0f) * 255;
     out.push_back({ "islandGlowEdgeColor", fromLch(std::min(card + themed.coverGlowEdgeLift, 1.0), chroma, hue,
                                                    static_cast<std::uint8_t>(std::lround(edgeAlpha))) });
+    // ...and round the cover itself (decision 169): the card glow's colour, in place of its shadow.
+    double artAlpha = std::clamp(themed.coverArtGlow, 0.0f, 1.0f) * 255;
+    out.push_back({ "artGlowColor", fromLch(card, chroma, hue, static_cast<std::uint8_t>(std::lround(artAlpha))) });
     return out;
+}
+
+std::vector<ThemeColor> islandCoverColors(const CoverTint& tint, const Tokens& themed, const Tokens& midnight)
+{
+    return pale(themed.islandColor) ? coverColors(tint, themed) : glassCoverColors(tint, themed, midnight);
 }
 
 } // namespace cup
