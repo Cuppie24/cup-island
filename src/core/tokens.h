@@ -349,7 +349,7 @@ struct Tokens {
     float glassLiquidSaturation = 1.6f;
     float glassLiquidHighlightOpacity = 0.35f;
     float glassLiquidLipOpacity = 0.14f;
-    // What's on liquid glass has a shiny edge: a hairline round two of its
+    // What's on glass, frosted or liquid (decision 175), has a shiny edge: a hairline round two of its
     // corners, the top left and the bottom right, this bright at its
     // brightest (liquidShine): a control's, and fainter, a
     // surface's (a Home widget, a toast).
@@ -655,14 +655,15 @@ float glassShare(const Tokens& t, bool evenBlur = true);
 
 // How bright a shiny edge is (decision 165): a control's
 // (glassLiquidShineOpacity) or, `surface`, a widget's or a toast's
-// (glassLiquidSurfaceShineOpacity), while the island is liquid glass, within
-// 0..1; none on frosted glass or a solid island.
+// (glassLiquidSurfaceShineOpacity), while the island is glass, frosted or
+// liquid (decision 175: first liquid glass's alone), within 0..1; none on a
+// solid island.
 float liquidShine(const Tokens& t, bool surface = false);
 
-// The rim's line at its brightest (decision 089): glassRimColor, or on liquid
-// glass (`liquid`: it's what the island shows) that colour at
+// The rim's line at its brightest (decision 089): glassRimColor, or `shiny`
+// (the island is glass, decision 175) that colour at
 // glassLiquidHighlightOpacity: the pane's bright edge.
-Color glassRimAt(const Tokens& t, bool liquid);
+Color glassRimAt(const Tokens& t, bool shiny);
 
 // The colour acrylic's even brightness takes its lightness from:
 // glassLuminosityColor, its opacity times the Transparency pick's share
