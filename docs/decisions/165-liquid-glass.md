@@ -115,7 +115,8 @@ frosted glass stays as it was and stays the default.
   refresh later; with the lip's light that showed as a band of light off
   the edge on a collapse, so the shapes are drawn where they are, and the
   lip's light, the one thing in the picture with a sharp place of its
-  own, is out while a shape moves and fades back in once it's home.) The capture itself, and
+  own, is out while a shape moves and back within 50 ms of it coming home (at
+  first over 220 ms, which read as the light arriving late).) The capture itself, and
   anything that touches a visual, stays on the UI thread.
 - **Fallbacks.** Anything refused (no hardware device, the window can't be
   left out of captures, the capture, a shader) is logged with its step and

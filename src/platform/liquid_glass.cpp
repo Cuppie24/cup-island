@@ -21,8 +21,9 @@ using Clock = std::chrono::steady_clock;
 // The lip's light is the one thing here with a sharp place of its own: a
 // frame or two off the compositor's edge mid-morph, it showed as a light
 // band trailing the edge on a collapse (decision 165). So it's out while a
-// shape moves and fades back in over this long once the shapes are home.
-constexpr std::chrono::milliseconds kLipReturn{ 220 };
+// shape moves and back once the shapes are home: at once to the eye, over
+// just these few frames so it doesn't pop (220 ms at first: it read as late).
+constexpr std::chrono::milliseconds kLipReturn{ 50 };
 
 } // namespace
 
