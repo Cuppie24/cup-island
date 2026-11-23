@@ -147,6 +147,7 @@ if(CUP_BUILD_TESTS)
         tests/provider_tests.cpp
         tests/unit_tests.cpp
         tests/update_tests.cpp
+        tests/update_install_tests.cpp
         tests/scenario_runner.cpp
         tests/search_tests.cpp
         tests/search_command_tests.cpp
