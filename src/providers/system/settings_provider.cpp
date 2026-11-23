@@ -139,6 +139,7 @@ void SettingsProvider::pickFade(FadeSpeed speed)
 
 void SettingsProvider::pickGlass(bool on, bool liquid)
 {
+    bool wasLiquid = liquid_;
     glass_ = on;
     liquid_ = on && liquid;
     // The style first, so glass coming on is the picked one from its first frame.
@@ -146,6 +147,9 @@ void SettingsProvider::pickGlass(bool on, bool liquid)
     hooks_.setGlass(glass_);
     host_->save(kGlassKey, !glass_ ? "off" : liquid_ ? "liquid" : "on");
     publish();
+    // Said when it's picked, over the page (decision 121): liquid glass is the
+    // one look that costs something while it's on (decision 165).
+    if (liquid_ && !wasLiquid) host_->toast({ .text = "Liquid glass uses more GPU and battery", .windowId = kSettingsWindowId });
 }
 
 void SettingsProvider::pickTransparency(Transparency level)

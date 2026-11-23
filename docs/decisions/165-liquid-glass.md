@@ -22,8 +22,10 @@ nor a displacement effect.
 frosted glass stays as it was and stays the default.
 - **Settings → Glass**: where liquid glass can be drawn, "Glass effect" is
   three picks in place of the switch: **Off, Frosted, Liquid** (saved in
-  the same key: "off", "on", "liquid"). The row says what Liquid costs:
-  the island is hidden from screenshots. Elsewhere it's the switch.
+  the same key: "off", "on", "liquid"). Picking Liquid **warns** what it
+  costs: a toast over the page ("Liquid glass uses more GPU and battery"),
+  and while it's picked the row says so, and that the island is hidden
+  from screenshots. Elsewhere it's the switch.
   `Tokens::glassStyle` is the app's, like `glassTransparency`.
 - **The picture.** Windows.Graphics.Capture of the island's monitor, on a
   Direct3D device of our own (`platform/liquid_capture`). The island's
@@ -48,12 +50,16 @@ frosted glass stays as it was and stays the default.
   bend then grew as a quarter circle, infinitely steep at the edge, which
   squeezed the desktop into single glittering pixels. Now it grows as a
   square, and the blur widens with the squeeze.
-- **Controls shine too.** On liquid glass a filled control on the island
-  (a primary button, a toggle that's on) gets a shiny edge: a stroke just
-  inside its circle, brightest at the top left, dim across the middle,
-  bright again at the bottom right, `glassLiquidShineOpacity` at its
-  brightest (`liquidShine`, core; `platform/shine`). Plain shapes, no
-  shader. Not on frosted glass, and not in providers' windows.
+- **What's on the glass shines too.** On liquid glass, a shiny edge: a
+  stroke just inside the outline, brightest at the top left, dim across
+  the middle, bright again at the bottom right, `glassLiquidShineOpacity`
+  at its brightest (`liquidShine`, core; `platform/shine`). On a filled
+  control (a primary button, a toggle that's on), round its circle; on a
+  card's large plain controls (media's skips: `liquidRing`, core), round
+  their frame; on Home's widgets; on a toast. Not on the small buttons (a
+  row's, the page row's): a ring round each would be noise. Nor on a menu,
+  which has its own edge and is opaque. Plain shapes, no shader. Not on
+  frosted glass, and not in providers' windows.
 - **Shown by the compositor.** The shader draws into a swap chain as large
   as the render layer; each Blob's glass sprite shows it through a mask
   brush cut by the same outline snapshot as before (decisions 018, 133),

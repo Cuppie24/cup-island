@@ -27,6 +27,8 @@ struct PanelHost : Host {
     void removePanel(const std::string& id) override { removed.push_back(id); }
     void wakeAt(std::optional<Ms> at) override { wake = at; }
     void ask(Dialog) override {}
+    std::vector<Toast> toasts;
+    void toast(Toast t) override { toasts.push_back(std::move(t)); }
     std::string revealed; // "<list>@<row>"
     void reveal(const std::string&, const std::string& list, std::size_t row) override { revealed = list + "@" + std::to_string(row); }
     std::map<std::string, std::string> store; // Host::load/save

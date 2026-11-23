@@ -14,6 +14,7 @@
 #include "platform/element_visuals.h"
 #include "platform/glass.h"
 #include "platform/graphics_device.h"
+#include "platform/shine.h"
 #include "platform/win.h"
 
 #include <optional>
@@ -66,7 +67,8 @@ public:
     void setFocusRing(std::optional<Rect> area, float cornerRadius);
     // Home's tiles (decision 009): a faint background under each, always shown;
     // hover adds to it. Tabs have none: only hover and selection (decision 072).
-    void setTiles(const std::vector<Rect>& tiles, float cornerRadius) { showMarks(tiles_, tiles, cornerRadius, tokens().tileColor); }
+    // On liquid glass each has a shiny edge (decision 165).
+    void setTiles(const std::vector<Rect>& tiles, float cornerRadius) { showMarks(tiles_, tiles, cornerRadius, tokens().tileColor, true); }
     // Notification dots (decision 038), over the content: Scene::badges, and Scene::accentBadges in the accent (decision 152).
     void setBadges(const std::vector<Vec2>& centres, const std::vector<Vec2>& accent)
     {
@@ -162,9 +164,10 @@ private:
         wuc::CompositionRoundedRectangleGeometry shape{ nullptr };
         wuc::CompositionColorBrush brush{ nullptr };
         std::optional<Rect> at;
+        Shine shine; // a Home widget's shiny edge on liquid glass (decision 165); made only for those
     };
-    void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide);
-    void showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius, const Color& color); // one per rect
+    void showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, const Color& color, bool slide, bool shiny = false);
+    void showMarks(std::vector<Mark>& marks, const std::vector<Rect>& at, float cornerRadius, const Color& color, bool shiny = false); // one per rect
     Mark selectedTab_, hovered_;
     struct Ring { // the focus ring: stroked, not filled; over content_, not under it
         wuc::ShapeVisual visual{ nullptr };
