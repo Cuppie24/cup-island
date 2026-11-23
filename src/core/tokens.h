@@ -227,7 +227,7 @@ struct Tokens {
     float progressPinGrow = 1.3f;
     float progressPinGap = 3;
     Ms progressWavePeriod{ 1500 };
-    Ms progressWaveSettle{ 450 };
+    Ms progressWaveSettle{ 900 };
     float timeLabelWidth = 56;  // fits "-1:02:05" at captionFontSize
     float ringThickness = 3;      // progress ring stroke (decision 010)
     float stepDotSize = 9;        // Steps: one dot per step; a pill step's height
