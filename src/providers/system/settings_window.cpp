@@ -111,7 +111,7 @@ WindowPage appearancePage(const SettingsView& v)
     std::vector<Row> look;
     if (!tokens().themes.empty()) look.push_back(marked(settingRow("Theme", v.theme, P::kOpenThemes), "theme", v));
     if (!tokens().themes.empty() && v.windowTheme) look.push_back(marked(settingRow("Window theme", windowThemeValue(v), P::kOpenWindowTheme), "windowtheme", v));
-    if (v.glass) look.push_back(marked(settingRow("Glass", *v.glass ? "On" : "Off", P::kOpenGlass), "glass", v)); // decisions 089, 096
+    if (v.glass) look.push_back(marked(settingRow("Glass", !*v.glass ? "Off" : v.liquidGlass.value_or(false) ? "Liquid" : "On", P::kOpenGlass), "glass", v)); // decisions 089, 096
     if (v.coverColours) look.push_back(marked(settingRow("Music colours", *v.coverColours ? "On" : "Off", P::kOpenMusicColours), "musiccolours", v));
     if (!v.displays.empty()) look.push_back(marked(settingRow("Display", v.displays[v.display], P::kOpenDisplays), "display", v));
     if (!look.empty()) page.sections.push_back({ .rows = std::move(look) });
@@ -206,7 +206,13 @@ void musicColoursPage(WindowPage& page, const SettingsView& v)
 void glassPage(WindowPage& page, const SettingsView& v)
 {
     WindowSection rows;
-    if (v.glass) rows.rows.push_back(toggleRow("Glass effect", *v.glass, P::kToggleGlass, "Only in dark themes")); // decision 089: light themes stay solid
+    // Where liquid glass can be drawn, three picks in place (decision 165);
+    // elsewhere the switch (decision 089). Light themes stay solid either way.
+    if (v.glass && v.liquidGlass)
+        rows.rows.push_back(marked(segmentsRow("Glass effect", "Only in dark themes. Liquid hides the island from screenshots", { "Off", "Frosted", "Liquid" },
+                                               !*v.glass ? 0u : *v.liquidGlass ? 2u : 1u, P::kPickGlass),
+                                   "liquidglass", v));
+    else if (v.glass) rows.rows.push_back(toggleRow("Glass effect", *v.glass, P::kToggleGlass, "Only in dark themes"));
     if (v.transparency) {
         std::size_t picked = *v.transparency == Transparency::Low ? 0 : *v.transparency == Transparency::High ? 2 : 1;
         rows.rows.push_back(marked(segmentsRow("Transparency", "How much shows through",
@@ -268,6 +274,7 @@ std::vector<SettingItem> announcedSettings()
         { "glass", "" },                   // decision 089
         { "transparency", "glass" },       // decision 096
         { "glasswindows", "glass" },       // decision 104
+        { "liquidglass", "glass" },        // decision 165
         { "windowtheme", "" },             // decision 150
     };
 }

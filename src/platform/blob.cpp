@@ -73,8 +73,6 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     shape_.InsertScalar(L"Overlap", 1.0f);  // ears reach this far into the body: 0 as glass (blob_shape.cpp)
     shape_.InsertScalar(L"RimInset", 0.0f); // half the glass rim's width (decision 089)
     shape_.InsertScalar(L"GlowHeight", tokens().glassGlowHeight); // the glow's reach (decision 090)
-    shape_.InsertScalar(L"LensWidth", tokens().glassLensWidth);   // the lens's band and bend (decision 165)
-    shape_.InsertScalar(L"LensDepth", tokens().glassLensDepth);
     bind(c, body_, L"CenterPoint", L"Vector3(pill.Size.X / 2, 0, 0)", body_, shape_);
 
     const Tokens& t = tokens();
@@ -96,6 +94,8 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     toast_.build(c, device, body_, content_); // a toast floats over the content too (decision 071)
     bind(c, toast_.frame(), L"Size", L"pill.Size", body_, shape_); // clipped to the card, like the content
     elements_.init(c, device, content_);
+    elements_.setShiny(true); // filled controls shine on liquid glass (decision 165)
+    toast_.elements().setShiny(true);
 
     buildShadow(c, parent); // under the body
     topGlow_.build(c, body_, shape_, content_, snapshot_); // the top band's glow, cut by the shadow's snapshot (decision 108)

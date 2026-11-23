@@ -223,9 +223,13 @@ const Field kFields[] = {
     { "glassCardGlowCurve", &Tokens::glassCardGlowCurve },
     { "glassGlowEdgeOpacity", &Tokens::glassGlowEdgeOpacity },
     { "glassRimWidth", &Tokens::glassRimWidth },
-    { "glassLensWidth", &Tokens::glassLensWidth }, // the lens along the edge (decision 165)
-    { "glassLensDepth", &Tokens::glassLensDepth },
-    { "glassLensOpacity", &Tokens::glassLensOpacity },
+    { "glassLiquidBlur", &Tokens::glassLiquidBlur }, // liquid glass (decision 165)
+    { "glassLiquidRim", &Tokens::glassLiquidRim },
+    { "glassLiquidBend", &Tokens::glassLiquidBend },
+    { "glassLiquidDim", &Tokens::glassLiquidDim },
+    { "glassLiquidSaturation", &Tokens::glassLiquidSaturation },
+    { "glassLiquidHighlightOpacity", &Tokens::glassLiquidHighlightOpacity },
+    { "glassLiquidShineOpacity", &Tokens::glassLiquidShineOpacity },
     { "glassDarkenScale", &Tokens::glassDarkenScale },
     { "glassDarkenLift", &Tokens::glassDarkenLift },
     { "glassDenseLuminosity", &Tokens::glassDenseLuminosity },
@@ -558,6 +562,7 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
                n == "primaryHoverOpacity" || n == "playGlyphNudge" || // a share of an opacity, of a width (decisions 066, 071)
                (n.starts_with("glass") && n.ends_with("Opacity")) || // opacities (decisions 089, 090, 096)
                n == "glassGlowCurve" || n == "glassCardGlowCurve" ||  // exponents (decisions 090, 166)
+               n == "glassLiquidDim" || n == "glassLiquidSaturation" || // shares (decision 165)
                n.starts_with("glassDarken") ||                        // a colour scale and lift (decision 100)
                (n.starts_with("glass") && n.ends_with("Luminosity")) || // shares of an opacity (decision 100)
                n.ends_with("Bounce") || n == "contentArriveScale" || n == "contentRevealAt" || n == "morphSpringSettle" || n == "alertPulseScale" || // shares (decision 080)
@@ -586,6 +591,7 @@ bool onlyColorsDiffer(const Tokens& a, const Tokens& b)
     mixed.reducedMotion = a.reducedMotion; // read when a motion starts, like the fade speed
     mixed.glass = a.glass;                 // glass on or off only fades the fill (decision 089)
     mixed.glassTransparency = a.glassTransparency; // ...and so does how see-through it is (decision 096)
+    mixed.glassStyle = a.glassStyle;       // ...and which glass: another picture under the same tint (decision 165)
     for (const Field& f : kFields)
         if (auto* member = std::get_if<Color Tokens::*>(&f.member)) mixed.*(*member) = a.*(*member);
     return mixed == a;

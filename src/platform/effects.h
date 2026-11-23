@@ -10,7 +10,6 @@
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Graphics.Effects.h>
 
-#include <string>
 #include <vector>
 
 namespace cup::platform {
@@ -22,14 +21,8 @@ using winrt::Windows::Graphics::Effects::IGraphicsEffectSource;
 // destination, Win2D's Background, 1 the source) and its properties by
 // Direct2D's index, boxed as Composition expects (PropertyValue). Named, as
 // Composition finds animated properties by "Name.Property".
-// `animated`: properties an animation may drive, each by its name and
-// Direct2D index ("Name.Property" on the brush; decision 165's lens).
-struct NamedProperty {
-    std::wstring name;
-    UINT index = 0;
-};
 IGraphicsEffect makeEffect(winrt::hstring const& name, GUID id, std::vector<IGraphicsEffectSource> sources,
-                           std::vector<winrt::Windows::Foundation::IInspectable> properties, std::vector<NamedProperty> animated = {});
+                           std::vector<winrt::Windows::Foundation::IInspectable> properties);
 
 // Direct2D's Composite in `mode` over `layers`: each composited onto the
 // result so far, in order (0 the first destination).

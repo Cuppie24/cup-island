@@ -55,6 +55,9 @@ struct SettingsHooks {
     std::function<void(FadeSpeed)> setFadeSpeed;
     // The island as glass, or solid (decision 089). Empty: no row (Windows 10 can't blur behind it).
     std::function<void(bool on)> setGlass;
+    // Which glass (decision 165): Windows' frosted one or liquid glass. Empty:
+    // no choice (this Windows can't draw liquid glass), and Glass is a switch.
+    std::function<void(GlassStyle)> setGlassStyle;
     // How see-through the glass is (decision 096). Empty: no choice.
     std::function<void(Transparency)> setTransparency;
     // Providers' windows (Settings' own) as glass too, while the island is (decision 104). Empty: no row.
@@ -109,7 +112,7 @@ public:
     static constexpr const char* kTabRowKey = "tabrow";       // "top" or "bottom" ("": top)
     static constexpr const char* kCoverColoursKey = "covercolours"; // "on" or "off" ("": on, decision 052)
     static constexpr const char* kFadeKey = "fade";           // "fast", "medium" or "slow" ("": medium, decision 053)
-    static constexpr const char* kGlassKey = "glass";         // "on" or "off" ("": on, decision 089)
+    static constexpr const char* kGlassKey = "glass";         // "on", "off" or "liquid" ("": on, decision 089; liquid: on, as liquid glass, decision 165)
     static constexpr const char* kTransparencyKey = "transparency"; // "low", "medium" or "high" ("": medium, decision 096)
     static constexpr const char* kGlassWindowsKey = "glasswindows"; // "on" or "off" ("": on, decision 104)
     static constexpr const char* kWindowThemeKey = "windowtheme";        // "island", "system" or "manual" ("": island, decision 150)
@@ -152,6 +155,8 @@ private:
     bool coverColours_ = true;
     FadeSpeed fadeSpeed_ = FadeSpeed::Medium;
     bool glass_ = true;
+    bool liquid_ = false; // ...as liquid glass (decision 165)
+    void pickGlass(bool on, bool liquid);
     Transparency transparency_ = Transparency::Medium;
     bool glassWindows_ = true;
     WindowThemeMode windowTheme_ = WindowThemeMode::Island;
