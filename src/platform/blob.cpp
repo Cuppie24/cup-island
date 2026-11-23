@@ -73,8 +73,6 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     shape_.InsertScalar(L"Overlap", 1.0f);  // ears reach this far into the body: 0 as glass (blob_shape.cpp)
     shape_.InsertScalar(L"RimInset", 0.0f); // half the glass rim's width (decision 089)
     shape_.InsertScalar(L"GlowHeight", tokens().glassGlowHeight); // the glow's reach (decision 090)
-    shape_.InsertScalar(L"LensWidth", tokens().glassLensWidth);   // the lens's band and bend (decision 165)
-    shape_.InsertScalar(L"LensDepth", tokens().glassLensDepth);
     bind(c, body_, L"CenterPoint", L"Vector3(pill.Size.X / 2, 0, 0)", body_, shape_);
 
     const Tokens& t = tokens();

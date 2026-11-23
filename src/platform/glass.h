@@ -37,19 +37,6 @@ struct Glass {
 Glass maskedBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush const& mask, wuc::CompositionBrush const& luminosity,
                      Darken darkening);
 
-// The lens along the island's edge (decision 165): the blurred desktop
-// again, as bright as it is, cut to `band`'s alpha (a ring inside the edge).
-// `bend` is the brush whose "Lens.TransformMatrix" moves what shows (a 2D
-// transform effect over the backdrop; the island's size sets it, so the
-// caller animates it). Null where Windows refuses the transform: the band
-// then shows the desktop where it is, a bright lip without the bending.
-// No brush at all if even that is refused. Each outcome is logged.
-struct Lens {
-    wuc::CompositionEffectBrush brush{ nullptr };
-    wuc::CompositionEffectBrush bend{ nullptr };
-};
-Lens lensBackdrop(wuc::Compositor const& compositor, wuc::CompositionBrush const& band);
-
 // One log line for a glass call Windows refused: "glass: <what> (<step>:
 // 0x<code> <Windows' own message>)". Every glass failure goes through it, so
 // searching the log for "glass:" finds them all, each with its reason.

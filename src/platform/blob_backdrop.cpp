@@ -217,7 +217,8 @@ void Blob::buildGlass()
             t.glassTransparency == Transparency::Low ? "low" : t.glassTransparency == Transparency::High ? "high" : "medium",
             glassShare(t, glassLook_ != Look::Plain), static_cast<int>(glassLuminosityAt(t).a));
     glass_ = compositor_.CreateSpriteVisual();
-    glass_.Brush(made.brush);
+    frosted_ = made.brush;
+    glass_.Brush(frosted_);
     glass_.Opacity(0.0f);
     coverBodyAndEars(compositor_, glass_, body_, shape_);
     twin_.Parent().Children().InsertBelow(glass_, twin_); // under the twin's layer, its tint (decision 097)
@@ -249,8 +250,24 @@ void Blob::applyGlass(Ms duration)
     if (glass_ && glassLook_ == Look::Darkened && (t.glassDarkenScale != darkenBuilt_.scale || t.glassDarkenLift != darkenBuilt_.lift)) {
         darkenBuilt_ = { t.glassDarkenScale, t.glassDarkenLift };
         Glass made = maskedBackdrop(compositor_, glassMask_, glassLuminosity_, darkenBuilt_);
-        if (made.brush && made.look == Look::Darkened) glass_.Brush(made.brush);
-        else logLine("glass: the new darkening wasn't taken: the old one stays");
+        if (made.brush && made.look == Look::Darkened) {
+            frosted_ = made.brush;
+            if (!liquidShown_) glass_.Brush(frosted_);
+        } else logLine("glass: the new darkening wasn't taken: the old one stays");
+    }
+    // Liquid glass (decision 165): the same sprite, another picture under the same tint.
+    bool liquid = glass_ && liquid_ && t.glass && t.glassStyle == GlassStyle::Liquid;
+    if (glass_ && liquid != liquidShown_) {
+        try {
+            glass_.Brush(liquid ? liquidBrush() : frosted_);
+            liquidShown_ = liquid;
+            logLine("glass: a shape shows %s", liquid ? "liquid glass" : "the frosted glass");
+        } catch (winrt::hresult_error const& e) {
+            logGlassError("liquid: a shape can't show it, frosted instead", "brush", e);
+            glass_.Brush(frosted_);
+            liquidShown_ = false;
+            liquid_ = nullptr; // not tried again until it's handed over anew
+        }
     }
     if (glass_ && t.glass != glassShown_) {
         glassShown_ = t.glass;
@@ -263,8 +280,38 @@ void Blob::applyGlass(Ms duration)
     // 097): seamless, since the layer is see-through as one, and with no
     // opaque fringe along the curves (the reason it was hidden before). A
     // Transparency pick fades it too. Solid, it's opaque under the body.
-    if (twin_) fadeTo(compositor_, twin_, glassShown_ ? glassShare(t, glassLook_ != Look::Plain) : 1.0f, duration);
-    applyLens(duration); // the lens along the edge, over the glass (decision 165)
+    // Liquid glass keeps its own brightness in hand (glassLiquidDim): the clearer opacities.
+    if (twin_) fadeTo(compositor_, twin_, glassShown_ ? glassShare(t, liquidShown_ || glassLook_ != Look::Plain) : 1.0f, duration);
+}
+
+void Blob::setLiquid(wuc::ICompositionSurface const& picture)
+{
+    if (picture == liquid_) return;
+    liquid_ = picture;
+    if (liquidShown_ && glass_) { // another picture, or none: not the old one a moment longer
+        glass_.Brush(frosted_);
+        liquidShown_ = false;
+    }
+    applyGlass(recolorDuration(tokens()));
+}
+
+wuc::CompositionBrush Blob::liquidBrush()
+{
+    // The picture is the render layer's size and drawn at its pixels: not
+    // stretched, and moved back by where this sprite is (the body's corner,
+    // an ear to the left), so each of its pixels stays where the desktop's
+    // is through every morph and drag.
+    auto picture = compositor_.CreateSurfaceBrush(liquid_);
+    picture.Stretch(wuc::CompositionStretch::None);
+    picture.HorizontalAlignmentRatio(0.0f);
+    picture.VerticalAlignmentRatio(0.0f);
+    bind(compositor_, picture, L"Offset", L"Vector2(" + kEarSize + L" - pill.Offset.X, -pill.Offset.Y)", body_, shape_);
+    auto mask = compositor_.CreateSurfaceBrush(snapshot_); // the outline: exact, the compositor's (decision 018)
+    mask.Stretch(wuc::CompositionStretch::Fill);
+    auto cut = compositor_.CreateMaskBrush();
+    cut.Source(picture);
+    cut.Mask(mask);
+    return cut;
 }
 
 } // namespace cup::platform

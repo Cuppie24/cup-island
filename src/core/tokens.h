@@ -46,6 +46,10 @@ enum class FadeSpeed { Fast, Medium, Slow };
 // How see-through the glass is (decision 096): the user's pick in Settings.
 enum class Transparency { Low, Medium, High };
 
+// Which glass (decision 165): Frosted is Windows' blurred desktop (decision
+// 089); Liquid bends a sharp picture of it along the island's edge.
+enum class GlassStyle { Frosted, Liquid };
+
 struct Tokens {
     // Render layer: as wide as the island's monitor, so the island can move
     // along its top edge (decision 026), and this tall (TR §5, §9.1). The
@@ -327,14 +331,21 @@ struct Tokens {
     float glassCardGlowCurve = 1.6f;
     float glassGlowEdgeOpacity = 0.9f; // the line's strength; 0: none, the rim as it is
     float glassRimWidth = 1;      // the rim's width, inside the edge
-    // Liquid glass (decision 165): a lens along the island's sides and bottom.
-    // In a band glassLensWidth wide inside the edge, the blurred desktop shows
-    // again, as bright as it is, pulled glassLensDepth px in from the edge (a
-    // thick pane bending what's behind it), glassLensOpacity strong at the
-    // edge and fading inward. Any of the three at 0: no lens.
-    float glassLensWidth = 10;
-    float glassLensDepth = 14;
-    float glassLensOpacity = 0.45f;
+    // Liquid glass (decision 165): the user's other pick. The desktop behind
+    // the island, sharp but for glassLiquidBlur px of blur, bent in a rim
+    // glassLiquidRim wide inside the edge: there it shows what's up to
+    // glassLiquidBend px further in, the more the nearer the edge (a thick
+    // pane's rounded lip). Its brightness times glassLiquidDim, so white
+    // text reads over a white window; its colours glassLiquidSaturation as
+    // strong; a highlight along the edge, glassLiquidHighlightOpacity at
+    // its brightest (lit from the top left).
+    GlassStyle glassStyle = GlassStyle::Frosted; // the user's pick: set by the app from Settings, not by tokens.json
+    float glassLiquidBlur = 3;
+    float glassLiquidRim = 22;
+    float glassLiquidBend = 26;
+    float glassLiquidDim = 0.45f;
+    float glassLiquidSaturation = 1.35f;
+    float glassLiquidHighlightOpacity = 0.55f;
 
     // Expanded's page row along the top of the card (decisions 007, 047, 109): a dot per page,
     // the shown one a line, an arrow on each side of them; Home's button and the pin at the edges.
@@ -626,11 +637,6 @@ Color islandFill(const Tokens& t, Color color, bool evenBlur = true);
 // ...the share it keeps of a colour's opacity: 1 when not glass. The island
 // over the glass applies it to a whole layer (decision 097).
 float glassShare(const Tokens& t, bool evenBlur = true);
-
-// How strong the lens along the island's edge is drawn (decision 165):
-// glassLensOpacity as glass, kept within 0..1; 0 when solid, or when the
-// lens has no width.
-float glassLensShare(const Tokens& t);
 
 // The colour acrylic's even brightness takes its lightness from:
 // glassLuminosityColor, its opacity times the Transparency pick's share

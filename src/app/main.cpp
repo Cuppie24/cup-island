@@ -864,6 +864,7 @@ void positionLayers()
 {
     resizeRenderLayer(g_render, tokens().canvas, displayFor(g_displayId).bounds);
     setRenderOrigin(g_render.left, g_render.top);
+    g_renderer.layerChanged(); // liquid glass draws at the layer's size, from its monitor's picture (decision 165)
     dispatch(ScreenResized{ static_cast<float>(g_render.width) }, "screen");
 }
 
@@ -1059,6 +1060,7 @@ int main()
     g_state = reduce(g_state, PanelsSeen{ loadSeenPanels() }, now()); // before the providers publish their widgets (decision 110)
     g_island.scene = layout(g_state, now());
     g_island.renderer = &g_renderer;
+    g_renderer.setWindow(render.hwnd); // liquid glass captures its monitor (decision 165)
     g_renderer.build(render.compositor, render.root, g_island.scene);
 
     InteractionCallbacks callbacks;
@@ -1181,6 +1183,12 @@ int main()
             applyGlass(on ? "glass on" : "glass off");
         })
                                       : nullptr,
+        // Liquid glass (decision 165): a third pick, where Windows can capture the screen without a border.
+        .setGlassStyle = g_render.backdrop && LiquidGlass::offered() ? std::function<void(GlassStyle)>([](GlassStyle style) {
+            Vec2 oldCanvas = tokens().canvas;
+            if (app::setGlassStyle(style)) tokensChanged(oldCanvas, "glass style");
+        })
+                                                                     : nullptr,
         // How see-through (decision 096): with the Glass row, so not on Windows 10 either.
         .setTransparency = g_render.backdrop ? std::function<void(Transparency)>([](Transparency level) {
             Vec2 oldCanvas = tokens().canvas;

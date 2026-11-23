@@ -296,6 +296,46 @@ void glassTests()
     expect(applied.back() == true && h.store[SettingsProvider::kGlassKey] == "on", "glass: and back on");
     settings.stop();
 
+    // Liquid glass (decision 165): where the app can draw it, the switch is
+    // three picks: off, the frosted glass as before, liquid. Saved in the same key.
+    PanelHost lh;
+    std::vector<std::string> said;
+    SettingsProvider liquid({ .setGlass = [&](bool on) { said.push_back(on ? "on" : "off"); },
+                              .setGlassStyle = [&](GlassStyle s) { said.push_back(s == GlassStyle::Liquid ? "liquid" : "frosted"); },
+                              .setTransparency = [](Transparency) {} });
+    liquid.start(lh);
+    openWindow(liquid);
+    expect(said == std::vector<std::string>{ "frosted", "on" } && detailOf(lh, "Glass") == "On", "liquid glass: frosted and on by default, the style told first");
+    liquid.onAction(fromWindow(P::kOpenGlass));
+    auto effect = [&] { return *itemOf<Segments>(windowRow(lh, "Glass effect")); };
+    expect(effect().options == std::vector<std::string>{ "Off", "Frosted", "Liquid" } && effect().picked == 1,
+           "liquid glass: three picks in place of the switch, frosted picked");
+    liquid.onAction(fromWindow(std::string(P::kPickGlass) + "2"));
+    expect(said.back() == "on" && said[said.size() - 2] == "liquid" && lh.store[SettingsProvider::kGlassKey] == "liquid" && effect().picked == 2,
+           "liquid glass: picked, saved, the page stays");
+    liquid.onAction(fromWindow(P::kBack));
+    expect(detailOf(lh, "Glass") == "Liquid", "liquid glass: Appearance says so");
+    liquid.stop();
+    said.clear();
+    liquid.start(lh);
+    expect(said == std::vector<std::string>{ "liquid", "on" }, "liquid glass: kept over a restart");
+    openWindow(liquid);
+    liquid.onAction(fromWindow(P::kOpenGlass));
+    liquid.onAction(fromWindow(std::string(P::kPickGlass) + "0"));
+    expect(said.back() == "off" && lh.store[SettingsProvider::kGlassKey] == "off" && effect().picked == 0, "liquid glass: off is the first pick");
+    liquid.onAction(fromWindow(std::string(P::kPickGlass) + "1"));
+    expect(said.back() == "on" && said[said.size() - 2] == "frosted" && lh.store[SettingsProvider::kGlassKey] == "on" && effect().picked == 1,
+           "liquid glass: and frosted again is the old glass, saved as before");
+    liquid.stop();
+    // Saved as liquid, but this Windows can't draw it: the frosted glass, the switch on.
+    SettingsProvider plain({ .setGlass = [&](bool on) { said.push_back(on ? "on" : "off"); }, .setTransparency = [](Transparency) {} });
+    lh.store[SettingsProvider::kGlassKey] = "liquid";
+    plain.start(lh);
+    openWindow(plain);
+    plain.onAction(fromWindow(P::kOpenGlass));
+    expect(said.back() == "on" && itemOf<Switch>(windowRow(lh, "Glass effect"))->on, "liquid glass: saved where it can't be drawn: glass, on, a switch");
+    plain.stop();
+
     // Glass for windows (decision 104): on the Glass page, on until turned off; its window changes at once.
     PanelHost wh;
     std::vector<bool> windows;

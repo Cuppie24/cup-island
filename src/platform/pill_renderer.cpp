@@ -17,6 +17,7 @@ namespace cup::platform {
 void PillRenderer::build(wuc::Compositor const& c, wuc::ContainerVisual const& root, const Scene& initial)
 {
     queue_ = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
+    compositor_ = c;
     device_.create(c);
     applied_ = tokens();
     pill_.build(c, device_, root, initial.size, initial.offset);
@@ -24,6 +25,62 @@ void PillRenderer::build(wuc::Compositor const& c, wuc::ContainerVisual const& r
     bridge_.build(c, root, pill_, bubble_);
     menu_.build(c, device_, root); // last: over the pill and the bubble
     apply(initial, {});
+    liquid_.onLost = [this] {
+        liquidFailed_ = true; // the frosted glass, until liquid is picked again
+        pill_.setLiquid(nullptr);
+        bubble_.setLiquid(nullptr);
+    };
+    syncLiquid();
+}
+
+void PillRenderer::syncLiquid()
+{
+    const Tokens& t = tokens();
+    bool wanted = compositor_ && window_ && t.glass && t.glassStyle == GlassStyle::Liquid;
+    if (!wanted) {
+        liquidFailed_ = false;
+        if (!liquid_.running()) return;
+        pill_.setLiquid(nullptr);
+        bubble_.setLiquid(nullptr);
+        liquid_.stop();
+        return;
+    }
+    if (!liquid_.running()) {
+        if (liquidFailed_) return;
+        if (!liquid_.start(compositor_, window_)) {
+            liquidFailed_ = true;
+            return;
+        }
+    }
+    pill_.setLiquid(liquid_.picture());
+    bubble_.setLiquid(liquid_.picture());
+    liquid_.refresh(); // the tokens it draws with may be new
+}
+
+void PillRenderer::layerChanged()
+{
+    if (!liquid_.running()) return;
+    pill_.setLiquid(nullptr);
+    bubble_.setLiquid(nullptr);
+    liquid_.stop();
+    syncLiquid();
+}
+
+void PillRenderer::placeLiquid(const Scene& scene, const Motion& morph)
+{
+    const Motion atOnce{ Ms{ 0 }, 0, 0 }; // dragged: it's where the pointer is
+    Vec2 size = scene.size;
+    if (scene.lifted) liquid_.place(0, { scene.offset.x, tokens().liftDrop, size.x, size.y }, false, atOnce);
+    else liquid_.place(0, { scene.offset.x, scene.offset.y, size.x, size.y }, true, towardSize(morph, size));
+    const BubbleScene* bubble = scene.bubble ? &*scene.bubble : nullptr;
+    if (bubble && bubble->dragCentre) {
+        const Rect& f = bubble->frame;
+        liquid_.place(1, { bubble->dragCentre->x - f.width / 2, bubble->dragCentre->y - f.height / 2, f.width, f.height }, false, atOnce);
+    } else if (bubble) {
+        liquid_.place(1, bubble->frame, true, morph);
+    } else {
+        liquid_.place(1, { scene.bubbleTuck.x, scene.bubbleTuck.y, 0, 0 }, true, towardSize(morph, {}));
+    }
 }
 
 void PillRenderer::refreshAnimations()
@@ -35,6 +92,7 @@ void PillRenderer::refreshAnimations()
     bridge_.refreshAnimations();
     menu_.refresh(coloursOnly);
     measured_.clear();
+    syncLiquid(); // glass on or off, or another style (decision 165)
 }
 
 float PillRenderer::measure(const Text& text)
@@ -77,6 +135,7 @@ void PillRenderer::apply(const Scene& scene, const SceneMotion& motion)
     // the glide knows where that is.
     pill_.place(scene.size, scene.offset, motion.morph);
     pill_.lift(scene.lifted ? std::optional<float>(scene.offset.x + scene.size.x / 2) : std::nullopt, motion.fling);
+    placeLiquid(scene, motion.morph);
     if (motion.pulse) pill_.pulse();
     if (motion.reveal > Ms{ 0 }) revealAt_ = std::chrono::steady_clock::now() + motion.reveal;
     // A side flush with the screen's edge has no ear: it would hang off the

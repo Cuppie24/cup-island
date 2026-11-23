@@ -20,7 +20,6 @@ struct Effect : winrt::implements<Effect, IGraphicsEffect, abi::IGraphicsEffectD
     GUID id{};
     std::vector<IGraphicsEffectSource> sources;
     std::vector<winrt::Windows::Foundation::IInspectable> properties;
-    std::vector<NamedProperty> animated;
     winrt::hstring name;
 
     winrt::hstring Name() { return name; }
@@ -33,16 +32,10 @@ struct Effect : winrt::implements<Effect, IGraphicsEffect, abi::IGraphicsEffectD
     }
     IFACEMETHODIMP GetNamedPropertyMapping(LPCWSTR property, UINT* index, abi::GRAPHICS_EFFECT_PROPERTY_MAPPING* mapping) override
     {
-        *mapping = abi::GRAPHICS_EFFECT_PROPERTY_MAPPING_DIRECT;
-        // The ones an animation drives (the lens's matrix, decision 165).
-        for (const NamedProperty& named : animated) {
-            if (named.name != property || named.index >= properties.size()) continue;
-            *index = named.index;
-            return S_OK;
-        }
-        // Composite's and Blend's mode, as before.
+        // Composite's and Blend's mode, as before; nothing here is animated by name.
         if (std::wcscmp(property, L"Mode") != 0 || properties.empty()) return E_INVALIDARG;
         *index = 0;
+        *mapping = abi::GRAPHICS_EFFECT_PROPERTY_MAPPING_DIRECT;
         return S_OK;
     }
     IFACEMETHODIMP GetPropertyCount(UINT* count) override
@@ -80,14 +73,13 @@ struct Effect : winrt::implements<Effect, IGraphicsEffect, abi::IGraphicsEffectD
 } // namespace
 
 IGraphicsEffect makeEffect(winrt::hstring const& name, GUID id, std::vector<IGraphicsEffectSource> sources,
-                           std::vector<winrt::Windows::Foundation::IInspectable> properties, std::vector<NamedProperty> animated)
+                           std::vector<winrt::Windows::Foundation::IInspectable> properties)
 {
     auto effect = winrt::make_self<Effect>();
     effect->name = name; // every effect named: Composition finds animated properties by "Name.Property"
     effect->id = id;
     effect->sources = std::move(sources);
     effect->properties = std::move(properties);
-    effect->animated = std::move(animated);
     return effect.as<IGraphicsEffect>();
 }
 

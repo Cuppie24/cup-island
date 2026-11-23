@@ -220,21 +220,16 @@ void runTokensTests()
     expect(scaleTokens(solid, 2).glassDarkenScale == solid.glassDarkenScale && scaleTokens(solid, 2).glassDarkenLift == solid.glassDarkenLift &&
                solid.glassDarkenScale + solid.glassDarkenLift < 0.5f,
            "the darkened glass's range is unitless, and white behind it comes out under half (decision 100)");
-    // The lens along the edge (decision 165): drawn only as glass, and only
-    // if it has a width; its width and depth are lengths, its strength a share.
-    Tokens lens = solid;
-    lens.glassLensOpacity = 0.4f;
-    expect(glassLensShare(lens) == 0.0f, "the lens: none on a solid island");
-    lens.glass = true;
-    expect(glassLensShare(lens) == 0.4f, "the lens: glassLensOpacity strong as glass");
-    lens.glassLensOpacity = 3;
-    expect(glassLensShare(lens) == 1.0f, "the lens: an opacity past 1 is 1");
-    lens.glassLensWidth = 0;
-    expect(glassLensShare(lens) == 0.0f, "the lens: none without a width");
-    expect(scaleTokens(solid, 2).glassLensWidth == solid.glassLensWidth * 2 * solid.islandScale &&
-               scaleTokens(solid, 2).glassLensDepth == solid.glassLensDepth * 2 * solid.islandScale &&
-               scaleTokens(solid, 2).glassLensOpacity == solid.glassLensOpacity,
-           "the lens's width and depth are lengths, its opacity a share");
+    // Liquid glass (decision 165): which glass is the app's pick, and a pick
+    // rebuilds nothing; its lengths scale, its shares don't.
+    expect(onlyColorsDiffer(glass, [&] { Tokens t = glass; t.glassStyle = GlassStyle::Liquid; return t; }()),
+           "liquid glass: picking it rebuilds nothing");
+    expect(scaleTokens(solid, 2).glassLiquidRim == solid.glassLiquidRim * 2 * solid.islandScale &&
+               scaleTokens(solid, 2).glassLiquidBend == solid.glassLiquidBend * 2 * solid.islandScale &&
+               scaleTokens(solid, 2).glassLiquidBlur == solid.glassLiquidBlur * 2 * solid.islandScale &&
+               scaleTokens(solid, 2).glassLiquidDim == solid.glassLiquidDim && scaleTokens(solid, 2).glassLiquidSaturation == solid.glassLiquidSaturation &&
+               scaleTokens(solid, 2).glassLiquidHighlightOpacity == solid.glassLiquidHighlightOpacity,
+           "liquid glass: its rim, bend and blur are lengths; its dim, saturation and highlight shares");
     // Acrylic's even brightness at each Transparency pick (decision 100):
     // its colour's opacity times the pick's share, clearer as the pick goes up.
     Tokens lum = solid;
