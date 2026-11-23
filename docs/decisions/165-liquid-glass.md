@@ -22,10 +22,12 @@ nor a displacement effect.
 frosted glass stays as it was and stays the default.
 - **Settings → Glass**: where liquid glass can be drawn, "Glass effect" is
   three picks in place of the switch: **Off, Frosted, Liquid** (saved in
-  the same key: "off", "on", "liquid"). Picking Liquid **warns** what it
-  costs: a toast over the page ("Liquid glass uses more GPU and battery"),
-  and while it's picked the row says so, and that the island is hidden
-  from screenshots. Elsewhere it's the switch.
+  the same key: "off", "on", "liquid"). Picking Liquid **asks first**: a
+  question over the window (decision 122) under a gauge icon (`Dialog::glyph`,
+  new: an icon over a window question's title), saying it uses more GPU
+  and battery and hides the island from screenshots; nothing changes until
+  it's answered "Turn on". (First a toast: it went by itself, read or
+  not.) While Liquid is picked the row keeps saying what it costs. Elsewhere it's the switch.
   `Tokens::glassStyle` is the app's, like `glassTransparency`.
 - **The picture.** Windows.Graphics.Capture of the island's monitor, on a
   Direct3D device of our own (`platform/liquid_capture`). The island's
