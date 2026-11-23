@@ -29,6 +29,11 @@ std::optional<Hit> hitIn(const std::vector<Placed>& elements, Vec2 point);
 // Where along a progress bar `x` (pill coordinates) points, 0..1. Clamped, so
 // a scrub dragged past either end (or off the pill) pins to it.
 float seekFraction(const Placed& progress, float x);
+// While the bar with key `bar` is dragged to `fraction` of its length: the
+// scene with that bar's time labels (the ones in its row, on its timeline)
+// showing the time under the pointer instead of playback's, so they follow
+// the drag (decision 167). Anything else is as it was.
+Scene scrubbedTimes(Scene scene, const std::string& bar, float fraction);
 
 // The row under `point` ("<slot>/<row>", or "" for none): the element's under
 // it, else the row whose band (its elements' height, anywhere across) it's

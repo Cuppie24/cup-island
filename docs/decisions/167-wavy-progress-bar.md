@@ -25,8 +25,7 @@ provider's bar can have it; media's does.
 wave's length and starting over is the motion. It's in a child visual
 clipped at the fill's live width, so playback and scrubbing move its end
 with no code of their own. The fill's rectangle stays, unseen: its width is
-still what animates, and the knob and the track read it. Lying flat is the
-line's Y scale going to almost nothing with a non-scaling stroke.
+still what animates, and the knob and the track read it.
 `ripple()` remembers what it was told, so the card's once-a-second layout
 doesn't restart the run. The line's points are core's (`wavePoints`),
 tested there. If the path can't be made, it's logged and the bar is plain.
@@ -42,6 +41,19 @@ tested there. If the path can't be made, it's logged and the bar is plain.
 - **Not taken.** A pin at the head, bigger than the line: upright and fixed
   on the bar's line, the wave slid up and down against it; round and riding
   the head, it bobbed. Both were tried on Windows and turned down.
+
+- **Paused, the bar's own straight fill shows.** Lying flat was the line's
+  Y scale going to almost nothing with a non-scaling stroke; on a build the
+  stroke thinned with it, a hairline beside the 4 px track. So as the wave
+  sinks it also fades out, and the fill's rectangle, there all along for
+  its width, thickens from nothing to the bar's height (`ripple`).
+- **The knob.** Under the pointer it rides the wave's head; dragged, it's on
+  the bar's line, where the pointer aims (`rideHead`: a scalar the knob's
+  expression multiplies the swing by).
+- **A drag moves the times.** While a bar is dragged, its row's time labels
+  show the time under the pointer, not playback's (`scrubbedTimes`, core,
+  applied to every scene laid out during the drag). Any seekable bar's, wavy
+  or not. Let go, they show playback's again until the app reports the seek.
 
 **Consequences.** Paused, the bar is a plain one with round ends. Tested in
 `tests/item_tests.cpp` (height, the line) and `tests/media_tests.cpp`.

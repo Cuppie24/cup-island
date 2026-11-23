@@ -16,7 +16,9 @@ namespace {
 
 using namespace winrt::Windows::UI::Composition;
 
-// Lying flat: the wave squashed to its middle line. Not 0: a shape scaled to nothing may not be drawn.
+// Lying flat: the wave squashed to its middle line. Its stroke thins with it (Windows scales
+// it whatever IsStrokeNonScaling says, seen on a build), so flat it's faded out and the bar's
+// straight fill is shown instead.
 constexpr float kFlat = 0.02f;
 
 // How Composition takes a Direct2D geometry: an object that hands it over.
@@ -74,7 +76,6 @@ WaveParts createWave(Compositor const& c, ID2D1Factory* factory, Vec2 frame, Com
     wave.line.StrokeLineJoin(CompositionStrokeLineJoin::Round);
     wave.line.StrokeStartCap(CompositionStrokeCap::Round);
     wave.line.StrokeEndCap(CompositionStrokeCap::Round);
-    wave.line.IsStrokeNonScaling(true); // squashed flat, it's still the bar's thickness
     wave.line.CenterPoint({ 0.0f, frame.y / 2 });
     wave.line.Scale({ 1.0f, kFlat });
 
@@ -108,14 +109,29 @@ void ripple(Compositor const& c, WaveParts& wave, bool playing, bool atOnce)
     if (!wave.line || wave.rippling == playing) return;
     wave.rippling = playing;
     const Tokens& t = tokens();
-    wfn::float2 scale{ 1.0f, playing ? 1.0f : kFlat };
+    // Three things at once: the wave's swing, how much of it is seen, and the straight fill's
+    // thickness, growing from the bar's line as the wave sinks into it.
+    wfn::float2 swing{ 1.0f, playing ? 1.0f : kFlat }, straight{ 1.0f, playing ? 0.0f : 1.0f };
+    float seen = playing ? 1.0f : 0.0f;
     if (atOnce) {
-        wave.line.Scale(scale);
+        wave.line.Scale(swing);
+        wave.visual.Opacity(seen);
+        if (wave.flat) wave.flat.Scale(straight);
     } else {
-        auto settle = c.CreateVector2KeyFrameAnimation();
-        settle.InsertKeyFrame(1.0f, scale, c.CreateCubicBezierEasingFunction(toFloat2(t.morphEase.c1), toFloat2(t.morphEase.c2)));
-        settle.Duration(std::max(t.progressWaveSettle, Ms{ 1 }));
-        wave.line.StartAnimation(L"Scale", settle);
+        auto ease = c.CreateCubicBezierEasingFunction(toFloat2(t.morphEase.c1), toFloat2(t.morphEase.c2));
+        Ms duration = std::max(t.progressWaveSettle, Ms{ 1 });
+        auto to = [&](wfn::float2 scale) {
+            auto anim = c.CreateVector2KeyFrameAnimation();
+            anim.InsertKeyFrame(1.0f, scale, ease);
+            anim.Duration(duration);
+            return anim;
+        };
+        wave.line.StartAnimation(L"Scale", to(swing));
+        if (wave.flat) wave.flat.StartAnimation(L"Scale", to(straight));
+        auto fade = c.CreateScalarKeyFrameAnimation();
+        fade.InsertKeyFrame(1.0f, seen, ease);
+        fade.Duration(duration);
+        wave.visual.StartAnimation(L"Opacity", fade);
     }
     // Still when paused (it's flat: nothing to see move), and for reduced motion (decision 080).
     if (!playing || t.reducedMotion || t.progressWavePeriod <= Ms{ 0 }) {
@@ -130,6 +146,15 @@ void ripple(Compositor const& c, WaveParts& wave, bool playing, bool atOnce)
     run.Duration(t.progressWavePeriod);
     run.IterationBehavior(AnimationIterationBehavior::Forever);
     wave.line.StartAnimation(L"Offset", run);
+}
+
+void rideHead(Compositor const& c, const WaveParts& wave, bool riding)
+{
+    if (!wave.knob) return;
+    auto anim = c.CreateScalarKeyFrameAnimation();
+    anim.InsertKeyFrame(1.0f, riding ? 1.0f : 0.0f);
+    anim.Duration(std::max(tokens().hoverFadeDuration, Ms{ 1 }));
+    wave.knob.StartAnimation(L"Riding", anim);
 }
 
 } // namespace cup::platform

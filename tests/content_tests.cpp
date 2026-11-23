@@ -70,6 +70,24 @@ void runContentTests()
     const Placed* art = find(scene, "expandedLeading/0/0");
     expect(art && art->frame == Rect{ t.expandedPadding, t.expandedPadding, t.expandedArtSize, t.expandedArtSize }, "art fills the leading square");
 
+    // Dragged, the bar's times show where the pointer is (decision 167); nothing else changes.
+    {
+        Scene dragged = scrubbedTimes(scene, "expandedBottom/0/1", 0.5f);
+        const Placed* at = find(dragged, "expandedBottom/0/0");
+        const Placed* togo = find(dragged, "expandedBottom/0/2");
+        Ms half = playing.duration / 2;
+        expect(at && std::get<Text>(at->item).value == formatDuration(half) && togo &&
+                   std::get<Text>(togo->item).value == "-" + formatDuration(playing.duration - half),
+               "a dragged bar's times show the time under the pointer");
+        expect(find(dragged, "expandedBottom/0/1")->item == find(scene, "expandedBottom/0/1")->item &&
+                   find(dragged, "expandedCenter/0/0")->item == find(scene, "expandedCenter/0/0")->item,
+               "a drag changes only the times");
+        expect(scrubbedTimes(scene, "expandedBottom/1/0", 0.5f).elements == scene.elements && scrubbedTimes(scene, "nothing", 0.5f).elements == scene.elements,
+               "not a bar: the scene as it was");
+        expect(std::get<Text>(find(scrubbedTimes(scene, "expandedBottom/0/1", 7.0f), "expandedBottom/0/0")->item).value == formatDuration(playing.duration),
+               "a drag past the end shows the end");
+    }
+
     const Placed* elapsed = find(scene, "expandedBottom/0/0");
     const Placed* bar = find(scene, "expandedBottom/0/1");
     const Placed* left = find(scene, "expandedBottom/0/2");

@@ -823,7 +823,10 @@ void ElementVisuals::scrub(const std::string& key, float fraction)
     auto it = views_.find(key);
     if (it == views_.end() || !it->second.fill) return;
     View& view = it->second;
-    if (!view.scrubbing) showKnob(compositor_, view.knob, true);
+    if (!view.scrubbing) {
+        showKnob(compositor_, view.knob, true);
+        rideHead(compositor_, view.wave, false); // dragged: on the bar's line (decision 167)
+    }
     view.scrubbing = true;
     holdProgress(view.fill, std::clamp(fraction, 0.0f, 1.0f) * view.placed.frame.width);
 }
@@ -834,6 +837,7 @@ void ElementVisuals::endScrub(const std::string& key, std::optional<float> seekT
     if (it == views_.end() || !it->second.fill) return;
     View& view = it->second;
     view.scrubbing = false;
+    rideHead(compositor_, view.wave, true); // let go: back on the wave's head
     // Play on from the release point right away; the provider's own update
     // (if the seek landed elsewhere) re-arms the bar when it arrives.
     Timeline timeline = std::get<Progress>(view.placed.item).timeline;

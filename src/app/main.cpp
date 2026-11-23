@@ -285,6 +285,8 @@ void dispatch(const Event& event, const char* reason)
     g_state = reduce(g_state, event, t);
     if (g_state.seenPanels != wasSeen) saveSeenPanels(g_state.seenPanels);
     Scene next = layout(g_state, t, [](const Text& text) { return g_renderer.measure(text); });
+    // A bar being dragged: its times show where the pointer is, not where playback is (decision 167).
+    if (g_island.pointer.scrub) next = scrubbedTimes(std::move(next), g_island.pointer.scrub->key, g_island.pointer.scrubFraction);
 
     if (next.mode != g_island.scene.mode) {
         logLine("%s -> %s (%s) %s", toString(g_island.scene.mode), toString(next.mode), reason, next.label.c_str());

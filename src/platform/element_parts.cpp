@@ -157,9 +157,11 @@ ProgressParts createProgress(Compositor const& c, Vec2 frame, const Color& accen
     parts.fill = fill;
     if (wavy) parts.wave = createWave(c, factory, frame, parts.accent, fill);
     if (parts.wave.visual) {
-        // The wave is the filled part (decision 167). The fill stays, unseen: its width is
-        // what playback animates, and the wave's clip, the knob and the track read it.
-        fillShape.FillBrush(brushOf(c, Color{ 0, 0, 0, 0 }));
+        // The wave is the filled part (decision 167). The fill stays: its width is what
+        // playback animates, and the wave's clip, the knob and the track read it.
+        // Seen only while the wave lies flat (ripple()): it thins to nothing about the bar's line.
+        fillShape.CenterPoint({ 0.0f, frame.y / 2 });
+        parts.wave.flat = fillShape;
         parts.wave.visual.Offset({ x, 0.0f, 0.0f });
         parts.visual.Children().InsertAtTop(parts.wave.visual);
         // The track starts where the wave ends, so no straight line shows under it.
@@ -201,6 +203,21 @@ ProgressParts createProgress(Compositor const& c, Vec2 frame, const Color& accen
         auto capShape = c.CreateSpriteShape(cap);
         capShape.FillBrush(parts.accent);
         top.Shapes().Append(capShape);
+    }
+    if (parts.wave.visual) {
+        // The knob rides the head too under the pointer; dragged, it's on the bar's line, where
+        // the pointer aims (rideHead: Riding 1 or 0).
+        parts.wave.knob = c.CreatePropertySet();
+        parts.wave.knob.InsertScalar(L"Riding", 1.0f);
+        center = c.CreateExpressionAnimation(L"Vector2(fill.Offset.X + fill.Size.X, middle - knob.Riding * swing * line.Scale.Y * "
+                                             L"Sin(turn * (fill.Size.X - line.Offset.X) / length))");
+        center.SetReferenceParameter(L"fill", fill);
+        center.SetReferenceParameter(L"line", parts.wave.line);
+        center.SetReferenceParameter(L"knob", parts.wave.knob);
+        center.SetScalarParameter(L"middle", frame.y / 2);
+        center.SetScalarParameter(L"swing", t.progressWaveAmplitude);
+        center.SetScalarParameter(L"turn", 6.2831853f);
+        center.SetScalarParameter(L"length", std::max(t.progressWaveLength, 1.0f));
     }
     float r = t.progressKnobSize / 2;
     auto knob = c.CreateEllipseGeometry();
