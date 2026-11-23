@@ -9,6 +9,7 @@
 #include "platform/graphics_device.h"
 #include "platform/win.h"
 
+#include <cstdint>
 #include <optional>
 
 namespace cup::platform {
@@ -26,13 +27,21 @@ public:
 
 private:
     void animate(bool in, float slide);
-    void applyShadow(); // toastShadowBlur, -Offset, -Color
+    void applyShadow();        // toastShadowBlur, -Offset, -Color
+    void paintShadowMask(Vec2 size, float radius); // the pill's shape for the shadow, redrawn when it changes
 
     wuc::Compositor compositor_{ nullptr };
     wuc::ContainerVisual frame_{ nullptr };                   // still, clipped to the card
     wuc::ContainerVisual layer_{ nullptr };                   // slides and fades as one: the pill and its content
-    wuc::LayerVisual pillLayer_{ nullptr };                   // the pill, casting its shadow (decision 151)
+    // The shadow (decisions 151, 165): a sprite under the pill that draws nothing itself
+    // and casts a DropShadow masked by the pill's shape, as raised art's (decision 094).
+    wuc::SpriteVisual caster_{ nullptr };
     wuc::DropShadow shadow_{ nullptr };
+    wuc::CompositionDrawingSurface shadowMask_{ nullptr };
+    GraphicsDevice* device_ = nullptr;
+    Vec2 maskSize_{};             // what shadowMask_ was last painted for...
+    float maskRadius_ = 0;
+    std::uint64_t maskGeneration_ = 0; // ...and on which device (decision 164)
     wuc::ShapeVisual background_{ nullptr };
     wuc::CompositionRoundedRectangleGeometry shape_{ nullptr };
     wuc::CompositionColorBrush fill_{ nullptr };

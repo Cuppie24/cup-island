@@ -267,8 +267,8 @@ struct Tokens {
     float artShadowBlur = 12;
     Vec2 artShadowOffset{ 0, 3 };
     // Under a toast (decision 151), colour in toastShadowColor: it floats over the page, apart from it.
-    float toastShadowBlur = 14;
-    Vec2 toastShadowOffset{ 0, 3 };
+    float toastShadowBlur = 10;
+    Vec2 toastShadowOffset{ 0, 6 }; // well down: a shadow below the pill, not a haze around it (decision 165)
 
     // Glass (decision 089): the blurred desktop behind the island, at one
     // brightness (glassLuminosityColor) like Windows' own acrylic, the island's
