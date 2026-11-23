@@ -37,15 +37,17 @@ frosted glass stays as it was and stays the default.
   025). In a rim `glassLiquidRim` wide it shows what's further **out**, up
   to `glassLiquidBend` px past the edge at the edge itself, growing as a
   cube: what's beside the island wraps into its lip, as round a real
-  pane's. Blurred about `glassLiquidBlur` px, stronger colours
+  pane's. Blurred (below), stronger colours
   (`glassLiquidSaturation`), darker (`glassLiquidDim`, so white text reads
   over a white window), the lip lighter (`glassLiquidLipOpacity`). A
   shape on the screen edge has no rim along its top (`liquidShape`, core).
-- **The blur is the picture's smaller copies.** Each frame the layer's part
-  of the capture is copied to a texture of our own and its mip levels are
-  made; the shader reads the level the blur asks for (a higher one where
-  the bend squeezes the picture), with two rings of taps to hide that
-  level's own pixels.
+- **The blur is a real one.** Each frame the layer's part of the capture is
+  copied to a texture of our own; its quarter-size copy (a mip level) is
+  blurred across and then down by a 17-tap Gaussian (`blurps`), into two
+  quarter-size textures; the glass reads the result with one tap.
+  `glassLiquidBlur` is the Gaussian's sigma in screen pixels (2 to 16).
+  Blurring a quarter-size picture costs a sixteenth of the pixels, and a
+  blurred picture enlarged is smooth.
 - **The bright edge is the compositor's.** The rim's line (decision 089),
   on liquid glass at `glassLiquidHighlightOpacity` (`glassRimAt`, core):
   a vector stroke, antialiased, exactly on the outline through a morph.
@@ -64,10 +66,20 @@ frosted glass stays as it was and stays the default.
   a 1.5 px edge at 0.5 looked "weird but not glass": mocked side by side,
   1 px at about 0.2 is what a glass tile's edge looks like. **Look before
   tuning**: a shader's look can be checked in a browser from Linux.
+  (4) Still pixelated: the fix in (3) read the picture's smaller copies
+  *as* the blur, and a small copy enlarged is a blocky picture, not a
+  blurred one. It had looked smooth in the prototype because it was
+  judged in views scaled down; zoomed to single pixels it was plainly
+  blocky. So: **judge at the pixels** (a nearest-neighbour zoom), and the
+  blur became the Gaussian above. And the shiny edges, all the way round
+  every widget, read as outlines drawn on: glass catches light on two
+  corners, so the shine became a one-pixel hairline round the top left
+  and the bottom right, gone in between.
 - **What's on the glass shines too.** On liquid glass, a shiny edge: a
-  stroke just inside the outline, brightest at the top left, dim across
-  the middle, bright again at the bottom right, `glassLiquidShineOpacity`
-  at its brightest, `glassRimWidth` wide (`liquidShine`, core; `platform/shine`);
+  one-pixel stroke just inside the outline, on two corners only: the top
+  left and, fainter, the bottom right, fading out along the edge either
+  side, `glassLiquidShineOpacity` at its brightest (`liquidShine`, core;
+  `platform/shine`);
   fainter on a surface (`glassLiquidSurfaceShineOpacity`). On a filled
   control (a primary button, a toggle that's on), round its circle; on a
   card's large plain controls (media's skips: `liquidRing`, core), round

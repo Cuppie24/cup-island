@@ -9,28 +9,31 @@
 namespace cup::platform {
 namespace {
 
-// Each stop's share of the shine: the top left, the middle, the bottom right.
-constexpr std::array<float, 3> kShares{ 1.0f, 0.12f, 0.7f };
+// Corner to corner: where each stop is, and its share of the shine. Bright
+// at the top left, gone by 30% of the way, back for the last 30%, fainter.
+constexpr std::array<float, 4> kAt{ 0.0f, 0.3f, 0.7f, 1.0f };
+constexpr std::array<float, 4> kShares{ 1.0f, 0.0f, 0.0f, 0.6f };
+constexpr float kWidth = 1.0f; // a hairline: one pixel, not scaled with the display
 
 Color white(float opacity) { return { 255, 255, 255, static_cast<std::uint8_t>(std::lround(255 * std::clamp(opacity, 0.0f, 1.0f))) }; }
 
 } // namespace
 
-Shine makeShine(wuc::Compositor const& c, float width)
+Shine makeShine(wuc::Compositor const& c)
 {
     Shine shine;
-    shine.width = width;
+    shine.width = kWidth;
     shine.outline = c.CreateRoundedRectangleGeometry();
     auto brush = c.CreateLinearGradientBrush(); // corner to corner of the outline's bounds
     brush.StartPoint({ 0.0f, 0.0f });
     brush.EndPoint({ 1.0f, 1.0f });
     for (std::size_t i = 0; i < shine.stops.size(); ++i) {
-        shine.stops[i] = c.CreateColorGradientStop(i / 2.0f, toUiColor(white(0)));
+        shine.stops[i] = c.CreateColorGradientStop(kAt[i], toUiColor(white(0)));
         brush.ColorStops().Append(shine.stops[i]);
     }
     shine.shape = c.CreateSpriteShape(shine.outline);
     shine.shape.StrokeBrush(brush);
-    shine.shape.StrokeThickness(width);
+    shine.shape.StrokeThickness(kWidth);
     return shine;
 }
 

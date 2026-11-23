@@ -81,12 +81,29 @@ void LiquidGlass::build(wuc::Compositor const& compositor, const char*& step)
     winrt::check_hresult(device_->CreateTexture2D(&picture, nullptr, desktop_.put()));
     winrt::check_hresult(device_->CreateShaderResourceView(desktop_.get(), nullptr, view_.put()));
 
+    step = "blur";
+    smallSize_ = { (layerSize_.cx + 3) / 4, (layerSize_.cy + 3) / 4 };
+    for (Quarter* made : { &across_, &blurred_ }) {
+        D3D11_TEXTURE2D_DESC desc = picture;
+        desc.Width = static_cast<UINT>(smallSize_.cx);
+        desc.Height = static_cast<UINT>(smallSize_.cy);
+        desc.MipLevels = 1;
+        desc.MiscFlags = 0;
+        winrt::check_hresult(device_->CreateTexture2D(&desc, nullptr, made->texture.put()));
+        winrt::check_hresult(device_->CreateRenderTargetView(made->texture.get(), nullptr, made->target.put()));
+        winrt::check_hresult(device_->CreateShaderResourceView(made->texture.get(), nullptr, made->view.put()));
+    }
+
     step = "vertex shader";
     auto vertex = compile("vs", "vs_4_0");
     winrt::check_hresult(device_->CreateVertexShader(vertex->GetBufferPointer(), vertex->GetBufferSize(), nullptr, vertex_.put()));
     step = "pixel shader";
     auto pixel = compile("ps", "ps_4_0");
     winrt::check_hresult(device_->CreatePixelShader(pixel->GetBufferPointer(), pixel->GetBufferSize(), nullptr, pixel_.put()));
+
+    step = "blur shader";
+    auto blur = compile("blurps", "ps_4_0");
+    winrt::check_hresult(device_->CreatePixelShader(blur->GetBufferPointer(), blur->GetBufferSize(), nullptr, blur_.put()));
 
     step = "states";
     D3D11_BUFFER_DESC buffer{};

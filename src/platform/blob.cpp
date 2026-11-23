@@ -263,7 +263,7 @@ void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, cons
     mark.visual.Offset({ at->x, at->y, 0 });
     if (shiny) { // a Home widget: its edge shines on liquid glass (decision 165)
         if (!mark.shine.shape) {
-            mark.shine = makeShine(compositor_, std::max(tokens().glassRimWidth, 1.0f));
+            mark.shine = makeShine(compositor_);
             mark.visual.Shapes().Append(mark.shine.shape);
         }
         placeShine(mark.shine, { 0, 0, at->width, at->height }, cornerRadius);

@@ -20,6 +20,8 @@
 
 namespace cup::platform {
 
+struct LiquidParams; // liquid_shader.h
+
 class LiquidGlass {
 public:
     // Where Windows can draw it at all (liquidCaptureOffered).
@@ -82,6 +84,19 @@ private:
     // the shader reads, blurred for free.
     winrt::com_ptr<ID3D11Texture2D> desktop_;
     winrt::com_ptr<ID3D11ShaderResourceView> view_;
+    // ...and that picture blurred, a quarter the size: across into the
+    // first, then down into the second, which is what the glass shows.
+    struct Quarter {
+        winrt::com_ptr<ID3D11Texture2D> texture;
+        winrt::com_ptr<ID3D11RenderTargetView> target;
+        winrt::com_ptr<ID3D11ShaderResourceView> view;
+    };
+    Quarter across_, blurred_;
+    SIZE smallSize_{};
+    winrt::com_ptr<ID3D11PixelShader> blur_;
+    // One pass: `shader` over `scissor` of `target` (as large as `size`), reading `source`.
+    void pass(ID3D11RenderTargetView* target, SIZE size, D3D11_RECT scissor, ID3D11PixelShader* shader, ID3D11ShaderResourceView* source,
+              const LiquidParams& params);
 };
 
 } // namespace cup::platform

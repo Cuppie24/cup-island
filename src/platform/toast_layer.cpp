@@ -46,7 +46,7 @@ void ToastLayer::setShiny()
 {
     if (shine_.shape) return;
     const Tokens& t = tokens();
-    shine_ = makeShine(compositor_, std::max(t.glassRimWidth, 1.0f));
+    shine_ = makeShine(compositor_);
     background_.Shapes().Append(shine_.shape); // over the pill's own edge; placed with the next toast
     fadeShine(shine_, liquidShine(t, true), Ms{ 1 });
     elements_.setShiny(true); // its button too
