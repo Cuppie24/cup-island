@@ -3,8 +3,10 @@
 // once a day (Host::wakeAt; the last check is kept in the store, so restarts
 // don't add checks). A newer release is offered in Settings, with a dot in
 // the accent on its gear (decision 152; no widget, card or alert of its own):
-// Update and restart downloads the installer, checks its SHA-256 and runs it
-// silently, which closes the island, replaces it and starts it again. Nothing
+// Update and restart asks GitHub again and takes whatever release is latest
+// now, not the one found earlier (decision 172), downloads its installer,
+// checks its SHA-256 and runs it silently, which closes the island, replaces
+// it and starts it again. Nothing
 // installs without a click (TR §10) but a mandatory release (decision 041).
 // Dev builds never check. Fetching, downloading and running are the app's
 // (UpdateHooks), so this stays pure and is tested on Linux.
@@ -61,7 +63,10 @@ public:
     void checkNow(Reply reply);
 
     // Installs the offer: Settings' Update and restart (decisions 037, 152).
-    // Nothing without an offer, or while installing.
+    // Asks GitHub first and installs the latest release as it is now, which
+    // replaces the offer if another came out since (decision 172): withdrawn
+    // if there's nothing to move to any more; the offer as found if GitHub
+    // can't be asked. Nothing without an offer, or while installing.
     void install();
 
     // Told whenever the offer or its stage changes: nothing when there's no
@@ -88,6 +93,7 @@ private:
     void withdraw(bool forget = true); // no offer any more; forget: and not after a restart either (not when just stopping)
     void restore();  // the saved offer, at start, if it's still another version than this build
     void installMandatory(); // a mandatory offer at start: installs it, up to kMandatoryTries times
+    void download(); // the offer's installer, through hooks_.install: the check before it is done
 
     UpdateHooks hooks_;
     Host* host_ = nullptr;
@@ -96,6 +102,8 @@ private:
     UpdateStage stage_ = UpdateStage::Offered;
     std::string problem_;
     bool checking_ = false;
+    bool confirming_ = false; // installing: the check under way decides what (decision 172)
+    bool announce_ = false;   // a mandatory install: its alert, once the check says which version
     std::vector<Reply> replies_;
     std::function<void(const std::optional<UpdateStatus>&)> listener_;
     std::shared_ptr<bool> alive_ = std::make_shared<bool>(true); // false once stopped: late callbacks do nothing
