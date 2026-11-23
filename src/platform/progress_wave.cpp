@@ -8,6 +8,8 @@
 #include <winrt/Windows.Graphics.h>
 
 #include <algorithm>
+#include <chrono>
+#include <cmath>
 #include <utility>
 #include <vector>
 
@@ -58,15 +60,41 @@ CompositionPath pathThrough(ID2D1Factory* factory, const std::vector<Vec2>& poin
     return CompositionPath(winrt::make<GeometrySource>(lineThrough(factory, points)));
 }
 
-// All of one ripple, phase 0 to phase 0 again, over and over.
-PathKeyFrameAnimation runOf(Compositor const& c, const WaveParts& wave)
+// The share of the animation that is the rise (flat to the first phase); the rest is one ripple.
+constexpr float kRise = 0.2f;
+
+// Flat, the first phase, then all of one ripple back to the first phase. Never played by its
+// own time: shown() says how far along it is.
+PathKeyFrameAnimation risingThenRunning(Compositor const& c, const WaveParts& wave)
 {
-    auto run = c.CreatePathKeyFrameAnimation();
+    auto anim = c.CreatePathKeyFrameAnimation();
     auto steady = c.CreateLinearEasingFunction();
-    for (int i = 0; i <= kPhases; ++i) run.InsertKeyFrame(i / float(kPhases), wave.phases[i % kPhases], steady);
-    run.Duration(std::max(tokens().progressWavePeriod, Ms{ 1 }));
-    run.IterationBehavior(AnimationIterationBehavior::Forever);
-    return run;
+    anim.InsertKeyFrame(0.0f, wave.flat);
+    for (int i = 0; i <= kPhases; ++i) anim.InsertKeyFrame(kRise + (1 - kRise) * i / float(kPhases), wave.phases[i % kPhases], steady);
+    anim.Duration(std::chrono::seconds(1));
+    return anim;
+}
+
+// How far along risingThenRunning the line is: rising, by how far it has risen; risen, by the
+// clock, less the head's distance from where it rose in waves. A head dragged a wave's length
+// to the right shows the phase of a ripple earlier: on the bar, the ripples haven't moved.
+ExpressionAnimation shown(Compositor const& c, const WaveParts& wave)
+{
+    auto at = c.CreateExpressionAnimation(
+        L"wave.Rise < 1 ? rise * wave.Rise : rise + (1 - rise) * ((wave.Clock - (fill.Size.X - wave.Anchor) / length) - "
+        L"Floor(wave.Clock - (fill.Size.X - wave.Anchor) / length))");
+    at.SetReferenceParameter(L"wave", wave.state);
+    at.SetReferenceParameter(L"fill", wave.fill);
+    at.SetScalarParameter(L"rise", kRise);
+    at.SetScalarParameter(L"length", std::max(tokens().progressWaveLength, 1.0f));
+    return at;
+}
+
+float fraction(float value) { return value - std::floor(value); }
+
+CompositionEasingFunction gentle(Compositor const& c)
+{
+    return c.CreateCubicBezierEasingFunction({ 0.4f, 0.0f }, { 0.2f, 1.0f }); // in and out: a swing growing or dying away
 }
 
 } // namespace
@@ -105,49 +133,106 @@ WaveParts createWave(Compositor const& c, ID2D1Factory* factory, Vec2 frame, Com
         wave.visual.Size(toFloat2(frame));
         wave.visual.Shapes().Append(wave.line);
         wave.visual.Clip(c.CreateGeometricClip(opening));
+
+        wave.state = c.CreatePropertySet();
+        wave.state.InsertScalar(L"Rise", 0.0f);
+        wave.state.InsertScalar(L"Clock", 0.0f);
+        wave.state.InsertScalar(L"Anchor", 0.0f);
     } catch (winrt::hresult_error const& e) {
-        logLine("progress: no wave, a plain bar (0x%08lx)", static_cast<unsigned long>(e.code()));
+        logLine("progress: no wave, a plain bar (0x%08lx %ls)", static_cast<unsigned long>(e.code()), e.message().c_str());
         return {};
     }
-    wave.turn = std::make_shared<int>(0);
+    wave.fill = fill;
+    wave.factory = factory;
+    wave.frame = frame;
     return wave;
 }
 
-void ripple(Compositor const& c, WaveParts& wave, bool playing, bool atOnce)
+namespace {
+
+void rise(Compositor const& c, WaveParts& wave, float head, bool atOnce)
+{
+    const Tokens& t = tokens();
+    wave.rise = atOnce ? Ms{ 0 } : std::max(t.progressWaveSettle, Ms{ 1 });
+    wave.roseAt = std::chrono::steady_clock::now();
+    wave.runs = !t.reducedMotion && t.progressWavePeriod > Ms{ 0 }; // reduced motion: it rises, and stays (decision 080)
+    wave.anchor = head;
+    wave.state.StopAnimation(L"Rise");
+    wave.state.StopAnimation(L"Clock");
+    wave.state.InsertScalar(L"Anchor", head);
+    wave.state.InsertScalar(L"Clock", 0.0f);
+    wave.state.InsertScalar(L"Rise", atOnce ? 1.0f : 0.0f);
+    if (!atOnce) {
+        auto up = c.CreateScalarKeyFrameAnimation(); // both ends given (decision 008)
+        up.InsertKeyFrame(0.0f, 0.0f);
+        up.InsertKeyFrame(1.0f, 1.0f, gentle(c));
+        up.Duration(wave.rise);
+        wave.state.StartAnimation(L"Rise", up);
+    }
+    if (wave.runs) {
+        // Starts at 0 as the rise ends: the first phase, where the rise left the line.
+        auto clock = c.CreateScalarKeyFrameAnimation();
+        clock.InsertKeyFrame(0.0f, 0.0f);
+        clock.InsertKeyFrame(1.0f, 1.0f, c.CreateLinearEasingFunction());
+        clock.Duration(t.progressWavePeriod);
+        clock.IterationBehavior(AnimationIterationBehavior::Forever);
+        if (!atOnce) {
+            clock.DelayTime(wave.rise);
+            clock.DelayBehavior(AnimationDelayBehavior::SetInitialValueBeforeDelay);
+        }
+        wave.state.StartAnimation(L"Clock", clock);
+    }
+    // The path's animation, held still, its progress the expression's.
+    wave.geometry.StartAnimation(L"Path", risingThenRunning(c, wave));
+    auto controller = wave.geometry.TryGetAnimationController(L"Path");
+    if (!controller) {
+        logLine("progress: the wave's animation can't be driven; it stays flat");
+        wave.geometry.StopAnimation(L"Path");
+        return;
+    }
+    controller.Pause();
+    controller.StartAnimation(L"Progress", shown(c, wave));
+}
+
+void lieDown(Compositor const& c, WaveParts& wave, float head, bool atOnce)
+{
+    const Tokens& t = tokens();
+    wave.state.StopAnimation(L"Rise");
+    wave.state.StopAnimation(L"Clock");
+    if (atOnce || !wave.rippling) {
+        wave.geometry.StopAnimation(L"Path");
+        wave.geometry.Path(wave.flat);
+        return;
+    }
+    // The line as it is now, worked out as shown() does: how far it had risen, or which phase.
+    auto since = std::chrono::duration_cast<Ms>(std::chrono::steady_clock::now() - wave.roseAt);
+    float swing = 1, phase = 0;
+    if (since < wave.rise) {
+        swing = static_cast<float>(since.count()) / static_cast<float>(wave.rise.count());
+    } else {
+        float clock = wave.runs ? fraction(static_cast<float>((since - wave.rise).count()) / static_cast<float>(t.progressWavePeriod.count())) : 0.0f;
+        phase = kTurn * fraction(clock - (head - wave.anchor) / std::max(t.progressWaveLength, 1.0f));
+    }
+    auto down = c.CreatePathKeyFrameAnimation(); // both ends given (decision 008): from there to flat
+    down.InsertKeyFrame(0.0f, pathThrough(wave.factory, wavePoints(wave.frame.x, wave.frame.y / 2, phase, swing)));
+    down.InsertKeyFrame(1.0f, wave.flat, gentle(c));
+    down.Duration(std::max(t.progressWaveSettle, Ms{ 1 }));
+    wave.geometry.StartAnimation(L"Path", down);
+}
+
+} // namespace
+
+void ripple(Compositor const& c, WaveParts& wave, bool playing, float head, bool atOnce)
 {
     if (!wave.geometry || wave.rippling == playing) return;
-    wave.rippling = playing;
-    const Tokens& t = tokens();
-    int turn = ++*wave.turn;
-    bool runs = playing && !t.reducedMotion && t.progressWavePeriod > Ms{ 0 }; // reduced motion: it rises, and stays (decision 080)
     try {
-        if (atOnce) {
-            wave.geometry.StopAnimation(L"Path");
-            wave.geometry.Path(playing ? wave.phases.front() : wave.flat);
-            if (runs) wave.geometry.StartAnimation(L"Path", runOf(c, wave));
-            return;
-        }
-        // From however it is now to flat, or to where a ripple starts.
-        auto settle = c.CreatePathKeyFrameAnimation();
-        settle.InsertKeyFrame(1.0f, playing ? wave.phases.front() : wave.flat,
-                              c.CreateCubicBezierEasingFunction(toFloat2(t.morphEase.c1), toFloat2(t.morphEase.c2)));
-        settle.Duration(std::max(t.progressWaveSettle, Ms{ 1 }));
-        auto risen = c.CreateScopedBatch(CompositionBatchTypes::Animation);
-        wave.geometry.StartAnimation(L"Path", settle);
-        risen.End();
-        if (!runs) return;
-        // Risen, it runs: unless it was told otherwise meanwhile (paused again).
-        risen.Completed([c, wave, turn](auto&&, auto&&) {
-            if (*wave.turn != turn) return;
-            try {
-                wave.geometry.StartAnimation(L"Path", runOf(c, wave));
-            } catch (winrt::hresult_error const& e) { // nothing may leave a handler (decision 158)
-                logLine("progress: the wave couldn't run (0x%08lx)", static_cast<unsigned long>(e.code()));
-            }
-        });
+        if (playing) rise(c, wave, head, atOnce);
+        else lieDown(c, wave, head, atOnce);
     } catch (winrt::hresult_error const& e) {
-        logLine("progress: the wave couldn't change (0x%08lx)", static_cast<unsigned long>(e.code()));
+        logLine("progress: the wave couldn't %s (0x%08lx %ls)", playing ? "rise" : "lie down", static_cast<unsigned long>(e.code()),
+                e.message().c_str());
     }
+    wave.rippling = playing;
 }
 
 } // namespace cup::platform
