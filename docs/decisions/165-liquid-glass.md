@@ -24,7 +24,7 @@ frosted glass stays as it was and stays the default.
   three picks in place of the switch: **Off, Frosted, Liquid** (saved in
   the same key: "off", "on", "liquid"). Picking Liquid **asks first**: a
   question over the window (decision 122) under a gauge icon (`Dialog::glyph`,
-  new: an icon over a window question's title), saying it uses more GPU
+  new: an icon over a window question's title), saying it's experimental, uses more GPU
   and battery and hides the island from screenshots; nothing changes until
   it's answered "Turn on". (First a toast: it went by itself, read or
   not.) While Liquid is picked the row keeps saying what it costs. Elsewhere it's the switch.

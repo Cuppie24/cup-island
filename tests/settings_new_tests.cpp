@@ -313,9 +313,9 @@ void glassTests()
            "liquid glass: three picks in place of the switch, frosted picked");
     liquid.onAction(fromWindow(std::string(P::kPickGlass) + "2"));
     expect(lh.questions.size() == 1 && lh.questions[0].title == "Turn on liquid glass?" && lh.questions[0].glyph == Glyph::Gauge &&
-               lh.questions[0].message.find("GPU and battery") != std::string::npos && lh.questions[0].confirmLabel == "Turn on" &&
+               lh.questions[0].message.find("GPU and battery") != std::string::npos && lh.questions[0].message.find("experimental") != std::string::npos && lh.questions[0].confirmLabel == "Turn on" &&
                !lh.questions[0].windowId.empty() && !lh.questions[0].destructive && lh.toasts.empty(),
-           "liquid glass: picking it asks first, over the window, with a gauge and what it costs; no toast");
+           "liquid glass: picking it asks first, over the window, with a gauge, that it's experimental and what it costs; no toast");
     expect(said.back() == "on" && said[said.size() - 2] == "frosted" && lh.store[SettingsProvider::kGlassKey].empty() && effect().picked == 1,
            "liquid glass: until it's answered nothing changes, and the row still shows frosted");
     liquid.onAction(fromWindow(P::kConfirmLiquid));

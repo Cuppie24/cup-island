@@ -280,7 +280,7 @@ void SettingsProvider::onAction(const Action& action)
         if (*at == 2 && !liquid_) {
             publish();
             host_->ask({ .title = "Turn on liquid glass?",
-                         .message = "It uses more GPU and battery while the screen changes, and hides the island from screenshots and recordings.",
+                         .message = "This is an experimental feature. It uses more GPU and battery while the screen changes, and hides the island from screenshots and recordings.",
                          .confirmLabel = "Turn on",
                          .confirmAction = settings_action::kConfirmLiquid,
                          .windowId = kSettingsWindowId,
