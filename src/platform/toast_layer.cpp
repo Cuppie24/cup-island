@@ -4,6 +4,7 @@
 #include "core/tokens.h"
 #include "platform/blob_shape.h"
 #include "platform/element_parts.h"
+#include "platform/text_format.h"
 
 #include <algorithm>
 
@@ -29,16 +30,20 @@ void ToastLayer::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Co
     pill.FillBrush(fill_);
     pill.StrokeBrush(edge_);
     pill.StrokeThickness(t.dividerThickness);
+    // Drawn straight into the tree, as the menu's panel is, so its edge is the shape's own.
+    // (In a LayerVisual casting the shadow it came out fuzzy and stepped: decision 170.)
+    // Soft: a window's tree is Hard, which leaves rounded corners aliased (decision 161).
     background_ = c.CreateShapeVisual();
+    background_.BorderMode(wuc::CompositionBorderMode::Soft);
     background_.Shapes().Append(pill);
-    // In a layer, whose shadow takes the shape of what's drawn in it: the pill's rounded
-    // corners, not its rectangle. LayerVisual.Shadow is Windows 10 1607 (decision 015).
-    pillLayer_ = c.CreateLayerVisual();
-    pillLayer_.Children().InsertAtTop(background_);
+    layer_.Children().InsertAtBottom(background_);
+    // Its shadow, under it. DropShadow.Mask is Windows 10 1607 (decision 015).
+    device_ = &device;
     shadow_ = c.CreateDropShadow();
     applyShadow();
-    pillLayer_.Shadow(shadow_);
-    layer_.Children().InsertAtBottom(pillLayer_);
+    caster_ = c.CreateSpriteVisual(); // no brush: only its shadow shows
+    caster_.Shadow(shadow_);
+    layer_.Children().InsertAtBottom(caster_);
     elements_.init(c, device, layer_); // its text and button, above the pill
 }
 
@@ -57,12 +62,16 @@ void ToastLayer::show(const std::optional<ToastScene>& toast, Ms now)
     elements_.apply(toast ? toast->elements : std::vector<Placed>{}, now);
     if (toast) {
         Rect f = snapToPixels(toast->frame); // on the pixels its button and text are on
-        pillLayer_.Offset({ f.x, f.y, 0 });
-        pillLayer_.Size({ f.width, f.height });
+        background_.Offset({ f.x, f.y, 0 });
         background_.Size({ f.width, f.height });
-        shape_.Size({ f.width, f.height });
-        shape_.CornerRadius({ toast->radius, toast->radius });
+        float half = tokens().dividerThickness / 2; // the edge's stroke inside the frame, not cut by it
+        shape_.Offset({ half, half });
+        shape_.Size({ std::max(0.0f, f.width - 2 * half), std::max(0.0f, f.height - 2 * half) });
+        shape_.CornerRadius({ std::max(0.0f, toast->radius - half), std::max(0.0f, toast->radius - half) });
         placeShine(shine_, { 0, 0, f.width, f.height }, toast->radius);
+        caster_.Offset({ f.x, f.y, 0 });
+        caster_.Size({ f.width, f.height });
+        paintShadowMask({ f.width, f.height }, toast->radius);
     }
     if (toast) slide_ = toast->slide;
     if (toast.has_value() != shown_) animate(toast.has_value(), slide_); // a new one over a shown one just takes its place
@@ -87,6 +96,26 @@ void ToastLayer::animate(bool in, float slide)
     offset.Duration(duration);
     layer_.StartAnimation(L"Opacity", opacity);
     layer_.StartAnimation(L"Offset", offset);
+}
+
+// The shadow's mask: opaque where the pill is, its round ends too. Whole pixels (the
+// frame is snapped), so the surface maps onto the caster one to one.
+void ToastLayer::paintShadowMask(Vec2 size, float radius)
+{
+    bool same = shadowMask_ && size.x == maskSize_.x && size.y == maskSize_.y && radius == maskRadius_;
+    if (same && maskGeneration_ == device_->generation()) return;
+    if (!same) {
+        shadowMask_ = device_->createSurface(size);
+        shadow_.Mask(compositor_.CreateSurfaceBrush(shadowMask_));
+    }
+    auto paint = [&](ID2D1DeviceContext* dc) {
+        dc->FillRoundedRectangle(D2D1_ROUNDED_RECT{ D2D1::RectF(0, 0, size.x, size.y), radius, radius }, brushOf(dc, Color{ 0, 0, 0, 255 }).get());
+    };
+    // False: the GPU was lost and the device rebuilt (decision 164); once more on the new one.
+    if (!device_->draw(shadowMask_, paint)) device_->draw(shadowMask_, paint);
+    maskSize_ = size;
+    maskRadius_ = radius;
+    maskGeneration_ = device_->generation();
 }
 
 void ToastLayer::applyShadow()
