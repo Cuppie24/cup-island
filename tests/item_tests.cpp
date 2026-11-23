@@ -67,29 +67,42 @@ void runItemTests()
     expect(hi && hi->frame.x == t.expandedPadding && hi->frame.width == stack.size.x - 2 * t.expandedPadding,
            "centred card: the centre slot spans the card");
 
-    // A wavy bar (decision 167): a plain one's height when that's enough for the
-    // wave's swing (a seekable bar's click height), else the wave's; its line a sine.
+    // A wavy bar (decision 167): at least its wave's swing tall, and its grown knob if it
+    // can be dragged; its line a sine that straightens into its head.
     {
         Rect slot{ 0, 0, 200, 100 };
         Progress plain{ .timeline = running }, wavy{ .timeline = running, .wavy = true };
         Progress seekWavy{ .timeline = running, .seekable = true, .wavy = true };
-        expect(heightOf(wavy, slot, 0) == waveHeight() && waveHeight() == t.progressHeight + 2 * t.progressWaveAmplitude &&
+        expect(heightOf(wavy, slot, 0) == waveSwing() && waveSwing() == t.progressHeight + 2 * t.progressWaveAmplitude &&
                    heightOf(wavy, slot, 0) > heightOf(plain, slot, 0),
                "a wavy bar is as tall as its wave's swing");
-        expect(heightOf(seekWavy, slot, 0) == std::max(t.progressHitHeight, waveHeight()), "a seekable wavy bar keeps its click height");
+        expect(heightOf(seekWavy, slot, 0) >= t.progressHitHeight && heightOf(seekWavy, slot, 0) >= t.progressPinHeight * t.progressPinGrow,
+               "a seekable wavy bar keeps its click height, with room for its knob grown");
         expect(isWavy(wavy) && !isWavy(plain) && !isWavy(Progress{ .timeline = running, .shape = ProgressShape::Ring, .wavy = true }),
                "only a bar is wavy, never a ring");
-        float width = 3 * t.progressWaveLength, middle = 8;
-        std::vector<Vec2> line = wavePoints(width, middle);
-        bool inside = !line.empty(), forward = true;
+        float length = 5 * t.progressWaveLength, middle = 8;
+        std::vector<Vec2> line = wavePoints(length, middle, 0), later = wavePoints(length, middle, 1.0f), flat = wavePoints(length, middle, 0, 0);
+        bool inside = !line.empty(), backwards = true, level = true;
+        float reach = 0;
         for (std::size_t i = 0; i < line.size(); ++i) {
             inside = inside && std::abs(line[i].y - middle) <= t.progressWaveAmplitude + 0.001f;
-            forward = forward && (i == 0 || line[i].x > line[i - 1].x);
+            backwards = backwards && (i == 0 || line[i].x < line[i - 1].x);
+            level = level && flat[i].y == middle && flat[i].x == line[i].x;
+            reach = std::max(reach, std::abs(line[i].y - middle));
         }
-        expect(inside && forward && line.front().x == 0 && line.back().x == width, "the wave runs the whole width, within its swing");
-        expect(std::abs(line.front().y - middle) < 0.001f && std::abs(line.back().y - middle) < 0.01f && line[4].y < middle,
-               "the wave starts and, after whole waves, ends on the line, rising first");
-        expect(wavePoints(0, middle).empty(), "no width: no wave");
+        expect(inside && backwards && line.front().x == 0 && line.back().x == -length, "the wave runs from its head back to its start, within its swing");
+        expect(line.front().y == middle && std::abs(line[1].y - middle) < 0.1f && reach > t.progressWaveAmplitude * 0.95f,
+               "the wave is straight at its head and swings fully further back");
+        expect(later.size() == line.size() && flat.size() == line.size() && level, "every phase, and flat, has the same points: one turns into another");
+        // Past the taper the line is a plain sine: a crest (the least y) is nearer the head a moment later.
+        auto crestBack = [&](const std::vector<Vec2>& points) {
+            std::size_t best = 0;
+            for (std::size_t i = 0; i < points.size(); ++i)
+                if (-points[i].x >= 2 * t.progressWaveLength && -points[i].x < 3 * t.progressWaveLength && (best == 0 || points[i].y < points[best].y)) best = i;
+            return -points[best].x;
+        };
+        expect(crestBack(later) < crestBack(line), "the ripples run towards the head");
+        expect(wavePoints(0, middle, 0).empty(), "no length: no wave");
     }
 
     // RowSpan: a row spans its neighbour's content instead of the slot.

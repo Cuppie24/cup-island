@@ -209,8 +209,9 @@ struct Progress {
     bool seekable = false; // bars only
     ProgressShape shape = ProgressShape::Bar;
     // Bars only: its filled part a wave that ripples along while the timeline
-    // plays and lies flat, a plain bar, when it doesn't; the rest a straight
-    // track from where the wave ends (decision 167). Its row is at least the wave's height.
+    // plays and lies flat, a plain bar, when it doesn't, straightening into its
+    // head; the rest a straight track. Seekable, an upright knob is always at its
+    // head, bigger under the pointer (decision 167). Its row is at least the wave's height.
     bool wavy = false;
     bool operator==(const Progress&) const = default;
 };

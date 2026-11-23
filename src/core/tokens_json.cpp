@@ -157,6 +157,11 @@ const Field kFields[] = {
     { "progressKnobSize", &Tokens::progressKnobSize },
     { "progressWaveLength", &Tokens::progressWaveLength },
     { "progressWaveAmplitude", &Tokens::progressWaveAmplitude },
+    { "progressWaveTaper", &Tokens::progressWaveTaper },
+    { "progressPinWidth", &Tokens::progressPinWidth },
+    { "progressPinHeight", &Tokens::progressPinHeight },
+    { "progressPinGrow", &Tokens::progressPinGrow },
+    { "progressPinGap", &Tokens::progressPinGap },
     { "timeLabelWidth", &Tokens::timeLabelWidth },
     { "ringThickness", &Tokens::ringThickness },
     { "stepDotSize", &Tokens::stepDotSize },
@@ -549,7 +554,7 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
     // lightnesses and chromas (decision 051), nor the shares below.
     auto unitless = [](const char* name) {
         std::string_view n(name);
-        return n.starts_with("cover") || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" || n == "searchVisibleRows" ||
+        return n.starts_with("cover") || n == "progressPinGrow" || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" || n == "searchVisibleRows" ||
                n == "primaryHoverOpacity" || n == "playGlyphNudge" || // a share of an opacity, of a width (decisions 066, 071)
                (n.starts_with("glass") && n.ends_with("Opacity")) || // opacities (decisions 089, 090, 096)
                n == "glassGlowCurve" || n == "glassCardGlowCurve" ||  // exponents (decisions 090, 166)

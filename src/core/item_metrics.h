@@ -16,12 +16,16 @@ float fontSize(TextStyle style);   // its text's size, px (tokens)
 TextStyle detailStyleOf(TextStyle style);
 bool isRing(const Item& item);
 bool isWavy(const Item& item); // a Progress bar with `wavy` (decision 167)
-// A wavy bar's height: its line, swinging progressWaveAmplitude to each side.
-float waveHeight();
-// The wave's line, left to right: points along a sine from x = 0 to `width`,
-// around y = `middle`, starting on it and rising first. Close enough together
-// to read as a curve. Nothing for a wave with no length.
-std::vector<Vec2> wavePoints(float width, float middle);
+// A wavy bar's height: its line's swing, or its knob grown under the pointer if it has one.
+float waveHeight(bool seekable = false);
+float waveSwing(); // the line, swinging progressWaveAmplitude to each side
+// The wave's line as it is `phase` (radians) into its ripple, in its head's
+// own coordinates: x from -length (its start) to 0 (its head), around
+// y = `middle`. A sine whose swing shrinks to nothing over the last
+// progressWaveTaper before the head, so it meets the head on the bar's
+// line; as `phase` grows the ripples run towards the head. `swing` 0: flat.
+// The same number of points whatever the phase, so one line can turn into another.
+std::vector<Vec2> wavePoints(float length, float middle, float phase, float swing = 1);
 // Step i's length on screen, from its StepLength (decision 107).
 float stepWidth(const Steps& steps, int i);
 // A primary button's circle (decision 064) and the glyph in it; a compact

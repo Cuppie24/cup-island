@@ -11,50 +11,55 @@ gives none for a track).
 **Decision.** `Progress::wavy`, an option of the host's bar, so any
 provider's bar can have it; media's does.
 - The filled part is a sine line (`progressWaveLength` 28 long, swinging
-  `progressWaveAmplitude` 3 to each side, the bar's thickness). The rest is
-  the straight track, starting where the wave ends.
-- Playing, it runs back from its head, a wave every `progressWavePeriod`
-  (1500 ms): the head leads and the ripples trail it. (Run towards the head
-  first; on Windows that read as backwards.) Not playing, it lies flat over `progressWaveSettle` (300 ms):
-  a plain bar. With reduced motion it rises but doesn't run.
-- Its row is at least the wave's height (`waveHeight`); a seekable bar's
-  click height already is, so media's card doesn't change size.
+  `progressWaveAmplitude` 3 to each side, the bar's thickness). Over the
+  last `progressWaveTaper` (26) before its head it straightens out, so it
+  meets the head on the bar's line. The rest is the straight track.
+- Playing, its ripples run towards the head, a wave every
+  `progressWavePeriod` (1500 ms). Not playing, it lies flat over
+  `progressWaveSettle` (300 ms): a plain bar, at its full thickness. With
+  reduced motion it rises but doesn't run.
+- A seekable wavy bar's knob is an upright pill at the head
+  (`progressPinWidth` 4 by `progressPinHeight` 12, in the knob's colour),
+  always there, `progressPinGrow` (1.3) times bigger under the pointer or
+  dragged. The track starts `progressPinGap` (3) past it. A plain bar's knob
+  is as it was: a circle, only under the pointer.
+- Its row is at least the wave's height, and the grown knob's
+  (`waveHeight`); a seekable bar's click height already is, so media's card
+  doesn't change size.
+- While a bar is dragged, its row's time labels show the time under the
+  pointer, not playback's (`scrubbedTimes`, core, applied to every scene
+  laid out during the drag). Any seekable bar's, wavy or not. Let go, they
+  show playback's again until the app reports the seek.
 
-**How.** The wave is a path (`CompositionPathGeometry`, Windows 10 1809, in
-`platform/progress_wave`), longer than the bar by one wave; sliding it one
-wave's length and starting over is the motion. It's in a child visual
-clipped at the fill's live width, so playback and scrubbing move its end
-with no code of their own. The fill's rectangle stays, unseen: its width is
-still what animates, and the knob and the track read it.
-`ripple()` remembers what it was told, so the card's once-a-second layout
-doesn't restart the run. The line's points are core's (`wavePoints`),
-tested there. If the path can't be made, it's logged and the bar is plain.
+**How.** The line is a path (`CompositionPathGeometry`, Windows 10 1809, in
+`platform/progress_wave`) as long as the bar, hanging from its head: its
+shape's offset is an expression of the fill's live width, so playback and
+scrubbing move it with no code of their own. The fill's rectangle stays,
+unseen: its width is still what animates, and the knob and the track read
+it. The ripples are the path itself changing: twelve paths, one per step of
+a ripple, and a `PathKeyFrameAnimation` through them, looping. That is what
+lets the swing depend on the distance from the head, and "flat" be one more
+path with the same points, glided to. Rising, a scoped batch starts the
+loop when the rise ends, unless it was paused meanwhile. `ripple()`
+remembers what it was told, so the card's once-a-second layout doesn't
+restart the run. The points are core's (`wavePoints`), tested there. Its
+start shows through a window with round ends (a geometric clip). If any of
+it can't be made, it's logged and the bar is plain.
 
-- Neither end is a straight cut (the first build's were, and looked
-  cropped). The head has a round cap: a dot as wide as the line is thick,
-  whose centre is an expression of the line's slide and of how flat it
-  lies, the same sine the path was made from, so it stays on the line's end
-  as that rides up and down. The start shows through a window with round
-  ends (a geometric clip), so it's cut along a curve. The hover knob rides
-  the head too, and it and the cap are in a layer over the wave, so the
-  knob covers it.
-- **Not taken.** A pin at the head, bigger than the line: upright and fixed
-  on the bar's line, the wave slid up and down against it; round and riding
-  the head, it bobbed. Both were tried on Windows and turned down.
+**Tried on Windows and turned down.**
+- One fixed path sliding under a clip, squashed flat by its Y scale: the
+  stroke thinned with the scale whatever `IsStrokeNonScaling` said, a
+  hairline beside the track, and a sliding path can't straighten at a head
+  that moves.
+- Ripples running back from the head; then towards it again, as now.
+- Ends cut straight by the clip: they looked cropped.
+- At the head: an upright pin fixed on the line while the wave moved up and
+  down against it; a round one riding the wave's end, which bobbed; a cap
+  the line's own thickness riding it, with a knob only under the pointer.
+  With the wave straight at its head, a knob fixed on the line has nothing
+  to move against.
 
-- **Paused, the bar's own straight fill shows.** Lying flat was the line's
-  Y scale going to almost nothing with a non-scaling stroke; on a build the
-  stroke thinned with it, a hairline beside the 4 px track. So as the wave
-  sinks it also fades out, and the fill's rectangle, there all along for
-  its width, thickens from nothing to the bar's height (`ripple`).
-- **The knob.** Under the pointer it rides the wave's head; dragged, it's on
-  the bar's line, where the pointer aims (`rideHead`: a scalar the knob's
-  expression multiplies the swing by).
-- **A drag moves the times.** While a bar is dragged, its row's time labels
-  show the time under the pointer, not playback's (`scrubbedTimes`, core,
-  applied to every scene laid out during the drag). Any seekable bar's, wavy
-  or not. Let go, they show playback's again until the app reports the seek.
-
-**Consequences.** Paused, the bar is a plain one with round ends. Tested in
-`tests/item_tests.cpp` (height, the line) and `tests/media_tests.cpp`.
-How it looks and moves needs a Windows run; the four numbers are live tokens.
+**Consequences.** Tested in `tests/item_tests.cpp` (height, the line: its
+taper, its points, which way it runs), `tests/content_tests.cpp` (a drag's
+times) and `tests/media_tests.cpp`. How it looks and moves needs a Windows
+run; the numbers are live tokens.

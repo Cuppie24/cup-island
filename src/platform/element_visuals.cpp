@@ -296,8 +296,10 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         view.track = parts.track;
         view.accent = parts.accent;
     } else if (std::holds_alternative<Progress>(placed.item)) {
-        ProgressParts parts = createProgress(compositor_, size, accent, isWavy(placed.item), device_->d2dFactory());
+        ProgressParts parts = createProgress(compositor_, size, accent, isWavy(placed.item), std::get<Progress>(placed.item).seekable,
+                                             device_->d2dFactory());
         view.wave = parts.wave;
+        view.pinned = parts.pinned;
         view.lead = progressOverhang();
         visualSize.x += 2 * view.lead;
         view.visual = parts.visual;
@@ -408,7 +410,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     if (view.grey && view.knobBrush) view.knobBrush.Color(toUiColor(greyOf(t.knobColor)));
     if (view.surface) paint(view);
     if (view.fill) armProgress(compositor_, view.fill, std::get<Progress>(placed.item).timeline, size.x, now);
-    if (view.wave.line) ripple(compositor_, view.wave, std::get<Progress>(placed.item).timeline.playing, true); // as it is, no settling
+    if (view.wave.geometry) ripple(compositor_, view.wave, std::get<Progress>(placed.item).timeline.playing, true); // as it is, no settling
     if (view.arc) armRing(compositor_, view.arc, ringTimeline(placed.item), now);
     if (!view.bars.empty()) animateBars(view);
     if (view.highlight && focusedField(placed.item)) view.highlight.Opacity(1.0f);
@@ -426,7 +428,8 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     // A bar and a ring are both Progress, but different visuals. A new accent
     // (a cover's colour) isn't a new visual: its brushes fade to it.
     bool retyped = view.placed.item.index() != placed.item.index() || isRing(view.placed.item) != isRing(placed.item) ||
-                   isWavy(view.placed.item) != isWavy(placed.item) ||
+                   isWavy(view.placed.item) != isWavy(placed.item) || // another bar: a wave, another knob
+                   (isWavy(placed.item) && std::get<Progress>(view.placed.item).seekable != std::get<Progress>(placed.item).seekable) ||
                    clickableArt(view.placed.item) != clickableArt(placed.item) || rolls(view.placed.item) != rolls(placed.item);
     bool recoloured = view.placed.accent != placed.accent;
     // In a list, its place is in the list's scroller: scrolling moves the scroller, not it.
@@ -513,7 +516,7 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     // While scrubbing, the bar belongs to the pointer; endScrub() re-arms it.
     if (view.fill && !view.scrubbing) armProgress(compositor_, view.fill, std::get<Progress>(placed.item).timeline, placed.frame.width, now);
     // Paused or playing again: the wave lies flat or rises (decision 167). No change: left running, not restarted.
-    if (view.wave.line) ripple(compositor_, view.wave, std::get<Progress>(placed.item).timeline.playing, false);
+    if (view.wave.geometry) ripple(compositor_, view.wave, std::get<Progress>(placed.item).timeline.playing, false);
     // A Dial changes every second (its time); its ring is re-armed only when its timeline does.
     if (view.arc && (!std::holds_alternative<Dial>(placed.item) || ringTimeline(placed.item) != wasRing))
         armRing(compositor_, view.arc, ringTimeline(placed.item), now);
@@ -781,7 +784,7 @@ void ElementVisuals::showHover(const std::string& key, bool on)
     if (it == views_.end()) return;
     View& view = it->second;
     if (view.highlight) fadeTo(compositor_, view.highlight, on || focusedField(view.placed.item) ? 1.0f : 0.0f, tokens().hoverFadeDuration);
-    if (view.knob && !view.scrubbing) showKnob(compositor_, view.knob, on);
+    if (view.knob && !view.scrubbing) showKnob(compositor_, view.knob, on, view.pinned);
     if (view.art.overlay) showArtOverlay(compositor_, view.art, on);
     if (auto* button = std::get_if<Button>(&view.placed.item); button && (button->secondary || button->primary) && view.lit != on) {
         view.lit = on; // grey to full strength and back (decision 064); a primary's fill softens (decision 066)
@@ -824,10 +827,7 @@ void ElementVisuals::scrub(const std::string& key, float fraction)
     auto it = views_.find(key);
     if (it == views_.end() || !it->second.fill) return;
     View& view = it->second;
-    if (!view.scrubbing) {
-        showKnob(compositor_, view.knob, true);
-        rideHead(compositor_, view.wave, false); // dragged: on the bar's line (decision 167)
-    }
+    if (!view.scrubbing) showKnob(compositor_, view.knob, true, view.pinned);
     view.scrubbing = true;
     holdProgress(view.fill, std::clamp(fraction, 0.0f, 1.0f) * view.placed.frame.width);
 }
@@ -838,7 +838,6 @@ void ElementVisuals::endScrub(const std::string& key, std::optional<float> seekT
     if (it == views_.end() || !it->second.fill) return;
     View& view = it->second;
     view.scrubbing = false;
-    rideHead(compositor_, view.wave, true); // let go: back on the wave's head
     // Play on from the release point right away; the provider's own update
     // (if the seek landed elsewhere) re-arms the bar when it arrives.
     Timeline timeline = std::get<Progress>(view.placed.item).timeline;
@@ -847,7 +846,7 @@ void ElementVisuals::endScrub(const std::string& key, std::optional<float> seekT
         timeline.anchoredAt = now;
     }
     armProgress(compositor_, view.fill, timeline, view.placed.frame.width, now);
-    showKnob(compositor_, view.knob, key == hovered_);
+    showKnob(compositor_, view.knob, key == hovered_, view.pinned);
 }
 
 } // namespace cup::platform
