@@ -22,6 +22,10 @@ LiquidShape liquidShape(Rect body, bool attached, bool leftEar, bool rightEar, c
     return { body, radius, top, leftEar ? ear : 0.0f, rightEar ? ear : 0.0f };
 }
 
+bool liquidPicked(const Tokens& t) { return t.glass && t.glassStyle == GlassStyle::Liquid; }
+
+bool liquidDrawn(const Tokens& t, bool cardOpen) { return liquidPicked(t) && cardOpen; }
+
 bool liquidRing(const Button& button) { return button.large && !button.primary; }
 
 Rect morphRect(Rect from, Rect to, const Motion& motion, Ms elapsed)

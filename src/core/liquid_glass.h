@@ -32,6 +32,16 @@ struct LiquidShape {
 // glass's outline follows them. Nothing (an empty frame) if it has no size.
 LiquidShape liquidShape(Rect body, bool attached, bool leftEar, bool rightEar, const Tokens& t);
 
+// Liquid glass is picked and the island is glass: its shiny edges show,
+// open or collapsed.
+bool liquidPicked(const Tokens& t);
+
+// ...and its picture of the desktop is drawn (decision 172): only while a
+// card is open. Collapsed, the pill is the frosted glass, which costs
+// nothing; the capture behind liquid glass copies the whole screen however
+// small the island is, and the island is collapsed most of the time.
+bool liquidDrawn(const Tokens& t, bool cardOpen);
+
 // On liquid glass, a button with no fill of its own that still gets a shiny
 // edge round its frame: a card's main controls beside its primary one
 // (media's skips, Button::large). The small ones (a row's, the page row's)

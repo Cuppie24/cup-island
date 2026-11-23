@@ -212,6 +212,18 @@ void liquidShapeTests()
                !liquidRing(Button{ .large = true, .primary = true }),
            "liquid: a card's large controls get a shiny ring; small ones don't, a primary shines with its fill");
 
+    // Its picture only while a card is open (decision 172); its shiny edges whenever it's picked.
+    Tokens liquid;
+    liquid.glass = true;
+    liquid.glassStyle = GlassStyle::Liquid;
+    expect(liquidPicked(liquid) && liquidDrawn(liquid, true) && !liquidDrawn(liquid, false),
+           "liquid: picked, its picture is drawn for an open card, not for the collapsed pill");
+    liquid.glassStyle = GlassStyle::Frosted;
+    expect(!liquidPicked(liquid) && !liquidDrawn(liquid, true), "liquid: frosted picked: neither");
+    liquid.glassStyle = GlassStyle::Liquid;
+    liquid.glass = false;
+    expect(!liquidPicked(liquid) && !liquidDrawn(liquid, true), "liquid: a solid island (a light theme): neither");
+
     Motion plain{ Ms{ 300 }, 0, t.morphSpringSettle };
     Rect from{ 0, 0, 100, 40 }, to{ 50, 0, 300, 200 };
     expect(morphRect(from, to, plain, Ms{ 0 }) == from && morphRect(from, to, plain, Ms{ 300 }) == to && morphRect(from, to, plain, Ms{ 900 }) == to,
