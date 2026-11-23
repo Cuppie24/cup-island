@@ -76,6 +76,23 @@ float nearest(float2 p)
     return min(shapeDistance(p, shape[0], radius.x, ears.xy, tops.x), shapeDistance(p, shape[1], radius.y, ears.zw, tops.y));
 }
 
+// How much of a rim there is at `p`, 0 to 1: none in a flared corner or
+// beside one, all of it well below. A flare is only a few pixels deep, so
+// all of it is within the rim's reach of an edge: bent and lit to the full,
+// the corners glowed against the body beside them, which has no rim along
+// the screen edge (decision 165). So the rim fades in down the sides, over
+// three flares' height, and a flare itself (outside the body) has none.
+float rimShare(float2 p)
+{
+    float first = shapeDistance(p, shape[0], radius.x, ears.xy, tops.x), second = shapeDistance(p, shape[1], radius.y, ears.zw, tops.y);
+    bool one = first <= second; // the shape this pixel is in, or nearest to
+    float body = one ? distanceTo(p, shape[0], radius.x) : distanceTo(p, shape[1], radius.y);
+    if (body > 0) return 0;
+    float flare = one ? max(ears.x, ears.y) : max(ears.z, ears.w);
+    if (flare <= 0) return 1; // off the screen edge, or flush with its side: a rim all the way
+    return smoothstep(0, 1, (p.y - (one ? tops.x : tops.y)) / (3 * flare));
+}
+
 float4 ps(float4 at : SV_Position) : SV_Target
 {
     float2 p = at.xy;
@@ -92,7 +109,7 @@ float4 ps(float4 at : SV_Position) : SV_Target
     // further out, past its own edge at the edge itself: what lies beside
     // the island wraps into its lip, as round a real pane's. The bend grows
     // as a cube: nothing at the rim's inner end, most at the edge, no steps.
-    float t = lens.y > 0 ? saturate(1 - inside / lens.y) : 0;
+    float t = lens.y > 0 ? saturate(1 - inside / lens.y) * rimShare(p) : 0;
     float2 from = p + n * lens.z * t * t * t;
     // The picture is already blurred (blurps, twice): one tap, smooth.
     float3 c = desktop.SampleLevel(clamped, from / screen.xy, 0).rgb;
