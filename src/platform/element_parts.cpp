@@ -170,6 +170,20 @@ ProgressParts createProgress(Compositor const& c, Vec2 frame, const Color& accen
         rest.SetReferenceParameter(L"fill", fill);
         rest.SetScalarParameter(L"width", frame.x);
         track.StartAnimation(L"Size", rest);
+        // A pin at the wave's head: the bar's thickness wide, upright, riding the fill's end. The
+        // wave ends in it, wherever in its swing it's cut. Under the knob, which is made after it.
+        float w = h, tall = t.progressWavePinHeight;
+        auto pin = c.CreateRoundedRectangleGeometry();
+        pin.Size({ w, tall });
+        pin.CornerRadius({ w / 2, w / 2 });
+        auto head = c.CreateExpressionAnimation(L"Vector2(fill.Offset.X + fill.Size.X - half, top)");
+        head.SetReferenceParameter(L"fill", fill);
+        head.SetScalarParameter(L"half", w / 2);
+        head.SetScalarParameter(L"top", (frame.y - tall) / 2);
+        pin.StartAnimation(L"Offset", head);
+        auto pinShape = c.CreateSpriteShape(pin);
+        pinShape.FillBrush(parts.accent);
+        parts.visual.Shapes().Append(pinShape);
     }
 
     // The knob is bound to the fill's live (animating) end, so it tracks

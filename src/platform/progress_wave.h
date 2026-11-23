@@ -3,7 +3,9 @@
 // the bar's filled part, drawn as a path so it's a shape like the bar's own.
 // It's cut where the fill ends (a clip that reads the fill's live width), so
 // it follows playback and scrubbing with no code of its own; it ripples
-// along while playing and lies flat, a plain bar, when not. All on the
+// back from its head while playing and lies flat, a plain bar, when not.
+// Neither end is a straight cut: its start shows through a round-ended
+// window, and its head ends in a pin (createProgress). All on the
 // compositor (TR §5).
 
 #include "platform/win.h"
@@ -14,7 +16,7 @@
 namespace cup::platform {
 
 struct WaveParts {
-    wuc::ShapeVisual visual{ nullptr };        // over the bar, the frame's size; null: no wave (it couldn't be made)
+    wuc::ContainerVisual visual{ nullptr };    // over the bar, the frame's size; null: no wave (it couldn't be made)
     wuc::CompositionSpriteShape line{ nullptr };
     std::optional<bool> rippling;              // what it was last told: a tick of the clock doesn't restart it
 };

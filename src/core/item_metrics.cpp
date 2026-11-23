@@ -90,6 +90,12 @@ bool isWavy(const Item& item)
 float waveHeight()
 {
     const Tokens& t = tokens();
+    return std::max(waveSwing(), t.progressWavePinHeight);
+}
+
+float waveSwing()
+{
+    const Tokens& t = tokens();
     return t.progressHeight + 2 * std::max(t.progressWaveAmplitude, 0.0f);
 }
 
