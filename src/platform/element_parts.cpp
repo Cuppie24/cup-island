@@ -131,7 +131,7 @@ void playScale(Compositor const& c, Visual const& visual, float scale, Ms durati
 
 float progressOverhang() { return tokens().progressKnobSize / 2; }
 
-ProgressParts createProgress(Compositor const& c, Vec2 frame, const Color& accent)
+ProgressParts createProgress(Compositor const& c, Vec2 frame, const Color& accent, bool wavy, ID2D1Factory* factory)
 {
     const Tokens& t = tokens();
     float h = t.progressHeight, x = progressOverhang(), y = (frame.y - h) / 2;
@@ -150,10 +150,27 @@ ProgressParts createProgress(Compositor const& c, Vec2 frame, const Color& accen
     parts.track = brushOf(c, t.trackColor);
     parts.accent = brushOf(c, accent);
     parts.knobBrush = brushOf(c, t.knobColor);
-    parts.visual.Shapes().Append(bar(frame.x, parts.track).second);
+    auto [track, trackShape] = bar(frame.x, parts.track);
+    parts.visual.Shapes().Append(trackShape);
     auto [fill, fillShape] = bar(0, parts.accent);
     parts.visual.Shapes().Append(fillShape);
     parts.fill = fill;
+    if (wavy) parts.wave = createWave(c, factory, frame, parts.accent, fill);
+    if (parts.wave.visual) {
+        // The wave is the filled part (decision 167). The fill stays, unseen: its width is
+        // what playback animates, and the wave's clip, the knob and the track read it.
+        fillShape.FillBrush(brushOf(c, Color{ 0, 0, 0, 0 }));
+        parts.wave.visual.Offset({ x, 0.0f, 0.0f });
+        parts.visual.Children().InsertAtTop(parts.wave.visual);
+        // The track starts where the wave ends, so no straight line shows under it.
+        auto start = c.CreateExpressionAnimation(L"Vector2(fill.Offset.X + fill.Size.X, fill.Offset.Y)");
+        start.SetReferenceParameter(L"fill", fill);
+        track.StartAnimation(L"Offset", start);
+        auto rest = c.CreateExpressionAnimation(L"Vector2(Max(width - fill.Size.X, 0), fill.Size.Y)");
+        rest.SetReferenceParameter(L"fill", fill);
+        rest.SetScalarParameter(L"width", frame.x);
+        track.StartAnimation(L"Size", rest);
+    }
 
     // The knob is bound to the fill's live (animating) end, so it tracks
     // playback on the compositor with no app code per frame.

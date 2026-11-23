@@ -26,6 +26,7 @@ public:
     bool draw(wuc::CompositionDrawingSurface const& surface, const std::function<void(ID2D1DeviceContext*)>& paint, bool bigText = false);
 
     IDWriteFactory* dwrite() const { return dwrite_.get(); }
+    ID2D1Factory* d2dFactory() const { return d2dFactory_.get(); } // for a path's geometry (a wavy bar, decision 167)
 
 private:
     winrt::com_ptr<ID2D1Device> createD2DDevice();

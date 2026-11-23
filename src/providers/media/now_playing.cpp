@@ -42,7 +42,9 @@ Content nowPlayingContent(const NowPlaying& m)
 
     if (m.timeline.duration > Ms{ 0 })
         // The times as wide as they get, so they sit close to the bar (decision 107).
-        c.expandedBottom.push_back(row({ TimeLabel{ .timeline = m.timeline, .fitted = true }, Progress{ m.timeline, m.canSeek },
+        // The played part a wave, rippling while it plays and flat when paused (decision 167).
+        c.expandedBottom.push_back(row({ TimeLabel{ .timeline = m.timeline, .fitted = true },
+                                         Progress{ .timeline = m.timeline, .seekable = m.canSeek, .wavy = true },
                                          TimeLabel{ .timeline = m.timeline, .remaining = true, .fitted = true } }));
     // Three weights (decision 094): ▶/⏸ the filled circle, the skips bright,
     // shuffle and repeat quiet until on or pointed at.

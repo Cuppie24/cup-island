@@ -5,6 +5,7 @@
 
 #include "core/content.h"
 #include "core/tokens.h"
+#include "platform/progress_wave.h"
 #include "platform/win.h"
 
 #include <vector>
@@ -36,9 +37,11 @@ struct ProgressParts {
     wuc::CompositionRoundedRectangleGeometry fill{ nullptr };
     wuc::CompositionSpriteShape knob{ nullptr };
     wuc::CompositionColorBrush track{ nullptr }, accent{ nullptr }, knobBrush{ nullptr }; // faded on a recolour
+    WaveParts wave; // a wavy bar's (decision 167): the fill is then unseen, and only sets where the wave ends
 };
 float progressOverhang();
-ProgressParts createProgress(wuc::Compositor const& c, Vec2 frame, const Color& accent);
+// `wavy` (Progress::wavy): `factory` makes the wave's path; if it can't be made, a plain bar.
+ProgressParts createProgress(wuc::Compositor const& c, Vec2 frame, const Color& accent, bool wavy = false, ID2D1Factory* factory = nullptr);
 // Fill grows from where playback is now to full width, entirely on the compositor.
 void armProgress(wuc::Compositor const& c, wuc::CompositionRoundedRectangleGeometry const& fill, const Timeline& timeline,
                  float width, Ms now);

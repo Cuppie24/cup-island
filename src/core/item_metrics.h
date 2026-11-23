@@ -6,6 +6,7 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace cup {
 
@@ -14,6 +15,13 @@ float fontSize(TextStyle style);   // its text's size, px (tokens)
 // The style of a Text::detail line under text in `style` (decision 079).
 TextStyle detailStyleOf(TextStyle style);
 bool isRing(const Item& item);
+bool isWavy(const Item& item); // a Progress bar with `wavy` (decision 167)
+// A wavy bar's height: its line, swinging progressWaveAmplitude to each side.
+float waveHeight();
+// The wave's line, left to right: points along a sine from x = 0 to `width`,
+// around y = `middle`, starting on it and rising first. Close enough together
+// to read as a curve. Nothing for a wave with no length.
+std::vector<Vec2> wavePoints(float width, float middle);
 // Step i's length on screen, from its StepLength (decision 107).
 float stepWidth(const Steps& steps, int i);
 // A primary button's circle (decision 064) and the glyph in it; a compact

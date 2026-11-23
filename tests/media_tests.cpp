@@ -165,6 +165,13 @@ void runMediaTests()
     presenter.show(untitled);
     expect(host.alerts.size() == 2, "no alert for an empty title");
 
+    // The bar's played part is a wave (decision 167).
+    {
+        Content timed = nowPlayingContent({ .title = "T", .timeline = { .duration = Ms{ 180000 }, .playing = true } });
+        auto* bar = timed.expandedBottom.front().items.size() == 3 ? std::get_if<Progress>(&timed.expandedBottom.front().items[1]) : nullptr;
+        expect(bar && bar->wavy && bar->shape == ProgressShape::Bar, "media's bar is wavy");
+    }
+
     // Shuffle/repeat buttons: only for apps that support them, lit when on.
     auto controlsOf = [](const NowPlaying& m) { return nowPlayingContent(m).expandedBottom.back(); };
     Row plain = controlsOf({ .title = "T" });
