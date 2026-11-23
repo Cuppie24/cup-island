@@ -81,6 +81,34 @@ bool isRing(const Item& item)
     return progress && progress->shape == ProgressShape::Ring;
 }
 
+bool isWavy(const Item& item)
+{
+    auto* progress = std::get_if<Progress>(&item);
+    return progress && progress->wavy && progress->shape == ProgressShape::Bar;
+}
+
+float waveHeight()
+{
+    const Tokens& t = tokens();
+    return t.progressHeight + 2 * std::max(t.progressWaveAmplitude, 0.0f);
+}
+
+std::vector<Vec2> wavePoints(float width, float middle)
+{
+    const Tokens& t = tokens();
+    std::vector<Vec2> points;
+    if (t.progressWaveLength <= 0 || width <= 0) return points;
+    constexpr int kPerWave = 16; // straight pieces per wave: smooth at any size a bar is drawn
+    constexpr float kTurn = 6.2831853f;
+    int count = static_cast<int>(std::ceil(width / t.progressWaveLength * kPerWave));
+    for (int i = 0; i <= count; ++i) {
+        float x = std::min(width, i * t.progressWaveLength / kPerWave);
+        // Up first: y grows downwards on screen.
+        points.push_back({ x, middle - t.progressWaveAmplitude * std::sin(kTurn * x / t.progressWaveLength) });
+    }
+    return points;
+}
+
 float dialDiameter(const Dial& dial, const MeasureText& measure)
 {
     // The longest it's sized for, and never under two digits a side: the ring keeps its size whatever the time.
@@ -119,7 +147,10 @@ float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& m
     if (std::holds_alternative<Keys>(item)) return t.keyCapHeight;
     if (std::holds_alternative<Segments>(item)) return t.segmentHeight;
     // Seekable bars get a taller row to be easy to click; a bar nobody clicks is just its line.
-    if (auto* bar = std::get_if<Progress>(&item)) return bar->seekable ? t.progressHitHeight : t.progressHeight;
+    if (auto* bar = std::get_if<Progress>(&item)) {
+        float height = bar->seekable ? t.progressHitHeight : t.progressHeight;
+        return bar->wavy ? std::max(height, waveHeight()) : height; // room for the wave's swing (decision 167)
+    }
     if (auto* label = std::get_if<TimeLabel>(&item)) return lineHeight(label->style);
     if (auto* icon = std::get_if<Icon>(&item); icon && icon->large) return t.tileIconSize; // decision 111
     return t.iconSize; // Icon, Waveform

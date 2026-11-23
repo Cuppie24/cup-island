@@ -214,6 +214,12 @@ struct Tokens {
     float progressHeight = 4;
     float progressHitHeight = 16; // taller than drawn, so it's easy to click
     float progressKnobSize = 12;  // the scrub handle shown on hover
+    // A wavy bar (Progress::wavy, decision 167): one wave's length, how far it swings to each side of
+    // the bar's line, how long one wave takes to pass, and how long it takes to lie flat or rise again.
+    float progressWaveLength = 28;
+    float progressWaveAmplitude = 3;
+    Ms progressWavePeriod{ 1500 };
+    Ms progressWaveSettle{ 300 };
     float timeLabelWidth = 56;  // fits "-1:02:05" at captionFontSize
     float ringThickness = 3;      // progress ring stroke (decision 010)
     float stepDotSize = 9;        // Steps: one dot per step; a pill step's height

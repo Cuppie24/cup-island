@@ -235,6 +235,7 @@ if(WIN32)
         src/platform/figures.cpp
         src/platform/effects.cpp
         src/platform/element_parts.cpp
+        src/platform/progress_wave.cpp
         src/platform/element_visuals.cpp
         src/platform/rolling_text.cpp
         src/platform/top_glow.cpp

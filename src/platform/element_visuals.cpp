@@ -43,6 +43,12 @@ bool isRing(const Item& item)
     return progress && progress->shape == ProgressShape::Ring;
 }
 
+bool isWavy(const Item& item) // a wavy bar (decision 167)
+{
+    auto* progress = std::get_if<Progress>(&item);
+    return progress && progress->wavy && progress->shape == ProgressShape::Bar;
+}
+
 // Live data's colour: the content's accent, else the live colour (decision 010).
 Color accentOf(const Placed& p) { return p.accent.value_or(tokens().liveColor); }
 
@@ -290,7 +296,8 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         view.track = parts.track;
         view.accent = parts.accent;
     } else if (std::holds_alternative<Progress>(placed.item)) {
-        ProgressParts parts = createProgress(compositor_, size, accent);
+        ProgressParts parts = createProgress(compositor_, size, accent, isWavy(placed.item), device_->d2dFactory());
+        view.wave = parts.wave;
         view.lead = progressOverhang();
         visualSize.x += 2 * view.lead;
         view.visual = parts.visual;
@@ -401,6 +408,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     if (view.grey && view.knobBrush) view.knobBrush.Color(toUiColor(greyOf(t.knobColor)));
     if (view.surface) paint(view);
     if (view.fill) armProgress(compositor_, view.fill, std::get<Progress>(placed.item).timeline, size.x, now);
+    if (view.wave.line) ripple(compositor_, view.wave, std::get<Progress>(placed.item).timeline.playing, true); // as it is, no settling
     if (view.arc) armRing(compositor_, view.arc, ringTimeline(placed.item), now);
     if (!view.bars.empty()) animateBars(view);
     if (view.highlight && focusedField(placed.item)) view.highlight.Opacity(1.0f);
@@ -418,6 +426,7 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     // A bar and a ring are both Progress, but different visuals. A new accent
     // (a cover's colour) isn't a new visual: its brushes fade to it.
     bool retyped = view.placed.item.index() != placed.item.index() || isRing(view.placed.item) != isRing(placed.item) ||
+                   isWavy(view.placed.item) != isWavy(placed.item) ||
                    clickableArt(view.placed.item) != clickableArt(placed.item) || rolls(view.placed.item) != rolls(placed.item);
     bool recoloured = view.placed.accent != placed.accent;
     // In a list, its place is in the list's scroller: scrolling moves the scroller, not it.
@@ -503,6 +512,8 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     if (view.ink) fadeInk(view, tokens().hoverFadeDuration); // another style: another colour
     // While scrubbing, the bar belongs to the pointer; endScrub() re-arms it.
     if (view.fill && !view.scrubbing) armProgress(compositor_, view.fill, std::get<Progress>(placed.item).timeline, placed.frame.width, now);
+    // Paused or playing again: the wave lies flat or rises (decision 167). No change: left running, not restarted.
+    if (view.wave.line) ripple(compositor_, view.wave, std::get<Progress>(placed.item).timeline.playing, false);
     // A Dial changes every second (its time); its ring is re-armed only when its timeline does.
     if (view.arc && (!std::holds_alternative<Dial>(placed.item) || ringTimeline(placed.item) != wasRing))
         armRing(compositor_, view.arc, ringTimeline(placed.item), now);

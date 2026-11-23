@@ -1,0 +1,30 @@
+#pragma once
+// A wavy progress bar's wave (Progress::wavy, decision 167): a sine line over
+// the bar's filled part, drawn as a path so it's a shape like the bar's own.
+// It's cut where the fill ends (a clip that reads the fill's live width), so
+// it follows playback and scrubbing with no code of its own; it ripples
+// along while playing and lies flat, a plain bar, when not. All on the
+// compositor (TR §5).
+
+#include "platform/win.h"
+
+#include <d2d1_1.h>
+#include <optional>
+
+namespace cup::platform {
+
+struct WaveParts {
+    wuc::ShapeVisual visual{ nullptr };        // over the bar, the frame's size; null: no wave (it couldn't be made)
+    wuc::CompositionSpriteShape line{ nullptr };
+    std::optional<bool> rippling;              // what it was last told: a tick of the clock doesn't restart it
+};
+
+// `frame`: the bar's, the wave's line through its middle. `accent`: the
+// bar's brush, so a recolour fades both. `fill`: the bar's filled part,
+// whose width cuts the wave. Flat and still until ripple().
+WaveParts createWave(wuc::Compositor const& c, ID2D1Factory* factory, Vec2 frame, wuc::CompositionColorBrush const& accent,
+                     wuc::CompositionRoundedRectangleGeometry const& fill);
+// Playing: it rises and runs along; not: it lies flat and stops. `atOnce`: with no settling, as it's made.
+void ripple(wuc::Compositor const& c, WaveParts& wave, bool playing, bool atOnce);
+
+} // namespace cup::platform
