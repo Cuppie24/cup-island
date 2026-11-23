@@ -249,6 +249,7 @@ const Field kFields[] = {
     { "focusRingWidth", &Tokens::focusRingWidth },
     { "morphDurationMs", &Tokens::morphDuration, true },
     { "morphEase", &Tokens::morphEase },
+    { "recolorEase", &Tokens::recolorEase }, // decision 171
     { "morphGrowShortestMs", &Tokens::morphGrowShortest },
     { "morphGrowReferenceMs", &Tokens::morphGrowReference },
     { "morphGrowMaxMs", &Tokens::morphGrowMax },
