@@ -18,9 +18,11 @@ namespace {
 
 using Clock = std::chrono::steady_clock;
 
-// The shapes are drawn where they'll be when the frame reaches the screen,
-// about a refresh from now, not where they are as it's drawn.
-constexpr std::chrono::milliseconds kLead{ 16 };
+// The lip's light is the one thing here with a sharp place of its own: a
+// frame or two off the compositor's edge mid-morph, it showed as a light
+// band trailing the edge on a collapse (decision 165). So it's out while a
+// shape moves and fades back in over this long once the shapes are home.
+constexpr std::chrono::milliseconds kLipReturn{ 220 };
 
 } // namespace
 
@@ -231,9 +233,17 @@ void LiquidGlass::draw()
     std::vector<LiquidShape> shapes;
     for (const Moving& shape : shapes_) {
         moving = moving || now - shape.started < shape.motion.duration;
-        shapes.push_back(liquidShape(where(shape, now + kLead), shape.attached, shape.leftEar, shape.rightEar, t));
+        shapes.push_back(liquidShape(where(shape, now), shape.attached, shape.leftEar, shape.rightEar, t));
     }
-    moving_ = moving; // the thread draws the next frames, or sleeps
+    // How much of the lip's light: none while a shape moves, then back in.
+    float lip = 1;
+    for (const Moving& shape : shapes_) {
+        auto home = shape.started + shape.motion.duration;
+        if (shape.started == Clock::time_point{}) continue; // never moved
+        lip = std::min(lip, now < home ? 0.0f : std::chrono::duration<float>(now - home) / std::chrono::duration<float>(kLipReturn));
+    }
+    lip = std::clamp(lip, 0.0f, 1.0f);
+    moving_ = moving || lip < 1; // the thread draws the next frames (the light's return too), or sleeps
     if (!capture_.picture()) return; // the first picture hasn't come yet
 
     // Around the shapes, their ears included: all a frame shades.
@@ -300,7 +310,7 @@ void LiquidGlass::draw()
         p.lens[2] = t.glassLiquidBend;
         p.lens[3] = std::clamp(t.glassLiquidDim, 0.0f, 1.0f);
         p.light[0] = std::max(t.glassLiquidSaturation, 0.0f);
-        p.light[1] = std::clamp(t.glassLiquidLipOpacity, 0.0f, 1.0f);
+        p.light[1] = std::clamp(t.glassLiquidLipOpacity, 0.0f, 1.0f) * lip * lip * (3 - 2 * lip); // eased
         pass(target, layerSize_, scissor, pixel_.get(), blurred_.view.get(), p);
     }
     // No waiting for the screen: a frame the compositor doesn't get to is replaced by the next.

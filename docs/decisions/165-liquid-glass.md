@@ -43,6 +43,12 @@ frosted glass stays as it was and stays the default.
   (`glassLiquidSaturation`), darker (`glassLiquidDim`, so white text reads
   over a white window), the lip lighter (`glassLiquidLipOpacity`). A
   shape on the screen edge has no rim along its top (`liquidShape`, core).
+- **No rim in the flared corners.** A flare is a few pixels deep, all of it
+  within the rim's reach of an edge, so it was bent and lit to the full
+  beside a body that has no rim along the screen edge: the corners glowed,
+  most on a large display, where they're larger. The rim now fades in down
+  the sides over three flares' height, and a flare itself has none
+  (`rimShare`).
 - **The blur is a real one.** Each frame the layer's part of the capture is
   copied to a texture of our own; its quarter-size copy (a mip level) is
   blurred across and then down by a 17-tap Gaussian (`blurps`), into two
@@ -105,8 +111,11 @@ frosted glass stays as it was and stays the default.
   after each of the compositor's (`DwmFlush`), and sleeps when the shapes
   are home. Everything it shares with the UI thread (the Direct3D
   context, the shapes, the capture's picture, a copy of the tokens) is
-  behind one lock. Each frame draws the shapes where they'll be a refresh
-  later, when the frame reaches the screen. The capture itself, and
+  behind one lock. (Each frame first drew the shapes where they'd be a
+  refresh later; with the lip's light that showed as a band of light off
+  the edge on a collapse, so the shapes are drawn where they are, and the
+  lip's light, the one thing in the picture with a sharp place of its
+  own, is out while a shape moves and fades back in once it's home.) The capture itself, and
   anything that touches a visual, stays on the UI thread.
 - **Fallbacks.** Anything refused (no hardware device, the window can't be
   left out of captures, the capture, a shader) is logged with its step and
