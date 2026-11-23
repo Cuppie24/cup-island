@@ -159,7 +159,7 @@ void runProviderTests()
            "pause freezes the timeline where it was");
 
     // Shuffle (leading) and repeat (trailing) are toggles that light up, at the
-    // row's edges, apart from the skips (decision 165).
+    // row's edges, apart from the skips (decision 168).
     const std::string repeat = "expandedBottom/1/3", shuffle = "expandedBottom/1/4";
     {
         Scene controls = island.scene();
