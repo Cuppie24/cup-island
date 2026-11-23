@@ -4,11 +4,14 @@
 
 namespace cup {
 
-LiquidShape liquidShape(Rect body, bool attached, const Tokens& t)
+LiquidShape liquidShape(Rect body, bool attached, bool leftEar, bool rightEar, const Tokens& t)
 {
     if (body.width <= 0 || body.height <= 0) return {};
     // The same curve as the body's background (pillCornerRadius).
     float radius = std::min(std::min(body.width, body.height) / 2, t.maxCornerRadius);
+    float top = body.y;
+    // The flare's size, as the body draws it (blob_shape's kEarSize): no taller than the shape.
+    float ear = attached ? std::max(0.0f, std::min(t.flareRadius, body.height)) : 0.0f;
     if (attached) {
         // Past the rounded top and the whole rim: inside the body, nothing is
         // within the rim's reach of the top edge any more.
@@ -16,7 +19,7 @@ LiquidShape liquidShape(Rect body, bool attached, const Tokens& t)
         body.y -= past;
         body.height += past;
     }
-    return { body, radius };
+    return { body, radius, top, leftEar ? ear : 0.0f, rightEar ? ear : 0.0f };
 }
 
 Rect morphRect(Rect from, Rect to, const Motion& motion, Ms elapsed)

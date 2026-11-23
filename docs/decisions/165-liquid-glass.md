@@ -37,7 +37,10 @@ frosted glass stays as it was and stays the default.
   (`glassLiquidBlur`), stronger colours (`glassLiquidSaturation`), darker
   (`glassLiquidDim`, so white text reads over a white window), and a
   highlight on the edge lit from the top left (`glassLiquidHighlightOpacity`).
-  A shape on the screen edge has no rim along its top (`liquidShape`, core).
+  A shape on the screen edge has no rim along its top, and its sides curve
+  out into the edge with its flared corners (decision 025), so the
+  highlight and the bend follow them (`liquidShape`, core): the first run
+  drew the outline straight up the sides, across where the corners flare.
   Nothing in the shader changes *at* the edge: pixels past it are drawn as
   if on it, and the highlight fades both ways. The first run cut the bend
   and the highlight off at the shader's own idea of the edge, a hard step

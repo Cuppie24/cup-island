@@ -193,14 +193,20 @@ void liquidShapeTests()
     Tokens t;
     t.maxCornerRadius = 20;
     t.glassLiquidRim = 10;
-    LiquidShape pill = liquidShape({ 100, 0, 200, 36 }, true, t);
+    t.flareRadius = 12;
+    LiquidShape pill = liquidShape({ 100, 0, 200, 36 }, true, true, true, t);
     expect(pill.radius == 18 && pill.frame == Rect{ 100, -28, 200, 64 },
            "liquid: a pill on the edge: half its height round, its top a radius and a rim past the edge");
-    LiquidShape card = liquidShape({ 100, 0, 400, 300 }, true, t);
+    expect(pill.top == 0 && pill.leftEar == 12 && pill.rightEar == 12, "liquid: its top corners flare into the edge, from its real top (decision 025)");
+    LiquidShape flush = liquidShape({ 0, 0, 200, 36 }, true, false, true, t);
+    expect(flush.leftEar == 0 && flush.rightEar == 12, "liquid: no flare on a side flush with the screen's (decision 026)");
+    expect(liquidShape({ 100, 0, 200, 8 }, true, true, true, t).leftEar == 8, "liquid: a flare is no taller than the shape");
+    LiquidShape card = liquidShape({ 100, 0, 400, 300 }, true, true, true, t);
     expect(card.radius == 20 && card.frame.y == -30 && card.frame.height == 330, "liquid: a card: the radius capped, the bottom where it was");
-    LiquidShape lifted = liquidShape({ 100, 40, 200, 36 }, false, t);
-    expect(lifted.frame == Rect{ 100, 40, 200, 36 }, "liquid: off the edge: round all over, a rim all round");
-    expect(liquidShape({ 100, 0, 0, 36 }, true, t) == LiquidShape{}, "liquid: no size, no shape");
+    LiquidShape lifted = liquidShape({ 100, 40, 200, 36 }, false, true, true, t);
+    expect(lifted.frame == Rect{ 100, 40, 200, 36 } && lifted.leftEar == 0 && lifted.rightEar == 0,
+           "liquid: off the edge: round all over, a rim all round, no flares");
+    expect(liquidShape({ 100, 0, 0, 36 }, true, true, true, t) == LiquidShape{}, "liquid: no size, no shape");
 
     Motion plain{ Ms{ 300 }, 0, t.morphSpringSettle };
     Rect from{ 0, 0, 100, 40 }, to{ 50, 0, 300, 200 };
