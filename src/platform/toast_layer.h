@@ -33,7 +33,7 @@ private:
     wuc::Compositor compositor_{ nullptr };
     wuc::ContainerVisual frame_{ nullptr };                   // still, clipped to the card
     wuc::ContainerVisual layer_{ nullptr };                   // slides and fades as one: the pill and its content
-    // The shadow (decisions 151, 165): a sprite under the pill that draws nothing itself
+    // The shadow (decisions 151, 170): a sprite under the pill that draws nothing itself
     // and casts a DropShadow masked by the pill's shape, as raised art's (decision 094).
     wuc::SpriteVisual caster_{ nullptr };
     wuc::DropShadow shadow_{ nullptr };

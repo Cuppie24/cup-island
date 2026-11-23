@@ -31,7 +31,7 @@ void ToastLayer::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Co
     pill.StrokeBrush(edge_);
     pill.StrokeThickness(t.dividerThickness);
     // Drawn straight into the tree, as the menu's panel is, so its edge is the shape's own.
-    // (In a LayerVisual casting the shadow it came out fuzzy and stepped: decision 165.)
+    // (In a LayerVisual casting the shadow it came out fuzzy and stepped: decision 170.)
     // Soft: a window's tree is Hard, which leaves rounded corners aliased (decision 161).
     background_ = c.CreateShapeVisual();
     background_.BorderMode(wuc::CompositionBorderMode::Soft);

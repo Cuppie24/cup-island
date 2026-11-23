@@ -1,6 +1,6 @@
 # 151: A toast stands apart
 
-Status: Accepted (amends 071, 121). How the shadow is cast: superseded by 165.
+Status: Accepted (amends 071, 121). How the shadow is cast: superseded by 170.
 
 **Context.** A toast ("Task deleted · Undo") is a pill in `islandHighlightColor`.
 Over a window's page, itself a step above the island's colour, it was

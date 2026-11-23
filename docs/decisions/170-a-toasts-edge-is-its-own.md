@@ -1,4 +1,4 @@
-# 165: A toast's edge is its own; its shadow falls below
+# 170: A toast's edge is its own; its shadow falls below
 
 Status: Accepted (amends 151). The look needs a Windows run.
 
