@@ -16,7 +16,7 @@ provider's bar can have it; media's does.
   meets the head on the bar's line. The rest is the straight track.
 - Playing, its ripples run towards the head, a wave every
   `progressWavePeriod` (1500 ms). Not playing, it lies flat over
-  `progressWaveSettle` (450 ms): a plain bar, at its full thickness. With
+  `progressWaveSettle` (900 ms): a plain bar, at its full thickness. With
   reduced motion it rises but doesn't run.
 - A seekable wavy bar's knob is an upright pill at the head
   (`progressPinWidth` 4 by `progressPinHeight` 12, in the knob's colour),
@@ -45,14 +45,16 @@ it.
   head's distance, in waves, from where it was when the wave rose. So
   while the head is dragged the ripples stay where they are on the bar and
   keep running, and only the straightening follows the head.
-- **Rising** is the first stretch of the same animation, flat to the first
-  phase, driven by a scalar eased 0 to 1 over `progressWaveSettle` (450 ms);
-  the clock starts, at 0, as it ends.
+- **Rising** is the first stretch of the same animation: ten paths whose
+  swing grows (eased at both ends) while their phase already advances at
+  the ripples' speed, played steadily over `progressWaveSettle` (900 ms);
+  the clock starts, at 0, as it ends, and the ripple's paths start from the
+  phase rising reached. So the wave is running from the moment it shows.
 - **Lying down** is a path animation of its own with both ends given
-  (decision 008): from the line as it is at that moment to flat. Composition
-  can't be asked what it's showing (decision 001), so `ripple()` works that
-  line out as the expression does, from when the wave rose and where the
-  head is, and makes that one path.
+  (decision 008): from the line as it is at that moment, through ten paths
+  that run on as their swing dies away, to flat. Composition can't be asked
+  what it's showing (decision 001), so `ripple()` works that line out as
+  the expression does, from when the wave rose and where the head is.
 `ripple()` remembers what it was told, so the card's once-a-second layout
 doesn't restart anything. The points are core's (`wavePoints`), tested
 there. Its start shows through a window with round ends (a geometric
@@ -67,6 +69,9 @@ clip). If the wave can't be made, or its animation driven, it's logged
 - Ripples running back from the head; then towards it again, as now.
 - The wave's phases played by the animation's own time, with the line
   hanging from the head: dragged, the whole wave moved with the pointer.
+- Rising as the line growing in place and then starting to run, lying down
+  as it stopping and then shrinking, over 450 ms: too fast, and not smooth,
+  a jerk where the running started or stopped.
 - Rising and lying down as path animations with only their end given, the
   loop started when the rise ended: neither read as the wave growing from,
   or straightening into, a line.
