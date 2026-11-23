@@ -254,6 +254,7 @@ if(WIN32)
         src/platform/liquid_bridge.cpp
         src/platform/liquid_capture.cpp
         src/platform/liquid_glass.cpp
+        src/platform/liquid_glass_build.cpp
         src/platform/pill_renderer.cpp
         src/platform/render_layer.cpp
         src/platform/single_instance.cpp

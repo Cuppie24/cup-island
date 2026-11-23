@@ -132,7 +132,7 @@ void Blob::refreshAnimations(bool coloursOnly)
     if (hovered_.brush) fadeColor(hovered_.brush, t.hoverColor);
     for (Mark& mark : tiles_) {
         if (mark.brush) fadeColor(mark.brush, t.tileColor);
-        fadeShine(mark.shine, liquidShine(t), recolorDuration(t)); // liquid glass picked, or not (decision 165)
+        fadeShine(mark.shine, liquidShine(t, true), recolorDuration(t)); // liquid glass picked, or not (decision 165)
     }
     if (focusRing_.brush) fadeColor(focusRing_.brush, t.focusRingColor);
     badges_.recolor();
@@ -265,11 +265,11 @@ void Blob::showMark(Mark& mark, std::optional<Rect> at, float cornerRadius, cons
     mark.visual.Offset({ at->x, at->y, 0 });
     if (shiny) { // a Home widget: its edge shines on liquid glass (decision 165)
         if (!mark.shine.shape) {
-            mark.shine = makeShine(compositor_, std::max(tokens().glassRimWidth, 1.0f) * 1.5f);
+            mark.shine = makeShine(compositor_, std::max(tokens().glassRimWidth, 1.0f));
             mark.visual.Shapes().Append(mark.shine.shape);
         }
         placeShine(mark.shine, { 0, 0, at->width, at->height }, cornerRadius);
-        fadeShine(mark.shine, liquidShine(tokens()), Ms{ 1 }); // it fades in with its tile
+        fadeShine(mark.shine, liquidShine(tokens(), true), Ms{ 1 }); // it fades in with its tile
     }
     if (slide && from) {
         // Glide from the old page to the new one: the one motion that says

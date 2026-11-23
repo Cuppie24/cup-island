@@ -218,8 +218,6 @@ void Blob::applyGlass(Ms duration)
     shape_.InsertScalar(L"Overlap", t.glass ? 0.0f : 1.0f);
     shape_.InsertScalar(L"RimInset", t.glassRimWidth / 2);
     rim_.StrokeThickness(t.glassRimWidth);
-    fadeColor(rimTop_, clear(t.glassRimColor), duration);
-    fadeColor(rimBottom_, t.glass ? t.glassRimColor : clear(t.glassRimColor), duration);
 
     if (t.glass && !glass_ && !glassTried_) buildGlass();
     if (glassLook_ == Look::Even && glassLuminosityAt(t) != luminosityPainted_) paintLuminosity(glassLuminosityAt(t));
@@ -247,6 +245,9 @@ void Blob::applyGlass(Ms duration)
             liquid_ = nullptr; // not tried again until it's handed over anew
         }
     }
+    // The rim: clear up the sides, brightest along the bottom; on liquid glass the pane's bright edge (glassRimAt).
+    fadeColor(rimTop_, clear(t.glassRimColor), duration);
+    fadeColor(rimBottom_, t.glass ? glassRimAt(t, liquidShown_) : clear(t.glassRimColor), duration);
     if (glass_ && t.glass != glassShown_) {
         glassShown_ = t.glass;
         // On, it's there at once, under the twin's layer, still opaque, which

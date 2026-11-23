@@ -33,27 +33,42 @@ frosted glass stays as it was and stays the default.
   the island in it would be bent into the island, frame after frame.
 - **The shader** (`platform/liquid_shader.h`, one pass, compiled when first
   turned on). For each pixel, its depth inside the nearest shape (a
-  rounded rectangle's signed distance). In a rim `glassLiquidRim` wide it
-  shows what's up to `glassLiquidBend` px further in, growing as a square:
-  gentle inside, steepest at the edge, no steps. Then a little blur
-  (`glassLiquidBlur`), stronger colours (`glassLiquidSaturation`), darker
-  (`glassLiquidDim`, so white text reads over a white window), and a
-  highlight on the edge lit from the top left (`glassLiquidHighlightOpacity`).
-  A shape on the screen edge has no rim along its top, and its sides curve
-  out into the edge with its flared corners (decision 025), so the
-  highlight and the bend follow them (`liquidShape`, core): the first run
-  drew the outline straight up the sides, across where the corners flare.
-  Nothing in the shader changes *at* the edge: pixels past it are drawn as
-  if on it, and the highlight fades both ways. The first run cut the bend
-  and the highlight off at the shader's own idea of the edge, a hard step
-  that showed through the compositor's smooth cut as a staircase; and the
-  bend then grew as a quarter circle, infinitely steep at the edge, which
-  squeezed the desktop into single glittering pixels. Now it grows as a
-  square, and the blur widens with the squeeze.
+  rounded rectangle's signed distance, with its flared corners, decision
+  025). In a rim `glassLiquidRim` wide it shows what's further **out**, up
+  to `glassLiquidBend` px past the edge at the edge itself, growing as a
+  cube: what's beside the island wraps into its lip, as round a real
+  pane's. Blurred about `glassLiquidBlur` px, stronger colours
+  (`glassLiquidSaturation`), darker (`glassLiquidDim`, so white text reads
+  over a white window), the lip lighter (`glassLiquidLipOpacity`). A
+  shape on the screen edge has no rim along its top (`liquidShape`, core).
+- **The blur is the picture's smaller copies.** Each frame the layer's part
+  of the capture is copied to a texture of our own and its mip levels are
+  made; the shader reads the level the blur asks for (a higher one where
+  the bend squeezes the picture), with two rings of taps to hide that
+  level's own pixels.
+- **The bright edge is the compositor's.** The rim's line (decision 089),
+  on liquid glass at `glassLiquidHighlightOpacity` (`glassRimAt`, core):
+  a vector stroke, antialiased, exactly on the outline through a morph.
+- **How it got here: three runs that looked wrong, then a prototype.**
+  (1) The bend and a highlight were cut off at the shader's own edge: a
+  hard step under the compositor's smooth cut, a staircase. (2) Still
+  "pixelated", and the outline ran straight across the flared corners.
+  Until then every number was a guess from a Linux session. So the shader
+  was copied into a browser (WebGL, a fake desktop of text and colour
+  blocks) and looked at, zoomed. It showed what the guesses hadn't: 13
+  taps spread over a squeezed, 6 px blur are a comb of dots along the
+  edge (the pixels the user saw); a highlight 1.5 px wide drawn by a
+  shader is ropey on a curve whatever its falloff; and bending *inward*
+  over a blurred picture is invisible: it read as frosted glass. Bending
+  outward, with less blur, read as glass at once. (3) Home's widgets with
+  a 1.5 px edge at 0.5 looked "weird but not glass": mocked side by side,
+  1 px at about 0.2 is what a glass tile's edge looks like. **Look before
+  tuning**: a shader's look can be checked in a browser from Linux.
 - **What's on the glass shines too.** On liquid glass, a shiny edge: a
   stroke just inside the outline, brightest at the top left, dim across
   the middle, bright again at the bottom right, `glassLiquidShineOpacity`
-  at its brightest (`liquidShine`, core; `platform/shine`). On a filled
+  at its brightest, `glassRimWidth` wide (`liquidShine`, core; `platform/shine`);
+  fainter on a surface (`glassLiquidSurfaceShineOpacity`). On a filled
   control (a primary button, a toggle that's on), round its circle; on a
   card's large plain controls (media's skips: `liquidRing`, core), round
   their frame; on Home's widgets; on a toast. Not on the small buttons (a
@@ -95,7 +110,7 @@ and every refusal goes through `logGlassError`: what failed, the step, the
 code and Windows' own message. The silent ways out (no backdrop on this
 Windows, no snapshot, a setting that can't be read) say so too.
 
-**Consequences.** `platform/liquid_glass`, `liquid_capture`,
+**Consequences.** `platform/liquid_glass` (+ `_build`), `liquid_capture`,
 `liquid_shader.h`; `Blob::setLiquid`; `core/liquid_glass`. Tested on Linux:
 the shapes and the spring (`tests/motion_tests.cpp`), the tokens
 (`tests/tokens_tests.cpp`), the Settings pick (`tests/settings_new_tests.cpp`).

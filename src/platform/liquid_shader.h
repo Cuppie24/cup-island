@@ -1,17 +1,18 @@
 #pragma once
 // Liquid glass's shader (decision 165), compiled when it's first turned on.
 // One pass over the island's pixels: for each, how deep inside the nearest
-// shape it is, and from that where in the desktop's picture to look.
+// shape it is, and from that where in the desktop's picture to look. Its
+// numbers were tuned on a copy of it run in a browser (decision 165).
 
 namespace cup::platform {
 
 // Mirrors the shader's Params, register for register.
 struct LiquidParams {
-    float screen[4];   // the picture's size; the render layer's origin in it
+    float screen[4];   // the picture's size (the render layer's: it's the layer's part of the desktop)
     float shape[2][4]; // each shape's x, y, width, height (render-layer pixels); no width: none
-    float radius[4];   // each shape's corner radius; the highlight's width
-    float lens[4];     // blur, rim, bend (pixels); dim
-    float light[4];    // saturation, highlight
+    float radius[4];   // each shape's corner radius
+    float lens[4];     // blur (a mip level), rim, bend (pixels); dim
+    float light[4];    // saturation, the lip's light
     float ears[4];     // each shape's flared top corners: its left one's size, its right one's (0: none)
     float tops[4];     // each shape's real top (its frame's is carried past the screen edge)
 };
@@ -83,34 +84,34 @@ float4 ps(float4 at : SV_Position) : SV_Target
     // Anything that changed at the edge here would show through that cut as
     // a staircase.
     float inside = max(-d, 0);
-    // The rim: 1 at the edge, 0 where it ends. The bend grows as its square:
-    // gentle at the rim's inner end, steepest at the edge, but never so
-    // steep that the desktop is squeezed into single pixels there (a
-    // circle's section is, and it glittered). No steps.
+    // The rim: 1 at the edge, 0 where it ends. There the glass shows what's
+    // further out, past its own edge at the edge itself: what lies beside
+    // the island wraps into its lip, as round a real pane's. The bend grows
+    // as a cube: nothing at the rim's inner end, most at the edge, no steps.
     float t = lens.y > 0 ? saturate(1 - inside / lens.y) : 0;
-    float2 from = p - n * lens.z * t * t; // what's further in shows here
-    // How many of the desktop's pixels each of ours covers there: blurred
-    // over as many, so the squeezed picture is smooth, not sampled in dots.
-    float squeeze = lens.y > 0 ? abs(lens.z) * 2 * t / lens.y : 0;
+    float2 from = p + n * lens.z * t * t * t;
+    // How many of the desktop's pixels each of ours covers there.
+    float squeeze = lens.y > 0 ? abs(lens.z) * 3 * t * t / lens.y : 0;
 
-    // A little blur: a spiral of taps around that point.
-    float3 c = 0;
-    for (int i = 0; i < 13; ++i) {
-        float angle = i * 2.39996;
-        float reach = (lens.x + 1.5 * squeeze) * sqrt(i / 12.0);
-        c += desktop.SampleLevel(clamped, (from + screen.zw + reach * float2(cos(angle), sin(angle))) / screen.xy, 0).rgb;
+    // The blur comes from the picture's smaller copies (its mip levels):
+    // each is already an average, so a few taps are smooth where the same
+    // few on the full picture were a comb of dots. A squeezed picture reads
+    // a smaller copy still. Two rings of taps round the point hide the
+    // copies' own pixels.
+    float level = lens.x + 0.6 * log2(1 + squeeze);
+    float reach = exp2(level);
+    float3 c = 2 * desktop.SampleLevel(clamped, from / screen.xy, level).rgb;
+    for (int i = 0; i < 12; ++i) {
+        float angle = i * 0.5236;
+        float ring = (i % 2 == 0) ? reach : reach * 0.5;
+        c += desktop.SampleLevel(clamped, (from + ring * float2(cos(angle), sin(angle))) / screen.xy, level).rgb;
     }
-    c /= 13;
+    c /= 14;
     float grey = dot(c, float3(0.2126, 0.7152, 0.0722));
     c = saturate(lerp(grey.xxx, c, light.x)) * lens.w;
-
-    // The edge catches the light from the top left, and again opposite it:
-    // a line just inside the edge, fading out both ways, and the same past
-    // the edge as on it.
-    float width = max(radius.z, 1);
-    float edge = 1 - smoothstep(0, width, abs(inside - width / 2) * 2);
-    float facing = dot(n, normalize(float2(-1, -1)));
-    c += edge * light.y * facing * facing;
+    // The lip gathers light, most along the bottom. Soft, and nothing at the
+    // edge's own pixel: the crisp line there is the compositor's rim.
+    c += light.y * t * t * t * (0.35 + 0.65 * max(n.y, 0));
     return float4(saturate(c), 1);
 }
 )hlsl";

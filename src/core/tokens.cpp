@@ -30,10 +30,17 @@ float glassShare(const Tokens& t, bool evenBlur)
     return std::clamp(share, 0.0f, 1.0f);
 }
 
-float liquidShine(const Tokens& t)
+float liquidShine(const Tokens& t, bool surface)
 {
     if (!t.glass || t.glassStyle != GlassStyle::Liquid) return 0.0f;
-    return std::clamp(t.glassLiquidShineOpacity, 0.0f, 1.0f);
+    return std::clamp(surface ? t.glassLiquidSurfaceShineOpacity : t.glassLiquidShineOpacity, 0.0f, 1.0f);
+}
+
+Color glassRimAt(const Tokens& t, bool liquid)
+{
+    Color c = t.glassRimColor;
+    if (liquid) c.a = static_cast<std::uint8_t>(std::lround(255 * std::clamp(t.glassLiquidHighlightOpacity, 0.0f, 1.0f)));
+    return c;
 }
 
 Color glassLuminosityAt(const Tokens& t)
