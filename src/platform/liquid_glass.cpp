@@ -6,6 +6,8 @@
 #include "platform/log.h"
 
 
+#include <dwmapi.h>
+
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -16,11 +18,19 @@ namespace {
 
 using Clock = std::chrono::steady_clock;
 
-// While a shape moves and the desktop is still, frames come from a timer:
-// about one a screen refresh. The outline is the compositor's, at its own rate.
-constexpr std::chrono::milliseconds kFrame{ 8 };
+// The shapes are drawn where they'll be when the frame reaches the screen,
+// about a refresh from now, not where they are as it's drawn.
+constexpr std::chrono::milliseconds kLead{ 16 };
 
 } // namespace
+
+LiquidGlass::~LiquidGlass()
+{
+    try {
+        stop(); // a thread still joinable when it's destroyed would end the process
+    } catch (...) { // at exit, with Windows' runtime already going: nothing to do about it
+    }
+}
 
 bool LiquidGlass::start(wuc::Compositor const& compositor, HWND layer)
 {
@@ -29,16 +39,22 @@ bool LiquidGlass::start(wuc::Compositor const& compositor, HWND layer)
     const char* step = "layer";
     try {
         build(compositor, step);
-        step = "timer";
-        timer_ = winrt::Windows::System::DispatcherQueue::GetForCurrentThread().CreateTimer();
-        timer_.Interval(kFrame);
-        timer_.IsRepeating(true);
-        tick_ = timer_.Tick([this](auto const&, auto const&) { render(); });
+        step = "thread";
+        queue_ = winrt::Windows::System::DispatcherQueue::GetForCurrentThread();
+        look_ = tokens();
+        quit_ = false;
+        moving_ = false;
         running_ = true;
+        ticker_ = std::thread([this] { tick(); });
         step = "capture";
+        std::lock_guard<std::mutex> held(lock_);
         syncCapture();
     } catch (winrt::hresult_error const& e) {
         logGlassError("liquid: can't start, the frosted glass stays", step, e);
+        stop();
+        return false;
+    } catch (std::exception const& e) { // no thread to be had
+        logLine("glass: liquid: can't start, the frosted glass stays (%s: %s)", step, e.what());
         stop();
         return false;
     }
@@ -49,12 +65,15 @@ bool LiquidGlass::start(wuc::Compositor const& compositor, HWND layer)
 void LiquidGlass::stop()
 {
     bool was = running_;
-    running_ = false;
-    if (timer_) {
-        timer_.Stop();
-        timer_.Tick(tick_);
-        timer_ = nullptr;
+    {
+        std::lock_guard<std::mutex> held(lock_);
+        running_ = false;
+        moving_ = false;
+        quit_ = true;
     }
+    wake_.notify_all();
+    if (ticker_.joinable()) ticker_.join(); // not holding lock_: it may be waiting for it
+    std::lock_guard<std::mutex> held(lock_);
     capture_.stop();
     view_ = nullptr;
     desktop_ = nullptr;
@@ -81,6 +100,33 @@ void LiquidGlass::lost(const char* step, winrt::hresult_error const& error)
     if (onLost) onLost();
 }
 
+void LiquidGlass::tick()
+{
+    // The thread: asleep until a shape moves, then a frame after each of the
+    // compositor's own (DwmFlush waits for one), until the shapes are home.
+    std::unique_lock<std::mutex> held(lock_);
+    while (!quit_) {
+        wake_.wait(held, [this] { return quit_ || moving_; });
+        if (quit_) break;
+        held.unlock();
+        DwmFlush();
+        held.lock();
+        if (quit_ || !moving_) continue;
+        try {
+            draw();
+        } catch (winrt::hresult_error const& e) {
+            // Ended on the UI thread, which owns the visuals: nothing thrown out of here (decision 158).
+            moving_ = false;
+            winrt::hresult code = e.code();
+            winrt::hstring message = e.message();
+            queue_.TryEnqueue([this, code, message] { lost("frame (its thread)", winrt::hresult_error(code, message)); });
+            continue;
+        }
+        // Home: one more frame from the UI thread, which also pauses the capture if the island is gone.
+        if (!moving_) queue_.TryEnqueue([this] { render(); });
+    }
+}
+
 Rect LiquidGlass::where(const Moving& shape, Clock::time_point now) const
 {
     return morphRect(shape.from, shape.to, shape.motion, std::chrono::duration_cast<Ms>(now - shape.started));
@@ -98,22 +144,27 @@ bool LiquidGlass::anyShown() const
 
 void LiquidGlass::place(int which, Rect body, bool attached, bool leftEar, bool rightEar, const Motion& motion)
 {
-    Moving& shape = shapes_[static_cast<std::size_t>(which)];
-    if (body == shape.to && attached == shape.attached && leftEar == shape.leftEar && rightEar == shape.rightEar) return;
-    shape.leftEar = leftEar;
-    shape.rightEar = rightEar;
-    auto now = Clock::now();
-    shape.from = where(shape, now); // an interrupted morph carries on from where it got to
-    shape.to = body;
-    shape.attached = attached;
-    shape.motion = motion;
-    shape.started = now;
-    if (!running_) return;
-    try {
-        syncCapture();
-    } catch (winrt::hresult_error const& e) {
-        lost("capture", e);
-        return;
+    {
+        std::lock_guard<std::mutex> held(lock_);
+        Moving& shape = shapes_[static_cast<std::size_t>(which)];
+        if (body == shape.to && attached == shape.attached && leftEar == shape.leftEar && rightEar == shape.rightEar) return;
+        shape.leftEar = leftEar;
+        shape.rightEar = rightEar;
+        auto now = Clock::now();
+        shape.from = where(shape, now); // an interrupted morph carries on from where it got to
+        shape.to = body;
+        shape.attached = attached;
+        shape.motion = motion;
+        shape.started = now;
+    }
+    render();
+}
+
+void LiquidGlass::refresh()
+{
+    {
+        std::lock_guard<std::mutex> held(lock_);
+        look_ = tokens();
     }
     render();
 }
@@ -122,7 +173,7 @@ void LiquidGlass::syncCapture()
 {
     bool shown = anyShown();
     if (shown && !capture_.running()) {
-        capture_.start(layer_, device_.get(), [this] { render(); });
+        capture_.start(layer_, device_.get(), lock_, [this] { render(); });
         logLine("glass: liquid: capturing the screen (%.0fx%.0f); the island is left out of screenshots", capture_.size().x, capture_.size().y);
     } else if (!shown && capture_.running()) {
         // Hidden (a fullscreen app, decision 032): nothing is captured, nothing costs.
@@ -133,14 +184,20 @@ void LiquidGlass::syncCapture()
 
 void LiquidGlass::render()
 {
-    if (!running_) return;
-    // Called from Windows (a frame, the timer): nothing thrown back (decision 158).
+    // The UI thread's, called by the app or by Windows (a new picture):
+    // nothing thrown back (decision 158).
+    bool moving = false;
     try {
+        std::lock_guard<std::mutex> held(lock_);
+        if (!running_) return;
         syncCapture();
         draw();
+        moving = moving_;
     } catch (winrt::hresult_error const& e) {
-        lost("frame", e);
+        lost("frame", e); // not holding lock_
+        return;
     }
+    if (moving) wake_.notify_one(); // the thread takes it from here
 }
 
 void LiquidGlass::pass(ID3D11RenderTargetView* target, SIZE size, D3D11_RECT scissor, ID3D11PixelShader* shader, ID3D11ShaderResourceView* source,
@@ -168,16 +225,15 @@ void LiquidGlass::pass(ID3D11RenderTargetView* target, SIZE size, D3D11_RECT sci
 
 void LiquidGlass::draw()
 {
-    const Tokens& t = tokens();
+    const Tokens& t = look_;
     auto now = Clock::now();
     bool moving = false;
     std::vector<LiquidShape> shapes;
     for (const Moving& shape : shapes_) {
         moving = moving || now - shape.started < shape.motion.duration;
-        shapes.push_back(liquidShape(where(shape, now), shape.attached, shape.leftEar, shape.rightEar, t));
+        shapes.push_back(liquidShape(where(shape, now + kLead), shape.attached, shape.leftEar, shape.rightEar, t));
     }
-    if (moving) timer_.Start();
-    else timer_.Stop();
+    moving_ = moving; // the thread draws the next frames, or sleeps
     if (!capture_.picture()) return; // the first picture hasn't come yet
 
     // Around the shapes, their ears included: all a frame shades.

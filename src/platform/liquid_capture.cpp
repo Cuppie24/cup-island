@@ -37,10 +37,11 @@ bool liquidCaptureOffered()
     }
 }
 
-void LiquidCapture::start(HWND window, ID3D11Device* device, std::function<void()> onFrame)
+void LiquidCapture::start(HWND window, ID3D11Device* device, std::mutex& guard, std::function<void()> onFrame)
 {
     stop();
     window_ = window;
+    guard_ = &guard;
     onFrame_ = std::move(onFrame);
     HMONITOR monitor = MonitorFromWindow(window, MONITOR_DEFAULTTONEAREST);
     MONITORINFO info{ sizeof info };
@@ -111,9 +112,12 @@ void LiquidCapture::take(wgc::Direct3D11CaptureFramePool const& pool)
         auto access = latest.Surface().as<::Windows::Graphics::DirectX::Direct3D11::IDirect3DDxgiInterfaceAccess>();
         winrt::com_ptr<ID3D11Texture2D> texture;
         winrt::check_hresult(access->GetInterface(__uuidof(ID3D11Texture2D), texture.put_void()));
-        if (frame_) frame_.Close(); // back to the pool
-        frame_ = latest;
-        picture_ = texture;
+        {
+            std::lock_guard<std::mutex> held(*guard_); // not while a frame is being drawn from the old one
+            if (frame_) frame_.Close(); // back to the pool
+            frame_ = latest;
+            picture_ = texture;
+        }
         if (auto now = latest.ContentSize(); now.Width != size_.Width || now.Height != size_.Height) {
             // Another resolution: the next frames at it. (The render layer is resized too, which restarts all this.)
             size_ = now;

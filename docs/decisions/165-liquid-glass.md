@@ -97,6 +97,17 @@ frosted glass stays as it was and stays the default.
   at every frame of a morph; the shader only needs to know roughly where
   the shapes are, which it works out from the same spring
   (`morphRect`, core).
+- **Frames while a shape moves come from a thread of its own.** They first
+  came from a timer on the UI thread, and on a collapse the rim sometimes
+  trailed the edge: that's just when the UI thread is busy (the pill's
+  content is built), so its frames came late while the compositor's morph
+  ran on. Now a thread wakes when a shape starts moving, draws one frame
+  after each of the compositor's (`DwmFlush`), and sleeps when the shapes
+  are home. Everything it shares with the UI thread (the Direct3D
+  context, the shapes, the capture's picture, a copy of the tokens) is
+  behind one lock. Each frame draws the shapes where they'll be a refresh
+  later, when the frame reaches the screen. The capture itself, and
+  anything that touches a visual, stays on the UI thread.
 - **Fallbacks.** Anything refused (no hardware device, the window can't be
   left out of captures, the capture, a shader) is logged with its step and
   the frosted glass stays. Lost while running (a GPU reset): the frosted
