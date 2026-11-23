@@ -493,7 +493,8 @@ struct Content {
     // the island or the idle timeout still do (decision 030).
     bool keepOpen = false;
     // ...and doesn't close when left alone either (expandedIdleTimeout): a
-    // timer kept in view while working (Pomodoro, decision 062).
+    // timer kept in view while working (Pomodoro, decision 062), the player
+    // while listening (media, decision 177).
     bool noIdleTimeout = false;
     // A card that is its field (search, decision 079): the TextInput with this
     // actionId has the keys whenever the card is shown, with no click first,

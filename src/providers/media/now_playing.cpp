@@ -58,12 +58,14 @@ Content nowPlayingContent(const NowPlaying& m)
         controls.trailing.push_back(Button{ .glyph = m.repeat == Repeat::One ? Glyph::RepeatOne : Glyph::Repeat, .actionId = act::kRepeat,
                                             .on = m.repeat != Repeat::Off, .secondary = true });
     c.expandedBottom.push_back(controls);
+    c.noIdleTimeout = true; // kept open while listening: left alone, it stays (decision 177)
     return c;
 }
 
 Content nothingPlayingContent()
 {
-    Content c{ .label = "Nothing playing", .card = CardLayout::Centred };
+    // Stays when left alone too, so the card doesn't close when the music ends (decision 177).
+    Content c{ .label = "Nothing playing", .card = CardLayout::Centred, .noIdleTimeout = true };
     c.expandedCenter = { row({ Icon{ Glyph::Music } }, Align::Center),
                          row({ Text{ .value = "Nothing playing", .style = TextStyle::Title, .centred = true } }),
                          row({ Text{ .value = "Music and videos from any app show here", .style = TextStyle::Caption, .centred = true } }) };

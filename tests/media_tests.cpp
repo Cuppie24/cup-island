@@ -227,6 +227,11 @@ void runMediaTests()
     IslandState live = reduce(s, ActivityStarted{ { .id = MediaPresenter::kActivityId, .content = playing } }, Ms{ 0 });
     expect(layout(live, Ms{ 0 }).activityId == MediaPresenter::kActivityId && layout(live, Ms{ 0 }).label == playing.label, "playing: the card shows the track");
     expect(layout(reduce(live, ActivityEnded{ MediaPresenter::kActivityId }, Ms{ 0 }), Ms{ 0 }).label == "Nothing playing", "ended: idle again");
+    // Left alone, the card stays: playing or not (decision 177). Esc still closes it.
+    Ms later = tokens().expandedIdleTimeout * 10;
+    expect(mode(reduce(s, Tick{}, later)) == Mode::Expanded, "the idle card stays when left alone");
+    expect(mode(reduce(live, Tick{}, later)) == Mode::Expanded && !nextDeadline(live), "the playing card stays too, with no timeout armed");
+    expect(mode(reduce(live, EscapePressed{}, later)) != Mode::Expanded, "Esc still closes it");
 
     expect(nextRepeat(Repeat::Off) == Repeat::All && nextRepeat(Repeat::All) == Repeat::One && nextRepeat(Repeat::One) == Repeat::Off,
            "repeat cycles off -> all -> one");
