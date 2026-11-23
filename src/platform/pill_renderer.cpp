@@ -83,6 +83,7 @@ void PillRenderer::apply(const Scene& scene, const SceneMotion& motion)
     // monitor. In Split the right edge is the bubble's.
     pill_.setEars(!scene.flushLeft, !(scene.flushRight && !scene.bubble));
     pill_.setHighlighted(scene.dropTarget);
+    pill_.setCard(scene.mode == Mode::Expanded); // the open card's glow (decision 166); the bubble never is one
     const TabStrip* tabs = scene.tabs ? &*scene.tabs : nullptr;
     // The page row (decision 109): a faint dot per page, the shown one's line gliding to it.
     std::vector<Rect> dots;

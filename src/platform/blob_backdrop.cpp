@@ -182,12 +182,32 @@ void Blob::buildGlow(Compositor const& c, CompositionGeometry const& outline)
 void Blob::fadeGlow(Ms duration)
 {
     const Tokens& t = tokens();
-    const Color& glow = t.islandGlowColor;
+    GlowLook look = glowLook(t, card_); // the pill's, or an open card's (decision 166)
     for (std::size_t i = 0; i < glow_.size(); ++i) {
-        Color c = glow;
-        c.a = static_cast<std::uint8_t>(std::lround(glow.a * glowFade(t, i / float(kGlowStops - 1))));
+        Color c = look.color;
+        c.a = static_cast<std::uint8_t>(std::lround(look.color.a * glowFade(look.curve, i / float(kGlowStops - 1))));
         fadeColor(glow_[i], c, duration);
     }
+    // The line along a card's bottom edge: the rim there, in the glow's colour. None: the rim's own.
+    Color rim = t.glass ? t.glassRimColor : clear(t.glassRimColor);
+    fadeColor(rimBottom_, t.glass && look.edge.a > 0 ? look.edge : rim, duration);
+}
+
+void Blob::setCard(bool on)
+{
+    if (card_ == on) return;
+    card_ = on;
+    Ms duration = recolorDuration(tokens());
+    // The reach glides with the colours: the stops' offsets read it (buildGlow).
+    // Both ends explicit, the resting value set first (decision 008).
+    float from = glowLook(tokens(), !card_).height, to = glowLook(tokens(), card_).height;
+    shape_.InsertScalar(L"GlowHeight", to);
+    auto reach = compositor_.CreateScalarKeyFrameAnimation();
+    reach.InsertKeyFrame(0.0f, from);
+    reach.InsertKeyFrame(1.0f, to);
+    reach.Duration(std::max(duration, Ms{ 1 }));
+    shape_.StartAnimation(L"GlowHeight", reach);
+    fadeGlow(duration);
 }
 
 void Blob::buildGlass()
@@ -228,7 +248,7 @@ void Blob::applyGlass(Ms duration)
     shape_.InsertScalar(L"RimInset", t.glassRimWidth / 2);
     rim_.StrokeThickness(t.glassRimWidth);
     fadeColor(rimTop_, clear(t.glassRimColor), duration);
-    fadeColor(rimBottom_, t.glass ? t.glassRimColor : clear(t.glassRimColor), duration);
+    // rimBottom_: fadeGlow's, right after: a card's edge line may tint it (decision 166).
 
     if (t.glass && !glass_ && !glassTried_) buildGlass();
     if (glassLook_ == Look::Even && glassLuminosityAt(t) != luminosityPainted_) paintLuminosity(glassLuminosityAt(t));

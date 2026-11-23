@@ -210,6 +210,9 @@ const Field kFields[] = {
     { "glassGlowHeight", &Tokens::glassGlowHeight },
     { "glassGlowOpacity", &Tokens::glassGlowOpacity },
     { "glassGlowCurve", &Tokens::glassGlowCurve },
+    { "glassCardGlowHeight", &Tokens::glassCardGlowHeight },
+    { "glassCardGlowCurve", &Tokens::glassCardGlowCurve },
+    { "glassGlowEdgeOpacity", &Tokens::glassGlowEdgeOpacity },
     { "glassRimWidth", &Tokens::glassRimWidth },
     { "glassDarkenScale", &Tokens::glassDarkenScale },
     { "glassDarkenLift", &Tokens::glassDarkenLift },
@@ -304,10 +307,14 @@ const Field kFields[] = {
     { "coverDarkGlow", &Tokens::coverDarkGlow },
     { "coverGlowLiftCusp", &Tokens::coverGlowLiftCusp },
     { "coverDarkGlowLifted", &Tokens::coverDarkGlowLifted },
+    { "coverCardGlowLift", &Tokens::coverCardGlowLift },
+    { "coverGlowEdgeLift", &Tokens::coverGlowEdgeLift },
     { "islandColor", &Tokens::islandColor, true },
     { "islandHighlightColor", &Tokens::islandHighlightColor },
     { "islandSecondColor", &Tokens::islandSecondColor }, // set from islandColor and the cover (live_tokens), not the file
     { "islandGlowColor", &Tokens::islandGlowColor },     // set from the cover as glass (decision 090), not the file
+    { "islandCardGlowColor", &Tokens::islandCardGlowColor }, // ...an open card's, and its edge line (decision 166)
+    { "islandGlowEdgeColor", &Tokens::islandGlowEdgeColor },
     { "titleTextColor", &Tokens::titleTextColor },
     { "bodyTextColor", &Tokens::bodyTextColor },
     { "captionTextColor", &Tokens::captionTextColor },
@@ -538,7 +545,7 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
         return n.starts_with("cover") || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" || n == "searchVisibleRows" ||
                n == "primaryHoverOpacity" || n == "playGlyphNudge" || // a share of an opacity, of a width (decisions 066, 071)
                (n.starts_with("glass") && n.ends_with("Opacity")) || // opacities (decisions 089, 090, 096)
-               n == "glassGlowCurve" ||                               // an exponent (decision 090)
+               n == "glassGlowCurve" || n == "glassCardGlowCurve" ||  // exponents (decisions 090, 166)
                n.starts_with("glassDarken") ||                        // a colour scale and lift (decision 100)
                (n.starts_with("glass") && n.ends_with("Luminosity")) || // shares of an opacity (decision 100)
                n.ends_with("Bounce") || n == "contentArriveScale" || n == "contentRevealAt" || n == "morphSpringSettle" || n == "alertPulseScale" || // shares (decision 080)

@@ -49,6 +49,7 @@ public:
     void lift(std::optional<float> centreX, Vec2 fling = {});
     void setEars(bool left, bool right);     // false: that side is flush with the screen edge, no ear (decision 026)
     void setHighlighted(bool on);            // drop target: the background lightens (decision 007)
+    void setCard(bool on);                   // an open card: its glow lighter, a line of it along the bottom edge (decision 166)
     // `reveal`: new content waits this long (the morph's, decision 080).
     void setContent(const std::vector<Placed>& elements, Ms now, Ms reveal) { elements_.apply(elements, now, reveal); }
     ElementVisuals& elements() { return elements_; } // hover, press, scrub feedback on content
@@ -134,6 +135,7 @@ private:
     // curve, from the bottom stop up. Clear unless glass has a cover's
     // colours.
     std::vector<wuc::CompositionColorGradientStop> glow_;
+    bool card_ = false; // an open card's glow (glowLook, decision 166)
     void buildGlow(wuc::Compositor const& compositor, wuc::CompositionGeometry const& outline);
     void fadeGlow(Ms duration);
     void buildRim(wuc::Compositor const& compositor);
