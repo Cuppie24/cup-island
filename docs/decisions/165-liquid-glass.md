@@ -111,12 +111,13 @@ frosted glass stays as it was and stays the default.
   after each of the compositor's (`DwmFlush`), and sleeps when the shapes
   are home. Everything it shares with the UI thread (the Direct3D
   context, the shapes, the capture's picture, a copy of the tokens) is
-  behind one lock. (Each frame first drew the shapes where they'd be a
-  refresh later; with the lip's light that showed as a band of light off
-  the edge on a collapse, so the shapes are drawn where they are, and the
-  lip's light, the one thing in the picture with a sharp place of its
-  own, is out while a shape moves and fades back in over 200 ms once it's home
-  (50 ms was tried, to have it back at once; the user took it back).) The capture itself, and
+  behind one lock. Each frame draws the shapes where they are. (Drawing
+  them a refresh ahead was tried and dropped. The lip's light, the one
+  thing in the picture with a sharp place of its own, can sit a frame or
+  two off the compositor's edge mid-morph and show as a light band off the
+  edge on a collapse; it was switched off while a shape moved and faded
+  back after, over 220, then 50, then 200 ms, until the user chose the
+  band over the light going out: it stays on.) The capture itself, and
   anything that touches a visual, stays on the UI thread.
 - **Fallbacks.** Anything refused (no hardware device, the window can't be
   left out of captures, the capture, a shader) is logged with its step and
