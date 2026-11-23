@@ -335,21 +335,27 @@ struct Tokens {
     float glassGlowEdgeOpacity = 0.9f; // the line's strength; 0: none, the rim as it is
     float glassRimWidth = 1;      // the rim's width, inside the edge
     // Liquid glass (decision 165): the user's other pick. The desktop behind
-    // the island, sharp but for glassLiquidBlur px of blur, bent in a rim
-    // glassLiquidRim wide inside the edge: there it shows what's up to
-    // glassLiquidBend px further in, the more the nearer the edge (a thick
-    // pane's rounded lip). Its brightness times glassLiquidDim, so white
-    // text reads over a white window; its colours glassLiquidSaturation as
-    // strong; a highlight along the edge, glassLiquidHighlightOpacity at
-    // its brightest (lit from the top left).
+    // the island, blurred about glassLiquidBlur px, bent in a rim
+    // glassLiquidRim wide inside the edge: there it shows what's further
+    // out, up to glassLiquidBend px past the edge at the edge itself, so
+    // what's beside the island wraps into its lip. Its brightness times
+    // glassLiquidDim, so white text reads over a white window; its colours
+    // glassLiquidSaturation as strong; the lip lighter by up to
+    // glassLiquidLipOpacity; and the rim's line (glassRimWidth) at
+    // glassLiquidHighlightOpacity in place of glassRimColor's own.
     GlassStyle glassStyle = GlassStyle::Frosted; // the user's pick: set by the app from Settings, not by tokens.json
-    float glassLiquidBlur = 3;
-    float glassLiquidRim = 22;
-    float glassLiquidBend = 26;
-    float glassLiquidDim = 0.45f;
-    float glassLiquidSaturation = 1.35f;
-    float glassLiquidHighlightOpacity = 0.55f;
-    float glassLiquidShineOpacity = 0.5f; // a filled control's shiny edge on liquid glass, at its brightest (liquidShine)
+    float glassLiquidBlur = 2.5f;
+    float glassLiquidRim = 24;
+    float glassLiquidBend = 36;
+    float glassLiquidDim = 0.5f;
+    float glassLiquidSaturation = 1.4f;
+    float glassLiquidHighlightOpacity = 0.45f;
+    float glassLiquidLipOpacity = 0.12f;
+    // What's on liquid glass has a shiny edge, glassRimWidth wide, this
+    // bright at its brightest (liquidShine): a control's, and fainter, a
+    // surface's (a Home widget, a toast).
+    float glassLiquidShineOpacity = 0.3f;
+    float glassLiquidSurfaceShineOpacity = 0.22f;
 
     // Expanded's page row along the top of the card (decisions 007, 047, 109): a dot per page,
     // the shown one a line, an arrow on each side of them; Home's button and the pin at the edges.
@@ -643,9 +649,16 @@ Color islandFill(const Tokens& t, Color color, bool evenBlur = true);
 // over the glass applies it to a whole layer (decision 097).
 float glassShare(const Tokens& t, bool evenBlur = true);
 
-// How bright a filled control's edge shines (decision 165): glassLiquidShineOpacity
-// while the island is liquid glass, within 0..1; none on frosted glass or a solid island.
-float liquidShine(const Tokens& t);
+// How bright a shiny edge is (decision 165): a control's
+// (glassLiquidShineOpacity) or, `surface`, a widget's or a toast's
+// (glassLiquidSurfaceShineOpacity), while the island is liquid glass, within
+// 0..1; none on frosted glass or a solid island.
+float liquidShine(const Tokens& t, bool surface = false);
+
+// The rim's line at its brightest (decision 089): glassRimColor, or on liquid
+// glass (`liquid`: it's what the island shows) that colour at
+// glassLiquidHighlightOpacity: the pane's bright edge.
+Color glassRimAt(const Tokens& t, bool liquid);
 
 // The colour acrylic's even brightness takes its lightness from:
 // glassLuminosityColor, its opacity times the Transparency pick's share

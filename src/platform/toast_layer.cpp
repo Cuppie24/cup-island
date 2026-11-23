@@ -46,9 +46,9 @@ void ToastLayer::setShiny()
 {
     if (shine_.shape) return;
     const Tokens& t = tokens();
-    shine_ = makeShine(compositor_, std::max(t.glassRimWidth, 1.0f) * 1.5f);
+    shine_ = makeShine(compositor_, std::max(t.glassRimWidth, 1.0f));
     background_.Shapes().Append(shine_.shape); // over the pill's own edge; placed with the next toast
-    fadeShine(shine_, liquidShine(t), Ms{ 1 });
+    fadeShine(shine_, liquidShine(t, true), Ms{ 1 });
     elements_.setShiny(true); // its button too
 }
 
@@ -101,7 +101,7 @@ void ToastLayer::refresh(bool coloursOnly)
 {
     fadeColor(fill_, tokens().islandHighlightColor);
     fadeColor(edge_, tokens().trackColor);
-    fadeShine(shine_, liquidShine(tokens()), recolorDuration(tokens()));
+    fadeShine(shine_, liquidShine(tokens(), true), recolorDuration(tokens()));
     applyShadow(); // a light theme's is fainter; tokens.json may have changed its size
     elements_.refresh(coloursOnly);
 }

@@ -77,8 +77,11 @@ private:
     winrt::com_ptr<ID3D11Buffer> params_;
     winrt::com_ptr<ID3D11SamplerState> sampler_;
     winrt::com_ptr<ID3D11RasterizerState> raster_;
-    winrt::com_ptr<ID3D11ShaderResourceView> view_; // of shown_
-    winrt::com_ptr<ID3D11Texture2D> shown_;         // the picture view_ was made for: held, so its address isn't another's
+    // The render layer's part of the desktop's picture, copied from the
+    // capture each frame, with smaller copies of itself (mip levels): what
+    // the shader reads, blurred for free.
+    winrt::com_ptr<ID3D11Texture2D> desktop_;
+    winrt::com_ptr<ID3D11ShaderResourceView> view_;
 };
 
 } // namespace cup::platform

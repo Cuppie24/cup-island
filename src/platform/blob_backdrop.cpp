@@ -172,7 +172,8 @@ void Blob::fadeGlow(Ms duration)
         fadeColor(glow_[i], c, duration);
     }
     // The line along a card's bottom edge: the rim there, in the glow's colour. None: the rim's own.
-    Color rim = t.glass ? t.glassRimColor : clear(t.glassRimColor);
+    // On liquid glass the pane's bright edge (glassRimAt, decision 165).
+    Color rim = t.glass ? glassRimAt(t, liquidShown_) : clear(t.glassRimColor);
     // Solid too (decision 169): there the rim shows only as this line.
     fadeColor(rimBottom_, look.edge.a > 0 ? look.edge : rim, duration);
 }
@@ -294,6 +295,7 @@ void Blob::setLiquid(wuc::ICompositionSurface const& picture)
         liquidShown_ = false;
     }
     applyGlass(recolorDuration(tokens()));
+    fadeGlow(recolorDuration(tokens())); // the rim's line: brighter on liquid glass (decisions 165, 166)
 }
 
 wuc::CompositionBrush Blob::liquidBrush()

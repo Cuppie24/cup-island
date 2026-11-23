@@ -5,35 +5,20 @@
 #include "platform/liquid_shader.h"
 #include "platform/log.h"
 
-#include <d3dcompiler.h>
 
 #include <algorithm>
 #include <cmath>
-#include <cstring>
 #include <string>
 #include <vector>
 
 namespace cup::platform {
 namespace {
 
-namespace abi = ABI::Windows::UI::Composition;
 using Clock = std::chrono::steady_clock;
 
 // While a shape moves and the desktop is still, frames come from a timer:
 // about one a screen refresh. The outline is the compositor's, at its own rate.
 constexpr std::chrono::milliseconds kFrame{ 8 };
-
-winrt::com_ptr<ID3DBlob> compile(const char* entry, const char* target)
-{
-    winrt::com_ptr<ID3DBlob> code, errors;
-    HRESULT result = D3DCompile(kLiquidShader, std::strlen(kLiquidShader), "liquid glass", nullptr, nullptr, entry, target, 0, 0, code.put(), errors.put());
-    if (FAILED(result)) {
-        // The compiler's own words: the line and what's wrong with it.
-        if (errors) logLine("glass: liquid: shader %s: %.*s", entry, static_cast<int>(errors->GetBufferSize()), static_cast<const char*>(errors->GetBufferPointer()));
-        throw winrt::hresult_error(result, L"D3DCompile");
-    }
-    return code;
-}
 
 } // namespace
 
@@ -61,70 +46,6 @@ bool LiquidGlass::start(wuc::Compositor const& compositor, HWND layer)
     return true;
 }
 
-void LiquidGlass::build(wuc::Compositor const& compositor, const char*& step)
-{
-    RECT at{};
-    if (!GetWindowRect(layer_, &at) || at.right <= at.left || at.bottom <= at.top) throw winrt::hresult_error(E_INVALIDARG, L"the render layer has no size");
-    layerOrigin_ = { at.left, at.top };
-    layerSize_ = { at.right - at.left, at.bottom - at.top };
-
-    step = "device";
-    // Its own device: hardware only. On the software one a shader per frame
-    // would cost what this must never cost, so there it's refused.
-    winrt::check_hresult(D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT, nullptr, 0, D3D11_SDK_VERSION,
-                                           device_.put(), nullptr, context_.put()));
-    step = "swap chain";
-    winrt::com_ptr<IDXGIDevice> dxgi;
-    winrt::check_hresult(device_->QueryInterface(__uuidof(IDXGIDevice), dxgi.put_void()));
-    winrt::com_ptr<IDXGIAdapter> adapter;
-    winrt::check_hresult(dxgi->GetAdapter(adapter.put()));
-    winrt::com_ptr<IDXGIFactory2> factory;
-    winrt::check_hresult(adapter->GetParent(__uuidof(IDXGIFactory2), factory.put_void()));
-    DXGI_SWAP_CHAIN_DESC1 chain{};
-    chain.Width = static_cast<UINT>(layerSize_.cx);
-    chain.Height = static_cast<UINT>(layerSize_.cy);
-    chain.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-    chain.SampleDesc.Count = 1;
-    chain.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    chain.BufferCount = 2;
-    chain.Scaling = DXGI_SCALING_STRETCH;
-    chain.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
-    chain.AlphaMode = DXGI_ALPHA_MODE_PREMULTIPLIED; // clear wherever the island isn't
-    winrt::check_hresult(factory->CreateSwapChainForComposition(device_.get(), &chain, nullptr, swapChain_.put()));
-    winrt::com_ptr<ID3D11Texture2D> back;
-    winrt::check_hresult(swapChain_->GetBuffer(0, __uuidof(ID3D11Texture2D), back.put_void()));
-    winrt::check_hresult(device_->CreateRenderTargetView(back.get(), nullptr, target_.put()));
-
-    step = "surface";
-    winrt::check_hresult(compositor.as<abi::ICompositorInterop>()->CreateCompositionSurfaceForSwapChain(
-        swapChain_.get(), reinterpret_cast<abi::ICompositionSurface**>(winrt::put_abi(surface_))));
-
-    step = "vertex shader";
-    auto vertex = compile("vs", "vs_4_0");
-    winrt::check_hresult(device_->CreateVertexShader(vertex->GetBufferPointer(), vertex->GetBufferSize(), nullptr, vertex_.put()));
-    step = "pixel shader";
-    auto pixel = compile("ps", "ps_4_0");
-    winrt::check_hresult(device_->CreatePixelShader(pixel->GetBufferPointer(), pixel->GetBufferSize(), nullptr, pixel_.put()));
-
-    step = "states";
-    D3D11_BUFFER_DESC buffer{};
-    buffer.ByteWidth = sizeof(LiquidParams);
-    buffer.Usage = D3D11_USAGE_DEFAULT;
-    buffer.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    winrt::check_hresult(device_->CreateBuffer(&buffer, nullptr, params_.put()));
-    D3D11_SAMPLER_DESC sampler{};
-    sampler.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-    sampler.AddressU = sampler.AddressV = sampler.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP; // past the screen's edge: its last pixel
-    sampler.MaxLOD = D3D11_FLOAT32_MAX;
-    winrt::check_hresult(device_->CreateSamplerState(&sampler, sampler_.put()));
-    D3D11_RASTERIZER_DESC raster{};
-    raster.FillMode = D3D11_FILL_SOLID;
-    raster.CullMode = D3D11_CULL_NONE;
-    raster.ScissorEnable = TRUE; // only the island's pixels are shaded
-    raster.DepthClipEnable = TRUE;
-    winrt::check_hresult(device_->CreateRasterizerState(&raster, raster_.put()));
-}
-
 void LiquidGlass::stop()
 {
     bool was = running_;
@@ -136,7 +57,7 @@ void LiquidGlass::stop()
     }
     capture_.stop();
     view_ = nullptr;
-    shown_ = nullptr;
+    desktop_ = nullptr;
     surface_ = nullptr;
     target_ = nullptr;
     swapChain_ = nullptr;
@@ -203,8 +124,6 @@ void LiquidGlass::syncCapture()
     } else if (!shown && capture_.running()) {
         // Hidden (a fullscreen app, decision 032): nothing is captured, nothing costs.
         capture_.stop();
-        view_ = nullptr;
-        shown_ = nullptr;
         logLine("glass: liquid: the island has no size: the capture is paused");
     }
 }
@@ -235,11 +154,6 @@ void LiquidGlass::draw()
     else timer_.Stop();
     if (!capture_.picture()) return; // the first picture hasn't come yet
 
-    if (capture_.picture() != shown_.get()) {
-        view_ = nullptr;
-        winrt::check_hresult(device_->CreateShaderResourceView(capture_.picture(), nullptr, view_.put()));
-        shown_.copy_from(capture_.picture());
-    }
     ID3D11RenderTargetView* target = target_.get();
     context_->OMSetRenderTargets(1, &target, nullptr);
     const float clear[4]{ 0, 0, 0, 0 };
@@ -251,11 +165,31 @@ void LiquidGlass::draw()
                         std::min(layerSize_.cx, static_cast<LONG>(std::ceil(bounds.x + bounds.width))),
                         std::min(layerSize_.cy, static_cast<LONG>(std::ceil(bounds.y + bounds.height))) };
     if (scissor.right > scissor.left && scissor.bottom > scissor.top) {
+        // The part of the desktop the shader may look at: the island's
+        // pixels and as far past them as the bend and the blur reach. Only
+        // what's both on the screen and in the layer.
+        float level = std::log2(std::max(t.glassLiquidBlur, 1.0f));
+        LONG reach = static_cast<LONG>(std::ceil(std::abs(t.glassLiquidBend) + 16 * std::max(t.glassLiquidBlur, 1.0f))) + 8;
+        POINT shift{ layerOrigin_.x - capture_.origin().x, layerOrigin_.y - capture_.origin().y }; // the layer's corner in the picture
+        // Each way: from `low` to `high` in the picture, kept to where the layer and the screen overlap.
+        auto span = [reach](LONG low, LONG high, LONG corner, LONG layer, float screen, UINT& from, UINT& to) {
+            LONG first = std::max(0L, corner), last = std::min(static_cast<LONG>(screen), corner + layer);
+            if (last <= first) return false; // the layer is off the screen
+            from = static_cast<UINT>(std::clamp(low - reach + corner, first, last));
+            to = static_cast<UINT>(std::clamp(high + reach + corner, first, last));
+            return to > from;
+        };
+        D3D11_BOX part{};
+        part.back = 1;
+        if (!span(scissor.left, scissor.right, shift.x, layerSize_.cx, capture_.size().x, part.left, part.right) ||
+            !span(scissor.top, scissor.bottom, shift.y, layerSize_.cy, capture_.size().y, part.top, part.bottom))
+            return;
+        context_->CopySubresourceRegion(desktop_.get(), 0, part.left - static_cast<UINT>(shift.x), part.top - static_cast<UINT>(shift.y), 0, capture_.picture(), 0, &part);
+        context_->GenerateMips(view_.get());
+
         LiquidParams p{};
-        p.screen[0] = capture_.size().x;
-        p.screen[1] = capture_.size().y;
-        p.screen[2] = static_cast<float>(layerOrigin_.x - capture_.origin().x);
-        p.screen[3] = static_cast<float>(layerOrigin_.y - capture_.origin().y);
+        p.screen[0] = static_cast<float>(layerSize_.cx);
+        p.screen[1] = static_cast<float>(layerSize_.cy);
         for (std::size_t i = 0; i < 2; ++i) {
             const Rect& f = shapes[i].frame;
             p.shape[i][0] = f.x, p.shape[i][1] = f.y, p.shape[i][2] = f.width, p.shape[i][3] = f.height;
@@ -263,13 +197,12 @@ void LiquidGlass::draw()
             p.ears[2 * i] = shapes[i].leftEar, p.ears[2 * i + 1] = shapes[i].rightEar;
             p.tops[i] = shapes[i].top;
         }
-        p.radius[2] = std::max(t.glassRimWidth, 1.0f) * 1.5f; // the highlight: a little wider than the rim's line
-        p.lens[0] = std::max(t.glassLiquidBlur, 0.0f);
+        p.lens[0] = level; // the blur, as which of the picture's smaller copies to read
         p.lens[1] = std::max(t.glassLiquidRim, 0.0f);
         p.lens[2] = t.glassLiquidBend;
         p.lens[3] = std::clamp(t.glassLiquidDim, 0.0f, 1.0f);
         p.light[0] = std::max(t.glassLiquidSaturation, 0.0f);
-        p.light[1] = std::clamp(t.glassLiquidHighlightOpacity, 0.0f, 1.0f);
+        p.light[1] = std::clamp(t.glassLiquidLipOpacity, 0.0f, 1.0f);
         context_->UpdateSubresource(params_.get(), 0, nullptr, &p, 0, 0);
 
         D3D11_VIEWPORT viewport{ 0, 0, static_cast<float>(layerSize_.cx), static_cast<float>(layerSize_.cy), 0, 1 };
@@ -288,7 +221,7 @@ void LiquidGlass::draw()
         context_->PSSetSamplers(0, 1, &sampler);
         context_->Draw(3, 0);
         view = nullptr;
-        context_->PSSetShaderResources(0, 1, &view); // the picture goes back to the capture unbound
+        context_->PSSetShaderResources(0, 1, &view); // unbound: the next frame copies into it
     }
     // No waiting for the screen: a frame the compositor doesn't get to is replaced by the next.
     winrt::check_hresult(swapChain_->Present(0, 0));
