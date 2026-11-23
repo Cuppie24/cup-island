@@ -64,6 +64,7 @@
 #include "providers/search/windows_apps.h"
 #include "providers/service_host.h"
 #include "providers/service_link.h"
+#include "providers/statistics/system_statistics_provider.h"
 #include "providers/system/settings_provider.h"
 #include "providers/system/theme_provider.h"
 #include "providers/system/window_theme.h"
@@ -1090,6 +1091,8 @@ int main()
     // Fake statistics on its settings page (decision 061): Debug builds, or any build started under a
     // debugger (Visual Studio's preset dropdown starts on Release, which has a pdb and debugs fine).
     g_providers->add(std::make_unique<PomodoroProvider>(kDemoKeys || IsDebuggerPresent()));
+    // The machine's vital signs (decisions 171 to 173): read on its own thread, and only while its card is shown.
+    g_providers->add(std::make_unique<SystemStatisticsProvider>(postToUi));
     auto settings = std::make_unique<SettingsProvider>(SettingsHooks{
         .applyTheme = applyTheme,
         .copyLogs = [] { return copyLogToClipboard(g_inputHwnd); },
@@ -1220,9 +1223,10 @@ int main()
     }));
     g_providers->grant(SearchProvider::kId, "index");
     g_providers->grant(SearchProvider::kId, ProviderRegistry::kCommandsGrant); // providers' commands among its results (decision 160)
-    // The page row's icons follow the order panels first appear: media, then Pomodoro (decision 165).
+    // The page row's icons follow the order panels first appear: media, Pomodoro, then statistics (decision 165).
     g_providers->start("media");
     g_providers->start("pomodoro");
+    g_providers->start("statistics");
     g_providers->start(SearchProvider::kId);
     g_providers->start("system.theme");
     g_providers->start("system.settings");

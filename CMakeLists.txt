@@ -88,8 +88,11 @@ add_library(cup_providers STATIC
     src/providers/pomodoro/pomodoro_stats.cpp
     src/providers/pomodoro/todo_list.cpp
     src/providers/statistics/statistics_provider.cpp
+    src/providers/statistics/stats_bluetooth.cpp
+    src/providers/statistics/stats_counters.cpp
     src/providers/statistics/stats_format.cpp
     src/providers/statistics/stats_history.cpp
+    src/providers/statistics/stats_network.cpp
     src/providers/statistics/stats_overview.cpp
     src/providers/statistics/stats_pages.cpp
     src/providers/statistics/stats_pages_wide.cpp
@@ -165,6 +168,7 @@ if(CUP_BUILD_TESTS)
         tests/statistics_card_tests.cpp
         tests/statistics_page_tests.cpp
         tests/statistics_provider_tests.cpp
+        tests/statistics_reader_tests.cpp
         tests/statistics_tests.cpp
         tests/store_tests.cpp
         tests/system_tests.cpp
@@ -288,6 +292,12 @@ if(WIN32)
         src/providers/media/smtc_reader_reads.cpp
         src/providers/media/smtc_reading.cpp
         src/providers/search/windows_apps.cpp
+        src/providers/statistics/stats_reader.cpp
+        src/providers/statistics/stats_sources.cpp
+        src/providers/statistics/stats_sources_bluetooth.cpp
+        src/providers/statistics/stats_sources_network.cpp
+        src/providers/statistics/stats_sources_pdh.cpp
+        src/providers/statistics/system_statistics_provider.cpp
         src/providers/service_link.cpp
         src/service/index_client.cpp
         src/providers/system/theme_provider.cpp
@@ -297,7 +307,8 @@ if(WIN32)
     set_source_files_properties(assets/cup_island.rc PROPERTIES OBJECT_DEPENDS
         "${CMAKE_SOURCE_DIR}/assets/cup_island.ico;${CMAKE_SOURCE_DIR}/assets/grab.cur;${CMAKE_SOURCE_DIR}/assets/grabbing.cur")
     target_include_directories(CupIsland PRIVATE "${CMAKE_BINARY_DIR}/generated") # cup_version.h, for the code and the .rc
-    target_link_libraries(CupIsland PRIVATE cup_providers WindowsApp CoreMessaging User32 Advapi32 Ole32 Dbghelp d3d11 d3dcompiler d2d1 dxguid dwrite dxgi dwmapi shell32 Shcore wevtapi)
+    target_link_libraries(CupIsland PRIVATE cup_providers WindowsApp CoreMessaging User32 Advapi32 Ole32 Dbghelp d3d11 d3dcompiler d2d1 dxguid dwrite dxgi dwmapi shell32 Shcore wevtapi
+        pdh iphlpapi setupapi psapi) # the statistics reader: counters, adapters, the device tree, memory (decision 173)
     # Release: a GUI app, no console window (quit from the tray icon). Debug keeps
     # the console for the log. mainCRTStartup lets main() stay the entry point.
     # /DEBUG writes the pdb; it would turn off /OPT:REF and /OPT:ICF, so they're asked back.

@@ -3,8 +3,8 @@
 Status: Accepted; amended by 172, which replaces the card (an overview of
 tiles with pages), drops the laptop's battery and the card-wide high
 colour, and extends the reading. The pull model, the cleaning rules and
-the Bluetooth condition below stand. The Windows reader isn't written, and
-the provider isn't registered in `app/main.cpp` yet. Amends 042: Bluetooth
+the Bluetooth condition below stand. The Windows reader and its
+registration in `app/main.cpp` are decision 173. Amends 042: Bluetooth
 battery levels may come back, under its condition.
 
 **Context.** The user asked for a page of the machine's statistics: CPU,

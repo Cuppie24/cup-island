@@ -1,7 +1,7 @@
 // Statistics, the numbers (decisions 171, 172): cleaning and formatting a
 // reading, which rows and devices show, and the graphs' histories.
 // The overview is in statistics_card_tests.cpp, its pages in statistics_page_tests.cpp,
-// the provider in statistics_provider_tests.cpp.
+// the provider in statistics_provider_tests.cpp, the reader's rules in statistics_reader_tests.cpp.
 
 #include "core/tokens.h"
 #include "expect.h"
@@ -15,6 +15,7 @@ namespace cup::test {
 void runStatisticsCardTests();
 void runStatisticsPageTests();
 void runStatisticsProviderTests();
+void runStatisticsReaderTests();
 namespace {
 
 constexpr std::uint64_t kMb = 1024ull * 1024, kGb = 1024 * kMb, kTb = 1024 * kGb;
@@ -171,6 +172,7 @@ void runStatisticsTests()
     runStatisticsCardTests();
     runStatisticsPageTests();
     runStatisticsProviderTests();
+    runStatisticsReaderTests();
 }
 
 } // namespace cup::test
