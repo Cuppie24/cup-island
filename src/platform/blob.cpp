@@ -117,7 +117,7 @@ void Blob::refreshAnimations(bool coloursOnly)
     }
     shape_.InsertScalar(L"MaxRadius", t.maxCornerRadius);
     shape_.InsertScalar(L"FlareRadius", t.flareRadius);
-    shape_.InsertScalar(L"GlowHeight", glowLook(t, card_).height);
+    shape_.InsertScalar(L"GlowHeight", glowNow().height); // going out, the reach it has (decision 173)
 
     // Colours are tokens too, and every one fades, so a cover's colours or a
     // new theme ease in (decision 051): the fill, the shadow, the marks. Glass

@@ -167,7 +167,8 @@ void Blob::buildGlow(Compositor const& c, CompositionGeometry const& outline)
 void Blob::fadeGlow(Ms duration)
 {
     const Tokens& t = tokens();
-    GlowLook look = glowLook(t, card_); // the pill's, or an open card's (decision 166)
+    GlowLook look = glowNow(); // the pill's, or an open card's (decision 166); going out, the one shown, clear (decision 173)
+    if (look.color.a != 0) glowShown_ = look;
     for (std::size_t i = 0; i < glow_.size(); ++i) {
         Color c = look.color;
         c.a = static_cast<std::uint8_t>(std::lround(look.color.a * glowFade(look.curve, i / float(kGlowStops - 1))));
@@ -189,6 +190,8 @@ void Blob::setCard(bool on)
     Ms duration = tokens().morphDuration;
     // The reach glides with the colours: the stops' offsets read it (buildGlow).
     // Both ends explicit, the resting value set first (decision 008).
+    // No glow, or one going out: nothing to glide; it keeps its reach as it goes (decision 173).
+    if (glowLook(tokens(), card_).color.a == 0) return fadeGlow(duration);
     float from = glowLook(tokens(), !card_).height, to = glowLook(tokens(), card_).height;
     shape_.InsertScalar(L"GlowHeight", to);
     auto reach = compositor_.CreateScalarKeyFrameAnimation();

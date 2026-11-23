@@ -689,6 +689,14 @@ struct GlowLook {
 };
 GlowLook glowLook(const Tokens& t, bool card);
 
+// The glow a fade heads for, from the one `shown` (decision 173). Going
+// out (`next` is clear, `shown` wasn't), it keeps what was shown, only
+// clear: the same colour, reach and curve. Without that a cover's glow
+// leaving jumped as its fade began: an open card's reach and curve snapped
+// to the pill's, and its colour headed for clear *black*, which darkens a
+// glow long before it thins it. Anything else: `next` as it is.
+GlowLook glowTowards(const GlowLook& next, const GlowLook& shown);
+
 // The shadow under the card's cover (decision 094), or, while a cover's glow
 // is set (artGlowColor, decision 169), that glow: its colour, how soft, and
 // where it falls (a glow: straight under the cover, so it shows all round).
