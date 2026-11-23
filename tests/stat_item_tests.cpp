@@ -107,6 +107,8 @@ void batteryTests()
     float inner = t.batterySize.x - 4 * t.batteryStroke;
     expect(inside(parts.fill, parts.body) && std::abs(parts.fill.width - inner / 2) < 0.01f && parts.fill.x == parts.body.x + 2 * t.batteryStroke,
            "the fill inside the outline, from the left");
+    expect(parts.bodyRadius > 0 && parts.bodyRadius <= t.batterySize.y / 2 && parts.fillRadius >= 0 && parts.fillRadius < parts.bodyRadius,
+           "its corners: the fill's nested in the outline's");
     expect(batteryParts({ .level = 7 }, frame, {}).fill.width == inner && batteryParts({ .level = -1 }, frame, {}).fill.width == 0, "clamped");
 
     Battery labelled{ .level = 0.8f, .label = "Left", .value = "82%" };
@@ -157,6 +159,14 @@ void progressTests()
            fractionOf({ .timeline = playing.timeline, .level = 0.1f }, Ms{ 0 }) == 0.1f, "a level wins over the timeline, clamped");
     expect(heightOf(level, {}, 0) == t.progressHeight && heightOf(Progress{ .level = 0.1f, .thick = true }, {}, 0) == t.thickProgressHeight, "a thick bar");
     expect(!fixedWidthOf(level, 0, {}) && fixedWidthOf(Progress{ .level = 0.1f, .stub = true }, 0, {}) == t.stubBarWidth, "a stub: a fixed, short bar");
+    Rect bar{ 10, 5, 200, 10 };
+    LevelBarParts one = levelBarParts(level, bar);
+    expect(one.fill == Rect{ 10, 5, 80, 10 } && one.second.width == 0 && one.second.x == 90, "a level's fill, from the left");
+    LevelBarParts two = levelBarParts({ .level = 0.5f, .second = 0.25f }, bar);
+    expect(two.fill.width == 100 && two.second == Rect{ 110, 5, 50, 10 }, "a second part right after the first");
+    LevelBarParts over = levelBarParts({ .level = 0.9f, .second = 0.5f }, bar);
+    expect(std::abs(over.second.x + over.second.width - (bar.x + bar.width)) < 0.01f && levelBarParts({ .second = 0.5f }, bar).fill.width == 0 &&
+           levelBarParts({ .level = -3.0f, .second = 9.0f }, bar).second.width == 200, "never past the bar's end; garbage clamped");
 }
 
 // Tiles are buttons as a whole; a grid's gaps are one size.

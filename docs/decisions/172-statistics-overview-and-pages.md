@@ -2,8 +2,8 @@
 
 Status: Accepted (replaces 171's card, its laptop battery and its card-wide
 high colour; 171's pull model, cleaning rules and 042 condition stand).
-Core, layout and the provider tested; nothing new is drawn yet: the
-renderer's side and the Windows reader are the next stages.
+Core, layout and the provider tested. The renderer's side is written but
+was never run: it needs a Windows build, and a look.
 
 **Context.** 171's card was a table of three numbers with bars. The user
 picked a design from a mockup instead: an overview of six tiles (CPU, GPU
@@ -58,6 +58,22 @@ time, a per-item "high" colour, or two columns in a card.
 - **New fields go at a struct's end** (`Progress`, `Row`): the platform and
   tests build some positionally.
 
+- **Drawn as pixels, not shapes** (`platform/stat_painting`): each of the
+  five items, and a `Progress` with a `level`, is painted whole into its
+  surface, as a Dial's middle is. They change every couple of seconds, not
+  every frame, so a new reading is a repaint: nothing eases between two
+  readings yet. A `Progress` without a level is still the shapes that follow
+  a timeline on the compositor.
+- **A tile that is a button is built like one**: the hover shape
+  (`hoverColor`, a list row's, at the tile's corners) under its painted
+  surface, showing through the tile's own translucent fill, and
+  `pressScale` on press (art's gentle squash, not a small button's).
+- **A plot is cut by its tile's rounded shape** with a Direct2D layer (a
+  geometric mask), and so is a level in its bar: the area reaches the
+  tile's bottom corners without painting past them.
+- **Earbuds are drawn as headphones on Windows 10**: the glyph is in Segoe
+  Fluent Icons only (decision 015).
+
 **Not taken.** A generic container item (a tile holding rows): it would
 make the model a tree. A window for the detail pages: the user asked for
 them inside the island. A colour per `Content` for "high" (171): it turned
@@ -67,11 +83,13 @@ the number. A tile around the GPU's memory row and around earbuds' parts,
 a circle behind a device's glyph, dots in memory's legend: nothing existing
 draws them, and they weren't worth items.
 
-**Consequences.** The renderer must draw five items and four `Progress`
-flags, and light and press a tile as a button; until then the pages lay
-out but show nothing new. Ten glyphs are new (`Glyph::Headphones` ..
-`Ethernet`); earbuds have none in Segoe MDL2 Assets and need a fallback
-there (decision 015). The reader's contract grew: per-core readings,
+**Consequences.** Ten glyphs are new (`Glyph::Headphones` .. `Ethernet`);
+their code points were written from memory of Microsoft's tables and need a
+look on both Windows versions. A bar's label under the pointer
+(`LevelBar::label`) isn't shown: there is no tooltip on the island to hang
+it on. A ring can't take a `level` (it still follows its timeline). In a
+tile's value the unit is as bright as its number, and a caption sits on its
+line's middle, not on the value's baseline. The reader's contract grew: per-core readings,
 process lists, GPU engines and memory, cached memory, today's network
 totals and link speed, every drive, disk activity, device kinds and parts.
 Every one is optional, and each page was laid out without it. Process

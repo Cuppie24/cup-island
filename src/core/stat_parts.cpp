@@ -108,6 +108,9 @@ BatteryParts batteryShape(float level, float left, float middle)
     float inset = 2 * t.batteryStroke;
     Rect inner{ left + inset, parts.body.y + inset, std::max(0.0f, t.batterySize.x - 2 * inset), std::max(0.0f, t.batterySize.y - 2 * inset) };
     parts.fill = { inner.x, inner.y, inner.width * unit(level), inner.height };
+    // A share of its height, so the shape keeps its look at any scale; the fill's corners nest in the outline's.
+    parts.bodyRadius = t.batterySize.y / 3;
+    parts.fillRadius = std::max(0.0f, parts.bodyRadius - inset);
     return parts;
 }
 
@@ -192,6 +195,14 @@ std::string tileAction(const Item& item)
 float fractionOf(const Progress& progress, Ms now)
 {
     return progress.level ? unit(*progress.level) : progress.timeline.fractionAt(now);
+}
+
+LevelBarParts levelBarParts(const Progress& progress, Rect frame)
+{
+    float level = unit(progress.level.value_or(0));
+    float second = std::min(unit(progress.second.value_or(0)), 1 - level); // what's left of the bar at most
+    float filled = frame.width * level;
+    return { { frame.x, frame.y, filled, frame.height }, { frame.x + filled, frame.y, frame.width * second, frame.height } };
 }
 
 } // namespace cup

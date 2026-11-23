@@ -243,6 +243,7 @@ if(WIN32)
         src/platform/displays.cpp
         src/platform/element_art.cpp
         src/platform/element_painting.cpp
+        src/platform/stat_painting.cpp
         src/platform/field_painting.cpp
         src/platform/figures.cpp
         src/platform/effects.cpp

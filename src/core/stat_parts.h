@@ -44,6 +44,8 @@ struct BatteryParts {
     Rect cap;
     Rect fill;
     Rect value; // Caption, bright; zero width without one
+    float bodyRadius = 0; // the outline's corners, and the fill's inside it
+    float fillRadius = 0;
 };
 float batteryWidth(const Battery& battery, const MeasureText& measure);
 BatteryParts batteryParts(const Battery& battery, Rect frame, const MeasureText& measure);
@@ -77,5 +79,13 @@ std::string tileAction(const Item& item);
 
 // How full a Progress is at `now`, 0..1: its level, else its timeline's.
 float fractionOf(const Progress& progress, Ms now);
+// A bar with a level (Progress::level) in `frame`: its filled part from the
+// left, and its second part (Progress::second) right after it, never past the
+// bar's end; zero wide without one.
+struct LevelBarParts {
+    Rect fill;
+    Rect second;
+};
+LevelBarParts levelBarParts(const Progress& progress, Rect frame);
 
 } // namespace cup

@@ -175,6 +175,8 @@ const Field kFields[] = {
     { "graphInset", &Tokens::graphInset },
     { "graphTextTop", &Tokens::graphTextTop },
     { "graphLineWidth", &Tokens::graphLineWidth },
+    { "graphAreaOpacity", &Tokens::graphAreaOpacity },
+    { "graphAreaFadeOpacity", &Tokens::graphAreaFadeOpacity },
     { "tileRowGap", &Tokens::tileRowGap },
     { "levelsHeight", &Tokens::levelsHeight },
     { "levelsGap", &Tokens::levelsGap },
@@ -588,7 +590,7 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
     auto unitless = [](const char* name) {
         std::string_view n(name);
         return n.starts_with("cover") || n == "progressPinGrow" || n == "pressScale" || n == "buttonPressScale" || n == "islandScale" || n == "textContrast" || n == "listVisibleRows" || n == "listCardVisibleRows" || n == "searchVisibleRows" ||
-               n == "primaryHoverOpacity" || n == "progressSecondOpacity" || n == "playGlyphNudge" || // a share of an opacity, of a width (decisions 066, 071)
+               n == "primaryHoverOpacity" || n == "progressSecondOpacity" || n == "graphAreaOpacity" || n == "graphAreaFadeOpacity" || n == "playGlyphNudge" || // a share of an opacity, of a width (decisions 066, 071)
                (n.starts_with("glass") && n.ends_with("Opacity")) || // opacities (decisions 089, 090, 096)
                n == "glassGlowCurve" || n == "glassCardGlowCurve" ||  // exponents (decisions 090, 166)
                n == "glassLiquidDim" || n == "glassLiquidSaturation" || // shares (decision 165)

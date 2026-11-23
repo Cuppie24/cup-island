@@ -244,6 +244,8 @@ struct Tokens {
     float graphInset = 12;          // a tile's texts and rows, in from its sides
     float graphTextTop = 9;         // ...and its texts' line, down from its top
     float graphLineWidth = 1.5f;
+    float graphAreaOpacity = 0.3f;      // the area under a graph's line: the line's colour, this much of it at the top...
+    float graphAreaFadeOpacity = 0.03f; // ...fading to this at the plot's bottom
     float tileRowGap = 6;           // between a LevelTile's lines, a BatteryTile's glyph, battery and percent
     float levelsHeight = 38;        // Levels: its bars' height
     float levelsGap = 3;            // ...between them

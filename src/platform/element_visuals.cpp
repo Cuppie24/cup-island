@@ -3,9 +3,11 @@
 #include "core/liquid_glass.h"
 
 #include "core/motion.h"
+#include "core/stat_parts.h"
 #include "core/tokens.h"
 #include "platform/element_painting.h"
 #include "platform/field_painting.h"
+#include "platform/stat_painting.h"
 #include "platform/element_parts.h"
 #include "platform/text_format.h"
 
@@ -126,6 +128,7 @@ Color hoverColorOf(const Placed& p)
 {
     if (std::holds_alternative<TextInput>(p.item)) return tokens().inputColor;
     if (std::holds_alternative<Image>(p.item)) return tokens().artHoverColor;
+    if (!tileAction(p.item).empty()) return tokens().hoverColor; // a tile lights like a list's row, not like a small button (decision 172)
     return tokens().buttonHoverColor;
 }
 
@@ -297,7 +300,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         view.arc = parts.arc;
         view.track = parts.track;
         view.accent = parts.accent;
-    } else if (std::holds_alternative<Progress>(placed.item)) {
+    } else if (std::holds_alternative<Progress>(placed.item) && !paintedLevel(placed.item)) { // one with a level is painted (decision 172)
         ProgressParts parts = createProgress(compositor_, size, accent, isWavy(placed.item), std::get<Progress>(placed.item).seekable,
                                              device_->d2dFactory());
         view.wave = parts.wave;
@@ -316,8 +319,9 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         view.waveform = parts.visual;
         view.bars = parts.bars;
         view.accent = parts.accent;
-    } else if (std::holds_alternative<Button>(placed.item) || std::holds_alternative<TextInput>(placed.item)) {
+    } else if (std::holds_alternative<Button>(placed.item) || std::holds_alternative<TextInput>(placed.item) || !tileAction(placed.item).empty()) {
         // A text field is built like a button: its background is the hover shape, shown only under the pointer.
+        // So is a tile that's a button as a whole (decision 172): the shape under its painted surface, showing through it.
         view.surface = device_->createSurface(size);
         auto* button = std::get_if<Button>(&placed.item); // a primary one shows hover in its own fill (decision 066)
         ButtonParts parts = createButton(compositor_, size, placed.cornerRadius, view.surface, hoverColorOf(placed));
@@ -435,7 +439,9 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     bool retyped = view.placed.item.index() != placed.item.index() || isRing(view.placed.item) != isRing(placed.item) ||
                    isWavy(view.placed.item) != isWavy(placed.item) || // another bar: a wave, another knob
                    (isWavy(placed.item) && std::get<Progress>(view.placed.item).seekable != std::get<Progress>(placed.item).seekable) ||
-                   clickableArt(view.placed.item) != clickableArt(placed.item) || rolls(view.placed.item) != rolls(placed.item);
+                   clickableArt(view.placed.item) != clickableArt(placed.item) || rolls(view.placed.item) != rolls(placed.item) ||
+                   paintedLevel(view.placed.item) != paintedLevel(placed.item) || // painted, or shapes on a timeline (decision 172)
+                   tileAction(view.placed.item).empty() != tileAction(placed.item).empty(); // a button now, or no longer
     bool recoloured = view.placed.accent != placed.accent;
     // In a list, its place is in the list's scroller: scrolling moves the scroller, not it.
     Vec2 was = lists_.positionOf(view.placed), at = lists_.positionOf(placed);
@@ -660,6 +666,9 @@ void ElementVisuals::paint(View& view)
             paintGroupFill(dc, *fill, pixelSize(size), view.placed.cornerRadius);
         } else if (auto* swatch = std::get_if<Swatch>(&item)) {
             paintSwatch(dc, *swatch, size);
+        } else {
+            // Measurements (decision 172): each painted whole, in the surface's whole pixels.
+            paintStat(dc, dw, item, pixelSize(size), view.placed.cornerRadius, accentOf(view.placed));
         }
     };
     // A timer's big digits are drawn as smooth outlines (decision 107): a Dial's, a Display or Hero text.
@@ -833,8 +842,9 @@ void ElementVisuals::press(const std::string& key)
     // A field, or text a click edits (decision 043), is clicked into, not pressed: no squash.
     // Nor Segments: its pill's slide is the answer, and a wide control shrinking as one looked wrong (decision 093).
     if (noSquash(it->second.placed.item)) return;
-    // Art is big: the pill's gentle squash, not a button's deep one.
-    float scale = std::holds_alternative<Image>(it->second.placed.item) ? t.pressScale : t.buttonPressScale;
+    // Art is big, and so is a tile (decision 172): the pill's gentle squash, not a button's deep one.
+    bool big = std::holds_alternative<Image>(it->second.placed.item) || !tileAction(it->second.placed.item).empty();
+    float scale = big ? t.pressScale : t.buttonPressScale;
     playScale(compositor_, it->second.visual, scale, t.pressDownDuration, t.pressDownEase);
 }
 

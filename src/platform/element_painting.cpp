@@ -61,11 +61,14 @@ const wchar_t* textFamily(IDWriteFactory* dw, float pixelSize)
 
 namespace {
 
-const wchar_t* iconFamily(IDWriteFactory* dw)
+// Windows 11's icon font; Windows 10 has only Segoe MDL2 Assets (decision 015).
+bool fluentIcons(IDWriteFactory* dw)
 {
-    static const wchar_t* family = hasFont(dw, L"Segoe Fluent Icons") ? L"Segoe Fluent Icons" : L"Segoe MDL2 Assets";
-    return family;
+    static const bool has = hasFont(dw, L"Segoe Fluent Icons");
+    return has;
 }
+
+const wchar_t* iconFamily(IDWriteFactory* dw) { return fluentIcons(dw) ? L"Segoe Fluent Icons" : L"Segoe MDL2 Assets"; }
 
 // Same code points in Segoe Fluent Icons and Segoe MDL2 Assets.
 const wchar_t* codepoint(Glyph glyph)
@@ -120,6 +123,17 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::More: return L"\uE712";     // More (…): a window card's menu (decision 142)
     case Glyph::Gauge: return L"\uEC4A";    // SpeedHigh: something costs performance (liquid glass's question, decision 165)
     case Glyph::Fire: return L"\U0001F525"; // not in the icon fonts: Segoe UI Emoji's, in colour (paintGlyph)
+    // Statistics (decision 172): Bluetooth devices by kind, a drive, how the PC is online.
+    case Glyph::Headphones: return L"\uE7F6"; // Headphone
+    case Glyph::Earbuds: return L"\uF4C0";    // Earbud: Segoe Fluent Icons only; paintGlyph draws Headphones without it
+    case Glyph::Mouse: return L"\uE962";
+    case Glyph::Keyboard: return L"\uE92E";   // KeyboardStandard
+    case Glyph::Controller: return L"\uE7FC"; // Game
+    case Glyph::Pen: return L"\uEDC6";        // PenWorkspace
+    case Glyph::Bluetooth: return L"\uE702";
+    case Glyph::Drive: return L"\uEDA2";      // HardDrive
+    case Glyph::Wifi: return L"\uE701";
+    case Glyph::Ethernet: return L"\uE839";
     }
     return L"?";
 }
@@ -537,6 +551,8 @@ void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float f
     // Centred by what it draws, not by the font's line box: the icon font's
     // ascent and descent aren't even, which left a checkbox off-centre in its
     // hover shape. The overhangs say how far the ink reaches past the box.
+    // Earbuds are in Windows 11's icon font only: on Windows 10 they're drawn as headphones (decision 015).
+    if (glyph == Glyph::Earbuds && !fluentIcons(dw)) glyph = Glyph::Headphones;
     auto glyphLayout = layoutOf(codepoint(glyph));
     D2D1_POINT_2F at = D2D1::Point2F(0, 0);
     DWRITE_OVERHANG_METRICS ink{};
