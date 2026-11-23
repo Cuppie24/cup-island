@@ -76,6 +76,8 @@ private:
     // The UI thread's: the capture on or off, then a frame. Errors end it (lost).
     void render();
     void syncCapture(); // on while there's a shape to draw, off otherwise; lock_ held
+    // Shape `which` heads for `body`; false if it already was. lock_ held.
+    bool move(int which, Rect body, bool attached, bool leftEar, bool rightEar, const Motion& motion);
     void draw();        // one frame; lock_ held, either thread
     void lost(const char* step, winrt::hresult_error const& error); // UI thread, lock_ not held
     void tick();        // the thread's: frames while moving_
@@ -93,6 +95,12 @@ private:
     winrt::Windows::System::DispatcherQueue queue_{ nullptr }; // the UI thread's: where the thread hands back
 
     bool running_ = false;
+    // The UI thread's only. Switching the capture on or off lets Windows run
+    // this thread's messages, so place(), refresh() and render() can be
+    // called from inside syncCapture(), lock_ already held by this thread
+    // (capture_.switching()). They note what's wanted and leave; syncCapture()
+    // looks again before it returns (decision 174).
+    bool again_ = false;
     HWND layer_ = nullptr;
     POINT layerOrigin_{};
     SIZE layerSize_{};

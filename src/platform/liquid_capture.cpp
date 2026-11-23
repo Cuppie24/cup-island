@@ -19,6 +19,16 @@ namespace wgd = winrt::Windows::Graphics::DirectX;
 constexpr DWORD kLeftOutOfCaptures = 0x00000011; // WDA_EXCLUDEFROMCAPTURE (Windows 10 2004); older SDKs don't name it
 constexpr wchar_t kSession[] = L"Windows.Graphics.Capture.GraphicsCaptureSession";
 
+// LiquidCapture::switching(), for as long as this lives (start() calls stop(): nested).
+struct Switching {
+    explicit Switching(bool& flag) : flag_(flag), was_(flag) { flag_ = true; }
+    ~Switching() { flag_ = was_; }
+    Switching(const Switching&) = delete;
+    Switching& operator=(const Switching&) = delete;
+    bool& flag_;
+    bool was_;
+};
+
 } // namespace
 
 bool liquidCaptureOffered()
@@ -39,6 +49,7 @@ bool liquidCaptureOffered()
 
 void LiquidCapture::start(HWND window, ID3D11Device* device, std::mutex& guard, std::function<void()> onFrame)
 {
+    Switching mark(switching_);
     stop();
     window_ = window;
     guard_ = &guard;
@@ -81,6 +92,8 @@ void LiquidCapture::start(HWND window, ID3D11Device* device, std::mutex& guard, 
 
 void LiquidCapture::stop()
 {
+    Switching mark(switching_);
+    missed_ = false;
     arrived_.revoke();
     try {
         if (session_) session_.Close();
@@ -102,6 +115,12 @@ void LiquidCapture::stop()
 void LiquidCapture::take(wgc::Direct3D11CaptureFramePool const& pool)
 {
     // Called by Windows: nothing may be thrown back at it (decision 158).
+    if (switching_) {
+        // In the middle of start(), which holds `guard`: locking it again
+        // from its own thread throws (decision 174). The frame waits in the pool.
+        missed_ = true;
+        return;
+    }
     try {
         wgc::Direct3D11CaptureFrame latest{ nullptr };
         while (auto next = pool.TryGetNextFrame()) { // only the newest matters
@@ -128,6 +147,13 @@ void LiquidCapture::take(wgc::Direct3D11CaptureFramePool const& pool)
         return;
     }
     if (onFrame_) onFrame_();
+}
+
+void LiquidCapture::catchUp()
+{
+    if (!missed_ || switching_ || !pool_) return;
+    missed_ = false;
+    take(pool_);
 }
 
 } // namespace cup::platform
