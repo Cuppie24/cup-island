@@ -326,6 +326,7 @@ struct Tokens {
     float glassLiquidDim = 0.45f;
     float glassLiquidSaturation = 1.35f;
     float glassLiquidHighlightOpacity = 0.55f;
+    float glassLiquidShineOpacity = 0.5f; // a filled control's shiny edge on liquid glass, at its brightest (liquidShine)
 
     // Expanded's page row along the top of the card (decisions 007, 047, 109): a dot per page,
     // the shown one a line, an arrow on each side of them; Home's button and the pin at the edges.
@@ -612,6 +613,10 @@ Color islandFill(const Tokens& t, Color color, bool evenBlur = true);
 // ...the share it keeps of a colour's opacity: 1 when not glass. The island
 // over the glass applies it to a whole layer (decision 097).
 float glassShare(const Tokens& t, bool evenBlur = true);
+
+// How bright a filled control's edge shines (decision 165): glassLiquidShineOpacity
+// while the island is liquid glass, within 0..1; none on frosted glass or a solid island.
+float liquidShine(const Tokens& t);
 
 // The colour acrylic's even brightness takes its lightness from:
 // glassLuminosityColor, its opacity times the Transparency pick's share

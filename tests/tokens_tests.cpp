@@ -230,6 +230,13 @@ void runTokensTests()
                scaleTokens(solid, 2).glassLiquidDim == solid.glassLiquidDim && scaleTokens(solid, 2).glassLiquidSaturation == solid.glassLiquidSaturation &&
                scaleTokens(solid, 2).glassLiquidHighlightOpacity == solid.glassLiquidHighlightOpacity,
            "liquid glass: its rim, bend and blur are lengths; its dim, saturation and highlight shares");
+    Tokens shiny = glass;
+    shiny.glassLiquidShineOpacity = 0.6f;
+    expect(liquidShine(shiny) == 0.0f && liquidShine(solid) == 0.0f, "liquid glass: controls don't shine on frosted glass or a solid island");
+    shiny.glassStyle = GlassStyle::Liquid;
+    expect(liquidShine(shiny) == 0.6f, "liquid glass: a filled control's edge shines, glassLiquidShineOpacity bright");
+    shiny.glass = false;
+    expect(liquidShine(shiny) == 0.0f, "liquid glass: picked, but the island is solid (a light theme): no shine");
     // Acrylic's even brightness at each Transparency pick (decision 100):
     // its colour's opacity times the pick's share, clearer as the pick goes up.
     Tokens lum = solid;

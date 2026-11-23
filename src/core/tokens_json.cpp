@@ -217,6 +217,7 @@ const Field kFields[] = {
     { "glassLiquidDim", &Tokens::glassLiquidDim },
     { "glassLiquidSaturation", &Tokens::glassLiquidSaturation },
     { "glassLiquidHighlightOpacity", &Tokens::glassLiquidHighlightOpacity },
+    { "glassLiquidShineOpacity", &Tokens::glassLiquidShineOpacity },
     { "glassDarkenScale", &Tokens::glassDarkenScale },
     { "glassDarkenLift", &Tokens::glassDarkenLift },
     { "glassDenseLuminosity", &Tokens::glassDenseLuminosity },

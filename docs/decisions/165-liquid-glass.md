@@ -45,6 +45,12 @@ frosted glass stays as it was and stays the default.
   bend then grew as a quarter circle, infinitely steep at the edge, which
   squeezed the desktop into single glittering pixels. Now it grows as a
   square, and the blur widens with the squeeze.
+- **Controls shine too.** On liquid glass a filled control on the island
+  (a primary button, a toggle that's on) gets a shiny edge: a stroke just
+  inside its circle, brightest at the top left, dim across the middle,
+  bright again at the bottom right, `glassLiquidShineOpacity` at its
+  brightest (`liquidShine`, core; `platform/shine`). Plain shapes, no
+  shader. Not on frosted glass, and not in providers' windows.
 - **Shown by the compositor.** The shader draws into a swap chain as large
   as the render layer; each Blob's glass sprite shows it through a mask
   brush cut by the same outline snapshot as before (decisions 018, 133),
