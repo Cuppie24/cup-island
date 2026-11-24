@@ -8,6 +8,7 @@
 #include "platform/progress_wave.h"
 #include "platform/win.h"
 
+#include <functional>
 #include <vector>
 
 namespace cup::platform {
