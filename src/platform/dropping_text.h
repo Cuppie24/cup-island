@@ -1,7 +1,8 @@
 #pragma once
 // A line of text that changes as a whole (Text::drops, decision 180): the
 // line being sung. The new line falls in from above as the old one drops
-// out below, clipped to the line's frame, like a rolling time's digits
+// out below, or (Text::rises) comes up from below as the old one leaves at
+// the top; clipped to the line's frame, like a rolling time's digits
 // (rolling_text) but one sprite for the whole line. Composition runs it: no
 // app work per frame (TR §5).
 

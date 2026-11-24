@@ -214,7 +214,6 @@ void PillRenderer::applyContent()
     pill_.setContent(scene.elements, scene.now, reveal, glideFor);
     shownContent_ = scene;
     pill_.setToast(scene.toast, scene.now); // floating over it (decision 071)
-    pill_.setPopover(scene.popover, scene.now); // ...and a popover above its button (decision 180)
     bubble_.setContent(scene.bubble ? scene.bubble->elements : std::vector<Placed>{}, scene.now, reveal);
 
     // Debug builds have a console: flag slow content builds when chasing lag.

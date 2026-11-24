@@ -26,8 +26,8 @@ later: media sessions don't carry one.
   as it does a TimeLabel's time. `Placed::changesAt` is the next line's
   start, one of `sceneDeadline`'s, so the app's one timer wakes for it.
   A note sign stands in before the first line and in a break.
-- **It drops in** (`Text::drops`, `platform/dropping_text`): the new line
-  falls in from above as the old one drops out below, clipped to its row,
+- **It scrolls in** (`Text::drops` with `rises`, `platform/dropping_text`): the new line
+  comes up from below as the old one leaves at the top, clipped to its row,
   over `lyricDropDuration`. A rolling time's motion (decision 107), the
   whole line as one sprite. It's shown `lyricLead` (350 ms) before it's
   sung: timed exactly, its first words were sung before they could be read.
@@ -60,19 +60,32 @@ later: media sessions don't carry one.
   (shuffle, repeat and the speaker still go where they don't apply). Off, nothing is asked of LRCLIB (no song's name leaves the PC),
   the line goes and the cover is full size; kept between runs
   (`Host::save`, "lyrics"). On by default.
+- **A page of lyrics.** A click on the line (`Text::actionId`) turns the
+  card into a page (`lyricsPageContent`): a back arrow and the song's
+  name, then the two lines before, the one being sung (bigger, bright)
+  and the two after, each a `Lyrics` row `pageRow` lines from the song's
+  place. Rising together, each row taking the text of the one under it,
+  they read as one list scrolling up. Back: the arrow, Esc
+  (`Content::backAction`), the card closing, or a song with no lyrics.
+- **In the pill too.** While a song with lyrics plays, the pill shows the
+  line instead of the song's name, upright, and is `widePillWidth` wide
+  (`Content::widePill`) so a line fits; one still too long ends in "…".
+  One fixed width, not each line's: a pill resizing every few seconds
+  would never rest. Paused, or with no lyrics: the usual pill and name.
 - **Volume is the playing app's own**, the level Windows' volume mixer
   shows for it (`providers/media/app_volume`): every audio session of the
   app's processes, found by exe name or, for a Store app, by its app id.
-  The speaker button opens its bar in a popover right above it
-  (`Content::popover`, `Scene::popover`): a row on a pill floating over
-  the card's content, which doesn't move for it. The pill is a toast's
-  (a second `ToastLayer`): raised, edged, shadowed, its edge shiny on
-  liquid glass, rising `popoverRise` into place as it fades in and
-  sinking back as it goes. The speaker again puts it away; the card
-  closing does too. The bar sets the level
-  (`Progress::level`: `levelBarWidth` wide, its own action, sent while it's
-  dragged so the change is heard); the speaker is crossed while the app is
-  muted or at zero. There is no mute button: the bar to its start is that. The calls go to the audio service,
+  The speaker button opens its bar in the song's own bar's row, right
+  above the controls: the speaker at its level, the bar across the card,
+  the level as a number. Nothing floats and nothing moves; the song's bar
+  is back when it closes. (A pill floating over the speaker was tried: it
+  stood out from the card and covered the bar anyway.) It closes on the
+  speaker again, on any other control, with the card, or by itself
+  `volumeBarTimeout` after it was last touched. The bar sets the level
+  (`Progress::level`: its own action, sent while it's dragged so the
+  change is heard). The speaker's glyph follows the level: crossed out
+  muted or at zero, then one, two, three waves by thirds. There is no
+  mute button: the bar to its start is that. The calls go to the audio service,
   another process, so they run on a thread of their own (decision 144).
   It's read when another app or track shows and when the card opens; a
   change made in the mixer meanwhile shows at the next of those.
@@ -85,5 +98,5 @@ request as the user, like the update check. Lyrics and a volume for the
 demo player: redundant beside the real one.
 
 **Consequences.** While lyrics are on, every song with an artist sends its
-title and artist to lrclib.net. The open popover covers the start of the
-song's own bar: a click there is the popover's.
+title and artist to lrclib.net. While the volume's bar is open the song
+can't be sought: at most `volumeBarTimeout`.

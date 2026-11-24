@@ -24,6 +24,8 @@ std::optional<Hit> hitIn(const std::vector<Placed>& elements, Vec2 point)
             return Hit{ { p.providerId, p.activityId, input->actionId, 0 }, p.key };
         if (auto* text = std::get_if<Text>(&p.item); text && !text->editAction.empty()) // the app starts editing it (decision 043)
             return Hit{ { p.providerId, p.activityId, text->editAction, 0 }, p.key };
+        if (auto* text = std::get_if<Text>(&p.item); text && !text->actionId.empty()) // a text that's clicked like a button (decision 180)
+            return Hit{ { p.providerId, p.activityId, text->actionId, 0 }, p.key };
         if (auto* progress = std::get_if<Progress>(&p.item); progress && progress->seekable && progress->shape == ProgressShape::Bar && p.frame.width > 0)
             return Hit{ { p.providerId, p.activityId, seekAction(*progress), seekFraction(p, point.x) }, p.key };
     }
@@ -34,8 +36,6 @@ std::optional<Hit> hitTest(const Scene& scene, Vec2 point)
 {
     // A row's menu is over everything (decision 086): it hides what's under it; menuItemAt says which item.
     if (scene.menu && scene.menu->frame.contains(point)) return std::nullopt;
-    // A popover floats over the content (decision 180): what's on it first, and the rest of it hides what's under it.
-    if (scene.popover && scene.popover->frame.contains(point)) return hitIn(scene.popover->elements, point);
     // A toast floats over the content (decision 071): its button first, and the rest of it hides what's under it.
     if (scene.toast && scene.toast->frame.contains(point)) return hitIn(scene.toast->elements, point);
     return hitIn(scene.elements, point);
@@ -46,7 +46,6 @@ std::string rowAt(const Scene& scene, Vec2 point)
     auto rowOf = [](const Placed& p) { return p.key.substr(0, p.key.rfind('/')); };
     auto isRow = [](const Placed& p) { return p.key.rfind("tab/", 0) != 0; };
     if (scene.toast && scene.toast->frame.contains(point)) return {}; // a floating toast covers the rows (decision 071)
-    if (scene.popover && scene.popover->frame.contains(point)) return {}; // ...and a popover (decision 180)
     if (scene.menu && scene.menu->frame.contains(point)) return {};   // ...and a row's menu (decision 086)
     for (const Placed& p : scene.elements)
         if (isRow(p) && p.hitFrame.contains(point)) return rowOf(p);

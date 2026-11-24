@@ -134,6 +134,7 @@ struct Tokens {
     float windowDialogPadding = 20;  // ...its content this far in // its corners; its rows' backgrounds nest in them (radius less padding, decision 121)
     float windowCardGap = 16; // between cards, across and down
     float expandedArtSize = 108; // expanded leading square: the cover, filling the card's shared height with its controls (decisions 094, 107, 119)
+    float widePillWidth = 420;   // Content::widePill: the pill with a line of lyrics in it (decision 180)
     float smallCoverSize = 84;   // ...on a card that asks (Content::smallCover): room for a line of lyrics over the bar (decision 180)
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;
@@ -217,12 +218,7 @@ struct Tokens {
     float progressHeight = 4;
     float progressHitHeight = 16; // taller than drawn, so it's easy to click
     float progressKnobSize = 12;  // the scrub handle shown on hover
-    // A popover (Content::popover, decision 180): its pill's padding round its row, how far above its
-    // button it floats, and how far it rises into place.
-    Vec2 popoverPadding{ 14, 8 };
-    float popoverGap = 6;
-    float popoverRise = 10;
-    float levelBarWidth = 64;     // Progress::level: a volume's bar beside a card's title (decision 180)
+    // Progress::level: a volume's bar beside a card's title (decision 180)
     // A wavy bar (Progress::wavy, decision 167): one wave's length, how far it swings to each side of
     // the bar's line, how far back from its head it straightens out, how long one wave takes to
     // pass, and how long it takes to lie flat or rise again.
@@ -482,6 +478,9 @@ struct Tokens {
     // Lyrics (decision 180): a record's length may differ from the track's by
     // this much and still be the same cut of the song; and how many songs'
     // lyrics (or the lack of them) are remembered, so going back asks nothing.
+    // Media's volume bar (decision 180): opened from its speaker, it's put away by itself this
+    // long after it was last touched.
+    Ms volumeBarTimeout{ 3500 };
     Ms lyricsDurationTolerance{ 3000 };
     std::size_t lyricsRemembered = 20;
     // A track shows at once; its cover fades in over this when it's read (decision 056).

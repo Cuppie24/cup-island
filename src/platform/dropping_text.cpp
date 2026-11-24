@@ -64,13 +64,15 @@ bool dropTo(Compositor const& c, GraphicsDevice& device, DroppingText& dropping,
     }
     // The old line drops out below and is removed once gone; the new one
     // falls in from above, settling with a little bounce.
+    // Rising (Text::rises): the other way, the old one out at the top, the new one up from below.
+    float way = text.rises ? -1.0f : 1.0f;
     auto batch = c.CreateScopedBatch(CompositionBatchTypes::Animation);
-    slide(c, old, 0.0f, size.y, 1.0f, 0.0f, t.morphEase);
+    slide(c, old, 0.0f, way * size.y, 1.0f, 0.0f, t.morphEase);
     batch.End();
     batch.Completed([old](auto&&, auto&&) {
         if (auto parent = old.Parent()) parent.Children().Remove(old);
     });
-    slide(c, dropping.line, -size.y, 0.0f, 0.0f, 1.0f, t.settleEase);
+    slide(c, dropping.line, -way * size.y, 0.0f, 0.0f, 1.0f, text.rises ? t.morphEase : t.settleEase); // rising, it doesn't bounce: rows scrolling together would jitter
     return drawn;
 }
 

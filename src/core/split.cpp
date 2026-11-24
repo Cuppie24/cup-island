@@ -11,7 +11,7 @@ namespace cup {
 Rect splitPillFrame(const IslandState& s)
 {
     const Tokens& t = tokens();
-    return { placementOf(s, Mode::Split).pillX, 0, t.compactSize.x, t.compactSize.y };
+    return { placementOf(s, Mode::Split).pillX, 0, pillWidth(s, Mode::Split), t.compactSize.y };
 }
 
 float splitGap()

@@ -39,9 +39,11 @@ public:
     // nullopt: it has none to show. Kept for as long as that session is shown.
     void showVolume(const std::string& sessionKey, std::optional<float> volume, bool muted);
     void toggleVolume(); // the card's speaker button: the volume's bar shown, or put away
-    void closeVolume();  // the card closed: put away, so it opens as it always looks
+    void closeVolume();  // another control used, or the card closed: put away
+    void touchVolume();  // its bar was dragged: it stays volumeBarTimeout more
+    void onWake(); // a time asked for has come: a vanished session's grace is over, or the volume's bar has been left alone
+    void showLyricsPage(bool show); // the line being sung clicked, or the page's back arrow; the card closing goes back too
     void toggleLyrics(); // the card's lyrics button: off, nothing is looked up and no line shown; remembered
-    void onWake(); // the grace is over: end what's shown, unless a session came back
 
     static constexpr const char* kLyricsKey = "lyrics"; // Host::save: "off", or anything else for on
     static constexpr const char* kActivityId = "media.nowPlaying"; // also its panel's (decision 009)
@@ -62,6 +64,9 @@ private:
     std::optional<float> volume_;
     bool muted_ = false;
     bool volumeOpen_ = false;
+    std::optional<Ms> volumeHideAt_; // open: when it's put away if not touched again
+    void armWake();                  // the host's one wake for whichever of the two times is first
+    bool lyricsPage_ = false; // the card is the lyrics' page while the song has lyrics
 };
 
 } // namespace cup

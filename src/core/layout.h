@@ -131,9 +131,6 @@ struct Scene {
     std::vector<Vec2> badges;      // notification dots' centres (decision 038, core/badges.h)
     std::vector<Vec2> accentBadges; // ...those drawn in the accent, not red (decision 152)
     std::optional<ToastScene> toast; // a toast floating over the card's bottom (decision 071, core/toast.h)
-    // A control opened from one of the card's buttons, on a pill floating right above it
-    // (Content::popover, decision 180); keys "popover/...". A toast's shape, slid a little.
-    std::optional<ToastScene> popover;
     std::optional<MenuScene> menu;   // a row's menu, open over the card (decision 086, core/menu.h)
     bool dropTarget = false;       // the dragged bubble is over the pill: letting go swaps them (pill lightens)
     Vec2 bubbleTuck;               // no bubble: it shrinks to this point, on the top edge inside the pill

@@ -2,9 +2,51 @@
 
 #include "core/cover_palette.h"
 
+#include <algorithm>
+#include <cmath>
+
 namespace cup {
 
+namespace {
+
+Content cardContent(const NowPlaying& m);
+
+} // namespace
+
 Content nowPlayingContent(const NowPlaying& m)
+{
+    return m.lyricsPage && m.lyrics ? lyricsPageContent(m) : cardContent(m);
+}
+
+Content lyricsPageContent(const NowPlaying& m)
+{
+    namespace act = media_action;
+    NowPlaying card = m;
+    card.lyricsPage = false;
+    Content c = cardContent(card); // the pill, the bubble, alerts and the tint don't change with the page
+    c.card = CardLayout::Centred;
+    c.smallCover = false;
+    c.expandedLeading.clear();
+    c.expandedTrailing.clear();
+    c.expandedBottom.clear();
+    c.backAction = act::kLyricsBack; // Esc goes back to the card, as the arrow does
+    // The arrow at the row's start, the song over its words.
+    Row heading = row({ Text{ .value = c.label, .style = TextStyle::Caption, .centred = true } }, Align::Center);
+    heading.leading.push_back(Button{ .glyph = Glyph::ChevronLeft, .actionId = act::kLyricsBack, .compact = true, .secondary = true });
+    heading.id = "heading";
+    c.expandedCenter = { heading };
+    constexpr int kAround = 2; // lines shown before and after the one being sung
+    for (int at = -kAround; at <= kAround; ++at) {
+        Row line = row({ Lyrics{ .timeline = m.timeline, .lines = m.lyrics, .pageRow = at } });
+        line.id = "line" + std::to_string(at + kAround); // named: the same visuals whatever else the page gains
+        c.expandedCenter.push_back(line);
+    }
+    return c;
+}
+
+namespace {
+
+Content cardContent(const NowPlaying& m)
 {
     namespace act = media_action;
     bool playing = m.timeline.playing;
@@ -17,6 +59,12 @@ Content nowPlayingContent(const NowPlaying& m)
     c.label = m.artist.empty() ? m.title : m.title + " - " + m.artist;
     c.compactLeading = { row({ art }) };
     c.compactCenter = { row({ Text{ .value = c.label, .marquee = true } }) }; // swims when too long
+    // With lyrics, the pill shows the line being sung instead, and is wider so it fits
+    // (decision 180); a line still too long ends in "…". Paused, the song's name again.
+    if (m.lyrics && playing) {
+        c.compactCenter = { row({ Lyrics{ .timeline = m.timeline, .lines = m.lyrics } }) };
+        c.widePill = true;
+    }
     // Playing, the island takes on the cover's colours; paused, the theme's (decision 051).
     if (playing && m.art) c.tint = coverTint(*m.art);
     c.tintComing = playing && !m.art; // a new track's cover is still being read (decision 058)
@@ -29,11 +77,6 @@ Content nowPlayingContent(const NowPlaying& m)
     // Like iOS: the big art opens the app that's playing (only expanded; elsewhere a click expands).
     c.expandedLeading = { row({ Image{ m.art, m.canOpenSource ? act::kOpenSource : "" } }) };
     c.expandedCenter = { row({ title }), row({ artist }) };
-    // The app's volume while its speaker button (in the controls' row) has it open
-    // (decision 180): a bar that sets the level, on a pill floating right above the speaker.
-    if (m.volume && m.volumeOpen)
-        c.popover = Popover{ act::kVolumeOpen, row({ Progress{ .timeline = levelTimeline(m.muted ? 0.0f : *m.volume), .seekable = true, .level = true,
-                                                               .actionId = act::kVolume } }) };
     std::string caption = m.source, position = trackPosition(m.trackNumber, m.trackCount);
     if (!position.empty()) caption += (caption.empty() ? "" : " \u00B7 ") + position;
     if (!caption.empty()) c.expandedCenter.push_back(row({ Text{ caption, TextStyle::Caption } }));
@@ -43,11 +86,23 @@ Content nowPlayingContent(const NowPlaying& m)
     // The bottom rows are named (Row::id), not numbered: the line comes and goes
     // with the song, and the bar and controls under it stay the visuals they were.
     if (m.lyrics || m.lyricsPending) {
-        c.expandedBottom.push_back(row({ Lyrics{ m.timeline, m.lyrics } }));
+        // Clicked, it opens the lyrics' page; while they're still looked up there's nothing to open.
+        c.expandedBottom.push_back(row({ Lyrics{ .timeline = m.timeline, .lines = m.lyrics, .actionId = m.lyrics ? act::kLyricsPage : "", .italic = true } }));
         c.expandedBottom.back().id = "lyrics";
         c.smallCover = true; // the cover gives the line its room; without one it's full size
     }
-    if (m.timeline.duration > Ms{ 0 }) {
+    if (m.volume && m.volumeOpen) {
+        // The app's volume, opened from its speaker (decision 180): its bar takes the song's own
+        // bar's row, right above the controls, for as long as it's open. The speaker at its
+        // level, the bar across the card, the level as a number in a column "0" to "100" wide.
+        float level = m.muted ? 0.0f : std::clamp(*m.volume, 0.0f, 1.0f);
+        Row volume = row({ Progress{ .timeline = levelTimeline(level), .seekable = true, .level = true, .actionId = act::kVolume } });
+        volume.leading.push_back(Icon{ volumeGlyph(*m.volume, m.muted) });
+        volume.trailing.push_back(Text{ .value = std::to_string(static_cast<int>(std::lround(level * 100))), .style = TextStyle::Digits,
+                                        .alignEnd = true, .sizedAs = "100" });
+        volume.id = "volume"; // its own name: the song's bar fades out and this in, not one turned into the other
+        c.expandedBottom.push_back(volume);
+    } else if (m.timeline.duration > Ms{ 0 }) {
         // The times as wide as they get, so they sit close to the bar (decision 107).
         // The played part a wave, rippling while it plays and flat when paused (decision 167).
         c.expandedBottom.push_back(row({ TimeLabel{ .timeline = m.timeline, .fitted = true },
@@ -71,7 +126,7 @@ Content nowPlayingContent(const NowPlaying& m)
     // speaker only where they apply (the app's modes, a known volume). The lyrics button stays
     // with a song that has no lyrics, disabled: it says so, and keeps the row's end in place.
     if (m.volume)
-        controls.leading.push_back(Button{ .glyph = m.muted || *m.volume <= 0 ? Glyph::Muted : Glyph::Volume, .actionId = act::kVolumeOpen,
+        controls.leading.push_back(Button{ .glyph = volumeGlyph(*m.volume, m.muted), .actionId = act::kVolumeOpen,
                                            .on = m.volumeOpen, .secondary = true });
     if (m.canShuffle)
         controls.leading.push_back(Button{ .glyph = Glyph::Shuffle, .actionId = act::kShuffle, .on = m.shuffle, .secondary = true });
@@ -86,6 +141,8 @@ Content nowPlayingContent(const NowPlaying& m)
     return c;
 }
 
+} // namespace
+
 Content nothingPlayingContent()
 {
     // Stays when left alone too, so the card doesn't close when the music ends (decision 177).
@@ -94,6 +151,12 @@ Content nothingPlayingContent()
                          row({ Text{ .value = "Nothing playing", .style = TextStyle::Title, .centred = true } }),
                          row({ Text{ .value = "Music and videos from any app show here", .style = TextStyle::Caption, .centred = true } }) };
     return c;
+}
+
+Glyph volumeGlyph(float volume, bool muted)
+{
+    if (muted || volume <= 0) return Glyph::Muted;
+    return volume < 1.0f / 3 ? Glyph::VolumeLow : volume < 2.0f / 3 ? Glyph::VolumeMid : Glyph::Volume;
 }
 
 std::string trackPosition(int number, int count)

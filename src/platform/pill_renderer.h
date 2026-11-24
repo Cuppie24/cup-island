@@ -58,10 +58,9 @@ public:
     // A floating toast's elements (keys "toast/...", decision 071) are its own; the rest are the content's.
     void setHovered(const std::string& key)
     {
-        bool onToast = isToast(key), onPopover = isPopover(key);
-        pill_.elements().setHovered(onToast || onPopover ? std::string() : key);
+        bool onToast = isToast(key);
+        pill_.elements().setHovered(onToast ? std::string() : key);
         pill_.toastElements().setHovered(onToast ? key : std::string());
-        pill_.popoverElements().setHovered(onPopover ? key : std::string());
     }
     void setHoveredRow(const std::string& row) { pill_.elements().setHoveredRow(row); }
     void setHoveredTab(const std::optional<std::string>& tab) { pill_.elements().setHoveredTab(tab); } // decision 072
@@ -80,11 +79,7 @@ public:
 private:
     void applyContent(); // the latest pending scene's content, for both blobs
     static bool isToast(const std::string& key) { return key.rfind("toast/", 0) == 0; }
-    static bool isPopover(const std::string& key) { return key.rfind("popover/", 0) == 0; } // a popover's (decision 180)
-    ElementVisuals& elementsFor(const std::string& key)
-    {
-        return isToast(key) ? pill_.toastElements() : isPopover(key) ? pill_.popoverElements() : pill_.elements();
-    }
+    ElementVisuals& elementsFor(const std::string& key) { return isToast(key) ? pill_.toastElements() : pill_.elements(); }
 
     // Liquid glass on or off as tokens() say (glass, glassStyle), handed to
     // both blobs; a failed start isn't tried again until it's picked anew.

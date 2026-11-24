@@ -36,8 +36,13 @@ Item resolve(const Item& item, Ms now, const Source& source)
     // A break's note sign is drawn bigger than words: the title's size (the row is that tall, item_metrics).
     if (auto* lyrics = std::get_if<Lyrics>(&item)) {
         std::string line = lyricAt(*lyrics, now);
-        TextStyle style = line == kLyricBreak ? TextStyle::CardTitle : TextStyle::Body;
-        return Text{ .value = line, .style = style, .centred = true, .drops = true, .italic = line != kLyricBreak }; // words slanted, the note upright
+        bool note = line == kLyricBreak;
+        if (lyrics->pageRow) // a page's row: upright, the line being sung in the title's style; they scroll up together
+            return Text{ .value = line, .style = note ? TextStyle::CardTitle : *lyrics->pageRow == 0 ? TextStyle::Title : TextStyle::Body,
+                         .centred = true, .drops = true, .rises = true, .actionId = lyrics->actionId };
+        // Alone too it rises: the next line comes up from below, the last leaves at the top.
+        return Text{ .value = line, .style = note ? TextStyle::CardTitle : TextStyle::Body, .centred = true, .drops = true, .rises = true,
+                     .actionId = lyrics->actionId, .italic = lyrics->italic && !note }; // the note always upright
     }
     if (auto* dial = std::get_if<Dial>(&item)) { // the time left at `now`, for the renderer to draw (decision 065)
         Dial shown = *dial;

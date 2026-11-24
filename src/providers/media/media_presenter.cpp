@@ -43,6 +43,7 @@ void MediaPresenter::fill(MediaSnapshot& snapshot)
     m.volume = known ? volume_ : std::nullopt;
     m.muted = known && muted_;
     m.volumeOpen = volumeOpen_;
+    m.lyricsPage = lyricsPage_;
 }
 
 void MediaPresenter::showVolume(const std::string& sessionKey, std::optional<float> volume, bool muted)
@@ -56,12 +57,39 @@ void MediaPresenter::showVolume(const std::string& sessionKey, std::optional<flo
 void MediaPresenter::toggleVolume()
 {
     volumeOpen_ = !volumeOpen_;
+    volumeHideAt_ = volumeOpen_ ? std::optional<Ms>(host_.now() + tokens().volumeBarTimeout) : std::nullopt;
+    armWake();
     if (last_ && !goneSince_) show(*last_);
+}
+
+void MediaPresenter::touchVolume()
+{
+    if (!volumeOpen_) return;
+    volumeHideAt_ = host_.now() + tokens().volumeBarTimeout;
+    armWake();
+}
+
+// The host wakes a provider once (Host::wakeAt): for the earlier of the session's grace and the volume bar's timeout.
+void MediaPresenter::armWake()
+{
+    std::optional<Ms> at = volumeHideAt_;
+    if (goneSince_) {
+        Ms grace = *goneSince_ + tokens().mediaSessionGoneGrace;
+        if (!at || grace < *at) at = grace;
+    }
+    host_.wakeAt(at);
 }
 
 void MediaPresenter::closeVolume()
 {
     if (volumeOpen_) toggleVolume();
+}
+
+void MediaPresenter::showLyricsPage(bool show)
+{
+    if (lyricsPage_ == show) return;
+    lyricsPage_ = show;
+    if (last_ && !goneSince_) this->show(*last_);
 }
 
 void MediaPresenter::toggleLyrics()
@@ -87,7 +115,10 @@ void MediaPresenter::end()
 {
     if (last_) host_.endActivity(kActivityId);
     last_.reset();
-    if (std::exchange(goneSince_, std::nullopt)) host_.wakeAt(std::nullopt);
+    volumeOpen_ = false;
+    volumeHideAt_.reset();
+    goneSince_.reset();
+    host_.wakeAt(std::nullopt);
 }
 
 void MediaPresenter::show(const std::optional<MediaSnapshot>& snapshot)
@@ -98,11 +129,11 @@ void MediaPresenter::show(const std::optional<MediaSnapshot>& snapshot)
         // track change (decision 074). The clock starts at the first gap.
         if (last_ && !goneSince_) {
             goneSince_ = now;
-            host_.wakeAt(now + tokens().mediaSessionGoneGrace);
+            armWake();
         }
         return;
     }
-    if (std::exchange(goneSince_, std::nullopt)) host_.wakeAt(std::nullopt);
+    if (std::exchange(goneSince_, std::nullopt)) armWake();
     MediaSnapshot next = *snapshot;
     showing_ = true;
     fill(next);
@@ -148,7 +179,13 @@ void MediaPresenter::showPlayback(const std::string& sessionKey, const NowPlayin
 
 void MediaPresenter::onWake()
 {
-    if (goneSince_ && host_.now() - *goneSince_ >= tokens().mediaSessionGoneGrace) end();
+    Ms now = host_.now();
+    if (goneSince_ && now - *goneSince_ >= tokens().mediaSessionGoneGrace) {
+        end();
+        return;
+    }
+    if (volumeHideAt_ && now >= *volumeHideAt_) closeVolume(); // left alone: put away
+    else armWake();                                            // the other time is still to come
 }
 
 } // namespace cup

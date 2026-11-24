@@ -172,7 +172,6 @@ float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& m
 std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureText& measure)
 {
     const Tokens& t = tokens();
-    if (auto* bar = std::get_if<Progress>(&item); bar && bar->level && !isRing(item)) return t.levelBarWidth; // a volume (decision 180)
     if (std::holds_alternative<Text>(item) || std::holds_alternative<TextInput>(item) || std::holds_alternative<Divider>(item) ||
         std::holds_alternative<Lyrics>(item) || (std::holds_alternative<Progress>(item) && !isRing(item)))
         return std::nullopt;

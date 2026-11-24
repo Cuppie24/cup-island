@@ -33,7 +33,11 @@ public:
     void stop() override;
     void onAction(const Action& action) override;
     void onWake() override { presenter_->onWake(); } // a vanished session's grace is over (decision 074)
-    void onCardClosed(const std::string&) override { presenter_->closeVolume(); } // the volume's bar is put away
+    void onCardClosed(const std::string&) override // the volume's bar is put away, the lyrics' page left: it opens as the card
+    {
+        presenter_->closeVolume();
+        presenter_->showLyricsPage(false);
+    }
     void onCardShown(const std::string& activityId) override; // its volume read again: the mixer may have moved it
 
 private:

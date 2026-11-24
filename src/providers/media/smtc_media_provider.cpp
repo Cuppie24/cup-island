@@ -67,11 +67,17 @@ void SmtcMediaProvider::stop()
 
 void SmtcMediaProvider::onAction(const Action& action)
 {
+    // Any control but the volume's own puts its bar away (decision 180).
+    if (action.actionId != media_action::kVolume && action.actionId != media_action::kVolumeOpen) presenter_->closeVolume();
     // Opening the app hands over the foreground, which only this click's
     // thread may do (app_activation.h): here, from what the last read showed.
     if (action.actionId == media_action::kOpenSource) {
         if (shown_)
             openSourceApp(std::wstring(winrt::to_hstring(shown_->sessionKey)), std::wstring(winrt::to_hstring(shown_->media.title)));
+        return;
+    }
+    if (action.actionId == media_action::kLyricsPage || action.actionId == media_action::kLyricsBack) {
+        presenter_->showLyricsPage(action.actionId == media_action::kLyricsPage);
         return;
     }
     if (action.actionId == media_action::kLyrics) {
@@ -88,6 +94,7 @@ void SmtcMediaProvider::onAction(const Action& action)
     // The bar: shown at once as asked, then set on the volume's thread.
     if (action.actionId == media_action::kVolume) {
         if (!shown_ || !volume_ || !level_ || levelOf_ != shown_->sessionKey) return;
+        presenter_->touchVolume(); // in use: it stays open
         volume_->set(levelOf_, action.value);
         showLevel(levelOf_, AppVolume::Level{ action.value, false });
         return;
