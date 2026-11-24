@@ -88,7 +88,7 @@ std::string formatClock(Ms timeOfDay, bool hour24)
 
 bool hasCard(const Content& c)
 {
-    return !c.expandedLeading.empty() || !c.expandedCenter.empty() || !c.expandedAside.empty() || !c.expandedTrailing.empty() || !c.expandedBottom.empty();
+    return !c.expandedLeading.empty() || !c.expandedCenter.empty() || !c.expandedTrailing.empty() || !c.expandedBottom.empty();
 }
 
 } // namespace cup

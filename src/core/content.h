@@ -509,6 +509,19 @@ struct CoverTint {
     bool operator==(const CoverTint&) const = default;
 };
 
+// A control that opens from a button (a volume's bar from its speaker,
+// decision 180): one row of fixed-size items on a pill of its own, floating
+// over the card's content right above the button whose action is `anchor`,
+// centred on it and kept inside the card. The host draws the pill (a
+// toast's look: raised, edged, shadowed) and slides it in and out; the
+// provider puts it up and takes it away by publishing content with or
+// without it. Expanded only; no such button on the card: not shown.
+struct Popover {
+    std::string anchor;
+    Row row;
+    bool operator==(const Popover&) const = default;
+};
+
 // One activity's content for every presentation (PS §5.1). Empty slots are fine.
 struct Content {
     std::string label; // accessible name, also used in logs and tests
@@ -570,10 +583,8 @@ struct Content {
     Slot alertCenter;
     Slot expandedLeading;
     Slot expandedCenter;
-    // Right of the centre, as tall as the cover, its rows centred in that height: controls of the
-    // card as a whole, not of one of its lines (media's lyrics toggle and volume, decision 180).
-    // As wide as its fixed-size items; the centre narrows by that.
-    Slot expandedAside;
+    // Floating over the card, right above one of its buttons (decision 180): see Popover.
+    std::optional<Popover> popover;
     Slot expandedTrailing; // a button-sized square in the top-right corner; the centre narrows only when it's used
     Slot expandedBottom;
     bool operator==(const Content&) const = default;

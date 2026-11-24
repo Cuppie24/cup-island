@@ -58,16 +58,17 @@ public:
     // A floating toast's elements (keys "toast/...", decision 071) are its own; the rest are the content's.
     void setHovered(const std::string& key)
     {
-        bool onToast = isToast(key);
-        pill_.elements().setHovered(onToast ? std::string() : key);
+        bool onToast = isToast(key), onPopover = isPopover(key);
+        pill_.elements().setHovered(onToast || onPopover ? std::string() : key);
         pill_.toastElements().setHovered(onToast ? key : std::string());
+        pill_.popoverElements().setHovered(onPopover ? key : std::string());
     }
     void setHoveredRow(const std::string& row) { pill_.elements().setHoveredRow(row); }
     void setHoveredTab(const std::optional<std::string>& tab) { pill_.elements().setHoveredTab(tab); } // decision 072
     void pressElement(const std::string& key) { elementsFor(key).press(key); }
     void releaseElement(const std::string& key) { elementsFor(key).release(key); }
-    void scrubElement(const std::string& key, float fraction) { pill_.elements().scrub(key, fraction); }
-    void endScrub(const std::string& key, std::optional<float> seekTo, Ms now) { pill_.elements().endScrub(key, seekTo, now); }
+    void scrubElement(const std::string& key, float fraction) { elementsFor(key).scrub(key, fraction); }
+    void endScrub(const std::string& key, std::optional<float> seekTo, Ms now) { elementsFor(key).endScrub(key, seekTo, now); }
 
     // Expanded's page-row buttons and list rows: light up the one under the pointer (pill coordinates), or none.
     void setAreaHovered(std::optional<Rect> area, float cornerRadius) { pill_.setHovered(area, cornerRadius); }
@@ -79,7 +80,11 @@ public:
 private:
     void applyContent(); // the latest pending scene's content, for both blobs
     static bool isToast(const std::string& key) { return key.rfind("toast/", 0) == 0; }
-    ElementVisuals& elementsFor(const std::string& key) { return isToast(key) ? pill_.toastElements() : pill_.elements(); }
+    static bool isPopover(const std::string& key) { return key.rfind("popover/", 0) == 0; } // a popover's (decision 180)
+    ElementVisuals& elementsFor(const std::string& key)
+    {
+        return isToast(key) ? pill_.toastElements() : isPopover(key) ? pill_.popoverElements() : pill_.elements();
+    }
 
     // Liquid glass on or off as tokens() say (glass, glassStyle), handed to
     // both blobs; a failed start isn't tried again until it's picked anew.

@@ -60,9 +60,13 @@ later: media sessions don't carry one.
 - **Volume is the playing app's own**, the level Windows' volume mixer
   shows for it (`providers/media/app_volume`): every audio session of the
   app's processes, found by exe name or, for a Store app, by its app id.
-  The speaker button opens its bar beside the song's name, in the middle
-  of the cover's height (`Content::expandedAside`), and puts it away
-  again; the card closing does too. The bar sets the level
+  The speaker button opens its bar in a popover right above it
+  (`Content::popover`, `Scene::popover`): a row on a pill floating over
+  the card's content, which doesn't move for it. The pill is a toast's
+  (a second `ToastLayer`): raised, edged, shadowed, its edge shiny on
+  liquid glass, rising `popoverRise` into place as it fades in and
+  sinking back as it goes. The speaker again puts it away; the card
+  closing does too. The bar sets the level
   (`Progress::level`: `levelBarWidth` wide, its own action, sent while it's
   dragged so the change is heard); the speaker is crossed while the app is
   muted or at zero. There is no mute button: the bar to its start is that. The calls go to the audio service,
@@ -78,5 +82,5 @@ request as the user, like the update check. Lyrics and a volume for the
 demo player: redundant beside the real one.
 
 **Consequences.** While lyrics are on, every song with an artist sends its
-title and artist to lrclib.net. While the volume's bar is open the song's
-name is narrower by it, so it swims sooner.
+title and artist to lrclib.net. The open popover covers the start of the
+song's own bar: a click there is the popover's.

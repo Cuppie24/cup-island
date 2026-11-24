@@ -217,6 +217,11 @@ struct Tokens {
     float progressHeight = 4;
     float progressHitHeight = 16; // taller than drawn, so it's easy to click
     float progressKnobSize = 12;  // the scrub handle shown on hover
+    // A popover (Content::popover, decision 180): its pill's padding round its row, how far above its
+    // button it floats, and how far it rises into place.
+    Vec2 popoverPadding{ 14, 8 };
+    float popoverGap = 6;
+    float popoverRise = 10;
     float levelBarWidth = 64;     // Progress::level: a volume's bar beside a card's title (decision 180)
     // A wavy bar (Progress::wavy, decision 167): one wave's length, how far it swings to each side of
     // the bar's line, how far back from its head it straightens out, how long one wave takes to

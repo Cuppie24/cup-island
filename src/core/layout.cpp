@@ -81,17 +81,35 @@ float standardCardHeight(const Source& source, Vec2 size, float most, const Meas
 
 namespace {
 
-// How wide Content::expandedAside is: its widest row's fixed-size items and the gaps between them.
-float asideWidth(const Slot& slot)
+// A popover (Content::popover, decision 180): its row on a pill, centred over the button it
+// opens from, popoverGap above it, inside the card's padding. Nothing if that button isn't on
+// the card. Whole pixels, padding first, as a toast's (core/toast).
+std::optional<ToastScene> placePopover(const Popover& popover, const Source& source, const Scene& scene, std::size_t from, Ms now,
+                                       const MeasureText& measure)
 {
-    float widest = 0;
-    for (const Row& r : slot) {
-        float w = 0;
-        for (const Item& item : r.items)
-            w += fixedWidthOf(item, heightOf(item, {}, 0, {}), {}).value_or(0) + tokens().itemSpacing;
-        widest = std::max(widest, r.items.empty() ? 0.0f : w - tokens().itemSpacing);
+    const Tokens& t = tokens();
+    const Placed* anchor = nullptr;
+    for (std::size_t i = from; i < scene.elements.size() && !anchor; ++i)
+        if (auto* button = std::get_if<Button>(&scene.elements[i].item); button && button->actionId == popover.anchor) anchor = &scene.elements[i];
+    if (!anchor || popover.row.items.empty()) return std::nullopt;
+    float width = 0, height = 0;
+    for (const Item& item : popover.row.items) {
+        float h = heightOf(item, {}, 0, measure);
+        width += fixedWidthOf(item, h, measure).value_or(0) + t.itemSpacing;
+        height = std::max(height, h);
     }
-    return widest;
+    width -= t.itemSpacing;
+    Vec2 pad{ std::round(t.popoverPadding.x), std::round(t.popoverPadding.y) };
+    float w = std::round(width + 2 * pad.x), h = std::round(height) + 2 * pad.y;
+    float least = t.expandedPadding, most = std::max(least, scene.size.x - t.expandedPadding - w);
+    float x = std::round(std::clamp(anchor->frame.x + anchor->frame.width / 2 - w / 2, least, most));
+    float top = std::round(anchor->frame.y - t.popoverGap - h);
+    // It rises a little into place as it fades in, and sinks back as it goes (ToastScene::slide).
+    ToastScene placed{ .frame = { x, top, w, h }, .radius = h / 2, .slide = t.popoverRise };
+    Slot slot{ popover.row };
+    placeSlot({ "popover", &slot, { x + pad.x, top + pad.y, std::max(0.0f, w - 2 * pad.x), std::round(height) } }, source,
+              std::max(0.0f, placed.radius - pad.y), now, placed.elements, measure);
+    return placed;
 }
 
 // The padding a mode keeps on every side of its content.
@@ -135,12 +153,8 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
         float art = coverSize(c), y = p, centerX = p + art + t.slotGap, bottomY = y + art;
         float corner = t.buttonSize, cornerX = size.x - p - corner;
         float centerRight = c.expandedTrailing.empty() ? size.x - p : cornerX - t.slotGap;
-        // Its controls beside the centre, in the middle of the cover's height (Content::expandedAside, decision 180).
-        float aside = asideWidth(c.expandedAside), asideX = centerRight - aside;
-        if (aside > 0) centerRight = asideX - t.slotGap;
         return { { "expandedLeading", &c.expandedLeading, { p, y, art, art }, false, true },
-                 { "expandedCenter", &c.expandedCenter, { centerX, y, std::max(0.0f, centerRight - centerX), art } },
-                 { "expandedAside", &c.expandedAside, { asideX, y, aside, art } },
+                 { "expandedCenter", &c.expandedCenter, { centerX, y, centerRight - centerX, art } },
                  { "expandedTrailing", &c.expandedTrailing, { cornerX, y, corner, corner } },
                  { "expandedBottom", &c.expandedBottom, { p, bottomY, size.x - 2 * p, size.y - bottomY - p }, false, false, true } };
     }
@@ -254,6 +268,9 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
             float bottom = scene.size.y - tokens().expandedPadding - (tabSpace > 0 && !state.tabsOnTop ? tabSpace : 0);
             scene.toast = placeToast(*toast, source, scene.size, bottom, now, measureText);
         }
+    // A popover floats over the content too, above the button it opens from (decision 180).
+    if (scene.mode == Mode::Expanded && source.content && source.content->popover && !dialogOver(state, source.activityId))
+        scene.popover = placePopover(*source.content->popover, source, scene, contentFrom, now, measureText);
     scene.tabs = tabStripFor(state, scene.size, nestedRadius, measureText, scene.elements);
     // A row's menu, over everything (decision 086): it may leave the island's
     // shape, never the render layer (the monitor's width by the canvas's height).

@@ -29,10 +29,11 @@ Content nowPlayingContent(const NowPlaying& m)
     // Like iOS: the big art opens the app that's playing (only expanded; elsewhere a click expands).
     c.expandedLeading = { row({ Image{ m.art, m.canOpenSource ? act::kOpenSource : "" } }) };
     c.expandedCenter = { row({ title }), row({ artist }) };
-    // The app's volume beside them, in the middle of the cover's height, while its speaker
-    // button (in the controls' row) has it open (decision 180): a bar that sets the level.
+    // The app's volume while its speaker button (in the controls' row) has it open
+    // (decision 180): a bar that sets the level, on a pill floating right above the speaker.
     if (m.volume && m.volumeOpen)
-        c.expandedAside = { row({ Progress{ .timeline = levelTimeline(m.muted ? 0.0f : *m.volume), .seekable = true, .level = true, .actionId = act::kVolume } }) };
+        c.popover = Popover{ act::kVolumeOpen, row({ Progress{ .timeline = levelTimeline(m.muted ? 0.0f : *m.volume), .seekable = true, .level = true,
+                                                               .actionId = act::kVolume } }) };
     std::string caption = m.source, position = trackPosition(m.trackNumber, m.trackCount);
     if (!position.empty()) caption += (caption.empty() ? "" : " \u00B7 ") + position;
     if (!caption.empty()) c.expandedCenter.push_back(row({ Text{ caption, TextStyle::Caption } }));

@@ -231,7 +231,7 @@ void volumeTests()
 {
     const Tokens& t = tokens();
     NowPlaying m{ .title = "Song", .artist = "Artist", .timeline = { .duration = Ms{ 60000 } }, .canSeek = true, .canShuffle = true, .canRepeat = true };
-    expect(leftOf(nowPlayingContent(m)).empty() && nowPlayingContent(m).expandedAside.empty(), "volume unknown, no lyrics service: no left pair, no bar");
+    expect(leftOf(nowPlayingContent(m)).empty() && !nowPlayingContent(m).popover, "volume unknown, no lyrics service: no left pair, no bar");
     m.lyricsOn = true;
     m.volume = 0.25f;
     Content card = nowPlayingContent(m);
@@ -256,33 +256,54 @@ void volumeTests()
                std::abs((mid - centre(pWords)) - (centre(pRepeat) - mid)) < 0.01f && std::abs((mid - centre(pSpeaker)) - (centre(pShuffle) - mid)) < 0.01f &&
                pWords->frame.width == pRepeat->frame.width && pSpeaker->frame.width == pShuffle->frame.width && pWords->frame.x == t.expandedPadding,
            "the pairs mirror each other about the card's middle, at its edges, the same size");
-    expect(card.expandedAside.empty() && !find(closed, "expandedAside/0/0"), "the volume's bar isn't shown until its speaker is clicked");
+    expect(!card.popover && !closed.popover, "the volume's bar isn't shown until its speaker is clicked");
 
     m.volumeOpen = true;
     Content open = nowPlayingContent(m);
-    auto* level = open.expandedAside.size() == 1 && open.expandedAside[0].items.size() == 1 ? std::get_if<Progress>(&open.expandedAside[0].items[0]) : nullptr;
+    auto* level = open.popover && open.popover->row.items.size() == 1 ? std::get_if<Progress>(&open.popover->row.items[0]) : nullptr;
     expect(level && level->level && level->seekable && level->actionId == media_action::kVolume && level->timeline.fractionAt(Ms{ 0 }) == 0.25f &&
-               std::get<Button>(leftOf(open)[1]).on == true,
-           "clicked: its bar beside the song's name, at the app's level, and the speaker lit");
+               open.popover->anchor == media_action::kVolumeOpen && std::get<Button>(leftOf(open)[1]).on == true,
+           "clicked: its bar in a popover opened from the speaker, at the app's level, and the speaker lit");
     Scene scene = layout(expandedWith(open), Ms{ 0 });
-    const Placed* title = find(scene, "expandedCenter/0/0");
-    const Placed* bar = find(scene, "expandedAside/0/0");
-    const Placed* cover = find(scene, "expandedLeading/0/0");
-    auto middle = [](const Placed* p) { return p->frame.y + p->frame.height / 2; };
-    expect(title && bar && cover && bar->frame.width == t.levelBarWidth && title->frame.x + title->frame.width + t.slotGap <= bar->frame.x + 0.01f &&
-               std::abs(bar->frame.x + bar->frame.width - (scene.size.x - t.expandedPadding)) < 0.01f && std::abs(middle(bar) - middle(cover)) < 0.01f,
-           "the bar at the card's right edge, levelBarWidth wide, in the middle of the cover's height, the name taking the rest");
-    if (bar) {
+    const Placed* opener = at(scene, "6");
+    const Placed* bar = scene.popover && scene.popover->elements.size() == 1 ? &scene.popover->elements[0] : nullptr;
+    expect(scene.popover && opener && bar && bar->key == "popover/0/0" && bar->frame.width == t.levelBarWidth, "laid out on a pill of its own, the bar levelBarWidth wide");
+    if (scene.popover && opener && bar) {
+        Rect pill = scene.popover->frame;
+        expect(std::abs(pill.x + pill.width / 2 - centre(opener)) <= 0.5f && std::abs(pill.y + pill.height - (opener->frame.y - t.popoverGap)) <= 0.5f,
+               "the pill right above the speaker, centred on it");
+        expect(pill.x >= t.expandedPadding && pill.width == t.levelBarWidth + 2 * t.popoverPadding.x && scene.popover->radius == pill.height / 2 &&
+                   scene.popover->slide == t.popoverRise && bar->frame.x == pill.x + t.popoverPadding.x &&
+                   std::abs(bar->frame.y + bar->frame.height / 2 - (pill.y + pill.height / 2)) < 0.01f,
+               "inside the card, its padding round the bar; it rises popoverRise into place");
+        // Nothing on the card moved for it: it floats.
+        Scene without = layout(expandedWith(card), Ms{ 0 });
+        const Placed *titleOpen = find(scene, "expandedCenter/0/0"), *titleClosed = find(without, "expandedCenter/0/0");
+        expect(titleOpen && titleClosed && titleOpen->frame == titleClosed->frame && at(scene, "1")->frame == at(without, "1")->frame,
+               "the card's content stays where it was under it");
         auto hit = hitTest(scene, { bar->frame.x + bar->frame.width * 0.75f, bar->frame.y + bar->frame.height / 2 });
-        expect(hit && hit->action.actionId == media_action::kVolume && std::abs(hit->action.value - 0.75f) < 0.01f && hit->action.providerId == "media",
-               "a click on it sends the volume asked for, not a seek");
+        expect(hit && hit->key == "popover/0/0" && hit->action.actionId == media_action::kVolume && std::abs(hit->action.value - 0.75f) < 0.01f &&
+                   hit->action.providerId == "media",
+               "a click on the bar sends the volume asked for, not a seek");
+        // Its pill covers what's under it: the song's bar there isn't sought through it.
+        const Placed* under = find(scene, "expandedBottom/bar/0");
+        expect(under && pill.contains({ pill.x + 2, pill.y + pill.height / 2 }) && !hitTest(scene, { pill.x + 2, pill.y + pill.height / 2 }),
+               "the pill's own padding takes no click through to the card");
     }
+    // The speaker is at the card's left: a wider popover is kept inside the card's padding, not centred off it.
+    Content wide = open;
+    for (int i = 0; i < 3; ++i) wide.popover->row.items.push_back(Button{ .glyph = Glyph::Plus, .actionId = "more" });
+    Scene kept = layout(expandedWith(wide), Ms{ 0 });
+    expect(kept.popover && kept.popover->frame.x == t.expandedPadding, "too wide to centre on its button: against the card's padding");
+    Content orphan = open;
+    orphan.popover->anchor = "no such button";
+    expect(!layout(expandedWith(orphan), Ms{ 0 }).popover, "no button to open from on the card: not shown");
     const Placed* seek = find(scene, "expandedBottom/bar/1");
-    auto seeking = seek ? hitTest(scene, { seek->frame.x + 1, seek->frame.y + seek->frame.height / 2 }) : std::nullopt;
+    auto seeking = seek ? hitTest(scene, { seek->frame.x + seek->frame.width - 1, seek->frame.y + seek->frame.height / 2 }) : std::nullopt; // clear of the pill
     expect(seeking && seeking->action.actionId == media_action::kSeek, "the song's own bar still seeks");
     m.muted = true;
     Content silent = nowPlayingContent(m);
-    expect(std::get<Button>(leftOf(silent)[1]).glyph == Glyph::Muted && std::get<Progress>(silent.expandedAside[0].items[0]).timeline.fractionAt(Ms{ 0 }) == 0.0f,
+    expect(std::get<Button>(leftOf(silent)[1]).glyph == Glyph::Muted && std::get<Progress>(silent.popover->row.items[0]).timeline.fractionAt(Ms{ 0 }) == 0.0f,
            "muted: the crossed speaker, the bar empty");
     m.muted = false;
     m.volume = 0.0f;
@@ -337,15 +358,15 @@ void presenterTests()
 
     // The speaker opens the volume's bar and puts it away; the card closing puts it away too.
     presenter.showVolume("chrome.exe", 0.4f, false);
-    expect(host.started.back().content.expandedAside.empty(), "a volume known: its bar still closed");
+    expect(!host.started.back().content.popover, "a volume known: its bar still closed");
     presenter.toggleVolume();
-    expect(host.started.back().content.expandedAside.size() == 1, "the speaker clicked: the bar shows");
+    expect(host.started.back().content.popover.has_value(), "the speaker clicked: the bar shows");
     presenter.show(song("Six", "chrome.exe"));
-    expect(host.started.back().content.expandedAside.size() == 1, "...and stays through the next song");
+    expect(host.started.back().content.popover.has_value(), "...and stays through the next song");
     presenter.closeVolume();
     std::size_t closedAt = host.started.size();
     presenter.closeVolume();
-    expect(host.started.back().content.expandedAside.empty() && host.started.size() == closedAt, "the card closed: put away, once");
+    expect(!host.started.back().content.popover && host.started.size() == closedAt, "the card closed: put away, once");
 
     // The lyrics button: off, the line goes, the cover is full size again and nothing more is asked; remembered.
     presenter.show(song("One"));
@@ -374,7 +395,7 @@ void presenterTests()
     MediaPresenter plain(plainHost);
     plain.show(song("One"));
     expect(plainHost.started.size() == 1 && !hasLyricsRow(plainHost.started.back().content) &&
-               plainHost.started.back().content.expandedAside.empty(),
+               leftOf(plainHost.started.back().content).empty(),
            "no lyrics service: the card as it was, with no lyrics button");
 }
 

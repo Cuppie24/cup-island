@@ -44,7 +44,7 @@ struct NowPlaying {
     // 180); none: not known (the app has no audio session), and no control.
     std::optional<float> volume;
     bool muted = false;
-    bool volumeOpen = false; // its speaker button was clicked: the volume's bar is shown beside the song's name
+    bool volumeOpen = false; // its speaker button was clicked: the volume's bar is shown, floating above it
 
     bool operator==(const NowPlaying&) const = default;
 };

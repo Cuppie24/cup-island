@@ -77,6 +77,9 @@ public:
     // A toast floating over the content (decision 071): Scene::toast; nullopt fades it out.
     void setToast(const std::optional<ToastScene>& toast, Ms now) { toast_.show(toast, now); }
     ElementVisuals& toastElements() { return toast_.elements(); } // hover and press on its button
+    // A popover above the button it opens from (decision 180): Scene::popover; nullopt sinks it away.
+    void setPopover(const std::optional<ToastScene>& popover, Ms now) { popover_.show(popover, now); }
+    ElementVisuals& popoverElements() { return popover_.elements(); }
 
     // Tactile click feedback: squash on press, spring back on release.
     void pressDown();
@@ -185,6 +188,7 @@ private:
     BadgeDots accentBadges_;
     TopGlow topGlow_;
     ToastLayer toast_;
+    ToastLayer popover_; // a popover is a toast's pill somewhere else, slid less (decision 180)
     ElementVisuals elements_;
     Vec2 size_, offset_;
     Vec2 centre_;            // last cursor position while following

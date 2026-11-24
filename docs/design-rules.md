@@ -41,7 +41,8 @@ in the first row under the cover (Body, centred, italic), and the card asks for
 the small cover while it has one. Its controls' row ends in two mirrored
 pairs of `secondary` toggles: lyrics and the volume's speaker on the left,
 shuffle and repeat on the right. The speaker opens a `Progress::level` bar
-(`levelBarWidth` 64) beside the text, mid-height (`expandedAside`).
+(`levelBarWidth` 64) in a popover above it (`Content::popover`: a toast's pill,
+`popoverPadding` round its row, `popoverGap` over its button).
 
 ## Standalone windows: a step up, under the cards (decision 112)
 

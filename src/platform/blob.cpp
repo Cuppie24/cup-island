@@ -93,9 +93,12 @@ void Blob::build(wuc::Compositor const& c, GraphicsDevice& device, wuc::Containe
     accentBadges_.build(c, body_, content_, true); // ...and an update's, in the accent (decision 152)
     toast_.build(c, device, body_, content_); // a toast floats over the content too (decision 071)
     bind(c, toast_.frame(), L"Size", L"pill.Size", body_, shape_); // clipped to the card, like the content
+    popover_.build(c, device, body_, content_); // a popover too, under a toast (decision 180)
+    bind(c, popover_.frame(), L"Size", L"pill.Size", body_, shape_);
     elements_.init(c, device, content_);
     elements_.setShiny(true); // filled controls shine on liquid glass (decision 165)
     toast_.setShiny();
+    popover_.setShiny();
 
     buildShadow(c, parent); // under the body
     topGlow_.build(c, body_, shape_, content_, snapshot_); // the top band's glow, cut by the shadow's snapshot (decision 108)
@@ -133,6 +136,7 @@ void Blob::refreshAnimations(bool coloursOnly)
     accentBadges_.recolor();
     topGlow_.recolor();
     toast_.refresh(coloursOnly);
+    popover_.refresh(coloursOnly);
     elements_.refresh(coloursOnly);
 }
 

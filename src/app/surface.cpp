@@ -18,6 +18,9 @@ const Placed* findElement(const Surface& s, const std::string& key)
     if (s.scene.toast) // a floating toast's (decision 071)
         for (const auto& p : s.scene.toast->elements)
             if (p.key == key) return &p;
+    if (s.scene.popover) // a popover's (decision 180)
+        for (const auto& p : s.scene.popover->elements)
+            if (p.key == key) return &p;
     return nullptr;
 }
 
@@ -25,6 +28,7 @@ const Placed* findElement(const Surface& s, const std::string& key)
 const Placed* contentUnder(const Surface& s, Vec2 point)
 {
     if (s.scene.toast && s.scene.toast->frame.contains(point)) return nullptr; // the toast floats over it (decision 071)
+    if (s.scene.popover && s.scene.popover->frame.contains(point)) return nullptr; // ...and a popover (decision 180)
     for (const Placed& p : s.scene.elements)
         if (p.hitFrame.contains(point) && p.key.rfind("tab/", 0) != 0) return &p;
     return nullptr;
