@@ -108,4 +108,11 @@ Display displayFor(const std::string& id)
              .workArea = { 0, 0, static_cast<float>(GetSystemMetrics(SM_CXSCREEN)), static_cast<float>(GetSystemMetrics(SM_CYSCREEN)) } };
 }
 
+std::optional<Display> displayAt(Vec2 screenPoint)
+{
+    for (const auto& d : listDisplays())
+        if (d.bounds.contains(screenPoint)) return d;
+    return std::nullopt;
+}
+
 } // namespace cup::platform

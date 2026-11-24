@@ -1,6 +1,6 @@
 # 026: Moving the island along the top edge
 
-Status: Accepted
+Status: Accepted; its last point (never across monitors) superseded by 178
 
 **Context.** The island always sat in the middle of the top edge. The repo
 owner wanted to put it anywhere along that edge, without it ever leaving the

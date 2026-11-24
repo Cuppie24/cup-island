@@ -118,3 +118,30 @@ move -450
 let-go                              -> spot=left
 restore free 0.25                   -> spot=free
 restore centre                      -> spot=centre
+
+# Carried onto another monitor (decision 178): `cross <its width> <the pointer's x on it>`.
+
+scenario: carried past its monitor's edge, the island is on the next one, still lifted
+screen 1000
+hold
+wait 400
+move 600                            -> lifted=yes               # held at the right edge
+cross 2000 10                       -> Idle lifted=yes          # the pointer 10 into a 2000-wide monitor
+let-go                              -> lifted=no spot=left      # let go by the edge it came in at
+
+scenario: on the new monitor it snaps as on any: by that monitor's width
+screen 1000
+hold
+wait 400
+cross 2000 400
+move 590                            # the pointer at 990: 10 from the new centre
+let-go                              -> spot=centre
+hold
+wait 400
+cross 1000 700                      # back again
+let-go                              -> spot=free
+
+scenario: a carry that isn't a lift moves nothing
+screen 1000
+start a
+cross 2000 10                       -> Compact lifted=no spot=centre

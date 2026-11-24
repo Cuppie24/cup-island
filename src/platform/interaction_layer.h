@@ -49,7 +49,10 @@ HWND createInteractionLayer(HINSTANCE instance, int renderLeft, int renderTop, V
 
 // The render layer moved (another monitor, or resized for a new display
 // scale): points and the window's position are relative to it.
-void setRenderOrigin(int renderLeft, int renderTop);
+// `offset`: where the window is in it, when that isn't where it was (a lifted
+// island carried onto that monitor, decision 178: under the pointer, so it's
+// never left on a third monitor, at that one's scaling).
+void setRenderOrigin(int renderLeft, int renderTop, std::optional<Vec2> offset = std::nullopt);
 
 // Follow the morph the renderer just started toward these bounds (the pill,
 // plus the bubble in Split), frame by frame (decision 001), along the same

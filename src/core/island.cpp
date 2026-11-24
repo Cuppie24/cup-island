@@ -238,6 +238,7 @@ void handle(IslandState& s, const IslandPressed&, Ms now) { pressIsland(s, now);
 void handle(IslandState& s, const IslandDragged& e, Ms) { dragIsland(s, e.drag); }
 void handle(IslandState& s, const IslandReleased&, Ms) { releaseIsland(s); }
 void handle(IslandState& s, const ScreenResized& e, Ms) { s.screenWidth = e.width; }
+void handle(IslandState& s, const IslandCarried& e, Ms) { carryIsland(s, e.screenWidth, e.pointerX); }
 void handle(IslandState& s, const SpotRestored& e, Ms) { s.spot = e.spot; }
 
 void handle(IslandState& s, const ActivitySwitched& e, Ms now)
