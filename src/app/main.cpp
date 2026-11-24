@@ -471,6 +471,8 @@ void onPressDown(app::Surface& s, Vec2 canvasPoint)
 {
     s.pointer.still = false; // pressed: the pointer is in use (decision 087)
     if (app::menuPress(toLocal(s, canvasPoint))) return; // an open menu takes the press (decision 086)
+    s.pointer.held = true;
+    s.pointer.left = false;
     g_drag = trackPointer({}, canvasPoint, now(), tokens());
     if (!onBubble(s, canvasPoint)) {
         // Held still, the island lifts (decision 026). Core ignores it where
@@ -526,6 +528,36 @@ void onPressDown(app::Surface& s, Vec2 canvasPoint)
     updateHover(s);
 }
 
+// Whether the held pointer is still on what it went down on: the button, the
+// top band, the page-row button, else the pill's empty space. The same test
+// the release makes.
+bool onPressed(const app::Surface& s, Vec2 canvasPoint, bool inside)
+{
+    if (!inside || !onShape(s, canvasPoint)) return false;
+    Vec2 point = toLocal(s, canvasPoint);
+    if (!s.pointer.pressedKey.empty()) {
+        auto hit = hitTest(s.scene, point);
+        return hit && hit->key == s.pointer.pressedKey;
+    }
+    if (s.pointer.topPress) return inCollapseZone(s.scene, point);
+    if (s.pointer.tabPress) {
+        const Tab* tab = tabUnder(s, point);
+        return tab && tab->id == *s.pointer.tabPress;
+    }
+    return !hitTest(s.scene, point);
+}
+
+// The held pointer left what it went down on: that gives up its press
+// feedback now, and the release clicks nothing, back on it or not (decision
+// 180). Moving within it changes nothing. Drags, a scrub and a selection
+// aren't clicks: they go on.
+void pressLeft(app::Surface& s)
+{
+    s.pointer.left = true;
+    if (!s.pointer.pressedKey.empty()) s.renderer->releaseElement(std::exchange(s.pointer.pressedKey, std::string{}));
+    else if (!s.pointer.scrub) s.renderer->pressRelease(false); // the top band's squash, empty space's
+}
+
 void onPointerMoved(app::Surface& s, Vec2 canvasPoint, bool inside)
 {
     // Lifted and past its monitor's edge: onto the next one first, so the rest is in its coordinates (decision 178).
@@ -537,6 +569,7 @@ void onPointerMoved(app::Surface& s, Vec2 canvasPoint, bool inside)
     s.pointer.lastMove = canvasPoint;
     if (moved) s.pointer.still = false;
     if (moved) app::menuPointerMoved(toLocal(s, canvasPoint)); // lights the menu's item under it (decision 086)
+    app::menuPressMoved(toLocal(s, canvasPoint));
     if (s.pointer.islandPress || s.pointer.bubblePress) g_drag = trackPointer(g_drag, canvasPoint, now(), tokens());
     if (s.pointer.islandPress) {
         Vec2 start = *s.pointer.islandPress;
@@ -554,6 +587,7 @@ void onPointerMoved(app::Surface& s, Vec2 canvasPoint, bool inside)
     }
     Vec2 point = toLocal(s, canvasPoint);
     s.pointer.at = inside && onShape(s, canvasPoint) ? std::optional<Vec2>(point) : std::nullopt;
+    if (s.pointer.held && !s.pointer.left && !onPressed(s, canvasPoint, inside)) pressLeft(s);
     if (const Placed* field = s.pointer.selecting.empty() || !g_state.draft ? nullptr : findElement(s, s.pointer.selecting)) {
         std::size_t at = s.renderer->caretAt(*field, point); // off either end: its first or last character
         if (at != g_state.draft->caret) dispatch(CaretPlaced{ at, true }, "select");
@@ -620,6 +654,8 @@ void clickElement(app::Surface& s, const Hit& hit, std::optional<Vec2> at = std:
 
 void onPressRelease(app::Surface& s, Vec2 canvasPoint, Release how)
 {
+    s.pointer.held = false;
+    bool left = std::exchange(s.pointer.left, false); // not a click, even let go back on what was pressed (decision 180)
     if (app::menuRelease(toLocal(s, canvasPoint))) { // ...and its release (decision 086)
         updateHover(s);
         return;
@@ -636,13 +672,13 @@ void onPressRelease(app::Surface& s, Vec2 canvasPoint, Release how)
     }
     if (std::exchange(s.pointer.topPress, false)) {
         s.renderer->pressRelease(false);
-        if (how == Release::Inside && onShape(s, canvasPoint) && inCollapseZone(s.scene, toLocal(s, canvasPoint)))
+        if (!left && how == Release::Inside && onShape(s, canvasPoint) && inCollapseZone(s.scene, toLocal(s, canvasPoint)))
             dispatch(TopClicked{}, "top click");
         return;
     }
     if (s.pointer.tabPress) {
         std::string id = *std::exchange(s.pointer.tabPress, std::nullopt);
-        const Tab* tab = how == Release::Inside && onShape(s, canvasPoint) ? tabUnder(s, toLocal(s, canvasPoint)) : nullptr;
+        const Tab* tab = !left && how == Release::Inside && onShape(s, canvasPoint) ? tabUnder(s, toLocal(s, canvasPoint)) : nullptr;
         if (tab && tab->id == id && !isCurrent(s, *tab)) clickTab(id);
         return;
     }
@@ -670,13 +706,13 @@ void onPressRelease(app::Surface& s, Vec2 canvasPoint, Release how)
     if (!s.pointer.pressedKey.empty()) {
         std::string key = std::exchange(s.pointer.pressedKey, std::string{});
         s.renderer->releaseElement(key);
-        // Only a release on the same button counts: sliding off cancels, like any button.
+        // Only a release on the same button counts; a press that left it isn't here at all (pressLeft).
         auto hit = how == Release::Inside && onShape(s, canvasPoint) ? hitTest(s.scene, point) : std::nullopt;
         if (hit && hit->key == key) clickElement(s, *hit, s.pointer.textPress);
         return;
     }
     s.renderer->pressRelease(false);
-    if (how == Release::Inside && onShape(s, canvasPoint) && !hitTest(s.scene, point)) dispatch(PillClicked{}, "click");
+    if (!left && how == Release::Inside && onShape(s, canvasPoint) && !hitTest(s.scene, point)) dispatch(PillClicked{}, "click");
 }
 
 // Sends the focused field's text to its provider: what was typed (Enter), or

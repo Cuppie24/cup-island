@@ -23,6 +23,8 @@ struct Pointer {
     // (decision 087). A press or the wheel counts as moving.
     bool still = true;
     std::optional<Vec2> lastMove; // the last move's point (the window's): Windows repeats one when windows change under a still pointer
+    bool held = false;           // the button is down
+    bool left = false;           // ...and the pointer has left what it went down on: not a click, even let go back on it (decision 180)
     std::string pressedKey;      // the button under the mouse-down
     std::optional<Placed> scrub; // the progress bar being dragged
     float scrubFraction = 0;

@@ -409,6 +409,12 @@ void pressAt(Shown& s, Vec2 p)
     }
 }
 
+// Still what the button went down on? A segment's index may differ: it's the one let go on that acts.
+bool samePress(const WindowHit& was, const WindowHit& now)
+{
+    return now.part == was.part && now.page == was.page && (!now.hit || (was.hit && now.hit->key == was.hit->key));
+}
+
 void releaseAt(Shown& s, Vec2 p, bool inside)
 {
     s.clicks.selecting.clear(); // a drag selecting in a field ends
@@ -419,10 +425,18 @@ void releaseAt(Shown& s, Vec2 p, bool inside)
         s.window->release(was.hit->key);
     }
     if (!inside) return;
-    // Only a release on what was pressed counts: sliding off cancels, like any button.
+    // Only a release on what was pressed counts; a press that left it isn't here at all (pressMoved).
     WindowHit now = windowHitTest(s.scene, p);
-    bool same = now.part == was.part && now.page == was.page && (!now.hit || (was.hit && now.hit->key == was.hit->key));
-    if (same) act(s, now); // the segment let go on, not the one pressed: its index is the release's
+    if (samePress(was, now)) act(s, now); // the segment let go on, not the one pressed: its index is the release's
+}
+
+// The held pointer left what it went down on: that springs back now, and
+// the release clicks nothing, back on it or not (decision 180).
+void pressMoved(Shown& s, Vec2 p)
+{
+    if (!s.pressed || samePress(*s.pressed, windowHitTest(s.scene, p))) return;
+    WindowHit was = *std::exchange(s.pressed, std::nullopt);
+    if (was.hit) s.window->release(was.hit->key);
 }
 
 // The field with the keys is under `p`: a press there places its caret, never picks its row up.
@@ -475,6 +489,7 @@ platform::ProviderWindowCallbacks callbacksFor(const WindowKey& id)
         if (Shown* s = find(id)) {
             s->pointer = p;
             if (carry(*s, p)) return; // a drag (decision 129)
+            pressMoved(*s, p);
             if (s->menu) { // the item under the pointer lights (decision 142)
                 std::optional<std::size_t> lit = s->scene.menu ? menuItemAt(*s->scene.menu, p) : std::nullopt;
                 if (lit && lit != s->menu->lit) {
