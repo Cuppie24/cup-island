@@ -41,4 +41,11 @@ std::vector<indexer::ResultRow> withRecent(std::vector<indexer::ResultRow> rows,
                                            const std::function<bool(const std::string& path)>& exists,
                                            std::vector<std::string>& gone);
 
+// What `opened` remembers, the most used lately first, at most `limit`:
+// what the card offers a file dialog before anything is typed (decision 180).
+// `exists` and `gone` as in withRecent.
+std::vector<indexer::ResultRow> recentFiles(const LaunchHistory& opened, Ms now, std::size_t limit,
+                                            const std::function<bool(const std::string& path)>& exists,
+                                            std::vector<std::string>& gone);
+
 } // namespace cup

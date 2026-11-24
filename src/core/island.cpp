@@ -2,6 +2,7 @@
 
 #include "core/alert_queue.h"
 #include "core/card_overlays.h"
+#include "core/file_dialog.h"
 #include "core/lift.h"
 #include "core/lists.h"
 #include "core/menu.h"
@@ -163,7 +164,22 @@ void handle(IslandState& s, const AlertPosted& e, Ms now)
 {
     if (postAlert(s, e.alert, now)) collapse(s); // only critical interrupts Expanded
 }
-void handle(IslandState& s, const PillClicked&, Ms now) { onClick(s, now); }
+void handle(IslandState& s, const PillClicked&, Ms now)
+{
+    if (!opensOnDoubleClick(s)) onClick(s, now); // by a file dialog, one click isn't enough (decision 180)
+}
+void handle(IslandState& s, const PillDoubleClicked&, Ms now)
+{
+    if (!opensOnDoubleClick(s)) return;
+    if (std::string card = pickingCard(s); !card.empty()) expand(s, card, now);
+}
+void handle(IslandState& s, const PickerOpened& e, Ms) { s.picker = Picker{ e.centre }; }
+void handle(IslandState& s, const PickerClosed&, Ms)
+{
+    if (!s.picker) return;
+    s.picker.reset();
+    if (isPickingCard(s, s.expandedId)) collapse(s); // nothing left to give a file to
+}
 void handle(IslandState& s, const TopClicked&, Ms)
 {
     if (isExpanded(s)) collapse(s); // whatever would keep it open: the top always closes (decision 108)
@@ -206,6 +222,7 @@ void handle(IslandState&, const Tick&, Ms) {} // settle() does the work
 
 void handle(IslandState& s, const BubbleClicked&, Ms now)
 {
+    if (opensOnDoubleClick(s)) return; // like the pill beside it (decision 180)
     if (mode(s) == Mode::Split) expand(s, s.activities[1].id, now);
     else onClick(s, now); // no bubble on screen (e.g. an alert covers it): an ordinary click
 }

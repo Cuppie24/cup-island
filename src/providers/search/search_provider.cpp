@@ -36,20 +36,21 @@ Glyph glyphOf(const Launchable& l)
 // (a path loses its start when too long, so the end tells two apart). Its
 // menu has the rest (decision 086): the host ends the row in a › for it.
 Row resultRow(Glyph glyph, std::shared_ptr<const ImageData> picture, const SearchProvider::Result& r,
-              const std::string& query, const std::string& home, std::size_t index)
+              const std::string& query, const std::string& home, std::size_t index, bool picking)
 {
     Row row{ .items = { Button{ .glyph = glyph, .actionId = A::kOpen + std::to_string(index), .picture = std::move(picture) },
                         Text{ .value = r.name, .style = TextStyle::Result, .detail = r.file ? shortPath(r.caption, home) : r.caption, .bright = matchedParts(r.name, query) } },
              .clickAnywhere = true,
              .list = "results",
              .listItem = true,
-             .menu = resultMenu(r, index) };
+             .menu = picking ? pickingMenu(r, index) : resultMenu(r, index) };
     return row;
 }
 
-Row fieldRow()
+Row fieldRow(bool picking)
 {
-    return row({ TextInput{ .actionId = A::kGo, .placeholder = "Search apps, settings and files", .large = true, .changeAction = A::kTyped } });
+    const char* hint = picking ? "Find a file for this dialog" : "Search apps, settings and files";
+    return row({ TextInput{ .actionId = A::kGo, .placeholder = hint, .large = true, .changeAction = A::kTyped } });
 }
 
 } // namespace
@@ -97,6 +98,13 @@ void SearchProvider::onCardClosed(const std::string& activityId)
     searchNow();
 }
 
+void SearchProvider::setPicking(bool picking)
+{
+    if (picking == picking_) return;
+    picking_ = picking;
+    if (host_) searchNow(); // other results, another hint, another menu
+}
+
 void SearchProvider::onAction(const Action& action)
 {
     if (action.actionId == A::kTyped) {
@@ -115,7 +123,7 @@ void SearchProvider::onAction(const Action& action)
         reveal(static_cast<std::size_t>(std::strtoul(action.actionId.c_str() + std::string_view(A::kReveal).size(), nullptr, 10)));
     } else {
         // The rest of a result's menu (decision 086): "search.<verb>.<index>".
-        for (const char* verb : { A::kAdmin, A::kTerminal, A::kCopy, A::kCopyPath, A::kForget, A::kAppSettings, A::kUninstall, A::kProperties })
+        for (const char* verb : { A::kAdmin, A::kTerminal, A::kCopy, A::kCopyPath, A::kForget, A::kAppSettings, A::kUninstall, A::kProperties, A::kShowFolder })
             if (action.actionId.rfind(verb, 0) == 0) {
                 menuAction(verb, std::strtoul(action.actionId.c_str() + std::string_view(verb).size(), nullptr, 10));
                 return;
@@ -154,6 +162,7 @@ void SearchProvider::searchNow()
     shown_ = apps; // apps, then the island's commands, then Windows' pages (decision 160)
     shown_.insert(shown_.end(), commands.begin(), commands.end());
     shown_.insert(shown_.end(), system.begin(), system.end());
+    if (picking_) shown_.clear(); // a file dialog takes files and folders, nothing else (decision 180)
 
     std::uint64_t ask = ++fileAsk_;
     bool typed = !indexer::parseQuery(query).empty();
@@ -161,6 +170,12 @@ void SearchProvider::searchNow()
         shown_.clear();
         files_.clear();
         filesNote_.clear();
+        if (picking_) { // ...and, for a file dialog, what was opened lately (decision 180)
+            std::vector<std::string> gone;
+            files_ = recentFiles(opened_, wall, tokens().searchFileRows, hooks_.exists, gone);
+            for (const std::string& key : gone) opened_.uses.erase(key);
+            if (!gone.empty()) host_->save(kOpenedKey, opened_.save());
+        }
         publish();
         return;
     }
@@ -212,7 +227,14 @@ void SearchProvider::open(std::size_t index)
     if (index >= all.size()) return;
     const Result& r = all[index];
     bool started = false;
-    if (r.file) {
+    if (picking_) {
+        // Given to the dialog, not opened (decision 180); only files are listed.
+        started = r.file && hooks_.giveToDialog && hooks_.giveToDialog(r.target);
+        if (started) {
+            opened_.record(recentKey({ .name = r.name, .path = r.target, .folder = r.folder }), host_->wallClock());
+            host_->save(kOpenedKey, opened_.save());
+        }
+    } else if (r.file) {
         started = hooks_.openFile && hooks_.openFile(r.target);
         if (started) { // ranks higher next time (decision 082)
             opened_.record(recentKey({ .name = r.name, .path = r.target, .folder = r.folder }), host_->wallClock());
@@ -267,7 +289,9 @@ void SearchProvider::menuAction(const std::string& verb, std::size_t index)
         return;
     }
     bool started = false;
-    if (verb == A::kAdmin && elevates(r)) started = call(hooks_.runAsAdmin, r.target);
+    if (picking_) { // the picking menu's own; the search menu's others aren't offered there (decision 180)
+        if (verb == A::kShowFolder) started = call(hooks_.giveToDialog, folderOf(path));
+    } else if (verb == A::kAdmin && elevates(r)) started = call(hooks_.runAsAdmin, r.target);
     else if (verb == A::kTerminal) started = call(hooks_.openTerminal, r.folder ? path : folderOf(path));
     else if (verb == A::kProperties) started = call(hooks_.properties, path);
     else if (verb == A::kUninstall || verb == A::kAppSettings) {
@@ -313,7 +337,7 @@ void SearchProvider::publish()
     c.fieldFirst = A::kGo;
     c.keepOpen = true;
     c.hidesTabs = true; // alone on the island while you look (decision 079)
-    c.expandedCenter.push_back(fieldRow());
+    c.expandedCenter.push_back(fieldRow(picking_));
     std::vector<Result> all = results();
     std::string query = searched();
     bool typed = !indexer::parseQuery(query).empty();
@@ -322,14 +346,15 @@ void SearchProvider::publish()
     for (std::size_t i = 0; i < all.size(); ++i) {
         const Result& r = all[i];
         bool own = r.kind == Launchable::Kind::Command && !r.file; // the island's: no icon from Windows
-        c.expandedCenter.push_back(resultRow(r.glyph, own ? nullptr : iconFor(r.target), r, query, hooks_.home, i));
+        c.expandedCenter.push_back(resultRow(r.glyph, own ? nullptr : iconFor(r.target), r, query, hooks_.home, i, picking_));
         if (i == 0) c.expandedCenter.back().visibleRows = tokens().searchVisibleRows; // the list's window, from its first row
     }
     // Room under the field: the first result is lit (defaultRow), and two
     // filled shapes rowSpacing apart looked stuck together (decision 079).
     if (c.expandedCenter.size() > 1) c.expandedCenter[1].apart = true;
     // A button in the page row's left corner (decisions 165, 170): a click opens the card.
-    host_->publishPanel({ .id = kPanelId, .content = std::move(c), .rowButton = Glyph::Search, .rowSpot = Panel::RowSpot::LeftCorner });
+    // ...and by a file dialog, a double-click on the pill (Panel::picksFiles, decision 180).
+    host_->publishPanel({ .id = kPanelId, .content = std::move(c), .rowButton = Glyph::Search, .rowSpot = Panel::RowSpot::LeftCorner, .picksFiles = true });
 }
 
 } // namespace cup

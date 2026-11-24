@@ -396,6 +396,10 @@ const Field kFields[] = {
     { "searchIconCache", &Tokens::searchIconCache },
     { "searchVisibleRows", &Tokens::searchVisibleRows },
     { "launcherRefreshMs", &Tokens::launcherRefresh },
+    { "pickerPillRoom", &Tokens::pickerPillRoom, true }, // by a file dialog (decision 180)
+    { "pickerCardRoom", &Tokens::pickerCardRoom },
+    { "pickerRecheckMs", &Tokens::pickerRecheck },
+    { "pickerSendTimeoutMs", &Tokens::pickerSendTimeout },
 };
 
 const Field* findField(std::string_view name)

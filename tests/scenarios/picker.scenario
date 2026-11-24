@@ -1,0 +1,75 @@
+# A file dialog (Windows' Open or Save) in front (decision 180): the island
+# hangs under it, a double-click on the pill opens the card that picks files,
+# and that card closes when the dialog goes.
+# Default tokens: idle pill 160 wide, compact 260. A 1000-wide screen.
+
+scenario: by a file dialog the pill opens with a double-click, on the picking card
+screen 1000
+panel timer
+panel search picker
+picker 300                          -> Idle picking=under
+click                               -> Idle                    # one click isn't enough
+double-click                        -> Expanded expanded=search
+picker-gone                         -> Idle picking=no         # nothing left to give a file to
+
+scenario: without a dialog a double-click is just its clicks
+panel timer
+panel search picker
+click                               -> Expanded expanded=timer
+double-click                        -> Expanded expanded=timer
+
+scenario: the island hangs centred under the dialog, and goes back to its own spot
+screen 1000
+restore left
+picker 300                          -> pill=220 spot=left      # the idle pill, 160 wide, centred on 300
+picker 600                          -> pill=520                # the dialog moved
+picker                              -> pill=0 picking=yes      # no room under it: its own place, still picking
+picker 300
+picker-gone                         -> pill=0 spot=left
+
+scenario: under a dialog at the screen's edge the pill stays on the screen
+screen 1000
+picker 990                          -> pill=840
+
+scenario: an activity's pill waits for the double-click too, and so does the bubble
+panel search picker
+start a
+picker 400
+click                               -> Compact
+start b
+bubble                              -> Split
+double-click                        -> Expanded expanded=search
+
+scenario: an alert and an open card take a click as ever
+panel search picker
+start a
+picker 400
+alert ping
+click                               -> Expanded expanded=a
+click                               -> Compact
+
+scenario: a card that was open stays; only the picking card goes with the dialog
+panel timer keep
+panel search picker
+click                               -> Expanded expanded=timer
+picker 400                          -> Expanded expanded=timer
+picker-gone                         -> Expanded expanded=timer
+card search
+picker 400
+picker-gone                         -> Idle                    # opened before the dialog or not
+
+scenario: with no picking card a double-click does nothing
+panel timer
+picker 400
+double-click                        -> Idle
+
+scenario: by a file dialog the island can't be lifted, and a lifted one lands
+screen 1000
+hold
+wait 400                            -> lifted=yes
+picker 300                          -> lifted=no picking=under
+hold
+wait 400                            -> lifted=no
+picker-gone
+hold
+wait 400                            -> lifted=yes

@@ -56,6 +56,9 @@ struct Panel {
     RowSpot rowSpot = RowSpot::Corner;
     // Its icon in the page row's list (decision 165), live or dormant. None: a plain one.
     std::optional<Glyph> icon;
+    // Its card finds a file for a file dialog (decision 180): the one a
+    // double-click on the pill opens while such a dialog is in front.
+    bool picksFiles = false;
     bool operator==(const Panel&) const = default;
 };
 
@@ -161,6 +164,16 @@ struct Menu {
     bool operator==(const Menu&) const = default;
 };
 
+// A file dialog (Windows' Open or Save) is in front (decision 180,
+// core/file_dialog.h). The pill opens with a double-click, on the card that
+// picks files; it can't be lifted.
+struct Picker {
+    // The island hangs under the dialog, its pill centred here (render-layer
+    // x). None: no room there, or another monitor; it stays in its own place.
+    std::optional<float> centre;
+    bool operator==(const Picker&) const = default;
+};
+
 // What sits over one shown card: its question, its note and a row's menu
 // (decisions 020, 071, 086).
 struct CardOverlays {
@@ -176,6 +189,12 @@ struct ActivityUpdated { std::string id; Content content; };
 struct ActivityEnded { std::string id; };
 struct AlertPosted { Alert alert; };
 struct PillClicked {};
+// The second click of a double-click on the pill, after its PillClicked.
+// Opens the picking card while a file dialog is in front (decision 180); nothing otherwise.
+struct PillDoubleClicked {};
+// A file dialog came in front, or moved (decision 180). `centre`: Picker::centre.
+struct PickerOpened { std::optional<float> centre; };
+struct PickerClosed {};                 // it went, or something else is in front: a picking card closes
 // A click in the top band of an expanded island (Scene::collapseZone): it always
 // closes, a card that keeps open or a pinned island too (decision 108).
 struct TopClicked {};
@@ -249,7 +268,7 @@ struct ClockSynced {
 };
 
 using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, AlertPosted,
-                           PillClicked, TopClicked, ClickedOutside, EscapePressed, PointerMoved,
+                           PillClicked, PillDoubleClicked, PickerOpened, PickerClosed, TopClicked, ClickedOutside, EscapePressed, PointerMoved,
                            DragEntered, DragLeft, Dropped, HiddenChanged, Tick,
                            BubbleClicked, ActivityPromoted, ActivitySwitched,
                            BubbleDragged, BubbleReleased, BubbleDragCancelled,
@@ -283,6 +302,7 @@ struct IslandState {
     Ms lastPointerAt{};
     bool dragging = false;             // an accepted drag is over the island
     bool hidden = false;
+    std::optional<Picker> picker;      // a file dialog is in front (decision 180)
     std::optional<WallClock> clock;    // unknown until the platform syncs it
     std::optional<Draft> draft;        // a TextInput has focus (decision 016)
     // A field's unsent text while it isn't focused (decision 050), by

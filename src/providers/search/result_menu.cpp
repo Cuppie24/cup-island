@@ -59,4 +59,16 @@ std::vector<MenuItem> resultMenu(const SearchProvider::Result& r, std::size_t in
     return m;
 }
 
+std::vector<MenuItem> pickingMenu(const SearchProvider::Result& r, std::size_t index)
+{
+    std::string n = std::to_string(index);
+    std::vector<MenuItem> m;
+    m.push_back({ .label = r.folder ? "Open folder" : "Choose", .actionId = A::kOpen + n, .chord = keys(kEnter, false, false), .bold = true, .group = 0 });
+    m.push_back({ .label = "Go to its folder", .actionId = A::kShowFolder + n, .chord = keys('E', true, true), .group = 0 });
+    m.push_back({ .label = "Copy path", .actionId = A::kCopyPath + n, .chord = keys('C', true, true), .group = 1 });
+    if (r.remembered)
+        m.push_back({ .label = "Remove from history", .actionId = A::kForget + n, .chord = keys(kDelete, false, true), .group = 2 });
+    return m;
+}
+
 } // namespace cup

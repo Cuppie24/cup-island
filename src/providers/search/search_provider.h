@@ -16,6 +16,10 @@
 //     expanded here (the service runs as SYSTEM: expandShortcuts).
 // What was started is remembered per user and ranks higher (LaunchHistory),
 // files opened from it too (recent_files, decision 082).
+// By a file dialog (decision 180) the card picks a file for it instead:
+// files and folders only, the recent ones before anything is typed; a result
+// is given to the dialog (SearchHooks::giveToDialog), and its menu is the
+// picking one (result_menu.h). The app says when (setPicking).
 // Pure, tested on Linux: Windows is behind SearchHooks.
 
 #include "core/provider.h"
@@ -45,6 +49,10 @@ struct SearchHooks {
     std::function<bool(const std::string& path)> properties;      // Explorer's Properties window
     std::function<bool(const std::string& text)> copyText;        // onto the clipboard
     std::function<bool(const std::string& path)> copyFile;        // the file itself, as Explorer's Copy does
+    // Gives a path to the file dialog in front, as if typed into its "File
+    // name" and confirmed (decision 180): a file is chosen, a folder is gone
+    // to. False if the dialog didn't take it.
+    std::function<bool(const std::string& path)> giveToDialog;
     // A result's icon as Windows draws it (a file's, an app's), resultIconSize
     // square; `done` on the UI thread, with nothing if there's none.
     std::function<void(const std::string& target, std::function<void(std::shared_ptr<const ImageData>)> done)> loadIcon;
@@ -70,6 +78,7 @@ inline constexpr const char* kForget = "search.forget."; // Remove from history
 inline constexpr const char* kAppSettings = "search.appSettings.";
 inline constexpr const char* kUninstall = "search.uninstall.";
 inline constexpr const char* kProperties = "search.properties.";
+inline constexpr const char* kShowFolder = "search.showFolder."; // picking (decision 180): the dialog goes to the result's folder
 } // namespace search_action
 
 class SearchProvider : public Provider {
@@ -88,6 +97,11 @@ public:
     void onAction(const Action& action) override;
     void onCardShown(const std::string& activityId) override;
     void onCardClosed(const std::string& activityId) override;
+
+    // A file dialog is in front, or no longer (decision 180): the card picks
+    // a file for it, or is the search it always was.
+    void setPicking(bool picking);
+    bool picking() const { return picking_; }
 
     // One result as the card lists it, in its order (for tests).
     struct Result {
@@ -124,6 +138,7 @@ private:
     LaunchHistory history_;
     LaunchHistory opened_; // files, by recentKey
     std::string query_;
+    bool picking_ = false;                   // for a file dialog (decision 180)
     std::vector<const Launchable*> shown_;   // apps, then Settings and Control Panel
     std::vector<indexer::ResultRow> files_;  // then files
     std::string filesNote_;                  // why there are no files ("isn't set up")

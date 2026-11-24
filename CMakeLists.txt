@@ -32,6 +32,7 @@ add_library(cup_core STATIC
     src/core/double_tap.cpp
     src/core/toast.cpp
     src/core/easing.cpp
+    src/core/file_dialog.cpp
     src/core/open_windows.cpp
     src/core/fullscreen.cpp
     src/core/hit_test.cpp
@@ -128,6 +129,7 @@ if(CUP_BUILD_TESTS)
         tests/content_tests.cpp
         tests/cover_tests.cpp
         tests/double_tap_tests.cpp
+        tests/file_dialog_tests.cpp
         tests/fullscreen_tests.cpp
             tests/indexer_protocol_tests.cpp
         tests/indexer_query_tests.cpp
@@ -149,6 +151,7 @@ if(CUP_BUILD_TESTS)
         tests/update_tests.cpp
         tests/update_install_tests.cpp
         tests/scenario_runner.cpp
+        tests/search_picking_tests.cpp
         tests/search_tests.cpp
         tests/search_command_tests.cpp
         tests/service_host_tests.cpp
@@ -213,6 +216,7 @@ if(WIN32)
 
     add_executable(CupIsland
         assets/cup_island.rc
+        src/app/file_picker.cpp
         src/app/keyboard_input.cpp
         src/app/menu_input.cpp
         src/app/live_tokens.cpp
@@ -245,6 +249,7 @@ if(WIN32)
         src/platform/segments_parts.cpp
         src/platform/shine.cpp
         src/platform/list_viewports.cpp
+        src/platform/file_dialog_watcher.cpp
         src/platform/file_watcher.cpp
         src/platform/foreground.cpp
         src/platform/fullscreen_watcher.cpp

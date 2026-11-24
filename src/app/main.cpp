@@ -20,6 +20,7 @@
 // Quit any time from the tray icon's right-click menu (Exit). Everything is logged to
 // %LOCALAPPDATA%\CupIsland\logs (platform/log.h); Debug builds also show it in a console.
 
+#include "app/file_picker.h"
 #include "app/keyboard_input.h"
 #include "app/menu_input.h"
 #include "app/provider_windows.h"
@@ -41,6 +42,7 @@
 #include "platform/file_watcher.h"
 #include "platform/hotkeys.h"
 #include "platform/wall_clock.h"
+#include "platform/file_dialog_watcher.h"
 #include "platform/fullscreen_watcher.h"
 #include "platform/glass.h"
 #include "platform/log.h"
@@ -126,9 +128,13 @@ std::filesystem::path g_tokensFile;
 RenderLayer g_render;
 std::string g_displayId; // the monitor the island is on (decision 023); "" = the main display
 Rect g_displayBounds;    // ...in screen pixels: a lifted island carried past them changes monitor (decision 178)
+Rect g_displayWork;      // ...less its taskbar: by a file dialog the island stays above that (decision 180)
 std::filesystem::path g_spotsFile;     // where the island rests on each monitor (decision 026)
 std::map<std::string, Spot> g_spots;   // ...as last saved, by display id
 std::unique_ptr<ProviderRegistry> g_providers;
+// By a file dialog the layers hang from its bottom edge, at this y (screen
+// pixels), not from their monitor's top (decision 180, app/file_picker).
+std::optional<float> g_hangTop;
 SettingsProvider* g_settings = nullptr; // owned by g_providers; told when tokens.json reloads
 UpdateProvider* g_update = nullptr;     // owned by g_providers; Settings' "Check for updates" asks it
 
@@ -351,9 +357,11 @@ void dispatch(const Event& event, const char* reason)
     // A card went: its provider may reset it (Settings opens at its list again).
     // ...and one came: what's on it is seen now (Settings' "New" tags, decision 048).
     std::optional<ShownCard> nowCard = shownCard(g_state);
-    if (nowCard == wasCard || !g_providers) return;
-    if (wasCard) g_providers->cardClosed(*wasCard);
-    if (nowCard) g_providers->cardShown(*nowCard);
+    if (nowCard != wasCard && g_providers) {
+        if (wasCard) g_providers->cardClosed(*wasCard);
+        if (nowCard) g_providers->cardShown(*nowCard);
+    }
+    app::settleFilePicker(); // by a file dialog, a card opening or closing changes where the island hangs (decision 180)
 }
 
 void toggleProvider(const char* id)
@@ -676,7 +684,17 @@ void onPressRelease(app::Surface& s, Vec2 canvasPoint, Release how)
         return;
     }
     s.renderer->pressRelease(false);
-    if (how == Release::Inside && onShape(s, canvasPoint) && !hitTest(s.scene, point)) dispatch(PillClicked{}, "click");
+    if (how != Release::Inside || !onShape(s, canvasPoint) || hitTest(s.scene, point)) return;
+    // The second click of a double-click, as Windows times and places one:
+    // by a file dialog it opens the picking card (decision 180).
+    Ms t = now();
+    bool second = s.pointer.pillClickAt && t - *s.pointer.pillClickAt <= Ms{ GetDoubleClickTime() } &&
+                  std::abs(canvasPoint.x - s.pointer.pillClickPoint.x) <= GetSystemMetrics(SM_CXDOUBLECLK) / 2 &&
+                  std::abs(canvasPoint.y - s.pointer.pillClickPoint.y) <= GetSystemMetrics(SM_CYDOUBLECLK) / 2;
+    s.pointer.pillClickAt = second ? std::nullopt : std::optional<Ms>(t); // a third click starts over
+    s.pointer.pillClickPoint = canvasPoint;
+    dispatch(PillClicked{}, "click");
+    if (second) dispatch(PillDoubleClicked{}, "double click");
 }
 
 // Sends the focused field's text to its provider: what was typed (Enter), or
@@ -843,6 +861,25 @@ void onKey(WPARAM key)
     }
 }
 
+// Where the render layer hangs from: its monitor's top edge, or, by a file
+// dialog, that dialog's bottom edge (decision 180). Across the monitor either way.
+Rect layerStrip()
+{
+    Rect strip = g_displayBounds;
+    if (g_hangTop) strip.y = *g_hangTop;
+    return strip;
+}
+
+// A file dialog came, moved or went: the layers hang from `top`, or are back
+// at their monitor's top. Their width doesn't change, so core isn't told.
+void hangLayers(std::optional<float> top)
+{
+    g_hangTop = top;
+    resizeRenderLayer(g_render, tokens().canvas, layerStrip());
+    setRenderOrigin(g_render.left, g_render.top);
+    g_renderer.layerChanged();
+}
+
 // New tokens are active (a tokens.json save, or a new display scale): resize
 // the render layer if the canvas changed, rebuild the content, re-layout.
 // The render layer and the interaction layer, centred at the top of the island's monitor.
@@ -850,8 +887,10 @@ void onKey(WPARAM key)
 // monitor (decision 178): it goes on from under the pointer, still lifted.
 void positionLayers(std::optional<Vec2> carriedAt = std::nullopt)
 {
-    g_displayBounds = displayFor(g_displayId).bounds;
-    resizeRenderLayer(g_render, tokens().canvas, g_displayBounds);
+    Display display = displayFor(g_displayId);
+    g_displayBounds = display.bounds;
+    g_displayWork = display.workArea;
+    resizeRenderLayer(g_render, tokens().canvas, layerStrip());
     std::optional<Vec2> window;
     if (carriedAt) {
         // The window (it has capture, so where hardly matters) goes under the
@@ -1038,6 +1077,7 @@ int main()
     g_displayId.erase(g_displayId.find_last_not_of(" \t\r\n") + 1);
     Display display = displayFor(g_displayId);
     g_displayBounds = display.bounds;
+    g_displayWork = display.workArea;
     app::setDisplayScale(display.scale);
     g_tokensFile = app::findTokensFile();
     app::setReducedMotion(animationsOff()); // before the first load commits, so it's in from the start
@@ -1259,7 +1299,7 @@ int main()
                                              std::function<void(ServiceReply)> done) { services->call(method, params, std::move(done)); });
     g_providers->add(std::move(serviceHost));
     // Search (decisions 077, 079): apps, Settings and files; files through the host's service.
-    g_providers->add(std::make_unique<SearchProvider>(SearchHooks{
+    auto search = std::make_unique<SearchProvider>(SearchHooks{
         .loadApps = loadWindowsApps,
         .launch = launchItem,
         .openFile = openPath,
@@ -1270,6 +1310,7 @@ int main()
         .properties = showProperties,
         .copyText = [](const std::string& text) { return writeClipboardText(g_inputHwnd, text); },
         .copyFile = copyFileToClipboard,
+        .giveToDialog = giveToFileDialog, // by a file dialog, a result goes to it (decision 180)
         // Twice the icon's size: sharp at 200% scaling, drawn smaller below it.
         .loadIcon = [](const std::string& target, std::function<void(std::shared_ptr<const ImageData>)> done) {
             loadIcon(target, static_cast<int>(std::lround(2 * tokens().resultIconSize)), std::move(done));
@@ -1278,7 +1319,9 @@ int main()
         .home = userFolder(),
         .windowsBuild = windowsBuild(),
         .russian = russianUi(),
-    }));
+    });
+    SearchProvider* searchProvider = search.get(); // owned by g_providers; told when a file dialog is in front
+    g_providers->add(std::move(search));
     g_providers->grant(SearchProvider::kId, "index");
     g_providers->grant(SearchProvider::kId, ProviderRegistry::kCommandsGrant); // providers' commands among its results (decision 160)
     // The page row's icons follow the order panels first appear: media, then Pomodoro (decision 165).
@@ -1293,6 +1336,16 @@ int main()
 
     // TR §9.2: hide over borderless/exclusive fullscreen apps on this monitor.
     watchFullscreen(render.hwnd, [](bool fullscreen) { dispatch(HiddenChanged{ fullscreen }, "fullscreen"); });
+
+    // A file dialog in front (decision 180): the island hangs under it, and Search's card picks its file.
+    app::watchFilePicker({
+        .state = []() -> const IslandState& { return g_state; },
+        .dispatch = dispatch,
+        .workArea = [] { return g_displayWork; },
+        .layerLeft = [] { return static_cast<float>(g_render.left); },
+        .hang = hangLayers,
+        .search = searchProvider,
+    });
 
     // Debounced: one save fires several notifications; reload once it settles.
     watchDirectoryOf(g_tokensFile, [] { setTimerFromAnyThread(TimerId::TokensReload, Ms{ 50 }); });
