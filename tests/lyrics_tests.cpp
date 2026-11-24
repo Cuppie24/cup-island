@@ -389,15 +389,15 @@ void volumeTests()
     const std::vector<Item> &left = card.expandedBottom.back().leading, &right = card.expandedBottom.back().trailing;
     auto button = [](const std::vector<Item>& items, std::size_t i) { return i < items.size() ? std::get_if<Button>(&items[i]) : nullptr; };
     const Button *speaker = button(left, 0), *shuffle = button(left, 1), *repeat = button(right, 0), *words = button(right, 1);
-    expect(left.size() == 2 && speaker && speaker->glyph == Glyph::VolumeLow && speaker->actionId == media_action::kMute && !speaker->on &&
+    expect(left.size() == 2 && speaker && speaker->glyph == Glyph::VolumeLow && speaker->actionId == media_action::kMute && speaker->on == false &&
                shuffle && shuffle->glyph == Glyph::Shuffle,
            "the row's left pair: the speaker, which mutes, then shuffle");
     expect(right.size() == 2 && repeat && repeat->glyph == Glyph::Repeat && words && words->glyph == Glyph::Lyrics &&
                words->actionId == media_action::kLyrics && words->on == true && words->enabled,
            "its right pair: repeat, then the lyrics toggle");
     bool alike = words && speaker && shuffle && repeat;
-    for (const Button* b : { words, speaker, shuffle, repeat }) alike = alike && b->secondary && !b->compact && !b->large;
-    expect(alike, "all four the same quiet buttons");
+    for (const Button* b : { words, speaker, shuffle, repeat }) alike = alike && b->secondary && !b->compact && !b->large && b->on.has_value();
+    expect(alike, "all four the same quiet toggles: the same circle and, on liquid glass, the same shiny edge at rest");
     // Mirrored about the card's middle, with ▶ on it.
     Scene closed = layout(expandedWith(card), Ms{ 0 });
     auto at = [&](const Scene& s, const char* key) { return find(s, std::string("expandedBottom/controls/") + key); };
@@ -435,7 +435,7 @@ void volumeTests()
     auto* level = opened.leading.size() == 2 ? std::get_if<Progress>(&opened.leading[1]) : nullptr;
     expect(opened.leadingOpen && level && level->level && level->seekable && !level->wavy && level->actionId == media_action::kVolume &&
                level->timeline.fractionAt(Ms{ 0 }) == 0.25f && button(opened.leading, 0) && button(opened.leading, 0)->actionId == media_action::kMute &&
-               !controlOf(open, media_action::kShuffle) && controlOf(open, media_action::kRepeat),
+               !button(opened.leading, 0)->on && !controlOf(open, media_action::kShuffle) && controlOf(open, media_action::kRepeat),
            "open: the speaker, then the volume's bar at the app's level where shuffle was; the right pair as it was");
     Scene scene = layout(expandedWith(open), Ms{ 0 });
     const Placed *opener = at(scene, "5"), *bar = at(scene, "6"), *pill = at(scene, "open");
@@ -467,6 +467,9 @@ void volumeTests()
     expect(seeking && seeking->action.actionId == media_action::kSeek, "the song's own bar is there and seeks all the while");
     m.muted = true;
     Content silent = nowPlayingContent(m);
+    m.volumeOpen = false;
+    expect(controlOf(nowPlayingContent(m), media_action::kMute)->on == true, "muted, at rest: the toggle is on");
+    m.volumeOpen = true;
     expect(controlOf(silent, media_action::kMute)->glyph == Glyph::Muted &&
                std::get<Progress>(silent.expandedBottom.back().leading[1]).timeline.fractionAt(Ms{ 0 }) == 0.0f,
            "muted: the crossed speaker, the bar empty");

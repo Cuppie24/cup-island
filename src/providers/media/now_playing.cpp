@@ -137,7 +137,11 @@ Content cardContent(const NowPlaying& m)
     // the speaker lights up under the pointer, so it reads as the button. Shuffle is back when
     // the pointer leaves the two.
     bool volumeOpen = m.volume && m.volumeOpen;
-    if (m.volume) controls.leading.push_back(Button{ .glyph = volumeGlyph(*m.volume, m.muted), .actionId = act::kMute, .secondary = true });
+    // A toggle like the other three (on: muted), so at rest it has their circle and, on liquid
+    // glass, their shiny edge. Open, the pill is its shape and carries the edge: one ring, not two.
+    if (m.volume)
+        controls.leading.push_back(Button{ .glyph = volumeGlyph(*m.volume, m.muted), .actionId = act::kMute,
+                                           .on = volumeOpen ? std::nullopt : std::optional<bool>(m.muted), .secondary = true });
     if (volumeOpen) {
         controls.leading.push_back(Progress{ .timeline = levelTimeline(m.muted ? 0.0f : std::clamp(*m.volume, 0.0f, 1.0f)), .seekable = true,
                                              .level = true, .actionId = act::kVolume });
