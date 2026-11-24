@@ -47,6 +47,7 @@ void sendHome()
 {
     if (!std::exchange(g_lent, false)) return;
     g_hooks.hang(std::nullopt);
+    g_hooks.unveil(); // it fades in where it lives, rather than gliding there from under the dialog
 }
 
 void settle()
@@ -63,11 +64,17 @@ void onPillClicked()
 {
     if (!g_dialog || lent()) return;
     g_settling = true; // moving to the dialog's monitor dispatches too: not sent home before core has answered
+    g_hooks.veil();    // not seen for a frame under the dialog as it was at the top
     float centre = hangLayers();
     g_hooks.dispatch(PickerOpened{ centre }, "file dialog's pill");
     g_settling = false;
-    settle(); // home again if core didn't open it (no picking card, hidden)
-    if (lent()) g_hooks.focus();
+    if (lent()) {
+        placePill();      // it fades out as the card fades in over it
+        g_hooks.unveil();
+        g_hooks.focus();
+    } else {
+        settle(); // core didn't open it (no picking card, hidden): home again, and seen again
+    }
 }
 
 void onDialog(std::optional<platform::FileDialogSeen> seen)
@@ -91,6 +98,14 @@ void watchFilePicker(FilePickerHooks hooks)
 }
 
 void filePillClicked() { onPillClicked(); }
+
+bool filePickerShortcut()
+{
+    if (!g_dialog || !g_hooks.state) return false;
+    if (lent()) g_hooks.dispatch(CardCloseRequested{ g_hooks.state().expandedId }, "shortcut"); // again: it closes, as Search's does
+    else onPillClicked();
+    return true;
+}
 
 void settleFilePicker() { settle(); }
 

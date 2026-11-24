@@ -34,14 +34,20 @@ single click to open it.
   centred (`hangUnder`, `pillFrame`). Always there, on whichever monitor the
   dialog is: with no room it's cut off by the screen. It moves with the
   dialog at once, as one piece, fades in and out over `pickerFade`, and
-  never takes the keys. The island
+  never takes the keys. It's an ordinary window, not a topmost one: where
+  the dialog goes behind the taskbar, so does the pill, and it's raised
+  over the dialog's app each time the dialog comes forward. The island
   stays where it is, as it is.
 - *One click lends the island.* A click on the pill hangs the island's
   layers under the dialog (on its monitor, at that monitor's scale) and
   sends `PickerOpened`: core opens the card of the panel with
   `Panel::picksFiles` (Search), centred on the dialog
   (`IslandState::picker`, placed like a Free spot, so decision 026's
-  screen-edge rules hold). The pill hides, so it reads as the pill opening.
+  screen-edge rules hold). Search's shortcut does the same while a dialog
+  is in front, and pressed again closes the card. The island isn't watched
+  making the jump: morphing from the top of the screen to the dialog
+  flickered on the first run, so it's made invisible, put there in one step
+  and faded in as the pill fades out (and the same on its way home).
   The card needs `pickerCardRoom`: when that isn't under the dialog, it
   opens over the dialog's lower part rather than off the screen. Closed any
   way (a pick, Esc, a click elsewhere, the dialog going, a critical alert),
@@ -57,15 +63,16 @@ single click to open it.
   is pressed, as if typed. A file is chosen; a folder is gone to. It ranks
   higher next time like any file opened from search (decision 082).
 - *Its menu* (`pickingMenu`, decision 086): Choose (a folder: Open folder),
-  Go to its folder, Copy path, Remove from history. Nothing that starts
-  something else: the user is in the middle of choosing a file.
+  Go to its folder, Copy path. Nothing that starts something else: the user
+  is in the middle of choosing a file. No "Remove from history": the card
+  shows no history.
 
 **Consequences.**
 
 - While the picking card is open, the island isn't at the top of its
   screen; it's back the moment the card closes.
-- Search opened its usual way (its button, Double Ctrl) while a dialog is
-  in front opens in the island's own place, and picks for the dialog too.
+- Search opened from its page-row button while a dialog is in front opens
+  in the island's own place, and picks for the dialog too.
 - A dialog of an app running as administrator doesn't take the path from an
   island that isn't: Windows blocks the message, simulated keys too (UIPI).
   The clipboard is shared, so the path is copied instead, the dialog comes

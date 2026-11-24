@@ -61,11 +61,13 @@ Rect frameOf(HWND hwnd)
     return { static_cast<float>(r.left), static_cast<float>(r.top), static_cast<float>(r.right - r.left), static_cast<float>(r.bottom - r.top) };
 }
 
-void tell()
+// `again`: said even if nothing changed. The dialog came forward again, and
+// its app's windows with it: what hangs from it has to be raised over them.
+void tell(bool again = false)
 {
     std::optional<FileDialogSeen> now;
     if (g_dialog) now = FileDialogSeen{ g_dialog, frameOf(g_dialog) };
-    if (now == g_told) return;
+    if (now == g_told && !(again && now)) return;
     g_told = now;
     g_onChange(now);
 }
@@ -122,7 +124,7 @@ void evaluate(bool mayRecheck)
     GetWindowThreadProcessId(front, &process);
     // The island's own card took the keys: the dialog behind it is still the one.
     if (process == GetCurrentProcessId() || front == g_dialog || (g_dialog && ownedByDialog(front))) {
-        tell();
+        tell(front == g_dialog);
         return;
     }
     std::string cls = classOf(front);

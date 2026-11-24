@@ -81,7 +81,8 @@ void runSearchPickingTests()
     expect(labels(host.published.back().content.expandedCenter[2].menu) == std::vector<std::string>{ "Open folder", "Go to its folder", "Copy path" },
            "a folder's: the dialog opens it");
     SearchProvider::Result remembered{ .file = true, .name = "notes.txt", .target = "C:\\Docs\\notes.txt", .remembered = true };
-    expect(labels(pickingMenu(remembered, 0)).back() == "Remove from history", "a remembered one can be forgotten there too");
+    expect(labels(pickingMenu(remembered, 0)) == std::vector<std::string>{ "Choose", "Go to its folder", "Copy path" },
+           "no Remove from history: the picking card shows no history");
 
     // Go to its folder: the dialog gets the folder, and the card closes.
     act(search_action::kShowFolder + std::string("0"));

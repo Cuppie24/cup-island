@@ -23,7 +23,8 @@ struct FileDialogSeen {
 // `onChange`: one came in front or moved, or (nothing) it closed or another
 // app's window is in front. The island's own windows in front change
 // nothing: its card takes the keys while the dialog waits. Called on this
-// (the UI) thread, only when something changed.
+// (the UI) thread, when something changed, and each time the dialog comes
+// forward again (what hangs from it is raised over its app's windows).
 void watchFileDialogs(std::function<void(std::optional<FileDialogSeen>)> onChange);
 
 // Gives `path` (UTF-8) to the dialog being watched: put in its "File name"

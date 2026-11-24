@@ -85,9 +85,11 @@ void createPickerPill(HINSTANCE instance, wuc::Compositor const& compositor, Gra
     windowClass.lpszClassName = kClassName;
     RegisterClassExW(&windowClass);
 
-    // As the render layer: Composition owns every pixel, on top, never
-    // focused, not in the taskbar. Not click-through: it's there to be clicked.
-    g_hwnd = CreateWindowExW(WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, kClassName, L"Cup Island File Pill",
+    // As the render layer: Composition owns every pixel, never focused, not
+    // in the taskbar. Not click-through: it's there to be clicked. And not
+    // topmost: an ordinary window like the dialog it hangs from, so where the
+    // dialog goes behind the taskbar, so does the pill.
+    g_hwnd = CreateWindowExW(WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, kClassName, L"Cup Island File Pill",
                              WS_POPUP, 0, 0, 1, 1, nullptr, nullptr, instance, nullptr);
     if (!g_hwnd) return;
     g_target = createWindowTarget(g_compositor, g_hwnd);
@@ -105,7 +107,8 @@ void showPickerPill(Rect frame)
     if (g_stage == Stage::Leaving) KillTimer(g_hwnd, kLeaveTimer);
     if (g_stage != Stage::Shown) fadeTo(g_compositor, g_visual, 1.0f, tokens().pickerFade); // from wherever a fade out left it
     g_stage = Stage::Shown;
-    SetWindowPos(g_hwnd, HWND_TOPMOST, static_cast<int>(frame.x), static_cast<int>(frame.y), static_cast<int>(frame.width),
+    // Over the other ordinary windows each time: the dialog's app came forward with it.
+    SetWindowPos(g_hwnd, HWND_TOP, static_cast<int>(frame.x), static_cast<int>(frame.y), static_cast<int>(frame.width),
                  static_cast<int>(frame.height), SWP_NOACTIVATE | SWP_SHOWWINDOW);
 }
 

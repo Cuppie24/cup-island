@@ -39,6 +39,11 @@ struct FilePickerHooks {
     std::function<void(std::optional<HangPlace>)> hang;
     std::function<float()> layerLeft; // the render layer's left edge, screen pixels: after hang(), the dialog's monitor's
     std::function<void()> focus;      // the island takes the keys: the card's field is typed in at once
+    // The island was made invisible for its jump between its own place and
+    // the dialog (main's dispatch does that when IslandState::picker comes
+    // or goes): now it's there, it fades in.
+    std::function<void()> unveil;
+    std::function<void()> veil;       // ...and invisible before the layers move to the dialog
     SearchProvider* search = nullptr; // its card picks the file (SearchProvider::setPicking)
 };
 
@@ -47,6 +52,11 @@ void watchFilePicker(FilePickerHooks hooks);
 
 // The pill was clicked (platform::createPickerPill's onClick).
 void filePillClicked();
+
+// Search's shortcut was pressed. With a file dialog in front it does what the
+// pill does, and pressed again closes that card; true then. False: no dialog,
+// the shortcut is Search's own.
+bool filePickerShortcut();
 
 // After every dispatch: the picking card closed, so the island goes home and the pill is back.
 void settleFilePicker();

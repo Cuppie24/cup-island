@@ -1,5 +1,7 @@
 #include "app/keyboard_input.h"
 
+#include "app/file_picker.h"
+
 #include "app/menu_input.h"
 
 #include "platform/foreground.h"
@@ -76,6 +78,7 @@ void run(Command command)
         if (!state().expandedId.empty()) platform::bringToFront(g_hooks.window);
         return;
     case Command::OpenSearch: { // search's card, typing in its field at once; again, it closes (decision 079)
+        if (filePickerShortcut()) return; // with a file dialog in front: the card under it, as its pill opens it (decision 181)
         const std::string id = SearchProvider::kPanelId;
         if (state().expandedId == id) {
             dispatch(CardCloseRequested{ id }, "shortcut");

@@ -42,6 +42,7 @@
 #include "platform/file_watcher.h"
 #include "platform/hotkeys.h"
 #include "platform/wall_clock.h"
+#include "platform/element_parts.h"
 #include "platform/file_dialog_watcher.h"
 #include "platform/foreground.h"
 #include "platform/fullscreen_watcher.h"
@@ -304,6 +305,17 @@ void onLifted();
 Vec2 carriedAcross(Vec2 canvasPoint);
 void tokensChanged(Vec2 oldCanvas, const char* reason);
 
+// The island unseen, at once, for a jump it shouldn't be watched making (decision 181)...
+void veilIsland()
+{
+    if (g_render.root) g_render.root.Opacity(0.0f);
+}
+// ...and fading in where it now is.
+void unveilIsland()
+{
+    if (g_render.root) fadeTo(g_render.compositor, g_render.root, 1.0f, tokens().pickerFade);
+}
+
 void dispatch(const Event& event, const char* reason)
 {
     if (g_uiQueue && std::this_thread::get_id() != g_uiThread) {
@@ -330,6 +342,7 @@ void dispatch(const Event& event, const char* reason)
     Ms t = now();
     Spot spot = g_state.spot;
     bool wasHidden = g_state.hidden;
+    bool wasLent = g_state.picker.has_value();
     std::optional<ShownCard> wasCard = shownCard(g_state);
     std::optional<Draft> wasDraft = g_state.draft;
     g_state = reduce(g_state, event, t);
@@ -342,6 +355,13 @@ void dispatch(const Event& event, const char* reason)
     }
     // One motion for the renderer and the window that follows it (decisions 001, 080).
     SceneMotion motion = sceneMotion(g_island.scene, next, flingVelocity(g_drag, t, tokens()), tokens());
+    // Lent to a file dialog, or back from one (decision 181): the layers jump
+    // between the top of the screen and the dialog, so the island doesn't
+    // morph across; it's put there unseen and fades in (app/file_picker unveils it).
+    if (g_state.picker.has_value() != wasLent) {
+        motion = SceneMotion{ .morph = Motion{ .duration = Ms{ 1 } } };
+        veilIsland();
+    }
     Applying applying; // until the scene is the shown one, or this is left by an exception
     g_renderer.apply(next, motion);
     Rect bounds = interactiveBounds(next), was = interactiveBounds(g_island.scene);
@@ -1391,6 +1411,8 @@ int main()
         .hang = hangLayers,
         .layerLeft = [] { return static_cast<float>(g_render.left); },
         .focus = [] { bringToFront(g_inputHwnd); },
+        .unveil = unveilIsland,
+        .veil = veilIsland,
         .search = searchProvider,
     });
 

@@ -17,7 +17,9 @@ namespace cup::platform {
 // `device` are the island's (decision 104: one of each for every window).
 void createPickerPill(HINSTANCE instance, wuc::Compositor const& compositor, GraphicsDevice& device, std::function<void()> onClick);
 
-// Shown at `frame` (screen pixels), drawn in the theme's colours as they are now.
+// Shown at `frame` (screen pixels), drawn in the theme's colours as they are
+// now, and raised over the other ordinary windows (never over the taskbar).
+// Called again while shown, it moves and is raised again.
 void showPickerPill(Rect frame);
 void hidePickerPill(); // fades out, then its window hides
 
