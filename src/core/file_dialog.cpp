@@ -46,9 +46,14 @@ Hang hangUnder(Rect dialog, Rect workArea, bool cardOpen)
     return { top, dialog.x + dialog.width / 2 };
 }
 
-Rect pillFrame(Hang hang, Vec2 size)
+PillPlace pillPlace(Rect dialog, Rect workArea, Vec2 size)
 {
-    return snapToPixels({ hang.centre - size.x / 2, hang.top, size.x, size.y });
+    Hang under = hangUnder(dialog, workArea, false);
+    float left = under.centre - size.x / 2;
+    bool fitsUnder = under.top + size.y <= workArea.y + workArea.height;
+    bool fitsAbove = dialog.y - size.y >= workArea.y;
+    bool above = !fitsUnder && fitsAbove;
+    return { snapToPixels({ left, above ? dialog.y - size.y : under.top, size.x, size.y }), above };
 }
 
 std::string pickingCard(const IslandState& s)

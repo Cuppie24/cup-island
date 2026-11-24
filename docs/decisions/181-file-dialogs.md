@@ -30,9 +30,13 @@ single click to open it.
   The island's own window in front changes nothing (its card has the keys
   while the dialog waits); another app's window in front ends it.
 - *A pill of its own.* `platform/picker_pill`: a small window the idle
-  island's size with a search glyph, hung from the dialog's bottom edge,
-  centred (`hangUnder`, `pillFrame`). Always there, on whichever monitor the
-  dialog is: with no room it's cut off by the screen. It moves with the
+  island's size with a search glyph, in the island's shape (flat on the
+  dialog, its corners flaring into the dialog's edge, decision 025), hung
+  from the dialog's bottom edge, centred (`pillPlace`), on whichever monitor
+  the dialog is. With no room under the dialog it stands on the dialog's top
+  edge instead, flat side and flares down; with none there either it's
+  under it, cut off. (Cut off always, as first asked, hid it behind the
+  taskbar with the dialog.) It moves with the
   dialog at once, as one piece, fades in and out over `pickerFade`, and
   never takes the keys. It's an ordinary window, not a topmost one: where
   the dialog goes behind the taskbar, so does the pill, and it's raised
@@ -76,8 +80,10 @@ single click to open it.
 - A dialog of an app running as administrator doesn't take the path from an
   island that isn't: Windows blocks the message, simulated keys too (UIPI).
   The clipboard is shared, so the path is copied instead, the dialog comes
-  in front and an alert says "Path copied / Paste it into the File name box":
-  the user pastes and confirms. Focus is wherever they left it in the
+  in front and the pill says "Path copied. Paste it into the File name box"
+  for `pickerNote`, grown to fit it (`SearchHooks::sayByDialog`; an alert on
+  the island only if there's no pill to say it): by the dialog is where the
+  user is looking. The user pastes and confirms. Focus is wherever they left it in the
   dialog, which the island can't change. Listary has the same limit. Getting
   past it means a signed `uiAccess` build or a helper started by the
   service; neither is done here.

@@ -1371,6 +1371,7 @@ int main()
         .copyText = [](const std::string& text) { return writeClipboardText(g_inputHwnd, text); },
         .copyFile = copyFileToClipboard,
         .giveToDialog = giveToFileDialog, // by a file dialog, a result goes to it (decision 181)
+        .sayByDialog = app::sayByFileDialog,
         // Twice the icon's size: sharp at 200% scaling, drawn smaller below it.
         .loadIcon = [](const std::string& target, std::function<void(std::shared_ptr<const ImageData>)> done) {
             loadIcon(target, static_cast<int>(std::lround(2 * tokens().resultIconSize)), std::move(done));

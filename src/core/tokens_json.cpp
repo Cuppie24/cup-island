@@ -420,6 +420,8 @@ const Field kFields[] = {
     { "pickerCardRoom", &Tokens::pickerCardRoom, true }, // by a file dialog (decision 181)
     { "pickerGlyphSize", &Tokens::pickerGlyphSize },
     { "pickerFadeMs", &Tokens::pickerFade },
+    { "pickerNoteMs", &Tokens::pickerNote },
+    { "pickerNotePadding", &Tokens::pickerNotePadding },
     { "pickerRecheckMs", &Tokens::pickerRecheck },
     { "pickerSendTimeoutMs", &Tokens::pickerSendTimeout },
 };

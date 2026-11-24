@@ -32,13 +32,22 @@ struct Hang {
     float centre = 0; // the pill's centre: the dialog's, screen pixels
     bool operator==(const Hang&) const = default;
 };
-// Under `dialog`, always: a pill with no room there is cut off by the
-// screen's edge rather than put anywhere else. The card (`cardOpen`) needs
-// pickerCardRoom above the bottom of `workArea` (the dialog's monitor less
-// its taskbar), and moves up over the dialog's lower part to have it.
+// Under `dialog`. The card (`cardOpen`) needs pickerCardRoom above the
+// bottom of `workArea` (the dialog's monitor less its taskbar), and moves up
+// over the dialog's lower part to have it.
 Hang hangUnder(Rect dialog, Rect workArea, bool cardOpen);
-// The pill's frame there (screen pixels): `size` big, hung from `hang`.
-Rect pillFrame(Hang hang, Vec2 size);
+
+// The pill by the dialog: `size` big, centred on it.
+struct PillPlace {
+    Rect frame;         // screen pixels, on whole ones
+    bool above = false; // standing on the dialog's top edge, not hanging from its bottom one
+    bool operator==(const PillPlace&) const = default;
+};
+// Hung from the dialog's bottom edge. With no room for it between there and
+// the bottom of `workArea`, it stands on the dialog's top edge instead, its
+// flat side and flared corners down; with no room there either (a dialog as
+// tall as the screen), it's under the dialog after all, cut off.
+PillPlace pillPlace(Rect dialog, Rect workArea, Vec2 size);
 
 // --- The picking card ---------------------------------------------------------
 std::string pickingCard(const IslandState& s);                    // the panel whose card picks files (Panel::picksFiles); "" = none

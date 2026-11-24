@@ -37,14 +37,20 @@ void runFileDialogTests()
     expect(hangUnder(dialog, work, true) == Hang{ 1032 - card, 950 }, "a card that doesn't fit under it moves up over the dialog");
     Rect high{ 500, 0, 900, 400 };
     expect(hangUnder(high, work, true) == Hang{ 400, 950 }, "a card that fits stays under it");
-    Rect low{ 500, 400, 900, 630 }; // two pixels above the taskbar
-    expect(hangUnder(low, work, false) == Hang{ 1030, 950 }, "no room for the pill: still under the dialog, cut off by the screen");
-    expect(hangUnder({ 500, 400, 900, 900 }, work, false).top == 1300, "...even all of it");
     const Rect second{ 1920, 0, 1920, 1032 };
     expect(hangUnder({ 2100, 200, 900, 600 }, second, true) == Hang{ 1032 - card, 2550 }, "a dialog on another monitor: under it there");
     expect(hangUnder({ 500, 0, 900, 300 }, { 0, 0, 1920, 400 }, true) == Hang{ 0, 950 }, "a screen shorter than the card: never above its top");
-    expect(pillFrame({ 800, 950 }, { 160, 28 }) == Rect{ 870, 800, 160, 28 }, "the pill's frame: centred, hung from there");
-    expect(pillFrame({ 800.4f, 950.5f }, { 161, 28 }) == Rect{ 870, 800, 161, 28 }, "...on whole pixels");
+
+    // The pill: under the dialog, or on top of it when there's no room under.
+    const Vec2 pill{ 160, 28 };
+    expect(pillPlace(dialog, work, pill) == PillPlace{ { 870, 800, 160, 28 }, false }, "the pill hangs from the dialog's bottom edge, centred");
+    expect(pillPlace({ 500.4f, 200, 901, 600.3f }, work, pill).frame == Rect{ 871, 800, 160, 28 }, "...on whole pixels");
+    expect(pillPlace({ 500, 404, 900, 600 }, work, pill) == PillPlace{ { 870, 1004, 160, 28 }, false }, "just room under it: under it");
+    expect(pillPlace({ 500, 405, 900, 600 }, work, pill) == PillPlace{ { 870, 377, 160, 28 }, true }, "a pixel short: it stands on the dialog's top edge");
+    expect(pillPlace({ 500, 400, 900, 900 }, work, pill).above, "a dialog going behind the taskbar: on top of it");
+    expect(pillPlace({ 500, 10, 900, 1022 }, work, pill) == PillPlace{ { 870, 1032, 160, 28 }, false },
+           "no room above either (a dialog as tall as the screen): under it, cut off");
+    expect(pillPlace({ 2100, 200, 900, 600 }, { 1920, 0, 1920, 1032 }, pill).frame.x == 2470, "on whichever monitor the dialog is");
 }
 
 } // namespace cup::test

@@ -38,13 +38,15 @@ void runSearchPickingTests()
     host.clock = Ms{ 100LL * 24 * 3600 * 1000 };
     std::function<void(std::vector<Launchable>)> appsDone;
     std::vector<std::string> opened, given, copied;
-    bool dialogTakes = true;
+    std::vector<std::string> said;
+    bool dialogTakes = true, pillThere = true;
     SearchProvider search({ .loadApps = [&](std::function<void(std::vector<Launchable>)> d) { appsDone = std::move(d); },
                             .launch = [](const Launchable&) { return true; },
                             .openFile = [&](const std::string& p) { opened.push_back(p); return true; },
                             .exists = [](const std::string& p) { return p != "C:\\Gone\\old.txt"; },
                             .copyText = [&](const std::string& t) { copied.push_back(t); return true; },
                             .giveToDialog = [&](const std::string& p) { given.push_back(p); return dialogTakes; },
+                            .sayByDialog = [&](const std::string& t) { said.push_back(t); return pillThere; },
                             .windowsBuild = 22621 });
     LaunchHistory before;
     before.record("C:\\Docs\\notes.txt", host.clock - Ms{ 60000 });
@@ -97,15 +99,17 @@ void runSearchPickingTests()
     dialogTakes = false;
     act(search_action::kOpen + std::string("0"));
     expect(given.back() == "C:\\Docs\\report.pdf" && opened.empty() && copied.back() == "C:\\Docs\\report.pdf", "refused: its path is copied instead");
-    expect(host.alerts.size() == 1 && host.alerts[0].content.label == "Path copied" && host.alerts[0].activityId.empty() && host.closed.size() == 2,
-           "...an alert says to paste it, and the card closes");
+    expect(said == std::vector<std::string>{ "Path copied. Paste it into the File name box" } && host.alerts.empty() && host.closed.size() == 2,
+           "...a note by the dialog says to paste it, not an alert on the island, and the card closes");
+    pillThere = false;
     act(search_action::kShowFolder + std::string("0"));
-    expect(copied.back() == "C:\\Docs" && host.alerts.size() == 2 && host.closed.size() == 3, "its folder likewise");
+    expect(copied.back() == "C:\\Docs" && host.alerts.size() == 1 && host.alerts[0].content.label == "Path copied" && host.closed.size() == 3,
+           "its folder likewise; with nowhere by the dialog to say it, an alert does");
 
     // Choose: given to the dialog, not opened; remembered like a file opened from search.
     dialogTakes = true;
     act(search_action::kGo, "report");
-    expect(given.back() == "C:\\Docs\\report.pdf" && opened.empty() && host.closed.size() == 4 && host.alerts.size() == 2, "Enter gives the top file to the dialog and closes the card");
+    expect(given.back() == "C:\\Docs\\report.pdf" && opened.empty() && host.closed.size() == 4 && host.alerts.size() == 1, "Enter gives the top file to the dialog and closes the card");
     expect(LaunchHistory::load(host.store[SearchProvider::kOpenedKey]).uses.count("C:\\Docs\\report.pdf") == 1, "...and it's a recent file from then on");
 
     // The dialog goes: search again.

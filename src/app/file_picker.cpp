@@ -29,8 +29,12 @@ Hang hangFor(bool cardOpen, std::string* displayId = nullptr)
 // The pill: under the dialog while one is in front and the island isn't there instead.
 void placePill()
 {
-    if (g_dialog && !g_lent) platform::showPickerPill(pillFrame(hangFor(false), modeSize(Mode::Idle)));
-    else platform::hidePickerPill();
+    if (g_dialog && !g_lent) {
+        PillPlace place = pillPlace(g_dialog->bounds, g_hooks.displayOf(g_dialog->bounds).workArea, modeSize(Mode::Idle));
+        platform::showPickerPill(place.frame, place.above);
+    } else {
+        platform::hidePickerPill();
+    }
 }
 
 // The layers under the dialog, then core told where the card's middle is in them.
@@ -98,6 +102,13 @@ void watchFilePicker(FilePickerHooks hooks)
 }
 
 void filePillClicked() { onPillClicked(); }
+
+bool sayByFileDialog(const std::string& text)
+{
+    if (!g_dialog) return false;
+    platform::sayOnPickerPill(text); // shown when the pill is: now, or once the card has closed
+    return true;
+}
 
 bool filePickerShortcut()
 {

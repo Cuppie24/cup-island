@@ -303,6 +303,8 @@ bool SearchProvider::giveOrCopy(const std::string& path)
     // Windows lets nothing be typed into an administrator's window from here,
     // but the clipboard is everyone's: the user pastes and confirms (decision 181).
     if (!hooks_.copyText || !hooks_.copyText(path)) return false;
+    // Said where the user is looking, by the dialog; on the island only if it can't be.
+    if (hooks_.sayByDialog && hooks_.sayByDialog("Path copied. Paste it into the File name box")) return true;
     host_->postAlert({ .content = { .label = "Path copied",
                                     .alertLeading = { row({ Icon{ Glyph::Copy } }) },
                                     .alertCenter = { row({ Text{ "Path copied", TextStyle::Title } }),

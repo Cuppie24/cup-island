@@ -58,6 +58,10 @@ void filePillClicked();
 // the shortcut is Search's own.
 bool filePickerShortcut();
 
+// A note for the user by the dialog, on its pill (SearchHooks::sayByDialog).
+// False with no dialog in front.
+bool sayByFileDialog(const std::string& text);
+
 // After every dispatch: the picking card closed, so the island goes home and the pill is back.
 void settleFilePicker();
 
