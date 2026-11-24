@@ -55,9 +55,9 @@ Content lyricsPageContent(const NowPlaying& m)
     for (std::size_t i = 0; i < m.lyrics->size(); ++i) {
         bool sung = static_cast<int>(i) == m.lyricsLine;
         const std::string& words = (*m.lyrics)[i].text;
-        // The one being sung bigger and bright. A line with no words is a break: a note in its
+        // The one being sung in the card's biggest text, bright: found at a glance. A line with no words is a break: a note in its
         // place, as on the card, so the list keeps the song's shape.
-        Text text{ .value = words.empty() ? kLyricBreak : words, .style = sung ? TextStyle::Title : TextStyle::Body, .centred = true,
+        Text text{ .value = words.empty() ? kLyricBreak : words, .style = sung ? TextStyle::CardTitle : TextStyle::Body, .centred = true,
                    .wrap = !words.empty() };
         Row shown = row({ text });
         shown.list = act::kLyricsList;

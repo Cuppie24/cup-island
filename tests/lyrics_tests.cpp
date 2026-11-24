@@ -287,12 +287,12 @@ void pageAndPillTests()
     expect(blankTop.list == media_action::kLyricsList && std::get<Text>(blankTop.items[0]).value.empty() && blankEnd.list == media_action::kLyricsList &&
                std::get<Text>(blankEnd.items[0]).value.empty(),
            "empty rows before the first line and after the last: room for either to be in the page's middle");
-    expect(textOf(2)->style == TextStyle::Title && textOf(1)->style == TextStyle::Body && textOf(4)->style == TextStyle::Body && textOf(2)->centred &&
+    expect(textOf(2)->style == TextStyle::CardTitle && textOf(1)->style == TextStyle::Body && textOf(4)->style == TextStyle::Body && textOf(2)->centred &&
                textOf(2)->wrap && !textOf(2)->italic,
            "the one being sung bigger and bright, the rest quieter; long ones wrap");
     expect(textOf(3)->value == kLyricBreak && textOf(3)->style == TextStyle::Body && !textOf(3)->wrap, "a line with no words keeps its row: a note in it");
     m.lyricsLine = 3;
-    expect(std::get<Text>(nowPlayingContent(m).expandedCenter[1 + kLyricsPageMargin + 3].items[0]).style == TextStyle::Title, "...lit like any other while it's the one being sung");
+    expect(std::get<Text>(nowPlayingContent(m).expandedCenter[1 + kLyricsPageMargin + 3].items[0]).style == TextStyle::CardTitle, "...lit like any other while it's the one being sung");
     m.lyricsLine = 2;
     // Laid out: the card's height, the list a window under the heading that scrolls.
     Scene shown = layout(expandedWith(page), Ms{ 31000 });
@@ -582,7 +582,7 @@ void presenterTests()
     host.clock = Ms{ 1000 } - tokens().lyricLead;
     presenter.onWake();
     const Content& lit = host.started.back().content;
-    expect(lit.expandedCenter.size() == 2 + 2 * kLyricsPageMargin && std::get<Text>(lit.expandedCenter[1 + kLyricsPageMargin].items[0]).style == TextStyle::Title && host.followed.size() == 1 &&
+    expect(lit.expandedCenter.size() == 2 + 2 * kLyricsPageMargin && std::get<Text>(lit.expandedCenter[1 + kLyricsPageMargin].items[0]).style == TextStyle::CardTitle && host.followed.size() == 1 &&
                host.followed.back() == "lyrics:" + std::to_string(kLyricsPageMargin) && !host.wake,
            "its line's start: lit, followed; nothing more to wait for after the last line");
     presenter.syncLyricsPage();
