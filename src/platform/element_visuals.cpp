@@ -891,7 +891,10 @@ void ElementVisuals::showHover(const std::string& key, bool on)
     if (view.dropping.visual && clickableLine(view.placed.item) && view.dropping.lit != on) {
         view.dropping.lit = on;
         paint(view);
-        if (!tokens().reducedMotion) playScale(compositor_, view.visual, on ? tokens().lineHoverScale : 1.0f, tokens().hoverFadeDuration, tokens().morphEase);
+        // A break's note sign is one small glyph: a line's few percent doesn't show on it, so it grows by more.
+        bool note = std::get<Text>(view.placed.item).value == kLyricBreak;
+        float grown = note ? tokens().noteHoverScale : tokens().lineHoverScale;
+        if (!tokens().reducedMotion) playScale(compositor_, view.visual, on ? grown : 1.0f, tokens().hoverFadeDuration, tokens().morphEase);
     }
     if (auto* button = std::get_if<Button>(&view.placed.item); button && (button->secondary || button->primary) && view.lit != on) {
         view.lit = on; // grey to full strength and back (decision 064); a primary's fill softens (decision 066)

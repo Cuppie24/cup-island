@@ -30,21 +30,22 @@ Content lyricsPageContent(const NowPlaying& m)
     c.expandedTrailing.clear();
     c.expandedBottom.clear();
     c.backAction = act::kLyricsBack; // Esc goes back to the card, as the arrow does
-    // The arrow at the row's start, the sync button at its end; nothing between them, so the
-    // words are the only text on the page (the song's name is in the pill and on the card).
+    // The words are the whole page, from its top. The arrow and the sync button float over its
+    // top corners (Content::overTop): the line being sung is in the middle, never under them.
     Row heading;
     heading.leading.push_back(Button{ .glyph = Glyph::ChevronLeft, .actionId = act::kLyricsBack, .compact = true, .secondary = true });
     heading.trailing.push_back(Button{ .glyph = Glyph::Sync, .actionId = act::kLyricsSync, .compact = true, .secondary = true });
     heading.id = "heading";
-    c.expandedCenter = { heading };
-    // The card keeps its height (the heading alone asks for less) and the list fills the rest, from the top.
+    c.overTop = { heading };
+    c.expandedCenter.clear();
+    // The card keeps its height (these rows ask for less) and the list fills it, from the top.
     c.sizedLike = { heading };
     c.pageAtTop = true;
     // Empty rows before the first line and after the last, about half the page's height: the
     // song's first and last lines can be in the page's middle too, as every other is when sung.
     auto margin = [&](const char* end) {
         for (int i = 0; i < kLyricsPageMargin; ++i) {
-            Row blank = row({ Text{ .style = TextStyle::Lyric } });
+            Row blank = row({ Text{ .style = TextStyle::Title } }); // three of these: just under half the page
             blank.list = act::kLyricsList;
             blank.visibleRows = -1;
             blank.id = end + std::to_string(i);

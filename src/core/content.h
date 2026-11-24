@@ -599,6 +599,11 @@ struct Content {
     Slot alertCenter;
     Slot expandedLeading;
     Slot expandedCenter;
+    // A stacked card's top corners (Centred, List): one row whose `leading` sits at the card's
+    // left corner and `trailing` at its right, over the card's rows, which start at its top
+    // under them. For a page that is all one thing to read, with a way back (a page of lyrics:
+    // its back and sync buttons, decision 180). Only those two take clicks there, not the strip between.
+    Slot overTop;
     Slot expandedTrailing; // a button-sized square in the top-right corner; the centre narrows only when it's used
     Slot expandedBottom;
     bool operator==(const Content&) const = default;

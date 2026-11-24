@@ -161,9 +161,9 @@ struct Tokens {
     float displayFontWeight = 300; // big and still the lightest, like a clock face
     float cardTitleFontWeight = 800;
     // A page of lyrics (decision 180): its lines, and the one being sung; five lines to the page.
-    float lyricFontSize = 22;
+    float lyricFontSize = 24;
     float lyricFontWeight = 600;
-    float lyricSungFontSize = 26;
+    float lyricSungFontSize = 28;
     float lyricSungFontWeight = 800;
     float heroFontWeight = 800;    // heavy: the card's timer reads from across the desk (decision 107)
     float headingFontWeight = 600; // a group's label is quiet: its group's background sets it apart (decision 090)
@@ -433,6 +433,7 @@ struct Tokens {
     float lyricScrollHoldEnd = 0.2f;
     Ms lyricScrollLeast{ 1200 };
     Ms lyricLead{ 350 };
+    float noteHoverScale = 1.3f;  // ...a break's note sign, one small glyph: by this much, to show at all
     float lineHoverScale = 1.05f; // a text that takes a click (Text::actionId), under the pointer: this much bigger, and bright // ...and it's shown this long before it's sung: time to read its first words
     // A card's cover changing size (Content::smallCover coming or going,
     // decision 180): it grows or shrinks, and what's around it glides, over this long.

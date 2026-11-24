@@ -2,6 +2,7 @@
 
 #include "core/badges.h"
 #include "core/dialog.h"
+#include "core/item_metrics.h"
 #include "core/toast.h"
 #include "core/lift.h"
 #include "core/menu.h"
@@ -116,7 +117,16 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
                  { "alertCenter", &c.alertCenter, { centerX, p, size.x - centerX - p, side } } };
     }
     case Mode::Expanded: {
-        if (stacked(c)) return { { "expandedCenter", &c.expandedCenter, stackFrame(c, size) } };
+        if (stacked(c)) {
+            Rect stack = stackFrame(c, size);
+            if (c.overTop.empty()) return { { "expandedCenter", &c.expandedCenter, stack } };
+            // Content::overTop: across the stack's top, as tall as its buttons; placed after the rows, so it's drawn over them.
+            float tall = 0;
+            for (const Row& r : c.overTop)
+                for (const auto* edge : { &r.leading, &r.trailing, &r.items })
+                    for (const Item& item : *edge) tall = std::max(tall, heightOf(item, {}, 0, {}));
+            return { { "expandedCenter", &c.expandedCenter, stack }, { "overTop", &c.overTop, { stack.x, stack.y, stack.width, tall } } };
+        }
         // The bottom slot starts right under the art: its rows spread in what's left (decision 119).
         float art = coverSize(c), y = p, centerX = p + art + t.slotGap, bottomY = y + art;
         float corner = t.buttonSize, cornerX = size.x - p - corner;
@@ -226,8 +236,18 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
             source.content = &asked;
             scene.label = d->title;
         }
-        for (const SlotFrame& slot : slotFrames(scene.mode, contentSize, *source.content))
+        for (const SlotFrame& slot : slotFrames(scene.mode, contentSize, *source.content)) {
+            std::size_t from = scene.elements.size();
             placeSlot(slot, source, nestedRadius, now, scene.elements, measureText);
+            // Over the card's rows (Content::overTop), each takes clicks on itself and half a gap round
+            // it, not on the strip between the two: what's under that stays the rows'.
+            if (slot.name == "overTop")
+                for (std::size_t i = from; i < scene.elements.size(); ++i) {
+                    Rect f = scene.elements[i].frame;
+                    float m = tokens().itemSpacing / 2;
+                    scene.elements[i].hitFrame = { f.x - m, f.y - m, f.width + 2 * m, f.height + 2 * m };
+                }
+        }
     }
     // Laid out as if from the card's top, then moved down under the strip.
     if (tabSpace > 0 && state.tabsOnTop) moveDown(scene.elements, contentFrom, tabSpace); // at the bottom, the strip only adds room under the content
