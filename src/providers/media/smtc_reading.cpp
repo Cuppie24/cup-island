@@ -24,9 +24,11 @@ constexpr std::uint32_t kMaxArtSize = 128;
 // an access violation on the reader's thread, and the island was gone
 // (0.13.6, in readPlayback; decision 179). Thrown instead: every caller
 // already treats a throw as a read that failed.
+constexpr winrt::hresult kNoObject{ static_cast<std::int32_t>(0x80004003) }; // E_POINTER; Windows' own headers aren't included here
+
 void need(bool there, const wchar_t* what)
 {
-    if (!there) throw winrt::hresult_error(E_POINTER, what);
+    if (!there) throw winrt::hresult_error(kNoObject, what);
 }
 
 } // namespace
