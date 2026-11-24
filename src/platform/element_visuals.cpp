@@ -216,10 +216,11 @@ void ElementVisuals::init(wuc::Compositor const& compositor, GraphicsDevice& dev
     lists_.init(compositor, parent);
 }
 
-void ElementVisuals::apply(const std::vector<Placed>& elements, Ms now, Ms reveal, bool glide)
+void ElementVisuals::apply(const std::vector<Placed>& elements, Ms now, Ms reveal, bool glide, Ms glideFor)
 {
     reveal_ = reveal;
     glide_ = glide;
+    glideFor_ = glideFor;
     deviceLost_ = false;
     std::uint64_t generation = device_->generation(); // a reset found in createSurface shows only here (decision 164)
 
@@ -487,10 +488,16 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
         bool inPlace = (retyped && editable(view.placed.item) && editable(placed.item)) ||
                        ((resnapped || resized) && !retyped && !relisted && !reinked && !changed) ||
                        (relit && !retyped && !relisted); // a field clicked into: its box, in place
-        view = create(placed, now, !inPlace);
+        // A card's cover given another size (decision 180): the new one grows or shrinks from the old one's size and place.
+        bool regrown = glide_ && glideFor_ > Ms{ 0 } && resized && !retyped && !relisted && std::holds_alternative<Image>(placed.item) && !placed.list;
+        Vec2 oldSize = pixelSize(sizeOf(view.placed));
+        view = create(placed, now, !inPlace && !regrown);
+        if (regrown)
+            resizeFrom(compositor_, view.visual, oldSize, pixelSize(sizeOf(placed)), pixelOffset(was.x - view.lead, was.y),
+                       pixelOffset(at.x - view.lead, at.y), glideFor_);
         // Rebuilt somewhere else on a gliding page (a card grown as a task is dragged in, decision 134): eased there too.
-        if (moved && glide_ && !placed.carried && !placed.list)
-            glideFrom(compositor_, view.visual, pixelOffset(was.x - view.lead, was.y), pixelOffset(at.x - view.lead, at.y));
+        else if (moved && glide_ && !placed.carried && !placed.list)
+            glideFrom(compositor_, view.visual, pixelOffset(was.x - view.lead, was.y), pixelOffset(at.x - view.lead, at.y), glideFor_);
         return true;
     }
     bool wasFocused = focusedField(view.placed.item);
@@ -525,7 +532,7 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     }
     // A list's rows glide in their scroller already; a carried one follows the pointer (decision 132).
     if (moved && glide_ && !placed.carried && !placed.list)
-        glideFrom(compositor_, view.visual, pixelOffset(was.x - view.lead, was.y), pixelOffset(at.x - view.lead, at.y));
+        glideFrom(compositor_, view.visual, pixelOffset(was.x - view.lead, was.y), pixelOffset(at.x - view.lead, at.y), glideFor_);
     else if (moved)
         place(view);
     if (greyNow(placed) != view.grey) setGrey(view, !view.grey); // its tab became the one shown, or stopped being it

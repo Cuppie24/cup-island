@@ -29,7 +29,9 @@ Content nowPlayingContent(const NowPlaying& m)
     // Like iOS: the big art opens the app that's playing (only expanded; elsewhere a click expands).
     c.expandedLeading = { row({ Image{ m.art, m.canOpenSource ? act::kOpenSource : "" } }) };
     // The app's volume right of the song's name (decision 180): its speaker mutes, its bar sets the level.
+    // Before it, the lyrics button: on, songs' words are looked up and the line being sung shown.
     Row heading = row({ title });
+    if (m.lyricsOn) heading.items.push_back(Button{ .glyph = Glyph::Lyrics, .actionId = act::kLyrics, .on = *m.lyricsOn, .compact = true, .secondary = true });
     if (m.volume) {
         heading.items.push_back(Button{ .glyph = m.muted ? Glyph::Muted : Glyph::Volume, .actionId = act::kMute, .compact = true, .secondary = true });
         heading.items.push_back(Progress{ .timeline = levelTimeline(m.muted ? 0.0f : *m.volume), .seekable = true, .level = true, .actionId = act::kVolume });
@@ -46,6 +48,7 @@ Content nowPlayingContent(const NowPlaying& m)
     if (m.lyrics || m.lyricsPending) {
         c.expandedBottom.push_back(row({ Lyrics{ m.timeline, m.lyrics } }));
         c.expandedBottom.back().id = "lyrics";
+        c.smallCover = true; // the cover gives the line its room; without one it's full size
     }
     if (m.timeline.duration > Ms{ 0 }) {
         // The times as wide as they get, so they sit close to the bar (decision 107).

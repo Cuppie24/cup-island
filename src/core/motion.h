@@ -84,6 +84,12 @@ struct SceneMotion {
 // bubble any way.
 SceneMotion sceneMotion(const Scene& was, const Scene& next, Vec2 pointer, const Tokens& t);
 
+// The same open card laid out anew around a cover of another size
+// (Content::smallCover came or went, decision 180): the cover grows or
+// shrinks and what moved glides to its place, over coverResizeDuration,
+// instead of jumping. Any other change of content appears as it always did.
+bool coverResized(const Scene& was, const Scene& next);
+
 // The pointer's recent speed while something is dragged, for a fling.
 struct PointerTrack {
     bool started = false;

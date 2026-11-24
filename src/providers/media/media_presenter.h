@@ -38,8 +38,10 @@ public:
     // The volume of a session's app, as just read or set (decision 180);
     // nullopt: it has none to show. Kept for as long as that session is shown.
     void showVolume(const std::string& sessionKey, std::optional<float> volume, bool muted);
+    void toggleLyrics(); // the card's lyrics button: off, nothing is looked up and no line shown; remembered
     void onWake(); // the grace is over: end what's shown, unless a session came back
 
+    static constexpr const char* kLyricsKey = "lyrics"; // Host::save: "off", or anything else for on
     static constexpr const char* kActivityId = "media.nowPlaying"; // also its panel's (decision 009)
 
 private:
@@ -49,7 +51,9 @@ private:
     Host& host_;
     std::optional<MediaSnapshot> last_;
     std::optional<Ms> goneSince_; // no session since then; what's shown waits out the grace
+    bool hasLyrics_ = false; // a lyrics service was given (before lyrics_: set from the same argument)
     LyricsLookup lyrics_;
+    bool lyricsOn_ = true;   // the lyrics button; kept under kLyricsKey
     bool lyricsShown_ = false; // the last song whose lookup ended had lyrics: the next keeps the line's row meanwhile
     bool showing_ = false;     // in show(): a lookup answered at once is already in what's being shown
     std::string volumeOf_;     // the session whose volume this is

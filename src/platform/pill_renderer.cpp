@@ -2,6 +2,7 @@
 #include "platform/log.h"
 
 #include "core/liquid_glass.h"
+#include "core/motion.h"
 #include "core/tokens.h"
 #include "core/tokens_json.h"
 #include "platform/blob_shape.h"
@@ -208,7 +209,10 @@ void PillRenderer::applyContent()
     Scene scene = *std::exchange(pendingContent_, std::nullopt);
     auto start = std::chrono::steady_clock::now();
     Ms reveal = std::max(Ms{ 0 }, std::chrono::duration_cast<Ms>(revealAt_ - start)); // what's left of it after the queue
-    pill_.setContent(scene.elements, scene.now, reveal);
+    // The same card around a cover of another size (decision 180): it resizes and the rest glides.
+    Ms glideFor = shownContent_ && coverResized(*shownContent_, scene) ? tokens().coverResizeDuration : Ms{ 0 };
+    pill_.setContent(scene.elements, scene.now, reveal, glideFor);
+    shownContent_ = scene;
     pill_.setToast(scene.toast, scene.now); // floating over it (decision 071)
     bubble_.setContent(scene.bubble ? scene.bubble->elements : std::vector<Placed>{}, scene.now, reveal);
 

@@ -22,7 +22,7 @@ bool sameTimeline(const Timeline& a, const Timeline& b, Ms now)
 } // namespace
 
 MediaPresenter::MediaPresenter(Host& host, LyricsLookup::Fetch lyrics)
-    : host_(host), lyrics_(std::move(lyrics), [this] {
+    : host_(host), hasLyrics_(static_cast<bool>(lyrics)), lyrics_(std::move(lyrics), [this] {
           // A song's lyrics came (or there are none): shown as it is now, with them.
           if (last_ && !goneSince_ && !showing_) show(*last_);
       })
@@ -32,7 +32,9 @@ MediaPresenter::MediaPresenter(Host& host, LyricsLookup::Fetch lyrics)
 void MediaPresenter::fill(MediaSnapshot& snapshot)
 {
     NowPlaying& m = snapshot.media;
-    LyricsAnswer answer = lyrics_.lyricsFor({ m.title, m.artist, m.timeline.duration });
+    m.lyricsOn = hasLyrics_ ? std::optional<bool>(lyricsOn_) : std::nullopt;
+    // Off: nothing is asked of the service, so no song's name leaves the PC.
+    LyricsAnswer answer = lyricsOn_ ? lyrics_.lyricsFor({ m.title, m.artist, m.timeline.duration }) : LyricsAnswer{};
     if (answer.state != LyricsAnswer::State::Looking) lyricsShown_ = answer.state == LyricsAnswer::State::Found;
     m.lyrics = answer.lines;
     m.lyricsPending = answer.state == LyricsAnswer::State::Looking && lyricsShown_;
@@ -49,8 +51,16 @@ void MediaPresenter::showVolume(const std::string& sessionKey, std::optional<flo
     if (last_ && !goneSince_ && last_->sessionKey == sessionKey) show(*last_);
 }
 
+void MediaPresenter::toggleLyrics()
+{
+    lyricsOn_ = !lyricsOn_;
+    host_.save(kLyricsKey, lyricsOn_ ? "on" : "off");
+    if (last_ && !goneSince_) show(*last_);
+}
+
 void MediaPresenter::start()
 {
+    lyricsOn_ = host_.load(kLyricsKey) != "off";
     host_.publishPanel({ .id = kActivityId, .content = nothingPlayingContent(), .icon = Glyph::Music });
 }
 

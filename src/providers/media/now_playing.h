@@ -37,6 +37,9 @@ struct NowPlaying {
     // Being looked up, after a song that had some: the line's row stays,
     // empty, so the bar under it doesn't jump at every new song.
     bool lyricsPending = false;
+    // Whether lyrics are looked up and shown, as the card's lyrics button has
+    // it; none: there's no lyrics service, and no button.
+    std::optional<bool> lyricsOn;
     // The playing app's own volume, 0..1, as Windows' mixer has it (decision
     // 180); none: not known (the app has no audio session), and no control.
     std::optional<float> volume;
@@ -57,6 +60,7 @@ inline constexpr const char* kOpenSource = "openSource"; // the expanded art was
 inline constexpr const char* kSeek = "seek"; // value = 0..1 fraction
 inline constexpr const char* kVolume = "volume"; // value = 0..1: the app's volume, sent as its bar is dragged
 inline constexpr const char* kMute = "mute";     // toggle
+inline constexpr const char* kLyrics = "lyrics"; // toggle: lyrics looked up and shown, or not
 } // namespace media_action
 
 Content nowPlayingContent(const NowPlaying& media);

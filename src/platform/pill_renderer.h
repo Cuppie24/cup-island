@@ -101,6 +101,7 @@ private:
     Tokens applied_; // what the visuals were last built or recoloured for: tells a recolour from a resize
     winrt::Windows::System::DispatcherQueue queue_{ nullptr };
     std::optional<Scene> pendingContent_; // set: an applyContent() call is queued
+    std::optional<Scene> shownContent_;   // the scene whose content was applied last: what a cover's resize is told from (decision 180)
     // When the latest morph that grew the pill is far enough along for new
     // content (decision 080). Kept as a time, not a delay: the content is
     // built later (queued), and that wait counts toward it.

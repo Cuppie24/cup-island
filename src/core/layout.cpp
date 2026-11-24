@@ -33,6 +33,8 @@ Source sourceFor(const IslandState& s, Mode mode)
 
 bool stacked(const Content& c) { return c.card != CardLayout::Standard; }
 
+float coverSize(const Content& c) { return c.smallCover ? tokens().smallCoverSize : tokens().expandedArtSize; }
+
 namespace {
 
 // That stack's frame: the card less its padding. A List card's is narrower
@@ -71,7 +73,7 @@ float standardCardHeight(const Source& source, Vec2 size, float most, const Meas
 {
     const Tokens& t = tokens();
     const Slot& under = source.content->expandedBottom;
-    float p = t.expandedPadding, top = p + t.expandedArtSize + t.slotGap; // as slotFrames puts the bottom slot
+    float p = t.expandedPadding, top = p + coverSize(*source.content) + t.slotGap; // as slotFrames puts the bottom slot
     float bottom = under.empty() ? 0 : slotHeight(under, { p, top, std::max(0.0f, size.x - 2 * p), size.y }, source, measure);
     return std::clamp(top + bottom + p, t.expandedSize.y, std::max(t.expandedSize.y, most));
 }
@@ -116,7 +118,7 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
     case Mode::Expanded: {
         if (stacked(c)) return { { "expandedCenter", &c.expandedCenter, stackFrame(c, size) } };
         // The bottom slot starts right under the art: its rows spread in what's left (decision 119).
-        float art = t.expandedArtSize, y = p, centerX = p + art + t.slotGap, bottomY = y + art;
+        float art = coverSize(c), y = p, centerX = p + art + t.slotGap, bottomY = y + art;
         float corner = t.buttonSize, cornerX = size.x - p - corner;
         float centerRight = c.expandedTrailing.empty() ? size.x - p : cornerX - t.slotGap;
         return { { "expandedLeading", &c.expandedLeading, { p, y, art, art }, false, true },

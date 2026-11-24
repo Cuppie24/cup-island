@@ -133,7 +133,8 @@ struct Tokens {
     float windowDialogWidth = 400;   // a window's question (decision 122): its panel, at most this wide
     float windowDialogPadding = 20;  // ...its content this far in // its corners; its rows' backgrounds nest in them (radius less padding, decision 121)
     float windowCardGap = 16; // between cards, across and down
-    float expandedArtSize = 84; // expanded leading square: the cover, small enough for a line of lyrics over the bar (decisions 094, 119, 180)
+    float expandedArtSize = 108; // expanded leading square: the cover, filling the card's shared height with its controls (decisions 094, 107, 119)
+    float smallCoverSize = 84;   // ...on a card that asks (Content::smallCover): room for a line of lyrics over the bar (decision 180)
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;
     float itemSpacing = 8;
@@ -415,6 +416,9 @@ struct Tokens {
     // The line being sung (Text::drops, decision 180): the new one falls in
     // from above as the old one drops out below, over this long.
     Ms lyricDropDuration{ 420 };
+    // A card's cover changing size (Content::smallCover coming or going,
+    // decision 180): it grows or shrinks, and what's around it glides, over this long.
+    Ms coverResizeDuration{ 320 };
     // New content starts arriving once the growing pill is this share of the
     // way to its new size (decision 080): with the spring that's early, and it
     // follows the morph's own timing. A shrinking pill shows it at once.

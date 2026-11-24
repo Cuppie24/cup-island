@@ -38,9 +38,6 @@ private:
     Timeline timeline_;
     bool shuffle_ = false;
     Repeat repeat_ = Repeat::Off;
-    std::shared_ptr<const std::vector<LyricLine>> lyrics_; // made-up words, a line every few seconds (decision 180)
-    float volume_ = 0.6f; // its own: nothing is heard, so nothing in Windows changes
-    bool muted_ = false;
 };
 
 } // namespace cup

@@ -74,6 +74,10 @@ void SmtcMediaProvider::onAction(const Action& action)
             openSourceApp(std::wstring(winrt::to_hstring(shown_->sessionKey)), std::wstring(winrt::to_hstring(shown_->media.title)));
         return;
     }
+    if (action.actionId == media_action::kLyrics) {
+        presenter_->toggleLyrics();
+        return;
+    }
     // The app's volume (decision 180): shown at once as asked, then set on the volume's thread.
     if (action.actionId == media_action::kVolume || action.actionId == media_action::kMute) {
         if (!shown_ || !volume_ || !level_ || levelOf_ != shown_->sessionKey) return;

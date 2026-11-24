@@ -133,26 +133,18 @@ void runProviderTests()
     const Slot& under = island.state.activities.front().content.expandedBottom;
     float needed = 2 * tk.expandedPadding + tk.expandedArtSize + tk.slotGap + slotHeight(under, { 0, 0, card.size.x, card.size.y }, {}, {});
     expect(needed <= card.size.y, "media's rows fit the card");
-    // ...and the spare goes evenly above each bottom row (decision 119): the line being sung
-    // (decision 180), the bar and the controls evenly spaced under the cover.
-    const Placed *cover = nullptr, *line = nullptr, *bar = nullptr, *controls = nullptr;
+    // ...and the spare goes evenly above each bottom row (decision 119): the bar halfway between the cover and the controls.
+    const Placed *cover = nullptr, *bar = nullptr, *controls = nullptr;
     for (const Placed& p : card.elements) {
         if (p.key == "expandedLeading/0/0") cover = &p;
-        if (p.key == "expandedBottom/lyrics/0") line = &p;
-        if (p.key == "expandedBottom/bar/1") bar = &p;
+        if (std::holds_alternative<Progress>(p.item)) bar = &p;
         if (p.key == playPause) controls = &p;
     }
-    if (cover && line && bar && controls) {
-        float first = line->frame.y - (cover->frame.y + cover->frame.height), above = bar->frame.y - (line->frame.y + line->frame.height),
-              below = controls->frame.y - (bar->frame.y + bar->frame.height);
-        expect(std::abs(above - below) < 6 && std::abs(first - above) < 6 && first > 0,
-               "the line and the bar evenly between the cover and the controls: " + std::to_string(int(first)) + " / " + std::to_string(int(above)) + " / " + std::to_string(int(below)));
-        const Text* sung = std::get_if<Text>(&line->item);
-        expect(sung && sung->drops && sung->centred && line->frame.x == tk.expandedPadding &&
-                   line->frame.width == card.size.x - 2 * tk.expandedPadding,
-               "the line being sung: a centred text across the card, over the bar, that drops in as it changes");
+    if (cover && bar && controls) {
+        float above = bar->frame.y - (cover->frame.y + cover->frame.height), below = controls->frame.y - (bar->frame.y + bar->frame.height);
+        expect(std::abs(above - below) < 6 && above > 0, "the bar between the cover and the controls: " + std::to_string(int(above)) + " / " + std::to_string(int(below)));
     } else {
-        expect(false, "media's cover, line, bar and controls placed");
+        expect(false, "media's cover, bar and controls placed");
     }
     for (const Placed& p : card.elements)
         if (p.key == "expandedLeading/0/0")

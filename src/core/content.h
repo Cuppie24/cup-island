@@ -23,7 +23,7 @@ using Ms = std::chrono::milliseconds;
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
                    Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre,
                    Minus, Plus, Pin, Pinned, Fire, Chart, ChevronDown, Search, File, Folder, Close, Refresh, Reset,
-                   Palette, Sliders, Expand, Maximize, Restore, Minimize, CloseWindow, Grip, More, Gauge, Volume, Muted };
+                   Palette, Sliders, Expand, Maximize, Restore, Minimize, CloseWindow, Grip, More, Gauge, Volume, Muted, Lyrics };
 
 // Display: a big number, the card's centre (a timer). Heading: a group's label over its rows (Settings'
 // "General", "Dark"): small and quiet, since the group's background already sets it apart (decision 090).
@@ -553,6 +553,10 @@ struct Content {
     // Its card is wideCardWidth wide, not every card's expandedSize (decision
     // 085): room for what it shows side by side (the timer). Its pages too.
     bool wideCard = false;
+    // A Standard card's cover is smallCoverSize, not expandedArtSize: room
+    // under it for one more row in the same height (media with the line being
+    // sung, decision 180). Coming or going, the cover resizes and the rest glides.
+    bool smallCover = false;
     Slot compactLeading;
     Slot compactCenter;  // between the two compact squares, e.g. a swimming title
     Slot compactTrailing;

@@ -4,6 +4,7 @@
 
 #include "core/hit_test.h"
 #include "core/layout.h"
+#include "core/motion.h"
 #include "core/tokens.h"
 #include "expect.h"
 #include "providers/lyrics/lrc.h"
@@ -20,6 +21,7 @@ namespace {
 struct LyricsHost : Host {
     Ms clock{ 0 };
     std::vector<Activity> started;
+    std::string kept; // what was saved under the lyrics key
     void startActivity(Activity a) override { started.push_back(std::move(a)); }
     void endActivity(const std::string&) override {}
     void postAlert(Alert) override {}
@@ -29,8 +31,11 @@ struct LyricsHost : Host {
     void wakeAt(std::optional<Ms>) override {}
     void ask(Dialog) override {}
     void reveal(const std::string&, const std::string&, std::size_t) override {}
-    std::string load(const std::string&) const override { return {}; }
-    void save(const std::string&, const std::string&) override {}
+    std::string load(const std::string& key) const override { return key == MediaPresenter::kLyricsKey ? kept : std::string(); }
+    void save(const std::string& key, const std::string& text) override
+    {
+        if (key == MediaPresenter::kLyricsKey) kept = text;
+    }
     Ms wallClock() const override { return clock; }
 };
 
@@ -178,7 +183,25 @@ void lineTests()
     const Text* text = line ? std::get_if<Text>(&line->item) : nullptr;
     expect(text && text->value == "one" && text->drops && text->centred && bar && line->frame.y + line->frame.height <= bar->frame.y,
            "laid out as a centred text that drops in, above the bar");
-    expect(during.size.y == tokens().expandedSize.y, "...in a card still Expanded's height: the smaller cover makes the room");
+    const Tokens& t = tokens();
+    const Placed* cover = find(during, "expandedLeading/0/0");
+    expect(card.smallCover && cover && cover->frame.width == t.smallCoverSize && during.size.y == t.expandedSize.y,
+           "...in a card still Expanded's height: the smaller cover makes the room");
+    // No lyrics: the cover at its full size, in the same card height; between the two it resizes and the rest glides.
+    NowPlaying wordless = m;
+    wordless.lyrics = nullptr;
+    Content plainCard = nowPlayingContent(wordless);
+    IslandState plainState = expandedWith(plainCard);
+    Scene plain = layout(plainState, Ms{ 6200 });
+    const Placed* fullCover = find(plain, "expandedLeading/0/0");
+    expect(!plainCard.smallCover && fullCover && fullCover->frame.width == t.expandedArtSize && plain.size.y == t.expandedSize.y,
+           "no lyrics: the cover full size, the card the same height");
+    expect(coverResized(plain, during) && coverResized(during, plain) && !coverResized(during, before) && !coverResized(plain, plain),
+           "the same card around a cover of another size: it resizes and the rest glides; otherwise not");
+    Scene compact = layout(reduce(plainState, PillClicked{}, Ms{ 0 }), Ms{ 6200 });
+    Scene other = during;
+    other.activityId = "another";
+    expect(!coverResized(compact, during) && !coverResized(other, plain), "not as the card opens, nor from another card");
     // Its seconds tick over sooner (every 1000 ms); the line's change is among the deadlines.
     expect(line && line->changesAt == Ms{ 10000 } && sceneDeadline(before) && *sceneDeadline(before) <= Ms{ 6000 }, "the next line is a deadline of the scene");
     Content timeless = { .expandedBottom = { row({ Lyrics{ playing, lines } }) } };
@@ -193,7 +216,14 @@ void volumeTests()
 {
     const Tokens& t = tokens();
     NowPlaying m{ .title = "Song", .artist = "Artist", .timeline = { .duration = Ms{ 60000 } }, .canSeek = true };
-    expect(nowPlayingContent(m).expandedCenter[0].items.size() == 1, "volume unknown: only the song's name");
+    expect(nowPlayingContent(m).expandedCenter[0].items.size() == 1, "volume unknown, no lyrics service: only the song's name");
+    {
+        Content on = nowPlayingContent(NowPlaying{ .title = "Song", .lyricsOn = true }), off = nowPlayingContent(NowPlaying{ .title = "Song", .lyricsOn = false });
+        auto* lit = on.expandedCenter[0].items.size() == 2 ? std::get_if<Button>(&on.expandedCenter[0].items[1]) : nullptr;
+        auto* dim = off.expandedCenter[0].items.size() == 2 ? std::get_if<Button>(&off.expandedCenter[0].items[1]) : nullptr;
+        expect(lit && lit->glyph == Glyph::Lyrics && lit->actionId == media_action::kLyrics && lit->on == true && lit->compact && dim && dim->on == false,
+               "the lyrics button right of the song's name: a small toggle, on or off");
+    }
     m.volume = 0.25f;
     Content card = nowPlayingContent(m);
     const Row& heading = card.expandedCenter[0];
@@ -233,6 +263,7 @@ void presenterTests()
     auto song = [](const char* title, const char* app = "Spotify.exe") {
         return MediaSnapshot{ app, { .title = title, .artist = "Artist", .timeline = { .duration = Ms{ 100000 }, .playing = true } } };
     };
+    presenter.start();
     presenter.show(song("One"));
     expect(host.started.size() == 1 && !hasLyricsRow(host.started.back().content) && service.asked.size() == 1 && service.asked[0].title == "One",
            "a song shows at once, its lyrics asked for; no row before any song had lyrics");
@@ -255,24 +286,48 @@ void presenterTests()
     // The app's volume: shown for the session it was read for.
     std::size_t shown = host.started.size();
     presenter.showVolume("Spotify.exe", 0.5f, false);
-    expect(host.started.size() == shown + 1 && host.started.back().content.expandedCenter[0].items.size() == 3, "the app's volume read: its control appears");
+    expect(host.started.size() == shown + 1 && host.started.back().content.expandedCenter[0].items.size() == 4, "the app's volume read: its control appears");
     presenter.showVolume("Spotify.exe", 0.5f, false);
     expect(host.started.size() == shown + 1, "the same again: nothing new");
     presenter.showPlayback("Spotify.exe", NowPlaying{ .timeline = { .duration = Ms{ 100000 } } });
-    expect(host.started.back().content.expandedCenter[0].items.size() == 3 && hasLyricsRow(host.started.back().content),
+    expect(host.started.back().content.expandedCenter[0].items.size() == 4 && hasLyricsRow(host.started.back().content),
            "a pause keeps the volume and the lyrics, as it keeps the title");
     presenter.show(song("One", "chrome.exe"));
-    expect(host.started.back().content.expandedCenter[0].items.size() == 1, "another app: its volume isn't known yet");
+    expect(host.started.back().content.expandedCenter[0].items.size() == 2, "another app: its volume isn't known yet");
     presenter.showVolume("Spotify.exe", 0.2f, true);
-    expect(host.started.back().content.expandedCenter[0].items.size() == 1, "a late answer about the app before: not shown on this one");
+    expect(host.started.back().content.expandedCenter[0].items.size() == 2, "a late answer about the app before: not shown on this one");
     presenter.showVolume("chrome.exe", std::nullopt, false);
-    expect(host.started.back().content.expandedCenter[0].items.size() == 1, "an app with no audio session: no control");
+    expect(host.started.back().content.expandedCenter[0].items.size() == 2, "an app with no audio session: no control");
+
+    // The lyrics button: off, the line goes, the cover is full size again and nothing more is asked; remembered.
+    presenter.show(song("One"));
+    std::size_t asked = service.asked.size();
+    expect(hasLyricsRow(host.started.back().content) && host.started.back().content.smallCover, "lyrics on, a song with some: the line, a small cover");
+    presenter.toggleLyrics();
+    const Content& quiet = host.started.back().content;
+    expect(!hasLyricsRow(quiet) && !quiet.smallCover && std::get<Button>(quiet.expandedCenter[0].items[1]).on == false && host.kept == "off",
+           "turned off: no line, the cover full size, the button off, and it's kept");
+    presenter.show(song("Four"));
+    expect(service.asked.size() == asked && !hasLyricsRow(host.started.back().content), "off: a new song is not looked up");
+    {
+        FakeService later;
+        MediaPresenter restarted(host, later.fetch());
+        restarted.start();
+        restarted.show(song("Five"));
+        expect(later.asked.empty() && std::get<Button>(host.started.back().content.expandedCenter[0].items[1]).on == false, "still off after a restart");
+    }
+    presenter.toggleLyrics();
+    expect(host.kept == "on" && service.asked.size() == asked + 1 && service.asked.back().title == "Four", "turned on again: the song playing is looked up");
+    presenter.show(song("One"));
+    expect(hasLyricsRow(host.started.back().content), "...and a song already known has its line back at once");
 
     // Without a lyrics service (the default): never a row, nothing asked.
     LyricsHost plainHost;
     MediaPresenter plain(plainHost);
     plain.show(song("One"));
-    expect(plainHost.started.size() == 1 && !hasLyricsRow(plainHost.started.back().content), "no lyrics service: the card as it was");
+    expect(plainHost.started.size() == 1 && !hasLyricsRow(plainHost.started.back().content) &&
+               plainHost.started.back().content.expandedCenter[0].items.size() == 1,
+           "no lyrics service: the card as it was, with no lyrics button");
 }
 
 } // namespace
