@@ -1243,8 +1243,8 @@ void buildDialogIsland(HINSTANCE instance, ProviderRegistry::ServiceCaller servi
             Vec2 size = tokens().canvas;
             resizeRenderLayer(g_render, size, Rect{ origin.x, origin.y, size.x, size.y });
             setRenderOrigin(g_island.input, g_render.left, g_render.top);
-            renderer().layerChanged();
         },
+        .layersMoved = [] { renderer().layerChanged(); },
         .setVisible = [](bool visible) {
             ShowWindow(g_render.hwnd, visible ? SW_SHOWNOACTIVATE : SW_HIDE);
             ShowWindow(g_inputHwnd, visible ? SW_SHOWNOACTIVATE : SW_HIDE);

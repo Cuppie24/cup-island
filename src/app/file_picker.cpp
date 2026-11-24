@@ -17,6 +17,14 @@ std::optional<platform::FileDialogSeen> g_dialog; // the one in front
 std::optional<DialogPlace> g_place;               // where the island's layers are
 bool g_cardOpen = false;                          // as of the last settle
 UINT_PTR g_hideTimer = 0;                         // faded out, its windows hide when this fires
+UINT_PTR g_movedTimer = 0;                        // moved with the dialog: layersMoved when it has come to rest
+
+void CALLBACK onMovedTimer(HWND, UINT, UINT_PTR id, DWORD)
+{
+    KillTimer(nullptr, id);
+    g_movedTimer = 0;
+    platform::guardedTask("after the file dialog moved", [] { g_hooks.onIsland([] { g_hooks.layersMoved(); }); });
+}
 
 // By the dialog, as core places it. On the dialog's island.
 void place()
@@ -27,6 +35,12 @@ void place()
     if (g_place == want) return; // where it is: a move would start liquid glass over
     g_place = want;
     g_hooks.moveTo(want.origin);
+    // A dragged dialog moves many times a second: liquid glass, which starts
+    // a new capture of the screen each time, waits until it rests. An open
+    // card (it only moves as it opens or closes) has it at once.
+    if (g_movedTimer) KillTimer(nullptr, std::exchange(g_movedTimer, 0));
+    if (isExpanded(g_hooks.state())) g_hooks.layersMoved();
+    else g_movedTimer = SetTimer(nullptr, 0, static_cast<UINT>(tokens().pickerRecheck.count()), onMovedTimer);
 }
 
 void CALLBACK onHideTimer(HWND, UINT, UINT_PTR id, DWORD)

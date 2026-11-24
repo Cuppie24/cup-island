@@ -20,6 +20,9 @@ struct FilePickerHooks {
     std::function<void(const Event&, const char* reason)> dispatch;
     std::function<Rect(Rect dialog)> workAreaOf;  // the dialog's monitor less its taskbar, screen pixels
     std::function<void(Vec2 origin)> moveTo;      // its layers' top left corner there (screen pixels), at once
+    // ...and, once they're where they'll stay, what's drawn from a picture of
+    // the screen behind them (liquid glass) starts over from there.
+    std::function<void()> layersMoved;
     std::function<void(bool visible)> setVisible; // its windows shown (without taking the keys) or hidden
     std::function<void(bool in)> fade;            // ...fading in from nothing, or out, over pickerFade
     std::function<void()> focus;                  // it takes the keys: its card's field is typed in
