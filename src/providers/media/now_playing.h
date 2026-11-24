@@ -44,6 +44,7 @@ struct NowPlaying {
     // 180); none: not known (the app has no audio session), and no control.
     std::optional<float> volume;
     bool muted = false;
+    bool volumeOpen = false; // its speaker button was clicked: the volume's bar is shown beside the song's name
 
     bool operator==(const NowPlaying&) const = default;
 };
@@ -59,7 +60,7 @@ inline constexpr const char* kSource = "source";
 inline constexpr const char* kOpenSource = "openSource"; // the expanded art was clicked
 inline constexpr const char* kSeek = "seek"; // value = 0..1 fraction
 inline constexpr const char* kVolume = "volume"; // value = 0..1: the app's volume, sent as its bar is dragged
-inline constexpr const char* kMute = "mute";     // toggle
+inline constexpr const char* kVolumeOpen = "volumeOpen"; // toggle: the volume's bar shown, or not
 inline constexpr const char* kLyrics = "lyrics"; // toggle: lyrics looked up and shown, or not
 } // namespace media_action
 

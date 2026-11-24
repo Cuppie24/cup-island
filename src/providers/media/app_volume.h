@@ -34,7 +34,6 @@ public:
     // `app`: a session's SourceAppUserModelId, UTF-8. Every audio session of that app is meant.
     void read(const std::string& app);            // reported
     void set(const std::string& app, float volume); // ...and unmuted; not reported: the caller knows. The latest of many wins
-    void setMuted(const std::string& app, bool muted);
 
 private:
     explicit AppVolume(Report report) : report_(std::move(report)) {}

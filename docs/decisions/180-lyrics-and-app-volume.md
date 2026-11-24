@@ -50,19 +50,22 @@ later: media sessions don't carry one.
   at every track; it goes only when a song turns out to have none. The
   bottom rows are named (`Row::id`: lyrics, bar, controls), so the bar and
   the controls stay the same visuals as the line comes and goes.
-- **The controls sit beside the text, mid-height** (`Content::expandedAside`):
-  a slot right of the centre, as tall as the cover, its row centred there.
-  On the song's line they read as part of the title and made that row taller.
-- **A lyrics button** there, before the volume: a small
-  toggle. Off, nothing is asked of LRCLIB (no song's name leaves the PC),
+- **Two mirrored pairs in the controls' row** (amends 168): at the left
+  edge the lyrics toggle then the volume's speaker, at the right shuffle
+  then repeat, all four the same quiet toggles, the transport centred
+  between them. What the card shows on one side, how it plays on the other.
+- **The lyrics button.** Off, nothing is asked of LRCLIB (no song's name leaves the PC),
   the line goes and the cover is full size; kept between runs
   (`Host::save`, "lyrics"). On by default.
 - **Volume is the playing app's own**, the level Windows' volume mixer
   shows for it (`providers/media/app_volume`): every audio session of the
   app's processes, found by exe name or, for a Store app, by its app id.
-  A speaker button mutes; beside it a bar sets the level
+  The speaker button opens its bar beside the song's name, in the middle
+  of the cover's height (`Content::expandedAside`), and puts it away
+  again; the card closing does too. The bar sets the level
   (`Progress::level`: `levelBarWidth` wide, its own action, sent while it's
-  dragged so the change is heard). The calls go to the audio service,
+  dragged so the change is heard); the speaker is crossed while the app is
+  muted or at zero. There is no mute button: the bar to its start is that. The calls go to the audio service,
   another process, so they run on a thread of their own (decision 144).
   It's read when another app or track shows and when the card opens; a
   change made in the mixer meanwhile shows at the next of those.
@@ -75,5 +78,5 @@ request as the user, like the update check. Lyrics and a volume for the
 demo player: redundant beside the real one.
 
 **Consequences.** While lyrics are on, every song with an artist sends its
-title and artist to lrclib.net. The song's name is narrower by the
-controls beside it, so it swims sooner.
+title and artist to lrclib.net. While the volume's bar is open the song's
+name is narrower by it, so it swims sooner.

@@ -38,6 +38,8 @@ public:
     // The volume of a session's app, as just read or set (decision 180);
     // nullopt: it has none to show. Kept for as long as that session is shown.
     void showVolume(const std::string& sessionKey, std::optional<float> volume, bool muted);
+    void toggleVolume(); // the card's speaker button: the volume's bar shown, or put away
+    void closeVolume();  // the card closed: put away, so it opens as it always looks
     void toggleLyrics(); // the card's lyrics button: off, nothing is looked up and no line shown; remembered
     void onWake(); // the grace is over: end what's shown, unless a session came back
 
@@ -59,6 +61,7 @@ private:
     std::string volumeOf_;     // the session whose volume this is
     std::optional<float> volume_;
     bool muted_ = false;
+    bool volumeOpen_ = false;
 };
 
 } // namespace cup

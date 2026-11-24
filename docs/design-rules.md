@@ -38,9 +38,10 @@ controls.
 
 Media's card (decision 180): the line being sung is a `Lyrics` item, alone
 in the first row under the cover (Body, centred, italic), and the card asks for
-the small cover while it has one; beside the text, in the middle of the
-cover's height (`expandedAside`), sit the lyrics toggle and the app's volume, `compact` `secondary` buttons and a
-`Progress::level` bar (`levelBarWidth` 64).
+the small cover while it has one. Its controls' row ends in two mirrored
+pairs of `secondary` toggles: lyrics and the volume's speaker on the left,
+shuffle and repeat on the right. The speaker opens a `Progress::level` bar
+(`levelBarWidth` 64) beside the text, mid-height (`expandedAside`).
 
 ## Standalone windows: a step up, under the cards (decision 112)
 

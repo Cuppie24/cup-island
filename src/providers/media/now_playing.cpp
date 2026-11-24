@@ -29,16 +29,10 @@ Content nowPlayingContent(const NowPlaying& m)
     // Like iOS: the big art opens the app that's playing (only expanded; elsewhere a click expands).
     c.expandedLeading = { row({ Image{ m.art, m.canOpenSource ? act::kOpenSource : "" } }) };
     c.expandedCenter = { row({ title }), row({ artist }) };
-    // Beside them, in the middle of the cover's height (decision 180): the lyrics button (on, songs'
-    // words are looked up and the line being sung shown), then the app's volume: its speaker
-    // mutes, its bar sets the level.
-    Row aside;
-    if (m.lyricsOn) aside.items.push_back(Button{ .glyph = Glyph::Lyrics, .actionId = act::kLyrics, .on = *m.lyricsOn, .compact = true, .secondary = true });
-    if (m.volume) {
-        aside.items.push_back(Button{ .glyph = m.muted ? Glyph::Muted : Glyph::Volume, .actionId = act::kMute, .compact = true, .secondary = true });
-        aside.items.push_back(Progress{ .timeline = levelTimeline(m.muted ? 0.0f : *m.volume), .seekable = true, .level = true, .actionId = act::kVolume });
-    }
-    if (!aside.items.empty()) c.expandedAside = { aside };
+    // The app's volume beside them, in the middle of the cover's height, while its speaker
+    // button (in the controls' row) has it open (decision 180): a bar that sets the level.
+    if (m.volume && m.volumeOpen)
+        c.expandedAside = { row({ Progress{ .timeline = levelTimeline(m.muted ? 0.0f : *m.volume), .seekable = true, .level = true, .actionId = act::kVolume } }) };
     std::string caption = m.source, position = trackPosition(m.trackNumber, m.trackCount);
     if (!position.empty()) caption += (caption.empty() ? "" : " \u00B7 ") + position;
     if (!caption.empty()) c.expandedCenter.push_back(row({ Text{ caption, TextStyle::Caption } }));
@@ -70,11 +64,17 @@ Content nowPlayingContent(const NowPlaying& m)
                        Align::Center);
     controls.loose = true; // big, well-separated targets
     controls.id = "controls";
-    // Shuffle and repeat at the row's edges, under the ends of the bar's row: the transport
-    // reads as one group, the modes as another (decision 168); ▶ stays centred.
-    // Only shown when the app supports them.
+    // Two pairs at the row's edges, mirrored (decision 180): what the card shows on the left,
+    // lyrics then the speaker that opens the volume's bar; how it plays on the right, shuffle then
+    // repeat. All four the same quiet toggles; the transport stays centred between them
+    // (decision 168). Each only where it applies: the app's modes, a known volume, a lyrics service.
+    if (m.lyricsOn)
+        controls.leading.push_back(Button{ .glyph = Glyph::Lyrics, .actionId = act::kLyrics, .on = *m.lyricsOn, .secondary = true });
+    if (m.volume)
+        controls.leading.push_back(Button{ .glyph = m.muted || *m.volume <= 0 ? Glyph::Muted : Glyph::Volume, .actionId = act::kVolumeOpen,
+                                           .on = m.volumeOpen, .secondary = true });
     if (m.canShuffle)
-        controls.leading.push_back(Button{ .glyph = Glyph::Shuffle, .actionId = act::kShuffle, .on = m.shuffle, .secondary = true });
+        controls.trailing.push_back(Button{ .glyph = Glyph::Shuffle, .actionId = act::kShuffle, .on = m.shuffle, .secondary = true });
     if (m.canRepeat)
         controls.trailing.push_back(Button{ .glyph = m.repeat == Repeat::One ? Glyph::RepeatOne : Glyph::Repeat, .actionId = act::kRepeat,
                                             .on = m.repeat != Repeat::Off, .secondary = true });

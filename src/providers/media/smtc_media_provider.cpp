@@ -78,18 +78,18 @@ void SmtcMediaProvider::onAction(const Action& action)
         presenter_->toggleLyrics();
         return;
     }
-    // The app's volume (decision 180): shown at once as asked, then set on the volume's thread.
-    if (action.actionId == media_action::kVolume || action.actionId == media_action::kMute) {
+    // The speaker button (decision 180): the volume's bar shown or put away; shown, read afresh,
+    // since Windows' mixer may have moved it.
+    if (action.actionId == media_action::kVolumeOpen) {
+        presenter_->toggleVolume();
+        if (shown_ && volume_) volume_->read(shown_->sessionKey);
+        return;
+    }
+    // The bar: shown at once as asked, then set on the volume's thread.
+    if (action.actionId == media_action::kVolume) {
         if (!shown_ || !volume_ || !level_ || levelOf_ != shown_->sessionKey) return;
-        AppVolume::Level next = *level_;
-        if (action.actionId == media_action::kVolume) {
-            next = { action.value, false };
-            volume_->set(levelOf_, next.volume);
-        } else {
-            next.muted = !next.muted;
-            volume_->setMuted(levelOf_, next.muted);
-        }
-        showLevel(levelOf_, next);
+        volume_->set(levelOf_, action.value);
+        showLevel(levelOf_, AppVolume::Level{ action.value, false });
         return;
     }
     if (reader_) reader_->act(action);

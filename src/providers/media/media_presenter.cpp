@@ -41,6 +41,7 @@ void MediaPresenter::fill(MediaSnapshot& snapshot)
     bool known = snapshot.sessionKey == volumeOf_;
     m.volume = known ? volume_ : std::nullopt;
     m.muted = known && muted_;
+    m.volumeOpen = volumeOpen_;
 }
 
 void MediaPresenter::showVolume(const std::string& sessionKey, std::optional<float> volume, bool muted)
@@ -49,6 +50,17 @@ void MediaPresenter::showVolume(const std::string& sessionKey, std::optional<flo
     volume_ = volume;
     muted_ = muted;
     if (last_ && !goneSince_ && last_->sessionKey == sessionKey) show(*last_);
+}
+
+void MediaPresenter::toggleVolume()
+{
+    volumeOpen_ = !volumeOpen_;
+    if (last_ && !goneSince_) show(*last_);
+}
+
+void MediaPresenter::closeVolume()
+{
+    if (volumeOpen_) toggleVolume();
 }
 
 void MediaPresenter::toggleLyrics()
