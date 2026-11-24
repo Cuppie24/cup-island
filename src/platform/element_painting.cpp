@@ -130,7 +130,7 @@ const wchar_t* codepoint(Glyph glyph)
 } // namespace
 
 winrt::com_ptr<IDWriteTextFormat> format(IDWriteFactory* dw, const wchar_t* family, float size,
-                                         float weight, DWRITE_TEXT_ALIGNMENT align, bool italic = false)
+                                         float weight, DWRITE_TEXT_ALIGNMENT align, bool italic)
 {
     weight = std::clamp(weight, 1.0f, 999.0f);
     winrt::com_ptr<IDWriteTextFormat> f;
