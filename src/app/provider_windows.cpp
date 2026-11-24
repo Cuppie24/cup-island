@@ -5,7 +5,6 @@
 
 #include "core/dialog.h"
 #include "core/menu.h"
-#include "core/split.h"
 #include "core/tokens.h"
 #include "core/tokens_json.h"
 #include "core/window_drag.h"
@@ -42,7 +41,6 @@ struct Shown {
     WindowScene scene;
     std::optional<Vec2> pointer;
     std::optional<WindowHit> pressed; // what the button went down on
-    Vec2 pressedAt;                   // ...and where: moved dragStartDistance from there, it isn't pressed any more (decision 180)
     std::string focus;                // the keyboard's stop (window_keys.h): "" until a key is pressed, and after a click
     bool keys = false;                // the keyboard is in use: a stop that goes (a page opened by Enter) hands focus to the page's first
     WindowTyping typing;              // its fields: the one with the keys, the text left in others (decision 105)
@@ -405,11 +403,16 @@ void pressAt(Shown& s, Vec2 p)
     WindowHit hit = windowHitTest(s.scene, p);
     if (hit.part == WindowPart::None || hit.part == WindowPart::Caption) return;
     s.pressed = hit;
-    s.pressedAt = p;
     if (hit.hit) {
         WindowColours colours;
         s.window->press(hit.hit->key);
     }
+}
+
+// Still what the button went down on? A segment's index may differ: it's the one let go on that acts.
+bool samePress(const WindowHit& was, const WindowHit& now)
+{
+    return now.part == was.part && now.page == was.page && (!now.hit || (was.hit && now.hit->key == was.hit->key));
 }
 
 void releaseAt(Shown& s, Vec2 p, bool inside)
@@ -422,17 +425,16 @@ void releaseAt(Shown& s, Vec2 p, bool inside)
         s.window->release(was.hit->key);
     }
     if (!inside) return;
-    // Only a release on what was pressed counts; a press that moved isn't here at all (pressMoved).
+    // Only a release on what was pressed counts; a press that left it isn't here at all (pressMoved).
     WindowHit now = windowHitTest(s.scene, p);
-    bool same = now.part == was.part && now.page == was.page && (!now.hit || (was.hit && now.hit->key == was.hit->key));
-    if (same) act(s, now); // the segment let go on, not the one pressed: its index is the release's
+    if (samePress(was, now)) act(s, now); // the segment let go on, not the one pressed: its index is the release's
 }
 
-// The held pointer left where it went down: what it pressed springs back
-// now, and the release clicks nothing, wherever it is (decision 180).
+// The held pointer left what it went down on: that springs back now, and
+// the release clicks nothing, back on it or not (decision 180).
 void pressMoved(Shown& s, Vec2 p)
 {
-    if (!s.pressed || !isDrag({ p.x - s.pressedAt.x, p.y - s.pressedAt.y })) return;
+    if (!s.pressed || samePress(*s.pressed, windowHitTest(s.scene, p))) return;
     WindowHit was = *std::exchange(s.pressed, std::nullopt);
     if (was.hit) s.window->release(was.hit->key);
 }
