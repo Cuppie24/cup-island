@@ -33,7 +33,12 @@ Item resolve(const Item& item, Ms now, const Source& source)
         return Text{ .value = value, .style = label->style, .alignEnd = label->remaining, .marquee = false, .centred = label->countdown };
     }
     // The line being sung at `now` (decision 180): a centred text that drops in as it changes.
-    if (auto* lyrics = std::get_if<Lyrics>(&item)) return Text{ .value = lyricAt(*lyrics, now), .style = TextStyle::Body, .centred = true, .drops = true };
+    // A break's note sign is drawn bigger than words: the title's size (the row is that tall, item_metrics).
+    if (auto* lyrics = std::get_if<Lyrics>(&item)) {
+        std::string line = lyricAt(*lyrics, now);
+        TextStyle style = line == kLyricBreak ? TextStyle::CardTitle : TextStyle::Body;
+        return Text{ .value = line, .style = style, .centred = true, .drops = true };
+    }
     if (auto* dial = std::get_if<Dial>(&item)) { // the time left at `now`, for the renderer to draw (decision 065)
         Dial shown = *dial;
         shown.shown = formatDuration(dial->timeline.duration - dial->timeline.positionAt(now));

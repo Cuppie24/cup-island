@@ -282,8 +282,10 @@ struct Lyrics {
     std::shared_ptr<const std::vector<LyricLine>> lines; // by time; shared and immutable, like ImageData
     bool operator==(const Lyrics&) const = default;
 };
-// The text shown at `now`: the last line begun, or a note sign where nothing is sung (before the first, a break).
+// The text shown at `now`: the last line begun, or kLyricBreak where nothing is sung (before the first, a break).
 std::string lyricAt(const Lyrics& lyrics, Ms now);
+// A note sign: there are words, none right now. Shown big (CardTitle): at a line's size it was a speck.
+inline constexpr const char* kLyricBreak = "\u266A";
 // When (app time) the shown line next changes; nothing while it doesn't play or after the last line.
 std::optional<Ms> nextLyricChange(const Lyrics& lyrics, Ms now);
 
@@ -565,6 +567,10 @@ struct Content {
     Slot alertCenter;
     Slot expandedLeading;
     Slot expandedCenter;
+    // Right of the centre, as tall as the cover, its rows centred in that height: controls of the
+    // card as a whole, not of one of its lines (media's lyrics toggle and volume, decision 180).
+    // As wide as its fixed-size items; the centre narrows by that.
+    Slot expandedAside;
     Slot expandedTrailing; // a button-sized square in the top-right corner; the centre narrows only when it's used
     Slot expandedBottom;
     bool operator==(const Content&) const = default;

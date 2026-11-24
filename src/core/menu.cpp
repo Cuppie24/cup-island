@@ -17,6 +17,7 @@ const Slot* slotNamed(const Content& c, std::string_view name)
         const Slot Content::*slot;
     };
     static constexpr Named slots[] = { { "expandedCenter", &Content::expandedCenter }, { "expandedLeading", &Content::expandedLeading },
+                                       { "expandedAside", &Content::expandedAside },
                                        { "expandedTrailing", &Content::expandedTrailing }, { "expandedBottom", &Content::expandedBottom } };
     for (const Named& n : slots)
         if (name == n.name) return &(c.*n.slot);

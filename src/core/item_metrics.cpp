@@ -162,7 +162,8 @@ float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& m
         return bar->wavy ? std::max(height, waveHeight(bar->seekable)) : height; // room for the wave's swing and its knob (decision 167)
     }
     if (auto* label = std::get_if<TimeLabel>(&item)) return lineHeight(label->style);
-    if (std::holds_alternative<Lyrics>(item)) return lineHeight(TextStyle::Body); // one line, as slot_layout shows it
+    // One line, as slot_layout shows it: words, or a break's bigger note sign. Always room for either, so the row never changes height.
+    if (std::holds_alternative<Lyrics>(item)) return std::max(lineHeight(TextStyle::Body), lineHeight(TextStyle::CardTitle));
     if (auto* icon = std::get_if<Icon>(&item); icon && icon->large) return t.largeIconSize;
     return t.iconSize; // Icon, Waveform
 }

@@ -2,6 +2,7 @@
 
 #include "core/badges.h"
 #include "core/dialog.h"
+#include "core/item_metrics.h"
 #include "core/toast.h"
 #include "core/lift.h"
 #include "core/menu.h"
@@ -80,6 +81,19 @@ float standardCardHeight(const Source& source, Vec2 size, float most, const Meas
 
 namespace {
 
+// How wide Content::expandedAside is: its widest row's fixed-size items and the gaps between them.
+float asideWidth(const Slot& slot)
+{
+    float widest = 0;
+    for (const Row& r : slot) {
+        float w = 0;
+        for (const Item& item : r.items)
+            w += fixedWidthOf(item, heightOf(item, {}, 0, {}), {}).value_or(0) + tokens().itemSpacing;
+        widest = std::max(widest, r.items.empty() ? 0.0f : w - tokens().itemSpacing);
+    }
+    return widest;
+}
+
 // The padding a mode keeps on every side of its content.
 float paddingFor(Mode mode)
 {
@@ -121,8 +135,12 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
         float art = coverSize(c), y = p, centerX = p + art + t.slotGap, bottomY = y + art;
         float corner = t.buttonSize, cornerX = size.x - p - corner;
         float centerRight = c.expandedTrailing.empty() ? size.x - p : cornerX - t.slotGap;
+        // Its controls beside the centre, in the middle of the cover's height (Content::expandedAside, decision 180).
+        float aside = asideWidth(c.expandedAside), asideX = centerRight - aside;
+        if (aside > 0) centerRight = asideX - t.slotGap;
         return { { "expandedLeading", &c.expandedLeading, { p, y, art, art }, false, true },
-                 { "expandedCenter", &c.expandedCenter, { centerX, y, centerRight - centerX, art } },
+                 { "expandedCenter", &c.expandedCenter, { centerX, y, std::max(0.0f, centerRight - centerX), art } },
+                 { "expandedAside", &c.expandedAside, { asideX, y, aside, art } },
                  { "expandedTrailing", &c.expandedTrailing, { cornerX, y, corner, corner } },
                  { "expandedBottom", &c.expandedBottom, { p, bottomY, size.x - 2 * p, size.y - bottomY - p }, false, false, true } };
     }

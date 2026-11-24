@@ -42,7 +42,7 @@ std::string lyricAt(const Lyrics& lyrics, Ms now)
     if (!lyrics.lines || lyrics.lines->empty()) return {}; // none yet: the row waits, empty
     std::size_t next = nextLine(*lyrics.lines, lyrics.timeline.positionAt(now));
     const std::string& text = next == 0 ? std::string() : (*lyrics.lines)[next - 1].text;
-    return text.empty() ? "\u266A" : text; // a note: there are words, none right now
+    return text.empty() ? kLyricBreak : text;
 }
 
 std::optional<Ms> nextLyricChange(const Lyrics& lyrics, Ms now)
@@ -82,7 +82,7 @@ std::string formatClock(Ms timeOfDay, bool hour24)
 
 bool hasCard(const Content& c)
 {
-    return !c.expandedLeading.empty() || !c.expandedCenter.empty() || !c.expandedTrailing.empty() || !c.expandedBottom.empty();
+    return !c.expandedLeading.empty() || !c.expandedCenter.empty() || !c.expandedAside.empty() || !c.expandedTrailing.empty() || !c.expandedBottom.empty();
 }
 
 } // namespace cup

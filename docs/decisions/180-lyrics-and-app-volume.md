@@ -45,7 +45,10 @@ later: media sessions don't carry one.
   at every track; it goes only when a song turns out to have none. The
   bottom rows are named (`Row::id`: lyrics, bar, controls), so the bar and
   the controls stay the same visuals as the line comes and goes.
-- **A lyrics button** right of the song's name, before the volume: a small
+- **The controls sit beside the text, mid-height** (`Content::expandedAside`):
+  a slot right of the centre, as tall as the cover, its row centred there.
+  On the song's line they read as part of the title and made that row taller.
+- **A lyrics button** there, before the volume: a small
   toggle. Off, nothing is asked of LRCLIB (no song's name leaves the PC),
   the line goes and the cover is full size; kept between runs
   (`Host::save`, "lyrics"). On by default.
@@ -67,5 +70,5 @@ request as the user, like the update check. Lyrics and a volume for the
 demo player: redundant beside the real one.
 
 **Consequences.** While lyrics are on, every song with an artist sends its
-title and artist to lrclib.net. The song's name shares its row with up to
-two buttons and the volume's bar, so it swims sooner.
+title and artist to lrclib.net. The song's name is narrower by the
+controls beside it, so it swims sooner.
