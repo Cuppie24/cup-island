@@ -273,6 +273,7 @@ void pageAndPillTests()
     const Row& heading = page.expandedCenter[0];
     auto* back = heading.leading.size() == 1 ? std::get_if<Button>(&heading.leading[0]) : nullptr;
     auto* sync = heading.trailing.size() == 1 ? std::get_if<Button>(&heading.trailing[0]) : nullptr;
+    expect(heading.items.empty(), "no song's name over the words: only the two buttons");
     expect(back && back->glyph == Glyph::ChevronLeft && back->actionId == media_action::kLyricsBack && sync && sync->glyph == Glyph::Sync &&
                sync->actionId == media_action::kLyricsSync && heading.list.empty(),
            "its back arrow at the first row's start, its sync button at the end; the heading doesn't scroll");
@@ -290,7 +291,7 @@ void pageAndPillTests()
     m.lyricsLine = 2;
     // Laid out: the card's height, the list a window under the heading that scrolls.
     Scene shown = layout(expandedWith(page), Ms{ 31000 });
-    const Placed *first = find(shown, "expandedCenter/line0/0"), *header = find(shown, "expandedCenter/heading/0");
+    const Placed *first = find(shown, "expandedCenter/line0/0"), *header = find(shown, "expandedCenter/heading/0"); // the sync button: the heading has no text
     expect(shown.size.y == t.expandedSize.y && first && header && first->list && first->list->id == media_action::kLyricsList &&
                first->list->viewport.y >= header->frame.y + header->frame.height && first->list->max == 0,
            "in a card of Expanded's height, the list under the heading; a short song fits and doesn't scroll");
@@ -510,8 +511,15 @@ void presenterTests()
     auto volumeShown = [&] { return host.started.back().content.expandedBottom.back().leadingOpen; };
     presenter.showVolume("chrome.exe", 0.4f, false);
     expect(!volumeShown(), "a volume known: its bar still shut");
+    host.clock = Ms{ 20000 };
     presenter.hoverVolume(false, true);
-    expect(volumeShown(), "the pointer on the speaker: it opens");
+    expect(!volumeShown() && host.wake == Ms{ 20000 } + tokens().volumeOpenDelay, "the pointer on the speaker: not yet, it may only be passing");
+    presenter.hoverVolume(false, false);
+    expect(!volumeShown() && !host.wake, "gone before the delay: nothing opens");
+    presenter.hoverVolume(false, true);
+    host.clock = Ms{ 20000 } + tokens().volumeOpenDelay;
+    presenter.onWake();
+    expect(volumeShown() && !host.wake, "still there after the delay: it opens");
     std::size_t opened = host.started.size();
     presenter.hoverVolume(true, true);  // onto the bar first...
     presenter.hoverVolume(false, false); // ...then off the speaker, as the app tells it
@@ -521,6 +529,8 @@ void presenterTests()
     presenter.hoverVolume(true, false);
     expect(!volumeShown(), "off both: it shuts");
     presenter.hoverVolume(false, true);
+    host.clock += tokens().volumeOpenDelay;
+    presenter.onWake();
     presenter.closeVolume();
     std::size_t closedAt = host.started.size();
     presenter.closeVolume();
@@ -529,6 +539,7 @@ void presenterTests()
     expect(!volumeShown() && host.started.size() == closedAt, "a late 'left' after that changes nothing");
 
     // The line being sung clicked: the lyrics' page, until its back arrow; a song without lyrics shows the card.
+    host.clock = Ms{ 0 }; // the song from its start
     presenter.show(song("One", "Spotify.exe"));
     presenter.showLyricsPage(true);
     expect(host.started.back().content.card == CardLayout::Centred && host.started.back().content.backAction == media_action::kLyricsBack,

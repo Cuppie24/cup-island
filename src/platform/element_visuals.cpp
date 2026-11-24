@@ -426,6 +426,18 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         }
         view.visual = sprite;
         if (std::holds_alternative<Image>(placed.item)) view.picture = sprite;
+        // A button opened into a pill (GroupFill::unrolls, decision 180): on liquid glass its edge
+        // shines like a filled control's (decision 165), in a shape over its pixels.
+        if (auto* fill = std::get_if<GroupFill>(&placed.item); shiny_ && fill && fill->unrolls) {
+            view.shine = makeShine(compositor_);
+            placeShine(view.shine, { 0, 0, size.x, size.y }, placed.cornerRadius);
+            auto edge = compositor_.CreateShapeVisual();
+            edge.Size(toFloat2(size));
+            edge.Shapes().Append(view.shine.shape);
+            sprite.Children().InsertAtTop(edge);
+            view.shineHost = true;
+            fadeShine(view.shine, liquidShine(t), Ms{ 1 }); // new: there at once
+        }
     }
     if (placed.raised && view.picture) { // the expanded card's cover: a soft shadow under it (decision 094)
         // Clickable art is a container already. Plain art is a sprite, whose children
@@ -597,6 +609,7 @@ void ElementVisuals::recolor(View& view)
     if (view.hover) fadeColor(view.hover, hoverColorOf(view.placed));
     if (view.backing) fadeColor(view.backing, t.islandColor);
     if (view.shadow) fadeArtShadow(compositor_, view.shadow);
+    if (view.shineHost && std::holds_alternative<GroupFill>(view.placed.item)) fadeShine(view.shine, liquidShine(t), recolorDuration(t)); // glass on or off
     if (view.toggle.knob) {
         bool on = std::get<Switch>(view.placed.item).on;
         fadeColor(view.toggle.track, switchTrackColor(on));

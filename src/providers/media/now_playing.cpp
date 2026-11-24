@@ -30,8 +30,9 @@ Content lyricsPageContent(const NowPlaying& m)
     c.expandedTrailing.clear();
     c.expandedBottom.clear();
     c.backAction = act::kLyricsBack; // Esc goes back to the card, as the arrow does
-    // The arrow at the row's start, the song over its words, the sync button at its end.
-    Row heading = row({ Text{ .value = c.label, .style = TextStyle::Caption, .centred = true } }, Align::Center);
+    // The arrow at the row's start, the sync button at its end; nothing between them, so the
+    // words are the only text on the page (the song's name is in the pill and on the card).
+    Row heading;
     heading.leading.push_back(Button{ .glyph = Glyph::ChevronLeft, .actionId = act::kLyricsBack, .compact = true, .secondary = true });
     heading.trailing.push_back(Button{ .glyph = Glyph::Sync, .actionId = act::kLyricsSync, .compact = true, .secondary = true });
     heading.id = "heading";

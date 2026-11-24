@@ -67,6 +67,7 @@ private:
     bool muted_ = false;
     bool volumeOpen_ = false;
     bool speakerHovered_ = false, barHovered_ = false;
+    std::optional<Ms> volumeOpenAt_; // the pointer is on the speaker: its bar opens then, if it's still there
     bool lyricsPage_ = false; // the card is the lyrics' page while the song has lyrics
     void armWake();           // the host's one wake: the session's grace, or the page's next line, whichever is first
 };

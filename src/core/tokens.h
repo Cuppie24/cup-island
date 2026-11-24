@@ -221,7 +221,7 @@ struct Tokens {
     // A button opened into the control beside it (Row::leadingOpen, decision 180): a level's bar
     // (Progress::level) this wide, the pill under the two reaching this far past the bar.
     float levelBarWidth = 64;
-    float openButtonPadding = 12;
+    float openButtonPadding = 17; // past the bar's end and its knob, which reaches half its width over it
     // Progress::level: a volume's bar beside a card's title (decision 180)
     // A wavy bar (Progress::wavy, decision 167): one wave's length, how far it swings to each side of
     // the bar's line, how far back from its head it straightens out, how long one wave takes to
@@ -489,6 +489,9 @@ struct Tokens {
     // Lyrics (decision 180): a record's length may differ from the track's by
     // this much and still be the same cut of the song; and how many songs'
     // lyrics (or the lack of them) are remembered, so going back asks nothing.
+    // Media's volume bar opens this long after the pointer comes onto its speaker (decision 180):
+    // passing over it opens nothing.
+    Ms volumeOpenDelay{ 150 };
     Ms lyricsDurationTolerance{ 3000 };
     std::size_t lyricsRemembered = 20;
     // A track shows at once; its cover fades in over this when it's read (decision 056).

@@ -423,6 +423,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
             placeEdge(row.leading, row.items.size() + row.trailing.size(), leadingX);
             // Row::leadingOpen (decision 180): one pill under the leading items, the first's height,
             // from its start to openButtonPadding past the last; it unrolls from the first.
+            std::optional<float> openEnd; // Row::leadingOpen: its pill's right edge
             if (row.leadingOpen && !row.leading.empty()) {
                 const Placed& opener = target[target.size() - row.leading.size()];
                 float right = opener.frame.x + opener.frame.width;
@@ -431,6 +432,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 pill.key = slot.name + "/" + rowName + "/open";
                 pill.item = GroupFill{ .unrolls = true };
                 pill.frame = { opener.frame.x, opener.frame.y, right + t.openButtonPadding - opener.frame.x, opener.frame.height };
+                openEnd = pill.frame.x + pill.frame.width;
                 pill.cornerRadius = pill.frame.height / 2;
                 pill.providerId = source.providerId;
                 pill.activityId = source.activityId;
@@ -477,6 +479,19 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 float left = i == 0 ? f.x - gap / 2 : (placed[i - 1]->frame.x + placed[i - 1]->frame.width + f.x) / 2;
                 float right = i + 1 == placed.size() ? f.x + f.width + gap / 2 : (f.x + f.width + placed[i + 1]->frame.x) / 2;
                 placed[i]->hitFrame = { left, y - t.rowSpacing / 2, right - left, rowHeight + t.rowSpacing };
+            }
+            // Row::leadingOpen: the whole pill is its leading items'. The last of them takes the pointer
+            // to the pill's end, and what's beside it starts there: the pill never shuts under a pointer still on it.
+            if (openEnd) {
+                Placed* last = nullptr;
+                for (Placed* p : placed)
+                    if (p->frame.x < *openEnd) last = p; // sorted by x: the rightmost under the pill
+                for (Placed* p : placed) {
+                    Rect& hit = p->hitFrame;
+                    float end = hit.x + hit.width;
+                    if (p == last) hit.width = *openEnd - hit.x;
+                    else if (p->frame.x >= *openEnd && hit.x < *openEnd) hit = { *openEnd, hit.y, std::max(0.0f, end - *openEnd), hit.height };
+                }
             }
             // A list item: its button takes clicks anywhere across the row's
             // `items` (Row::clickAnywhere: a row of Settings). Edge items keep their own.

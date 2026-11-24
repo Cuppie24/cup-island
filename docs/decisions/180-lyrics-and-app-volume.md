@@ -62,8 +62,8 @@ later: media sessions don't carry one.
   (`Host::save`, "lyrics"). On by default.
 - **A page of lyrics.** A click on the line (`Text::actionId`; it lights
   up under the pointer, so it reads as something to click) turns the
-  card into a page (`lyricsPageContent`): a back arrow, the song's name
-  and a sync button, then every line of the song in a host list
+  card into a page (`lyricsPageContent`): a back arrow and a sync button (no
+  song's name: the words are the page's only text), then every line of the song in a host list
   (`Row::list`), which the wheel scrolls. The one being sung is bigger
   and bright; a line with no words is a note. Here the presenter follows
   the song itself: woken at each line's start, it relights the page and
@@ -88,8 +88,11 @@ later: media sessions don't carry one.
   right into the volume's bar, over shuffle's place, the two on one pill
   that grows out of the speaker (`Row::leadingOpen`, a `GroupFill` that
   `unrolls`); only the speaker lights up under the pointer, so it still
-  reads as the button. It shuts when the pointer is on neither, or the
-  card closes. The bar sets the level (`Progress::level`: `levelBarWidth`
+  reads as the button. It opens `volumeOpenDelay` after the pointer
+  comes (one passing over opens nothing) and shuts when the pointer is
+  on neither, or the card closes. The whole pill is the two's to the
+  pointer, to its end. On liquid glass its edge shines like a filled
+  control's (decision 165). The bar sets the level (`Progress::level`: `levelBarWidth`
   wide, its own action, sent while it's dragged so the change is heard),
   which unmutes too. The speaker's glyph follows the level: crossed out
   muted or at zero, then one, two, three waves by thirds.
