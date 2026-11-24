@@ -35,10 +35,34 @@ std::wstring messageOf(EVT_HANDLE event)
     if (needed == 0) return {};
     std::vector<wchar_t> text(needed);
     if (!EvtFormatMessage(nullptr, event, 0, 0, nullptr, EvtFormatMessageEvent, needed, text.data(), &needed)) return {};
-    std::wstring message(text.data());
-    for (wchar_t& ch : message)
+    return std::wstring(text.data());
+}
+
+// The record's own fields (the program, the module and code it failed in,
+// the offset), as XML. EvtFormatMessage is documented to work without the
+// provider's metadata only for events forwarded from another PC, and no log
+// has ever shown a record it read: three silent crashes in a row came out
+// as "no crash record" (decision 178). This needs no metadata.
+std::wstring fieldsOf(EVT_HANDLE event)
+{
+    DWORD bytes = 0, properties = 0;
+    EvtRender(nullptr, event, EvtRenderEventXml, 0, nullptr, &bytes, &properties);
+    if (bytes == 0) return {};
+    std::vector<wchar_t> text(bytes / sizeof(wchar_t) + 1);
+    if (!EvtRender(nullptr, event, EvtRenderEventXml, static_cast<DWORD>(text.size() * sizeof(wchar_t)), text.data(), &bytes, &properties)) return {};
+    std::wstring xml(text.data());
+    // After <System> (the provider, the time): what a log line has room for.
+    auto data = xml.find(L"<EventData");
+    return data == std::wstring::npos ? xml : xml.substr(data);
+}
+
+std::wstring recordOf(EVT_HANDLE event)
+{
+    std::wstring record = messageOf(event);
+    if (record.empty()) record = fieldsOf(event);
+    for (wchar_t& ch : record)
         if (ch == L'\r' || ch == L'\n' || ch == L'\t') ch = L' '; // one log line
-    return message;
+    return record;
 }
 
 // Windows writes its record of a fail-fast a few seconds after the process
@@ -71,7 +95,7 @@ int logWindowsRecordsOnce(unsigned long long since)
     DWORD returned = 0;
     while (EvtNext(results, 16, events, 2000, 0, &returned)) {
         for (DWORD i = 0; i < returned; ++i) {
-            std::wstring message = messageOf(events[i]);
+            std::wstring message = recordOf(events[i]);
             EvtClose(events[i]);
             if (lowered(message).find(L"cupisland.exe") == std::wstring::npos) continue;
             logLine("Windows recorded: %ls", message.c_str());

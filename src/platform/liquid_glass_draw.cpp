@@ -5,6 +5,7 @@
 #include "platform/liquid_glass.h"
 
 #include "platform/liquid_shader.h"
+#include "platform/watchdog.h"
 
 #include <algorithm>
 #include <cmath>
@@ -132,8 +133,11 @@ void LiquidGlass::draw()
     winrt::check_hresult(swapChain_->Present(0, 0));
     if (any && !ready_) { // the first picture since it was turned on: the island may show it
         ready_ = true;
+        // Guarded: out of a queued task an exception ends the process, unlogged (decision 158).
         queue_.TryEnqueue([this] {
-            if (onReady) onReady();
+            guardedTask("showing liquid glass", [this] {
+                if (onReady) onReady();
+            });
         });
     }
 }
