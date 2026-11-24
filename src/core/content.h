@@ -109,6 +109,8 @@ struct Text {
     // A new value falls in from above as the old one drops out below, the
     // whole line at once: the line being sung (Lyrics, decision 180).
     bool drops = false;
+    // Slanted: words being sung, told apart from the song's name and artist over them (decision 180).
+    bool italic = false;
     // Host-filled: `value` with the spaces where its lines break turned into
     // '\n' (same length, so offsets hold). Empty: one line.
     std::string wrapped;
@@ -275,7 +277,8 @@ struct LyricLine {
 // The line being sung (decision 180): the host picks it from the Timeline,
 // like a TimeLabel's time, so the provider sends the words once per song.
 // One line of text, centred, stretching across its row; each new line falls
-// in from above as the last drops out below (Text::drops). No lines (still
+// in from above as the last drops out below (Text::drops), lyricLead before
+// it's sung, so its first words can be read in time. No lines (still
 // being looked up): an empty line, so the row keeps its place.
 struct Lyrics {
     Timeline timeline;
@@ -484,10 +487,6 @@ struct Row {
     // item's. A row set apart (section, apart) starts a new group.
     // core/groups.h builds them.
     bool grouped = false;
-    // On a background of its own (tileColor, like a group's), tilePadding above and
-    // below its content, which is inset like a list item's: one row set apart from
-    // the text around it (the line being sung, decision 180). Not a group: nothing joins it.
-    bool tile = false;
     // Its context menu (decision 086): every row may have its own. The host
     // ends the row in a › that opens it, beside the row.
     std::vector<MenuItem> menu;

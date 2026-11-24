@@ -130,12 +130,13 @@ const wchar_t* codepoint(Glyph glyph)
 } // namespace
 
 winrt::com_ptr<IDWriteTextFormat> format(IDWriteFactory* dw, const wchar_t* family, float size,
-                                         float weight, DWRITE_TEXT_ALIGNMENT align)
+                                         float weight, DWRITE_TEXT_ALIGNMENT align, bool italic = false)
 {
     weight = std::clamp(weight, 1.0f, 999.0f);
     winrt::com_ptr<IDWriteTextFormat> f;
     winrt::check_hresult(dw->CreateTextFormat(family, nullptr, static_cast<DWRITE_FONT_WEIGHT>(std::lround(weight)),
-                                              DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, size, L"", f.put()));
+                                              italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL, // slanted by Windows where the font has no italic
+                                              DWRITE_FONT_STRETCH_NORMAL, size, L"", f.put()));
     // A variable font (Segoe UI Variable) takes the exact weight on its weight
     // axis, e.g. 500 between Regular and Semibold. Without IDWriteTextFormat3
     // (before Windows 10 1803) the nearest weight above is used (decision 015).
@@ -235,7 +236,8 @@ winrt::com_ptr<IDWriteTextFormat> formatOf(IDWriteFactory* dw, const Text& text)
     TextLook look = lookOf(text.style);
     return format(dw, textFamily(dw, look.fontSize), look.fontSize, look.weight,
                   text.centred ? DWRITE_TEXT_ALIGNMENT_CENTER
-                  : text.alignEnd ? DWRITE_TEXT_ALIGNMENT_TRAILING : DWRITE_TEXT_ALIGNMENT_LEADING);
+                  : text.alignEnd ? DWRITE_TEXT_ALIGNMENT_TRAILING : DWRITE_TEXT_ALIGNMENT_LEADING,
+                  text.italic); // the line being sung (decision 180)
 }
 
 // Wrapped text (decision 045): the lines core broke it into, exactly lineHeight apart.

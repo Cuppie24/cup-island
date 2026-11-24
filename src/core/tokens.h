@@ -199,7 +199,6 @@ struct Tokens {
     float listItemInset = 6;      // Row::listItem: its content in from the hover background's edges
     float sectionGap = 16;        // Row::section: space above a group's heading (decision 037)
     float groupItemPadding = 11;  // Row::grouped: above and below each row's content, in place of listItemPadding (decision 090)
-    float tilePadding = 4;        // Row::tile: above and below a row on a background of its own (the line being sung, decision 180)
     float groupRadius = 14;       // ...the group's background's corners (its colour: tileColor)
     float keyCapHeight = 26;      // Keys: a key cap's height; a one-character cap is at least this wide (decision 092)
     float keyCapPadding = 7;      // ...its label's room on each side
@@ -417,6 +416,7 @@ struct Tokens {
     // The line being sung (Text::drops, decision 180): the new one falls in
     // from above as the old one drops out below, over this long.
     Ms lyricDropDuration{ 420 };
+    Ms lyricLead{ 350 }; // ...and it's shown this long before it's sung: time to read its first words
     // A card's cover changing size (Content::smallCover coming or going,
     // decision 180): it grows or shrinks, and what's around it glides, over this long.
     Ms coverResizeDuration{ 320 };

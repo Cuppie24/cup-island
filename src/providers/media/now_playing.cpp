@@ -50,7 +50,6 @@ Content nowPlayingContent(const NowPlaying& m)
     if (m.lyrics || m.lyricsPending) {
         c.expandedBottom.push_back(row({ Lyrics{ m.timeline, m.lyrics } }));
         c.expandedBottom.back().id = "lyrics";
-        c.expandedBottom.back().tile = true; // on a soft tile: its own thing, not a third line of the song's name
         c.smallCover = true; // the cover gives the line its room; without one it's full size
     }
     if (m.timeline.duration > Ms{ 0 }) {

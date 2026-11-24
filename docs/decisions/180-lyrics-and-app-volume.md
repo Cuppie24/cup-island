@@ -29,10 +29,12 @@ later: media sessions don't carry one.
 - **It drops in** (`Text::drops`, `platform/dropping_text`): the new line
   falls in from above as the old one drops out below, clipped to its row,
   over `lyricDropDuration`. A rolling time's motion (decision 107), the
-  whole line as one sprite.
-- **On a tile of its own** (`Row::tile`: `tileColor`, `tilePadding`): under
-  the song's name and artist a bare line read as a third line of them. A
-  break's note sign is drawn at the title's size; at a line's it was a speck.
+  whole line as one sprite. It's shown `lyricLead` (350 ms) before it's
+  sung: timed exactly, its first words were sung before they could be read.
+- **Its words are italic** (`Text::italic`): under the song's name and
+  artist an upright line read as a third line of them. A tile behind it
+  (tried) was too heavy. A break's note sign is upright and drawn at the
+  title's size; at a line's it was a speck.
 - **A smaller cover makes the room, only while there's a line.** A card
   with the line asks for `smallCoverSize` (84, `Content::smallCover`);
   without one the cover is `expandedArtSize` (108) as before. The card

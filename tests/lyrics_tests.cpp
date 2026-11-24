@@ -168,13 +168,17 @@ void lineTests()
                lyricAt(lyrics, Ms{ 13000 }) == "two" && lyricAt(lyrics, Ms{ 999000 }) == "two",
            "the line shown: the last one begun; a note before the first and in a break");
     expect(lyricAt({ playing, nullptr }, Ms{ 6000 }).empty(), "still being looked up: an empty line");
-    expect(nextLyricChange(lyrics, Ms{ 1000 }) == Ms{ 6000 } && nextLyricChange(lyrics, Ms{ 6000 }) == Ms{ 10000 } &&
+    // Each line is up lyricLead before it's sung, so its first words can be read in time.
+    Ms lead = tokens().lyricLead;
+    expect(lead > Ms{ 0 } && lyricAt(lyrics, Ms{ 6000 } - lead) == "one" && lyricAt(lyrics, Ms{ 6000 } - lead - Ms{ 1 }) == "\u266A",
+           "a line shows lyricLead before it starts, not sooner");
+    expect(nextLyricChange(lyrics, Ms{ 1000 }) == Ms{ 6000 } - lead && nextLyricChange(lyrics, Ms{ 6000 }) == Ms{ 10000 } - lead &&
                !nextLyricChange(lyrics, Ms{ 13000 }),
-           "it changes when the next line starts; after the last, never");
+           "it changes that long before the next line starts; after the last, never");
     Timeline fast = playing, paused = playing;
     fast.rate = 2.0f;
     paused.playing = false;
-    expect(nextLyricChange({ fast, lines }, Ms{ 1000 }) == Ms{ 3500 } && !nextLyricChange({ paused, lines }, Ms{ 1000 }),
+    expect(nextLyricChange({ fast, lines }, Ms{ 1000 }) == Ms{ 1000 } + (Ms{ 5000 } - lead) / 2 && !nextLyricChange({ paused, lines }, Ms{ 1000 }),
            "sooner at double speed; paused, not at all");
 
     // On the card: over the bar, across the card, and the scene says when to lay it out again.
@@ -187,16 +191,11 @@ void lineTests()
     const Placed* line = find(during, "expandedBottom/lyrics/0");
     const Placed* bar = find(during, "expandedBottom/bar/1");
     const Text* text = line ? std::get_if<Text>(&line->item) : nullptr;
-    expect(text && text->value == "one" && text->drops && text->centred && bar && line->frame.y + line->frame.height <= bar->frame.y,
+    expect(text && text->value == "one" && text->drops && text->centred && text->italic && bar && line->frame.y + line->frame.height <= bar->frame.y,
            "laid out as a centred text that drops in, above the bar");
-    const Placed* tile = find(during, "expandedBottom/lyrics/group");
-    expect(tile && std::holds_alternative<GroupFill>(tile->item) && tile->frame.x == tokens().expandedPadding &&
-               tile->frame.width == during.size.x - 2 * tokens().expandedPadding && tile->frame.height == line->frame.height + 2 * tokens().tilePadding &&
-               tile->frame.y == line->frame.y - tokens().tilePadding && line->frame.x > tile->frame.x && tile->frame.y + tile->frame.height <= bar->frame.y,
-           "the line on a tile of its own across the card, the words inset in it, clear of the bar");
     const Placed* quietLine = find(before, "expandedBottom/lyrics/0");
     const Text* note = quietLine ? std::get_if<Text>(&quietLine->item) : nullptr;
-    expect(note && note->value == kLyricBreak && note->style == TextStyle::CardTitle && text && text->style == TextStyle::Body &&
+    expect(note && note->value == kLyricBreak && note->style == TextStyle::CardTitle && !note->italic && text && text->style == TextStyle::Body &&
                quietLine->frame.height == line->frame.height,
            "a break's note sign: the title's size, big enough to see, in a row that keeps its height");
     const Tokens& t = tokens();
@@ -219,9 +218,9 @@ void lineTests()
     other.activityId = "another";
     expect(!coverResized(compact, during) && !coverResized(other, plain), "not as the card opens, nor from another card");
     // Its seconds tick over sooner (every 1000 ms); the line's change is among the deadlines.
-    expect(line && line->changesAt == Ms{ 10000 } && sceneDeadline(before) && *sceneDeadline(before) <= Ms{ 6000 }, "the next line is a deadline of the scene");
+    expect(line && line->changesAt == Ms{ 10000 } - lead && sceneDeadline(before) && *sceneDeadline(before) <= Ms{ 6000 }, "the next line is a deadline of the scene");
     Content timeless = { .expandedBottom = { row({ Lyrics{ playing, lines } }) } };
-    expect(sceneDeadline(layout(expandedWith(timeless), Ms{ 1000 })) == Ms{ 6000 }, "...on its own, the next line's start exactly");
+    expect(sceneDeadline(layout(expandedWith(timeless), Ms{ 1000 })) == Ms{ 6000 } - lead, "...on its own, the next line's change exactly");
     m.lyrics = nullptr;
     expect(!hasLyricsRow(nowPlayingContent(m)), "no lyrics: no row");
     m.lyricsPending = true;
