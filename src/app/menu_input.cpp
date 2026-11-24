@@ -86,6 +86,8 @@ bool menuRelease(Vec2 point)
     return true;
 }
 
+void menuPressMoved() { g_pressed.reset(); }
+
 void menuPointerMoved(Vec2 point)
 {
     const Menu* m = open();

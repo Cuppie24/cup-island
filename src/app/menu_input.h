@@ -29,10 +29,12 @@ void menuRightClick(Vec2 point);
 bool openMenuByKeys();
 
 // The pointer, while a menu is open. A press on it is its own (an item is
-// chosen on release over the same one); anywhere else it only closes the
-// menu. True: the menu took it, nothing under it sees it.
+// chosen on release over the same one, if the pointer didn't move in
+// between: decision 180); anywhere else it only closes the menu. True: the
+// menu took it, nothing under it sees it.
 bool menuPress(Vec2 point);
 bool menuRelease(Vec2 point);
+void menuPressMoved(); // the held pointer moved: its release chooses nothing
 void menuPointerMoved(Vec2 point); // lights the item under it
 
 // A key, menu open or not: an item's shortcut on the lit row, or, with a

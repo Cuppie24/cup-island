@@ -21,7 +21,8 @@ float splitGap();
 // is inside the pill: then letting go swaps them.)
 bool bubbleOverPill(const IslandState& s, Vec2 drag);
 
-// A press on the bubble that has moved this far is a drag, not a click.
+// A press that has moved this far isn't a click (decision 180): on the
+// bubble, and anything else that can be carried, it's a drag.
 bool isDrag(Vec2 drag);
 
 } // namespace cup
