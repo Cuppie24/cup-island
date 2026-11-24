@@ -29,28 +29,29 @@ void runFileDialogTests()
     expect(!isFileNameField({ "ComboBoxEx32", "ComboBox" }), "only an Edit takes the text");
     expect(!isFileNameField({}), "nothing isn't");
 
-    // Where the island hangs. A 1920x1080 monitor with a 48-high taskbar.
+    // Where its island hangs. A 1920x1080 monitor with a 48-high taskbar; a 600x500 canvas, a 28-high pill.
     const Rect work{ 0, 0, 1920, 1032 };
-    const float card = tokens().pickerCardRoom;
+    const Vec2 canvas{ 600, 500 };
+    const float pill = 28, card = tokens().pickerCardRoom;
     Rect dialog{ 500, 200, 900, 600 }; // its bottom at 800: 232 under it
-    expect(hangUnder(dialog, work, false) == Hang{ 800, 950 }, "the pill: from the dialog's bottom edge, centred on it");
-    expect(hangUnder(dialog, work, true) == Hang{ 1032 - card, 950 }, "a card that doesn't fit under it moves up over the dialog");
-    Rect high{ 500, 0, 900, 400 };
-    expect(hangUnder(high, work, true) == Hang{ 400, 950 }, "a card that fits stays under it");
-    const Rect second{ 1920, 0, 1920, 1032 };
-    expect(hangUnder({ 2100, 200, 900, 600 }, second, true) == Hang{ 1032 - card, 2550 }, "a dialog on another monitor: under it there");
-    expect(hangUnder({ 500, 0, 900, 300 }, { 0, 0, 1920, 400 }, true) == Hang{ 0, 950 }, "a screen shorter than the card: never above its top");
-
-    // The pill: under the dialog, or on top of it when there's no room under.
-    const Vec2 pill{ 160, 28 };
-    expect(pillPlace(dialog, work, pill) == PillPlace{ { 870, 800, 160, 28 }, false }, "the pill hangs from the dialog's bottom edge, centred");
-    expect(pillPlace({ 500.4f, 200, 901, 600.3f }, work, pill).frame == Rect{ 871, 800, 160, 28 }, "...on whole pixels");
-    expect(pillPlace({ 500, 404, 900, 600 }, work, pill) == PillPlace{ { 870, 1004, 160, 28 }, false }, "just room under it: under it");
-    expect(pillPlace({ 500, 405, 900, 600 }, work, pill) == PillPlace{ { 870, 377, 160, 28 }, true }, "a pixel short: it stands on the dialog's top edge");
-    expect(pillPlace({ 500, 400, 900, 900 }, work, pill).above, "a dialog going behind the taskbar: on top of it");
-    expect(pillPlace({ 500, 10, 900, 1022 }, work, pill) == PillPlace{ { 870, 1032, 160, 28 }, false },
+    expect(placeByDialog(dialog, work, canvas, pill, false) == DialogPlace{ { 650, 800 }, false }, "from the dialog's bottom edge, centred on it");
+    expect(placeByDialog({ 500.4f, 200, 901, 600.3f }, work, canvas, pill, false).origin == Vec2{ 651, 800 }, "...on whole pixels");
+    expect(placeByDialog(dialog, work, canvas, pill, true) == DialogPlace{ { 650, 1032 - card }, false },
+           "a card that doesn't fit under it moves up over the dialog");
+    expect(placeByDialog({ 500, 0, 900, 400 }, work, canvas, pill, true) == DialogPlace{ { 650, 400 }, false }, "a card that fits stays under it");
+    expect(placeByDialog({ 500, 404, 900, 600 }, work, canvas, pill, false) == DialogPlace{ { 650, 1004 }, false }, "just room under it: under it");
+    expect(placeByDialog({ 500, 405, 900, 600 }, work, canvas, pill, false) == DialogPlace{ { 650, 377 }, true },
+           "a pixel short: over the dialog's top edge");
+    expect(placeByDialog({ 500, 400, 900, 900 }, work, canvas, pill, false).above, "a dialog going behind the taskbar: over its top");
+    expect(placeByDialog({ 500, 405, 900, 600 }, work, canvas, pill, true) == DialogPlace{ { 650, 1032 - card }, false },
+           "...and its card opens under, as any");
+    expect(placeByDialog({ 500, 10, 900, 1022 }, work, canvas, pill, false) == DialogPlace{ { 650, 1032 }, false },
            "no room above either (a dialog as tall as the screen): under it, cut off");
-    expect(pillPlace({ 2100, 200, 900, 600 }, { 1920, 0, 1920, 1032 }, pill).frame.x == 2470, "on whichever monitor the dialog is");
+    expect(placeByDialog({ -200, 200, 900, 600 }, work, canvas, pill, false).origin.x == 0, "a dialog half off the left edge: kept on the screen");
+    expect(placeByDialog({ 1500, 200, 900, 600 }, work, canvas, pill, false).origin.x == 1320, "...and off the right");
+    expect(placeByDialog({ 2100, 200, 900, 600 }, { 1920, 0, 1920, 1032 }, canvas, pill, false).origin.x == 2250, "on whichever monitor the dialog is");
+    expect(placeByDialog(dialog, { 0, 0, 500, 1032 }, canvas, pill, false).origin.x == 0, "a screen narrower than the canvas: from its left edge");
+    expect(placeByDialog({ 500, 0, 900, 300 }, { 0, 0, 1920, 400 }, canvas, pill, true).origin.y == 0, "a screen shorter than the card: never above its top");
 }
 
 } // namespace cup::test

@@ -9,7 +9,7 @@
 //            click  outside  esc  pointer  drag-enter  drag-rejected
 //            drag-leave  drop  hide  show  wait <ms>  top-click (the expanded top band, decision 108)
 //            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel
-//            panel <id> [static|keep|awake|field|menu|menu=changed|button|picker]  unpanel <id>  open-island  card <id>  (static: a panel with no card;
+//            panel <id> [static|keep|awake|field|menu|menu=changed|button|hung]  unpanel <id>  open-island  card <id>  (static: a panel with no card;
 //                                                                     button: a page-row button, not a widget, decision 113;
 //                                                                     field: a card that is its field "go", decision 079;
 //                                                                     menu: field, then rows 1 and 2 with menus Open, Run (dim), Reveal;
@@ -38,16 +38,12 @@
 //            pick <card> <list> <row> <y>  carry <y>  put-down
 //            screen <width>  hold  move <dx>  let-go  restore <dock> [fraction]      (lifting the island, decision 026)
 //            cross <width> <x>                                                      (...onto another monitor, the pointer at x on it, decision 178)
-//            picker <centre x>  picker-open  picker-moved <centre x>  picker-gone  picker-left
-//                                                                    (a file dialog's pill clicked, decision 181: the island is put under
-//                                                                     the dialog, opens the picking card there; the dialog moved, went;
-//                                                                     the app took the island home. panel <id> picker is that card)
 // Checks after "->":  <Mode>  queue=<n>  top=<activity>  bubble=<activity>  alert=<name>
 //                     expanded=<activity|panel|none>  pinned=<activity>  dragging=yes|no  preview=yes|no
 //                     draft=<text>|empty|none  (_ for a space)  dialog=<card>|none
 //                     caret=<byte offset>  selected=<text>|none  (_ for a space)
 //                     lifted=yes|no  spot=centre|left|right|free  stay=yes|no  tabs=top|bottom
-//                     picking=no|arriving|open|leaving  (lent to a file dialog: Picker::Stage)  zone=yes|no (the top band that closes)  pill=<the shape's left edge's x, at the mode's width>
+//                     zone=yes|no (the top band that closes, decision 108)  pill=<the shape's left edge's x, at the mode's width>
 //                     scroll=<card>/<list>:<offset>[+reveal]  carried=<row>|none  squash=yes|no (a press on empty space, decision 071)
 //                     toast=<card>|none
 //                     menu=<card>/<row>|none  lit=<item>|none   (the island's open menu, and its lit item)
@@ -185,11 +181,6 @@ struct Runner {
             }
             apply(AlertPosted{ a });
         } else if (cmd == "click") apply(PillClicked{});
-        else if (cmd == "picker") apply(PickerHung{ std::stof(arg(1)) });
-        else if (cmd == "picker-open") apply(PickerOpened{});
-        else if (cmd == "picker-left") apply(PickerLeft{});
-        else if (cmd == "picker-moved") apply(PickerMoved{ std::stof(arg(1)) });
-        else if (cmd == "picker-gone") apply(PickerClosed{});
         else if (cmd == "top-click") apply(TopClicked{}); // the expanded island's top band (decision 108)
         else if (cmd == "outside") apply(ClickedOutside{});
         else if (cmd == "close-card" && w.size() > 1) apply(CardCloseRequested{ w[1] });
@@ -212,7 +203,7 @@ struct Runner {
             Panel p{ .id = arg(1), .content = { .label = arg(1) } };
             if (arg(2) != "static" && arg(2) != "button") p.content.expandedCenter = { row({ Text{ arg(1) } }) };
             if (arg(2) == "button") p.rowButton = Glyph::Settings, p.tapAction = "open"; // a page-row button, decision 113
-            p.picksFiles = arg(2) == "picker";
+            p.content.noTopBand = arg(2) == "hung"; // a card hung from a window (decision 181)
             p.content.keepOpen = arg(2) == "keep" || arg(2) == "awake";
             p.content.noIdleTimeout = arg(2) == "awake";
             if (arg(2) == "field" || arg(2).rfind("menu", 0) == 0) {
@@ -397,10 +388,6 @@ struct Runner {
                 const char* names[] = { "centre", "left", "right", "free" };
                 std::string got = names[static_cast<int>(state.spot.dock)];
                 if (got != *v) fail("spot=" + *v + ", got " + got);
-            } else if (auto v = option(word, "picking")) {
-                const char* stages[] = { "arriving", "open", "leaving" };
-                std::string got = state.picker ? stages[static_cast<int>(state.picker->stage)] : "no";
-                if (got != *v) fail("picking=" + *v + ", got " + got);
             } else if (auto v = option(word, "zone")) {
                 std::string got = layout(state, now, [](const Text&) { return 0.0f; }).collapseZone ? "yes" : "no";
                 if (got != *v) fail("zone=" + *v + ", got " + got);

@@ -112,9 +112,7 @@ Placement placementOf(const IslandState& s, Mode mode, std::optional<float> widt
 {
     Footprint footprint = footprintOf(s, mode);
     if (width) footprint.pillWidth = *width;
-    // Hanging under a file dialog, it's centred on that, not at its own spot (decision 181).
-    Spot spot = s.picker ? Spot{ Dock::Free, s.picker->centre / screenWidthOf(s) } : s.spot;
-    return placeAt(spot, footprint, screenWidthOf(s));
+    return placeAt(s.spot, footprint, screenWidthOf(s));
 }
 
 float liftedCentre(const IslandState& s)

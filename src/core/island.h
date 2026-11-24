@@ -56,9 +56,6 @@ struct Panel {
     RowSpot rowSpot = RowSpot::Corner;
     // Its icon in the page row's list (decision 165), live or dormant. None: a plain one.
     std::optional<Glyph> icon;
-    // Its card finds a file for a file dialog (decision 181): the one the
-    // pill under such a dialog opens.
-    bool picksFiles = false;
     bool operator==(const Panel&) const = default;
 };
 
@@ -165,21 +162,6 @@ struct Menu {
     bool operator==(const Menu&) const = default;
 };
 
-// The pill under a file dialog was clicked (decision 181, core/file_dialog.h):
-// the island is lent to the dialog. It hangs under it, showing the card that
-// picks files, until that card closes; then it's back in its own place.
-// It goes there and back unseen, in one step, and is seen only opening from
-// where the dialog's pill is and closing back to it:
-//   Arriving: put under the dialog as it rests, not yet seen; the card opens next (PickerOpened);
-//   Open:     the picking card is open there;
-//   Leaving:  the card closed, the island is closing to a pill there; the app takes it home (PickerLeft).
-struct Picker {
-    float centre = 0; // it's centred here (render-layer x): the dialog's middle
-    enum class Stage { Arriving, Open, Leaving };
-    Stage stage = Stage::Arriving;
-    bool operator==(const Picker&) const = default;
-};
-
 // What sits over one shown card: its question, its note and a row's menu
 // (decisions 020, 071, 086).
 struct CardOverlays {
@@ -195,13 +177,6 @@ struct ActivityUpdated { std::string id; Content content; };
 struct ActivityEnded { std::string id; };
 struct AlertPosted { Alert alert; };
 struct PillClicked {};
-// The pill under a file dialog was clicked (decision 181): the island is under
-// the dialog (Picker::Arriving). `centre`: Picker::centre. Nothing without a picking card.
-struct PickerHung { float centre = 0; };
-struct PickerOpened {};                   // ...and, put there, opens the picking card (Picker::Open)
-struct PickerMoved { float centre = 0; }; // the dialog moved while the island is lent to it
-struct PickerClosed {};                   // the dialog went, or something else is in front: the picking card closes
-struct PickerLeft {};                     // the app took the island home after Picker::Leaving
 // A click in the top band of an expanded island (Scene::collapseZone): it always
 // closes, a card that keeps open or a pinned island too (decision 108).
 struct TopClicked {};
@@ -277,7 +252,7 @@ struct ClockSynced {
 };
 
 using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, AlertPosted,
-                           PillClicked, PickerHung, PickerOpened, PickerMoved, PickerClosed, PickerLeft, TopClicked, ClickedOutside, EscapePressed, PointerMoved,
+                           PillClicked, TopClicked, ClickedOutside, EscapePressed, PointerMoved,
                            DragEntered, DragLeft, Dropped, HiddenChanged, Tick,
                            BubbleClicked, ActivityPromoted, ActivitySwitched,
                            BubbleDragged, BubbleReleased, BubbleDragCancelled,
@@ -311,7 +286,6 @@ struct IslandState {
     Ms lastPointerAt{};
     bool dragging = false;             // an accepted drag is over the island
     bool hidden = false;
-    std::optional<Picker> picker;      // lent to a file dialog: hung under it with the picking card (decision 181)
     std::optional<WallClock> clock;    // unknown until the platform syncs it
     std::optional<Draft> draft;        // a TextInput has focus (decision 016)
     // A field's unsent text while it isn't focused (decision 050), by

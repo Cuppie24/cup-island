@@ -58,7 +58,11 @@ Rect frameOf(HWND hwnd)
 {
     RECT r{};
     if (FAILED(DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, &r, sizeof r))) GetWindowRect(hwnd, &r);
-    return { static_cast<float>(r.left), static_cast<float>(r.top), static_cast<float>(r.right - r.left), static_cast<float>(r.bottom - r.top) };
+    // Less the one-pixel border Windows draws just inside that frame: what
+    // hangs from the dialog meets its body, without a line of border between.
+    constexpr LONG kBorder = 1;
+    return { static_cast<float>(r.left), static_cast<float>(r.top + kBorder), static_cast<float>(r.right - r.left),
+             static_cast<float>(r.bottom - r.top - 2 * kBorder) };
 }
 
 void tell()

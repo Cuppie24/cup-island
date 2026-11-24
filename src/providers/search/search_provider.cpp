@@ -67,7 +67,8 @@ void SearchProvider::start(Host& host)
 
 void SearchProvider::stop()
 {
-    host_->removePanel(kPanelId);
+    if (picking_) host_->endActivity(kPanelId);
+    else host_->removePanel(kPanelId);
 }
 
 void SearchProvider::refreshApps()
@@ -96,13 +97,6 @@ void SearchProvider::onCardClosed(const std::string& activityId)
     if (activityId != kPanelId || query_.empty()) return;
     query_.clear();
     searchNow();
-}
-
-void SearchProvider::setPicking(bool picking)
-{
-    if (picking == picking_) return;
-    picking_ = picking;
-    if (host_) searchNow(); // other results, another hint, another menu
 }
 
 void SearchProvider::onAction(const Action& action)
@@ -303,8 +297,6 @@ bool SearchProvider::giveOrCopy(const std::string& path)
     // Windows lets nothing be typed into an administrator's window from here,
     // but the clipboard is everyone's: the user pastes and confirms (decision 181).
     if (!hooks_.copyText || !hooks_.copyText(path)) return false;
-    // Said where the user is looking, by the dialog; on the island only if it can't be.
-    if (hooks_.sayByDialog && hooks_.sayByDialog("Path copied. Paste it into the File name box")) return true;
     host_->postAlert({ .content = { .label = "Path copied",
                                     .alertLeading = { row({ Icon{ Glyph::Copy } }) },
                                     .alertCenter = { row({ Text{ "Path copied", TextStyle::Title } }),
@@ -364,8 +356,19 @@ void SearchProvider::publish()
     // filled shapes rowSpacing apart looked stuck together (decision 079).
     if (c.expandedCenter.size() > 1) c.expandedCenter[1].apart = true;
     // A button in the page row's left corner (decisions 165, 170): a click opens the card.
-    // ...and by a file dialog, a double-click on the pill (Panel::picksFiles, decision 181).
-    host_->publishPanel({ .id = kPanelId, .content = std::move(c), .rowButton = Glyph::Search, .rowSpot = Panel::RowSpot::LeftCorner, .picksFiles = true });
+    if (picking_) {
+        // A file dialog's island (decision 181): its one activity, so its pill
+        // says what it's for and a click opens the card. Hung from the dialog,
+        // the card has no top band to click.
+        c.label = "Find a file";
+        c.noTopBand = true;
+        c.compactLeading = { row({ Icon{ Glyph::Search } }, Align::Center) };
+        c.compactCenter = { row({ Text{ .value = "Find a file", .style = TextStyle::Body } }, Align::Center) };
+        c.minimal = { row({ Icon{ Glyph::Search } }, Align::Center) };
+        host_->startActivity({ .id = kPanelId, .content = std::move(c) });
+        return;
+    }
+    host_->publishPanel({ .id = kPanelId, .content = std::move(c), .rowButton = Glyph::Search, .rowSpot = Panel::RowSpot::LeftCorner });
 }
 
 } // namespace cup

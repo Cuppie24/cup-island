@@ -418,11 +418,7 @@ const Field kFields[] = {
     { "searchVisibleRows", &Tokens::searchVisibleRows },
     { "launcherRefreshMs", &Tokens::launcherRefresh },
     { "pickerCardRoom", &Tokens::pickerCardRoom, true }, // by a file dialog (decision 181)
-    { "pickerGlyphSize", &Tokens::pickerGlyphSize },
     { "pickerFadeMs", &Tokens::pickerFade },
-    { "pickerSwapMs", &Tokens::pickerSwap },
-    { "pickerNoteMs", &Tokens::pickerNote },
-    { "pickerNotePadding", &Tokens::pickerNotePadding },
     { "pickerRecheckMs", &Tokens::pickerRecheck },
     { "pickerSendTimeoutMs", &Tokens::pickerSendTimeout },
 };

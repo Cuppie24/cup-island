@@ -1,14 +1,11 @@
 #pragma once
 // A file dialog (Windows' Open or Save) in front of the user, and the island
-// by it (decision 181): a pill of its own sits under the dialog; clicked, the
-// island comes there with the card that picks files, and what's picked is
-// given to the dialog. Pure: the platform gathers window facts (class names,
-// rectangles) and moves the windows; this decides.
+// of its own that hangs from it (decision 181): a second island, with one
+// card, Search picking a file for the dialog. Pure: the platform gathers
+// window facts (class names, rectangles) and moves the windows; this decides.
 
 #include "core/geometry.h"
-#include "core/island.h"
 
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -26,31 +23,22 @@ bool mayBecomeFileDialog(const std::string& windowClass, const std::vector<std::
 // its "File name" field: an Edit that isn't the address bar's or search's.
 bool isFileNameField(const std::vector<std::string>& chain);
 
-// --- Where the island hangs -------------------------------------------------
-struct Hang {
-    float top = 0;    // the island's top edge: the dialog's bottom, screen pixels
-    float centre = 0; // the pill's centre: the dialog's, screen pixels
-    bool operator==(const Hang&) const = default;
+// --- Where its island hangs --------------------------------------------------
+// The island's render layer there: `canvas` big, the island centred along its
+// top edge, as on a screen.
+struct DialogPlace {
+    Vec2 origin;        // the layer's top left corner, screen pixels, on whole ones
+    bool above = false; // over the dialog's top edge instead of under its bottom one
+    bool operator==(const DialogPlace&) const = default;
 };
-// Under `dialog`. The card (`cardOpen`) needs pickerCardRoom above the
-// bottom of `workArea` (the dialog's monitor less its taskbar), and moves up
-// over the dialog's lower part to have it.
-Hang hangUnder(Rect dialog, Rect workArea, bool cardOpen);
-
-// The pill by the dialog: `size` big, centred on it.
-struct PillPlace {
-    Rect frame;         // screen pixels, on whole ones
-    bool above = false; // standing on the dialog's top edge, not hanging from its bottom one
-    bool operator==(const PillPlace&) const = default;
-};
-// Hung from the dialog's bottom edge. With no room for it between there and
-// the bottom of `workArea`, it stands on the dialog's top edge instead, its
-// flat side and flared corners down; with no room there either (a dialog as
-// tall as the screen), it's under the dialog after all, cut off.
-PillPlace pillPlace(Rect dialog, Rect workArea, Vec2 size);
-
-// --- The picking card ---------------------------------------------------------
-std::string pickingCard(const IslandState& s);                    // the panel whose card picks files (Panel::picksFiles); "" = none
-bool isPickingCard(const IslandState& s, const std::string& id);  // that card: it closes when the dialog goes
+// `dialog`: its frame; `workArea`: its monitor less the taskbar; `pillHeight`: the resting island's.
+//   - Centred on the dialog, and kept on the screen sideways.
+//   - Resting, it hangs from the dialog's bottom edge. With no room for the
+//     pill between there and the bottom of the work area, it sits over the
+//     dialog's top edge instead; with none there either (a dialog as tall as
+//     the screen), under it after all, cut off.
+//   - With a card open it's always under, and needs pickerCardRoom above the
+//     bottom of the work area: it moves up over the dialog's lower part to have it.
+DialogPlace placeByDialog(Rect dialog, Rect workArea, Vec2 canvas, float pillHeight, bool cardOpen);
 
 } // namespace cup

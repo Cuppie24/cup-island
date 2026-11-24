@@ -46,7 +46,6 @@
 #include "platform/file_dialog_watcher.h"
 #include "platform/foreground.h"
 #include "platform/fullscreen_watcher.h"
-#include "platform/picker_pill.h"
 #include "platform/glass.h"
 #include "platform/log.h"
 #include "platform/interaction_layer.h"
@@ -134,10 +133,6 @@ Rect g_displayBounds;    // ...in screen pixels: a lifted island carried past th
 std::filesystem::path g_spotsFile;     // where the island rests on each monitor (decision 026)
 std::map<std::string, Spot> g_spots;   // ...as last saved, by display id
 std::unique_ptr<ProviderRegistry> g_providers;
-// Lent to a file dialog (decision 181, app/file_picker): the layers hang from
-// this y (screen pixels), not from their monitor's top...
-std::optional<float> g_hangTop;
-std::optional<std::string> g_homeDisplay; // ...on the dialog's monitor, when that isn't the island's own: where to go back to
 SettingsProvider* g_settings = nullptr; // owned by g_providers; told when tokens.json reloads
 UpdateProvider* g_update = nullptr;     // owned by g_providers; Settings' "Check for updates" asks it
 
@@ -145,6 +140,56 @@ UpdateProvider* g_update = nullptr;     // owned by g_providers; Settings' "Chec
 // Providers' windows (decision 104) take their own input, in their own windows.
 app::Surface g_island;
 PointerTrack g_drag; // the pointer's speed while the island or bubble is carried: a fling when let go (decision 080)
+
+// --- Two islands (decision 181) ----------------------------------------------
+// A file dialog has an island of its own: its own state, scene, renderer,
+// windows and providers (one: Search, picking a file). Everything in this
+// file works on "the island" through the globals above, so the other island
+// gets the same code by standing in their place: At swaps the two sets for
+// as long as it lives, and whatever runs meanwhile (a click's handler, a
+// dispatch, a provider's call) is on that island. With no dialog in front
+// nothing is ever swapped.
+enum class Seat { Island, Dialog };
+Seat g_seat = Seat::Island; // whose state the globals hold now
+PillRenderer g_dialogRenderer;
+bool g_dialogIsland = false; // built (buildDialogIsland)
+struct {
+    IslandState state;
+    app::Surface surface;
+    RenderLayer render;
+    HWND input{};
+    std::unique_ptr<ProviderRegistry> providers;
+    PointerTrack drag;
+} g_other; // the island that isn't in the globals
+
+void swapIslands()
+{
+    std::swap(g_state, g_other.state);
+    std::swap(g_island, g_other.surface);
+    std::swap(g_render, g_other.render);
+    std::swap(g_inputHwnd, g_other.input);
+    std::swap(g_providers, g_other.providers);
+    std::swap(g_drag, g_other.drag);
+    g_seat = g_seat == Seat::Island ? Seat::Dialog : Seat::Island;
+}
+
+// On `seat`'s island until the end of the scope; then on whichever it was before.
+struct At {
+    explicit At(Seat seat) : was(g_seat)
+    {
+        if (seat != g_seat) swapIslands();
+    }
+    ~At()
+    {
+        if (was != g_seat) swapIslands();
+    }
+    At(const At&) = delete;
+    At& operator=(const At&) = delete;
+    Seat was;
+};
+
+// The renderer of the island in the globals.
+PillRenderer& renderer() { return g_island.renderer ? *g_island.renderer : g_renderer; }
 
 Ms now()
 {
@@ -296,6 +341,10 @@ void armDeadline(Ms t)
 {
     auto deadline = earliest(earliest(nextDeadline(g_state), sceneDeadline(g_island.scene)), tintDeadline(g_tint));
     if (g_providers) deadline = earliest(deadline, g_providers->nextWake());
+    if (g_dialogIsland) { // the one timer is for both islands (decision 181)
+        deadline = earliest(deadline, earliest(nextDeadline(g_other.state), sceneDeadline(g_other.surface.scene)));
+        if (g_other.providers) deadline = earliest(deadline, g_other.providers->nextWake());
+    }
     setTimer(TimerId::Deadline, deadline ? std::optional<Ms>(std::max(*deadline - t, Ms{ 0 })) : std::nullopt);
 }
 
@@ -305,34 +354,17 @@ void onLifted();
 Vec2 carriedAcross(Vec2 canvasPoint);
 void tokensChanged(Vec2 oldCanvas, const char* reason);
 
-// The island unseen, at once, for a jump it shouldn't be watched making (decision 181)...
-void veilIsland()
-{
-    if (!g_render.root) return;
-    g_render.root.StopAnimation(L"Opacity"); // a fade in still running would carry on over the new value
-    g_render.root.Opacity(0.0f);
-}
-// ...and seen where it now is: fading in, or at once (it takes the place of the dialog's pill).
-void unveilIsland(bool fade)
-{
-    if (!g_render.root) return;
-    if (fade) {
-        fadeTo(g_render.compositor, g_render.root, 1.0f, tokens().pickerFade);
-        return;
-    }
-    g_render.root.StopAnimation(L"Opacity");
-    g_render.root.Opacity(1.0f);
-}
-Ms g_morphTime{}; // how long the morph the last dispatch started runs
-
 void dispatch(const Event& event, const char* reason)
 {
     if (g_uiQueue && std::this_thread::get_id() != g_uiThread) {
         // A provider's coroutine left on a pool thread (after sleep, decision 060).
         // Composition used from there froze the island: run it on the UI thread instead.
         logLine("dispatch (%s) came from a background thread: moved to the UI thread", reason);
-        g_uiQueue.TryEnqueue([event, why = std::string(reason)] {
-            guardedTask("in a moved dispatch", [&] { dispatch(event, why.c_str()); });
+        g_uiQueue.TryEnqueue([event, why = std::string(reason), seat = g_seat] {
+            guardedTask("in a moved dispatch", [&] {
+                At at(seat); // the island it was meant for (decision 181)
+                dispatch(event, why.c_str());
+            });
         });
         return;
     }
@@ -343,19 +375,21 @@ void dispatch(const Event& event, const char* reason)
         // Carried on from here, the outer dispatch would then put its older
         // scene over this one. So: after it.
         logLine("dispatch (%s) came in the middle of another: after it", reason);
-        g_uiQueue.TryEnqueue([event, why = std::string(reason)] {
-            guardedTask("in a put-off dispatch", [&] { dispatch(event, why.c_str()); });
+        g_uiQueue.TryEnqueue([event, why = std::string(reason), seat = g_seat] {
+            guardedTask("in a put-off dispatch", [&] {
+                At at(seat);
+                dispatch(event, why.c_str());
+            });
         });
         return;
     }
     Ms t = now();
     Spot spot = g_state.spot;
     bool wasHidden = g_state.hidden;
-    bool wasLent = g_state.picker.has_value();
     std::optional<ShownCard> wasCard = shownCard(g_state);
     std::optional<Draft> wasDraft = g_state.draft;
     g_state = reduce(g_state, event, t);
-    Scene next = layout(g_state, t, [](const Text& text) { return g_renderer.measure(text); });
+    Scene next = layout(g_state, t, [](const Text& text) { return renderer().measure(text); });
     // A bar being dragged: its times show where the pointer is, not where playback is (decision 167).
     if (g_island.pointer.scrub) next = scrubbedTimes(std::move(next), g_island.pointer.scrub->key, g_island.pointer.scrubFraction);
 
@@ -364,34 +398,31 @@ void dispatch(const Event& event, const char* reason)
     }
     // One motion for the renderer and the window that follows it (decisions 001, 080).
     SceneMotion motion = sceneMotion(g_island.scene, next, flingVelocity(g_drag, t, tokens()), tokens());
-    // Lent to a file dialog, or back from one (decision 181): the layers jump
-    // between the top of the screen and the dialog, so the island doesn't
-    // morph across; it's put there unseen, in one step (app/file_picker shows it again).
-    if (g_state.picker.has_value() != wasLent) {
-        motion = SceneMotion{ .morph = Motion{ .duration = Ms{ 1 } } };
-        veilIsland();
-    }
-    g_morphTime = motion.morph.duration;
     Applying applying; // until the scene is the shown one, or this is left by an exception
-    g_renderer.apply(next, motion);
+    renderer().apply(next, motion);
     Rect bounds = interactiveBounds(next), was = interactiveBounds(g_island.scene);
     // Lifted, the window stays where the press went down: it has capture, so
     // every move arrives anyway. Let go, it's over the drop point at once and
     // follows the glide to where the island lands (decision 026).
-    if (g_island.scene.lifted && !next.lifted) jumpTo({ was.width, was.height }, { was.x, was.y });
-    if (!next.lifted && (bounds != was || g_island.scene.lifted)) followMorph({ bounds.width, bounds.height }, { bounds.x, bounds.y }, motion);
+    if (g_island.scene.lifted && !next.lifted) jumpTo(g_island.input, { was.width, was.height }, { was.x, was.y });
+    if (!next.lifted && (bounds != was || g_island.scene.lifted))
+        followMorph(g_island.input, { bounds.width, bounds.height }, { bounds.x, bounds.y }, motion);
     bool lifted = next.lifted && !g_island.scene.lifted;
     g_island.scene = next;
     g_applying = false; // from here a dispatch inside this one is meant (tokensChanged, Settings)
     if (lifted) onLifted();
-    if (g_state.spot != spot) saveSpot();
+    bool island = g_seat == Seat::Island; // what follows about its place, colours and shortcuts is the island's alone
+    if (island && g_state.spot != spot) saveSpot();
     if (shownCard(g_state) != wasCard) pointerStill(g_island); // a card opened or switched under the pointer (decision 087)
     updateHover(g_island);
 
     // The island in the playing cover's colours, or the theme's (decision 051).
-    IslandTint tint = nextTint(g_tint, g_coverColours ? wantedTint(g_state) : WantedTint{}, t);
-    bool recolour = tint.shown != g_tint.shown;
-    g_tint = tint;
+    bool recolour = false;
+    if (island) {
+        IslandTint tint = nextTint(g_tint, g_coverColours ? wantedTint(g_state) : WantedTint{}, t);
+        recolour = tint.shown != g_tint.shown;
+        g_tint = tint;
+    }
 
     armDeadline(t);
 
@@ -409,7 +440,7 @@ void dispatch(const Event& event, const char* reason)
 
     // Hidden (a fullscreen app, decision 032): the shortcuts let go of their keys, so that app gets them.
     // Last: Settings republishes, which dispatches again.
-    if (g_state.hidden != wasHidden && g_settings) g_settings->setHotkeysActive(!g_state.hidden);
+    if (island && g_state.hidden != wasHidden && g_settings) g_settings->setHotkeysActive(!g_state.hidden);
     // A card went: its provider may reset it (Settings opens at its list again).
     // ...and one came: what's on it is seen now (Settings' "New" tags, decision 048).
     std::optional<ShownCard> nowCard = shownCard(g_state);
@@ -417,7 +448,7 @@ void dispatch(const Event& event, const char* reason)
         if (wasCard) g_providers->cardClosed(*wasCard);
         if (nowCard) g_providers->cardShown(*nowCard);
     }
-    app::settleFilePicker(); // lent to a file dialog, the island goes home when the picking card closes (decision 181)
+    if (!island) app::settleFilePicker(); // the dialog's island: its card opening or closing changes where it hangs (decision 181)
 }
 
 void toggleProvider(const char* id)
@@ -548,7 +579,8 @@ void onPressDown(app::Surface& s, Vec2 canvasPoint)
     if (!onBubble(s, canvasPoint)) {
         // Held still, the island lifts (decision 026). Core ignores it where
         // it can't (Expanded), and then the press is only what it always was.
-        dispatch(IslandPressed{}, "press");
+        // The dialog's island stays with its dialog (decision 181).
+        if (g_seat == Seat::Island) dispatch(IslandPressed{}, "press");
         if (g_state.pressedAt) s.pointer.islandPress = canvasPoint;
     }
     if (onBubble(s, canvasPoint)) {
@@ -922,38 +954,6 @@ void onKey(WPARAM key)
     }
 }
 
-// Where the render layer hangs from: its monitor's top edge, or, lent to a
-// file dialog, that dialog's bottom edge (decision 181). Across the monitor either way.
-Rect layerStrip()
-{
-    Rect strip = g_displayBounds;
-    if (g_hangTop) strip.y = *g_hangTop;
-    return strip;
-}
-
-void placeIsland(const std::string& displayId, std::optional<Vec2> carriedAt);
-
-// Lent to a file dialog (decision 181): the layers hang at `place`, on the
-// dialog's monitor; none: back at their own monitor's top. Another monitor
-// is another width and scale, as when the island is moved there (placeIsland);
-// on the same one only the layers move, and core isn't told.
-void hangLayers(std::optional<app::HangPlace> place)
-{
-    if (place && !g_homeDisplay && place->displayId != g_displayId) g_homeDisplay = g_displayId;
-    std::string display = place ? place->displayId : g_homeDisplay.value_or(g_displayId);
-    if (!place) g_homeDisplay.reset();
-    std::optional<float> top = place ? std::optional<float>(place->top) : std::nullopt;
-    if (top == g_hangTop && display == g_displayId) return; // where they are: a move would start liquid glass over
-    g_hangTop = top;
-    if (display != g_displayId) {
-        placeIsland(display, std::nullopt);
-        return;
-    }
-    resizeRenderLayer(g_render, tokens().canvas, layerStrip());
-    setRenderOrigin(g_render.left, g_render.top);
-    g_renderer.layerChanged();
-}
-
 // New tokens are active (a tokens.json save, or a new display scale): resize
 // the render layer if the canvas changed, rebuild the content, re-layout.
 // The render layer and the interaction layer, centred at the top of the island's monitor.
@@ -961,9 +961,10 @@ void hangLayers(std::optional<app::HangPlace> place)
 // monitor (decision 178): it goes on from under the pointer, still lifted.
 void positionLayers(std::optional<Vec2> carriedAt = std::nullopt)
 {
+    At island(Seat::Island); // the island's layers, whoever asks
     Display display = displayFor(g_displayId);
     g_displayBounds = display.bounds;
-    resizeRenderLayer(g_render, tokens().canvas, layerStrip());
+    resizeRenderLayer(g_render, tokens().canvas, g_displayBounds);
     std::optional<Vec2> window;
     if (carriedAt) {
         // The window (it has capture, so where hardly matters) goes under the
@@ -973,8 +974,8 @@ void positionLayers(std::optional<Vec2> carriedAt = std::nullopt)
         float room = std::max(static_cast<float>(g_render.width) - was.width, 0.0f);
         window = Vec2{ std::clamp(carriedAt->x - static_cast<float>(g_render.left) - was.width / 2, 0.0f, room), was.y };
     }
-    setRenderOrigin(g_render.left, g_render.top, window);
-    g_renderer.layerChanged(); // liquid glass draws at the layer's size, from its monitor's picture (decision 165)
+    setRenderOrigin(g_island.input, g_render.left, g_render.top, window);
+    renderer().layerChanged(); // liquid glass draws at the layer's size, from its monitor's picture (decision 165)
     float width = static_cast<float>(g_render.width);
     if (carriedAt) dispatch(IslandCarried{ width, carriedAt->x - static_cast<float>(g_render.left) }, "carried to another monitor");
     else dispatch(ScreenResized{ width }, "screen");
@@ -984,9 +985,9 @@ void positionLayers(std::optional<Vec2> carriedAt = std::nullopt)
 // button isn't clicked, a scrub doesn't seek) and the pill un-squashes.
 void onLifted()
 {
-    if (!g_island.pointer.pressedKey.empty()) g_renderer.releaseElement(std::exchange(g_island.pointer.pressedKey, std::string{}));
-    if (g_island.pointer.scrub) g_renderer.endScrub(std::exchange(g_island.pointer.scrub, std::nullopt)->key, std::nullopt, now());
-    g_renderer.pressRelease(false);
+    if (!g_island.pointer.pressedKey.empty()) renderer().releaseElement(std::exchange(g_island.pointer.pressedKey, std::string{}));
+    if (g_island.pointer.scrub) renderer().endScrub(std::exchange(g_island.pointer.scrub, std::nullopt)->key, std::nullopt, now());
+    renderer().pressRelease(false);
     g_island.pointer.at.reset();
     updateHover(g_island);
 }
@@ -1031,10 +1032,17 @@ void applyWindowTheme()
 
 void tokensChanged(Vec2 oldCanvas, const char* reason)
 {
+    At island(Seat::Island);
     if (tokens().canvas != oldCanvas) positionLayers();
-    g_renderer.refreshAnimations(); // also drops content visuals, so they're redrawn at the new sizes
+    renderer().refreshAnimations(); // also drops content visuals, so they're redrawn at the new sizes
     app::refreshWindows();          // providers' windows too: a theme recolours them (decision 104)
     dispatch(Tick{}, reason);
+    if (!g_dialogIsland) return;
+    // The file dialog's island too (decision 181): its layer is the canvas's size.
+    At dialog(Seat::Dialog);
+    renderer().refreshAnimations();
+    dispatch(ScreenResized{ tokens().canvas.x }, reason);
+    app::refitFilePicker();
 }
 
 // Display scale changed (Settings, or the primary display was swapped): every
@@ -1048,6 +1056,11 @@ void onDpiChanged(float scale)
 void onTimer(TimerId id)
 {
     if (id == TimerId::Deadline) {
+        if (g_dialogIsland) { // the file dialog's island shares the timer (decision 181)
+            At dialog(Seat::Dialog);
+            g_providers->wakeDue(now());
+            dispatch(Tick{}, "timer");
+        }
         g_providers->wakeDue(now());
         // Re-read the wall clock every time: it also does Tick's work, and a
         // clock or time-zone change shows within a minute (decision 009).
@@ -1127,6 +1140,127 @@ void applyTheme(const std::string& name)
 
 } // namespace
 
+// What an island's window does with the pointer and the keys: the same for
+// both (decision 181), each on its own island, whichever is being worked on
+// when the message comes.
+InteractionCallbacks pointerAndKeys(Seat seat)
+{
+    InteractionCallbacks callbacks;
+    callbacks.onPressDown = [seat](Vec2 point) {
+        At at(seat);
+        onPressDown(g_island, point);
+    };
+    callbacks.onPressRelease = [seat](Vec2 point, Release how) {
+        At at(seat);
+        onPressRelease(g_island, point, how);
+    };
+    callbacks.onClickOutside = [seat] {
+        At at(seat);
+        if (g_state.card.menu) dispatch(MenuClosed{}, "click outside"); // pinned, the card stays; its menu doesn't
+        finishEditing("edit kept"); // the card closes: what was typed into a to-do stays
+        dispatch(ClickedOutside{}, "click outside");
+    };
+    callbacks.onPointerMoved = [seat](Vec2 point, bool inside) {
+        At at(seat);
+        onPointerMoved(g_island, point, inside);
+    };
+    callbacks.onRightClick = [seat](Vec2 point) { // a row's menu (decision 086)
+        At at(seat);
+        app::menuRightClick(toLocal(g_island, point));
+    };
+    callbacks.onPointerLeft = [seat] {
+        At at(seat);
+        g_island.pointer.at.reset();
+        updateHover(g_island);
+    };
+    callbacks.onKeyDown = [seat](WPARAM key) {
+        At at(seat);
+        onKey(key);
+    };
+    callbacks.onChar = [seat](wchar_t c) {
+        At at(seat);
+        onChar(c);
+    };
+    callbacks.onWheel = [seat](Vec2 point, float notches) {
+        At at(seat);
+        onWheel(g_island, point, notches);
+    };
+    return callbacks;
+}
+
+// The file dialog's island (decision 181): a second island, hidden until a
+// dialog is in front (app/file_picker shows it and keeps it by the dialog).
+// Its layer is the canvas's size, with the island centred along its top, so
+// it moves with the dialog as one piece. One provider: a Search of its own
+// that picks a file, kept in memory only (no history on disk).
+void buildDialogIsland(HINSTANCE instance, ProviderRegistry::ServiceCaller services, SearchHooks search)
+{
+    At dialog(Seat::Dialog); // from here to the end, the globals are its
+    Vec2 canvas = tokens().canvas;
+    g_render = createRenderLayer(instance, canvas, Rect{ 0, 0, canvas.x, canvas.y });
+    if (!g_render.hwnd) {
+        logLine("failed to create the file dialog island's render window (0x%08lx)", GetLastError());
+        return;
+    }
+    g_state = reduce(IslandState{}, ScreenResized{ static_cast<float>(g_render.width) }, now());
+    g_island = app::Surface{};
+    g_island.scene = layout(g_state, now());
+    g_island.renderer = &g_dialogRenderer;
+    g_dialogRenderer.setWindow(g_render.hwnd);
+    g_dialogRenderer.build(g_render.compositor, g_render.root, g_island.scene);
+    Rect bounds = interactiveBounds(g_island.scene);
+    g_inputHwnd = createInteractionLayer(instance, g_render.left, g_render.top, { bounds.width, bounds.height }, { bounds.x, bounds.y },
+                                         pointerAndKeys(Seat::Dialog));
+    if (!g_inputHwnd) {
+        logLine("failed to create the file dialog island's interaction window (0x%08lx)", GetLastError());
+        return;
+    }
+    g_island.input = g_inputHwnd;
+    g_providers = std::make_unique<ProviderRegistry>(
+        [](const Event& event, const char* reason) {
+            At at(Seat::Dialog);
+            dispatch(event, reason);
+        },
+        now);
+    g_providers->setServiceCaller(std::move(services));
+    g_providers->add(std::make_unique<SearchProvider>(std::move(search)));
+    g_providers->grant(SearchProvider::kId, "index");
+    g_dialogIsland = true; // before its provider's first dispatch: the timer is for both from here
+    g_providers->start(SearchProvider::kId);
+
+    app::watchFilePicker({
+        .onIsland = [](const std::function<void()>& work) {
+            At at(Seat::Dialog);
+            work();
+        },
+        .state = []() -> const IslandState& { return g_state; },
+        .dispatch = dispatch,
+        .workAreaOf = [](Rect dialogFrame) {
+            Vec2 middle{ dialogFrame.x + dialogFrame.width / 2, dialogFrame.y + dialogFrame.height / 2 };
+            return displayAt(middle).value_or(displayFor(g_displayId)).workArea; // between monitors: as if on the island's
+        },
+        .moveTo = [](Vec2 origin) {
+            Vec2 size = tokens().canvas;
+            resizeRenderLayer(g_render, size, Rect{ origin.x, origin.y, size.x, size.y });
+            setRenderOrigin(g_island.input, g_render.left, g_render.top);
+            renderer().layerChanged();
+        },
+        .setVisible = [](bool visible) {
+            ShowWindow(g_render.hwnd, visible ? SW_SHOWNOACTIVATE : SW_HIDE);
+            ShowWindow(g_inputHwnd, visible ? SW_SHOWNOACTIVATE : SW_HIDE);
+        },
+        .fade = [](bool in) {
+            if (in) {
+                g_render.root.StopAnimation(L"Opacity");
+                g_render.root.Opacity(0.0f);
+            }
+            fadeTo(g_render.compositor, g_render.root, in ? 1.0f : 0.0f, tokens().pickerFade);
+        },
+        .focus = [] { bringToFront(g_inputHwnd); },
+        .hasKeys = [] { return GetForegroundWindow() == g_inputHwnd; },
+    });
+}
+
 int main()
 {
     // First, before the log: a turned-away second copy must not touch the
@@ -1173,26 +1307,16 @@ int main()
     g_renderer.setWindow(render.hwnd); // liquid glass captures its monitor (decision 165)
     g_renderer.build(render.compositor, render.root, g_island.scene);
 
-    InteractionCallbacks callbacks;
-    callbacks.onPressDown = [](Vec2 point) { onPressDown(g_island, point); };
-    callbacks.onPressRelease = [](Vec2 point, Release how) { onPressRelease(g_island, point, how); };
-    callbacks.onClickOutside = [] {
-        if (g_state.card.menu) dispatch(MenuClosed{}, "click outside"); // pinned, the card stays; its menu doesn't
-        finishEditing("edit kept"); // the card closes: what was typed into a to-do stays
-        dispatch(ClickedOutside{}, "click outside");
+    InteractionCallbacks callbacks = pointerAndKeys(Seat::Island);
+    callbacks.onHotkey = [](WPARAM id) {
+        At island(Seat::Island);
+        app::hotkeyPressed(id);
     };
-    callbacks.onPointerMoved = [](Vec2 point, bool inside) { onPointerMoved(g_island, point, inside); };
-    callbacks.onRightClick = [](Vec2 point) { app::menuRightClick(toLocal(g_island, point)); }; // a row's menu (decision 086)
-    callbacks.onPointerLeft = [] {
-        g_island.pointer.at.reset();
-        updateHover(g_island);
-    };
-    callbacks.onKeyDown = onKey;
-    callbacks.onHotkey = app::hotkeyPressed;
-    callbacks.onChar = onChar;
     callbacks.onDpiChanged = onDpiChanged;
-    callbacks.onWheel = [](Vec2 point, float notches) { onWheel(g_island, point, notches); };
-    callbacks.onTimer = onTimer;
+    callbacks.onTimer = [](TimerId id) {
+        At island(Seat::Island);
+        onTimer(id);
+    };
     callbacks.onDisplaysChanged = [] {
         // Re-lists the monitors and puts the island back where it was picked.
         if (g_settings) g_settings->refreshDisplays();
@@ -1231,7 +1355,12 @@ int main()
         uiQueue.TryEnqueue([work = std::move(work)] { guardedTask("in a provider's posted work", work); });
     };
 
-    g_providers = std::make_unique<ProviderRegistry>(dispatch, now, ProviderRegistry::Store{
+    // Its providers' events are the island's, whichever island is being worked on when they come (decision 181).
+    auto toIsland = [](const Event& event, const char* reason) {
+        At island(Seat::Island);
+        dispatch(event, reason);
+    };
+    g_providers = std::make_unique<ProviderRegistry>(toIsland, now, ProviderRegistry::Store{
         .load = [](const std::string& provider, const std::string& key) { return store().load(provider, key); },
         .save = [](const std::string& provider, const std::string& key, const std::string& text) { store().save(provider, key, text); },
         .wallClock = wallClock,
@@ -1382,8 +1511,6 @@ int main()
         .properties = showProperties,
         .copyText = [](const std::string& text) { return writeClipboardText(g_inputHwnd, text); },
         .copyFile = copyFileToClipboard,
-        .giveToDialog = giveToFileDialog, // by a file dialog, a result goes to it (decision 181)
-        .sayByDialog = app::sayByFileDialog,
         // Twice the icon's size: sharp at 200% scaling, drawn smaller below it.
         .loadIcon = [](const std::string& target, std::function<void(std::shared_ptr<const ImageData>)> done) {
             loadIcon(target, static_cast<int>(std::lround(2 * tokens().resultIconSize)), std::move(done));
@@ -1393,7 +1520,6 @@ int main()
         .windowsBuild = windowsBuild(),
         .russian = russianUi(),
     });
-    SearchProvider* searchProvider = search.get(); // owned by g_providers; told when a file dialog is in front
     g_providers->add(std::move(search));
     g_providers->grant(SearchProvider::kId, "index");
     g_providers->grant(SearchProvider::kId, ProviderRegistry::kCommandsGrant); // providers' commands among its results (decision 160)
@@ -1408,27 +1534,30 @@ int main()
     dispatch(readWallClock(), "clock");
 
     // TR §9.2: hide over borderless/exclusive fullscreen apps on this monitor.
-    watchFullscreen(render.hwnd, [](bool fullscreen) { dispatch(HiddenChanged{ fullscreen }, "fullscreen"); });
-
-    // A file dialog in front (decision 181): a pill of its own under it; clicked, the island
-    // comes there with Search's card, which picks the dialog's file.
-    createPickerPill(instance, render.compositor, g_renderer.device(), app::filePillClicked);
-    app::watchFilePicker({
-        .state = []() -> const IslandState& { return g_state; },
-        .dispatch = dispatch,
-        .displayOf = [](Rect dialog) {
-            Display here = displayFor(g_homeDisplay.value_or(g_displayId)); // between monitors: as if on the island's
-            Display on = displayAt({ dialog.x + dialog.width / 2, dialog.y + dialog.height / 2 }).value_or(here);
-            return app::PickerDisplay{ on.id == here.id ? g_homeDisplay.value_or(g_displayId) : on.id, on.workArea };
-        },
-        .hang = hangLayers,
-        .layerLeft = [] { return static_cast<float>(g_render.left); },
-        .focus = [] { bringToFront(g_inputHwnd); },
-        .veil = veilIsland,
-        .unveil = unveilIsland,
-        .morphTime = [] { return g_morphTime; },
-        .search = searchProvider,
+    watchFullscreen(render.hwnd, [](bool fullscreen) {
+        At island(Seat::Island);
+        dispatch(HiddenChanged{ fullscreen }, "fullscreen");
     });
+
+    // A file dialog in front (decision 181): an island of its own hangs from it, with one
+    // activity, a second Search that picks the dialog's file. It keeps nothing between runs.
+    buildDialogIsland(instance,
+                      [services](const std::string& method, const std::string& params, std::function<void(ServiceReply)> done) {
+                          services->call(method, params, std::move(done));
+                      },
+                      SearchHooks{
+                          .exists = pathExists,
+                          .copyText = [](const std::string& text) { return writeClipboardText(g_inputHwnd, text); },
+                          .giveToDialog = giveToFileDialog,
+                          .forDialog = true,
+                          .loadIcon = [](const std::string& target, std::function<void(std::shared_ptr<const ImageData>)> done) {
+                              loadIcon(target, static_cast<int>(std::lround(2 * tokens().resultIconSize)), std::move(done));
+                          },
+                          .variable = environmentVariable,
+                          .home = userFolder(),
+                          .windowsBuild = windowsBuild(),
+                          .russian = russianUi(),
+                      });
 
     // Debounced: one save fires several notifications; reload once it settles.
     watchDirectoryOf(g_tokensFile, [] { setTimerFromAnyThread(TimerId::TokensReload, Ms{ 50 }); });

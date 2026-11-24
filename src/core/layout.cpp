@@ -217,8 +217,9 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     scene.bubbleTuck = { scene.offset.x + scene.size.x - tuckInset, scene.offset.y };
     if (scene.mode == Mode::Split && !scene.lifted) scene.bubble = bubbleFor(state, now); // lifted: tucked into the pill
     scene.dropTarget = swapPreview(state);
-    // Not lent to a file dialog (decision 181): its top is the dialog's edge there.
-    if (scene.mode == Mode::Expanded && !state.picker) scene.collapseZone = Rect{ 0, 0, scene.size.x, std::min(tokens().collapseZoneHeight, scene.size.y) };
+    // Not a card hung from a window (Content::noTopBand, decision 181): its top is that window's edge.
+    const Content* shown = scene.mode == Mode::Expanded ? cardContent(state, state.expandedId) : nullptr;
+    if (scene.mode == Mode::Expanded && !(shown && shown->noTopBand)) scene.collapseZone = Rect{ 0, 0, scene.size.x, std::min(tokens().collapseZoneHeight, scene.size.y) };
 
     if (scene.mode == Mode::Idle) placeClock(state, scene, measureText);
 

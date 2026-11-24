@@ -38,35 +38,17 @@ bool isFileNameField(const std::vector<std::string>& chain)
     return true;
 }
 
-Hang hangUnder(Rect dialog, Rect workArea, bool cardOpen)
+DialogPlace placeByDialog(Rect dialog, Rect workArea, Vec2 canvas, float pillHeight, bool cardOpen)
 {
     float bottom = dialog.y + dialog.height, floor = workArea.y + workArea.height;
-    float top = bottom;
-    if (cardOpen) top = std::max(std::min(bottom, floor - tokens().pickerCardRoom), workArea.y);
-    return { top, dialog.x + dialog.width / 2 };
-}
-
-PillPlace pillPlace(Rect dialog, Rect workArea, Vec2 size)
-{
-    Hang under = hangUnder(dialog, workArea, false);
-    float left = under.centre - size.x / 2;
-    bool fitsUnder = under.top + size.y <= workArea.y + workArea.height;
-    bool fitsAbove = dialog.y - size.y >= workArea.y;
+    float left = dialog.x + dialog.width / 2 - canvas.x / 2;
+    float room = workArea.x + workArea.width - canvas.x; // the rightmost it may start
+    left = room < workArea.x ? workArea.x : std::clamp(left, workArea.x, room);
+    if (cardOpen) return { { snapEdge(left), snapEdge(std::max(std::min(bottom, floor - tokens().pickerCardRoom), workArea.y)) }, false };
+    bool fitsUnder = bottom + pillHeight <= floor;
+    bool fitsAbove = dialog.y - pillHeight >= workArea.y;
     bool above = !fitsUnder && fitsAbove;
-    return { snapToPixels({ left, above ? dialog.y - size.y : under.top, size.x, size.y }), above };
-}
-
-std::string pickingCard(const IslandState& s)
-{
-    for (const Panel& p : s.panels)
-        if (p.picksFiles && p.tapAction.empty() && hasCard(p.content)) return p.id;
-    return {};
-}
-
-bool isPickingCard(const IslandState& s, const std::string& id)
-{
-    const Panel* p = findPanel(s, id);
-    return p && p->picksFiles;
+    return { { snapEdge(left), snapEdge(above ? dialog.y - pillHeight : bottom) }, above };
 }
 
 } // namespace cup

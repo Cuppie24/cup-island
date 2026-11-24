@@ -29,13 +29,8 @@ constexpr UINT WM_APP_SET_TIMER = WM_APP + 2;
 // GUID_CONSOLE_DISPLAY_STATE, spelled out: winnt.h only declares it.
 constexpr GUID kConsoleDisplayState{ 0x6fe69556, 0x704a, 0x47a0, { 0x8f, 0x24, 0xc2, 0x8d, 0x93, 0x6f, 0xda, 0x47 } };
 
-HWND g_hwnd{};
+HWND g_hwnd{}; // the first one made, the island's: the app's timers, hotkeys and posted messages are its
 DWORD g_screenState = 1; // on; logged when it changes
-int g_renderLeft = 0;
-int g_renderTop = 0; // monitors above or below the primary don't start at y = 0
-InteractionCallbacks g_callbacks;
-bool g_pressed = false;
-bool g_trackingLeave = false; // TrackMouseEvent armed: WM_MOUSELEAVE will come
 bool g_textCursor = false;    // over a text field: the I-beam (decision 043)
 
 void showCursor() { SetCursor(LoadCursorW(nullptr, g_textCursor ? IDC_IBEAM : IDC_ARROW)); }
@@ -51,44 +46,81 @@ struct MorphFollower {
     std::chrono::steady_clock::time_point start{};
     bool clockPending = false;         // start the clock on the next compositor tick
     std::atomic<bool> active{ false }; // the only field the tick thread reads
-} g_morph;
+};
 HANDLE g_morphStartedEvent{};
 
-void snap(Vec2 size, Vec2 offset)
+// One interaction window: the island's, and the file dialog's island's
+// (decision 181). Each follows its own island's morph.
+struct Layer {
+    HWND hwnd{};
+    int renderLeft = 0;
+    int renderTop = 0; // monitors above or below the primary don't start at y = 0
+    InteractionCallbacks callbacks;
+    bool pressed = false;
+    bool trackingLeave = false; // TrackMouseEvent armed: WM_MOUSELEAVE will come
+    MorphFollower morph;
+};
+// Never moved (the tick thread reads their `active`), and the count only grows.
+constexpr int kMaxLayers = 2;
+Layer g_layers[kMaxLayers];
+std::atomic<int> g_layerCount{ 0 };
+Layer* g_creating = nullptr; // messages sent while its window is being created are its
+
+Layer* layerOf(HWND hwnd)
 {
-    g_morph.size = size;
-    g_morph.offset = offset;
-    SetWindowPos(g_hwnd, nullptr,
-        g_renderLeft + static_cast<int>(std::lround(offset.x)),
-        g_renderTop + static_cast<int>(std::lround(offset.y)),
+    for (int i = 0; i < g_layerCount; ++i)
+        if (g_layers[i].hwnd == hwnd) return &g_layers[i];
+    return g_creating;
+}
+
+bool anyMorphActive()
+{
+    for (int i = 0; i < g_layerCount; ++i)
+        if (g_layers[i].morph.active) return true;
+    return false;
+}
+
+void snap(Layer& layer, Vec2 size, Vec2 offset)
+{
+    layer.morph.size = size;
+    layer.morph.offset = offset;
+    SetWindowPos(layer.hwnd, nullptr,
+        layer.renderLeft + static_cast<int>(std::lround(offset.x)),
+        layer.renderTop + static_cast<int>(std::lround(offset.y)),
         static_cast<int>(std::lround(size.x)),
         static_cast<int>(std::lround(size.y)),
         SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 // UI thread, once per compositor frame while a morph is active.
-void onCompositorTick()
+void tickMorph(Layer& layer)
 {
-    if (!g_morph.active) return;
+    MorphFollower& morph = layer.morph;
+    if (!morph.active) return;
 
     auto now = std::chrono::steady_clock::now();
-    if (g_morph.clockPending) {
+    if (morph.clockPending) {
         // The commit carrying the new targets lands on this frame, so the
         // compositor's clock for the animation starts now too.
-        g_morph.start = now;
-        g_morph.clockPending = false;
+        morph.start = now;
+        morph.clockPending = false;
     }
-    const Motion& m = g_morph.motion;
-    float t = std::chrono::duration<float>(now - g_morph.start) / std::max(m.duration, Ms{ 1 });
+    const Motion& m = morph.motion;
+    float t = std::chrono::duration<float>(now - morph.start) / std::max(m.duration, Ms{ 1 });
     if (t >= 1.0f) {
-        g_morph.active = false;
-        snap(g_morph.toSize, g_morph.toOffset);
+        morph.active = false;
+        snap(layer, morph.toSize, morph.toOffset);
         return;
     }
     // The renderer's keyframes are samples of this same curve (platform/spring_motion.h).
     float e = springProgress(m, t), push = springCarry(m, t) * static_cast<float>(m.duration.count());
-    Vec2 offset = lerp(g_morph.fromOffset, g_morph.toOffset, e);
-    snap(lerp(g_morph.fromSize, g_morph.toSize, e), { offset.x + g_morph.fling.x * push, offset.y + g_morph.fling.y * push });
+    Vec2 offset = lerp(morph.fromOffset, morph.toOffset, e);
+    snap(layer, lerp(morph.fromSize, morph.toSize, e), { offset.x + morph.fling.x * push, offset.y + morph.fling.y * push });
+}
+
+void onCompositorTick()
+{
+    for (int i = 0; i < g_layerCount; ++i) tickMorph(g_layers[i]);
 }
 
 // Blocks until the next composed frame. Windows 11 has a compositor clock
@@ -127,7 +159,7 @@ void compositorTickThread()
     WaitForCompositorClock compositorClock = findCompositorClock();
     for (;;) {
         WaitForSingleObject(g_morphStartedEvent, INFINITE);
-        while (g_morph.active) {
+        while (anyMorphActive()) {
             waitForNextFrame(compositorClock);
             PostMessageW(g_hwnd, WM_APP_COMPOSITOR_TICK, 0, 0);
         }
@@ -136,9 +168,9 @@ void compositorTickThread()
 
 // Client coordinates -> render-layer coordinates. Signed: with capture, a
 // drag reports points left of / above the window as negative.
-Vec2 pointFrom(LPARAM lParam)
+Vec2 pointFrom(const Layer& layer, LPARAM lParam)
 {
-    return { static_cast<float>(GET_X_LPARAM(lParam)) + g_morph.offset.x, static_cast<float>(GET_Y_LPARAM(lParam)) + g_morph.offset.y };
+    return { static_cast<float>(GET_X_LPARAM(lParam)) + layer.morph.offset.x, static_cast<float>(GET_Y_LPARAM(lParam)) + layer.morph.offset.y };
 }
 
 bool inside(HWND hwnd, LPARAM lParam)
@@ -157,9 +189,12 @@ void call(const F& callback, Args... args)
 
 LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 try {
+    Layer* at = layerOf(hwnd);
+    if (!at) return DefWindowProcW(hwnd, message, wParam, lParam);
+    Layer& layer = *at;
     // A registered message isn't a compile-time constant, so it can't be a case.
     if (message == showYourselfMessage()) {
-        call(g_callbacks.onShowRequested);
+        call(layer.callbacks.onShowRequested);
         return 0;
     }
     if (message == watchdogPing()) { // posted: handled only once this thread is back in its loop (decision 144)
@@ -176,39 +211,39 @@ try {
         return 0;
 
     case WM_LBUTTONDOWN: // this window is exactly the pill (and bubble)
-        g_pressed = true;
+        layer.pressed = true;
         SetCapture(hwnd);
-        call(g_callbacks.onPressDown, pointFrom(lParam));
+        call(layer.callbacks.onPressDown, pointFrom(layer, lParam));
         return 0;
 
     case WM_LBUTTONUP:
-        if (g_pressed) {
+        if (layer.pressed) {
             // Cleared before ReleaseCapture, so the WM_CAPTURECHANGED it sends isn't a cancel.
-            g_pressed = false;
+            layer.pressed = false;
             ReleaseCapture();
             // With capture we get this even if the press was dragged off the window.
-            call(g_callbacks.onPressRelease, pointFrom(lParam), inside(hwnd, lParam) ? Release::Inside : Release::Outside);
+            call(layer.callbacks.onPressRelease, pointFrom(layer, lParam), inside(hwnd, lParam) ? Release::Inside : Release::Outside);
         }
         return 0;
 
     case WM_RBUTTONUP: // a row's menu, at the pointer (decision 086); not on the way down, as Windows' own menus
-        if (!g_pressed) call(g_callbacks.onRightClick, pointFrom(lParam));
+        if (!layer.pressed) call(layer.callbacks.onRightClick, pointFrom(layer, lParam));
         return 0;
 
     case WM_CAPTURECHANGED:
         // Capture taken by someone else mid-press: spring back, don't stick.
-        if (g_pressed) {
-            g_pressed = false;
-            call(g_callbacks.onPressRelease, Vec2{}, Release::Cancelled);
+        if (layer.pressed) {
+            layer.pressed = false;
+            call(layer.callbacks.onPressRelease, Vec2{}, Release::Cancelled);
         }
         return 0;
 
     case WM_MOUSEMOVE:
-        if (!g_trackingLeave) {
+        if (!layer.trackingLeave) {
             TRACKMOUSEEVENT track{ sizeof(track), TME_LEAVE, hwnd, 0 };
-            g_trackingLeave = TrackMouseEvent(&track) != FALSE;
+            layer.trackingLeave = TrackMouseEvent(&track) != FALSE;
         }
-        call(g_callbacks.onPointerMoved, pointFrom(lParam), inside(hwnd, lParam));
+        call(layer.callbacks.onPointerMoved, pointFrom(layer, lParam), inside(hwnd, lParam));
         return 0;
 
     case WM_SETCURSOR:
@@ -223,32 +258,32 @@ try {
         float notches = -static_cast<float>(GET_WHEEL_DELTA_WPARAM(wParam)) / WHEEL_DELTA;
         POINT pt{ GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) }; // screen coordinates, unlike the other mouse messages
         ScreenToClient(hwnd, &pt);
-        if (notches != 0) call(g_callbacks.onWheel, pointFrom(MAKELPARAM(pt.x, pt.y)), notches);
+        if (notches != 0) call(layer.callbacks.onWheel, pointFrom(layer, MAKELPARAM(pt.x, pt.y)), notches);
         return 0;
     }
 
     case WM_MOUSELEAVE: // hover ends; one-shot, re-armed by the next move
-        g_trackingLeave = false;
-        call(g_callbacks.onPointerLeft);
+        layer.trackingLeave = false;
+        call(layer.callbacks.onPointerLeft);
         return 0;
 
     case WM_ACTIVATE:
         // A click outside the pill never reaches us (render layer is
         // click-through), so it activates whatever it hit, deactivating us.
-        if (LOWORD(wParam) == WA_INACTIVE) call(g_callbacks.onClickOutside);
+        if (LOWORD(wParam) == WA_INACTIVE) call(layer.callbacks.onClickOutside);
         break;
 
     case WM_TIMER:
         KillTimer(hwnd, wParam); // all timers are one-shot
-        call(g_callbacks.onTimer, static_cast<TimerId>(wParam));
+        call(layer.callbacks.onTimer, static_cast<TimerId>(wParam));
         return 0;
 
     case WM_KEYDOWN:
-        call(g_callbacks.onKeyDown, wParam);
+        call(layer.callbacks.onKeyDown, wParam);
         return 0;
 
     case WM_SYSKEYDOWN: // with Alt held: a shortcut being recorded needs it (decision 032)
-        call(g_callbacks.onKeyDown, wParam);
+        call(layer.callbacks.onKeyDown, wParam);
         break;           // and Windows' own handling still runs (Alt+Space, Alt+Tab...)
 
     case WM_SYSCOMMAND:
@@ -259,27 +294,27 @@ try {
         break;
 
     case WM_HOTKEY:
-        call(g_callbacks.onHotkey, wParam);
+        call(layer.callbacks.onHotkey, wParam);
         return 0;
 
     case WM_CHAR:
-        call(g_callbacks.onChar, static_cast<wchar_t>(wParam));
+        call(layer.callbacks.onChar, static_cast<wchar_t>(wParam));
         return 0;
 
     case WM_DPICHANGED:
         // Handled, not passed on: the app resizes everything itself (tokens are
         // rescaled), so Windows' suggested rectangle for this window is ignored.
-        call(g_callbacks.onDpiChanged, static_cast<float>(LOWORD(wParam)) / 96.0f);
+        call(layer.callbacks.onDpiChanged, static_cast<float>(LOWORD(wParam)) / 96.0f);
         return 0;
 
     case WM_DISPLAYCHANGE: // sent to every top-level window
-        call(g_callbacks.onDisplaysChanged);
+        call(layer.callbacks.onDisplaysChanged);
         return 0;
 
     case WM_SETTINGCHANGE: // also to every top-level window; wParam names what changed
-        if (wParam == SPI_SETCLIENTAREAANIMATION) call(g_callbacks.onAnimationSettingChanged);
+        if (wParam == SPI_SETCLIENTAREAANIMATION) call(layer.callbacks.onAnimationSettingChanged);
         // "Transparency effects" says only this: the colour set changed.
-        if (lParam && std::wcscmp(reinterpret_cast<const wchar_t*>(lParam), L"ImmersiveColorSet") == 0) call(g_callbacks.onColourSettingChanged);
+        if (lParam && std::wcscmp(reinterpret_cast<const wchar_t*>(lParam), L"ImmersiveColorSet") == 0) call(layer.callbacks.onColourSettingChanged);
         break;
 
     case WM_POWERBROADCAST: // only logged: a user's log then shows what happened around a sleep (decisions 060, 144)
@@ -296,7 +331,7 @@ try {
         return TRUE;
 
     case WM_DESTROY:
-        PostQuitMessage(0);
+        if (hwnd == g_hwnd) PostQuitMessage(0); // the island's: the app ends with it
         return 0;
     }
     return DefWindowProcW(hwnd, message, wParam, lParam);
@@ -321,29 +356,41 @@ catch (...) {
 
 HWND createInteractionLayer(HINSTANCE instance, int renderLeft, int renderTop, Vec2 size, Vec2 offset, InteractionCallbacks callbacks)
 {
-    g_renderLeft = renderLeft;
-    g_renderTop = renderTop;
-    g_callbacks = std::move(callbacks);
-    g_morph.size = size;
-    g_morph.offset = offset;
+    int index = g_layerCount;
+    if (index >= kMaxLayers) return nullptr;
+    bool first = index == 0;
+    Layer& layer = g_layers[index];
+    layer.renderLeft = renderLeft;
+    layer.renderTop = renderTop;
+    layer.callbacks = std::move(callbacks);
+    layer.morph.size = size;
+    layer.morph.offset = offset;
 
+    // The island's class is how a second launch finds the running island
+    // (single_instance.h): another island's window mustn't answer to it.
+    const wchar_t* className = first ? kClassName : L"CupIslandInputWindow2";
     WNDCLASSEXW windowClass{ sizeof(windowClass) };
     windowClass.lpfnWndProc = windowProc;
     windowClass.hInstance = instance;
     windowClass.hCursor = LoadCursorW(nullptr, IDC_ARROW);
-    windowClass.lpszClassName = kClassName;
+    windowClass.lpszClassName = className;
     RegisterClassExW(&windowClass);
 
     // No redirection bitmap and no composition target: draws nothing, but as
     // an ordinary (non-layered) window it's hit-tested by its rectangle.
-    g_hwnd = CreateWindowExW(
+    g_creating = &layer;
+    layer.hwnd = CreateWindowExW(
         WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
-        kClassName, L"Cup Island",
+        className, L"Cup Island",
         WS_POPUP,
         renderLeft + static_cast<int>(offset.x), renderTop + static_cast<int>(offset.y),
         static_cast<int>(size.x), static_cast<int>(size.y),
         nullptr, nullptr, instance, nullptr);
-    if (!g_hwnd) return nullptr;
+    g_creating = nullptr;
+    if (!layer.hwnd) return nullptr;
+    g_layerCount = index + 1;
+    if (!first) return layer.hwnd;
+    g_hwnd = layer.hwnd;
 
     // Sleep and wake in the log (decisions 060, 144). A Modern Standby PC
     // doesn't broadcast them: a user's five days of logs had not one line.
@@ -357,26 +404,31 @@ HWND createInteractionLayer(HINSTANCE instance, int renderLeft, int renderTop, V
     return g_hwnd;
 }
 
-void setRenderOrigin(int renderLeft, int renderTop, std::optional<Vec2> offset)
+void setRenderOrigin(HWND window, int renderLeft, int renderTop, std::optional<Vec2> offset)
 {
-    g_renderLeft = renderLeft;
-    g_renderTop = renderTop;
-    if (offset) g_morph.active = false; // it's put there, not on its way
-    snap(g_morph.size, offset.value_or(g_morph.offset));
+    Layer* layer = layerOf(window);
+    if (!layer) return;
+    layer->renderLeft = renderLeft;
+    layer->renderTop = renderTop;
+    if (offset) layer->morph.active = false; // it's put there, not on its way
+    snap(*layer, layer->morph.size, offset.value_or(layer->morph.offset));
 }
 
-void followMorph(Vec2 toSize, Vec2 toOffset, const SceneMotion& motion)
+void followMorph(HWND window, Vec2 toSize, Vec2 toOffset, const SceneMotion& motion)
 {
+    Layer* layer = layerOf(window);
+    if (!layer) return;
+    MorphFollower& morph = layer->morph;
     // Start from wherever the window is now: if a morph is mid-flight, that's
     // also (within a frame) where the compositor picks the new one up from.
-    g_morph.fromSize = g_morph.size;
-    g_morph.fromOffset = g_morph.offset;
-    g_morph.toSize = toSize;
-    g_morph.toOffset = toOffset;
-    g_morph.motion = towardSize(motion.morph, toSize);
-    g_morph.fling = motion.fling;
-    g_morph.clockPending = true;
-    g_morph.active = true;
+    morph.fromSize = morph.size;
+    morph.fromOffset = morph.offset;
+    morph.toSize = toSize;
+    morph.toOffset = toOffset;
+    morph.motion = towardSize(motion.morph, toSize);
+    morph.fling = motion.fling;
+    morph.clockPending = true;
+    morph.active = true;
     SetEvent(g_morphStartedEvent);
 }
 
@@ -387,13 +439,18 @@ void setTextCursor(bool text)
     // Now, not at the next move (WM_SETCURSOR came before the move that changed
     // it); but only over us, or another window's cursor would flicker.
     POINT at{};
-    if (GetCursorPos(&at) && WindowFromPoint(at) == g_hwnd) showCursor();
+    if (!GetCursorPos(&at)) return;
+    HWND under = WindowFromPoint(at);
+    for (int i = 0; i < g_layerCount; ++i)
+        if (g_layers[i].hwnd == under) showCursor();
 }
 
-void jumpTo(Vec2 size, Vec2 offset)
+void jumpTo(HWND window, Vec2 size, Vec2 offset)
 {
-    g_morph.active = false;
-    snap(size, offset);
+    Layer* layer = layerOf(window);
+    if (!layer) return;
+    layer->morph.active = false;
+    snap(*layer, size, offset);
 }
 
 void setTimer(TimerId id, std::optional<std::chrono::milliseconds> delay)

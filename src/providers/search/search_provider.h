@@ -16,10 +16,12 @@
 //     expanded here (the service runs as SYSTEM: expandShortcuts).
 // What was started is remembered per user and ranks higher (LaunchHistory),
 // files opened from it too (recent_files, decision 082).
-// By a file dialog (decision 181) the card picks a file for it instead:
-// files and folders only, nothing before something is typed; a result
-// is given to the dialog (SearchHooks::giveToDialog), and its menu is the
-// picking one (result_menu.h). The app says when (setPicking).
+// A second one, for a file dialog's own island (SearchHooks::forDialog,
+// decision 181), picks a file for the dialog instead: it's an activity there,
+// a pill with a search glyph that opens the card; files and folders only,
+// nothing before something is typed; a result is given to the dialog
+// (SearchHooks::giveToDialog), and its menu is the picking one
+// (result_menu.h). It keeps no history of its own.
 // Pure, tested on Linux: Windows is behind SearchHooks.
 
 #include "core/provider.h"
@@ -54,9 +56,8 @@ struct SearchHooks {
     // to. False if the dialog didn't take it (an elevated app's): the dialog
     // is in front all the same, for the path to be pasted by hand.
     std::function<bool(const std::string& path)> giveToDialog;
-    // A short note shown by the file dialog, on its pill, for a moment
-    // (decision 181). False if it can't be shown there: it's an alert then.
-    std::function<bool(const std::string& text)> sayByDialog;
+    // This one is a file dialog's (decision 181): it picks a file for it.
+    bool forDialog = false;
     // A result's icon as Windows draws it (a file's, an app's), resultIconSize
     // square; `done` on the UI thread, with nothing if there's none.
     std::function<void(const std::string& target, std::function<void(std::shared_ptr<const ImageData>)> done)> loadIcon;
@@ -87,7 +88,7 @@ inline constexpr const char* kShowFolder = "search.showFolder."; // picking (dec
 
 class SearchProvider : public Provider {
 public:
-    explicit SearchProvider(SearchHooks hooks) : hooks_(std::move(hooks)) {}
+    explicit SearchProvider(SearchHooks hooks) : hooks_(std::move(hooks)), picking_(hooks_.forDialog) {}
     ~SearchProvider() override { *alive_ = false; }
 
     static constexpr const char* kId = "search";
@@ -101,11 +102,6 @@ public:
     void onAction(const Action& action) override;
     void onCardShown(const std::string& activityId) override;
     void onCardClosed(const std::string& activityId) override;
-
-    // A file dialog is in front, or no longer (decision 181): the card picks
-    // a file for it, or is the search it always was.
-    void setPicking(bool picking);
-    bool picking() const { return picking_; }
 
     // One result as the card lists it, in its order (for tests).
     struct Result {
@@ -130,7 +126,7 @@ private:
     void reveal(std::size_t index);
     void menuAction(const std::string& verb, std::size_t index); // a menu item's, other than Open and Reveal
     // Picking (decision 181): to the dialog; one that doesn't take it (an elevated
-    // app's) gets it on the clipboard instead, with a note by the dialog saying where to paste it.
+    // app's) gets it on the clipboard instead, with an alert on the dialog's island saying where to paste it.
     bool giveOrCopy(const std::string& path);
     bool forget(const Result& r);                               // Remove from history
     std::shared_ptr<const ImageData> iconFor(const std::string& target); // asks Windows the first time
@@ -145,7 +141,7 @@ private:
     LaunchHistory history_;
     LaunchHistory opened_; // files, by recentKey
     std::string query_;
-    bool picking_ = false;                   // for a file dialog (decision 181)
+    bool picking_ = false;                   // hooks_.forDialog: a file dialog's (decision 181)
     std::vector<const Launchable*> shown_;   // apps, then Settings and Control Panel
     std::vector<indexer::ResultRow> files_;  // then files
     std::string filesNote_;                  // why there are no files ("isn't set up")

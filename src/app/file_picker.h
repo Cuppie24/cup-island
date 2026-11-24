@@ -1,70 +1,44 @@
 #pragma once
-// The app's side of a file dialog in front (decision 181): a pill of its own
-// by the dialog (platform/picker_pill); clicked, the island is lent to the
-// dialog and opens the picking card where the pill was; when that card has
-// closed back to a pill there, the island goes home and the dialog's pill is
-// back. Search is told while a dialog is in front, so its card picks.
-// The rules are core's (core/file_dialog.h, Picker); this makes the calls.
-//
-// The island is never watched travelling between the top of the screen and
-// the dialog (its layers jump): it's made invisible, put there in one step,
-// and shown the moment it takes the pill's place.
+// The app's side of a file dialog in front (decision 181): the dialog has an
+// island of its own (main.cpp builds it), and this keeps it by the dialog:
+// shown while one is in front, hung where core says (core/file_dialog.h:
+// placeByDialog), moved with the dialog, hidden when it goes. The rules are
+// core's; this makes the calls.
 
 #include "core/island.h"
 
 #include <functional>
-#include <optional>
-#include <string>
-
-namespace cup {
-class SearchProvider;
-}
 
 namespace cup::app {
 
-// Where the island's layers hang while lent to a dialog.
-struct HangPlace {
-    std::string displayId; // the dialog's monitor
-    float top = 0;         // their top edge, screen pixels
-};
-
-// The monitor a dialog is on.
-struct PickerDisplay {
-    std::string id;
-    Rect workArea; // it less its taskbar, screen pixels
-};
-
-// What it needs from the app, which owns the state and the layers (main.cpp).
+// What it needs from the app, which owns both islands (main.cpp).
 struct FilePickerHooks {
+    // Runs `work` on the dialog's island: `state`, `dispatch` and the calls
+    // below mean that island inside it, and only there.
+    std::function<void(const std::function<void()>& work)> onIsland;
     std::function<const IslandState&()> state;
     std::function<void(const Event&, const char* reason)> dispatch;
-    std::function<PickerDisplay(Rect dialog)> displayOf;
-    // The island's layers hang there; none: back at their own monitor's top.
-    std::function<void(std::optional<HangPlace>)> hang;
-    std::function<float()> layerLeft; // the render layer's left edge, screen pixels: after hang(), the dialog's monitor's
-    std::function<void()> focus;      // the island takes the keys: the card's field is typed in at once
-    std::function<void()> veil;       // the island invisible, at once
-    std::function<void(bool fade)> unveil; // ...and seen again: at once, or fading in over pickerFade
-    std::function<Ms()> morphTime;    // how long the morph just started runs
-    SearchProvider* search = nullptr; // its card picks the file (SearchProvider::setPicking)
+    std::function<Rect(Rect dialog)> workAreaOf;  // the dialog's monitor less its taskbar, screen pixels
+    std::function<void(Vec2 origin)> moveTo;      // its layers' top left corner there (screen pixels), at once
+    std::function<void(bool visible)> setVisible; // its windows shown (without taking the keys) or hidden
+    std::function<void(bool in)> fade;            // ...fading in from nothing, or out, over pickerFade
+    std::function<void()> focus;                  // it takes the keys: its card's field is typed in
+    std::function<bool()> hasKeys;                // it has them now
 };
 
-// Makes the pill and starts watching. Before the message loop runs, after the providers started.
+// Starts watching for file dialogs. After the dialog's island is built.
 void watchFilePicker(FilePickerHooks hooks);
 
-// The pill was clicked (platform::createPickerPill's onClick).
-void filePillClicked();
-
-// Search's shortcut was pressed. With a file dialog in front it does what the
-// pill does, and pressed again closes that card; true then. False: no dialog,
-// the shortcut is Search's own.
-bool filePickerShortcut();
-
-// A note for the user by the dialog, on its pill (SearchHooks::sayByDialog).
-// False with no dialog in front.
-bool sayByFileDialog(const std::string& text);
-
-// After every dispatch: the picking card closed, so the island leaves and the pill is back.
+// After every dispatch on the dialog's island (called on it): its card
+// opening or closing changes where it hangs, and closed, the dialog has the keys again.
 void settleFilePicker();
+
+// Its layer changed size (new tokens, called on the dialog's island): put by the dialog again.
+void refitFilePicker();
+
+// Search's shortcut was pressed. With a file dialog in front it opens the
+// dialog's island's card, and pressed again closes it; true then. False: no
+// dialog, the shortcut is Search's own.
+bool filePickerShortcut();
 
 } // namespace cup::app

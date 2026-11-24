@@ -45,6 +45,10 @@ struct InteractionCallbacks {
 
 // Creates the window over the pill's initial bounds and starts the
 // compositor-tick thread. Closing it (DestroyWindow) ends the message loop.
+// Called again, it makes another island's (the file dialog's, decision 181:
+// two at most): the same window for it, less the app's own business (the
+// timers, hotkeys and posted messages below stay the first one's, and
+// closing it ends nothing). `window` below says whose.
 HWND createInteractionLayer(HINSTANCE instance, int renderLeft, int renderTop, Vec2 size, Vec2 offset, InteractionCallbacks callbacks);
 
 // The render layer moved (another monitor, or resized for a new display
@@ -52,16 +56,16 @@ HWND createInteractionLayer(HINSTANCE instance, int renderLeft, int renderTop, V
 // `offset`: where the window is in it, when that isn't where it was (a lifted
 // island carried onto that monitor, decision 178: under the pointer, so it's
 // never left on a third monitor, at that one's scaling).
-void setRenderOrigin(int renderLeft, int renderTop, std::optional<Vec2> offset = std::nullopt);
+void setRenderOrigin(HWND window, int renderLeft, int renderTop, std::optional<Vec2> offset = std::nullopt);
 
 // Follow the morph the renderer just started toward these bounds (the pill,
 // plus the bubble in Split), frame by frame (decision 001), along the same
 // spring, carrying the same fling (decision 080).
-void followMorph(Vec2 toSize, Vec2 toOffset, const SceneMotion& motion);
+void followMorph(HWND window, Vec2 toSize, Vec2 toOffset, const SceneMotion& motion);
 
 // Be over these bounds now, with no morph: where a lifted island was let go,
 // so the glide to where it lands is followed from there (decision 026).
-void jumpTo(Vec2 size, Vec2 offset);
+void jumpTo(HWND window, Vec2 size, Vec2 offset);
 
 // The pointer is over a text field (the add field, a to-do being edited):
 // the I-beam instead of the arrow (decision 043).

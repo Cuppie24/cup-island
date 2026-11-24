@@ -1,4 +1,4 @@
-# 181: A pill under a file dialog picks its file
+# 181: A file dialog has an island of its own, which picks its file
 
 Status: Accepted
 
@@ -13,94 +13,83 @@ view inside (`DUIViewWndClassName`, `SHELLDLL_DefView`); message boxes, Print
 and Font are `#32770` without it. Apps that draw their own picker can't be
 told apart from any other window.
 
-The first build moved the whole island under the dialog. The user turned
-that down: music, alerts and the timer don't belong under a dialog. They
-also asked for no recent files in the card (what was opened before is
-nobody's business while a dialog is on screen, perhaps shared), for the pill
-to stay under the dialog even when the screen's edge cuts it off, and for a
-single click to open it.
+Two builds came first, and both were turned down on a real PC:
 
-**Decision.**
+1. *The island itself moved under the dialog.* Music, alerts and the timer
+   don't belong under a dialog.
+2. *A hand-drawn pill window, and the island lent to the dialog while its
+   card was open* (made invisible, jumped there, shown in the pill's place).
+   It flickered whichever way the jump was hidden, came back half way when
+   the dialog was dragged, and the pill, drawn apart from the renderer, was
+   a black shape a pixel off the dialog. One island can't be in two places.
+
+**Decision.** The dialog gets a second island.
 
 - *Noticing.* `platform/file_dialog_watcher` hooks foreground changes and
   asks `core/file_dialog.h: isFileDialog` about the window in front, by class
   names. An old-style dialog builds its view after it shows, so a bare
   `#32770` is looked at once more, `pickerRecheck` later. While one is in
   front, two more hooks on its thread alone say when it moves or closes.
-  The island's own window in front changes nothing (its card has the keys
-  while the dialog waits); another app's window in front ends it.
-- *A pill of its own.* `platform/picker_pill`: a small window the idle
-  island's size with a search glyph, in the island's shape (flat on the
-  dialog, its corners flaring into the dialog's edge, decision 025), hung
-  from the dialog's bottom edge, centred (`pillPlace`), on whichever monitor
-  the dialog is. With no room under the dialog it stands on the dialog's top
-  edge instead, flat side and flares down; with none there either it's
-  under it, cut off. (Cut off always, as first asked, hid it behind the
-  taskbar with the dialog.) It moves with the
-  dialog at once, as one piece, fades in and out over `pickerFade`, and
-  never takes the keys. It's topmost: as an ordinary window (tried, so it
-  would go behind the taskbar with the dialog) it went behind the dialog's
-  own app. The island stays where it is, as it is.
-- *One click lends the island.* A click on the pill, or Search's shortcut
-  while a dialog is in front, hangs the island's layers under the dialog
-  (on its monitor, at that monitor's scale) and core takes it through three
-  stages (`IslandState::picker`, `Picker::Stage`), placed like a Free spot
-  centred on the dialog, so decision 026's screen-edge rules hold:
-  *Arriving*, it's put there as it rests; *Open*, it opens the card of the
-  panel with `Panel::picksFiles` (Search); *Leaving*, that card closed any
-  way (a pick, Esc, a click elsewhere, the dialog going, a critical alert),
-  it closes to a pill there, and the app takes it home (`PickerLeft`). The
-  card needs `pickerCardRoom`: when that isn't under the dialog, it opens
-  over the dialog's lower part rather than off the screen. Under a dialog
-  the card has no top band that closes it (decision 108): its top is the
-  dialog's edge. A second island was the alternative: the renderer, the
-  input window and the app's loop are each built for one, and the island is
-  only away while the user is typing in the picking card.
-- *It isn't watched travelling.* The layers jump between the top of the
-  screen and the dialog, and a morph across flickered (so did a cross-fade
-  of the whole card, which was also too quick to read). So the island is
-  made invisible, put under the dialog in one step, and `pickerSwap` later,
-  drawn there, it's shown at once as the dialog's pill is hidden at once:
-  what's seen is the pill opening into the card with the island's own
-  morph. Closing is that backwards: the card closes to a pill, the dialog's
-  pill takes its place, the island fades in at home, and the dialog has the
-  keys again.
-- *Picking.* The app tells Search while a dialog is in front
-  (`SearchProvider::setPicking`). Its card then lists files and folders
-  only, and nothing before something is typed. A result is given to the
-  dialog (`SearchHooks::giveToDialog`): its path is put in the dialog's
-  "File name" field (`isFileNameField` picks it) and its Open / Save button
-  is pressed, as if typed. A file is chosen; a folder is gone to. It ranks
-  higher next time like any file opened from search (decision 082).
-- *Its menu* (`pickingMenu`, decision 086): Choose (a folder: Open folder),
-  Go to its folder, Copy path. Nothing that starts something else: the user
-  is in the middle of choosing a file. No "Remove from history": the card
-  shows no history.
+  The app's own windows in front change nothing (the island's card has the
+  keys while the dialog waits); another app's window in front ends it.
+- *A second island.* Core was always able to: its state, rules and layout
+  are values and pure functions. The dialog's island has its own
+  `IslandState`, scene, `PillRenderer`, render layer (with its own
+  Compositor), interaction window (`platform/interaction_layer` makes two)
+  and `ProviderRegistry`. The app's handlers work on "the island" through
+  main.cpp's globals, so the second one stands in their place: `At` swaps
+  the two sets for a scope, and each island's window callbacks and its
+  registry's dispatch open one. With no dialog in front nothing is swapped,
+  so the island runs exactly the code it ran before. One timer serves both.
+- *Its one activity.* A second `SearchProvider` (`SearchHooks::forDialog`)
+  in that registry, kept in memory only. It's an activity there: a pill
+  with a search glyph and "Find a file", whose card is the search card:
+  files and folders only, nothing before something is typed. A result is
+  given to the dialog (`SearchHooks::giveToDialog`): its path is put in the
+  dialog's "File name" field (`isFileNameField` picks it) and its Open /
+  Save button is pressed, as if typed. A file is chosen; a folder is gone
+  to. Its menu (`pickingMenu`, decision 086): Choose (a folder: Open
+  folder), Go to its folder, Copy path; nothing that starts something else,
+  and no "Remove from history", as the card shows no history.
+- *Where it hangs* (`placeByDialog`). Its layer is the canvas's size with
+  the island centred along its top, so it's moved with the dialog as one
+  piece, by moving windows, with no morph to lag behind. Resting, it hangs
+  from the dialog's bottom edge; with no room there, over the dialog's top
+  edge; with none there either, under it, cut off. Its card always opens
+  under, and with less than `pickerCardRoom` there moves up over the
+  dialog's lower part. The dialog's frame is taken less the one-pixel
+  border Windows draws inside it, so no line shows between them.
+- *Its own manners.* It can't be lifted. Its card has no top band that
+  closes it (`Content::noTopBand`, decision 108): its top is the dialog's
+  edge. It fades in and out over `pickerFade`. Search's shortcut, with a
+  dialog in front, opens its card instead of the island's, and again closes
+  it. Closed with the keys still on it (Esc), the dialog gets them back.
 
 **Consequences.**
 
-- While the picking card is open, the island isn't at the top of its
-  screen; it's back the moment the card closes.
-- Search opened from its page-row button while a dialog is in front opens
-  in the island's own place, and picks for the dialog too.
-- The island arrives as it rests: with music playing, the first frame of
-  the opening is its wider music pill, not the dialog's.
+- An alert there is its own: "Path copied" shows on the dialog's island.
 - A dialog of an app running as administrator doesn't take the path from an
   island that isn't: Windows blocks the message, simulated keys too (UIPI).
   The clipboard is shared, so the path is copied instead, the dialog comes
-  in front and the pill says "Path copied. Paste it into the File name box"
-  for `pickerNote`, grown to fit it (`SearchHooks::sayByDialog`; an alert on
-  the island only if there's no pill to say it): by the dialog is where the
-  user is looking. The user pastes and confirms. Focus is wherever they left it in the
-  dialog, which the island can't change. Listary has the same limit. Getting
-  past it means a signed `uiAccess` build or a helper started by the
-  service; neither is done here.
+  in front and its island says "Path copied / Paste it into the File name
+  box". Focus is wherever the user left it in the dialog. Double Ctrl isn't
+  heard there either: Windows gives a low-level keyboard hook none of an
+  elevated window's keys. Listary has the same limits. Getting past them
+  means a signed `uiAccess` build; not done here.
+- Over the dialog's top edge the island is the shape it is under a screen's
+  edge, flat side up: the renderer's shape has no upside-down form yet.
+- The dialog's island is drawn at the main island's monitor's scale: on
+  another monitor with another scale it's that much larger or smaller.
 - In a Save dialog, Choose saves over the picked file; the dialog asks
   first, as it does when the name is typed.
 - The text goes with a timeout (`pickerSendTimeout`) and the button press
   is posted, so a hung app or the dialog's own question never holds the
   island (decision 144).
-- Rules tested in `tests/scenarios/picker.scenario`,
-  `tests/file_dialog_tests.cpp` and `tests/search_picking_tests.cpp`. The
-  watcher, the pill, the layers moving and the dialog taking a path need a
-  Windows run.
+- `At` is a trade: a second island for a few dozen lines, against globals
+  that mean "whichever island is being worked on". Anything new that must
+  be the main island's alone says so (`g_seat == Seat::Island`, or
+  `At island(Seat::Island)`).
+- Rules tested in `tests/file_dialog_tests.cpp`,
+  `tests/search_picking_tests.cpp` and `tests/scenarios/top_band.scenario`.
+  The watcher, the second island's windows and the dialog taking a path
+  need a Windows run.

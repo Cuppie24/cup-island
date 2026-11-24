@@ -268,7 +268,6 @@ if(WIN32)
         src/platform/liquid_glass.cpp
         src/platform/liquid_glass_build.cpp
         src/platform/liquid_glass_draw.cpp
-        src/platform/picker_pill.cpp
         src/platform/pill_renderer.cpp
         src/platform/render_layer.cpp
         src/platform/single_instance.cpp
