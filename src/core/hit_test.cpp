@@ -25,7 +25,7 @@ std::optional<Hit> hitIn(const std::vector<Placed>& elements, Vec2 point)
         if (auto* text = std::get_if<Text>(&p.item); text && !text->editAction.empty()) // the app starts editing it (decision 043)
             return Hit{ { p.providerId, p.activityId, text->editAction, 0 }, p.key };
         if (auto* progress = std::get_if<Progress>(&p.item); progress && progress->seekable && progress->shape == ProgressShape::Bar && p.frame.width > 0)
-            return Hit{ { p.providerId, p.activityId, "seek", seekFraction(p, point.x) }, p.key };
+            return Hit{ { p.providerId, p.activityId, seekAction(*progress), seekFraction(p, point.x) }, p.key };
     }
     return std::nullopt;
 }
@@ -59,6 +59,8 @@ bool lightsAt(const Placed& p, Vec2 point)
     if (std::holds_alternative<Button>(p.item) && !p.litByRow) return p.frame.contains(point);
     return p.hitFrame.contains(point);
 }
+
+std::string seekAction(const Progress& bar) { return bar.actionId.empty() ? "seek" : bar.actionId; }
 
 float seekFraction(const Placed& progress, float x)
 {

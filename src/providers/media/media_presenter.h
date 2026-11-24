@@ -4,6 +4,7 @@
 // the SMTC provider only reads Windows and feeds snapshots in.
 
 #include "core/provider.h"
+#include "providers/lyrics/lyrics_lookup.h"
 #include "providers/media/now_playing.h"
 
 #include <optional>
@@ -19,7 +20,8 @@ struct MediaSnapshot {
 
 class MediaPresenter {
 public:
-    explicit MediaPresenter(Host& host) : host_(host) {}
+    // `lyrics`: how to ask for a song's lyrics (decision 180); none: no lyrics line.
+    explicit MediaPresenter(Host& host, LyricsLookup::Fetch lyrics = {});
 
     void start(); // publishes media's panel: its page-row icon and card, there even when nothing plays (decision 165)
     void stop();  // ends what's shown, removes the panel
@@ -33,16 +35,26 @@ public:
     // last snapshot's, title and cover kept. Nothing if another session (or
     // none) is shown: the full read brings that (decision 116).
     void showPlayback(const std::string& sessionKey, const NowPlaying& playback);
+    // The volume of a session's app, as just read or set (decision 180);
+    // nullopt: it has none to show. Kept for as long as that session is shown.
+    void showVolume(const std::string& sessionKey, std::optional<float> volume, bool muted);
     void onWake(); // the grace is over: end what's shown, unless a session came back
 
     static constexpr const char* kActivityId = "media.nowPlaying"; // also its panel's (decision 009)
 
 private:
     void end();
+    void fill(MediaSnapshot& snapshot); // its lyrics and volume, which the reader doesn't know
 
     Host& host_;
     std::optional<MediaSnapshot> last_;
     std::optional<Ms> goneSince_; // no session since then; what's shown waits out the grace
+    LyricsLookup lyrics_;
+    bool lyricsShown_ = false; // the last song whose lookup ended had lyrics: the next keeps the line's row meanwhile
+    bool showing_ = false;     // in show(): a lookup answered at once is already in what's being shown
+    std::string volumeOf_;     // the session whose volume this is
+    std::optional<float> volume_;
+    bool muted_ = false;
 };
 
 } // namespace cup

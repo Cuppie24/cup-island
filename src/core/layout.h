@@ -44,6 +44,7 @@ struct Placed {
     std::string providerId;
     std::string activityId;
     std::optional<Timeline> ticking; // time labels: the text changes as playback moves
+    std::optional<Ms> changesAt;     // the line being sung (Lyrics): when its text next changes (decision 180)
     // A page-row icon that isn't the shown page's (decisions 072, 165): drawn grey
     // and dim until the pointer is on its button.
     bool muted = false;

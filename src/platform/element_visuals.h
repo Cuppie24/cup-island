@@ -5,6 +5,7 @@
 // playing track costs no app CPU per frame (TR §5).
 
 #include "core/layout.h"
+#include "platform/dropping_text.h"
 #include "platform/element_art.h"
 #include "platform/graphics_device.h"
 #include "platform/list_viewports.h"
@@ -89,6 +90,7 @@ private:
         SwitchParts toggle; // a Switch's track and knob (decision 053)
         SegmentsParts segments; // Segments' track, sliding pill and labels (decision 093)
         RollingText rolling;    // a Hero time: a sprite per character, rolling as it changes (decision 107)
+        DroppingText dropping;  // the line being sung: each new line drops in as a whole (decision 180)
         // A focused field's caret (decision 131): its own sprite over the text, blinking on the compositor.
         wuc::SpriteVisual caret{ nullptr };
         Rect caretFrame; // ...where it is now

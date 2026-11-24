@@ -32,6 +32,8 @@ Item resolve(const Item& item, Ms now, const Source& source)
         std::string value = label->countdown ? left : label->remaining ? "-" + left : formatDuration(position);
         return Text{ .value = value, .style = label->style, .alignEnd = label->remaining, .marquee = false, .centred = label->countdown };
     }
+    // The line being sung at `now` (decision 180): a centred text that drops in as it changes.
+    if (auto* lyrics = std::get_if<Lyrics>(&item)) return Text{ .value = lyricAt(*lyrics, now), .style = TextStyle::Body, .centred = true, .drops = true };
     if (auto* dial = std::get_if<Dial>(&item)) { // the time left at `now`, for the renderer to draw (decision 065)
         Dial shown = *dial;
         shown.shown = formatDuration(dial->timeline.duration - dial->timeline.positionAt(now));
@@ -283,6 +285,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 placed.raised = slot.raised && std::holds_alternative<Image>(item);
                 if (auto* label = std::get_if<TimeLabel>(&item)) placed.ticking = label->timeline;
                 if (auto* dial = std::get_if<Dial>(&item)) placed.ticking = dial->timeline; // its time changes too
+                if (auto* lyrics = std::get_if<Lyrics>(&item)) placed.changesAt = nextLyricChange(*lyrics, now);
                 target.push_back(std::move(placed));
             };
             auto widthOf = [&](const Item& item) { return fixedWidthOf(item, heightOf(item, slot.frame, ringSide, measure), measure); };

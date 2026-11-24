@@ -30,11 +30,16 @@ Spacing:
   square, `tabIconGap` 4 apart; a panel's button at the row's end is
   `rowButtonWidth` 44.
 
-Decision 119 took the card scale a step down (the cover 108, steps 30 and 14
+Decision 119 took the card scale a step down (the cover 108, since 84: decision 180; steps 30 and 14
 long): the pieces read a little smaller in the same 248 height, with more
 room between them. A Standard card's bottom rows share the spare height
 evenly above each, so media's bar sits halfway between the cover and its
 controls.
+
+Media's card (decision 180): the line being sung is a `Lyrics` item, alone
+in the first row under the cover (Body, centred); the app's volume sits
+right of the song's name, a `compact` `secondary` speaker and a
+`Progress::level` bar (`levelBarWidth` 64).
 
 ## Standalone windows: a step up, under the cards (decision 112)
 

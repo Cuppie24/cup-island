@@ -83,7 +83,8 @@ Color buttonColorOf(const Button& button, bool lit)
 std::optional<Color> inkOf(const Item& item, bool lit)
 {
     const Tokens& t = tokens();
-    if (auto* text = std::get_if<Text>(&item)) return singleInkOf(*text);
+    // A dropping line (decision 180) is drawn in its colour, in a sprite per line: no brush to fade.
+    if (auto* text = std::get_if<Text>(&item)) return text->drops ? std::nullopt : singleInkOf(*text);
     if (auto* icon = std::get_if<Icon>(&item)) {
         if (icon->glyph == Glyph::Fire) return std::nullopt;
         return icon->disabled ? t.buttonDisabledColor : t.iconColor;
@@ -198,6 +199,13 @@ bool rolls(const Item& item)
     return text && text->style == TextStyle::Hero && !text->marquee;
 }
 
+// The line being sung (decision 180): a new line drops in as a whole.
+bool drops(const Item& item)
+{
+    auto* text = std::get_if<Text>(&item);
+    return text && text->drops && !text->marquee && !rolls(item);
+}
+
 } // namespace
 
 void ElementVisuals::init(wuc::Compositor const& compositor, GraphicsDevice& device, wuc::ContainerVisual const& parent)
@@ -245,7 +253,7 @@ void ElementVisuals::apply(const std::vector<Placed>& elements, Ms now, Ms revea
     // The GPU was reset mid-apply: the device is rebuilt, but every surface lost its pixels.
     if (deviceLost_ || device_->generation() != generation)
         for (auto& [key, view] : views_)
-            if (view.surface || view.rolling.visual) paint(view);
+            if (view.surface || view.rolling.visual || view.dropping.visual) paint(view);
 }
 
 void ElementVisuals::refresh(bool coloursOnly)
@@ -352,6 +360,10 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         view.lead = view.rolling.lead;
         visualSize.x += 2 * view.lead;
         view.visual = view.rolling.visual;
+    } else if (drops(placed.item)) {
+        // A sprite per line, so the old one can drop out as the new one falls in (decision 180).
+        view.dropping = createDroppingText(compositor_, *device_, std::get<Text>(placed.item), size, view.grey);
+        view.visual = view.dropping.visual;
     } else if (clickableArt(placed.item)) {
         view.surface = device_->createSurface(size);
         view.glyphSurface = device_->createSurface(size);
@@ -444,7 +456,8 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     bool retyped = view.placed.item.index() != placed.item.index() || isRing(view.placed.item) != isRing(placed.item) ||
                    isWavy(view.placed.item) != isWavy(placed.item) || // another bar: a wave, another knob
                    (isWavy(placed.item) && std::get<Progress>(view.placed.item).seekable != std::get<Progress>(placed.item).seekable) ||
-                   clickableArt(view.placed.item) != clickableArt(placed.item) || rolls(view.placed.item) != rolls(placed.item);
+                   clickableArt(view.placed.item) != clickableArt(placed.item) || rolls(view.placed.item) != rolls(placed.item) ||
+                   drops(view.placed.item) != drops(placed.item);
     bool recoloured = view.placed.accent != placed.accent;
     // In a list, its place is in the list's scroller: scrolling moves the scroller, not it.
     Vec2 was = lists_.positionOf(view.placed), at = lists_.positionOf(placed);
@@ -525,6 +538,8 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     if (view.surface && !newPicture) paint(view);
     if (view.rolling.visual && !rollTo(compositor_, *device_, view.rolling, std::get<Text>(placed.item), pixelSize(sizeOf(placed))))
         deviceLost_ = true;
+    if (view.dropping.visual && !dropTo(compositor_, *device_, view.dropping, std::get<Text>(placed.item), pixelSize(sizeOf(placed))))
+        deviceLost_ = true;
     syncFill(view, tokens().hoverFadeDuration); // a toggle switched on or off, a button enabled
     if (view.ink) fadeInk(view, tokens().hoverFadeDuration); // another style: another colour
     // While scrubbing, the bar belongs to the pointer; endScrub() re-arms it.
@@ -564,7 +579,7 @@ void ElementVisuals::recolor(View& view)
         fadeInk(view, recolorDuration(t));
         return;
     }
-    if (view.surface || view.rolling.visual) paint(view);
+    if (view.surface || view.rolling.visual || view.dropping.visual) paint(view);
 }
 
 void ElementVisuals::fadeInk(View& view, Ms duration)
@@ -629,6 +644,11 @@ void ElementVisuals::paint(View& view)
     if (view.rolling.visual) { // its characters' own surfaces (decision 107)
         view.rolling.grey = view.grey;
         if (!repaintRolling(*device_, view.rolling, pixelSize(size))) deviceLost_ = true;
+        return;
+    }
+    if (view.dropping.visual) { // the line being sung: its own sprite's surface (decision 180)
+        view.dropping.grey = view.grey;
+        if (!repaintDropping(*device_, view.dropping, pixelSize(size))) deviceLost_ = true;
         return;
     }
     // Coloured by its brush (decision 102): its pixels are white.
@@ -797,7 +817,7 @@ void ElementVisuals::setGrey(View& view, bool grey)
     if (view.track) fadeColor(view.track, toned(t.trackColor, grey), t.hoverFadeDuration);
     if (view.accent) fadeColor(view.accent, toned(accentOf(view.placed), grey), t.hoverFadeDuration);
     if (view.knobBrush) fadeColor(view.knobBrush, toned(t.knobColor, grey), t.hoverFadeDuration);
-    if (view.rolling.visual) paint(view); // greyed or coloured again, in place (decision 107)
+    if (view.rolling.visual || view.dropping.visual) paint(view); // greyed or coloured again, in place (decision 107)
     if (!view.surface) return;
     if (view.picture && view.marqueeWidth == 0) {
         auto size = view.surface.Size();

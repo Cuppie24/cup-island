@@ -1,6 +1,7 @@
 #include "providers/demo/demo_media_provider.h"
 
 #include <cstdint>
+#include <iterator>
 
 namespace cup {
 namespace {
@@ -27,12 +28,25 @@ std::shared_ptr<const ImageData> gradient(std::uint32_t from, std::uint32_t to)
     return image;
 }
 
+// Words to watch the lyric line with: a line every four seconds, a break now and then.
+std::shared_ptr<const std::vector<LyricLine>> demoLyrics()
+{
+    static constexpr const char* kWords[] = { "Sailing out past the harbour lights", "Nothing but the tide to keep the time",
+                                              "", "Every wave a line I half remember",
+                                              "And a very long line that will not fit in the card however wide it is made to be",
+                                              "Carry me home" };
+    auto lines = std::make_shared<std::vector<LyricLine>>();
+    for (int i = 0; i < 900; ++i) lines->push_back({ Ms{ 4000 + i * 4000 }, kWords[static_cast<std::size_t>(i) % std::size(kWords)] });
+    return lines;
+}
+
 } // namespace
 
 DemoMediaProvider::DemoMediaProvider()
     : tracks_{ { "Ocean Drive", "Cup Island Demo", Ms{ 200000 }, gradient(0x2E86DE, 0x10AC84) },
                { "Midnight Tea", "The Placeholders", Ms{ 165000 }, gradient(0xEE5253, 0x5F27CD) },
-               { "A Very Long Song Title That Will Not Fit", "Someone With A Long Name", Ms{ 3725000 }, gradient(0xFF9F43, 0xEE5253) } }
+               { "A Very Long Song Title That Will Not Fit", "Someone With A Long Name", Ms{ 3725000 }, gradient(0xFF9F43, 0xEE5253) } },
+      lyrics_(demoLyrics())
 {
 }
 
@@ -69,6 +83,11 @@ void DemoMediaProvider::onAction(const Action& action)
     } else if (action.actionId == act::kSeek) {
         timeline_.position = Ms{ static_cast<long long>(static_cast<double>(timeline_.duration.count()) * action.value) };
         timeline_.anchoredAt = now;
+    } else if (action.actionId == act::kVolume) {
+        volume_ = action.value;
+        muted_ = false; // setting a level is asking to hear it
+    } else if (action.actionId == act::kMute) {
+        muted_ = !muted_;
     }
     publish();
 }
@@ -91,7 +110,9 @@ void DemoMediaProvider::publish()
     NowPlaying m{ .title = track.title, .artist = track.artist, .source = "Demo player",
                   .trackNumber = static_cast<int>(track_) + 1, .trackCount = static_cast<int>(tracks_.size()), .art = track.art,
                   .timeline = timeline_, .canSeek = true, .canShuffle = true, .shuffle = shuffle_,
-                  .canRepeat = true, .repeat = repeat_ };
+                  .canRepeat = true, .repeat = repeat_,
+                  .lyrics = track_ == 1 ? nullptr : lyrics_, // the second track has none
+                  .volume = volume_, .muted = muted_ };
     host_->startActivity({ .id = kActivityId, .content = nowPlayingContent(m) });
 }
 

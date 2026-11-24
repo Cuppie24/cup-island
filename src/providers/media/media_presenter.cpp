@@ -21,6 +21,34 @@ bool sameTimeline(const Timeline& a, const Timeline& b, Ms now)
 
 } // namespace
 
+MediaPresenter::MediaPresenter(Host& host, LyricsLookup::Fetch lyrics)
+    : host_(host), lyrics_(std::move(lyrics), [this] {
+          // A song's lyrics came (or there are none): shown as it is now, with them.
+          if (last_ && !goneSince_ && !showing_) show(*last_);
+      })
+{
+}
+
+void MediaPresenter::fill(MediaSnapshot& snapshot)
+{
+    NowPlaying& m = snapshot.media;
+    LyricsAnswer answer = lyrics_.lyricsFor({ m.title, m.artist, m.timeline.duration });
+    if (answer.state != LyricsAnswer::State::Looking) lyricsShown_ = answer.state == LyricsAnswer::State::Found;
+    m.lyrics = answer.lines;
+    m.lyricsPending = answer.state == LyricsAnswer::State::Looking && lyricsShown_;
+    bool known = snapshot.sessionKey == volumeOf_;
+    m.volume = known ? volume_ : std::nullopt;
+    m.muted = known && muted_;
+}
+
+void MediaPresenter::showVolume(const std::string& sessionKey, std::optional<float> volume, bool muted)
+{
+    volumeOf_ = sessionKey;
+    volume_ = volume;
+    muted_ = muted;
+    if (last_ && !goneSince_ && last_->sessionKey == sessionKey) show(*last_);
+}
+
 void MediaPresenter::start()
 {
     host_.publishPanel({ .id = kActivityId, .content = nothingPlayingContent(), .icon = Glyph::Music });
@@ -53,6 +81,9 @@ void MediaPresenter::show(const std::optional<MediaSnapshot>& snapshot)
     }
     if (std::exchange(goneSince_, std::nullopt)) host_.wakeAt(std::nullopt);
     MediaSnapshot next = *snapshot;
+    showing_ = true;
+    fill(next);
+    showing_ = false;
     if (last_ && last_->sessionKey == next.sessionKey && sameTrack(last_->media, next.media) &&
         sameTimeline(last_->media.timeline, next.media.timeline, now))
         next.media.timeline = last_->media.timeline;

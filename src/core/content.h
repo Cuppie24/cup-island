@@ -23,7 +23,7 @@ using Ms = std::chrono::milliseconds;
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
                    Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre,
                    Minus, Plus, Pin, Pinned, Fire, Chart, ChevronDown, Search, File, Folder, Close, Refresh, Reset,
-                   Palette, Sliders, Expand, Maximize, Restore, Minimize, CloseWindow, Grip, More, Gauge };
+                   Palette, Sliders, Expand, Maximize, Restore, Minimize, CloseWindow, Grip, More, Gauge, Volume, Muted };
 
 // Display: a big number, the card's centre (a timer). Heading: a group's label over its rows (Settings'
 // "General", "Dark"): small and quiet, since the group's background already sets it apart (decision 090).
@@ -106,6 +106,9 @@ struct Text {
     // other texts do: a file's folder beside its name, so the name stays
     // readable and the path takes the "…" (search, decision 079).
     bool yields = false;
+    // A new value falls in from above as the old one drops out below, the
+    // whole line at once: the line being sung (Lyrics, decision 180).
+    bool drops = false;
     // Host-filled: `value` with the spaces where its lines break turned into
     // '\n' (same length, so offsets hold). Empty: one line.
     std::string wrapped;
@@ -221,8 +224,17 @@ struct Progress {
     // head; the rest a straight track. Seekable, an upright knob is always at its
     // head, bigger under the pointer (decision 167). Its row is at least the wave's height.
     bool wavy = false;
+    // Bars only: a level set by hand, not a place in time (a volume, decision
+    // 180). levelBarWidth wide instead of stretching, and its action is sent
+    // as it's dragged, not only when it's let go. `timeline`: its level as a
+    // position, not playing (levelTimeline).
+    bool level = false;
+    // What a click or drag on a seekable bar sends, its value the 0..1 fraction. Empty: "seek".
+    std::string actionId;
     bool operator==(const Progress&) const = default;
 };
+// A level 0..1 as a Progress's timeline: a bar filled that far, standing still.
+Timeline levelTimeline(float level);
 // Elapsed "1:23"; `remaining` "-2:05" (media, right-aligned); `countdown`
 // "2:05", time left without the "-", centred (a timer). Digits labels sit in
 // a fixed column (timeLabelWidth); larger styles are as wide as their digits.
@@ -253,6 +265,27 @@ struct Steps {
     bool lit = true;
     bool operator==(const Steps&) const = default;
 };
+
+// One line of a song's words, and when in the song it starts.
+struct LyricLine {
+    Ms at{};
+    std::string text; // empty: a break with nothing sung
+    bool operator==(const LyricLine&) const = default;
+};
+// The line being sung (decision 180): the host picks it from the Timeline,
+// like a TimeLabel's time, so the provider sends the words once per song.
+// One line of text, centred, stretching across its row; each new line falls
+// in from above as the last drops out below (Text::drops). No lines (still
+// being looked up): an empty line, so the row keeps its place.
+struct Lyrics {
+    Timeline timeline;
+    std::shared_ptr<const std::vector<LyricLine>> lines; // by time; shared and immutable, like ImageData
+    bool operator==(const Lyrics&) const = default;
+};
+// The text shown at `now`: the last line begun, or a note sign where nothing is sung (before the first, a break).
+std::string lyricAt(const Lyrics& lyrics, Ms now);
+// When (app time) the shown line next changes; nothing while it doesn't play or after the last line.
+std::optional<Ms> nextLyricChange(const Lyrics& lyrics, Ms now);
 
 // A colour sample: a circle of `fill` with a dot of `mark` in it, ringed
 // faintly so a pale one still shows on a pale island. A theme in Settings'
@@ -337,7 +370,7 @@ struct GroupFill {
 };
 
 using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch, Tag, Switch, Divider, Dial,
-                          GroupFill, Keys, Segments>;
+                          GroupFill, Keys, Segments, Lyrics>;
 
 enum class Align { Start, Center, End };
 

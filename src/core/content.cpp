@@ -1,6 +1,7 @@
 #include "core/content.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 
 namespace cup {
@@ -17,6 +18,43 @@ float Timeline::fractionAt(Ms now) const
 {
     if (duration <= Ms{ 0 }) return 0.0f;
     return static_cast<float>(positionAt(now).count()) / static_cast<float>(duration.count());
+}
+
+Timeline levelTimeline(float level)
+{
+    constexpr long long kWhole = 1000; // any length: only the fraction is shown
+    return { .position = Ms{ std::llround(std::clamp(level, 0.0f, 1.0f) * kWhole) }, .duration = Ms{ kWhole } };
+}
+
+namespace {
+
+// The first line that starts after `position`: the one shown is the one before it.
+std::size_t nextLine(const std::vector<LyricLine>& lines, Ms position)
+{
+    auto after = std::upper_bound(lines.begin(), lines.end(), position, [](Ms p, const LyricLine& line) { return p < line.at; });
+    return static_cast<std::size_t>(after - lines.begin());
+}
+
+} // namespace
+
+std::string lyricAt(const Lyrics& lyrics, Ms now)
+{
+    if (!lyrics.lines || lyrics.lines->empty()) return {}; // none yet: the row waits, empty
+    std::size_t next = nextLine(*lyrics.lines, lyrics.timeline.positionAt(now));
+    const std::string& text = next == 0 ? std::string() : (*lyrics.lines)[next - 1].text;
+    return text.empty() ? "\u266A" : text; // a note: there are words, none right now
+}
+
+std::optional<Ms> nextLyricChange(const Lyrics& lyrics, Ms now)
+{
+    const Timeline& t = lyrics.timeline;
+    if (!lyrics.lines || !t.playing || t.rate <= 0) return std::nullopt;
+    Ms position = t.positionAt(now);
+    std::size_t next = nextLine(*lyrics.lines, position);
+    if (next >= lyrics.lines->size()) return std::nullopt;
+    Ms at = (*lyrics.lines)[next].at;
+    if (t.duration > Ms{ 0 } && at > t.duration) return std::nullopt; // past the end: never reached
+    return now + Ms{ static_cast<long long>(std::ceil(static_cast<double>((at - position).count()) / t.rate)) };
 }
 
 Row row(std::initializer_list<Item> items, Align align)

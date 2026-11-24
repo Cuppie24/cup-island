@@ -5,8 +5,17 @@
 // over the foreground; the work runs on a background thread and logs its result.
 
 #include <string>
+#include <vector>
 
 namespace cup {
+
+// The exe names (lower case, no ".exe") the app behind a session id may run
+// as: the id's own, when it names one ("Spotify.exe", "Chrome"), and its
+// Start menu entry's (apps that pick their own id). None for a Store app
+// ("Package_hash!App"): its processes carry the id itself.
+std::vector<std::wstring> appExeStems(const std::wstring& appId);
+// A running process's exe name, the same way; "" if it can't be asked.
+std::wstring exeStemOfProcess(unsigned long pid);
 
 // appId: the session's SourceAppUserModelId ("Spotify.exe", "Chrome",
 // "Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic"…). title: what's

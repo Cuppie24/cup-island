@@ -28,18 +28,33 @@ Content nowPlayingContent(const NowPlaying& m)
 
     // Like iOS: the big art opens the app that's playing (only expanded; elsewhere a click expands).
     c.expandedLeading = { row({ Image{ m.art, m.canOpenSource ? act::kOpenSource : "" } }) };
-    c.expandedCenter = { row({ title }), row({ artist }) };
+    // The app's volume right of the song's name (decision 180): its speaker mutes, its bar sets the level.
+    Row heading = row({ title });
+    if (m.volume) {
+        heading.items.push_back(Button{ .glyph = m.muted ? Glyph::Muted : Glyph::Volume, .actionId = act::kMute, .compact = true, .secondary = true });
+        heading.items.push_back(Progress{ .timeline = levelTimeline(m.muted ? 0.0f : *m.volume), .seekable = true, .level = true, .actionId = act::kVolume });
+    }
+    c.expandedCenter = { heading, row({ artist }) };
     std::string caption = m.source, position = trackPosition(m.trackNumber, m.trackCount);
     if (!position.empty()) caption += (caption.empty() ? "" : " \u00B7 ") + position;
     if (!caption.empty()) c.expandedCenter.push_back(row({ Text{ caption, TextStyle::Caption } }));
     if (m.showSourceSwitch) c.expandedTrailing = { row({ Button{ Glyph::Source, act::kSource } }) }; // top-right corner
 
-    if (m.timeline.duration > Ms{ 0 })
+    // The line being sung, over the bar (decision 180).
+    // The bottom rows are named (Row::id), not numbered: the line comes and goes
+    // with the song, and the bar and controls under it stay the visuals they were.
+    if (m.lyrics || m.lyricsPending) {
+        c.expandedBottom.push_back(row({ Lyrics{ m.timeline, m.lyrics } }));
+        c.expandedBottom.back().id = "lyrics";
+    }
+    if (m.timeline.duration > Ms{ 0 }) {
         // The times as wide as they get, so they sit close to the bar (decision 107).
         // The played part a wave, rippling while it plays and flat when paused (decision 167).
         c.expandedBottom.push_back(row({ TimeLabel{ .timeline = m.timeline, .fitted = true },
                                          Progress{ .timeline = m.timeline, .seekable = m.canSeek, .wavy = true },
                                          TimeLabel{ .timeline = m.timeline, .remaining = true, .fitted = true } }));
+        c.expandedBottom.back().id = "bar";
+    }
     // Three weights (decision 094): ▶/⏸ the filled circle, the skips bright,
     // shuffle and repeat quiet until on or pointed at.
     // Sized to fill the card's shared height (decision 107): the full ▶ circle, large skips.
@@ -49,6 +64,7 @@ Content nowPlayingContent(const NowPlaying& m)
                          Button{ .glyph = Glyph::Next, .actionId = act::kNext, .enabled = m.canNext, .large = true } },
                        Align::Center);
     controls.loose = true; // big, well-separated targets
+    controls.id = "controls";
     // Shuffle and repeat at the row's edges, under the ends of the bar's row: the transport
     // reads as one group, the modes as another (decision 168); ▶ stays centred.
     // Only shown when the app supports them.

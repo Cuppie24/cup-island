@@ -312,6 +312,7 @@ std::optional<Ms> sceneDeadline(const Scene& scene)
         for (const Placed& p : scene.bubble->elements) all.push_back(&p);
     for (const Placed* item : all) {
         const Placed& p = *item;
+        if (p.changesAt && (!next || *p.changesAt < *next)) next = p.changesAt; // the next line of a song (decision 180)
         if (!p.ticking || !p.ticking->playing || p.ticking->rate <= 0) continue;
         long long position = p.ticking->positionAt(scene.now).count();
         if (p.ticking->duration > Ms{ 0 } && position >= p.ticking->duration.count()) continue;

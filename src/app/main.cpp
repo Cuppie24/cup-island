@@ -465,6 +465,15 @@ void dropListRow(app::Surface& s, bool commit)
         g_providers->route({ dragged->providerId, dragged->activityId, dragged->list->moveAction, static_cast<float>(dragged->list->dropAt) });
 }
 
+// A level's bar (a volume) is heard as it's dragged, not only when it's let
+// go (Progress::level, decision 180): its action at every step. By value:
+// the provider's update lays the scene out again.
+void routeLevel(Placed bar, float fraction)
+{
+    auto* level = std::get_if<Progress>(&bar.item);
+    if (level && level->level) g_providers->route({ bar.providerId, bar.activityId, seekAction(*level), fraction });
+}
+
 // Mouse-down: the bubble may become a drag, a progress bar starts scrubbing,
 // a button gets its own press feedback, anything else squashes the pill.
 void onPressDown(app::Surface& s, Vec2 canvasPoint)
@@ -511,6 +520,7 @@ void onPressDown(app::Surface& s, Vec2 canvasPoint)
         s.pointer.scrub = *element;
         s.pointer.scrubFraction = hit->action.value;
         s.renderer->scrubElement(hit->key, s.pointer.scrubFraction);
+        routeLevel(*s.pointer.scrub, s.pointer.scrubFraction); // a volume: set from the press on
     } else if (element) {
         s.pointer.pressedKey = hit->key;
         s.pointer.textPress = point;
@@ -573,6 +583,8 @@ void onPointerMoved(app::Surface& s, Vec2 canvasPoint, bool inside)
     if (s.pointer.scrub) {
         s.pointer.scrubFraction = seekFraction(*s.pointer.scrub, point.x);
         s.renderer->scrubElement(s.pointer.scrub->key, s.pointer.scrubFraction);
+        // A level (a volume) is heard as it's dragged, not only when it's let go (decision 180).
+        routeLevel(*s.pointer.scrub, s.pointer.scrubFraction);
     }
     dispatch(PointerMoved{}, "pointer"); // keeps Expanded open while in use; refreshes hover
 }
@@ -663,7 +675,8 @@ void onPressRelease(app::Surface& s, Vec2 canvasPoint, Release how)
         Placed bar = *std::exchange(s.pointer.scrub, std::nullopt);
         bool commit = how != Release::Cancelled;
         s.renderer->endScrub(bar.key, commit ? std::optional<float>(s.pointer.scrubFraction) : std::nullopt, now());
-        if (commit) g_providers->route({ bar.providerId, bar.activityId, "seek", s.pointer.scrubFraction });
+        auto* progress = std::get_if<Progress>(&bar.item);
+        if (commit) g_providers->route({ bar.providerId, bar.activityId, progress ? seekAction(*progress) : "seek", s.pointer.scrubFraction });
         dispatch(PointerMoved{}, "seek");
         return;
     }
@@ -1145,7 +1158,7 @@ int main()
     });
     g_providers->onWindowsChanged(app::syncWindows);
     g_providers->onWakesChanged([] { armDeadline(now()); }); // a wake asked outside a dispatch (decision 163)
-    g_providers->add(std::make_unique<SmtcMediaProvider>(postToUi));
+    g_providers->add(std::make_unique<SmtcMediaProvider>(postToUi, CUP_VERSION_STRING));
     g_providers->add(std::make_unique<DemoMediaProvider>()); // M key
     g_providers->add(std::make_unique<ThemeProvider>(postToUi));
     // Fake statistics on its settings page (decision 061): Debug builds, or any build started under a

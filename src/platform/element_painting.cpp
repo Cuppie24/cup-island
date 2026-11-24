@@ -118,6 +118,8 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::CloseWindow: return L"\uE8BB"; // ChromeClose
     case Glyph::Grip: return L"\uE76F";     // GripperBarHorizontal; paintGlyph draws a card's handle as one line instead (decision 134)
     case Glyph::More: return L"\uE712";     // More (…): a window card's menu (decision 142)
+    case Glyph::Volume: return L"\uE767"; // Volume: the playing app's, on media's card (decision 180)
+    case Glyph::Muted: return L"\uE74F";  // Mute
     case Glyph::Gauge: return L"\uEC4A";    // SpeedHigh: something costs performance (liquid glass's question, decision 165)
     case Glyph::Fire: return L"\U0001F525"; // not in the icon fonts: Segoe UI Emoji's, in colour (paintGlyph)
     }

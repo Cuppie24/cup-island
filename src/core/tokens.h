@@ -133,7 +133,7 @@ struct Tokens {
     float windowDialogWidth = 400;   // a window's question (decision 122): its panel, at most this wide
     float windowDialogPadding = 20;  // ...its content this far in // its corners; its rows' backgrounds nest in them (radius less padding, decision 121)
     float windowCardGap = 16; // between cards, across and down
-    float expandedArtSize = 108; // expanded leading square: the cover, filling the card's shared height with its controls (decisions 094, 107, 119)
+    float expandedArtSize = 84; // expanded leading square: the cover, small enough for a line of lyrics over the bar (decisions 094, 119, 180)
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;
     float itemSpacing = 8;
@@ -216,6 +216,7 @@ struct Tokens {
     float progressHeight = 4;
     float progressHitHeight = 16; // taller than drawn, so it's easy to click
     float progressKnobSize = 12;  // the scrub handle shown on hover
+    float levelBarWidth = 64;     // Progress::level: a volume's bar beside a card's title (decision 180)
     // A wavy bar (Progress::wavy, decision 167): one wave's length, how far it swings to each side of
     // the bar's line, how far back from its head it straightens out, how long one wave takes to
     // pass, and how long it takes to lie flat or rise again.
@@ -411,6 +412,9 @@ struct Tokens {
     // A Hero time's digits roll as they change (decision 107): the new one
     // falls in from above as the old one drops out below, over this long.
     Ms digitRollDuration{ 380 };
+    // The line being sung (Text::drops, decision 180): the new one falls in
+    // from above as the old one drops out below, over this long.
+    Ms lyricDropDuration{ 420 };
     // New content starts arriving once the growing pill is this share of the
     // way to its new size (decision 080): with the spring that's early, and it
     // follows the morph's own timing. A shrinking pill shows it at once.
@@ -465,6 +469,11 @@ struct Tokens {
     // With no session left, what's shown stays this long before it ends:
     // some apps drop theirs for a moment on every track change (decision 074).
     Ms mediaSessionGoneGrace{ 1500 };
+    // Lyrics (decision 180): a record's length may differ from the track's by
+    // this much and still be the same cut of the song; and how many songs'
+    // lyrics (or the lack of them) are remembered, so going back asks nothing.
+    Ms lyricsDurationTolerance{ 3000 };
+    std::size_t lyricsRemembered = 20;
     // A track shows at once; its cover fades in over this when it's read (decision 056).
     Ms mediaArtFade{ 400 };
     // After a track change, the cover is read again this much later: apps
