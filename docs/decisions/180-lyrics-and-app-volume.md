@@ -50,11 +50,14 @@ later: media sessions don't carry one.
   at every track; it goes only when a song turns out to have none. The
   bottom rows are named (`Row::id`: lyrics, bar, controls), so the bar and
   the controls stay the same visuals as the line comes and goes.
-- **Two mirrored pairs in the controls' row** (amends 168): at the left
-  edge the lyrics toggle then the volume's speaker, at the right shuffle
-  then repeat, all four the same quiet toggles, the transport centred
-  between them. What the card shows on one side, how it plays on the other.
-- **The lyrics button.** Off, nothing is asked of LRCLIB (no song's name leaves the PC),
+- **Two mirrored pairs in the controls' row** (amends 168): the volume's
+  speaker then shuffle at the left edge, repeat then the lyrics toggle at
+  the right, all four the same quiet toggles, the transport centred
+  between them. Shuffle and repeat stay where 168 put them, under the
+  bar's ends; the two new ones take the corners.
+- **The lyrics button.** A song with no lyrics disables it rather than
+  hiding it: it says why there's no line, and the row's end stays put
+  (shuffle, repeat and the speaker still go where they don't apply). Off, nothing is asked of LRCLIB (no song's name leaves the PC),
   the line goes and the cover is full size; kept between runs
   (`Host::save`, "lyrics"). On by default.
 - **Volume is the playing app's own**, the level Windows' volume mixer

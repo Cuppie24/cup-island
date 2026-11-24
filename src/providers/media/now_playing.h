@@ -40,6 +40,8 @@ struct NowPlaying {
     // Whether lyrics are looked up and shown, as the card's lyrics button has
     // it; none: there's no lyrics service, and no button.
     std::optional<bool> lyricsOn;
+    // On, and this song has none (looked up, or not a song to look up): the button is disabled.
+    bool lyricsMissing = false;
     // The playing app's own volume, 0..1, as Windows' mixer has it (decision
     // 180); none: not known (the app has no audio session), and no control.
     std::optional<float> volume;

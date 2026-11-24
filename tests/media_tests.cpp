@@ -178,12 +178,11 @@ void runMediaTests()
     expect(plain.leading.empty() && plain.trailing.empty(), "no shuffle/repeat when the app doesn't support them");
     Row toggles = controlsOf({ .title = "T", .canShuffle = true, .shuffle = true, .canRepeat = true, .repeat = Repeat::One,
                                .showSourceSwitch = true });
-    auto* shuffleButton = toggles.trailing.size() == 2 ? std::get_if<Button>(&toggles.trailing[0]) : nullptr;
-    expect(shuffleButton && shuffleButton->glyph == Glyph::Shuffle && shuffleButton->on == true && toggles.leading.empty(),
-           "shuffle on the right beside repeat, lit; the left is the lyrics and volume pair's (decision 180)");
-    auto* repeatButton = toggles.trailing.size() == 2 ? std::get_if<Button>(&toggles.trailing[1]) : nullptr;
+    auto* shuffleButton = toggles.leading.size() == 1 ? std::get_if<Button>(&toggles.leading[0]) : nullptr;
+    expect(shuffleButton && shuffleButton->glyph == Glyph::Shuffle && shuffleButton->on == true, "shuffle on the left, lit");
+    auto* repeatButton = toggles.trailing.size() == 1 ? std::get_if<Button>(&toggles.trailing[0]) : nullptr;
     expect(repeatButton && repeatButton->glyph == Glyph::RepeatOne && repeatButton->on == true,
-           "repeat-one in the bottom-right corner");
+           "repeat-one alone in the bottom-right corner");
     expect(!toggles.edgesBeside, "shuffle and repeat at the row's edges, apart from the skips (decision 168)");
 
     // The source switch lives in the top-right corner, not with the playback controls.

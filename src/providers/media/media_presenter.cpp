@@ -38,6 +38,7 @@ void MediaPresenter::fill(MediaSnapshot& snapshot)
     if (answer.state != LyricsAnswer::State::Looking) lyricsShown_ = answer.state == LyricsAnswer::State::Found;
     m.lyrics = answer.lines;
     m.lyricsPending = answer.state == LyricsAnswer::State::Looking && lyricsShown_;
+    m.lyricsMissing = lyricsOn_ && answer.state == LyricsAnswer::State::None;
     bool known = snapshot.sessionKey == volumeOf_;
     m.volume = known ? volume_ : std::nullopt;
     m.muted = known && muted_;

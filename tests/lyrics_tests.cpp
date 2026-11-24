@@ -72,10 +72,15 @@ IslandState expandedWith(const Content& content)
     return reduce(s, PillClicked{}, Ms{ 0 });
 }
 
-// The controls' left pair: the lyrics button, then the volume's speaker.
-std::vector<Item> leftOf(const Content& c)
+// The button with this action at an end of the controls' row (the speaker, shuffle, repeat, lyrics), if it's there.
+const Button* controlOf(const Content& c, const char* action)
 {
-    return c.expandedBottom.empty() ? std::vector<Item>{} : c.expandedBottom.back().leading;
+    if (c.expandedBottom.empty()) return nullptr;
+    const Row& controls = c.expandedBottom.back();
+    for (const auto* edge : { &controls.leading, &controls.trailing })
+        for (const Item& item : *edge)
+            if (auto* button = std::get_if<Button>(&item); button && button->actionId == action) return button;
+    return nullptr;
 }
 
 bool hasLyricsRow(const Content& c)
@@ -231,47 +236,70 @@ void volumeTests()
 {
     const Tokens& t = tokens();
     NowPlaying m{ .title = "Song", .artist = "Artist", .timeline = { .duration = Ms{ 60000 } }, .canSeek = true, .canShuffle = true, .canRepeat = true };
-    expect(leftOf(nowPlayingContent(m)).empty() && !nowPlayingContent(m).popover, "volume unknown, no lyrics service: no left pair, no bar");
+    Content bare = nowPlayingContent(m);
+    expect(!controlOf(bare, media_action::kVolumeOpen) && !controlOf(bare, media_action::kLyrics) && !bare.popover,
+           "volume unknown, no lyrics service: no speaker, no lyrics button, no bar");
     m.lyricsOn = true;
     m.volume = 0.25f;
     Content card = nowPlayingContent(m);
-    std::vector<Item> left = leftOf(card), right = card.expandedBottom.back().trailing;
+    const std::vector<Item> &left = card.expandedBottom.back().leading, &right = card.expandedBottom.back().trailing;
     auto button = [](const std::vector<Item>& items, std::size_t i) { return i < items.size() ? std::get_if<Button>(&items[i]) : nullptr; };
-    const Button *words = button(left, 0), *speaker = button(left, 1), *shuffle = button(right, 0), *repeat = button(right, 1);
-    expect(left.size() == 2 && words && words->glyph == Glyph::Lyrics && words->actionId == media_action::kLyrics && words->on == true && speaker &&
-               speaker->glyph == Glyph::Volume && speaker->actionId == media_action::kVolumeOpen && speaker->on == false,
-           "the row's left pair: the lyrics toggle, then the speaker that opens the volume");
-    expect(right.size() == 2 && shuffle && shuffle->glyph == Glyph::Shuffle && repeat && repeat->glyph == Glyph::Repeat,
-           "its right pair: shuffle, then repeat");
+    const Button *speaker = button(left, 0), *shuffle = button(left, 1), *repeat = button(right, 0), *words = button(right, 1);
+    expect(left.size() == 2 && speaker && speaker->glyph == Glyph::Volume && speaker->actionId == media_action::kVolumeOpen && speaker->on == false &&
+               shuffle && shuffle->glyph == Glyph::Shuffle,
+           "the row's left pair: the speaker that opens the volume, then shuffle");
+    expect(right.size() == 2 && repeat && repeat->glyph == Glyph::Repeat && words && words->glyph == Glyph::Lyrics &&
+               words->actionId == media_action::kLyrics && words->on == true && words->enabled,
+           "its right pair: repeat, then the lyrics toggle");
     bool alike = words && speaker && shuffle && repeat;
     for (const Button* b : { words, speaker, shuffle, repeat }) alike = alike && b->secondary && !b->compact && !b->large && b->on.has_value();
     expect(alike, "all four the same quiet toggles");
     // Mirrored about the card's middle, with ▶ on it.
     Scene closed = layout(expandedWith(card), Ms{ 0 });
     auto at = [&](const Scene& s, const char* key) { return find(s, std::string("expandedBottom/controls/") + key); };
-    const Placed *play = at(closed, "1"), *pShuffle = at(closed, "3"), *pRepeat = at(closed, "4"), *pWords = at(closed, "5"), *pSpeaker = at(closed, "6");
+    const Placed *play = at(closed, "1"), *pRepeat = at(closed, "3"), *pWords = at(closed, "4"), *pSpeaker = at(closed, "5"), *pShuffle = at(closed, "6");
     float mid = closed.size.x / 2;
     auto centre = [](const Placed* p) { return p->frame.x + p->frame.width / 2; };
     expect(play && pShuffle && pRepeat && pWords && pSpeaker && std::abs(centre(play) - mid) < 0.01f &&
-               std::abs((mid - centre(pWords)) - (centre(pRepeat) - mid)) < 0.01f && std::abs((mid - centre(pSpeaker)) - (centre(pShuffle) - mid)) < 0.01f &&
-               pWords->frame.width == pRepeat->frame.width && pSpeaker->frame.width == pShuffle->frame.width && pWords->frame.x == t.expandedPadding,
-           "the pairs mirror each other about the card's middle, at its edges, the same size");
+               std::abs((mid - centre(pSpeaker)) - (centre(pWords) - mid)) < 0.01f && std::abs((mid - centre(pShuffle)) - (centre(pRepeat) - mid)) < 0.01f &&
+               pWords->frame.width == pSpeaker->frame.width && pRepeat->frame.width == pShuffle->frame.width && pSpeaker->frame.x == t.expandedPadding,
+           "the pairs mirror each other about the card's middle: the speaker and lyrics at its edges, shuffle and repeat inside them");
+    // A song with no lyrics: the button stays, disabled, so the row's end doesn't change; shuffle and repeat go with the app's support.
+    NowPlaying wordless = m;
+    wordless.lyricsMissing = true;
+    wordless.canShuffle = wordless.canRepeat = false;
+    Content quietCard = nowPlayingContent(wordless);
+    const Button* none = controlOf(quietCard, media_action::kLyrics);
+    expect(none && !none->enabled && none->on == false && !controlOf(quietCard, media_action::kShuffle) && !controlOf(quietCard, media_action::kRepeat) &&
+               controlOf(quietCard, media_action::kVolumeOpen),
+           "no lyrics for this song: the lyrics button disabled, not gone; shuffle and repeat gone where the app has none");
+    Scene quietScene = layout(expandedWith(quietCard), Ms{ 0 });
+    const Placed* lone = find(quietScene, "expandedBottom/controls/3"); // the lyrics button, alone at the right
+    expect(lone && pWords && lone->frame == pWords->frame && !hitTest(quietScene, { centre(lone), lone->frame.y + lone->frame.height / 2 }),
+           "...where it always is, and a click on it does nothing");
     expect(!card.popover && !closed.popover, "the volume's bar isn't shown until its speaker is clicked");
 
     m.volumeOpen = true;
     Content open = nowPlayingContent(m);
     auto* level = open.popover && open.popover->row.items.size() == 1 ? std::get_if<Progress>(&open.popover->row.items[0]) : nullptr;
     expect(level && level->level && level->seekable && level->actionId == media_action::kVolume && level->timeline.fractionAt(Ms{ 0 }) == 0.25f &&
-               open.popover->anchor == media_action::kVolumeOpen && std::get<Button>(leftOf(open)[1]).on == true,
+               open.popover->anchor == media_action::kVolumeOpen && controlOf(open, media_action::kVolumeOpen)->on == true,
            "clicked: its bar in a popover opened from the speaker, at the app's level, and the speaker lit");
     Scene scene = layout(expandedWith(open), Ms{ 0 });
-    const Placed* opener = at(scene, "6");
+    const Placed* opener = at(scene, "5");
     const Placed* bar = scene.popover && scene.popover->elements.size() == 1 ? &scene.popover->elements[0] : nullptr;
     expect(scene.popover && opener && bar && bar->key == "popover/0/0" && bar->frame.width == t.levelBarWidth, "laid out on a pill of its own, the bar levelBarWidth wide");
     if (scene.popover && opener && bar) {
         Rect pill = scene.popover->frame;
-        expect(std::abs(pill.x + pill.width / 2 - centre(opener)) <= 0.5f && std::abs(pill.y + pill.height - (opener->frame.y - t.popoverGap)) <= 0.5f,
-               "the pill right above the speaker, centred on it");
+        // The speaker is at the card's edge: the pill can't centre on it, and stays inside the card's padding, over it.
+        expect(pill.x == t.expandedPadding && pill.contains({ centre(opener), pill.y + 1 }) &&
+                   std::abs(pill.y + pill.height - (opener->frame.y - t.popoverGap)) <= 0.5f,
+               "the pill right above the speaker, against the card's padding");
+        Content inner = open;
+        inner.popover->anchor = media_action::kShuffle;
+        Scene centred = layout(expandedWith(inner), Ms{ 0 });
+        expect(centred.popover && std::abs(centred.popover->frame.x + centred.popover->frame.width / 2 - centre(at(centred, "6"))) <= 0.5f,
+               "one opened from a button with room on both sides is centred on it");
         expect(pill.x >= t.expandedPadding && pill.width == t.levelBarWidth + 2 * t.popoverPadding.x && scene.popover->radius == pill.height / 2 &&
                    scene.popover->slide == t.popoverRise && bar->frame.x == pill.x + t.popoverPadding.x &&
                    std::abs(bar->frame.y + bar->frame.height / 2 - (pill.y + pill.height / 2)) < 0.01f,
@@ -290,11 +318,6 @@ void volumeTests()
         expect(under && pill.contains({ pill.x + 2, pill.y + pill.height / 2 }) && !hitTest(scene, { pill.x + 2, pill.y + pill.height / 2 }),
                "the pill's own padding takes no click through to the card");
     }
-    // The speaker is at the card's left: a wider popover is kept inside the card's padding, not centred off it.
-    Content wide = open;
-    for (int i = 0; i < 3; ++i) wide.popover->row.items.push_back(Button{ .glyph = Glyph::Plus, .actionId = "more" });
-    Scene kept = layout(expandedWith(wide), Ms{ 0 });
-    expect(kept.popover && kept.popover->frame.x == t.expandedPadding, "too wide to centre on its button: against the card's padding");
     Content orphan = open;
     orphan.popover->anchor = "no such button";
     expect(!layout(expandedWith(orphan), Ms{ 0 }).popover, "no button to open from on the card: not shown");
@@ -303,11 +326,11 @@ void volumeTests()
     expect(seeking && seeking->action.actionId == media_action::kSeek, "the song's own bar still seeks");
     m.muted = true;
     Content silent = nowPlayingContent(m);
-    expect(std::get<Button>(leftOf(silent)[1]).glyph == Glyph::Muted && std::get<Progress>(silent.popover->row.items[0]).timeline.fractionAt(Ms{ 0 }) == 0.0f,
+    expect(controlOf(silent, media_action::kVolumeOpen)->glyph == Glyph::Muted && std::get<Progress>(silent.popover->row.items[0]).timeline.fractionAt(Ms{ 0 }) == 0.0f,
            "muted: the crossed speaker, the bar empty");
     m.muted = false;
     m.volume = 0.0f;
-    expect(std::get<Button>(leftOf(nowPlayingContent(m))[1]).glyph == Glyph::Muted, "...and at no volume at all");
+    expect(controlOf(nowPlayingContent(m), media_action::kVolumeOpen)->glyph == Glyph::Muted, "...and at no volume at all");
     expect(levelTimeline(2.0f).fractionAt(Ms{ 5 }) == 1.0f && levelTimeline(-1.0f).fractionAt(Ms{ 5 }) == 0.0f && !levelTimeline(0.5f).playing,
            "a level's timeline: clamped, and standing still");
 }
@@ -335,6 +358,9 @@ void presenterTests()
            "the next song, looked up: the row stays, empty, so the bar doesn't jump");
     service.answer(std::vector<LrclibRecord>{});
     expect(host.started.size() == 4 && !hasLyricsRow(host.started.back().content), "it has none: the row goes");
+    expect(host.started[2].content.expandedBottom.size() && controlOf(host.started[2].content, media_action::kLyrics)->enabled &&
+               !controlOf(host.started.back().content, media_action::kLyrics)->enabled,
+           "...and the lyrics button is disabled for it; while it was looked up, it wasn't");
     presenter.show(song("Three"));
     expect(!hasLyricsRow(host.started.back().content), "...and stays away while the song after it is looked up");
     presenter.show(song("One"));
@@ -343,18 +369,18 @@ void presenterTests()
     // The app's volume: shown for the session it was read for.
     std::size_t shown = host.started.size();
     presenter.showVolume("Spotify.exe", 0.5f, false);
-    expect(host.started.size() == shown + 1 && leftOf(host.started.back().content).size() == 2, "the app's volume read: its control appears");
+    expect(host.started.size() == shown + 1 && controlOf(host.started.back().content, media_action::kVolumeOpen), "the app's volume read: its control appears");
     presenter.showVolume("Spotify.exe", 0.5f, false);
     expect(host.started.size() == shown + 1, "the same again: nothing new");
     presenter.showPlayback("Spotify.exe", NowPlaying{ .timeline = { .duration = Ms{ 100000 } } });
-    expect(leftOf(host.started.back().content).size() == 2 && hasLyricsRow(host.started.back().content),
+    expect(controlOf(host.started.back().content, media_action::kVolumeOpen) && hasLyricsRow(host.started.back().content),
            "a pause keeps the volume and the lyrics, as it keeps the title");
     presenter.show(song("One", "chrome.exe"));
-    expect(leftOf(host.started.back().content).size() == 1, "another app: its volume isn't known yet");
+    expect(!controlOf(host.started.back().content, media_action::kVolumeOpen), "another app: its volume isn't known yet");
     presenter.showVolume("Spotify.exe", 0.2f, true);
-    expect(leftOf(host.started.back().content).size() == 1, "a late answer about the app before: not shown on this one");
+    expect(!controlOf(host.started.back().content, media_action::kVolumeOpen), "a late answer about the app before: not shown on this one");
     presenter.showVolume("chrome.exe", std::nullopt, false);
-    expect(leftOf(host.started.back().content).size() == 1, "an app with no audio session: no control");
+    expect(!controlOf(host.started.back().content, media_action::kVolumeOpen), "an app with no audio session: no control");
 
     // The speaker opens the volume's bar and puts it away; the card closing puts it away too.
     presenter.showVolume("chrome.exe", 0.4f, false);
@@ -374,7 +400,7 @@ void presenterTests()
     expect(hasLyricsRow(host.started.back().content) && host.started.back().content.smallCover, "lyrics on, a song with some: the line, a small cover");
     presenter.toggleLyrics();
     const Content& quiet = host.started.back().content;
-    expect(!hasLyricsRow(quiet) && !quiet.smallCover && std::get<Button>(leftOf(quiet)[0]).on == false && host.kept == "off",
+    expect(!hasLyricsRow(quiet) && !quiet.smallCover && controlOf(quiet, media_action::kLyrics)->on == false && controlOf(quiet, media_action::kLyrics)->enabled && host.kept == "off",
            "turned off: no line, the cover full size, the button off, and it's kept");
     presenter.show(song("Four"));
     expect(service.asked.size() == asked && !hasLyricsRow(host.started.back().content), "off: a new song is not looked up");
@@ -383,7 +409,7 @@ void presenterTests()
         MediaPresenter restarted(host, later.fetch());
         restarted.start();
         restarted.show(song("Five"));
-        expect(later.asked.empty() && std::get<Button>(leftOf(host.started.back().content)[0]).on == false, "still off after a restart");
+        expect(later.asked.empty() && controlOf(host.started.back().content, media_action::kLyrics)->on == false, "still off after a restart");
     }
     presenter.toggleLyrics();
     expect(host.kept == "on" && service.asked.size() == asked + 1 && service.asked.back().title == "Four", "turned on again: the song playing is looked up");
@@ -395,7 +421,7 @@ void presenterTests()
     MediaPresenter plain(plainHost);
     plain.show(song("One"));
     expect(plainHost.started.size() == 1 && !hasLyricsRow(plainHost.started.back().content) &&
-               leftOf(plainHost.started.back().content).empty(),
+               !controlOf(plainHost.started.back().content, media_action::kLyrics),
            "no lyrics service: the card as it was, with no lyrics button");
 }
 

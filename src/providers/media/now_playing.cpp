@@ -65,20 +65,22 @@ Content nowPlayingContent(const NowPlaying& m)
                        Align::Center);
     controls.loose = true; // big, well-separated targets
     controls.id = "controls";
-    // Two pairs at the row's edges, mirrored (decision 180): what the card shows on the left,
-    // lyrics then the speaker that opens the volume's bar; how it plays on the right, shuffle then
-    // repeat. All four the same quiet toggles; the transport stays centred between them
-    // (decision 168). Each only where it applies: the app's modes, a known volume, a lyrics service.
-    if (m.lyricsOn)
-        controls.leading.push_back(Button{ .glyph = Glyph::Lyrics, .actionId = act::kLyrics, .on = *m.lyricsOn, .secondary = true });
+    // Two pairs at the row's edges, mirrored (decisions 168, 180): at the very ends the speaker
+    // that opens the volume's bar and the lyrics toggle, inside them shuffle and repeat. All four
+    // the same quiet toggles; the transport stays centred between them. Shuffle, repeat and the
+    // speaker only where they apply (the app's modes, a known volume). The lyrics button stays
+    // with a song that has no lyrics, disabled: it says so, and keeps the row's end in place.
     if (m.volume)
         controls.leading.push_back(Button{ .glyph = m.muted || *m.volume <= 0 ? Glyph::Muted : Glyph::Volume, .actionId = act::kVolumeOpen,
                                            .on = m.volumeOpen, .secondary = true });
     if (m.canShuffle)
-        controls.trailing.push_back(Button{ .glyph = Glyph::Shuffle, .actionId = act::kShuffle, .on = m.shuffle, .secondary = true });
+        controls.leading.push_back(Button{ .glyph = Glyph::Shuffle, .actionId = act::kShuffle, .on = m.shuffle, .secondary = true });
     if (m.canRepeat)
         controls.trailing.push_back(Button{ .glyph = m.repeat == Repeat::One ? Glyph::RepeatOne : Glyph::Repeat, .actionId = act::kRepeat,
                                             .on = m.repeat != Repeat::Off, .secondary = true });
+    if (m.lyricsOn)
+        controls.trailing.push_back(Button{ .glyph = Glyph::Lyrics, .actionId = act::kLyrics, .enabled = !m.lyricsMissing,
+                                            .on = *m.lyricsOn && !m.lyricsMissing, .secondary = true });
     c.expandedBottom.push_back(controls);
     c.noIdleTimeout = true; // kept open while listening: left alone, it stays (decision 177)
     return c;

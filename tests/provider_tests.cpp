@@ -158,9 +158,9 @@ void runProviderTests()
     expect(progress && !progress->timeline.playing && progress->timeline.position == Ms{ 5000 },
            "pause freezes the timeline where it was");
 
-    // Shuffle and repeat are toggles that light up, a pair at the row's right
-    // edge, apart from the skips (decisions 168, 180).
-    const std::string shuffle = "expandedBottom/controls/3", repeat = "expandedBottom/controls/4";
+    // Shuffle (leading) and repeat (trailing) are toggles that light up, at the
+    // row's edges, apart from the skips (decision 168).
+    const std::string repeat = "expandedBottom/controls/3", shuffle = "expandedBottom/controls/4";
     {
         Scene controls = island.scene();
         auto at = [&](const std::string& key) {
@@ -169,12 +169,10 @@ void runProviderTests()
             return Rect{};
         };
         Rect prev = at("expandedBottom/controls/0"), next = at("expandedBottom/controls/2"), sh = at(shuffle), re = at(repeat), bar = at("expandedBottom/bar/1");
-        expect(std::abs(re.x + re.width - (controls.size.x - tk.expandedPadding)) < 0.01f && std::abs(sh.x + sh.width + tk.itemSpacing - re.x) < 0.01f &&
-                   next.x + next.width + tk.looseItemSpacing < sh.x,
-               "shuffle then repeat at the card's right edge, apart from previous and next");
-        Rect play = at("expandedBottom/controls/1");
-        expect(std::abs(play.x + play.width / 2 - controls.size.x / 2) < 0.01f && std::abs((play.x - prev.x - prev.width) - (next.x - play.x - play.width)) < 0.01f,
-               "the transport still centred on the card, with nothing at the left edge to balance");
+        expect(std::abs(sh.x - tk.expandedPadding) < 0.01f && sh.x + sh.width + tk.looseItemSpacing < prev.x &&
+                   next.x + next.width + tk.looseItemSpacing < re.x,
+               "shuffle and repeat at the card's edges, apart from previous and next");
+        expect(std::abs(sh.x - (controls.size.x - re.x - re.width)) < 0.01f, "the whole group centred");
         Rect elapsed = at("expandedBottom/bar/0"), left = at("expandedBottom/bar/2");
         expect(elapsed.width < tk.timeLabelWidth && left.width < tk.timeLabelWidth && elapsed.x + elapsed.width + tk.itemSpacing == bar.x,
                "the times as wide as they get, close to the bar: no fixed column");
