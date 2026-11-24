@@ -56,8 +56,8 @@ struct Panel {
     RowSpot rowSpot = RowSpot::Corner;
     // Its icon in the page row's list (decision 165), live or dormant. None: a plain one.
     std::optional<Glyph> icon;
-    // Its card finds a file for a file dialog (decision 181): the one a
-    // double-click on the pill opens while such a dialog is in front.
+    // Its card finds a file for a file dialog (decision 181): the one the
+    // pill under such a dialog opens.
     bool picksFiles = false;
     bool operator==(const Panel&) const = default;
 };
@@ -165,13 +165,11 @@ struct Menu {
     bool operator==(const Menu&) const = default;
 };
 
-// A file dialog (Windows' Open or Save) is in front (decision 181,
-// core/file_dialog.h). The pill opens with a double-click, on the card that
-// picks files; it can't be lifted.
+// The pill under a file dialog was clicked (decision 181, core/file_dialog.h):
+// the island is lent to the dialog. It hangs under it, showing the card that
+// picks files, until that card closes; then it's back in its own place.
 struct Picker {
-    // The island hangs under the dialog, its pill centred here (render-layer
-    // x). None: no room there, or another monitor; it stays in its own place.
-    std::optional<float> centre;
+    float centre = 0; // the card is centred here (render-layer x): the dialog's middle
     bool operator==(const Picker&) const = default;
 };
 
@@ -190,12 +188,11 @@ struct ActivityUpdated { std::string id; Content content; };
 struct ActivityEnded { std::string id; };
 struct AlertPosted { Alert alert; };
 struct PillClicked {};
-// The second click of a double-click on the pill, after its PillClicked.
-// Opens the picking card while a file dialog is in front (decision 181); nothing otherwise.
-struct PillDoubleClicked {};
-// A file dialog came in front, or moved (decision 181). `centre`: Picker::centre.
-struct PickerOpened { std::optional<float> centre; };
-struct PickerClosed {};                 // it went, or something else is in front: a picking card closes
+// The pill under a file dialog was clicked (decision 181): the picking card
+// opens, hung under the dialog. `centre`: Picker::centre. Nothing without such a card.
+struct PickerOpened { float centre = 0; };
+struct PickerMoved { float centre = 0; }; // the dialog moved under an open picking card
+struct PickerClosed {};                   // the dialog went, or something else is in front: the picking card closes
 // A click in the top band of an expanded island (Scene::collapseZone): it always
 // closes, a card that keeps open or a pinned island too (decision 108).
 struct TopClicked {};
@@ -271,7 +268,7 @@ struct ClockSynced {
 };
 
 using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, AlertPosted,
-                           PillClicked, PillDoubleClicked, PickerOpened, PickerClosed, TopClicked, ClickedOutside, EscapePressed, PointerMoved,
+                           PillClicked, PickerOpened, PickerMoved, PickerClosed, TopClicked, ClickedOutside, EscapePressed, PointerMoved,
                            DragEntered, DragLeft, Dropped, HiddenChanged, Tick,
                            BubbleClicked, ActivityPromoted, ActivitySwitched,
                            BubbleDragged, BubbleReleased, BubbleDragCancelled,
@@ -305,7 +302,7 @@ struct IslandState {
     Ms lastPointerAt{};
     bool dragging = false;             // an accepted drag is over the island
     bool hidden = false;
-    std::optional<Picker> picker;      // a file dialog is in front (decision 181)
+    std::optional<Picker> picker;      // lent to a file dialog: hung under it with the picking card (decision 181)
     std::optional<WallClock> clock;    // unknown until the platform syncs it
     std::optional<Draft> draft;        // a TextInput has focus (decision 016)
     // A field's unsent text while it isn't focused (decision 050), by

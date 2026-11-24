@@ -32,7 +32,7 @@ std::vector<MenuItem> resultMenu(const SearchProvider::Result& result, std::size
 
 // The menu by a file dialog (decision 181), for a file or folder result:
 //   Choose (Enter, bold; a folder: Open folder) · Go to its folder (Ctrl+Shift+E)
-//   Copy path (Ctrl+Shift+C) · Remove from history (Shift+Delete)
+//   Copy path (Ctrl+Shift+C) · Remove from history (Shift+Delete: a result it ranked up)
 // The first two go to the dialog. Nothing that starts something else: the
 // user is in the middle of choosing a file.
 std::vector<MenuItem> pickingMenu(const SearchProvider::Result& result, std::size_t index);

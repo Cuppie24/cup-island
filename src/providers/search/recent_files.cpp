@@ -73,22 +73,4 @@ std::vector<indexer::ResultRow> withRecent(std::vector<indexer::ResultRow> rows,
     return out;
 }
 
-std::vector<indexer::ResultRow> recentFiles(const LaunchHistory& opened, Ms now, std::size_t limit,
-                                            const std::function<bool(const std::string& path)>& exists,
-                                            std::vector<std::string>& gone)
-{
-    std::vector<std::pair<double, std::string>> ranked; // weight, key
-    for (const auto& [key, use] : opened.uses)
-        if (double w = opened.weight(key, now); w > 0) ranked.push_back({ w, key });
-    std::sort(ranked.begin(), ranked.end(), [](const auto& a, const auto& b) { return a.first != b.first ? a.first > b.first : a.second < b.second; });
-    std::vector<indexer::ResultRow> rows;
-    for (const auto& [weight, key] : ranked) {
-        if (rows.size() >= limit) break;
-        indexer::ResultRow row = rowOfKey(key);
-        if (exists && !exists(row.path)) gone.push_back(key);
-        else rows.push_back(std::move(row));
-    }
-    return rows;
-}
-
 } // namespace cup

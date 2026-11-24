@@ -1,13 +1,16 @@
 #pragma once
-// The app's side of a file dialog in front (decision 181): the watcher's
-// news becomes core's PickerOpened / PickerClosed, the island's layers hang
-// under the dialog where core says (core/file_dialog.h: hangUnder), and
-// Search's card picks the file. The rules are core's; this makes the calls.
+// The app's side of a file dialog in front (decision 181): a pill of its own
+// under the dialog (platform/picker_pill); clicked, the island's layers are
+// hung under the dialog and core opens the picking card there
+// (PickerOpened); when that card closes the layers go home and the pill is
+// back. Search is told while a dialog is in front, so its card picks.
+// The rules are core's (core/file_dialog.h); this makes the calls.
 
 #include "core/island.h"
 
 #include <functional>
 #include <optional>
+#include <string>
 
 namespace cup {
 class SearchProvider;
@@ -15,22 +18,37 @@ class SearchProvider;
 
 namespace cup::app {
 
+// Where the island's layers hang while lent to a dialog.
+struct HangPlace {
+    std::string displayId; // the dialog's monitor
+    float top = 0;         // their top edge, screen pixels
+};
+
+// The monitor a dialog is on.
+struct PickerDisplay {
+    std::string id;
+    Rect workArea; // it less its taskbar, screen pixels
+};
+
 // What it needs from the app, which owns the state and the layers (main.cpp).
 struct FilePickerHooks {
     std::function<const IslandState&()> state;
     std::function<void(const Event&, const char* reason)> dispatch;
-    std::function<Rect()> workArea;   // the island's monitor less its taskbar, screen pixels
-    std::function<float()> layerLeft; // the render layer's left edge, screen pixels
-    // The island's layers hang from this y (screen pixels); none: back at their monitor's top.
-    std::function<void(std::optional<float> top)> hang;
+    std::function<PickerDisplay(Rect dialog)> displayOf;
+    // The island's layers hang there; none: back at their own monitor's top.
+    std::function<void(std::optional<HangPlace>)> hang;
+    std::function<float()> layerLeft; // the render layer's left edge, screen pixels: after hang(), the dialog's monitor's
+    std::function<void()> focus;      // the island takes the keys: the card's field is typed in at once
     SearchProvider* search = nullptr; // its card picks the file (SearchProvider::setPicking)
 };
 
-// Starts watching. Before the message loop runs, after the providers started.
+// Makes the pill and starts watching. Before the message loop runs, after the providers started.
 void watchFilePicker(FilePickerHooks hooks);
 
-// After every dispatch, and when the island's monitor changed: a card opening
-// or closing, or another work area, changes where the island hangs.
+// The pill was clicked (platform::createPickerPill's onClick).
+void filePillClicked();
+
+// After every dispatch: the picking card closed, so the island goes home and the pill is back.
 void settleFilePicker();
 
 } // namespace cup::app

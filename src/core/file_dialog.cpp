@@ -38,22 +38,17 @@ bool isFileNameField(const std::vector<std::string>& chain)
     return true;
 }
 
-std::optional<Hang> hangUnder(Rect dialog, Rect workArea, bool cardOpen)
+Hang hangUnder(Rect dialog, Rect workArea, bool cardOpen)
 {
-    float bottom = dialog.y + dialog.height, centre = dialog.x + dialog.width / 2;
-    float floor = workArea.y + workArea.height;
-    if (!workArea.contains({ centre, std::clamp(bottom, workArea.y, floor - 1) })) return std::nullopt; // another monitor's
-    if (bottom < workArea.y || floor - bottom < tokens().pickerPillRoom) return std::nullopt;
+    float bottom = dialog.y + dialog.height, floor = workArea.y + workArea.height;
     float top = bottom;
     if (cardOpen) top = std::max(std::min(bottom, floor - tokens().pickerCardRoom), workArea.y);
-    return Hang{ top, centre };
+    return { top, dialog.x + dialog.width / 2 };
 }
 
-bool opensOnDoubleClick(const IslandState& s)
+Rect pillFrame(Hang hang, Vec2 size)
 {
-    if (!s.picker) return false;
-    Mode m = mode(s);
-    return m == Mode::Idle || m == Mode::Compact || m == Mode::Split; // an alert and an open card take a click as ever
+    return snapToPixels({ hang.centre - size.x / 2, hang.top, size.x, size.y });
 }
 
 std::string pickingCard(const IslandState& s)

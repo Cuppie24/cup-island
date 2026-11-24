@@ -170,12 +170,6 @@ void SearchProvider::searchNow()
         shown_.clear();
         files_.clear();
         filesNote_.clear();
-        if (picking_) { // ...and, for a file dialog, what was opened lately (decision 181)
-            std::vector<std::string> gone;
-            files_ = recentFiles(opened_, wall, tokens().searchFileRows, hooks_.exists, gone);
-            for (const std::string& key : gone) opened_.uses.erase(key);
-            if (!gone.empty()) host_->save(kOpenedKey, opened_.save());
-        }
         publish();
         return;
     }

@@ -1,17 +1,24 @@
-# 181: By a file dialog, the island hangs under it and picks its file
+# 181: A pill under a file dialog picks its file
 
 Status: Accepted
 
 **Context.** Choosing a file in Windows' Open or Save dialog means walking
 folders, while the island's search already finds any file in a few letters.
-The user asked for the island to come to the dialog: a pill under it, opened
-with a double-click, whose pick goes to the dialog, with a menu that fits.
+The user asked for the island to come to the dialog: a pill under it, whose
+pick goes to the dialog, with a menu that fits.
 
 Windows has no event for "a file dialog opened". Both kinds (today's, and the
 old-style one) are a top-level dialog, class `#32770`, with Explorer's file
 view inside (`DUIViewWndClassName`, `SHELLDLL_DefView`); message boxes, Print
 and Font are `#32770` without it. Apps that draw their own picker can't be
 told apart from any other window.
+
+The first build moved the whole island under the dialog. The user turned
+that down: music, alerts and the timer don't belong under a dialog. They
+also asked for no recent files in the card (what was opened before is
+nobody's business while a dialog is on screen, perhaps shared), for the pill
+to stay under the dialog even when the screen's edge cuts it off, and for a
+single click to open it.
 
 **Decision.**
 
@@ -22,36 +29,46 @@ told apart from any other window.
   front, two more hooks on its thread alone say when it moves or closes.
   The island's own window in front changes nothing (its card has the keys
   while the dialog waits); another app's window in front ends it.
-- *One island, moved.* The island itself goes there, not a second pill: its
-  layers hang from the dialog's bottom edge instead of their monitor's top
-  (`hangUnder`), and core centres the pill on the dialog
-  (`IslandState::picker`, placed like a Free spot, so the screen-edge rules
-  of decision 026 hold). Its saved spot isn't touched, and it can't be lifted
-  there. With less than `pickerPillRoom` under the dialog, or the dialog on
-  another monitor, it stays in its own place, still picking. A card needs
-  `pickerCardRoom`: when that isn't there, the layers move up over the
-  dialog's lower part while the card is open, rather than off the screen.
-- *Double-click.* By a file dialog a click on the resting pill (or the
-  bubble) does nothing, and a double-click opens the card of the panel with
-  `Panel::picksFiles`: Search. Alerts and an open card take a click as ever;
-  the shortcuts work as ever. That card closes when the dialog goes.
-- *Picking.* The app tells Search (`SearchProvider::setPicking`). Its card
-  then lists files and folders only, the recently opened ones before
-  anything is typed. A result is given to the dialog
-  (`SearchHooks::giveToDialog`): its path is put in the dialog's "File name"
-  field (`isFileNameField` picks it) and its Open / Save button is pressed,
-  as if typed. A file is chosen; a folder is gone to. It counts as a recent
-  file from then on (decision 082).
+- *A pill of its own.* `platform/picker_pill`: a small window the idle
+  island's size with a search glyph, hung from the dialog's bottom edge,
+  centred (`hangUnder`, `pillFrame`). Always there, on whichever monitor the
+  dialog is: with no room it's cut off by the screen. It moves with the
+  dialog as one piece, unanimated, and never takes the keys. The island
+  stays where it is, as it is.
+- *One click lends the island.* A click on the pill hangs the island's
+  layers under the dialog (on its monitor, at that monitor's scale) and
+  sends `PickerOpened`: core opens the card of the panel with
+  `Panel::picksFiles` (Search), centred on the dialog
+  (`IslandState::picker`, placed like a Free spot, so decision 026's
+  screen-edge rules hold). The pill hides, so it reads as the pill opening.
+  The card needs `pickerCardRoom`: when that isn't under the dialog, it
+  opens over the dialog's lower part rather than off the screen. Closed any
+  way (a pick, Esc, a click elsewhere, the dialog going, a critical alert),
+  `picker` is dropped, the layers go home and the pill is back. A second
+  island was the alternative: the renderer, the input window and the app's
+  loop are each built for one, and the island is only away while the user
+  is typing in the picking card.
+- *Picking.* The app tells Search while a dialog is in front
+  (`SearchProvider::setPicking`). Its card then lists files and folders
+  only, and nothing before something is typed. A result is given to the
+  dialog (`SearchHooks::giveToDialog`): its path is put in the dialog's
+  "File name" field (`isFileNameField` picks it) and its Open / Save button
+  is pressed, as if typed. A file is chosen; a folder is gone to. It ranks
+  higher next time like any file opened from search (decision 082).
 - *Its menu* (`pickingMenu`, decision 086): Choose (a folder: Open folder),
   Go to its folder, Copy path, Remove from history. Nothing that starts
   something else: the user is in the middle of choosing a file.
 
 **Consequences.**
 
-- Everything the island shows (music, alerts, the timer) is under the dialog
-  while one is in front, and back when it goes.
+- While the picking card is open, the island isn't at the top of its
+  screen; it's back the moment the card closes.
+- Search opened its usual way (its button, Double Ctrl) while a dialog is
+  in front opens in the island's own place, and picks for the dialog too.
 - A dialog of an app running as administrator doesn't take the path from an
-  island that isn't: Windows blocks the message. The card stays open then.
+  island that isn't: Windows blocks the message (UIPI). The card stays open
+  then. Getting past that means a signed `uiAccess` build or a helper started
+  by the service; neither is done here.
 - In a Save dialog, Choose saves over the picked file; the dialog asks
   first, as it does when the name is typed.
 - The text goes with a timeout (`pickerSendTimeout`) and the button press
@@ -59,4 +76,5 @@ told apart from any other window.
   island (decision 144).
 - Rules tested in `tests/scenarios/picker.scenario`,
   `tests/file_dialog_tests.cpp` and `tests/search_picking_tests.cpp`. The
-  watcher, the layers moving and the dialog taking a path need a Windows run.
+  watcher, the pill, the layers moving and the dialog taking a path need a
+  Windows run.

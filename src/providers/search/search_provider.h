@@ -17,7 +17,7 @@
 // What was started is remembered per user and ranks higher (LaunchHistory),
 // files opened from it too (recent_files, decision 082).
 // By a file dialog (decision 181) the card picks a file for it instead:
-// files and folders only, the recent ones before anything is typed; a result
+// files and folders only, nothing before something is typed; a result
 // is given to the dialog (SearchHooks::giveToDialog), and its menu is the
 // picking one (result_menu.h). The app says when (setPicking).
 // Pure, tested on Linux: Windows is behind SearchHooks.

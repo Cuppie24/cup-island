@@ -31,21 +31,20 @@ void runFileDialogTests()
 
     // Where the island hangs. A 1920x1080 monitor with a 48-high taskbar.
     const Rect work{ 0, 0, 1920, 1032 };
-    const float pill = tokens().pickerPillRoom, card = tokens().pickerCardRoom;
+    const float card = tokens().pickerCardRoom;
     Rect dialog{ 500, 200, 900, 600 }; // its bottom at 800: 232 under it
-    expect(hangUnder(dialog, work, false) == Hang{ 800, 950 }, "from the dialog's bottom edge, centred on it");
+    expect(hangUnder(dialog, work, false) == Hang{ 800, 950 }, "the pill: from the dialog's bottom edge, centred on it");
     expect(hangUnder(dialog, work, true) == Hang{ 1032 - card, 950 }, "a card that doesn't fit under it moves up over the dialog");
     Rect high{ 500, 0, 900, 400 };
     expect(hangUnder(high, work, true) == Hang{ 400, 950 }, "a card that fits stays under it");
-    Rect low{ 500, 400, 900, 632 - pill + 1 }; // a pixel short of the room the pill needs
-    expect(!hangUnder(low, work, false), "no room for the pill under it: the island stays in its own place");
-    low.height -= 1;
-    expect(hangUnder(low, work, false).has_value(), "just enough room: it hangs");
-    expect(!hangUnder({ 2100, 200, 900, 600 }, work, false), "a dialog on another monitor: its own place");
-    expect(!hangUnder({ 500, -900, 900, 600 }, work, false), "a dialog on the monitor above: its own place");
-    Rect tall{ 500, 0, 900, 900 };
-    expect(hangUnder(tall, { 0, 0, 1920, 400 + pill }, true) == std::optional<Hang>{}, "a dialog past the work area's bottom: its own place");
+    Rect low{ 500, 400, 900, 630 }; // two pixels above the taskbar
+    expect(hangUnder(low, work, false) == Hang{ 1030, 950 }, "no room for the pill: still under the dialog, cut off by the screen");
+    expect(hangUnder({ 500, 400, 900, 900 }, work, false).top == 1300, "...even all of it");
+    const Rect second{ 1920, 0, 1920, 1032 };
+    expect(hangUnder({ 2100, 200, 900, 600 }, second, true) == Hang{ 1032 - card, 2550 }, "a dialog on another monitor: under it there");
     expect(hangUnder({ 500, 0, 900, 300 }, { 0, 0, 1920, 400 }, true) == Hang{ 0, 950 }, "a screen shorter than the card: never above its top");
+    expect(pillFrame({ 800, 950 }, { 160, 28 }) == Rect{ 870, 800, 160, 28 }, "the pill's frame: centred, hung from there");
+    expect(pillFrame({ 800.4f, 950.5f }, { 161, 28 }) == Rect{ 870, 800, 161, 28 }, "...on whole pixels");
 }
 
 } // namespace cup::test

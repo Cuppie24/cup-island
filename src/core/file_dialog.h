@@ -1,8 +1,8 @@
 #pragma once
 // A file dialog (Windows' Open or Save) in front of the user, and the island
-// by it (decision 181): the island hangs under the dialog, a double-click on
-// its pill opens the card that picks files, and what's picked there is given
-// to the dialog. Pure: the platform gathers window facts (class names,
+// by it (decision 181): a pill of its own sits under the dialog; clicked, the
+// island comes there with the card that picks files, and what's picked is
+// given to the dialog. Pure: the platform gathers window facts (class names,
 // rectangles) and moves the windows; this decides.
 
 #include "core/geometry.h"
@@ -32,17 +32,16 @@ struct Hang {
     float centre = 0; // the pill's centre: the dialog's, screen pixels
     bool operator==(const Hang&) const = default;
 };
-// Under `dialog`, on the island's monitor (`workArea`: it less the taskbar).
-// Nothing when the dialog is on another monitor or has less than
-// pickerPillRoom under it: the island stays in its own place. With a card
-// open it needs pickerCardRoom, and moves up over the dialog's lower part
-// rather than off the screen's bottom.
-std::optional<Hang> hangUnder(Rect dialog, Rect workArea, bool cardOpen);
+// Under `dialog`, always: a pill with no room there is cut off by the
+// screen's edge rather than put anywhere else. The card (`cardOpen`) needs
+// pickerCardRoom above the bottom of `workArea` (the dialog's monitor less
+// its taskbar), and moves up over the dialog's lower part to have it.
+Hang hangUnder(Rect dialog, Rect workArea, bool cardOpen);
+// The pill's frame there (screen pixels): `size` big, hung from `hang`.
+Rect pillFrame(Hang hang, Vec2 size);
 
-// --- The island's rules while one is in front --------------------------------
-// A click on the resting pill (or the bubble) does nothing: a double-click opens it.
-bool opensOnDoubleClick(const IslandState& s);
-std::string pickingCard(const IslandState& s);                    // ...on this panel's card (Panel::picksFiles); "" = none
+// --- The picking card ---------------------------------------------------------
+std::string pickingCard(const IslandState& s);                    // the panel whose card picks files (Panel::picksFiles); "" = none
 bool isPickingCard(const IslandState& s, const std::string& id);  // that card: it closes when the dialog goes
 
 } // namespace cup

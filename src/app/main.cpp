@@ -43,7 +43,9 @@
 #include "platform/hotkeys.h"
 #include "platform/wall_clock.h"
 #include "platform/file_dialog_watcher.h"
+#include "platform/foreground.h"
 #include "platform/fullscreen_watcher.h"
+#include "platform/picker_pill.h"
 #include "platform/glass.h"
 #include "platform/log.h"
 #include "platform/interaction_layer.h"
@@ -128,13 +130,13 @@ std::filesystem::path g_tokensFile;
 RenderLayer g_render;
 std::string g_displayId; // the monitor the island is on (decision 023); "" = the main display
 Rect g_displayBounds;    // ...in screen pixels: a lifted island carried past them changes monitor (decision 178)
-Rect g_displayWork;      // ...less its taskbar: by a file dialog the island stays above that (decision 181)
 std::filesystem::path g_spotsFile;     // where the island rests on each monitor (decision 026)
 std::map<std::string, Spot> g_spots;   // ...as last saved, by display id
 std::unique_ptr<ProviderRegistry> g_providers;
-// By a file dialog the layers hang from its bottom edge, at this y (screen
-// pixels), not from their monitor's top (decision 181, app/file_picker).
+// Lent to a file dialog (decision 181, app/file_picker): the layers hang from
+// this y (screen pixels), not from their monitor's top...
 std::optional<float> g_hangTop;
+std::optional<std::string> g_homeDisplay; // ...on the dialog's monitor, when that isn't the island's own: where to go back to
 SettingsProvider* g_settings = nullptr; // owned by g_providers; told when tokens.json reloads
 UpdateProvider* g_update = nullptr;     // owned by g_providers; Settings' "Check for updates" asks it
 
@@ -385,7 +387,7 @@ void dispatch(const Event& event, const char* reason)
         if (wasCard) g_providers->cardClosed(*wasCard);
         if (nowCard) g_providers->cardShown(*nowCard);
     }
-    app::settleFilePicker(); // by a file dialog, a card opening or closing changes where the island hangs (decision 181)
+    app::settleFilePicker(); // lent to a file dialog, the island goes home when the picking card closes (decision 181)
 }
 
 void toggleProvider(const char* id)
@@ -722,17 +724,8 @@ void onPressRelease(app::Surface& s, Vec2 canvasPoint, Release how)
     }
     s.renderer->pressRelease(false);
     // A click on a disabled control does nothing, as it does nothing there: it doesn't close the card either.
-    if (how != Release::Inside || !onShape(s, canvasPoint) || hitTest(s.scene, point) || onDisabledControl(s.scene, point)) return;
-    // The second click of a double-click, as Windows times and places one:
-    // by a file dialog it opens the picking card (decision 181).
-    Ms t = now();
-    bool second = s.pointer.pillClickAt && t - *s.pointer.pillClickAt <= Ms{ GetDoubleClickTime() } &&
-                  std::abs(canvasPoint.x - s.pointer.pillClickPoint.x) <= GetSystemMetrics(SM_CXDOUBLECLK) / 2 &&
-                  std::abs(canvasPoint.y - s.pointer.pillClickPoint.y) <= GetSystemMetrics(SM_CYDOUBLECLK) / 2;
-    s.pointer.pillClickAt = second ? std::nullopt : std::optional<Ms>(t); // a third click starts over
-    s.pointer.pillClickPoint = canvasPoint;
-    dispatch(PillClicked{}, "click");
-    if (second) dispatch(PillDoubleClicked{}, "double click");
+    if (how == Release::Inside && onShape(s, canvasPoint) && !hitTest(s.scene, point) && !onDisabledControl(s.scene, point))
+        dispatch(PillClicked{}, "click");
 }
 
 // Sends the focused field's text to its provider: what was typed (Enter), or
@@ -899,8 +892,8 @@ void onKey(WPARAM key)
     }
 }
 
-// Where the render layer hangs from: its monitor's top edge, or, by a file
-// dialog, that dialog's bottom edge (decision 181). Across the monitor either way.
+// Where the render layer hangs from: its monitor's top edge, or, lent to a
+// file dialog, that dialog's bottom edge (decision 181). Across the monitor either way.
 Rect layerStrip()
 {
     Rect strip = g_displayBounds;
@@ -908,11 +901,22 @@ Rect layerStrip()
     return strip;
 }
 
-// A file dialog came, moved or went: the layers hang from `top`, or are back
-// at their monitor's top. Their width doesn't change, so core isn't told.
-void hangLayers(std::optional<float> top)
+void placeIsland(const std::string& displayId, std::optional<Vec2> carriedAt);
+
+// Lent to a file dialog (decision 181): the layers hang at `place`, on the
+// dialog's monitor; none: back at their own monitor's top. Another monitor
+// is another width and scale, as when the island is moved there (placeIsland);
+// on the same one only the layers move, and core isn't told.
+void hangLayers(std::optional<app::HangPlace> place)
 {
-    g_hangTop = top;
+    if (place && !g_homeDisplay && place->displayId != g_displayId) g_homeDisplay = g_displayId;
+    std::string display = place ? place->displayId : g_homeDisplay.value_or(g_displayId);
+    if (!place) g_homeDisplay.reset();
+    g_hangTop = place ? std::optional<float>(place->top) : std::nullopt;
+    if (display != g_displayId) {
+        placeIsland(display, std::nullopt);
+        return;
+    }
     resizeRenderLayer(g_render, tokens().canvas, layerStrip());
     setRenderOrigin(g_render.left, g_render.top);
     g_renderer.layerChanged();
@@ -927,7 +931,6 @@ void positionLayers(std::optional<Vec2> carriedAt = std::nullopt)
 {
     Display display = displayFor(g_displayId);
     g_displayBounds = display.bounds;
-    g_displayWork = display.workArea;
     resizeRenderLayer(g_render, tokens().canvas, layerStrip());
     std::optional<Vec2> window;
     if (carriedAt) {
@@ -1115,7 +1118,6 @@ int main()
     g_displayId.erase(g_displayId.find_last_not_of(" \t\r\n") + 1);
     Display display = displayFor(g_displayId);
     g_displayBounds = display.bounds;
-    g_displayWork = display.workArea;
     app::setDisplayScale(display.scale);
     g_tokensFile = app::findTokensFile();
     app::setReducedMotion(animationsOff()); // before the first load commits, so it's in from the start
@@ -1375,13 +1377,20 @@ int main()
     // TR §9.2: hide over borderless/exclusive fullscreen apps on this monitor.
     watchFullscreen(render.hwnd, [](bool fullscreen) { dispatch(HiddenChanged{ fullscreen }, "fullscreen"); });
 
-    // A file dialog in front (decision 181): the island hangs under it, and Search's card picks its file.
+    // A file dialog in front (decision 181): a pill of its own under it; clicked, the island
+    // comes there with Search's card, which picks the dialog's file.
+    createPickerPill(instance, render.compositor, g_renderer.device(), app::filePillClicked);
     app::watchFilePicker({
         .state = []() -> const IslandState& { return g_state; },
         .dispatch = dispatch,
-        .workArea = [] { return g_displayWork; },
-        .layerLeft = [] { return static_cast<float>(g_render.left); },
+        .displayOf = [](Rect dialog) {
+            Display here = displayFor(g_homeDisplay.value_or(g_displayId)); // between monitors: as if on the island's
+            Display on = displayAt({ dialog.x + dialog.width / 2, dialog.y + dialog.height / 2 }).value_or(here);
+            return app::PickerDisplay{ on.id == here.id ? g_homeDisplay.value_or(g_displayId) : on.id, on.workArea };
+        },
         .hang = hangLayers,
+        .layerLeft = [] { return static_cast<float>(g_render.left); },
+        .focus = [] { bringToFront(g_inputHwnd); },
         .search = searchProvider,
     });
 

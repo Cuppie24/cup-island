@@ -90,6 +90,9 @@ void settle(IslandState& s, Ms now)
         if (timedOut || !expandedViewExists(s)) collapse(s);
     }
     if (s.card.toast && now >= s.card.toast->until) s.card.toast.reset(); // a toast goes by itself (decision 071)
+    // Lent to a file dialog only while the picking card is open (decision 181):
+    // closed any way (Esc, a click elsewhere, a critical alert), the island is back in its place.
+    if (s.picker && !(isExpanded(s) && isPickingCard(s, s.expandedId))) s.picker.reset();
     dropStaleOverlays(s); // a draft, dialog or toast goes with its card
     dropStaleMenu(s);     // ...and a row's menu, or when its row changed (decision 086)
     focusFieldFirst(s);   // ...and a card that is its field has it at once (decision 079)
@@ -164,21 +167,23 @@ void handle(IslandState& s, const AlertPosted& e, Ms now)
 {
     if (postAlert(s, e.alert, now)) collapse(s); // only critical interrupts Expanded
 }
-void handle(IslandState& s, const PillClicked&, Ms now)
+void handle(IslandState& s, const PillClicked&, Ms now) { onClick(s, now); }
+// The pill under a file dialog (decision 181): the island goes there with the picking card.
+void handle(IslandState& s, const PickerOpened& e, Ms now)
 {
-    if (!opensOnDoubleClick(s)) onClick(s, now); // by a file dialog, one click isn't enough (decision 181)
+    std::string card = pickingCard(s);
+    if (card.empty() || s.hidden) return;
+    s.picker = Picker{ e.centre };
+    s.alert.reset(); // as a click on an alert takes it away
+    expand(s, card, now);
 }
-void handle(IslandState& s, const PillDoubleClicked&, Ms now)
+void handle(IslandState& s, const PickerMoved& e, Ms)
 {
-    if (!opensOnDoubleClick(s)) return;
-    if (std::string card = pickingCard(s); !card.empty()) expand(s, card, now);
+    if (s.picker) s.picker->centre = e.centre;
 }
-void handle(IslandState& s, const PickerOpened& e, Ms) { s.picker = Picker{ e.centre }; }
 void handle(IslandState& s, const PickerClosed&, Ms)
 {
-    if (!s.picker) return;
-    s.picker.reset();
-    if (isPickingCard(s, s.expandedId)) collapse(s); // nothing left to give a file to
+    if (isPickingCard(s, s.expandedId)) collapse(s); // nothing left to give a file to; settle() sends the island home
 }
 void handle(IslandState& s, const TopClicked&, Ms)
 {
@@ -222,7 +227,6 @@ void handle(IslandState&, const Tick&, Ms) {} // settle() does the work
 
 void handle(IslandState& s, const BubbleClicked&, Ms now)
 {
-    if (opensOnDoubleClick(s)) return; // like the pill beside it (decision 181)
     if (mode(s) == Mode::Split) expand(s, s.activities[1].id, now);
     else onClick(s, now); // no bubble on screen (e.g. an alert covers it): an ordinary click
 }

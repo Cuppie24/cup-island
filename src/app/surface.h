@@ -42,8 +42,6 @@ struct Pointer {
     Ms lastClickAt{};                // ...the presses before it, for double- and triple-clicks
     Vec2 lastClickPoint;
     int clicks = 0;
-    std::optional<Ms> pillClickAt;   // the last click on the pill's own shape, for a double-click (decision 181)
-    Vec2 pillClickPoint;
 };
 
 struct Surface {

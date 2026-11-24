@@ -38,14 +38,14 @@
 //            pick <card> <list> <row> <y>  carry <y>  put-down
 //            screen <width>  hold  move <dx>  let-go  restore <dock> [fraction]      (lifting the island, decision 026)
 //            cross <width> <x>                                                      (...onto another monitor, the pointer at x on it, decision 178)
-//            picker [<centre x>]  picker-gone  double-click                         (a file dialog in front, decision 181: with an x the
-//                                                                     island hangs under it; panel <id> picker is the card that picks files)
+//            picker <centre x>  picker-moved <centre x>  picker-gone               (a file dialog's pill clicked, decision 181: the island
+//                                                                     hangs under the dialog; panel <id> picker is the card that picks files)
 // Checks after "->":  <Mode>  queue=<n>  top=<activity>  bubble=<activity>  alert=<name>
 //                     expanded=<activity|panel|none>  pinned=<activity>  dragging=yes|no  preview=yes|no
 //                     draft=<text>|empty|none  (_ for a space)  dialog=<card>|none
 //                     caret=<byte offset>  selected=<text>|none  (_ for a space)
 //                     lifted=yes|no  spot=centre|left|right|free  stay=yes|no  tabs=top|bottom
-//                     picking=no|yes|under  (under: hanging under the dialog)  pill=<its left edge's x>
+//                     picking=yes|no  (lent to a file dialog, hung under it)  pill=<the shape's left edge's x, at the mode's width>
 //                     scroll=<card>/<list>:<offset>[+reveal]  carried=<row>|none  squash=yes|no (a press on empty space, decision 071)
 //                     toast=<card>|none
 //                     menu=<card>/<row>|none  lit=<item>|none   (the island's open menu, and its lit item)
@@ -183,8 +183,8 @@ struct Runner {
             }
             apply(AlertPosted{ a });
         } else if (cmd == "click") apply(PillClicked{});
-        else if (cmd == "double-click") apply(PillDoubleClicked{}); // its second click: the first is a `click`
-        else if (cmd == "picker") apply(PickerOpened{ arg(1).empty() ? std::nullopt : std::optional<float>(std::stof(arg(1))) });
+        else if (cmd == "picker") apply(PickerOpened{ std::stof(arg(1)) });
+        else if (cmd == "picker-moved") apply(PickerMoved{ std::stof(arg(1)) });
         else if (cmd == "picker-gone") apply(PickerClosed{});
         else if (cmd == "top-click") apply(TopClicked{}); // the expanded island's top band (decision 108)
         else if (cmd == "outside") apply(ClickedOutside{});
@@ -394,7 +394,7 @@ struct Runner {
                 std::string got = names[static_cast<int>(state.spot.dock)];
                 if (got != *v) fail("spot=" + *v + ", got " + got);
             } else if (auto v = option(word, "picking")) {
-                std::string got = !state.picker ? "no" : state.picker->centre ? "under" : "yes";
+                std::string got = state.picker ? "yes" : "no";
                 if (got != *v) fail("picking=" + *v + ", got " + got);
             } else if (auto v = option(word, "pill")) {
                 std::string got = std::to_string(static_cast<int>(placementOf(state, mode(state)).pillX));

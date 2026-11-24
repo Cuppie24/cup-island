@@ -21,7 +21,7 @@ void land(IslandState& s)
 
 void pressIsland(IslandState& s, Ms now)
 {
-    if (!canLift(mode(s)) || s.bubbleDrag || s.lift || s.picker) return; // by a file dialog it stays where that puts it (decision 181)
+    if (!canLift(mode(s)) || s.bubbleDrag || s.lift) return;
     s.pressedAt = now;
     s.pressDrag = {};
 }
@@ -52,12 +52,11 @@ void carryIsland(IslandState& s, float screenWidth, float pointerX)
 void settleLift(IslandState& s, Ms now)
 {
     Mode m = mode(s);
-    bool held = canLift(m) && !s.picker; // a file dialog coming in front lands it too (decision 181)
-    if (s.lift && !held) {
+    if (s.lift && !canLift(m)) {
         land(s);
         s.pressedAt.reset();
     }
-    if (s.pressedAt && !held) s.pressedAt.reset();
+    if (s.pressedAt && !canLift(m)) s.pressedAt.reset();
     if (s.pressedAt && !s.lift && now >= *s.pressedAt + tokens().liftHold) {
         Placement at = placementOf(s, m);
         s.lift = at.pillX + pillWidth(s, m) / 2 - s.pressDrag.x; // no jump: the pill stays under the pointer
@@ -114,7 +113,7 @@ Placement placementOf(const IslandState& s, Mode mode, std::optional<float> widt
     Footprint footprint = footprintOf(s, mode);
     if (width) footprint.pillWidth = *width;
     // Hanging under a file dialog, it's centred on that, not at its own spot (decision 181).
-    Spot spot = s.picker && s.picker->centre ? Spot{ Dock::Free, *s.picker->centre / screenWidthOf(s) } : s.spot;
+    Spot spot = s.picker ? Spot{ Dock::Free, s.picker->centre / screenWidthOf(s) } : s.spot;
     return placeAt(spot, footprint, screenWidthOf(s));
 }
 
