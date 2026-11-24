@@ -25,6 +25,9 @@ struct InList {
     // One of its rows is being carried: the list scrolls at once, not eased, so
     // the carried row (in the list's scroller) stays under the pointer (decision 071).
     bool carrying = false;
+    // It's scrolled to keep a row in its middle (Host::centre, decision 180): it follows something
+    // as that moves on, slowly (followScrollDuration), not at the wheel's quick step.
+    bool following = false;
     bool operator==(const InList&) const = default;
 };
 

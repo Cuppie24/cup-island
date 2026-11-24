@@ -34,12 +34,14 @@ float planList(const Slot& slot, const std::vector<float>& heights, const std::v
     const std::string& id = slot[first].list;
     std::string key = listKey(state.activityId, id);
     float offset = 0;
+    bool following = false;
     if (state.scrolls) {
         if (auto it = state.scrolls->find(key); it != state.scrolls->end()) {
             offset = it->second.offset;
             if (auto r = it->second.reveal; r && *r < count) {
                 float rowTop = natural[*r], rowBottom = rowTop + heights[first + *r];
                 if (it->second.centred) {
+                    following = true;
                     offset = (rowTop + rowBottom - window) / 2; // in the window's middle (Host::centre); clamped below at the list's ends
                 } else { // the least scrolling that shows it
                     if (rowTop < offset) offset = rowTop;
@@ -96,7 +98,7 @@ float planList(const Slot& slot, const std::vector<float>& heights, const std::v
         spot.y = top + tops[i] - offset;
         spot.list = InList{ .id = id, .row = i, .viewport = { 0, top, 0, window }, .offset = offset, .max = max,
                             .moveAction = slot[first + i].moveAction, .dragged = from == i, .dropAt = from == i ? *to : i,
-                            .carrying = from.has_value() };
+                            .carrying = from.has_value(), .following = following };
     }
     return window;
 }

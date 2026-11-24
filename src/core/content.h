@@ -393,6 +393,10 @@ struct GroupFill {
     // It appears by growing from its start, a square of its height, to its full width, and goes
     // back the same way: a button opening into the control beside it (Row::leadingOpen, decision 180).
     bool unrolls = false;
+    // Solid, in the island's raised colour with a faint edge, and over the content instead of
+    // under it: the plate behind a button that floats over a card's rows (Content::overTop,
+    // decision 180), so what scrolls under it doesn't show through.
+    bool solid = false;
     bool operator==(const GroupFill&) const = default;
 };
 

@@ -455,7 +455,9 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     view.visual.CenterPoint({ visualSize.x / 2, visualSize.y / 2, 0 });
     // A group's background goes under everything, even when it's rebuilt after its row's content (decision 090).
     // One carried in a window (decision 134) goes over everything, its card's background too.
-    if (std::holds_alternative<GroupFill>(placed.item) && !placed.carried) lists_.parentFor(placed).Children().InsertAtBottom(view.visual);
+    // ...and a solid plate (GroupFill::solid) over the content, under the button made right after it (decision 180).
+    auto* background = std::get_if<GroupFill>(&placed.item);
+    if (background && !background->solid && !placed.carried) lists_.parentFor(placed).Children().InsertAtBottom(view.visual);
     else lists_.parentFor(placed).Children().InsertAtTop(view.visual);
     if (placed.list) lists_.setGliding(view.visual, !placed.list->dragged); // after its first place: it appears there
 

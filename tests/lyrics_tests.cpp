@@ -325,6 +325,16 @@ void pageAndPillTests()
     expect(syncHit && syncHit->action.actionId == media_action::kLyricsSync && backHit && backHit->action.actionId == media_action::kLyricsBack,
            "each takes its click");
     expect(!hitTest(shown, { shown.size.x / 2, syncAt->frame.y + syncAt->frame.height / 2 }), "the strip between them takes none: it's the words'");
+    // Each on a solid plate of its own shape, right under it: words scrolling past don't show through.
+    {
+        const Placed *plate = nullptr, *after = nullptr;
+        for (std::size_t i = 0; i + 1 < shown.elements.size(); ++i)
+            if (shown.elements[i].key == "overTop/heading/0/plate") plate = &shown.elements[i], after = &shown.elements[i + 1];
+        auto* fill = plate ? std::get_if<GroupFill>(&plate->item) : nullptr;
+        expect(fill && fill->solid && plate->frame == syncAt->frame && plate->cornerRadius == plate->frame.height / 2 && after == syncAt &&
+                   find(shown, "overTop/heading/1/plate"),
+               "a round, solid plate under each button, placed just before it");
+    }
     // What's kept in the page's middle: the line being sung.
     expect(lyricsPageRow(m) == kLyricsPageMargin + 2, "kept in the middle: the one being sung, past the empty rows");
     m.lyricsLine = -1;
@@ -343,6 +353,14 @@ void pageAndPillTests()
         };
         auto [middle, scrolled] = rowAt(paged, 20);
         expect(std::abs(middle) < 1.0f && scrolled > 0, "a line in the song's middle: in the window's middle");
+        {
+            IslandState held = reduce(paged, ListRevealed{ "media.nowPlaying", media_action::kLyricsList, kLyricsPageMargin + 20, false, true }, Ms{ 0 });
+            const Scene following = layout(held, Ms{ 0 });
+            IslandState wheeled = reduce(held, ListScrolled{ "media.nowPlaying", media_action::kLyricsList, scrolled, 30, 2000 }, Ms{ 0 });
+            const Scene free = layout(wheeled, Ms{ 0 });
+            expect(find(following, "expandedCenter/line20/0")->list->following && !find(free, "expandedCenter/line20/0")->list->following,
+                   "kept on the line being sung, the list glides slowly; scrolled by the user, at the wheel's pace");
+        }
         // Five lines to the page: the one in the middle with two on each side, and no more.
         {
             IslandState mid = reduce(paged, ListRevealed{ "media.nowPlaying", media_action::kLyricsList, kLyricsPageMargin + 20, false, true }, Ms{ 0 });

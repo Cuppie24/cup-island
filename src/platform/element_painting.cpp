@@ -267,6 +267,13 @@ void paintGroupFill(ID2D1DeviceContext* dc, const GroupFill& fill, Vec2 size, fl
     // A square end reaches a radius past the surface, which cuts it off: one
     // rounded rect gives any mix of rounded and square ends (decision 090).
     float top = fill.roundTop ? 0 : -radius, bottom = fill.roundBottom ? size.y : size.y + radius;
+    if (fill.solid) { // the plate under a button floating over a card's rows (decision 180): the toast pill's fill and edge
+        float w = tokens().dividerThickness, in = w / 2;
+        D2D1_ROUNDED_RECT shape{ D2D1::RectF(in, in, size.x - in, size.y - in), std::max(0.0f, radius - in), std::max(0.0f, radius - in) };
+        dc->FillRoundedRectangle(shape, brushOf(dc, tokens().islandHighlightColor).get());
+        dc->DrawRoundedRectangle(shape, brushOf(dc, tokens().trackColor).get(), w);
+        return;
+    }
     if (fill.outline) { // where a dragged card or task lands (decision 134): a soft solid line, inside the surface
         float w = tokens().windowDropOutlineWidth, in = w / 2;
         D2D1_ROUNDED_RECT shape{ D2D1::RectF(in, top + in, size.x - in, bottom - in), std::max(0.0f, radius - in), std::max(0.0f, radius - in) };

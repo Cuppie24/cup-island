@@ -282,6 +282,7 @@ const Field kFields[] = {
     { "digitRollDurationMs", &Tokens::digitRollDuration },
     { "lyricDropDurationMs", &Tokens::lyricDropDuration },
     { "lyricLeadMs", &Tokens::lyricLead },
+    { "followScrollDurationMs", &Tokens::followScrollDuration },
     { "lineHoverScale", &Tokens::lineHoverScale },
     { "noteHoverScale", &Tokens::noteHoverScale },
     { "lyricScrollHoldStart", &Tokens::lyricScrollHoldStart },
