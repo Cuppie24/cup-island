@@ -484,6 +484,10 @@ struct Row {
     // item's. A row set apart (section, apart) starts a new group.
     // core/groups.h builds them.
     bool grouped = false;
+    // On a background of its own (tileColor, like a group's), tilePadding above and
+    // below its content, which is inset like a list item's: one row set apart from
+    // the text around it (the line being sung, decision 180). Not a group: nothing joins it.
+    bool tile = false;
     // Its context menu (decision 086): every row may have its own. The host
     // ends the row in a › that opens it, beside the row.
     std::vector<MenuItem> menu;

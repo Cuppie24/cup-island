@@ -189,6 +189,11 @@ void lineTests()
     const Text* text = line ? std::get_if<Text>(&line->item) : nullptr;
     expect(text && text->value == "one" && text->drops && text->centred && bar && line->frame.y + line->frame.height <= bar->frame.y,
            "laid out as a centred text that drops in, above the bar");
+    const Placed* tile = find(during, "expandedBottom/lyrics/group");
+    expect(tile && std::holds_alternative<GroupFill>(tile->item) && tile->frame.x == tokens().expandedPadding &&
+               tile->frame.width == during.size.x - 2 * tokens().expandedPadding && tile->frame.height == line->frame.height + 2 * tokens().tilePadding &&
+               tile->frame.y == line->frame.y - tokens().tilePadding && line->frame.x > tile->frame.x && tile->frame.y + tile->frame.height <= bar->frame.y,
+           "the line on a tile of its own across the card, the words inset in it, clear of the bar");
     const Placed* quietLine = find(before, "expandedBottom/lyrics/0");
     const Text* note = quietLine ? std::get_if<Text>(&quietLine->item) : nullptr;
     expect(note && note->value == kLyricBreak && note->style == TextStyle::CardTitle && text && text->style == TextStyle::Body &&

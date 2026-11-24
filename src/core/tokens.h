@@ -199,6 +199,7 @@ struct Tokens {
     float listItemInset = 6;      // Row::listItem: its content in from the hover background's edges
     float sectionGap = 16;        // Row::section: space above a group's heading (decision 037)
     float groupItemPadding = 11;  // Row::grouped: above and below each row's content, in place of listItemPadding (decision 090)
+    float tilePadding = 4;        // Row::tile: above and below a row on a background of its own (the line being sung, decision 180)
     float groupRadius = 14;       // ...the group's background's corners (its colour: tileColor)
     float keyCapHeight = 26;      // Keys: a key cap's height; a one-character cap is at least this wide (decision 092)
     float keyCapPadding = 7;      // ...its label's room on each side

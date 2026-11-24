@@ -141,6 +141,7 @@ const Field kFields[] = {
     { "listItemTextInset", &Tokens::listItemTextInset },
     { "sectionGap", &Tokens::sectionGap },
     { "groupItemPadding", &Tokens::groupItemPadding },
+    { "tilePadding", &Tokens::tilePadding },
     { "groupRadius", &Tokens::groupRadius },
     { "keyCapHeight", &Tokens::keyCapHeight },
     { "keyCapPadding", &Tokens::keyCapPadding },

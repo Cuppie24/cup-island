@@ -37,7 +37,7 @@ evenly above each, so media's bar sits halfway between the cover and its
 controls.
 
 Media's card (decision 180): the line being sung is a `Lyrics` item, alone
-in the first row under the cover (Body, centred), and the card asks for
+in the first row under the cover (Body, centred, on a tile: `Row::tile`), and the card asks for
 the small cover while it has one; beside the text, in the middle of the
 cover's height (`expandedAside`), sit the lyrics toggle and the app's volume, `compact` `secondary` buttons and a
 `Progress::level` bar (`levelBarWidth` 64).

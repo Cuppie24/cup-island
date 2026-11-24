@@ -78,7 +78,7 @@ float radiusFor(const Item& item, Rect frame, float nestedRadius)
 float listPadding(const Row& row)
 {
     const Tokens& t = tokens();
-    return row.grouped ? 2 * t.groupItemPadding : row.listItem ? 2 * t.listItemPadding : 0;
+    return row.grouped ? 2 * t.groupItemPadding : row.listItem ? 2 * t.listItemPadding : row.tile ? 2 * t.tilePadding : 0;
 }
 
 // Whether row r's group goes on into the next row (decision 090): both
@@ -213,7 +213,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 area = { area.x + (area.width - w) / 2, area.y, w, area.height };
             }
             Rect background = area; // a list item's hover background spans the row; its content sits inside
-            if (row.listItem || row.inset || row.grouped) {
+            if (row.listItem || row.inset || row.grouped || row.tile) {
                 // What's at an edge sits listItemTextInset in, clear of the background's
                 // rounded end (decision 030), and in line with the headings and names of
                 // the rows around it: text, a theme's swatch. A button there (a to-do's
@@ -433,6 +433,18 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 fill.item = GroupFill{ .roundTop = !joinsAbove, .roundBottom = !joinsBelow };
                 fill.frame = { background.x, y + above, background.width, std::max(0.0f, height) };
                 fill.cornerRadius = std::min(t.groupRadius, fill.frame.width / 2);
+                fill.list = list;
+                fill.providerId = source.providerId;
+                fill.activityId = source.activityId;
+                fills.push_back(std::move(fill));
+            }
+            // A row on a tile of its own (Row::tile, decision 180): the same fill, whole, behind this row only.
+            if (row.tile && !row.grouped) {
+                Placed fill;
+                fill.key = slot.name + "/" + rowName + "/group";
+                fill.item = GroupFill{};
+                fill.frame = { background.x, y, background.width, rowHeight };
+                fill.cornerRadius = std::min({ t.groupRadius, fill.frame.width / 2, fill.frame.height / 2 });
                 fill.list = list;
                 fill.providerId = source.providerId;
                 fill.activityId = source.activityId;
