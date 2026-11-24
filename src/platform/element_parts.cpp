@@ -109,7 +109,7 @@ void fadeInSurface(SpriteVisual const& host, CompositionDrawingSurface const& fr
     batch.Completed([host, old](auto&&, auto&&) { host.Children().Remove(old); });
 }
 
-void glideFrom(Compositor const& c, Visual const& visual, wfn::float3 from, wfn::float3 to)
+void glideFrom(Compositor const& c, Visual const& visual, wfn::float3 from, wfn::float3 to, Ms duration)
 {
     const Tokens& t = tokens();
     visual.Offset(to);
@@ -117,8 +117,57 @@ void glideFrom(Compositor const& c, Visual const& visual, wfn::float3 from, wfn:
     auto anim = c.CreateVector3KeyFrameAnimation();
     anim.InsertKeyFrame(0.0f, from);
     anim.InsertKeyFrame(1.0f, to, easeOf(c, t.morphEase));
-    anim.Duration(atLeast1(t.scrollDuration)); // as a list's rows glide (decision 029)
+    anim.Duration(atLeast1(duration > Ms{ 0 } ? duration : t.scrollDuration)); // as a list's rows glide (decision 029)
     visual.StartAnimation(L"Offset", anim);
+}
+
+void resizeFrom(Compositor const& c, Visual const& visual, Vec2 from, Vec2 to, wfn::float3 was, wfn::float3 at, Ms duration)
+{
+    const Tokens& t = tokens();
+    visual.Offset(at);
+    if (t.reducedMotion || to.x <= 0 || to.y <= 0) return;
+    // Scaled about its middle (its CenterPoint), a visual's corner moves: its
+    // offset starts that much back, on the same curve, so the corner goes
+    // straight from where it was to where it is.
+    wfn::float3 scale{ from.x / to.x, from.y / to.y, 1.0f };
+    wfn::float3 start{ was.x - to.x / 2 * (1 - scale.x), was.y - to.y / 2 * (1 - scale.y), 0.0f };
+    auto grow = c.CreateVector3KeyFrameAnimation();
+    grow.InsertKeyFrame(0.0f, scale);
+    grow.InsertKeyFrame(1.0f, { 1.0f, 1.0f, 1.0f }, easeOf(c, t.morphEase));
+    grow.Duration(atLeast1(duration));
+    visual.StartAnimation(L"Scale", grow);
+    auto move = c.CreateVector3KeyFrameAnimation();
+    move.InsertKeyFrame(0.0f, start);
+    move.InsertKeyFrame(1.0f, at, easeOf(c, t.morphEase));
+    move.Duration(atLeast1(duration));
+    visual.StartAnimation(L"Offset", move);
+}
+
+void unroll(Compositor const& c, Visual const& visual, Vec2 size, wfn::float3 at, bool in, std::function<void()> done)
+{
+    const Tokens& t = tokens();
+    if (t.reducedMotion || size.x <= 0 || size.y <= 0) {
+        if (done) done();
+        return;
+    }
+    // Scaled about its middle, its left end would move: its offset goes with it, on the same curve (as resizeFrom).
+    wfn::float3 folded{ std::min(1.0f, size.y / size.x), 1.0f, 1.0f }, whole{ 1.0f, 1.0f, 1.0f };
+    wfn::float3 foldedAt{ at.x - size.x / 2 * (1 - folded.x), at.y, 0.0f };
+    Ms duration = atLeast1(t.openButtonDuration);
+    auto batch = c.CreateScopedBatch(CompositionBatchTypes::Animation);
+    auto grow = c.CreateVector3KeyFrameAnimation();
+    grow.InsertKeyFrame(0.0f, in ? folded : whole);
+    grow.InsertKeyFrame(1.0f, in ? whole : folded, easeOf(c, t.morphEase));
+    grow.Duration(duration);
+    visual.StartAnimation(L"Scale", grow);
+    auto move = c.CreateVector3KeyFrameAnimation();
+    move.InsertKeyFrame(0.0f, in ? foldedAt : at);
+    move.InsertKeyFrame(1.0f, in ? at : foldedAt, easeOf(c, t.morphEase));
+    move.Duration(duration);
+    visual.StartAnimation(L"Offset", move);
+    if (!in) fadeTo(c, visual, 0.0f, t.openButtonDuration);
+    batch.End();
+    if (done) batch.Completed([done](auto&&, auto&&) { done(); });
 }
 
 void playScale(Compositor const& c, Visual const& visual, float scale, Ms duration, Bezier curve)

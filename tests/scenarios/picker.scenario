@@ -1,4 +1,4 @@
-# A file dialog (Windows' Open or Save) in front (decision 180): the island
+# A file dialog (Windows' Open or Save) in front (decision 181): the island
 # hangs under it, a double-click on the pill opens the card that picks files,
 # and that card closes when the dialog goes.
 # Default tokens: idle pill 160 wide, compact 260. A 1000-wide screen.

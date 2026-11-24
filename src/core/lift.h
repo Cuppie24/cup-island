@@ -31,7 +31,10 @@ bool canLift(Mode mode); // the pill and alerts; never Expanded (or Receptive, H
 bool isLifted(const IslandState& s);
 float screenWidthOf(const IslandState& s); // the canvas width until the platform says
 Vec2 modeSize(Mode mode);                  // the pill's size per mode, before content (a tall card) grows it
-Footprint footprintOf(Mode mode);          // the shapes side by side at rest: Split adds the bubble
+// The pill's width in `mode`: the mode's, or widePillWidth while the top activity asks for a
+// wide pill (Content::widePill: a line of lyrics between its ends, decision 180).
+float pillWidth(const IslandState& s, Mode mode);
+Footprint footprintOf(const IslandState& s, Mode mode); // the shapes side by side at rest: Split adds the bubble
 // At rest, from s.spot. `width`: the pill's when it isn't the mode's
 // (a Centred card is wider than Expanded, decision 043), so it still
 // widens to both sides from its centre.

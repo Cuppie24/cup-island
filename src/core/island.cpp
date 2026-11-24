@@ -166,7 +166,7 @@ void handle(IslandState& s, const AlertPosted& e, Ms now)
 }
 void handle(IslandState& s, const PillClicked&, Ms now)
 {
-    if (!opensOnDoubleClick(s)) onClick(s, now); // by a file dialog, one click isn't enough (decision 180)
+    if (!opensOnDoubleClick(s)) onClick(s, now); // by a file dialog, one click isn't enough (decision 181)
 }
 void handle(IslandState& s, const PillDoubleClicked&, Ms now)
 {
@@ -222,7 +222,7 @@ void handle(IslandState&, const Tick&, Ms) {} // settle() does the work
 
 void handle(IslandState& s, const BubbleClicked&, Ms now)
 {
-    if (opensOnDoubleClick(s)) return; // like the pill beside it (decision 180)
+    if (opensOnDoubleClick(s)) return; // like the pill beside it (decision 181)
     if (mode(s) == Mode::Split) expand(s, s.activities[1].id, now);
     else onClick(s, now); // no bubble on screen (e.g. an alert covers it): an ordinary click
 }

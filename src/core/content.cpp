@@ -1,6 +1,9 @@
 #include "core/content.h"
 
+#include "core/tokens.h"
+
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 
 namespace cup {
@@ -17,6 +20,54 @@ float Timeline::fractionAt(Ms now) const
 {
     if (duration <= Ms{ 0 }) return 0.0f;
     return static_cast<float>(positionAt(now).count()) / static_cast<float>(duration.count());
+}
+
+Timeline levelTimeline(float level)
+{
+    constexpr long long kWhole = 1000; // any length: only the fraction is shown
+    return { .position = Ms{ std::llround(std::clamp(level, 0.0f, 1.0f) * kWhole) }, .duration = Ms{ kWhole } };
+}
+
+namespace {
+
+// Where in the song the line shown is picked for: lyricLead ahead of what's
+// heard, so a line is up a moment before it's sung (decision 180).
+Ms lyricPosition(const Timeline& timeline, Ms now) { return timeline.positionAt(now) + tokens().lyricLead; }
+
+// The first line that starts after `position`: the one shown is the one before it.
+std::size_t nextLine(const std::vector<LyricLine>& lines, Ms position)
+{
+    auto after = std::upper_bound(lines.begin(), lines.end(), position, [](Ms p, const LyricLine& line) { return p < line.at; });
+    return static_cast<std::size_t>(after - lines.begin());
+}
+
+} // namespace
+
+std::string lyricAt(const Lyrics& lyrics, Ms now)
+{
+    if (!lyrics.lines || lyrics.lines->empty()) return {}; // none yet: the row waits, empty
+    auto at = lyricIndexAt(lyrics, now);
+    const std::string text = at ? (*lyrics.lines)[*at].text : std::string();
+    return text.empty() ? kLyricBreak : text; // a note: there are words, none right now
+}
+
+std::optional<std::size_t> lyricIndexAt(const Lyrics& lyrics, Ms now)
+{
+    if (!lyrics.lines || lyrics.lines->empty()) return std::nullopt;
+    std::size_t next = nextLine(*lyrics.lines, lyricPosition(lyrics.timeline, now));
+    return next == 0 ? std::nullopt : std::optional<std::size_t>(next - 1);
+}
+
+std::optional<Ms> nextLyricChange(const Lyrics& lyrics, Ms now)
+{
+    const Timeline& t = lyrics.timeline;
+    if (!lyrics.lines || !t.playing || t.rate <= 0) return std::nullopt;
+    Ms position = lyricPosition(t, now);
+    std::size_t next = nextLine(*lyrics.lines, position);
+    if (next >= lyrics.lines->size()) return std::nullopt;
+    Ms at = (*lyrics.lines)[next].at;
+    if (t.duration > Ms{ 0 } && at > t.duration + tokens().lyricLead) return std::nullopt; // past the end: never reached
+    return now + Ms{ static_cast<long long>(std::ceil(static_cast<double>((at - position).count()) / t.rate)) };
 }
 
 Row row(std::initializer_list<Item> items, Align align)

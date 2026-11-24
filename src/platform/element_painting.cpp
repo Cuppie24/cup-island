@@ -118,6 +118,13 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::CloseWindow: return L"\uE8BB"; // ChromeClose
     case Glyph::Grip: return L"\uE76F";     // GripperBarHorizontal; paintGlyph draws a card's handle as one line instead (decision 134)
     case Glyph::More: return L"\uE712";     // More (…): a window card's menu (decision 142)
+    // The playing app's volume, on media's card (decision 180): a speaker with more waves the louder it is.
+    case Glyph::Volume: return L"\uE995";    // Volume3
+    case Glyph::VolumeMid: return L"\uE994"; // Volume2
+    case Glyph::VolumeLow: return L"\uE993"; // Volume1
+    case Glyph::Muted: return L"\uE74F";  // Mute
+    case Glyph::Sync: return L"\uE895";   // Sync: a page of lyrics back to the line being sung
+    case Glyph::Lyrics: return L"\uED1E"; // Subtitles: lines of words, media's lyrics button (decision 180)
     case Glyph::Gauge: return L"\uEC4A";    // SpeedHigh: something costs performance (liquid glass's question, decision 165)
     case Glyph::Fire: return L"\U0001F525"; // not in the icon fonts: Segoe UI Emoji's, in colour (paintGlyph)
     }
@@ -127,12 +134,13 @@ const wchar_t* codepoint(Glyph glyph)
 } // namespace
 
 winrt::com_ptr<IDWriteTextFormat> format(IDWriteFactory* dw, const wchar_t* family, float size,
-                                         float weight, DWRITE_TEXT_ALIGNMENT align)
+                                         float weight, DWRITE_TEXT_ALIGNMENT align, bool italic)
 {
     weight = std::clamp(weight, 1.0f, 999.0f);
     winrt::com_ptr<IDWriteTextFormat> f;
     winrt::check_hresult(dw->CreateTextFormat(family, nullptr, static_cast<DWRITE_FONT_WEIGHT>(std::lround(weight)),
-                                              DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, size, L"", f.put()));
+                                              italic ? DWRITE_FONT_STYLE_ITALIC : DWRITE_FONT_STYLE_NORMAL, // slanted by Windows where the font has no italic
+                                              DWRITE_FONT_STRETCH_NORMAL, size, L"", f.put()));
     // A variable font (Segoe UI Variable) takes the exact weight on its weight
     // axis, e.g. 500 between Regular and Semibold. Without IDWriteTextFormat3
     // (before Windows 10 1803) the nearest weight above is used (decision 015).
@@ -220,6 +228,8 @@ TextLook lookOf(TextStyle style)
     case TextStyle::WindowTitle: return { t.windowTitleFontSize, t.titleTextColor, t.windowTitleFontWeight }; // decision 112
     case TextStyle::WindowBody: return { t.windowBodyFontSize, t.bodyTextColor, t.windowBodyFontWeight };
     case TextStyle::WindowCaption: return { t.windowCaptionFontSize, t.captionTextColor, t.windowCaptionFontWeight };
+    case TextStyle::Lyric: return { t.lyricFontSize, t.bodyTextColor, t.lyricFontWeight }; // a page of lyrics (decision 180)
+    case TextStyle::LyricSung: return { t.lyricSungFontSize, t.titleTextColor, t.lyricSungFontWeight };
     }
     return { t.bodyFontSize, t.bodyTextColor, t.bodyFontWeight };
 }
@@ -232,7 +242,8 @@ winrt::com_ptr<IDWriteTextFormat> formatOf(IDWriteFactory* dw, const Text& text)
     TextLook look = lookOf(text.style);
     return format(dw, textFamily(dw, look.fontSize), look.fontSize, look.weight,
                   text.centred ? DWRITE_TEXT_ALIGNMENT_CENTER
-                  : text.alignEnd ? DWRITE_TEXT_ALIGNMENT_TRAILING : DWRITE_TEXT_ALIGNMENT_LEADING);
+                  : text.alignEnd ? DWRITE_TEXT_ALIGNMENT_TRAILING : DWRITE_TEXT_ALIGNMENT_LEADING,
+                  text.italic); // the line being sung (decision 180)
 }
 
 // Wrapped text (decision 045): the lines core broke it into, exactly lineHeight apart.
@@ -256,6 +267,13 @@ void paintGroupFill(ID2D1DeviceContext* dc, const GroupFill& fill, Vec2 size, fl
     // A square end reaches a radius past the surface, which cuts it off: one
     // rounded rect gives any mix of rounded and square ends (decision 090).
     float top = fill.roundTop ? 0 : -radius, bottom = fill.roundBottom ? size.y : size.y + radius;
+    if (fill.solid) { // the plate under a button floating over a card's rows (decision 180): the toast pill's fill and edge
+        float w = tokens().dividerThickness, in = w / 2;
+        D2D1_ROUNDED_RECT shape{ D2D1::RectF(in, in, size.x - in, size.y - in), std::max(0.0f, radius - in), std::max(0.0f, radius - in) };
+        dc->FillRoundedRectangle(shape, brushOf(dc, tokens().islandHighlightColor).get());
+        dc->DrawRoundedRectangle(shape, brushOf(dc, tokens().trackColor).get(), w);
+        return;
+    }
     if (fill.outline) { // where a dragged card or task lands (decision 134): a soft solid line, inside the surface
         float w = tokens().windowDropOutlineWidth, in = w / 2;
         D2D1_ROUNDED_RECT shape{ D2D1::RectF(in, top + in, size.x - in, bottom - in), std::max(0.0f, radius - in), std::max(0.0f, radius - in) };

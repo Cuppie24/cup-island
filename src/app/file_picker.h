@@ -1,5 +1,5 @@
 #pragma once
-// The app's side of a file dialog in front (decision 180): the watcher's
+// The app's side of a file dialog in front (decision 181): the watcher's
 // news becomes core's PickerOpened / PickerClosed, the island's layers hang
 // under the dialog where core says (core/file_dialog.h: hangUnder), and
 // Search's card picks the file. The rules are core's; this makes the calls.

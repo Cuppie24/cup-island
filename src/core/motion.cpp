@@ -153,6 +153,18 @@ SceneMotion sceneMotion(const Scene& was, const Scene& next, Vec2 pointer, const
     return motion;
 }
 
+bool coverResized(const Scene& was, const Scene& next)
+{
+    if (was.mode != Mode::Expanded || next.mode != Mode::Expanded || was.activityId.empty() || was.activityId != next.activityId) return false;
+    auto cover = [](const Scene& s) -> const Placed* {
+        for (const Placed& p : s.elements)
+            if (p.key == "expandedLeading/0/0" && std::holds_alternative<Image>(p.item)) return &p;
+        return nullptr;
+    };
+    const Placed *a = cover(was), *b = cover(next);
+    return a && b && (a->frame.width != b->frame.width || a->frame.height != b->frame.height);
+}
+
 PointerTrack trackPointer(PointerTrack track, Vec2 at, Ms when, const Tokens& t)
 {
     if (!track.started) return { true, at, when, {}, false };

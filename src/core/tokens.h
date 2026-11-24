@@ -134,6 +134,8 @@ struct Tokens {
     float windowDialogPadding = 20;  // ...its content this far in // its corners; its rows' backgrounds nest in them (radius less padding, decision 121)
     float windowCardGap = 16; // between cards, across and down
     float expandedArtSize = 108; // expanded leading square: the cover, filling the card's shared height with its controls (decisions 094, 107, 119)
+    float widePillWidth = 420;   // Content::widePill: the pill with a line of lyrics in it (decision 180)
+    float smallCoverSize = 84;   // ...on a card that asks (Content::smallCover): room for a line of lyrics over the bar (decision 180)
     float slotGap = 10;         // between leading and center/bottom slots
     float rowSpacing = 4;
     float itemSpacing = 8;
@@ -158,6 +160,11 @@ struct Tokens {
     float captionFontWeight = 600;
     float displayFontWeight = 300; // big and still the lightest, like a clock face
     float cardTitleFontWeight = 800;
+    // A page of lyrics (decision 180): its lines, and the one being sung; five lines to the page.
+    float lyricFontSize = 24;
+    float lyricFontWeight = 600;
+    float lyricSungFontSize = 28;
+    float lyricSungFontWeight = 800;
     float heroFontWeight = 800;    // heavy: the card's timer reads from across the desk (decision 107)
     float headingFontWeight = 600; // a group's label is quiet: its group's background sets it apart (decision 090)
     float pageTitleFontWeight = 800; // heavier: the page's one name (decision 112)
@@ -216,6 +223,11 @@ struct Tokens {
     float progressHeight = 4;
     float progressHitHeight = 16; // taller than drawn, so it's easy to click
     float progressKnobSize = 12;  // the scrub handle shown on hover
+    // A button opened into the control beside it (Row::leadingOpen, decision 180): a level's bar
+    // (Progress::level) this wide, the pill under the two reaching this far past the bar.
+    float levelBarWidth = 64;
+    float openButtonPadding = 17; // past the bar's end and its knob, which reaches half its width over it
+    // Progress::level: a volume's bar beside a card's title (decision 180)
     // A wavy bar (Progress::wavy, decision 167): one wave's length, how far it swings to each side of
     // the bar's line, how far back from its head it straightens out, how long one wave takes to
     // pass, and how long it takes to lie flat or rise again.
@@ -411,6 +423,23 @@ struct Tokens {
     // A Hero time's digits roll as they change (decision 107): the new one
     // falls in from above as the old one drops out below, over this long.
     Ms digitRollDuration{ 380 };
+    // The line being sung (Text::drops, decision 180): the new one falls in
+    // from above as the old one drops out below, over this long.
+    Ms lyricDropDuration{ 420 };
+    // A line too long for its frame (Text::scrollUntil): of the time it has, it holds still at
+    // its start this share and at its end this share, and scrolls between; with less than
+    // lyricScrollLeast in all it isn't scrolled (it would only rush past).
+    float lyricScrollHoldStart = 0.3f;
+    float lyricScrollHoldEnd = 0.2f;
+    Ms lyricScrollLeast{ 1200 };
+    Ms followScrollDuration{ 650 }; // a list kept on a row that moves on (Host::centre): each step a slow glide
+    Ms lyricLead{ 350 };
+    float noteHoverScale = 1.3f;  // ...a break's note sign, one small glyph: by this much, to show at all
+    float lineHoverScale = 1.02f; // a text that takes a click (Text::actionId), under the pointer: this much bigger, and bright // ...and it's shown this long before it's sung: time to read its first words
+    // A card's cover changing size (Content::smallCover coming or going,
+    // decision 180): it grows or shrinks, and what's around it glides, over this long.
+    Ms coverResizeDuration{ 320 };
+    Ms openButtonDuration{ 260 }; // Row::leadingOpen's pill growing out of its button, and back
     // New content starts arriving once the growing pill is this share of the
     // way to its new size (decision 080): with the spring that's early, and it
     // follows the morph's own timing. A shrinking pill shows it at once.
@@ -465,6 +494,14 @@ struct Tokens {
     // With no session left, what's shown stays this long before it ends:
     // some apps drop theirs for a moment on every track change (decision 074).
     Ms mediaSessionGoneGrace{ 1500 };
+    // Lyrics (decision 180): a record's length may differ from the track's by
+    // this much and still be the same cut of the song; and how many songs'
+    // lyrics (or the lack of them) are remembered, so going back asks nothing.
+    // Media's volume bar opens this long after the pointer comes onto its speaker (decision 180):
+    // passing over it opens nothing.
+    Ms volumeOpenDelay{ 150 };
+    Ms lyricsDurationTolerance{ 3000 };
+    std::size_t lyricsRemembered = 20;
     // A track shows at once; its cover fades in over this when it's read (decision 056).
     Ms mediaArtFade{ 400 };
     // After a track change, the cover is read again this much later: apps
@@ -626,7 +663,7 @@ struct Tokens {
     std::size_t searchIconCache = 400; // result icons kept in memory; past it, they're all read again
     float searchVisibleRows = 8.5f;
     Ms launcherRefresh{ 600000 };
-    // By a file dialog (decision 180): the island hangs under it with at
+    // By a file dialog (decision 181): the island hangs under it with at
     // least pickerPillRoom between the dialog and the taskbar; a card open
     // there keeps pickerCardRoom, moving up over the dialog if it must. A
     // dialog whose file view isn't built yet is looked at again after

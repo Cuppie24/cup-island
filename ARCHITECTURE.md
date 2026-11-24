@@ -49,13 +49,14 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 menu.h (a row's context menu: when it opens, its keys, where it goes, decision 086)
                 groups.h (grouped rows: a quiet label, one background, a name over its description, decision 090)
                 keycaps.h (Keys drawn as key caps, decision 092), segments.h (a few options picked in place, decision 093)
-                file_dialog.h (a file dialog in front: which window is one, where the island hangs under it, the double-click, decision 180)
+                file_dialog.h (a file dialog in front: which window is one, where the island hangs under it, the double-click, decision 181)
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them;
                 blob_backdrop: what's under a blob, its shadow and glass, decision 089; liquid_glass + liquid_capture + liquid_shader: liquid glass, a captured picture of the desktop bent by a shader, decision 165; its shapes in core/liquid_glass), glass (Windows 11's blurred backdrop, decision 089), provider_window (a provider's window, decision 104), figures (tabular digits centred on their line, decision 094), element_visuals (one visual
-                per content item) + rolling_text (a big time's digits rolling as they change, decision 107), top_glow (the top band lit, decision 108), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts) + tap_hook (double-tap shortcuts, decision 079), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top, file_dialog_watcher (another app's Open / Save dialog in front, and giving it a path, decision 180)
+                per content item) + rolling_text (a big time's digits rolling as they change, decision 107) + dropping_text (the line being sung dropping in, decision 180), top_glow (the top band lit, decision 108), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts) + tap_hook (double-tap shortcuts, decision 079), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top, file_dialog_watcher (another app's Open / Save dialog in front, and giving it a path, decision 181)
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
-                MediaPresenter rules, SMTC provider for real Windows media: its smtc_reader reads sessions on a thread of its own, decision 144),
+                MediaPresenter rules, SMTC provider for real Windows media: its smtc_reader reads sessions on a thread of its own, decision 144;
+                app_volume, the playing app's volume, likewise, decision 180), lyrics/ (the line being sung: LRC text, what to ask LRCLIB, one lookup per song, pure; lrclib_fetch asks, decision 180),
                 pomodoro/ (the first panel: a timer card, the rest in its window, decision 106; tasks in groups, task_board, decision 117), search/ (the search card: apps, Settings, files; decisions 077, 079), service_host (Cup Island's service: setup, updates and providers' calls, decisions 076, 078), system/ (Home's theme and Settings widgets:
                 app themes, windows' own theme (decision 150), the monitor the island was dragged to (decision 178), Start with Windows, Copy logs), update/ (updates from GitHub
                 Releases, offered in Settings with an accent dot, decision 152: versions and offers, pure; installing asks again and takes the latest, decision 172; github.cpp fetches and installs, decision 036)
@@ -67,7 +68,7 @@ src/service/    CupIslandIndex.exe, the file index service (Windows, decision 07
                 (its own installer from GitHub, decision 076), --install/--stop/--uninstall for its installer;
                 index_client, the pipe's client, shared by cupindex.exe (its terminal tool) and the app
 src/app/        main.cpp: wiring only; surface.h: the island as a surface, its scene, renderer and pointer; provider_windows.cpp: providers' windows on screen (decision 104), window_typing.cpp: typing in them (decision 105); live_tokens.cpp: tokens.json load/reload; keyboard_input.cpp: keyboard focus,
-                Enter/Space, system-wide shortcuts and recording new keys (decisions 031, 032); menu_input.cpp: a row's menu under the pointer and keys (decision 086); file_picker.cpp: the island hung under a file dialog (decision 180)
+                Enter/Space, system-wide shortcuts and recording new keys (decisions 031, 032); menu_input.cpp: a row's menu under the pointer and keys (decision 086); file_picker.cpp: the island hung under a file dialog (decision 181)
 assets/         tokens.json: the live-tunable sizes, timings and curves; the app icon (cup_island.rc/.ico)
 installer/      Inno Setup script for the Windows installer (decision 011); its version comes from build.ps1
 .github/        workflows/release.yml: the Release button (build, test, tag, publish); build.yml: every PR built and tested on Windows (decision 036)
@@ -112,7 +113,7 @@ A provider (`core/provider.h`) publishes activities and alerts through a
 the renderer. `ProviderRegistry` gives each provider its own Host, which
 stamps the provider id on everything it posts, and routes actions back.
 Content is declarative (`core/content.h`, decision 004): slots of rows of
-items (text, image, icon, button, progress, time label, waveform, swatch). Layout and
+items (text, image, icon, button, progress, time label, waveform, swatch, lyrics). Layout and
 drawing are the host's job, so every provider looks native.
 
 A provider can also publish **panels** (decision 009): always-available
@@ -130,6 +131,7 @@ user acted on it, and the owner gets its own action and may open its window.
 Neither knows the other.
 
 Providers that change on a schedule ask `Host::wakeAt` and get `onWake()`.
+A control that opens under the pointer hears of it through `onHover` (decision 180): a hint, never needed.
 Ctrl+W on an activity's card calls `onCloseRequested()`: the provider ends
 it, asks first, or ignores it (the default; decision 034).
 Keyboard navigation is the host's: providers never see keys or move
@@ -240,8 +242,8 @@ over the file's, so `tokens()` is always what's on screen.
   format is documented at the top of `tests/scenario_runner.cpp`.
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing), `list_card_tests.cpp` (Settings' List card), `group_tests.cpp` (grouped rows), `badge_tests.cpp` (notification dots),
   `page_row_tests.cpp` (the page row's buttons, the idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
-  `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop), `command_tests.cpp` (providers' commands through the registry), `search_command_tests.cpp` (commands among Search's results), `file_dialog_tests.cpp` and `search_picking_tests.cpp` (a file dialog in front, Search picking its file; decision 180), `pomodoro_stats_tests.cpp` (statistics, days off),
-  `media_tests.cpp` (media presenter), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end, on a fixture card: `todo_card_fixture.h`), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install), `window_tests.cpp` (where a window opens; the registry between providers and their windows), `window_field_tests.cpp` (typing in a window, decision 105).**
+  `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop), `command_tests.cpp` (providers' commands through the registry), `search_command_tests.cpp` (commands among Search's results), `file_dialog_tests.cpp` and `search_picking_tests.cpp` (a file dialog in front, Search picking its file; decision 181), `pomodoro_stats_tests.cpp` (statistics, days off),
+  `media_tests.cpp` (media presenter), `lyrics_tests.cpp` (lyrics and the app's volume on media's card), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end, on a fixture card: `todo_card_fixture.h`), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install), `window_tests.cpp` (where a window opens; the registry between providers and their windows), `window_field_tests.cpp` (typing in a window, decision 105).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
 
@@ -267,6 +269,7 @@ over the file's, so `tokens()` is always what's on screen.
 | Provider API (PS §7 Tier 1), registry, demo music player | done, tested |
 | Switching activities (decision 007): bubble click, drag-to-swap, Expanded tabs, sticky pick | done; rules tested, tab visuals need Windows |
 | Real media provider (SMTC, TR §6): art, controls, seek, multi-app switch, paused media stays (decision 099), its card stays open when left alone (decision 177) | done; rules tested, WinRT part needs Windows |
+| Lyrics from LRCLIB, the line being sung over media's bar, dropping in; the playing app's volume beside the song's name (decision 180) | rules tested; the request, the volume calls and the animation need a Windows run |
 | File index logic (decision 075): USN records, the index, journal changes, queries, snapshots, pipe protocol | done, tested |
 | File index service + cupindex (decision 075, milestone 3) | runs on a real PC: both drives indexed, searches answered as the user |
 | File search installed with the app, self-updating (decision 076, milestone 4): its own admin installer, carried by the app's; set up at the end of setup or at the app's first start; updates from GitHub through the service | rules tested; --install/--uninstall and the update request run under Wine; installers and a real update need a Windows run; the search panel not yet |
@@ -277,7 +280,7 @@ over the file's, so `tokens()` is always what's on screen.
 | Text fields in windows (decision 105): focus, typing, Enter, live fields, edit in place, kept text, clipboard | core tested; the Windows side compiles in CI, needs a run |
 | Hover waits for a real pointer move after a card opens or a key is pressed (decision 087) | done; needs a Windows run |
 | Row context menus (decision 086): search's results (Open, Run as administrator, Reveal, Terminal, Copy, Copy path, Remove from history, App settings, Uninstall, Properties), each with a shortcut; right-click, Right or the › | rules tested; drawing, input and the Windows hooks compile in CI, need a Windows run |
-| By a file dialog (decision 180): the island hangs under it, a double-click opens Search picking a file, the pick goes to the dialog; its own menu | rules tested; the watcher, the layers moving and the dialog taking a path compile in CI, need a Windows run |
+| By a file dialog (decision 181): the island hangs under it, a double-click opens Search picking a file, the pick goes to the dialog; its own menu | rules tested; the watcher, the layers moving and the dialog taking a path compile in CI, need a Windows run |
 | Plugin pipe (PS §8 Tier 2) | not yet |
 | Activity expiry (`expiresAt`) | done, tested |
 | Rate limits, stale activities (PS §4, §6.3) | not yet |

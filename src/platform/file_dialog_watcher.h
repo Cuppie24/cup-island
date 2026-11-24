@@ -1,6 +1,6 @@
 #pragma once
 // Notices when a file dialog (Windows' Open or Save) of another app is in
-// front, follows it as it moves, and gives it a path (decision 180). Windows
+// front, follows it as it moves, and gives it a path (decision 181). Windows
 // has no event for it: a WinEvent hook on foreground changes finds a dialog
 // with Explorer's file view in it (core/file_dialog.h decides which window
 // is one). Event-driven, no polling. Every API here is Windows Vista or

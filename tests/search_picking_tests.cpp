@@ -1,4 +1,4 @@
-// Search by a file dialog (decision 180): its card picks a file for the
+// Search by a file dialog (decision 181): its card picks a file for the
 // dialog. Files and folders only, the recent ones before anything is typed;
 // a result goes to the dialog instead of being opened; its own menu.
 

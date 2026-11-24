@@ -56,7 +56,7 @@ struct Panel {
     RowSpot rowSpot = RowSpot::Corner;
     // Its icon in the page row's list (decision 165), live or dormant. None: a plain one.
     std::optional<Glyph> icon;
-    // Its card finds a file for a file dialog (decision 180): the one a
+    // Its card finds a file for a file dialog (decision 181): the one a
     // double-click on the pill opens while such a dialog is in front.
     bool picksFiles = false;
     bool operator==(const Panel&) const = default;
@@ -96,6 +96,7 @@ struct Draft {
 struct ListScroll {
     float offset = 0;                  // px down from the list's top (clamped when shown)
     std::optional<std::size_t> reveal; // a row the provider asked to keep in view (Host::reveal); the wheel clears it
+    bool centred = false;              // ...in the middle of the list's window (Host::centre), not just inside it
     bool operator==(const ListScroll&) const = default;
 };
 
@@ -164,7 +165,7 @@ struct Menu {
     bool operator==(const Menu&) const = default;
 };
 
-// A file dialog (Windows' Open or Save) is in front (decision 180,
+// A file dialog (Windows' Open or Save) is in front (decision 181,
 // core/file_dialog.h). The pill opens with a double-click, on the card that
 // picks files; it can't be lifted.
 struct Picker {
@@ -190,9 +191,9 @@ struct ActivityEnded { std::string id; };
 struct AlertPosted { Alert alert; };
 struct PillClicked {};
 // The second click of a double-click on the pill, after its PillClicked.
-// Opens the picking card while a file dialog is in front (decision 180); nothing otherwise.
+// Opens the picking card while a file dialog is in front (decision 181); nothing otherwise.
 struct PillDoubleClicked {};
-// A file dialog came in front, or moved (decision 180). `centre`: Picker::centre.
+// A file dialog came in front, or moved (decision 181). `centre`: Picker::centre.
 struct PickerOpened { std::optional<float> centre; };
 struct PickerClosed {};                 // it went, or something else is in front: a picking card closes
 // A click in the top band of an expanded island (Scene::collapseZone): it always
@@ -255,7 +256,9 @@ struct MenuClosed {};                    // chosen (the app sends the item's act
 // The wheel over a list (decision 029): `from` is the offset shown (a reveal
 // included), `max` how far it can go (both from the scene).
 struct ListScrolled { std::string activityId, list; float from = 0, delta = 0, max = 0; };
-struct ListRevealed { std::string activityId, list; std::size_t row = 0; }; // Host::reveal
+// Host::reveal; `centred`: Host::centre. `follow` (Host::follow): only moves a reveal that still
+// holds, as it was held (centred or not); once the user has scrolled, nothing.
+struct ListRevealed { std::string activityId, list; std::size_t row = 0; bool follow = false; bool centred = false; };
 struct ListDragStarted { std::string activityId, list; std::size_t row = 0; float y = 0; float offset = 0; }; // offset: the list's, as shown
 struct ListDragMoved { float y = 0; };
 struct ListDragEnded {};                 // dropped (the app sends the move first) or cancelled
@@ -302,7 +305,7 @@ struct IslandState {
     Ms lastPointerAt{};
     bool dragging = false;             // an accepted drag is over the island
     bool hidden = false;
-    std::optional<Picker> picker;      // a file dialog is in front (decision 180)
+    std::optional<Picker> picker;      // a file dialog is in front (decision 181)
     std::optional<WallClock> clock;    // unknown until the platform syncs it
     std::optional<Draft> draft;        // a TextInput has focus (decision 016)
     // A field's unsent text while it isn't focused (decision 050), by

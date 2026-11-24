@@ -162,7 +162,7 @@ void SearchProvider::searchNow()
     shown_ = apps; // apps, then the island's commands, then Windows' pages (decision 160)
     shown_.insert(shown_.end(), commands.begin(), commands.end());
     shown_.insert(shown_.end(), system.begin(), system.end());
-    if (picking_) shown_.clear(); // a file dialog takes files and folders, nothing else (decision 180)
+    if (picking_) shown_.clear(); // a file dialog takes files and folders, nothing else (decision 181)
 
     std::uint64_t ask = ++fileAsk_;
     bool typed = !indexer::parseQuery(query).empty();
@@ -170,7 +170,7 @@ void SearchProvider::searchNow()
         shown_.clear();
         files_.clear();
         filesNote_.clear();
-        if (picking_) { // ...and, for a file dialog, what was opened lately (decision 180)
+        if (picking_) { // ...and, for a file dialog, what was opened lately (decision 181)
             std::vector<std::string> gone;
             files_ = recentFiles(opened_, wall, tokens().searchFileRows, hooks_.exists, gone);
             for (const std::string& key : gone) opened_.uses.erase(key);
@@ -228,7 +228,7 @@ void SearchProvider::open(std::size_t index)
     const Result& r = all[index];
     bool started = false;
     if (picking_) {
-        // Given to the dialog, not opened (decision 180); only files are listed.
+        // Given to the dialog, not opened (decision 181); only files are listed.
         started = r.file && hooks_.giveToDialog && hooks_.giveToDialog(r.target);
         if (started) {
             opened_.record(recentKey({ .name = r.name, .path = r.target, .folder = r.folder }), host_->wallClock());
@@ -289,7 +289,7 @@ void SearchProvider::menuAction(const std::string& verb, std::size_t index)
         return;
     }
     bool started = false;
-    if (picking_) { // the picking menu's own; the search menu's others aren't offered there (decision 180)
+    if (picking_) { // the picking menu's own; the search menu's others aren't offered there (decision 181)
         if (verb == A::kShowFolder) started = call(hooks_.giveToDialog, folderOf(path));
     } else if (verb == A::kAdmin && elevates(r)) started = call(hooks_.runAsAdmin, r.target);
     else if (verb == A::kTerminal) started = call(hooks_.openTerminal, r.folder ? path : folderOf(path));
@@ -353,7 +353,7 @@ void SearchProvider::publish()
     // filled shapes rowSpacing apart looked stuck together (decision 079).
     if (c.expandedCenter.size() > 1) c.expandedCenter[1].apart = true;
     // A button in the page row's left corner (decisions 165, 170): a click opens the card.
-    // ...and by a file dialog, a double-click on the pill (Panel::picksFiles, decision 180).
+    // ...and by a file dialog, a double-click on the pill (Panel::picksFiles, decision 181).
     host_->publishPanel({ .id = kPanelId, .content = std::move(c), .rowButton = Glyph::Search, .rowSpot = Panel::RowSpot::LeftCorner, .picksFiles = true });
 }
 

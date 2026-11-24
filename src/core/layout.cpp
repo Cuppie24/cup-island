@@ -2,6 +2,7 @@
 
 #include "core/badges.h"
 #include "core/dialog.h"
+#include "core/item_metrics.h"
 #include "core/toast.h"
 #include "core/lift.h"
 #include "core/menu.h"
@@ -32,6 +33,8 @@ Source sourceFor(const IslandState& s, Mode mode)
 } // namespace
 
 bool stacked(const Content& c) { return c.card != CardLayout::Standard; }
+
+float coverSize(const Content& c) { return c.smallCover ? tokens().smallCoverSize : tokens().expandedArtSize; }
 
 namespace {
 
@@ -71,7 +74,7 @@ float standardCardHeight(const Source& source, Vec2 size, float most, const Meas
 {
     const Tokens& t = tokens();
     const Slot& under = source.content->expandedBottom;
-    float p = t.expandedPadding, top = p + t.expandedArtSize + t.slotGap; // as slotFrames puts the bottom slot
+    float p = t.expandedPadding, top = p + coverSize(*source.content) + t.slotGap; // as slotFrames puts the bottom slot
     float bottom = under.empty() ? 0 : slotHeight(under, { p, top, std::max(0.0f, size.x - 2 * p), size.y }, source, measure);
     return std::clamp(top + bottom + p, t.expandedSize.y, std::max(t.expandedSize.y, most));
 }
@@ -114,9 +117,18 @@ std::vector<SlotFrame> slotFrames(Mode mode, Vec2 size, const Content& c)
                  { "alertCenter", &c.alertCenter, { centerX, p, size.x - centerX - p, side } } };
     }
     case Mode::Expanded: {
-        if (stacked(c)) return { { "expandedCenter", &c.expandedCenter, stackFrame(c, size) } };
+        if (stacked(c)) {
+            Rect stack = stackFrame(c, size);
+            if (c.overTop.empty()) return { { "expandedCenter", &c.expandedCenter, stack } };
+            // Content::overTop: across the stack's top, as tall as its buttons; placed after the rows, so it's drawn over them.
+            float tall = 0;
+            for (const Row& r : c.overTop)
+                for (const auto* edge : { &r.leading, &r.trailing, &r.items })
+                    for (const Item& item : *edge) tall = std::max(tall, heightOf(item, {}, 0, {}));
+            return { { "expandedCenter", &c.expandedCenter, stack }, { "overTop", &c.overTop, { stack.x, stack.y, stack.width, tall } } };
+        }
         // The bottom slot starts right under the art: its rows spread in what's left (decision 119).
-        float art = t.expandedArtSize, y = p, centerX = p + art + t.slotGap, bottomY = y + art;
+        float art = coverSize(c), y = p, centerX = p + art + t.slotGap, bottomY = y + art;
         float corner = t.buttonSize, cornerX = size.x - p - corner;
         float centerRight = c.expandedTrailing.empty() ? size.x - p : cornerX - t.slotGap;
         return { { "expandedLeading", &c.expandedLeading, { p, y, art, art }, false, true },
@@ -175,6 +187,7 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
     if (scene.mode == Mode::Alert && state.alert) scene.alertPosted = state.alert->postedAt;
     float tabSpace = tabStripSpace(state);
     scene.size = modeSize(scene.mode);
+    scene.size.x = pillWidth(state, scene.mode); // wider for a line of lyrics (Content::widePill, decision 180)
     Source source = sourceFor(state, scene.mode);
     MeasureText measureText = measure ? measure : MeasureText{ estimateTextWidth };
     if (scene.mode == Mode::Expanded && source.content && source.content->card == CardLayout::Search)
@@ -223,8 +236,33 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
             source.content = &asked;
             scene.label = d->title;
         }
-        for (const SlotFrame& slot : slotFrames(scene.mode, contentSize, *source.content))
+        for (const SlotFrame& slot : slotFrames(scene.mode, contentSize, *source.content)) {
+            std::size_t from = scene.elements.size();
             placeSlot(slot, source, nestedRadius, now, scene.elements, measureText);
+            // Over the card's rows (Content::overTop), each takes clicks on itself and half a gap round
+            // it, not on the strip between the two: what's under that stays the rows'.
+            if (slot.name == "overTop") {
+                for (std::size_t i = from; i < scene.elements.size(); ++i) {
+                    Rect f = scene.elements[i].frame;
+                    float m = tokens().itemSpacing / 2;
+                    scene.elements[i].hitFrame = { f.x - m, f.y - m, f.width + 2 * m, f.height + 2 * m };
+                }
+                // ...and each button on a solid plate of its own shape, placed just before it (so under
+                // it, over the rows): words scrolling past don't show through it.
+                for (std::size_t i = from; i < scene.elements.size(); ++i) {
+                    if (!std::holds_alternative<Button>(scene.elements[i].item)) continue;
+                    Placed plate;
+                    plate.key = scene.elements[i].key + "/plate";
+                    plate.item = GroupFill{ .solid = true };
+                    plate.frame = scene.elements[i].frame;
+                    plate.cornerRadius = std::min(plate.frame.width, plate.frame.height) / 2;
+                    plate.providerId = source.providerId;
+                    plate.activityId = source.activityId;
+                    scene.elements.insert(scene.elements.begin() + static_cast<std::ptrdiff_t>(i), std::move(plate));
+                    ++i; // past the button it's for
+                }
+            }
+        }
     }
     // Laid out as if from the card's top, then moved down under the strip.
     if (tabSpace > 0 && state.tabsOnTop) moveDown(scene.elements, contentFrom, tabSpace); // at the bottom, the strip only adds room under the content
@@ -312,6 +350,7 @@ std::optional<Ms> sceneDeadline(const Scene& scene)
         for (const Placed& p : scene.bubble->elements) all.push_back(&p);
     for (const Placed* item : all) {
         const Placed& p = *item;
+        if (p.changesAt && (!next || *p.changesAt < *next)) next = p.changesAt; // the next line of a song (decision 180)
         if (!p.ticking || !p.ticking->playing || p.ticking->rate <= 0) continue;
         long long position = p.ticking->positionAt(scene.now).count();
         if (p.ticking->duration > Ms{ 0 } && position >= p.ticking->duration.count()) continue;

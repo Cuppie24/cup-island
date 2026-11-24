@@ -72,6 +72,13 @@ public:
     // Scrolls a list on this provider's card (Row::list) just enough to show
     // its `row`th row, now and as long as the user doesn't scroll it (decision 029).
     virtual void reveal(const std::string& activityId, const std::string& list, std::size_t row) = 0;
+    // The same, with the row in the middle of the list's window rather than just inside it
+    // (the line being sung on a page of lyrics, decision 180). Default: nothing (tests' hosts).
+    virtual void centre(const std::string& /*activityId*/, const std::string& /*list*/, std::size_t /*row*/) {}
+    // ...and moves on to `row` if that still holds: a list that follows something (the line
+    // being sung, decision 180) until the user scrolls it themselves. Then nothing, until the
+    // next reveal(). Default: nothing (tests' hosts).
+    virtual void follow(const std::string& /*activityId*/, const std::string& /*list*/, std::size_t /*row*/) {}
 
     // Whatever the provider keeps between runs (decision 028): text under a
     // key, its own (keys are per provider; the format is the provider's).
@@ -135,6 +142,10 @@ public:
     virtual void stop() = 0;
     virtual void onAction(const Action& action) = 0;
     virtual void onWake() {} // the time asked for with Host::wakeAt() has come
+    // The pointer came onto (`over`) or left something on its card that takes a click: `what` is
+    // the action a click there would send. A hint, for a control that opens under the pointer
+    // (media's volume, decision 180). Nothing may depend on it: keys and touch never hover.
+    virtual void onHover(const Action& /*what*/, bool /*over*/) {}
     // Its card stopped being shown (closed, or another card took its
     // place). A card with pages within it goes back to its first (Settings).
     virtual void onCardClosed(const std::string& /*activityId*/) {}

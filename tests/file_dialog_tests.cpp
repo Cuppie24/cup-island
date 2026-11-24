@@ -1,4 +1,4 @@
-// A file dialog in front (decision 180): which window is one, which of its
+// A file dialog in front (decision 181): which window is one, which of its
 // controls is the "File name" field, and where the island hangs under it.
 
 #include "core/file_dialog.h"

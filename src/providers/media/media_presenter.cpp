@@ -21,8 +21,102 @@ bool sameTimeline(const Timeline& a, const Timeline& b, Ms now)
 
 } // namespace
 
+MediaPresenter::MediaPresenter(Host& host, LyricsLookup::Fetch lyrics)
+    : host_(host), hasLyrics_(static_cast<bool>(lyrics)), lyrics_(std::move(lyrics), [this] {
+          // A song's lyrics came (or there are none): shown as it is now, with them.
+          if (last_ && !goneSince_ && !showing_) show(*last_);
+      })
+{
+}
+
+void MediaPresenter::fill(MediaSnapshot& snapshot)
+{
+    NowPlaying& m = snapshot.media;
+    m.lyricsOn = hasLyrics_ ? std::optional<bool>(lyricsOn_) : std::nullopt;
+    // Off: nothing is asked of the service, so no song's name leaves the PC.
+    LyricsAnswer answer = lyricsOn_ ? lyrics_.lyricsFor({ m.title, m.artist, m.timeline.duration }) : LyricsAnswer{};
+    if (answer.state != LyricsAnswer::State::Looking) lyricsShown_ = answer.state == LyricsAnswer::State::Found;
+    m.lyrics = answer.lines;
+    m.lyricsPending = answer.state == LyricsAnswer::State::Looking && lyricsShown_;
+    m.lyricsMissing = lyricsOn_ && answer.state == LyricsAnswer::State::None;
+    bool known = snapshot.sessionKey == volumeOf_;
+    m.volume = known ? volume_ : std::nullopt;
+    m.muted = known && muted_;
+    m.volumeOpen = volumeOpen_;
+    m.lyricsPage = lyricsPage_;
+    // On the page, the line being sung is the presenter's to say: it's lit and kept in view.
+    auto line = lyricsPage_ && m.lyrics ? lyricIndexAt(Lyrics{ .timeline = m.timeline, .lines = m.lyrics }, host_.now()) : std::nullopt;
+    m.lyricsLine = line ? static_cast<int>(*line) : -1;
+}
+
+void MediaPresenter::showVolume(const std::string& sessionKey, std::optional<float> volume, bool muted)
+{
+    volumeOf_ = sessionKey;
+    volume_ = volume;
+    muted_ = muted;
+    if (last_ && !goneSince_ && last_->sessionKey == sessionKey) show(*last_);
+}
+
+// Open while the pointer is on the speaker or on the bar it opened into. It opens
+// volumeOpenDelay after the pointer comes: one only passing over the speaker opens nothing.
+void MediaPresenter::hoverVolume(bool onBar, bool over)
+{
+    (onBar ? barHovered_ : speakerHovered_) = over;
+    if (!speakerHovered_ && !barHovered_) { // on neither: shut, or never opened
+        volumeOpenAt_.reset();
+        if (std::exchange(volumeOpen_, false) && last_ && !goneSince_) show(*last_);
+        armWake();
+        return;
+    }
+    if (volumeOpen_ || volumeOpenAt_) return; // open, or about to be
+    volumeOpenAt_ = host_.now() + tokens().volumeOpenDelay;
+    armWake();
+}
+
+void MediaPresenter::closeVolume()
+{
+    speakerHovered_ = barHovered_ = false;
+    volumeOpenAt_.reset();
+    if (std::exchange(volumeOpen_, false) && last_ && !goneSince_) show(*last_);
+    armWake();
+}
+
+void MediaPresenter::showLyricsPage(bool show)
+{
+    if (lyricsPage_ == show) return;
+    lyricsPage_ = show;
+    if (last_ && !goneSince_) this->show(*last_);
+    armWake();
+    if (show) syncLyricsPage(); // opened where the song is
+}
+
+void MediaPresenter::syncLyricsPage()
+{
+    if (lyricsPage_ && last_ && last_->media.lyrics) host_.centre(kActivityId, media_action::kLyricsList, lyricsPageRow(last_->media));
+}
+
+// The host wakes a provider once (Host::wakeAt): for the earliest of a vanished session's
+// grace, the volume's bar opening and, on the lyrics' page, the next line's start.
+void MediaPresenter::armWake()
+{
+    std::optional<Ms> at;
+    if (goneSince_) at = *goneSince_ + tokens().mediaSessionGoneGrace;
+    else if (lyricsPage_ && last_ && last_->media.lyrics)
+        at = nextLyricChange(Lyrics{ .timeline = last_->media.timeline, .lines = last_->media.lyrics }, host_.now());
+    if (volumeOpenAt_ && !goneSince_ && (!at || *volumeOpenAt_ < *at)) at = volumeOpenAt_;
+    host_.wakeAt(at);
+}
+
+void MediaPresenter::toggleLyrics()
+{
+    lyricsOn_ = !lyricsOn_;
+    host_.save(kLyricsKey, lyricsOn_ ? "on" : "off");
+    if (last_ && !goneSince_) show(*last_);
+}
+
 void MediaPresenter::start()
 {
+    lyricsOn_ = host_.load(kLyricsKey) != "off";
     host_.publishPanel({ .id = kActivityId, .content = nothingPlayingContent(), .icon = Glyph::Music });
 }
 
@@ -36,7 +130,10 @@ void MediaPresenter::end()
 {
     if (last_) host_.endActivity(kActivityId);
     last_.reset();
-    if (std::exchange(goneSince_, std::nullopt)) host_.wakeAt(std::nullopt);
+    volumeOpen_ = speakerHovered_ = barHovered_ = false;
+    volumeOpenAt_.reset();
+    goneSince_.reset();
+    host_.wakeAt(std::nullopt);
 }
 
 void MediaPresenter::show(const std::optional<MediaSnapshot>& snapshot)
@@ -47,16 +144,22 @@ void MediaPresenter::show(const std::optional<MediaSnapshot>& snapshot)
         // track change (decision 074). The clock starts at the first gap.
         if (last_ && !goneSince_) {
             goneSince_ = now;
-            host_.wakeAt(now + tokens().mediaSessionGoneGrace);
+            armWake();
         }
         return;
     }
-    if (std::exchange(goneSince_, std::nullopt)) host_.wakeAt(std::nullopt);
+    goneSince_.reset();
     MediaSnapshot next = *snapshot;
+    showing_ = true;
+    fill(next);
+    showing_ = false;
     if (last_ && last_->sessionKey == next.sessionKey && sameTrack(last_->media, next.media) &&
         sameTimeline(last_->media.timeline, next.media.timeline, now))
         next.media.timeline = last_->media.timeline;
-    if (last_ && *last_ == next) return; // nothing new
+    if (last_ && *last_ == next) {
+        armWake(); // the same, but a wake may be owed (the page's next line)
+        return;    // nothing new
+    }
 
     // Alert only for a new track in the same app: not on startup, not when
     // an app appears, not when switching apps with the source button.
@@ -73,6 +176,7 @@ void MediaPresenter::show(const std::optional<MediaSnapshot>& snapshot)
         host_.postAlert({ .activityId = kActivityId, .content = content, .coalesceKey = "track", .refreshOnly = true });
 
     last_ = next;
+    armWake();
 }
 
 void MediaPresenter::showPlayback(const std::string& sessionKey, const NowPlaying& playback)
@@ -94,7 +198,24 @@ void MediaPresenter::showPlayback(const std::string& sessionKey, const NowPlayin
 
 void MediaPresenter::onWake()
 {
-    if (goneSince_ && host_.now() - *goneSince_ >= tokens().mediaSessionGoneGrace) end();
+    if (goneSince_) {
+        if (host_.now() - *goneSince_ >= tokens().mediaSessionGoneGrace) end();
+        else armWake(); // woken early: asked again
+        return;
+    }
+    // The pointer has stayed on the speaker: its bar opens.
+    if (volumeOpenAt_ && host_.now() >= *volumeOpenAt_) {
+        volumeOpenAt_.reset();
+        volumeOpen_ = true;
+        if (last_) show(*last_);
+    }
+    // The lyrics' page: a new line is being sung. Shown lit, and the list moves on with it
+    // unless the user has scrolled it away (Host::follow).
+    if (lyricsPage_ && last_ && last_->media.lyrics) {
+        show(*last_);
+        host_.follow(kActivityId, media_action::kLyricsList, lyricsPageRow(last_->media));
+    }
+    armWake(); // whatever is still to come
 }
 
 } // namespace cup

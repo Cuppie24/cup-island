@@ -1,6 +1,6 @@
 #pragma once
 // A file dialog (Windows' Open or Save) in front of the user, and the island
-// by it (decision 180): the island hangs under the dialog, a double-click on
+// by it (decision 181): the island hangs under the dialog, a double-click on
 // its pill opens the card that picks files, and what's picked there is given
 // to the dialog. Pure: the platform gathers window facts (class names,
 // rectangles) and moves the windows; this decides.

@@ -34,13 +34,19 @@ float planList(const Slot& slot, const std::vector<float>& heights, const std::v
     const std::string& id = slot[first].list;
     std::string key = listKey(state.activityId, id);
     float offset = 0;
+    bool following = false;
     if (state.scrolls) {
         if (auto it = state.scrolls->find(key); it != state.scrolls->end()) {
             offset = it->second.offset;
-            if (auto r = it->second.reveal; r && *r < count) { // the least scrolling that shows it
+            if (auto r = it->second.reveal; r && *r < count) {
                 float rowTop = natural[*r], rowBottom = rowTop + heights[first + *r];
-                if (rowTop < offset) offset = rowTop;
-                if (rowBottom > offset + window) offset = rowBottom - window;
+                if (it->second.centred) {
+                    following = true;
+                    offset = (rowTop + rowBottom - window) / 2; // in the window's middle (Host::centre); clamped below at the list's ends
+                } else { // the least scrolling that shows it
+                    if (rowTop < offset) offset = rowTop;
+                    if (rowBottom > offset + window) offset = rowBottom - window;
+                }
             }
         }
     }
@@ -92,7 +98,7 @@ float planList(const Slot& slot, const std::vector<float>& heights, const std::v
         spot.y = top + tops[i] - offset;
         spot.list = InList{ .id = id, .row = i, .viewport = { 0, top, 0, window }, .offset = offset, .max = max,
                             .moveAction = slot[first + i].moveAction, .dragged = from == i, .dropAt = from == i ? *to : i,
-                            .carrying = from.has_value() };
+                            .carrying = from.has_value(), .following = following };
     }
     return window;
 }
@@ -133,7 +139,19 @@ void scrollList(IslandState& s, const ListScrolled& e, Ms now)
     s.lastPointerAt = now;
 }
 
-void revealListRow(IslandState& s, const ListRevealed& e) { s.scrolls[listKey(e.activityId, e.list)].reveal = e.row; }
+void revealListRow(IslandState& s, const ListRevealed& e)
+{
+    std::string key = listKey(e.activityId, e.list);
+    // Following (Host::follow): the row kept in view moves on, unless the wheel took the list over.
+    if (e.follow) {
+        auto held = s.scrolls.find(key);
+        if (held == s.scrolls.end() || !held->second.reveal) return;
+        held->second.reveal = e.row; // centred or not, as it was asked for
+        return;
+    }
+    s.scrolls[key].reveal = e.row;
+    s.scrolls[key].centred = e.centred;
+}
 
 void startListDrag(IslandState& s, const ListDragStarted& e, Ms now)
 {
