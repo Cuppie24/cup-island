@@ -16,9 +16,7 @@ struct DroppingText {
     wuc::SpriteVisual line{ nullptr };      // the one shown; one on its way out is the container's alone
     wuc::CompositionDrawingSurface surface{ nullptr };
     Text text;         // what's shown
-    // A clickable line (Text::actionId): a soft pill behind it, shown under the pointer, so it reads as something to click.
-    wuc::ShapeVisual hover{ nullptr };
-    wuc::CompositionColorBrush hoverBrush{ nullptr };
+    bool lit = false;    // under the pointer, a clickable line (Text::actionId): drawn in the brightest text colour
     float lineWidth = 0; // > 0: the line is wider than the frame and scrolls through it (Text::scrollUntil): its surface's width
     bool grey = false; // drawn without colour: a muted tab's (decision 072)
 };

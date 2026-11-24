@@ -72,6 +72,9 @@ public:
     // Scrolls a list on this provider's card (Row::list) just enough to show
     // its `row`th row, now and as long as the user doesn't scroll it (decision 029).
     virtual void reveal(const std::string& activityId, const std::string& list, std::size_t row) = 0;
+    // The same, with the row in the middle of the list's window rather than just inside it
+    // (the line being sung on a page of lyrics, decision 180). Default: nothing (tests' hosts).
+    virtual void centre(const std::string& /*activityId*/, const std::string& /*list*/, std::size_t /*row*/) {}
     // ...and moves on to `row` if that still holds: a list that follows something (the line
     // being sung, decision 180) until the user scrolls it themselves. Then nothing, until the
     // next reveal(). Default: nothing (tests' hosts).

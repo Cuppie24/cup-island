@@ -24,6 +24,8 @@ follow timer todos 8                  -> scroll=timer/todos:0+reveal
 wheel timer todos 120 -40 200         -> scroll=timer/todos:80         # the user scrolls
 follow timer todos 9                  -> scroll=timer/todos:80         # ...and is left where they are
 reveal timer todos 9                  -> scroll=timer/todos:80+reveal  # until asked again (a sync button)
+centre timer todos 9                  -> scroll=timer/todos:80+reveal  # ...or asked for in the window's middle: held the same way
+wheel timer todos 80 10 200           -> scroll=timer/todos:90         # and given up to the wheel the same way
 
 scenario: a row is carried only on the card that's shown, and not under a dialog
 start timer

@@ -382,8 +382,6 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         // A sprite per line, so the old one can drop out as the new one falls in (decision 180).
         view.dropping = createDroppingText(compositor_, *device_, std::get<Text>(placed.item), size, view.grey, now);
         view.visual = view.dropping.visual;
-        view.highlight = view.dropping.hover; // a clickable line's hover shape, shown and faded like a button's
-        view.hover = view.dropping.hoverBrush;
     } else if (clickableArt(placed.item)) {
         view.surface = device_->createSurface(size);
         view.glyphSurface = device_->createSurface(size);
@@ -494,8 +492,7 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
                    isWavy(view.placed.item) != isWavy(placed.item) || // another bar: a wave, another knob
                    (isWavy(placed.item) && std::get<Progress>(view.placed.item).seekable != std::get<Progress>(placed.item).seekable) ||
                    clickableArt(view.placed.item) != clickableArt(placed.item) || rolls(view.placed.item) != rolls(placed.item) ||
-                   drops(view.placed.item) != drops(placed.item) ||
-                   clickableLine(view.placed.item) != clickableLine(placed.item); // its hover shape comes or goes
+                   drops(view.placed.item) != drops(placed.item);
     bool recoloured = view.placed.accent != placed.accent;
     // In a list, its place is in the list's scroller: scrolling moves the scroller, not it.
     Vec2 was = lists_.positionOf(view.placed), at = lists_.positionOf(placed);
@@ -890,6 +887,12 @@ void ElementVisuals::showHover(const std::string& key, bool on)
     if (view.highlight) fadeTo(compositor_, view.highlight, on || focusedField(view.placed.item) ? 1.0f : 0.0f, tokens().hoverFadeDuration);
     if (view.knob && !view.scrubbing) showKnob(compositor_, view.knob, on, view.pinned);
     if (view.art.overlay) showArtOverlay(compositor_, view.art, on);
+    // A line that takes a click (decision 180): brighter and a touch bigger under the pointer, no shape behind it.
+    if (view.dropping.visual && clickableLine(view.placed.item) && view.dropping.lit != on) {
+        view.dropping.lit = on;
+        paint(view);
+        if (!tokens().reducedMotion) playScale(compositor_, view.visual, on ? tokens().lineHoverScale : 1.0f, tokens().hoverFadeDuration, tokens().morphEase);
+    }
     if (auto* button = std::get_if<Button>(&view.placed.item); button && (button->secondary || button->primary) && view.lit != on) {
         view.lit = on; // grey to full strength and back (decision 064); a primary's fill softens (decision 066)
         paint(view);

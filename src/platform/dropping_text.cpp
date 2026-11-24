@@ -62,19 +62,6 @@ DroppingText createDroppingText(Compositor const& c, GraphicsDevice& device, con
     dropping.visual = c.CreateContainerVisual();
     dropping.visual.Size(toFloat2(size));
     dropping.visual.Clip(c.CreateInsetClip()); // a line on its way in or out isn't seen past the frame
-    if (!text.actionId.empty()) { // under every line, hidden until the pointer is on it
-        auto shape = c.CreateRoundedRectangleGeometry();
-        shape.Size(toFloat2(size));
-        shape.CornerRadius({ size.y / 2, size.y / 2 });
-        dropping.hoverBrush = c.CreateColorBrush(toUiColor(tokens().buttonHoverColor));
-        auto fill = c.CreateSpriteShape(shape);
-        fill.FillBrush(dropping.hoverBrush);
-        dropping.hover = c.CreateShapeVisual();
-        dropping.hover.Size(toFloat2(size));
-        dropping.hover.Shapes().Append(fill);
-        dropping.hover.Opacity(0.0f);
-        dropping.visual.Children().InsertAtBottom(dropping.hover);
-    }
     makeLine(c, device, dropping, size, now);
     repaintDropping(device, dropping, size);
     return dropping;
@@ -114,7 +101,9 @@ bool repaintDropping(GraphicsDevice& device, DroppingText& dropping, Vec2 size)
         Text shown = dropping.text;
         if (dropping.lineWidth > 0) shown.centred = shown.alignEnd = false;
         Vec2 lineSize{ dropping.lineWidth > 0 ? dropping.lineWidth : size.x, size.y };
-        auto draw = [&](ID2D1DeviceContext* target) { paintText(target, device.dwrite(), shown, lineSize); };
+        // Under the pointer (a line that takes a click): as bright as text gets.
+        std::optional<Color> ink = dropping.lit ? std::optional<Color>(tokens().titleTextColor) : std::nullopt;
+        auto draw = [&](ID2D1DeviceContext* target) { paintText(target, device.dwrite(), shown, lineSize, ink); };
         if (dropping.grey) paintGrey(dc, draw); // a muted tab's (decision 072)
         else draw(dc);
     });

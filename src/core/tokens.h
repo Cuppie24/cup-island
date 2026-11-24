@@ -427,7 +427,8 @@ struct Tokens {
     float lyricScrollHoldStart = 0.3f;
     float lyricScrollHoldEnd = 0.2f;
     Ms lyricScrollLeast{ 1200 };
-    Ms lyricLead{ 350 }; // ...and it's shown this long before it's sung: time to read its first words
+    Ms lyricLead{ 350 };
+    float lineHoverScale = 1.05f; // a text that takes a click (Text::actionId), under the pointer: this much bigger, and bright // ...and it's shown this long before it's sung: time to read its first words
     // A card's cover changing size (Content::smallCover coming or going,
     // decision 180): it grows or shrinks, and what's around it glides, over this long.
     Ms coverResizeDuration{ 320 };

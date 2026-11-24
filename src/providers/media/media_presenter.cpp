@@ -92,7 +92,7 @@ void MediaPresenter::showLyricsPage(bool show)
 
 void MediaPresenter::syncLyricsPage()
 {
-    if (lyricsPage_ && last_ && last_->media.lyrics) host_.reveal(kActivityId, media_action::kLyricsList, lyricsPageRow(last_->media));
+    if (lyricsPage_ && last_ && last_->media.lyrics) host_.centre(kActivityId, media_action::kLyricsList, lyricsPageRow(last_->media));
 }
 
 // The host wakes a provider once (Host::wakeAt): for the earliest of a vanished session's

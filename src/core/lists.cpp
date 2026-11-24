@@ -37,10 +37,14 @@ float planList(const Slot& slot, const std::vector<float>& heights, const std::v
     if (state.scrolls) {
         if (auto it = state.scrolls->find(key); it != state.scrolls->end()) {
             offset = it->second.offset;
-            if (auto r = it->second.reveal; r && *r < count) { // the least scrolling that shows it
+            if (auto r = it->second.reveal; r && *r < count) {
                 float rowTop = natural[*r], rowBottom = rowTop + heights[first + *r];
-                if (rowTop < offset) offset = rowTop;
-                if (rowBottom > offset + window) offset = rowBottom - window;
+                if (it->second.centred) {
+                    offset = (rowTop + rowBottom - window) / 2; // in the window's middle (Host::centre); clamped below at the list's ends
+                } else { // the least scrolling that shows it
+                    if (rowTop < offset) offset = rowTop;
+                    if (rowBottom > offset + window) offset = rowBottom - window;
+                }
             }
         }
     }
@@ -140,8 +144,11 @@ void revealListRow(IslandState& s, const ListRevealed& e)
     if (e.follow) {
         auto held = s.scrolls.find(key);
         if (held == s.scrolls.end() || !held->second.reveal) return;
+        held->second.reveal = e.row; // centred or not, as it was asked for
+        return;
     }
     s.scrolls[key].reveal = e.row;
+    s.scrolls[key].centred = e.centred;
 }
 
 void startListDrag(IslandState& s, const ListDragStarted& e, Ms now)

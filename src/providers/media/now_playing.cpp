@@ -58,10 +58,8 @@ Content lyricsPageContent(const NowPlaying& m)
 
 std::size_t lyricsPageRow(const NowPlaying& m)
 {
-    constexpr std::size_t kAhead = 2;
     if (!m.lyrics || m.lyrics->empty()) return 0;
-    std::size_t at = m.lyricsLine < 0 ? 0 : static_cast<std::size_t>(m.lyricsLine);
-    return std::min(at + kAhead, m.lyrics->size() - 1);
+    return std::min(static_cast<std::size_t>(std::max(m.lyricsLine, 0)), m.lyrics->size() - 1);
 }
 
 namespace {
