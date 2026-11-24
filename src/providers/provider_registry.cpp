@@ -75,6 +75,11 @@ public:
         registry_.dispatch_(ListRevealed{ activityId, list, row }, providerId_.c_str());
     }
 
+    void follow(const std::string& activityId, const std::string& list, std::size_t row) override
+    {
+        registry_.dispatch_(ListRevealed{ activityId, list, row, true }, providerId_.c_str());
+    }
+
     void wakeAt(std::optional<Ms> at) override
     {
         Entry* e = registry_.find(providerId_);

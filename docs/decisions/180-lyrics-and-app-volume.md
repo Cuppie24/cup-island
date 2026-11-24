@@ -60,13 +60,18 @@ later: media sessions don't carry one.
   (shuffle, repeat and the speaker still go where they don't apply). Off, nothing is asked of LRCLIB (no song's name leaves the PC),
   the line goes and the cover is full size; kept between runs
   (`Host::save`, "lyrics"). On by default.
-- **A page of lyrics.** A click on the line (`Text::actionId`) turns the
-  card into a page (`lyricsPageContent`): a back arrow and the song's
-  name, then the two lines before, the one being sung (bigger, bright)
-  and the two after, each a `Lyrics` row `pageRow` lines from the song's
-  place. Rising together, each row taking the text of the one under it,
-  they read as one list scrolling up. Back: the arrow, Esc
-  (`Content::backAction`), the card closing, or a song with no lyrics.
+- **A page of lyrics.** A click on the line (`Text::actionId`; it lights
+  up under the pointer, so it reads as something to click) turns the
+  card into a page (`lyricsPageContent`): a back arrow, the song's name
+  and a sync button, then every line of the song in a host list
+  (`Row::list`), which the wheel scrolls. The one being sung is bigger
+  and bright; a line with no words is a note. Here the presenter follows
+  the song itself: woken at each line's start, it relights the page and
+  asks the host to keep that line in view (`Host::follow`), which the
+  host does only while the user hasn't scrolled the list themselves.
+  The sync button (`Host::reveal`) goes back to the line being sung and
+  follows it again. Back: the arrow, Esc (`Content::backAction`), the
+  card closing, or a song with no lyrics.
 - **In the pill too.** While a song with lyrics plays, the pill shows the
   line instead of the song's name, upright, and is `widePillWidth` wide
   (`Content::widePill`) so a line fits; one still too long ends in "…".

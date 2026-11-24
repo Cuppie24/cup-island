@@ -236,7 +236,8 @@ struct MenuClosed {};                    // chosen (the app sends the item's act
 // The wheel over a list (decision 029): `from` is the offset shown (a reveal
 // included), `max` how far it can go (both from the scene).
 struct ListScrolled { std::string activityId, list; float from = 0, delta = 0, max = 0; };
-struct ListRevealed { std::string activityId, list; std::size_t row = 0; }; // Host::reveal
+// Host::reveal. `follow` (Host::follow): only moves a reveal that still holds; once the user has scrolled, nothing.
+struct ListRevealed { std::string activityId, list; std::size_t row = 0; bool follow = false; };
 struct ListDragStarted { std::string activityId, list; std::size_t row = 0; float y = 0; float offset = 0; }; // offset: the list's, as shown
 struct ListDragMoved { float y = 0; };
 struct ListDragEnded {};                 // dropped (the app sends the move first) or cancelled

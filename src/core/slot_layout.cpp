@@ -37,10 +37,7 @@ Item resolve(const Item& item, Ms now, const Source& source)
     if (auto* lyrics = std::get_if<Lyrics>(&item)) {
         std::string line = lyricAt(*lyrics, now);
         bool note = line == kLyricBreak;
-        if (lyrics->pageRow) // a page's row: upright, the line being sung in the title's style; they scroll up together
-            return Text{ .value = line, .style = note ? TextStyle::CardTitle : *lyrics->pageRow == 0 ? TextStyle::Title : TextStyle::Body,
-                         .centred = true, .drops = true, .rises = true, .actionId = lyrics->actionId };
-        // Alone too it rises: the next line comes up from below, the last leaves at the top.
+        // It rises: the next line comes up from below, the last leaves at the top.
         // Too long to fit, it's scrolled through by the time the next one comes.
         return Text{ .value = line, .style = note ? TextStyle::CardTitle : TextStyle::Body, .centred = true, .drops = true, .rises = true,
                      .scrollUntil = nextLyricChange(*lyrics, now), .actionId = lyrics->actionId, .italic = lyrics->italic && !note }; // the note always upright

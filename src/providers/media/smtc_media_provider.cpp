@@ -78,6 +78,10 @@ void SmtcMediaProvider::onAction(const Action& action)
         presenter_->showLyricsPage(action.actionId == media_action::kLyricsPage);
         return;
     }
+    if (action.actionId == media_action::kLyricsSync) {
+        presenter_->syncLyricsPage();
+        return;
+    }
     if (action.actionId == media_action::kLyrics) {
         presenter_->toggleLyrics();
         return;

@@ -23,7 +23,7 @@ using Ms = std::chrono::milliseconds;
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
                    Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre,
                    Minus, Plus, Pin, Pinned, Fire, Chart, ChevronDown, Search, File, Folder, Close, Refresh, Reset,
-                   Palette, Sliders, Expand, Maximize, Restore, Minimize, CloseWindow, Grip, More, Gauge, Volume, VolumeLow, VolumeMid, Muted, Lyrics };
+                   Palette, Sliders, Expand, Maximize, Restore, Minimize, CloseWindow, Grip, More, Gauge, Volume, VolumeLow, VolumeMid, Muted, Lyrics, Sync };
 
 // Display: a big number, the card's centre (a timer). Heading: a group's label over its rows (Settings'
 // "General", "Dark"): small and quiet, since the group's background already sets it apart (decision 090).
@@ -295,19 +295,15 @@ struct Lyrics {
     std::shared_ptr<const std::vector<LyricLine>> lines; // by time; shared and immutable, like ImageData
     // A click on the line sends this to the provider (it opens the lyrics' page). Empty: not clickable.
     std::string actionId;
-    // One row of a page of lyrics: the line this many after the one being sung (before it,
-    // if negative), upright and quieter than the one being sung (0, bigger and bright), and
-    // as it changes it scrolls up with its neighbours instead of dropping in. Past either
-    // end of the song: empty.
-    std::optional<int> pageRow;
     // Its words slanted (Text::italic): on a card, under the song's name and artist, so it
     // doesn't read as a third line of them. Not in the pill, where it's the only text.
     bool italic = false;
     bool operator==(const Lyrics&) const = default;
 };
-// The text shown at `now`: the last line begun (or the one `pageRow` away from it), or
-// kLyricBreak where nothing is sung (before the first, a break; the line being sung only).
+// The text shown at `now`: the last line begun, or kLyricBreak where nothing is sung (before the first, a break).
 std::string lyricAt(const Lyrics& lyrics, Ms now);
+// Which of `lines` that is; none before the first (or with no lines).
+std::optional<std::size_t> lyricIndexAt(const Lyrics& lyrics, Ms now);
 // A note sign: there are words, none right now. Shown big (CardTitle): at a line's size it was a speck.
 inline constexpr const char* kLyricBreak = "\u266A";
 // When (app time) the shown line next changes; nothing while it doesn't play or after the last line.

@@ -44,6 +44,9 @@ void MediaPresenter::fill(MediaSnapshot& snapshot)
     m.muted = known && muted_;
     m.volumeOpen = volumeOpen_;
     m.lyricsPage = lyricsPage_;
+    // On the page, the line being sung is the presenter's to say: it's lit and kept in view.
+    auto line = lyricsPage_ && m.lyrics ? lyricIndexAt(Lyrics{ .timeline = m.timeline, .lines = m.lyrics }, host_.now()) : std::nullopt;
+    m.lyricsLine = line ? static_cast<int>(*line) : -1;
 }
 
 void MediaPresenter::showVolume(const std::string& sessionKey, std::optional<float> volume, bool muted)
@@ -76,6 +79,24 @@ void MediaPresenter::showLyricsPage(bool show)
     if (lyricsPage_ == show) return;
     lyricsPage_ = show;
     if (last_ && !goneSince_) this->show(*last_);
+    armWake();
+    if (show) syncLyricsPage(); // opened where the song is
+}
+
+void MediaPresenter::syncLyricsPage()
+{
+    if (lyricsPage_ && last_ && last_->media.lyrics) host_.reveal(kActivityId, media_action::kLyricsList, lyricsPageRow(last_->media));
+}
+
+// The host wakes a provider once (Host::wakeAt): for the earlier of a vanished session's
+// grace and, on the lyrics' page, the next line's start.
+void MediaPresenter::armWake()
+{
+    std::optional<Ms> at;
+    if (goneSince_) at = *goneSince_ + tokens().mediaSessionGoneGrace;
+    else if (lyricsPage_ && last_ && last_->media.lyrics)
+        at = nextLyricChange(Lyrics{ .timeline = last_->media.timeline, .lines = last_->media.lyrics }, host_.now());
+    host_.wakeAt(at);
 }
 
 void MediaPresenter::toggleLyrics()
@@ -102,7 +123,8 @@ void MediaPresenter::end()
     if (last_) host_.endActivity(kActivityId);
     last_.reset();
     volumeOpen_ = speakerHovered_ = barHovered_ = false;
-    if (std::exchange(goneSince_, std::nullopt)) host_.wakeAt(std::nullopt);
+    goneSince_.reset();
+    host_.wakeAt(std::nullopt);
 }
 
 void MediaPresenter::show(const std::optional<MediaSnapshot>& snapshot)
@@ -113,11 +135,11 @@ void MediaPresenter::show(const std::optional<MediaSnapshot>& snapshot)
         // track change (decision 074). The clock starts at the first gap.
         if (last_ && !goneSince_) {
             goneSince_ = now;
-            host_.wakeAt(now + tokens().mediaSessionGoneGrace);
+            armWake();
         }
         return;
     }
-    if (std::exchange(goneSince_, std::nullopt)) host_.wakeAt(std::nullopt);
+    goneSince_.reset();
     MediaSnapshot next = *snapshot;
     showing_ = true;
     fill(next);
@@ -125,7 +147,10 @@ void MediaPresenter::show(const std::optional<MediaSnapshot>& snapshot)
     if (last_ && last_->sessionKey == next.sessionKey && sameTrack(last_->media, next.media) &&
         sameTimeline(last_->media.timeline, next.media.timeline, now))
         next.media.timeline = last_->media.timeline;
-    if (last_ && *last_ == next) return; // nothing new
+    if (last_ && *last_ == next) {
+        armWake(); // the same, but a wake may be owed (the page's next line)
+        return;    // nothing new
+    }
 
     // Alert only for a new track in the same app: not on startup, not when
     // an app appears, not when switching apps with the source button.
@@ -142,6 +167,7 @@ void MediaPresenter::show(const std::optional<MediaSnapshot>& snapshot)
         host_.postAlert({ .activityId = kActivityId, .content = content, .coalesceKey = "track", .refreshOnly = true });
 
     last_ = next;
+    armWake();
 }
 
 void MediaPresenter::showPlayback(const std::string& sessionKey, const NowPlaying& playback)
@@ -163,7 +189,17 @@ void MediaPresenter::showPlayback(const std::string& sessionKey, const NowPlayin
 
 void MediaPresenter::onWake()
 {
-    if (goneSince_ && host_.now() - *goneSince_ >= tokens().mediaSessionGoneGrace) end();
+    if (goneSince_) {
+        if (host_.now() - *goneSince_ >= tokens().mediaSessionGoneGrace) end();
+        else armWake(); // woken early: asked again
+        return;
+    }
+    // The lyrics' page: a new line is being sung. Shown lit, and the list moves on with it
+    // unless the user has scrolled it away (Host::follow).
+    if (lyricsPage_ && last_ && last_->media.lyrics) {
+        show(*last_);
+        host_.follow(kActivityId, media_action::kLyricsList, lyricsPageRow(last_->media));
+    }
 }
 
 } // namespace cup

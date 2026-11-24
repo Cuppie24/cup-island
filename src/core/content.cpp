@@ -46,12 +46,16 @@ std::size_t nextLine(const std::vector<LyricLine>& lines, Ms position)
 std::string lyricAt(const Lyrics& lyrics, Ms now)
 {
     if (!lyrics.lines || lyrics.lines->empty()) return {}; // none yet: the row waits, empty
-    // The line being sung is the one before `next`; a page's row is `pageRow` lines from it.
-    long long at = static_cast<long long>(nextLine(*lyrics.lines, lyricPosition(lyrics.timeline, now))) - 1 + lyrics.pageRow.value_or(0);
-    bool there = at >= 0 && at < static_cast<long long>(lyrics.lines->size());
-    const std::string text = there ? (*lyrics.lines)[static_cast<std::size_t>(at)].text : std::string();
-    bool sung = lyrics.pageRow.value_or(0) == 0;
-    return text.empty() && sung ? kLyricBreak : text; // a note only where the song is now
+    auto at = lyricIndexAt(lyrics, now);
+    const std::string text = at ? (*lyrics.lines)[*at].text : std::string();
+    return text.empty() ? kLyricBreak : text; // a note: there are words, none right now
+}
+
+std::optional<std::size_t> lyricIndexAt(const Lyrics& lyrics, Ms now)
+{
+    if (!lyrics.lines || lyrics.lines->empty()) return std::nullopt;
+    std::size_t next = nextLine(*lyrics.lines, lyricPosition(lyrics.timeline, now));
+    return next == 0 ? std::nullopt : std::optional<std::size_t>(next - 1);
 }
 
 std::optional<Ms> nextLyricChange(const Lyrics& lyrics, Ms now)

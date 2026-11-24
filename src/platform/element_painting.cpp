@@ -123,6 +123,7 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::VolumeMid: return L"\uE994"; // Volume2
     case Glyph::VolumeLow: return L"\uE993"; // Volume1
     case Glyph::Muted: return L"\uE74F";  // Mute
+    case Glyph::Sync: return L"\uE895";   // Sync: a page of lyrics back to the line being sung
     case Glyph::Lyrics: return L"\uED1E"; // Subtitles: lines of words, media's lyrics button (decision 180)
     case Glyph::Gauge: return L"\uEC4A";    // SpeedHigh: something costs performance (liquid glass's question, decision 165)
     case Glyph::Fire: return L"\U0001F525"; // not in the icon fonts: Segoe UI Emoji's, in colour (paintGlyph)

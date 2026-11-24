@@ -30,18 +30,37 @@ Content lyricsPageContent(const NowPlaying& m)
     c.expandedTrailing.clear();
     c.expandedBottom.clear();
     c.backAction = act::kLyricsBack; // Esc goes back to the card, as the arrow does
-    // The arrow at the row's start, the song over its words.
+    // The arrow at the row's start, the song over its words, the sync button at its end.
     Row heading = row({ Text{ .value = c.label, .style = TextStyle::Caption, .centred = true } }, Align::Center);
     heading.leading.push_back(Button{ .glyph = Glyph::ChevronLeft, .actionId = act::kLyricsBack, .compact = true, .secondary = true });
+    heading.trailing.push_back(Button{ .glyph = Glyph::Sync, .actionId = act::kLyricsSync, .compact = true, .secondary = true });
     heading.id = "heading";
     c.expandedCenter = { heading };
-    constexpr int kAround = 2; // lines shown before and after the one being sung
-    for (int at = -kAround; at <= kAround; ++at) {
-        Row line = row({ Lyrics{ .timeline = m.timeline, .lines = m.lyrics, .pageRow = at } });
-        line.id = "line" + std::to_string(at + kAround); // named: the same visuals whatever else the page gains
-        c.expandedCenter.push_back(line);
+    // The card keeps its height (the heading alone asks for less) and the list fills the rest, from the top.
+    c.sizedLike = { heading };
+    c.pageAtTop = true;
+    for (std::size_t i = 0; i < m.lyrics->size(); ++i) {
+        bool sung = static_cast<int>(i) == m.lyricsLine;
+        const std::string& words = (*m.lyrics)[i].text;
+        // The one being sung bigger and bright. A line with no words is a break: a note in its
+        // place, as on the card, so the list keeps the song's shape.
+        Text text{ .value = words.empty() ? kLyricBreak : words, .style = sung ? TextStyle::Title : TextStyle::Body, .centred = true,
+                   .wrap = !words.empty() };
+        Row shown = row({ text });
+        shown.list = act::kLyricsList;
+        shown.visibleRows = -1; // the list is the rest of the card
+        shown.id = "line" + std::to_string(i); // named: a row keeps its visual as the lit one moves on
+        c.expandedCenter.push_back(shown);
     }
     return c;
+}
+
+std::size_t lyricsPageRow(const NowPlaying& m)
+{
+    constexpr std::size_t kAhead = 2;
+    if (!m.lyrics || m.lyrics->empty()) return 0;
+    std::size_t at = m.lyricsLine < 0 ? 0 : static_cast<std::size_t>(m.lyricsLine);
+    return std::min(at + kAhead, m.lyrics->size() - 1);
 }
 
 namespace {

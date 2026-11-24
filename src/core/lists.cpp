@@ -133,7 +133,16 @@ void scrollList(IslandState& s, const ListScrolled& e, Ms now)
     s.lastPointerAt = now;
 }
 
-void revealListRow(IslandState& s, const ListRevealed& e) { s.scrolls[listKey(e.activityId, e.list)].reveal = e.row; }
+void revealListRow(IslandState& s, const ListRevealed& e)
+{
+    std::string key = listKey(e.activityId, e.list);
+    // Following (Host::follow): the row kept in view moves on, unless the wheel took the list over.
+    if (e.follow) {
+        auto held = s.scrolls.find(key);
+        if (held == s.scrolls.end() || !held->second.reveal) return;
+    }
+    s.scrolls[key].reveal = e.row;
+}
 
 void startListDrag(IslandState& s, const ListDragStarted& e, Ms now)
 {

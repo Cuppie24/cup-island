@@ -34,7 +34,7 @@
 //            menu <card> <row> [pointer]  menu-step <1|-1>  menu-end first|last      (a row's menu, decision 086: by the keys, or a right-click)
 //            menu-letter <c>  menu-light <n>|none  menu-close
 //            edit <card> <action> <text> [at=<n>]                                   (a Text edited in place, decision 029)
-//            wheel <card> <list> <from> <delta> <max>  reveal <card> <list> <row>    (lists, decision 029)
+//            wheel <card> <list> <from> <delta> <max>  reveal|follow <card> <list> <row>    (lists, decision 029; follow: decision 180)
 //            pick <card> <list> <row> <y>  carry <y>  put-down
 //            screen <width>  hold  move <dx>  let-go  restore <dock> [fraction]      (lifting the island, decision 026)
 //            cross <width> <x>                                                      (...onto another monitor, the pointer at x on it, decision 178)
@@ -288,6 +288,7 @@ struct Runner {
         else if (cmd == "edit") apply(InputFocused{ "p", arg(1), arg(2), arg(3), /* editing */ true, at(4) });
         else if (cmd == "wheel") apply(ListScrolled{ arg(1), arg(2), std::stof(arg(3)), std::stof(arg(4)), std::stof(arg(5)) });
         else if (cmd == "reveal") apply(ListRevealed{ arg(1), arg(2), std::stoul(arg(3)) });
+        else if (cmd == "follow") apply(ListRevealed{ arg(1), arg(2), std::stoul(arg(3)), true });
         else if (cmd == "pick") apply(ListDragStarted{ arg(1), arg(2), std::stoul(arg(3)), std::stof(arg(4)) });
         else if (cmd == "carry") apply(ListDragMoved{ std::stof(arg(1)) });
         else if (cmd == "put-down") apply(ListDragEnded{});

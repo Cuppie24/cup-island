@@ -44,6 +44,9 @@ struct NowPlaying {
     bool lyricsMissing = false;
     // The line being sung was clicked: the card is the lyrics' page (lyricsPageContent) until its back arrow is.
     bool lyricsPage = false;
+    // ...and on it, which of `lyrics` is being sung now (-1: none yet): lit, and kept in view.
+    // The presenter's, at each line's start; the page doesn't follow the timeline by itself.
+    int lyricsLine = -1;
     // The playing app's own volume, 0..1, as Windows' mixer has it (decision
     // 180); none: not known (the app has no audio session), and no control.
     std::optional<float> volume;
@@ -68,15 +71,21 @@ inline constexpr const char* kMute = "mute";     // the speaker: toggle
 inline constexpr const char* kLyrics = "lyrics"; // toggle: lyrics looked up and shown, or not
 inline constexpr const char* kLyricsPage = "lyricsPage"; // the line being sung was clicked: its page
 inline constexpr const char* kLyricsBack = "lyricsBack"; // the page's back arrow (and Esc): the card again
+inline constexpr const char* kLyricsSync = "lyricsSync"; // the page's sync button: scrolled back to the line being sung
+// The page's list of lines (Row::list), for Host::reveal.
+inline constexpr const char* kLyricsList = "lyrics";
 } // namespace media_action
 
 Content nowPlayingContent(const NowPlaying& media);
 
-// The card as a page of the song's lyrics (decision 180): a back arrow and the song's
-// name, then the line being sung between the two before it and the two after, scrolling
-// up as the song goes. Everything off the card (the pill, alerts, the tint) as nowPlayingContent's.
-// What nowPlayingContent gives while `lyricsPage` is set and there are lyrics.
+// The card as a page of the song's lyrics (decision 180): a back arrow, the song's name and
+// a sync button, then every line in a list the host scrolls, the one being sung
+// (`lyricsLine`) bigger and bright. A line with no words (a break) is a note. Everything off the card (the pill, alerts, the tint) as
+// nowPlayingContent's. What nowPlayingContent gives while `lyricsPage` is set and there are lyrics.
 Content lyricsPageContent(const NowPlaying& media);
+// The row of that list to keep in view (Host::reveal): a couple past the one being sung, so
+// what comes next is on the page too.
+std::size_t lyricsPageRow(const NowPlaying& media);
 
 // Media's card while nothing plays: its icon is always in the page row
 // (decision 165), so there's one place to look for what's playing.

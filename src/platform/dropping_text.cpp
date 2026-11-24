@@ -62,6 +62,19 @@ DroppingText createDroppingText(Compositor const& c, GraphicsDevice& device, con
     dropping.visual = c.CreateContainerVisual();
     dropping.visual.Size(toFloat2(size));
     dropping.visual.Clip(c.CreateInsetClip()); // a line on its way in or out isn't seen past the frame
+    if (!text.actionId.empty()) { // under every line, hidden until the pointer is on it
+        auto shape = c.CreateRoundedRectangleGeometry();
+        shape.Size(toFloat2(size));
+        shape.CornerRadius({ size.y / 2, size.y / 2 });
+        dropping.hoverBrush = c.CreateColorBrush(toUiColor(tokens().buttonHoverColor));
+        auto fill = c.CreateSpriteShape(shape);
+        fill.FillBrush(dropping.hoverBrush);
+        dropping.hover = c.CreateShapeVisual();
+        dropping.hover.Size(toFloat2(size));
+        dropping.hover.Shapes().Append(fill);
+        dropping.hover.Opacity(0.0f);
+        dropping.visual.Children().InsertAtBottom(dropping.hover);
+    }
     makeLine(c, device, dropping, size, now);
     repaintDropping(device, dropping, size);
     return dropping;

@@ -42,8 +42,9 @@ public:
     // opens into: open while it's on either (decision 180).
     void hoverVolume(bool onBar, bool over);
     void closeVolume(); // the card closed: shut, whatever the pointer was on
-    void onWake();      // the grace is over: end what's shown, unless a session came back
+    void onWake();      // a time asked for has come: a vanished session's grace is over, or the lyrics' page has a new line
     void showLyricsPage(bool show); // the line being sung clicked, or the page's back arrow; the card closing goes back too
+    void syncLyricsPage();          // its sync button: scrolled back to the line being sung, and following it again
     void toggleLyrics(); // the card's lyrics button: off, nothing is looked up and no line shown; remembered
 
     static constexpr const char* kLyricsKey = "lyrics"; // Host::save: "off", or anything else for on
@@ -67,6 +68,7 @@ private:
     bool volumeOpen_ = false;
     bool speakerHovered_ = false, barHovered_ = false;
     bool lyricsPage_ = false; // the card is the lyrics' page while the song has lyrics
+    void armWake();           // the host's one wake: the session's grace, or the page's next line, whichever is first
 };
 
 } // namespace cup

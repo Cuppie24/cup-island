@@ -199,6 +199,13 @@ bool rolls(const Item& item)
     return text && text->style == TextStyle::Hero && !text->marquee;
 }
 
+// A text that takes a click (Text::actionId, decision 180): the line being sung, with a hover shape under it.
+bool clickableLine(const Item& item)
+{
+    auto* text = std::get_if<Text>(&item);
+    return text && !text->actionId.empty();
+}
+
 // The line being sung (decision 180): a new line drops in as a whole.
 bool drops(const Item& item)
 {
@@ -375,6 +382,8 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         // A sprite per line, so the old one can drop out as the new one falls in (decision 180).
         view.dropping = createDroppingText(compositor_, *device_, std::get<Text>(placed.item), size, view.grey, now);
         view.visual = view.dropping.visual;
+        view.highlight = view.dropping.hover; // a clickable line's hover shape, shown and faded like a button's
+        view.hover = view.dropping.hoverBrush;
     } else if (clickableArt(placed.item)) {
         view.surface = device_->createSurface(size);
         view.glyphSurface = device_->createSurface(size);
@@ -473,7 +482,8 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
                    isWavy(view.placed.item) != isWavy(placed.item) || // another bar: a wave, another knob
                    (isWavy(placed.item) && std::get<Progress>(view.placed.item).seekable != std::get<Progress>(placed.item).seekable) ||
                    clickableArt(view.placed.item) != clickableArt(placed.item) || rolls(view.placed.item) != rolls(placed.item) ||
-                   drops(view.placed.item) != drops(placed.item);
+                   drops(view.placed.item) != drops(placed.item) ||
+                   clickableLine(view.placed.item) != clickableLine(placed.item); // its hover shape comes or goes
     bool recoloured = view.placed.accent != placed.accent;
     // In a list, its place is in the list's scroller: scrolling moves the scroller, not it.
     Vec2 was = lists_.positionOf(view.placed), at = lists_.positionOf(placed);

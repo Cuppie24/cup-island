@@ -15,6 +15,16 @@ click
 reveal timer todos 7                  -> scroll=timer/todos:0+reveal
 wheel timer todos 120 -40 200         -> scroll=timer/todos:80   # from what the reveal showed
 
+scenario: a followed row moves on only while the reveal holds (decision 180)
+start timer
+click
+follow timer todos 3                  -> scroll=timer/todos:none       # nothing was revealed: nothing to follow
+reveal timer todos 7                  -> scroll=timer/todos:0+reveal
+follow timer todos 8                  -> scroll=timer/todos:0+reveal
+wheel timer todos 120 -40 200         -> scroll=timer/todos:80         # the user scrolls
+follow timer todos 9                  -> scroll=timer/todos:80         # ...and is left where they are
+reveal timer todos 9                  -> scroll=timer/todos:80+reveal  # until asked again (a sync button)
+
 scenario: a row is carried only on the card that's shown, and not under a dialog
 start timer
 pick timer todos 2 50                 -> carried=none            # not expanded
