@@ -193,6 +193,7 @@ bool giveToFileDialog(const std::string& path)
     UINT wait = static_cast<UINT>(tokens().pickerSendTimeout.count());
     if (!SendMessageTimeoutW(field, WM_SETTEXT, 0, reinterpret_cast<LPARAM>(text.c_str()), SMTO_ABORTIFHUNG, wait, &taken) || !taken) {
         logLine("file dialog: didn't take the path (error %lu); an elevated app's doesn't", GetLastError());
+        SetForegroundWindow(g_dialog); // in front all the same: the path is pasted there by hand
         return false;
     }
     SetForegroundWindow(g_dialog); // the island's card had the keys: back to the dialog, which closes or shows the folder

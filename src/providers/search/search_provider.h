@@ -51,7 +51,8 @@ struct SearchHooks {
     std::function<bool(const std::string& path)> copyFile;        // the file itself, as Explorer's Copy does
     // Gives a path to the file dialog in front, as if typed into its "File
     // name" and confirmed (decision 181): a file is chosen, a folder is gone
-    // to. False if the dialog didn't take it.
+    // to. False if the dialog didn't take it (an elevated app's): the dialog
+    // is in front all the same, for the path to be pasted by hand.
     std::function<bool(const std::string& path)> giveToDialog;
     // A result's icon as Windows draws it (a file's, an app's), resultIconSize
     // square; `done` on the UI thread, with nothing if there's none.
@@ -125,6 +126,9 @@ private:
     void open(std::size_t index);
     void reveal(std::size_t index);
     void menuAction(const std::string& verb, std::size_t index); // a menu item's, other than Open and Reveal
+    // Picking (decision 181): to the dialog; one that doesn't take it (an elevated
+    // app's) gets it on the clipboard instead, with an alert saying where to paste it.
+    bool giveOrCopy(const std::string& path);
     bool forget(const Result& r);                               // Remove from history
     std::shared_ptr<const ImageData> iconFor(const std::string& target); // asks Windows the first time
 

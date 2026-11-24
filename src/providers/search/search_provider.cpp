@@ -223,7 +223,7 @@ void SearchProvider::open(std::size_t index)
     bool started = false;
     if (picking_) {
         // Given to the dialog, not opened (decision 181); only files are listed.
-        started = r.file && hooks_.giveToDialog && hooks_.giveToDialog(r.target);
+        started = r.file && giveOrCopy(r.target);
         if (started) {
             opened_.record(recentKey({ .name = r.name, .path = r.target, .folder = r.folder }), host_->wallClock());
             host_->save(kOpenedKey, opened_.save());
@@ -284,7 +284,7 @@ void SearchProvider::menuAction(const std::string& verb, std::size_t index)
     }
     bool started = false;
     if (picking_) { // the picking menu's own; the search menu's others aren't offered there (decision 181)
-        if (verb == A::kShowFolder) started = call(hooks_.giveToDialog, folderOf(path));
+        if (verb == A::kShowFolder && !path.empty()) started = giveOrCopy(folderOf(path));
     } else if (verb == A::kAdmin && elevates(r)) started = call(hooks_.runAsAdmin, r.target);
     else if (verb == A::kTerminal) started = call(hooks_.openTerminal, r.folder ? path : folderOf(path));
     else if (verb == A::kProperties) started = call(hooks_.properties, path);
@@ -294,6 +294,21 @@ void SearchProvider::menuAction(const std::string& verb, std::size_t index)
         started = hooks_.launch && hooks_.launch(Launchable{ .kind = Launchable::Kind::Setting, .target = link });
     }
     if (started) host_->closeCard(kPanelId); // out of the way of the window it opened
+}
+
+bool SearchProvider::giveOrCopy(const std::string& path)
+{
+    if (!hooks_.giveToDialog) return false;
+    if (hooks_.giveToDialog(path)) return true;
+    // Windows lets nothing be typed into an administrator's window from here,
+    // but the clipboard is everyone's: the user pastes and confirms (decision 181).
+    if (!hooks_.copyText || !hooks_.copyText(path)) return false;
+    host_->postAlert({ .content = { .label = "Path copied",
+                                    .alertLeading = { row({ Icon{ Glyph::Copy } }) },
+                                    .alertCenter = { row({ Text{ "Path copied", TextStyle::Title } }),
+                                                     row({ Text{ "Paste it into the File name box", TextStyle::Body } }) } },
+                       .coalesceKey = "search-path-copied" });
+    return true; // the card closes: the alert shows, and the dialog is in front
 }
 
 bool SearchProvider::forget(const Result& r)

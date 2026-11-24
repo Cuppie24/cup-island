@@ -92,15 +92,19 @@ void runSearchPickingTests()
     act(search_action::kAdmin + std::string("0"));
     expect(given.size() == 1 && host.closed.size() == 1, "the search menu's other verbs do nothing while picking");
 
-    // A dialog that doesn't take it (an elevated app's): the card stays.
+    // A dialog that doesn't take it (an elevated app's): the path on the clipboard, and an alert saying so.
     dialogTakes = false;
     act(search_action::kOpen + std::string("0"));
-    expect(given.back() == "C:\\Docs\\report.pdf" && opened.empty() && host.closed.size() == 1, "refused: nothing opened, the card stays for another try");
+    expect(given.back() == "C:\\Docs\\report.pdf" && opened.empty() && copied.back() == "C:\\Docs\\report.pdf", "refused: its path is copied instead");
+    expect(host.alerts.size() == 1 && host.alerts[0].content.label == "Path copied" && host.alerts[0].activityId.empty() && host.closed.size() == 2,
+           "...an alert says to paste it, and the card closes");
+    act(search_action::kShowFolder + std::string("0"));
+    expect(copied.back() == "C:\\Docs" && host.alerts.size() == 2 && host.closed.size() == 3, "its folder likewise");
 
     // Choose: given to the dialog, not opened; remembered like a file opened from search.
     dialogTakes = true;
     act(search_action::kGo, "report");
-    expect(given.back() == "C:\\Docs\\report.pdf" && opened.empty() && host.closed.size() == 2, "Enter gives the top file to the dialog and closes the card");
+    expect(given.back() == "C:\\Docs\\report.pdf" && opened.empty() && host.closed.size() == 4 && host.alerts.size() == 2, "Enter gives the top file to the dialog and closes the card");
     expect(LaunchHistory::load(host.store[SearchProvider::kOpenedKey]).uses.count("C:\\Docs\\report.pdf") == 1, "...and it's a recent file from then on");
 
     // The dialog goes: search again.

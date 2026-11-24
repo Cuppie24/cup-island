@@ -66,9 +66,13 @@ single click to open it.
 - Search opened its usual way (its button, Double Ctrl) while a dialog is
   in front opens in the island's own place, and picks for the dialog too.
 - A dialog of an app running as administrator doesn't take the path from an
-  island that isn't: Windows blocks the message (UIPI). The card stays open
-  then. Getting past that means a signed `uiAccess` build or a helper started
-  by the service; neither is done here.
+  island that isn't: Windows blocks the message, simulated keys too (UIPI).
+  The clipboard is shared, so the path is copied instead, the dialog comes
+  in front and an alert says "Path copied / Paste it into the File name box":
+  the user pastes and confirms. Focus is wherever they left it in the
+  dialog, which the island can't change. Listary has the same limit. Getting
+  past it means a signed `uiAccess` build or a helper started by the
+  service; neither is done here.
 - In a Save dialog, Choose saves over the picked file; the dialog asks
   first, as it does when the name is typed.
 - The text goes with a timeout (`pickerSendTimeout`) and the button press

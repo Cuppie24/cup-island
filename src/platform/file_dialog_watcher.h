@@ -30,7 +30,8 @@ void watchFileDialogs(std::function<void(std::optional<FileDialogSeen>)> onChang
 // field and confirmed, as if typed and Enter pressed. A file is chosen (or
 // saved over, after the dialog's own question); a folder is gone to. False
 // if there's no dialog or it didn't take the text (an elevated app's
-// doesn't, from an island that isn't).
+// doesn't, from an island that isn't): that dialog is brought in front all
+// the same, so the caller can leave the path on the clipboard for it.
 bool giveToFileDialog(const std::string& path);
 
 } // namespace cup::platform
