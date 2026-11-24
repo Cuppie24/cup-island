@@ -1,51 +1,14 @@
 // The updater (decision 036): versions, choosing what to offer, and the
 // provider's checks, the status Settings shows (decision 152: no widget, card
-// or alert of its own) and install, through a recording host.
+// or alert of its own) and install, through a recording host. Installing the
+// latest release at the click (decision 172): update_install_tests.cpp.
 
 #include "core/tokens.h"
 #include "expect.h"
-#include "panel_host.h"
-#include "providers/update/update_provider.h"
+#include "update_fixture.h"
 
 namespace cup::test {
 namespace {
-
-using Done = std::function<void(std::optional<GitHubRelease>)>;
-using Failed = std::function<void(std::string)>;
-
-const std::string kSha = std::string(64, 'A'); // GitHub's digest, upper case to check it's lowered
-
-GitHubRelease releaseOf(const std::string& version, std::string digest = "sha256:" + kSha)
-{
-    std::string name = "CupIsland-Setup-" + version + ".exe";
-    return { .tag = "v" + version,
-             .page = "https://github.com/Cuppie24/cup-island/releases/tag/v" + version,
-             .assets = { { "CupIsland.pdb", "https://github.com/Cuppie24/cup-island/releases/download/v" + version + "/CupIsland.pdb", "sha256:" + std::string(64, 'b') },
-                         { name, "https://github.com/Cuppie24/cup-island/releases/download/v" + version + "/" + name, std::move(digest) } } };
-}
-
-// A provider with hooks that record calls; the test answers them.
-struct Updater {
-    PanelHost host;
-    std::vector<Done> fetches;
-    std::vector<Failed> installs;
-    std::optional<UpdateStatus> status; // what Settings was last told
-    UpdateProvider provider;
-
-    explicit Updater(std::string version)
-        : provider(UpdateHooks{ .version = std::move(version),
-                                .fetchLatest = [this](Done d) { fetches.push_back(std::move(d)); },
-                                .install = [this](const UpdateOffer&, Failed f) { installs.push_back(std::move(f)); } })
-    {
-        provider.onStatus([this](const std::optional<UpdateStatus>& s) { status = s; });
-    }
-    void wakeAndAnswer(std::optional<GitHubRelease> release)
-    {
-        host.clock = *host.wake;
-        provider.onWake();
-        fetches.back()(std::move(release));
-    }
-};
 
 void versionTests()
 {
@@ -108,16 +71,20 @@ void providerTests()
     u.wakeAndAnswer(releaseOf("0.4.0"));
     expect(u.host.alerts.empty() && u.status->version == "0.4.0", "the next day: still offered, still quiet");
 
+    std::size_t asked = u.fetches.size();
     u.provider.install();
-    expect(u.installs.size() == 1 && u.status->stage == UpdateStage::Installing, "Install: downloading");
+    expect(u.fetches.size() == asked + 1 && u.installs.empty() && u.status->stage == UpdateStage::Installing,
+           "Install: asks GitHub first, already installing (decision 172)");
+    u.fetches.back()(releaseOf("0.4.0"));
+    expect(u.installs.size() == 1 && u.installed[0] == "0.4.0" && u.status->stage == UpdateStage::Installing, "Install: still the latest, downloading");
     u.provider.install();
-    expect(u.installs.size() == 1, "a second click while installing does nothing");
+    expect(u.installs.size() == 1 && u.fetches.size() == asked + 1, "a second click while installing does nothing");
     u.wakeAndAnswer(releaseOf("0.5.0"));
     expect(u.status->stage == UpdateStage::Installing && u.status->version == "0.4.0", "a check mid-download leaves it be");
     u.installs[0]("Couldn't download the update");
     expect(u.status->stage == UpdateStage::Failed && u.status->problem == "Couldn't download the update", "a failure says why");
-    u.provider.install();
-    expect(u.installs.size() == 2, "Try again installs again");
+    u.installWith(releaseOf("0.5.0"));
+    expect(u.installs.size() == 2 && u.installed[1] == "0.5.0", "Try again installs again: the latest by then");
 
     u.provider.stop();
     u.installs[1]("late");
@@ -134,7 +101,7 @@ void providerTests()
         expect(!r.host.load(UpdateProvider::kOfferKey).empty(), "restart: closing the app doesn't forget it");
         r.provider.start(r.host);
         expect(r.status && r.status->version == "0.4.0" && r.fetches.size() == 1, "restart: offered again at once, no check yet");
-        r.provider.install();
+        r.installWith(releaseOf("0.4.0"));
         expect(r.installs.size() == 1, "restart: and it installs");
         r.provider.stop();
 
@@ -163,7 +130,7 @@ void providerTests()
         w.provider.start(w.host);
         w.wakeAndAnswer(releaseOf("0.4.0"));
         expect(told.back() && told.back()->version == "0.4.0" && told.back()->stage == UpdateStage::Offered, "status: an offer from the daily check");
-        w.provider.install();
+        w.installWith(releaseOf("0.4.0"));
         expect(w.installs.size() == 1 && told.back()->stage == UpdateStage::Installing, "status: install() installs: Settings' button");
         w.provider.install();
         expect(w.installs.size() == 1, "status: not twice");
@@ -263,17 +230,23 @@ void mandatoryTests()
     expect(m.installs.empty() && m.status && m.status->mandatory, "mandatory: found mid-run, nothing installs yet; Settings says when it will");
     m.provider.stop();
     std::size_t alerts = m.host.alerts.size();
+    std::size_t asked = m.fetches.size();
     m.provider.start(m.host);
+    expect(m.fetches.size() == asked + 1 && m.installs.empty() && m.host.alerts.size() == alerts,
+           "mandatory: the next start asks GitHub for the latest first (decision 172)");
+    m.fetches.back()(required);
     expect(m.installs.size() == 1 && m.host.alerts.size() == alerts + 1 && m.host.alerts.back().content.label == "Updating",
-           "mandatory: the next start installs it, no click, and says so");
+           "mandatory: then installs it, no click, and says so");
     m.installs.back()("Couldn't download the update");
     for (int start = 2; start <= UpdateProvider::kMandatoryTries + 1; ++start) {
         m.provider.stop();
+        asked = m.fetches.size();
         m.provider.start(m.host);
+        if (m.fetches.size() > asked) m.fetches.back()(required);
     }
     expect(m.installs.size() == static_cast<std::size_t>(UpdateProvider::kMandatoryTries),
            "mandatory: one try a start, kMandatoryTries in all; then it waits for a click");
-    m.provider.install();
+    m.installWith(required);
     expect(m.installs.size() == static_cast<std::size_t>(UpdateProvider::kMandatoryTries) + 1, "mandatory: the button still works");
     m.provider.stop();
 

@@ -301,7 +301,7 @@ struct Tokens {
     float artGlowBlur = 22;
     // Under a toast (decision 151), colour in toastShadowColor: it floats over the page, apart from it.
     float toastShadowBlur = 10;
-    Vec2 toastShadowOffset{ 0, 6 }; // well down: a shadow below the pill, not a haze around it (decision 170)
+    Vec2 toastShadowOffset{ 0, 6 }; // well down: a shadow below the pill, not a haze around it (decision 171)
 
     // Glass (decision 089): the blurred desktop behind the island, at one
     // brightness (glassLuminosityColor) like Windows' own acrylic, the island's
@@ -363,7 +363,7 @@ struct Tokens {
     float glassLiquidSaturation = 1.6f;
     float glassLiquidHighlightOpacity = 0.35f;
     float glassLiquidLipOpacity = 0.14f;
-    // What's on liquid glass has a shiny edge: a hairline round two of its
+    // What's on glass, frosted or liquid (decision 175), has a shiny edge: a hairline round two of its
     // corners, the top left and the bottom right, this bright at its
     // brightest (liquidShine): a control's, and fainter, a
     // surface's (a Home widget, a toast).
@@ -432,6 +432,10 @@ struct Tokens {
     // Colours easing to new ones (a cover's tint, a theme pick; decision 051):
     // the island's fill, the shadow, marks and content shapes. Text switches
     // at once. One duration per speed the user can pick in Settings (decision 053).
+    // How a recolour moves (decision 171): slow off the mark, slow to land.
+    // With no curve of ours Windows eases a fade its own way, quick at the
+    // start: over seconds, a cover's colours leaving looked like a jump.
+    Bezier recolorEase{ { 0.55f, 0.0f }, { 0.45f, 1.0f } };
     Ms recolorFast{ 800 };
     Ms recolorMedium{ 2000 };
     Ms recolorSlow{ 4000 };
@@ -667,6 +671,12 @@ struct Tokens {
 // The colour fade's duration at the picked speed (recolorFast/Medium/Slow).
 Ms recolorDuration(const Tokens& t);
 
+// The curve a colour fade `duration` long runs along (decision 171):
+// recolorEase if it's as long as a recolour (the shortest of the three
+// speeds); none for the quick ones (hover, a switch), which answer a click
+// and keep the compositor's own.
+std::optional<Bezier> recolorCurve(const Tokens& t, Ms duration);
+
 // The island's fill as drawn (decision 089): `color`, or as glass, see-through
 // by glassOpacity; by glassPlainOpacity over the plain blur (`evenBlur`
 // false: Windows refused to even out its brightness); the Dense or Clear
@@ -679,14 +689,15 @@ float glassShare(const Tokens& t, bool evenBlur = true);
 
 // How bright a shiny edge is (decision 165): a control's
 // (glassLiquidShineOpacity) or, `surface`, a widget's or a toast's
-// (glassLiquidSurfaceShineOpacity), while the island is liquid glass, within
-// 0..1; none on frosted glass or a solid island.
+// (glassLiquidSurfaceShineOpacity), while the island is glass, frosted or
+// liquid (decision 175: first liquid glass's alone), within 0..1; none on a
+// solid island.
 float liquidShine(const Tokens& t, bool surface = false);
 
-// The rim's line at its brightest (decision 089): glassRimColor, or on liquid
-// glass (`liquid`: it's what the island shows) that colour at
+// The rim's line at its brightest (decision 089): glassRimColor, or `shiny`
+// (the island is glass, decision 175) that colour at
 // glassLiquidHighlightOpacity: the pane's bright edge.
-Color glassRimAt(const Tokens& t, bool liquid);
+Color glassRimAt(const Tokens& t, bool shiny);
 
 // The colour acrylic's even brightness takes its lightness from:
 // glassLuminosityColor, its opacity times the Transparency pick's share
@@ -712,6 +723,14 @@ struct GlowLook {
     Color edge{ 0, 0, 0, 0 };
 };
 GlowLook glowLook(const Tokens& t, bool card);
+
+// The glow a fade heads for, from the one `shown` (decision 173). Going
+// out (`next` is clear, `shown` wasn't), it keeps what was shown, only
+// clear: the same colour, reach and curve. Without that a cover's glow
+// leaving jumped as its fade began: an open card's reach and curve snapped
+// to the pill's, and its colour headed for clear *black*, which darkens a
+// glow long before it thins it. Anything else: `next` as it is.
+GlowLook glowTowards(const GlowLook& next, const GlowLook& shown);
 
 // The shadow under the card's cover (decision 094), or, while a cover's glow
 // is set (artGlowColor, decision 169), that glow: its colour, how soft, and

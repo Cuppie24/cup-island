@@ -37,6 +37,16 @@ void releaseIsland(IslandState& s)
     s.pressDrag = {};
 }
 
+void carryIsland(IslandState& s, float screenWidth, float pointerX)
+{
+    s.screenWidth = screenWidth;
+    if (!s.lift) return; // let go on the way: it rests on the new monitor as anywhere
+    // Positions on the old monitor mean nothing here (another origin, maybe
+    // another scale): the pill's centre is the pointer, held on the screen.
+    s.lift = pointerX;
+    s.pressDrag = {};
+}
+
 void settleLift(IslandState& s, Ms now)
 {
     Mode m = mode(s);

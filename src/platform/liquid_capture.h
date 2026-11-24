@@ -28,6 +28,12 @@ public:
     void start(HWND window, ID3D11Device* device, std::mutex& guard, std::function<void()> onFrame);
     void stop(); // ...and lets `window` into captures again
     bool running() const { return session_ != nullptr; }
+    // Inside start() or stop(). Both call into another process, and Windows
+    // runs this thread's messages while they wait: the app can be called in
+    // the middle of one, `guard` held (decision 174). No frame is taken then.
+    bool switching() const { return switching_; }
+    // Takes a frame that came during a switch. Call with `guard` not held.
+    void catchUp();
 
     ID3D11Texture2D* picture() const { return picture_.get(); } // the latest; none until the first frame
     Vec2 size() const { return { static_cast<float>(size_.Width), static_cast<float>(size_.Height) }; }
@@ -48,6 +54,8 @@ private:
     winrt::com_ptr<ID3D11Texture2D> picture_;
     std::function<void()> onFrame_;
     std::mutex* guard_ = nullptr;
+    bool switching_ = false; // this thread's only
+    bool missed_ = false;    // a frame came meanwhile: catchUp() takes it
 };
 
 } // namespace cup::platform

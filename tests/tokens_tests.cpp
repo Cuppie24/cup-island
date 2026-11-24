@@ -232,17 +232,37 @@ void runTokensTests()
            "liquid glass: its rim, bend and blur are lengths; its dim, saturation and highlight shares");
     Tokens shiny = glass;
     shiny.glassLiquidShineOpacity = 0.6f;
-    expect(liquidShine(shiny) == 0.0f && liquidShine(solid) == 0.0f, "liquid glass: controls don't shine on frosted glass or a solid island");
+    expect(liquidShine(shiny) == 0.6f && liquidShine(solid) == 0.0f, "shiny edges: on frosted glass too (decision 175), not on a solid island");
     shiny.glassStyle = GlassStyle::Liquid;
     shiny.glassLiquidSurfaceShineOpacity = 0.2f;
     expect(liquidShine(shiny) == 0.6f && liquidShine(shiny, true) == 0.2f,
-           "liquid glass: a control's edge shines, glassLiquidShineOpacity bright; a widget's or a toast's fainter");
+           "shiny edges: a control's glassLiquidShineOpacity bright, on liquid glass as on frosted; a widget's or a toast's fainter");
     shiny.glassRimColor = { 255, 255, 255, 46 };
     shiny.glassLiquidHighlightOpacity = 0.4f;
     expect(glassRimAt(shiny, false) == Color{ 255, 255, 255, 46 } && glassRimAt(shiny, true) == Color{ 255, 255, 255, 102 },
-           "liquid glass: the rim's line is brighter than the frosted glass's");
+           "the rim's line: glassRimColor's own, or shiny, brighter");
     shiny.glass = false;
-    expect(liquidShine(shiny) == 0.0f, "liquid glass: picked, but the island is solid (a light theme): no shine");
+    expect(liquidShine(shiny) == 0.0f, "shiny edges: none on a solid island (a light theme), whatever is picked");
+    // A recolour's curve (decision 171): for fades as long as a recolour, not the quick ones.
+    Tokens fades;
+    fades.recolorFast = Ms{ 800 };
+    fades.recolorEase = Bezier{ { 0.5f, 0 }, { 0.5f, 1 } };
+    expect(recolorCurve(fades, Ms{ 800 }) == fades.recolorEase && recolorCurve(fades, Ms{ 4000 }) == fades.recolorEase,
+           "a fade as long as a recolour eases off the mark and in to land");
+    expect(!recolorCurve(fades, Ms{ 120 }) && !recolorCurve(fades, Ms{ 799 }), "a quick fade (hover, a switch) keeps the compositor's curve");
+    expect(parseTokens(R"({"recolorEase": [0.6, 0, 0.4, 1]})").tokens.recolorEase == Bezier{ { 0.6f, 0 }, { 0.4f, 1 } }, "recolorEase is a token");
+    expect(Tokens{}.recolorEase.c1.y == 0 && Tokens{}.recolorEase.c2.y == 1, "by default a recolour starts and ends at rest");
+    // A glow going out keeps what was shown, only clear (decision 173).
+    GlowLook cardGlow{ Color{ 200, 120, 40, 180 }, 120.0f, 1.5f, Color{ 220, 150, 60, 90 } };
+    GlowLook gone{ Color{ 0, 0, 0, 0 }, 40.0f, 2.5f };
+    GlowLook leaving = glowTowards(gone, cardGlow);
+    expect(leaving.color == Color{ 200, 120, 40, 0 } && leaving.height == 120.0f && leaving.curve == 1.5f && leaving.edge.a == 0,
+           "a glow going out: the colour it had, clear; the reach and curve it had; no edge line");
+    GlowLook nextCover{ Color{ 40, 90, 200, 160 }, 40.0f, 2.5f };
+    GlowLook arriving = glowTowards(nextCover, cardGlow);
+    expect(arriving.color == nextCover.color && arriving.height == 40.0f, "another cover's glow: as it is");
+    expect(glowTowards(cardGlow, gone).height == 120.0f && glowTowards(gone, gone).height == 40.0f,
+           "a glow coming in from none, or none from none: as it is");
     // Acrylic's even brightness at each Transparency pick (decision 100):
     // its colour's opacity times the pick's share, clearer as the pick goes up.
     Tokens lum = solid;

@@ -6,7 +6,7 @@
 // The idle pill shows the time; clicking it opens the first page's card, with
 // the page row over it (decisions 165, 170): media and Pomodoro's icons,
 // Search, the theme switch and Settings. Press and hold the pill to lift it
-// and move it along the top edge (decision 026).
+// and move it along the top edge (decision 026), or onto another monitor (decision 178).
 //
 // Keys (decision 031): Ctrl+Q opens the island from anywhere (system-wide, off
 // while a fullscreen app hides the island, changeable in Settings, decision 032). On the island, the arrows move
@@ -72,6 +72,7 @@
 #include "providers/update/update_provider.h"
 #include "providers/provider_registry.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -115,9 +116,17 @@ HWND g_inputHwnd{};
 // dispatch from any other is re-queued here (decision 060).
 std::thread::id g_uiThread;
 winrt::Windows::System::DispatcherQueue g_uiQueue{ nullptr };
+bool g_applying = false; // dispatch() is between the new state and its scene being the shown one
+struct Applying {
+    Applying() { g_applying = true; }
+    ~Applying() { g_applying = false; }
+    Applying(const Applying&) = delete;
+    Applying& operator=(const Applying&) = delete;
+};
 std::filesystem::path g_tokensFile;
 RenderLayer g_render;
 std::string g_displayId; // the monitor the island is on (decision 023); "" = the main display
+Rect g_displayBounds;    // ...in screen pixels: a lifted island carried past them changes monitor (decision 178)
 std::filesystem::path g_spotsFile;     // where the island rests on each monitor (decision 026)
 std::map<std::string, Spot> g_spots;   // ...as last saved, by display id
 std::unique_ptr<ProviderRegistry> g_providers;
@@ -262,6 +271,7 @@ void armDeadline(Ms t)
 void saveSpot();
 
 void onLifted();
+Vec2 carriedAcross(Vec2 canvasPoint);
 void tokensChanged(Vec2 oldCanvas, const char* reason);
 
 void dispatch(const Event& event, const char* reason)
@@ -272,6 +282,18 @@ void dispatch(const Event& event, const char* reason)
         logLine("dispatch (%s) came from a background thread: moved to the UI thread", reason);
         g_uiQueue.TryEnqueue([event, why = std::string(reason)] {
             guardedTask("in a moved dispatch", [&] { dispatch(event, why.c_str()); });
+        });
+        return;
+    }
+    if (g_applying && g_uiQueue) {
+        // Called while the scene before it is still being applied: the
+        // renderer let Windows run this thread's messages (a capture
+        // starting, decision 174) and the fullscreen watcher answered one.
+        // Carried on from here, the outer dispatch would then put its older
+        // scene over this one. So: after it.
+        logLine("dispatch (%s) came in the middle of another: after it", reason);
+        g_uiQueue.TryEnqueue([event, why = std::string(reason)] {
+            guardedTask("in a put-off dispatch", [&] { dispatch(event, why.c_str()); });
         });
         return;
     }
@@ -290,6 +312,7 @@ void dispatch(const Event& event, const char* reason)
     }
     // One motion for the renderer and the window that follows it (decisions 001, 080).
     SceneMotion motion = sceneMotion(g_island.scene, next, flingVelocity(g_drag, t, tokens()), tokens());
+    Applying applying; // until the scene is the shown one, or this is left by an exception
     g_renderer.apply(next, motion);
     Rect bounds = interactiveBounds(next), was = interactiveBounds(g_island.scene);
     // Lifted, the window stays where the press went down: it has capture, so
@@ -299,6 +322,7 @@ void dispatch(const Event& event, const char* reason)
     if (!next.lifted && (bounds != was || g_island.scene.lifted)) followMorph({ bounds.width, bounds.height }, { bounds.x, bounds.y }, motion);
     bool lifted = next.lifted && !g_island.scene.lifted;
     g_island.scene = next;
+    g_applying = false; // from here a dispatch inside this one is meant (tokensChanged, Settings)
     if (lifted) onLifted();
     if (g_state.spot != spot) saveSpot();
     if (shownCard(g_state) != wasCard) pointerStill(g_island); // a card opened or switched under the pointer (decision 087)
@@ -506,6 +530,8 @@ void onPressDown(app::Surface& s, Vec2 canvasPoint)
 
 void onPointerMoved(app::Surface& s, Vec2 canvasPoint, bool inside)
 {
+    // Lifted and past its monitor's edge: onto the next one first, so the rest is in its coordinates (decision 178).
+    if (s.pointer.islandPress && g_state.lift) canvasPoint = carriedAcross(canvasPoint);
     app::pointerMoved(canvasPoint); // a real move takes the lead back from the keyboard
     // Windows repeats a move, at the same point, when windows change under a
     // still pointer: only a real one lets it light things (decision 087).
@@ -822,12 +848,26 @@ void onKey(WPARAM key)
 // New tokens are active (a tokens.json save, or a new display scale): resize
 // the render layer if the canvas changed, rebuild the content, re-layout.
 // The render layer and the interaction layer, centred at the top of the island's monitor.
-void positionLayers()
+// `carriedAt`: a lifted island was carried here (screen pixels) from another
+// monitor (decision 178): it goes on from under the pointer, still lifted.
+void positionLayers(std::optional<Vec2> carriedAt = std::nullopt)
 {
-    resizeRenderLayer(g_render, tokens().canvas, displayFor(g_displayId).bounds);
-    setRenderOrigin(g_render.left, g_render.top);
+    g_displayBounds = displayFor(g_displayId).bounds;
+    resizeRenderLayer(g_render, tokens().canvas, g_displayBounds);
+    std::optional<Vec2> window;
+    if (carriedAt) {
+        // The window (it has capture, so where hardly matters) goes under the
+        // pointer too: left at its old offset it could be on a third monitor,
+        // and Windows would report that one's scaling.
+        Rect was = interactiveBounds(g_island.scene);
+        float room = std::max(static_cast<float>(g_render.width) - was.width, 0.0f);
+        window = Vec2{ std::clamp(carriedAt->x - static_cast<float>(g_render.left) - was.width / 2, 0.0f, room), was.y };
+    }
+    setRenderOrigin(g_render.left, g_render.top, window);
     g_renderer.layerChanged(); // liquid glass draws at the layer's size, from its monitor's picture (decision 165)
-    dispatch(ScreenResized{ static_cast<float>(g_render.width) }, "screen");
+    float width = static_cast<float>(g_render.width);
+    if (carriedAt) dispatch(IslandCarried{ width, carriedAt->x - static_cast<float>(g_render.left) }, "carried to another monitor");
+    else dispatch(ScreenResized{ width }, "screen");
 }
 
 // The lift began (decision 026): what the press started on gives up (a
@@ -913,16 +953,36 @@ void onTimer(TimerId id)
 // Put the island on this monitor ("" = the main display, also the fallback
 // for one that isn't connected), at that monitor's scaling (decisions 017, 023).
 // Also re-run on any display change: the same monitor may have moved or resized.
-void placeIsland(const std::string& displayId)
+// `carriedAt`: lifted, it was carried there by the pointer (screen pixels,
+// decision 178): it stays lifted and lands where it's let go, so its saved
+// spot on that monitor isn't restored.
+void placeIsland(const std::string& displayId, std::optional<Vec2> carriedAt)
 {
     g_displayId = displayId;
     Display display = displayFor(displayId);
     Vec2 oldCanvas = tokens().canvas;
     bool rescaled = app::rescaleTokens(g_tokensFile, display.scale);
-    dispatch(SpotRestored{ savedSpot(displayId) }, "display"); // each monitor keeps its own (decision 026)
-    positionLayers();
+    if (!carriedAt) dispatch(SpotRestored{ savedSpot(displayId) }, "display"); // each monitor keeps its own (decision 026)
+    positionLayers(carriedAt);
     if (rescaled) tokensChanged(oldCanvas, "display");
-    logLine("island on %s (%.0f%%)", display.name.c_str(), display.scale * 100);
+    logLine("island on %s (%.0f%%)%s", display.name.c_str(), display.scale * 100, carriedAt ? ", carried there" : "");
+}
+
+// A lifted island carried past its monitor's edge is on the monitor under the
+// pointer from then on (decision 178), and starts there next time. Returns
+// the point in the render layer's coordinates: the new monitor's after a move.
+Vec2 carriedAcross(Vec2 canvasPoint)
+{
+    Vec2 screen{ static_cast<float>(g_render.left) + canvasPoint.x, static_cast<float>(g_render.top) + canvasPoint.y };
+    if (g_displayBounds.contains(screen)) return canvasPoint; // nearly every move: no monitors listed for it
+    std::optional<Display> under = displayAt(screen);
+    if (!under || under->bounds == g_displayBounds) return canvasPoint; // past the desktop's edge: held on this one
+    if (g_settings) g_settings->islandMovedTo(under->id);
+    placeIsland(under->id, screen);
+    Vec2 moved{ screen.x - static_cast<float>(g_render.left), screen.y - static_cast<float>(g_render.top) };
+    g_island.pointer.islandPress = moved;             // core measures the drag from where it came in
+    g_drag = trackPointer({}, moved, now(), tokens()); // and so does the throw: not across two monitors' coordinates
+    return moved;
 }
 
 // Settings turned the cover's colours on or off (decision 052). Off, the
@@ -979,6 +1039,7 @@ int main()
     g_displayId = store().load("system.settings", SettingsProvider::kDisplayKey); // the Settings provider's pick
     g_displayId.erase(g_displayId.find_last_not_of(" \t\r\n") + 1);
     Display display = displayFor(g_displayId);
+    g_displayBounds = display.bounds;
     app::setDisplayScale(display.scale);
     g_tokensFile = app::findTokensFile();
     app::setReducedMotion(animationsOff()); // before the first load commits, so it's in from the start
@@ -1106,7 +1167,7 @@ int main()
             for (const Display& d : listDisplays()) choices.push_back({ d.id, d.name });
             return choices;
         },
-        .applyDisplay = placeIsland,
+        .applyDisplay = [](const std::string& id) { placeIsland(id, std::nullopt); },
         .centreIsland = [] { dispatch(SpotRestored{}, "centre island"); },
         .startsWithWindows = startsWithWindows,
         .setStartsWithWindows = setStartsWithWindows,

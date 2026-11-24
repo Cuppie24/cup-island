@@ -167,6 +167,13 @@ struct Button {
 // a selection. Enter sends the text to the provider as Action{actionId, text};
 // a paste of several lines sends them the same way (the provider splits
 // them). Stretches across its row.
+struct TextInput;
+// A field whose box covers what's under it on the island (decision 176): a
+// search card's (TextInput::large). That card is little more than its
+// field, and the glow along the card's bottom edge showed through the
+// field's see-through box, tinting it.
+bool solidBacked(const TextInput& input);
+
 struct TextInput {
     std::string actionId;
     std::string placeholder; // shown dim while empty
@@ -202,6 +209,8 @@ struct TextInput {
     bool autoFocus = false;
     bool operator==(const TextInput&) const = default;
 };
+inline bool solidBacked(const TextInput& input) { return input.large; }
+
 // A bar stretches across its row. A ring is a square: alone in its row it
 // fills the slot's height (like art); next to other items it matches the
 // row's height (a ring beside a big timer). Drawn as an arc from the top,
@@ -497,7 +506,8 @@ struct Content {
     // the island or the idle timeout still do (decision 030).
     bool keepOpen = false;
     // ...and doesn't close when left alone either (expandedIdleTimeout): a
-    // timer kept in view while working (Pomodoro, decision 062).
+    // timer kept in view while working (Pomodoro, decision 062), the player
+    // while listening (media, decision 177).
     bool noIdleTimeout = false;
     // A card that is its field (search, decision 079): the TextInput with this
     // actionId has the keys whenever the card is shown, with no click first,

@@ -53,6 +53,11 @@ public:
     // `leftEar`, `rightEar`: it has that flared top corner (Blob::setEars).
     void place(int which, Rect body, bool attached, bool leftEar, bool rightEar, const Motion& motion);
     void refresh(); // tokens changed
+    // Drawn or not (decision 172: only while a card is open). Off, nothing is
+    // captured or drawn, the island is in screenshots again, and the last
+    // picture stays as it was. On, onReady says when a fresh one is up.
+    void setActive(bool on);
+    std::function<void()> onReady; // on the UI thread
 
     // It stopped by itself (the GPU was reset, Windows ended the capture): show the frosted glass.
     std::function<void()> onLost;
@@ -71,6 +76,8 @@ private:
     // The UI thread's: the capture on or off, then a frame. Errors end it (lost).
     void render();
     void syncCapture(); // on while there's a shape to draw, off otherwise; lock_ held
+    // Shape `which` heads for `body`; false if it already was. lock_ held.
+    bool move(int which, Rect body, bool attached, bool leftEar, bool rightEar, const Motion& motion);
     void draw();        // one frame; lock_ held, either thread
     void lost(const char* step, winrt::hresult_error const& error); // UI thread, lock_ not held
     void tick();        // the thread's: frames while moving_
@@ -80,12 +87,20 @@ private:
     std::mutex lock_;
     std::condition_variable wake_;
     std::thread ticker_;
+    bool active_ = false; // setActive()
+    bool ready_ = false;  // a picture has been drawn since it was last turned on
     bool moving_ = false; // a shape is on its way: the thread draws
     bool quit_ = false;
     Tokens look_;         // tokens(), copied on the UI thread: the thread never reads the live ones
     winrt::Windows::System::DispatcherQueue queue_{ nullptr }; // the UI thread's: where the thread hands back
 
     bool running_ = false;
+    // The UI thread's only. Switching the capture on or off lets Windows run
+    // this thread's messages, so place(), refresh() and render() can be
+    // called from inside syncCapture(), lock_ already held by this thread
+    // (capture_.switching()). They note what's wanted and leave; syncCapture()
+    // looks again before it returns (decision 174).
+    bool again_ = false;
     HWND layer_ = nullptr;
     POINT layerOrigin_{};
     SIZE layerSize_{};

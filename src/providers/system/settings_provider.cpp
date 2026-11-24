@@ -208,7 +208,6 @@ void SettingsProvider::onAction(const Action& action)
             host_->save(kWindowThemeNameKey, windowThemeName_);
         }
     }
-    else if (id == settings_action::kOpenDisplays && displays_.size() >= 2) open(SettingsPage::Displays);
     else if (id == settings_action::kOpenShortcuts) {
         page_ = SettingsPage::Shortcuts;
         publish();
@@ -241,8 +240,6 @@ void SettingsProvider::onAction(const Action& action)
             pick(themes[*at].name);
             host_->save(kThemeKey, theme_);
         }
-    } else if (auto at = choiceIndex(id, settings_action::kPickDisplay)) {
-        if (*at <= displays_.size()) pickDisplay(*at == 0 ? std::string() : displays_[*at - 1].id); // 0: "Main display"
     } else if (auto at = choiceIndex(id, settings_action::kEditShortcut)) {
         if (*at < commands().size() && hooks_.captureKeys) {
             recording_ = commands()[*at].command;
@@ -324,13 +321,11 @@ void SettingsProvider::onAction(const Action& action)
     }
 }
 
-void SettingsProvider::pickDisplay(const std::string& id)
+void SettingsProvider::islandMovedTo(const std::string& displayId)
 {
-    wantedDisplay_ = id;
+    if (!host_ || displayId == wantedDisplay_) return;
+    wantedDisplay_ = displayId; // the app has put it there already: only remembered
     host_->save(kDisplayKey, wantedDisplay_);
-    page_ = SettingsPage::List;
-    placeIsland();
-    publish();
 }
 
 void SettingsProvider::open(SettingsPage page)
@@ -482,17 +477,14 @@ void SettingsProvider::refreshDisplays()
 {
     if (!host_) return;
     displays_ = hooks_.listDisplays ? hooks_.listDisplays() : std::vector<DisplayChoice>{};
-    if (page_ == SettingsPage::Displays && displays_.size() < 2) page_ = SettingsPage::List; // nothing left to choose
     placeIsland();
-    publish();
 }
 
 void SettingsProvider::placeIsland()
 {
     bool connected = std::any_of(displays_.begin(), displays_.end(), [&](const DisplayChoice& d) { return d.id == wantedDisplay_; });
-    appliedDisplay_ = connected ? wantedDisplay_ : std::string();
     // Always: the same monitor may have a new size or place (a resolution change).
-    if (hooks_.applyDisplay) hooks_.applyDisplay(appliedDisplay_);
+    if (hooks_.applyDisplay) hooks_.applyDisplay(connected ? wantedDisplay_ : std::string());
 }
 
 SettingsView SettingsProvider::view() const
@@ -502,13 +494,6 @@ SettingsView SettingsProvider::view() const
     if (hooks_.checkForUpdates) v.update = updateNote_;
     v.offer = offer_;
     v.opensPages = static_cast<bool>(hooks_.openPage);
-    if (displays_.size() >= 2) { // one monitor: nothing to choose
-        v.displays.push_back(kMainDisplayName);
-        for (std::size_t i = 0; i < displays_.size(); ++i) {
-            v.displays.push_back(displays_[i].name);
-            if (displays_[i].id == appliedDisplay_) v.display = i + 1;
-        }
-    }
     if (hooks_.startsWithWindows) v.startsWithWindows = hooks_.startsWithWindows();
     if (hooks_.setCoverColours) v.coverColours = coverColours_;
     if (hooks_.setGlass) v.glass = glass_;

@@ -62,6 +62,21 @@ LONG WINAPI onUnhandledException(EXCEPTION_POINTERS* exception)
     return EXCEPTION_CONTINUE_SEARCH; // then Windows' own crash handling
 }
 
+// Windows ends the process itself when it finds the heap corrupted, past the
+// filter above: the island vanished with nothing in the log (decision 178).
+// A vectored handler is called before that. Logged only: a dump needs the
+// heap, and where it's found isn't where it was done (some thread wrote
+// past its memory earlier).
+constexpr DWORD kHeapCorruption = 0xC0000374; // STATUS_HEAP_CORRUPTION
+
+LONG WINAPI onFirstChance(EXCEPTION_POINTERS* exception)
+{
+    if (exception->ExceptionRecord->ExceptionCode == kHeapCorruption && firstReport())
+        logLine("CRASH: Windows found the heap corrupted (0x%08lx) at %p: memory was overwritten earlier, by any thread",
+                exception->ExceptionRecord->ExceptionCode, exception->ExceptionRecord->ExceptionAddress);
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
 // An exception escaping a noexcept function ends up here. Not one leaving a
 // winrt::fire_and_forget: C++/WinRT fail-fasts on that, past this (decision 158).
 void onTerminate()
@@ -105,6 +120,7 @@ void onInvalidParameter(const wchar_t*, const wchar_t*, const wchar_t*, unsigned
 void watchForCrashes()
 {
     SetUnhandledExceptionFilter(onUnhandledException);
+    AddVectoredExceptionHandler(/* first */ 1, onFirstChance);
     std::set_terminate(onTerminate);
     std::signal(SIGABRT, onAbort);
     _set_purecall_handler(onPureCall);

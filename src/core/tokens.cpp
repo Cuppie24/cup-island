@@ -11,6 +11,12 @@ Tokens g_tokens;
 const Tokens& tokens() { return g_tokens; }
 void setTokens(const Tokens& tokens) { g_tokens = tokens; }
 
+std::optional<Bezier> recolorCurve(const Tokens& t, Ms duration)
+{
+    if (duration < std::min({ t.recolorFast, t.recolorMedium, t.recolorSlow })) return std::nullopt;
+    return t.recolorEase;
+}
+
 Ms recolorDuration(const Tokens& t)
 {
     switch (t.fadeSpeed) {
@@ -32,7 +38,7 @@ float glassShare(const Tokens& t, bool evenBlur)
 
 float liquidShine(const Tokens& t, bool surface)
 {
-    if (!t.glass || t.glassStyle != GlassStyle::Liquid) return 0.0f;
+    if (!t.glass) return 0.0f; // either glass (decision 175)
     return std::clamp(surface ? t.glassLiquidSurfaceShineOpacity : t.glassLiquidShineOpacity, 0.0f, 1.0f);
 }
 
@@ -74,6 +80,15 @@ GlowLook glowLook(const Tokens& t, bool card)
     // No card colour set (a test's tokens, a cover gone): the pill's, everywhere.
     if (!card || t.islandCardGlowColor.a == 0) return { t.islandGlowColor, t.glassGlowHeight, t.glassGlowCurve };
     return { t.islandCardGlowColor, t.glassCardGlowHeight, t.glassCardGlowCurve, t.islandGlowEdgeColor };
+}
+
+GlowLook glowTowards(const GlowLook& next, const GlowLook& shown)
+{
+    if (next.color.a != 0 || shown.color.a == 0) return next;
+    GlowLook out = shown;
+    out.color.a = 0;
+    out.edge = next.edge; // the edge line goes back to the rim's own, as before
+    return out;
 }
 
 ArtShadow artShadow(const Tokens& t)

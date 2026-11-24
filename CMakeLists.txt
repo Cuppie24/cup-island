@@ -155,6 +155,7 @@ if(CUP_BUILD_TESTS)
         tests/provider_tests.cpp
         tests/unit_tests.cpp
         tests/update_tests.cpp
+        tests/update_install_tests.cpp
         tests/scenario_runner.cpp
         tests/search_tests.cpp
         tests/search_command_tests.cpp
@@ -239,6 +240,7 @@ if(WIN32)
         src/platform/blob.cpp
         src/platform/blob_motion.cpp
         src/platform/blob_backdrop.cpp
+        src/platform/blob_liquid.cpp
         src/platform/blob_shape.cpp
         src/platform/crash_report.cpp
         src/platform/displays.cpp
@@ -270,6 +272,7 @@ if(WIN32)
         src/platform/liquid_capture.cpp
         src/platform/liquid_glass.cpp
         src/platform/liquid_glass_build.cpp
+        src/platform/liquid_glass_draw.cpp
         src/platform/pill_renderer.cpp
         src/platform/render_layer.cpp
         src/platform/single_instance.cpp

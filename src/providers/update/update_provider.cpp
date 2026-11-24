@@ -71,6 +71,8 @@ void UpdateProvider::stop()
     *alive_ = false;
     alive_ = std::make_shared<bool>(true);
     checking_ = false;
+    confirming_ = false;
+    announce_ = false;
     replies_.clear(); // nobody to tell any more
     host_->wakeAt(std::nullopt);
     withdraw(false); // off screen, but still saved: the app is closing, the offer stands
@@ -113,10 +115,14 @@ void UpdateProvider::check()
 void UpdateProvider::checked(const std::optional<GitHubRelease>& release)
 {
     checking_ = false;
+    bool confirming = std::exchange(confirming_, false); // install() asked: this answer says what to install
     const Tokens& t = tokens();
     if (!release) { // offline, or GitHub didn't answer: try again sooner than a day
         host_->wakeAt(host_->now() + t.updateRetry);
         answer(CheckOutcome::Failed, "");
+        // Couldn't ask (offline, rate-limited): the offer as found is still a
+        // release, and its download may well work (decision 172).
+        if (confirming) download();
         return;
     }
     host_->save(kLastCheckKey, std::to_string(host_->wallClock().count()));
@@ -124,23 +130,25 @@ void UpdateProvider::checked(const std::optional<GitHubRelease>& release)
 
     auto offer = offerFor(*running_, *release);
     if (!offer) {
-        withdraw(); // withdrawn, or nothing newer after all
+        withdraw(); // withdrawn, or nothing to move to after all: an install about to start is dropped too
         answer(CheckOutcome::UpToDate, "");
         return;
     }
-    std::string v = versionText(offer->version);
-    if (stage_ == UpdateStage::Installing) { // mid-download: leave it be
+    if (stage_ == UpdateStage::Installing && !confirming) { // mid-download: leave it be
         answer(CheckOutcome::Available, versionText(offer_->version));
         return;
     }
-    if (!offer_ || offer_->version != offer->version) {
+    // About to install: whatever is latest now, higher or lower than the
+    // offer it was clicked for (decisions 040, 172); it stays Installing.
+    if (!confirming && (!offer_ || offer_->version != offer->version)) {
         stage_ = UpdateStage::Offered;
         problem_.clear();
     }
     offer_ = offer;
     host_->save(kOfferKey, offerText(*offer_)); // still offered after a restart
     publish(); // Settings' gear gets its dot: no alert, no widget (decision 152)
-    answer(CheckOutcome::Available, v);
+    answer(CheckOutcome::Available, versionText(offer_->version));
+    if (confirming) download();
 }
 
 void UpdateProvider::install()
@@ -149,6 +157,24 @@ void UpdateProvider::install()
     stage_ = UpdateStage::Installing;
     problem_.clear();
     publish();
+    // The offer may be days old, and a release may have come out since the
+    // check that found it, even since the last one: ask again and install
+    // the latest (decision 172). A check already under way answers for this.
+    confirming_ = true;
+    check();
+}
+
+void UpdateProvider::download()
+{
+    if (!host_ || !offer_) return;
+    if (std::exchange(announce_, false))
+        host_->postAlert({ .activityId = kPanelId,
+                           .content = { .label = "Updating",
+                                        .alertLeading = { row({ Icon{ Glyph::Download } }) },
+                                        .alertCenter = { row({ Text{ "Updating", TextStyle::Title } }),
+                                                         row({ Text{ "Cup Island " + versionText(offer_->version) + ": a required update",
+                                                                     TextStyle::Caption } }) } },
+                           .coalesceKey = "update" });
     std::shared_ptr<bool> alive = alive_;
     hooks_.install(*offer_, [this, alive](std::string problem) {
         if (!*alive || !host_) return;
@@ -200,7 +226,9 @@ void UpdateProvider::restore()
 // found, with no click. The user still knows: an alert says it's updating, and
 // Settings shows it installing. At most kMandatoryTries times per version:
 // an installer that keeps failing falls back to Settings' Update and restart
-// rather than a download on every start.
+// rather than a download on every start. Like a click, it installs the
+// latest release, which may be a later one (decision 172); the alert names
+// that one, so it waits for the check.
 void UpdateProvider::installMandatory()
 {
     std::string v = versionText(offer_->version);
@@ -209,18 +237,14 @@ void UpdateProvider::installMandatory()
     if (tried.rfind(v + " ", 0) == 0) tries = std::atoi(tried.c_str() + v.size() + 1);
     if (tries >= kMandatoryTries) return;
     host_->save(kMandatoryTriesKey, v + " " + std::to_string(tries + 1));
-    host_->postAlert({ .activityId = kPanelId,
-                       .content = { .label = "Updating",
-                                    .alertLeading = { row({ Icon{ Glyph::Download } }) },
-                                    .alertCenter = { row({ Text{ "Updating", TextStyle::Title } }),
-                                                     row({ Text{ "Cup Island " + v + ": a required update", TextStyle::Caption } }) } },
-                       .coalesceKey = "update" });
+    announce_ = true;
     install();
 }
 
 void UpdateProvider::withdraw(bool forget)
 {
     if (forget && host_) host_->save(kOfferKey, ""); // withdrawn: not back after a restart either
+    announce_ = false; // nothing installs, so nothing to say
     if (!offer_) return;
     offer_.reset();
     stage_ = UpdateStage::Offered;

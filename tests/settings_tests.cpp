@@ -1,5 +1,5 @@
 // Settings (decisions 022, 023, 030, 104): a widget that opens the Settings
-// window; its pages, the theme and display pages within Appearance, Copy
+// window; its pages, the theme page within Appearance, the island's monitor, Copy
 // logs, Centre island, Start with Windows, updates. The shortcuts page:
 // shortcut_settings_tests.cpp; Tab row, Music colours and "New":
 // settings_new_tests.cpp.
@@ -226,7 +226,7 @@ void startupAndDisplays()
     expect(!autostart && savedAutostart == "off", "startup: the row reads the real state, not the saved one");
     startup.stop();
 
-    // Display picker (decision 023): "Main display", then each monitor, by name.
+    // The island's monitor (decisions 023, 178): where it was dragged to, remembered here; not a setting.
     PanelHost dh;
     std::vector<DisplayChoice> monitors{ { "A", "Home LCD" } };
     std::string& savedDisplay = dh.store[SettingsProvider::kDisplayKey];
@@ -238,33 +238,25 @@ void startupAndDisplays()
                               .applyDisplay = [&](const std::string& id) { placed = id; } });
     picker.start(dh);
     picker.onAction({ "system.settings", SettingsProvider::kPanelId, P::kOpenWindow, 0 });
-    expect(!windowRow(dh, "Display") && placed.empty(), "display: one monitor, no row; the saved one is unplugged, so the island is on the main display");
+    expect(placed.empty(), "display: the saved monitor is unplugged, so the island is on the main display");
     monitors.push_back({ "B", "DELL U2720Q" });
     picker.refreshDisplays();
-    expect(placed == "B" && detailOf(dh, "Display") == "DELL U2720Q", "display: the saved monitor plugged back in: the island returns to it");
-    auto press = [&](const std::string& actionId) { picker.onAction(fromWindow(actionId)); };
-    press(P::kOpenDisplays);
-    const WindowPage* displays = pageOf(dh, kAppearancePage);
-    expect(displays->title == "Display" && displays->backAction == P::kBack && displays->sections[0].rows.size() == 3 &&
-           nameOf(displays->sections[0].rows[0]) == "Main display" && nameOf(displays->sections[0].rows[1]) == "Home LCD" && ticked(displays) == "DELL U2720Q",
-           "display: a page of every choice, the same as the themes', the current one ticked");
-    press(std::string(P::kPickDisplay) + "0");
-    expect(placed.empty() && savedDisplay.empty() && detailOf(dh, "Display") == "Main display", "display: picking Main display moves it there, saved, back to Appearance");
-    press(P::kOpenDisplays);
-    press(std::string(P::kPickDisplay) + "1");
-    expect(placed == "A" && savedDisplay == "A" && detailOf(dh, "Display") == "Home LCD", "display: then the first monitor");
-    press(P::kOpenDisplays);
-    press(std::string(P::kPickDisplay) + "2");
-    expect(placed == "B" && displaySaves == 3, "display: and the second");
-    press(P::kOpenDisplays);
+    expect(placed == "B" && !windowRow(dh, "Display"), "display: the saved monitor plugged back in: the island returns to it; Settings has no row for it");
+    placed = "?";
+    picker.islandMovedTo("A");
+    expect(placed == "?" && savedDisplay == "A" && displaySaves == 1, "display: dragged to another monitor: saved, and not moved again (the drag did)");
+    picker.islandMovedTo("A");
+    expect(displaySaves == 1, "display: carried back and forth over the same monitor: saved once");
+    picker.refreshDisplays();
+    expect(placed == "A", "display: a display change puts it back on the one it was dragged to");
+    picker.islandMovedTo("B");
     monitors.pop_back(); // B unplugged
     monitors.push_back({ "C", "Projector" });
     picker.refreshDisplays();
-    expect(placed.empty() && ticked(pageOf(dh, kAppearancePage)) == "Main display" && savedDisplay == "B",
-           "display: the picked monitor unplugged: main display, but the pick is kept");
-    monitors.pop_back();
+    expect(placed.empty() && savedDisplay == "B", "display: the monitor it was dragged to unplugged: main display, but it's remembered");
+    monitors.push_back({ "B", "DELL U2720Q" });
     picker.refreshDisplays();
-    expect(pageOf(dh, kAppearancePage)->title == "Appearance" && !windowRow(dh, "Display"), "display: down to one monitor, the page closes");
+    expect(placed == "B", "display: and back when it's plugged in again");
     picker.stop();
 }
 

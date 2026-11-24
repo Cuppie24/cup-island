@@ -328,6 +328,15 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         auto* input = std::get_if<TextInput>(&placed.item);
         view.highlight = placed.litByRow || placed.noHoverShape || (button && button->primary) || (input && input->inPlace) ? nullptr : parts.highlight;
         view.glyphHost = parts.glyph;
+        if (shiny_ && input && solidBacked(*input)) {
+            // On the island, a search card's field: the island's colour, solid, under its see-through box, in the
+            // same shape and fading with it, so the card's glow doesn't show through the field (decision 176).
+            auto box = parts.highlight.Shapes().GetAt(0).as<wuc::CompositionSpriteShape>();
+            view.backing = compositor_.CreateColorBrush(toUiColor(tokens().islandColor));
+            auto under = compositor_.CreateSpriteShape(box.Geometry());
+            under.FillBrush(view.backing);
+            parts.highlight.Shapes().InsertAt(0, under);
+        }
         syncFill(view, Ms{ 0 }); // a primary's or a toggle's circle, under the glyph
         if (auto ink = inkOf(placed.item, false)) { // its glyph or label in one colour: painted white, coloured through (decision 102)
             view.ink = compositor_.CreateColorBrush(toUiColor(*ink));
@@ -540,6 +549,7 @@ void ElementVisuals::recolor(View& view)
     if (view.accent) fadeColor(view.accent, toned(accentOf(view.placed), view.grey));
     if (view.knobBrush) fadeColor(view.knobBrush, toned(t.knobColor, view.grey));
     if (view.hover) fadeColor(view.hover, hoverColorOf(view.placed));
+    if (view.backing) fadeColor(view.backing, t.islandColor);
     if (view.shadow) fadeArtShadow(compositor_, view.shadow);
     if (view.toggle.knob) {
         bool on = std::get<Switch>(view.placed.item).on;

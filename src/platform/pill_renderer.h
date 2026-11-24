@@ -89,6 +89,8 @@ private:
     HWND window_ = nullptr;
     LiquidGlass liquid_;
     bool liquidFailed_ = false;
+    bool cardOpen_ = false; // the scene shown is an open card: liquid glass is drawn (decision 172)
+    void activateLiquid();  // drawn or paused, by cardOpen_
 
     GraphicsDevice device_;
     Blob pill_;

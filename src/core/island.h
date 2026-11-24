@@ -197,6 +197,9 @@ struct IslandPressed {};                // mouse-down on the pill (not the bubbl
 struct IslandDragged { Vec2 drag; };    // that press moved: offset from where it went down
 struct IslandReleased {};               // that press ended (let go, or capture lost): lifted, it lands there
 struct ScreenResized { float width; };  // the island's monitor is this wide, in render-layer pixels
+// Lifted, the pointer crossed onto another monitor: the island is on that one
+// now, this wide, under the pointer at this x on it (decision 178).
+struct IslandCarried { float screenWidth; float pointerX; };
 struct SpotRestored { Spot spot; };     // its saved place on this monitor, or Spot{} to centre it (decision 026)
 struct PanelPublished { Panel panel; }; // existing id = replace, keeping its place in the page row
 struct PanelRemoved { std::string id; };
@@ -250,7 +253,7 @@ using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, Aler
                            DragEntered, DragLeft, Dropped, HiddenChanged, Tick,
                            BubbleClicked, ActivityPromoted, ActivitySwitched,
                            BubbleDragged, BubbleReleased, BubbleDragCancelled,
-                           IslandPressed, IslandDragged, IslandReleased, ScreenResized, SpotRestored,
+                           IslandPressed, IslandDragged, IslandReleased, ScreenResized, IslandCarried, SpotRestored,
                            PanelPublished, PanelRemoved, IslandOpened, ActivityOpened, CardCloseRequested, CardOpened, ClockSynced,
                            InputFocused, TextTyped, TextErased, CaretMoved, CaretPlaced, WordSelected, AllSelected,
                            InputSubmitted, InputCancelled,

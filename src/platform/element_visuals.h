@@ -59,6 +59,8 @@ private:
         // button, a toggle that's on): a shape whose colour fades (decision 101).
         wuc::SpriteVisual glyphHost{ nullptr };
         wuc::CompositionColorBrush buttonFill{ nullptr };
+        // A search card's field on the island: the island's colour, solid, under its box (solidBacked, decision 176).
+        wuc::CompositionColorBrush backing{ nullptr };
         Shine shine; // ...and on liquid glass, its shiny edge (decision 165), or a large plain button's; only where shiny_
         bool shineHost = false; // shine is made and in a visual
         // A one-colour text's colour: it's painted white and shown through
