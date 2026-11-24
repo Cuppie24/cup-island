@@ -16,14 +16,16 @@ struct DroppingText {
     wuc::SpriteVisual line{ nullptr };      // the one shown; one on its way out is the container's alone
     wuc::CompositionDrawingSurface surface{ nullptr };
     Text text;         // what's shown
+    float lineWidth = 0; // > 0: the line is wider than the frame and scrolls through it (Text::scrollUntil): its surface's width
     bool grey = false; // drawn without colour: a muted tab's (decision 072)
 };
 
 // Built and painted, `size` the text's frame (whole pixels).
-DroppingText createDroppingText(wuc::Compositor const& c, GraphicsDevice& device, const Text& text, Vec2 size, bool grey);
+// `now`: app time, for a long line's scroll (Text::scrollUntil).
+DroppingText createDroppingText(wuc::Compositor const& c, GraphicsDevice& device, const Text& text, Vec2 size, bool grey, Ms now);
 // Shows `text`: other words drop in; the same words in another look are
 // redrawn in place. False if the GPU was lost (the caller repaints).
-bool dropTo(wuc::Compositor const& c, GraphicsDevice& device, DroppingText& dropping, const Text& text, Vec2 size);
+bool dropTo(wuc::Compositor const& c, GraphicsDevice& device, DroppingText& dropping, const Text& text, Vec2 size, Ms now);
 // The shown line painted again, in place: new colours, greyed or not, a lost device.
 bool repaintDropping(GraphicsDevice& device, DroppingText& dropping, Vec2 size);
 

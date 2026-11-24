@@ -207,8 +207,32 @@ std::optional<Vec2> hoverPoint(const app::Surface& s)
 // What's under the pointer changed without it moving: it lights nothing until it does (decision 087).
 void pointerStill(app::Surface& s) { s.pointer.still = true; }
 
+// Tells providers what the pointer is on (Provider::onHover, decision 180): the action a
+// click there would send, by where the pointer is, still or not (what it opens comes under
+// a still pointer, and must stay open). A bar being dragged keeps the pointer, even off it.
+// The new one first, then the old one's leaving: moving from a button onto what it opened
+// never reads as leaving both. Kept before the calls: a provider's answer lays out again.
+void tellHover(app::Surface& s)
+{
+    if (!g_providers) return;
+    std::optional<Action> now;
+    if (s.pointer.scrub) {
+        if (auto* bar = std::get_if<Progress>(&s.pointer.scrub->item))
+            now = Action{ s.pointer.scrub->providerId, s.pointer.scrub->activityId, seekAction(*bar), 0 };
+    } else if (s.pointer.at) {
+        if (auto hit = hitTest(s.scene, *s.pointer.at)) now = hit->action;
+    }
+    if (now) now->value = 0, now->text.clear(); // what it's on, not where on it
+    std::optional<Action> was = s.pointer.hover;
+    if (now == was) return;
+    s.pointer.hover = now;
+    if (now) g_providers->hover(*now, true);
+    if (was) g_providers->hover(*was, false);
+}
+
 void updateHover(app::Surface& s)
 {
+    tellHover(s);
     std::optional<Vec2> at = hoverPoint(s);
     // The top band (decision 108): it glows, and what's under it doesn't light up: a click there closes.
     bool onTop = at && !s.pointer.scrub && inCollapseZone(s.scene, *at);
@@ -689,7 +713,9 @@ void onPressRelease(app::Surface& s, Vec2 canvasPoint, Release how)
         return;
     }
     s.renderer->pressRelease(false);
-    if (how == Release::Inside && onShape(s, canvasPoint) && !hitTest(s.scene, point)) dispatch(PillClicked{}, "click");
+    // A click on a disabled control does nothing, as it does nothing there: it doesn't close the card either.
+    if (how == Release::Inside && onShape(s, canvasPoint) && !hitTest(s.scene, point) && !onDisabledControl(s.scene, point))
+        dispatch(PillClicked{}, "click");
 }
 
 // Sends the focused field's text to its provider: what was typed (Enter), or

@@ -143,6 +143,33 @@ void resizeFrom(Compositor const& c, Visual const& visual, Vec2 from, Vec2 to, w
     visual.StartAnimation(L"Offset", move);
 }
 
+void unroll(Compositor const& c, Visual const& visual, Vec2 size, wfn::float3 at, bool in, std::function<void()> done)
+{
+    const Tokens& t = tokens();
+    if (t.reducedMotion || size.x <= 0 || size.y <= 0) {
+        if (done) done();
+        return;
+    }
+    // Scaled about its middle, its left end would move: its offset goes with it, on the same curve (as resizeFrom).
+    wfn::float3 folded{ std::min(1.0f, size.y / size.x), 1.0f, 1.0f }, whole{ 1.0f, 1.0f, 1.0f };
+    wfn::float3 foldedAt{ at.x - size.x / 2 * (1 - folded.x), at.y, 0.0f };
+    Ms duration = atLeast1(t.openButtonDuration);
+    auto batch = c.CreateScopedBatch(CompositionBatchTypes::Animation);
+    auto grow = c.CreateVector3KeyFrameAnimation();
+    grow.InsertKeyFrame(0.0f, in ? folded : whole);
+    grow.InsertKeyFrame(1.0f, in ? whole : folded, easeOf(c, t.morphEase));
+    grow.Duration(duration);
+    visual.StartAnimation(L"Scale", grow);
+    auto move = c.CreateVector3KeyFrameAnimation();
+    move.InsertKeyFrame(0.0f, in ? foldedAt : at);
+    move.InsertKeyFrame(1.0f, in ? at : foldedAt, easeOf(c, t.morphEase));
+    move.Duration(duration);
+    visual.StartAnimation(L"Offset", move);
+    if (!in) fadeTo(c, visual, 0.0f, t.openButtonDuration);
+    batch.End();
+    if (done) batch.Completed([done](auto&&, auto&&) { done(); });
+}
+
 void playScale(Compositor const& c, Visual const& visual, float scale, Ms duration, Bezier curve)
 {
     auto anim = c.CreateVector3KeyFrameAnimation();

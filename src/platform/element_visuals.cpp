@@ -230,6 +230,16 @@ void ElementVisuals::apply(const std::vector<Placed>& elements, Ms now, Ms revea
     for (const Placed& p : elements) shown.insert(p.key);
     for (auto it = views_.begin(); it != views_.end();) {
         if (shown.contains(it->first)) { ++it; continue; }
+        // A pill that unrolled goes back into its button (decision 180); anything else fades out.
+        if (auto* fill = std::get_if<GroupFill>(&it->second.placed.item); fill && fill->unrolls) {
+            Vec2 at = lists_.positionOf(it->second.placed);
+            wuc::Visual visual = it->second.visual;
+            unroll(compositor_, visual, pixelSize(sizeOf(it->second.placed)), pixelOffset(at.x, at.y), false, [visual] {
+                if (auto parent = visual.Parent()) parent.Children().Remove(visual);
+            });
+            it = views_.erase(it);
+            continue;
+        }
         fadeOutAndRemove(it->second.visual);
         it = views_.erase(it);
     }
@@ -363,7 +373,7 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
         view.visual = view.rolling.visual;
     } else if (drops(placed.item)) {
         // A sprite per line, so the old one can drop out as the new one falls in (decision 180).
-        view.dropping = createDroppingText(compositor_, *device_, std::get<Text>(placed.item), size, view.grey);
+        view.dropping = createDroppingText(compositor_, *device_, std::get<Text>(placed.item), size, view.grey, now);
         view.visual = view.dropping.visual;
     } else if (clickableArt(placed.item)) {
         view.surface = device_->createSurface(size);
@@ -442,7 +452,12 @@ ElementVisuals::View ElementVisuals::create(const Placed& placed, Ms now, bool f
     if (!view.bars.empty()) animateBars(view);
     if (view.highlight && focusedField(placed.item)) view.highlight.Opacity(1.0f);
     if (revealsOnHover(placed.item) && !revealedNow(placed)) view.visual.Opacity(0.0f); // until its row (or card) is hovered
-    else if (fade) fadeIn(compositor_, view.visual, opacityOf(view.grey), reveal_ + arrive.value_or(Ms{ 0 }), arrive.has_value());
+    else if (auto* fill = std::get_if<GroupFill>(&placed.item); fade && fill && fill->unrolls) {
+        // Out of its button, growing to its width (decision 180): not the usual arrival about its middle.
+        Vec2 at = lists_.positionOf(placed);
+        fadeIn(compositor_, view.visual, opacityOf(view.grey), Ms{ 0 }, false);
+        unroll(compositor_, view.visual, size, pixelOffset(at.x, at.y), true);
+    } else if (fade) fadeIn(compositor_, view.visual, opacityOf(view.grey), reveal_ + arrive.value_or(Ms{ 0 }), arrive.has_value());
     else view.visual.Opacity(opacityOf(view.grey));
     return view;
 }
@@ -545,7 +560,7 @@ bool ElementVisuals::update(View& view, const Placed& placed, Ms now)
     if (view.surface && !newPicture) paint(view);
     if (view.rolling.visual && !rollTo(compositor_, *device_, view.rolling, std::get<Text>(placed.item), pixelSize(sizeOf(placed))))
         deviceLost_ = true;
-    if (view.dropping.visual && !dropTo(compositor_, *device_, view.dropping, std::get<Text>(placed.item), pixelSize(sizeOf(placed))))
+    if (view.dropping.visual && !dropTo(compositor_, *device_, view.dropping, std::get<Text>(placed.item), pixelSize(sizeOf(placed)), now))
         deviceLost_ = true;
     syncFill(view, tokens().hoverFadeDuration); // a toggle switched on or off, a button enabled
     if (view.ink) fadeInk(view, tokens().hoverFadeDuration); // another style: another colour

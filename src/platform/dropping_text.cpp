@@ -26,37 +26,55 @@ void slide(Compositor const& c, Visual const& visual, float from, float to, floa
     visual.StartAnimation(L"Opacity", opacity);
 }
 
-// A line's sprite over a surface of its own, at the frame's top.
-void makeLine(Compositor const& c, GraphicsDevice& device, DroppingText& dropping, Vec2 size)
+// A line's sprite over a surface of its own, at the frame's top. One too long for the frame,
+// with time to be read (Text::scrollUntil): its surface as wide as its words, which then
+// scroll through the frame once, still at the start and at the end, done by that moment.
+void makeLine(Compositor const& c, GraphicsDevice& device, DroppingText& dropping, Vec2 size, Ms now)
 {
-    dropping.surface = device.createSurface(size);
+    const Tokens& t = tokens();
+    const Text& text = dropping.text;
+    Ms left = text.scrollUntil ? *text.scrollUntil - now : Ms{ 0 };
+    float width = left >= t.lyricScrollLeast && !t.reducedMotion ? measureText(device.dwrite(), text) + 2 : 0; // + 2: a slant's overhang
+    dropping.lineWidth = width > size.x ? width : 0;
+    Vec2 lineSize{ dropping.lineWidth > 0 ? dropping.lineWidth : size.x, size.y };
+    dropping.surface = device.createSurface(lineSize);
     dropping.line = c.CreateSpriteVisual();
     dropping.line.Brush(c.CreateSurfaceBrush(dropping.surface));
-    dropping.line.Size(toFloat2(size));
+    dropping.line.Size(toFloat2(lineSize));
     dropping.visual.Children().InsertAtTop(dropping.line);
+    if (dropping.lineWidth <= 0) return;
+    float holdStart = std::clamp(t.lyricScrollHoldStart, 0.0f, 0.9f), holdEnd = std::clamp(t.lyricScrollHoldEnd, 0.0f, 0.9f - holdStart);
+    auto scroll = c.CreateScalarKeyFrameAnimation();
+    auto steady = c.CreateLinearEasingFunction(); // words pass at one speed: easier to read than easing
+    scroll.InsertKeyFrame(0.0f, 0.0f);
+    scroll.InsertKeyFrame(holdStart, 0.0f, steady);
+    scroll.InsertKeyFrame(1.0f - holdEnd, size.x - dropping.lineWidth, steady);
+    scroll.InsertKeyFrame(1.0f, size.x - dropping.lineWidth, steady);
+    scroll.Duration(left);
+    dropping.line.StartAnimation(L"Offset.X", scroll);
 }
 
 } // namespace
 
-DroppingText createDroppingText(Compositor const& c, GraphicsDevice& device, const Text& text, Vec2 size, bool grey)
+DroppingText createDroppingText(Compositor const& c, GraphicsDevice& device, const Text& text, Vec2 size, bool grey, Ms now)
 {
     DroppingText dropping{ .text = text, .grey = grey };
     dropping.visual = c.CreateContainerVisual();
     dropping.visual.Size(toFloat2(size));
     dropping.visual.Clip(c.CreateInsetClip()); // a line on its way in or out isn't seen past the frame
-    makeLine(c, device, dropping, size);
+    makeLine(c, device, dropping, size, now);
     repaintDropping(device, dropping, size);
     return dropping;
 }
 
-bool dropTo(Compositor const& c, GraphicsDevice& device, DroppingText& dropping, const Text& text, Vec2 size)
+bool dropTo(Compositor const& c, GraphicsDevice& device, DroppingText& dropping, const Text& text, Vec2 size, Ms now)
 {
     bool sameWords = text.value == dropping.text.value;
     dropping.text = text;
     if (sameWords) return repaintDropping(device, dropping, size); // its look changed, not its words
     const Tokens& t = tokens();
     SpriteVisual old = dropping.line;
-    makeLine(c, device, dropping, size);
+    makeLine(c, device, dropping, size, now);
     bool drawn = repaintDropping(device, dropping, size);
     if (t.reducedMotion) { // swapped in place
         dropping.visual.Children().Remove(old);
@@ -79,7 +97,11 @@ bool dropTo(Compositor const& c, GraphicsDevice& device, DroppingText& dropping,
 bool repaintDropping(GraphicsDevice& device, DroppingText& dropping, Vec2 size)
 {
     return device.draw(dropping.surface, [&](ID2D1DeviceContext* dc) {
-        auto draw = [&](ID2D1DeviceContext* target) { paintText(target, device.dwrite(), dropping.text, size); };
+        // A scrolling line: all of it, from its surface's start (no centring, no "…").
+        Text shown = dropping.text;
+        if (dropping.lineWidth > 0) shown.centred = shown.alignEnd = false;
+        Vec2 lineSize{ dropping.lineWidth > 0 ? dropping.lineWidth : size.x, size.y };
+        auto draw = [&](ID2D1DeviceContext* target) { paintText(target, device.dwrite(), shown, lineSize); };
         if (dropping.grey) paintGrey(dc, draw); // a muted tab's (decision 072)
         else draw(dc);
     });

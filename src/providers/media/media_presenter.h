@@ -38,10 +38,11 @@ public:
     // The volume of a session's app, as just read or set (decision 180);
     // nullopt: it has none to show. Kept for as long as that session is shown.
     void showVolume(const std::string& sessionKey, std::optional<float> volume, bool muted);
-    void toggleVolume(); // the card's speaker button: the volume's bar shown, or put away
-    void closeVolume();  // another control used, or the card closed: put away
-    void touchVolume();  // its bar was dragged: it stays volumeBarTimeout more
-    void onWake(); // a time asked for has come: a vanished session's grace is over, or the volume's bar has been left alone
+    // The pointer came onto or left the card's speaker (`onBar` false) or the volume's bar it
+    // opens into: open while it's on either (decision 180).
+    void hoverVolume(bool onBar, bool over);
+    void closeVolume(); // the card closed: shut, whatever the pointer was on
+    void onWake();      // the grace is over: end what's shown, unless a session came back
     void showLyricsPage(bool show); // the line being sung clicked, or the page's back arrow; the card closing goes back too
     void toggleLyrics(); // the card's lyrics button: off, nothing is looked up and no line shown; remembered
 
@@ -64,8 +65,7 @@ private:
     std::optional<float> volume_;
     bool muted_ = false;
     bool volumeOpen_ = false;
-    std::optional<Ms> volumeHideAt_; // open: when it's put away if not touched again
-    void armWake();                  // the host's one wake for whichever of the two times is first
+    bool speakerHovered_ = false, barHovered_ = false;
     bool lyricsPage_ = false; // the card is the lyrics' page while the song has lyrics
 };
 

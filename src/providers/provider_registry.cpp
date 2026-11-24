@@ -211,6 +211,11 @@ bool ProviderRegistry::isRunning(const std::string& providerId) const
     return e && e->running;
 }
 
+void ProviderRegistry::hover(const Action& what, bool over)
+{
+    if (Entry* e = find(what.providerId); e && e->running) e->provider->onHover(what, over);
+}
+
 void ProviderRegistry::route(const Action& action)
 {
     Entry* e = find(action.providerId);

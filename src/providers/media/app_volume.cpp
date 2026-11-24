@@ -142,4 +142,11 @@ void AppVolume::set(const std::string& app, float volume)
     });
 }
 
+void AppVolume::setMuted(const std::string& app, bool muted)
+{
+    post([app, muted] {
+        for (const auto& session : sessionsOf(std::wstring(winrt::to_hstring(app)))) session->SetMute(muted ? TRUE : FALSE, nullptr);
+    });
+}
+
 } // namespace cup

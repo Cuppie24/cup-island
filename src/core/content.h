@@ -113,6 +113,10 @@ struct Text {
     // the top. Rows of these back to back, each taking the text of the one under it, read
     // as one list scrolling up (a page of lyrics, decision 180).
     bool rises = false;
+    // Too long for its frame (with `drops`), it's scrolled once from its start to its end
+    // by this moment (app time), holding still at each for a while, instead of ending in
+    // "…": a line of lyrics read whole before the next one (decision 180). None: it ends in "…".
+    std::optional<Ms> scrollUntil;
     // Clickable: sent to its provider like a button's (the line being sung opens its page, decision 180).
     std::string actionId;
     // Slanted: words being sung, told apart from the song's name and artist over them (decision 180).
@@ -233,7 +237,8 @@ struct Progress {
     // head, bigger under the pointer (decision 167). Its row is at least the wave's height.
     bool wavy = false;
     // Bars only: a level set by hand, not a place in time (a volume, decision
-    // 180). Its action is sent as it's dragged, not only when it's let go.
+    // 180). levelBarWidth wide instead of stretching (it sits beside the button that opens
+    // it), and its action is sent as it's dragged, not only when it's let go.
     // `timeline`: its level as a position, not playing (levelTimeline).
     bool level = false;
     // What a click or drag on a seekable bar sends, its value the 0..1 fraction. Empty: "seek".
@@ -387,6 +392,9 @@ struct GroupFill {
     // No fill, a soft solid outline in trackColor: where a card or task being
     // dragged in a window lands if let go now (decision 134).
     bool outline = false;
+    // It appears by growing from its start, a square of its height, to its full width, and goes
+    // back the same way: a button opening into the control beside it (Row::leadingOpen, decision 180).
+    bool unrolls = false;
     bool operator==(const GroupFill&) const = default;
 };
 
@@ -503,6 +511,10 @@ struct Row {
     // item's. A row set apart (section, apart) starts a new group.
     // core/groups.h builds them.
     bool grouped = false;
+    // Its `leading` items sit on one pill (the host's GroupFill, tileColor), which grows out of the
+    // first of them as it appears and back into it as it goes: a button opened into the control
+    // beside it (media's speaker and its volume bar, decision 180). The row lays out as without it.
+    bool leadingOpen = false;
     // Its context menu (decision 086): every row may have its own. The host
     // ends the row in a › that opens it, beside the row.
     std::vector<MenuItem> menu;

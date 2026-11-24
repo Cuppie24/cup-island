@@ -41,8 +41,9 @@ Item resolve(const Item& item, Ms now, const Source& source)
             return Text{ .value = line, .style = note ? TextStyle::CardTitle : *lyrics->pageRow == 0 ? TextStyle::Title : TextStyle::Body,
                          .centred = true, .drops = true, .rises = true, .actionId = lyrics->actionId };
         // Alone too it rises: the next line comes up from below, the last leaves at the top.
+        // Too long to fit, it's scrolled through by the time the next one comes.
         return Text{ .value = line, .style = note ? TextStyle::CardTitle : TextStyle::Body, .centred = true, .drops = true, .rises = true,
-                     .actionId = lyrics->actionId, .italic = lyrics->italic && !note }; // the note always upright
+                     .scrollUntil = nextLyricChange(*lyrics, now), .actionId = lyrics->actionId, .italic = lyrics->italic && !note }; // the note always upright
     }
     if (auto* dial = std::get_if<Dial>(&item)) { // the time left at `now`, for the renderer to draw (decision 065)
         Dial shown = *dial;
@@ -423,6 +424,21 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
             }
             placeEdge(row.trailing, row.items.size(), trailingX);
             placeEdge(row.leading, row.items.size() + row.trailing.size(), leadingX);
+            // Row::leadingOpen (decision 180): one pill under the leading items, the first's height,
+            // from its start to openButtonPadding past the last; it unrolls from the first.
+            if (row.leadingOpen && !row.leading.empty()) {
+                const Placed& opener = target[target.size() - row.leading.size()];
+                float right = opener.frame.x + opener.frame.width;
+                for (std::size_t i = target.size() - row.leading.size(); i < target.size(); ++i) right = std::max(right, target[i].frame.x + target[i].frame.width);
+                Placed pill;
+                pill.key = slot.name + "/" + rowName + "/open";
+                pill.item = GroupFill{ .unrolls = true };
+                pill.frame = { opener.frame.x, opener.frame.y, right + t.openButtonPadding - opener.frame.x, opener.frame.height };
+                pill.cornerRadius = pill.frame.height / 2;
+                pill.providerId = source.providerId;
+                pill.activityId = source.activityId;
+                fills.push_back(std::move(pill));
+            }
             // Its piece of its group's background (decision 090): from under its
             // gap down to the next row's top (the row spacing too), so the pieces
             // meet with no seam. Behind its content (the renderer puts it at the

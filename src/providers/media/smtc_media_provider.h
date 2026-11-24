@@ -33,7 +33,8 @@ public:
     void stop() override;
     void onAction(const Action& action) override;
     void onWake() override { presenter_->onWake(); } // a vanished session's grace is over (decision 074)
-    void onCardClosed(const std::string&) override // the volume's bar is put away, the lyrics' page left: it opens as the card
+    void onHover(const Action& what, bool over) override;
+    void onCardClosed(const std::string&) override // the volume's bar is shut, the lyrics' page left: it opens as the card
     {
         presenter_->closeVolume();
         presenter_->showLyricsPage(false);

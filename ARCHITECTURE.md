@@ -130,6 +130,7 @@ user acted on it, and the owner gets its own action and may open its window.
 Neither knows the other.
 
 Providers that change on a schedule ask `Host::wakeAt` and get `onWake()`.
+A control that opens under the pointer hears of it through `onHover` (decision 180): a hint, never needed.
 Ctrl+W on an activity's card calls `onCloseRequested()`: the provider ends
 it, asks first, or ignores it (the default; decision 034).
 Keyboard navigation is the host's: providers never see keys or move

@@ -67,8 +67,6 @@ void SmtcMediaProvider::stop()
 
 void SmtcMediaProvider::onAction(const Action& action)
 {
-    // Any control but the volume's own puts its bar away (decision 180).
-    if (action.actionId != media_action::kVolume && action.actionId != media_action::kVolumeOpen) presenter_->closeVolume();
     // Opening the app hands over the foreground, which only this click's
     // thread may do (app_activation.h): here, from what the last read showed.
     if (action.actionId == media_action::kOpenSource) {
@@ -84,22 +82,30 @@ void SmtcMediaProvider::onAction(const Action& action)
         presenter_->toggleLyrics();
         return;
     }
-    // The speaker button (decision 180): the volume's bar shown or put away; shown, read afresh,
-    // since Windows' mixer may have moved it.
-    if (action.actionId == media_action::kVolumeOpen) {
-        presenter_->toggleVolume();
-        if (shown_ && volume_) volume_->read(shown_->sessionKey);
-        return;
-    }
-    // The bar: shown at once as asked, then set on the volume's thread.
-    if (action.actionId == media_action::kVolume) {
+    // The app's volume (decision 180): shown at once as asked, then set on the volume's thread.
+    // The speaker mutes and unmutes; the bar sets the level, which unmutes too.
+    if (action.actionId == media_action::kVolume || action.actionId == media_action::kMute) {
         if (!shown_ || !volume_ || !level_ || levelOf_ != shown_->sessionKey) return;
-        presenter_->touchVolume(); // in use: it stays open
-        volume_->set(levelOf_, action.value);
-        showLevel(levelOf_, AppVolume::Level{ action.value, false });
+        AppVolume::Level next = *level_;
+        if (action.actionId == media_action::kVolume) {
+            next = { action.value, false };
+            volume_->set(levelOf_, next.volume);
+        } else {
+            next.muted = !next.muted;
+            volume_->setMuted(levelOf_, next.muted);
+        }
+        showLevel(levelOf_, next);
         return;
     }
     if (reader_) reader_->act(action);
+}
+
+// The pointer on the speaker or the volume's bar opens the bar; off both, it shuts (decision 180).
+void SmtcMediaProvider::onHover(const Action& what, bool over)
+{
+    bool onBar = what.actionId == media_action::kVolume;
+    if (!onBar && what.actionId != media_action::kMute) return;
+    presenter_->hoverVolume(onBar, over);
 }
 
 void SmtcMediaProvider::onCardShown(const std::string&)

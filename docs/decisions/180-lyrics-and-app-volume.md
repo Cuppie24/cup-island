@@ -71,21 +71,31 @@ later: media sessions don't carry one.
   line instead of the song's name, upright, and is `widePillWidth` wide
   (`Content::widePill`) so a line fits; one still too long ends in "…".
   One fixed width, not each line's: a pill resizing every few seconds
-  would never rest. Paused, or with no lyrics: the usual pill and name.
+  would never rest. A line too long for it (or for the card) is scrolled
+  through once (`Text::scrollUntil`): still at its start for
+  `lyricScrollHoldStart` of the time it has, then across at one speed,
+  still at its end for `lyricScrollHoldEnd`, done as the next line comes.
+  With under `lyricScrollLeast` it ends in "…" instead. Paused, or with no lyrics: the usual pill and name.
 - **Volume is the playing app's own**, the level Windows' volume mixer
   shows for it (`providers/media/app_volume`): every audio session of the
   app's processes, found by exe name or, for a Store app, by its app id.
-  The speaker button opens its bar in the song's own bar's row, right
-  above the controls: the speaker at its level, the bar across the card,
-  the level as a number. Nothing floats and nothing moves; the song's bar
-  is back when it closes. (A pill floating over the speaker was tried: it
-  stood out from the card and covered the bar anyway.) It closes on the
-  speaker again, on any other control, with the card, or by itself
-  `volumeBarTimeout` after it was last touched. The bar sets the level
-  (`Progress::level`: its own action, sent while it's dragged so the
-  change is heard). The speaker's glyph follows the level: crossed out
-  muted or at zero, then one, two, three waves by thirds. There is no
-  mute button: the bar to its start is that. The calls go to the audio service,
+  The speaker mutes and unmutes. With the pointer on it, it opens to its
+  right into the volume's bar, over shuffle's place, the two on one pill
+  that grows out of the speaker (`Row::leadingOpen`, a `GroupFill` that
+  `unrolls`); only the speaker lights up under the pointer, so it still
+  reads as the button. It shuts when the pointer is on neither, or the
+  card closes. The bar sets the level (`Progress::level`: `levelBarWidth`
+  wide, its own action, sent while it's dragged so the change is heard),
+  which unmutes too. The speaker's glyph follows the level: crossed out
+  muted or at zero, then one, two, three waves by thirds.
+  Tried and dropped: the bar beside the song's name; in a pill floating
+  over the speaker (it stood out and covered the song's bar); in the
+  song's bar's row, opened by a click and shut by a timer.
+- **Providers hear what the pointer is on** (`Provider::onHover`, the
+  action a click there would send): the host can't know that a button
+  opens something, and the volume must open before any click. A hint
+  only: keys and touch never hover, so nothing may depend on it (the
+  volume is then set from the app, as before). The calls go to the audio service,
   another process, so they run on a thread of their own (decision 144).
   It's read when another app or track shows and when the card opens; a
   change made in the mixer meanwhile shows at the next of those.
@@ -98,5 +108,7 @@ request as the user, like the update check. Lyrics and a volume for the
 demo player: redundant beside the real one.
 
 **Consequences.** While lyrics are on, every song with an artist sends its
-title and artist to lrclib.net. While the volume's bar is open the song
-can't be sought: at most `volumeBarTimeout`.
+title and artist to lrclib.net. The volume's bar is reached with a pointer
+only. A click on a disabled control (the lyrics button of a song with
+none) no longer closes the card (`onDisabledControl`): it was a click on
+that control, and does nothing.

@@ -41,6 +41,18 @@ std::optional<Hit> hitTest(const Scene& scene, Vec2 point)
     return hitIn(scene.elements, point);
 }
 
+bool onDisabledControl(const Scene& scene, Vec2 point)
+{
+    if (hitTest(scene, point)) return false;
+    for (const Placed& p : scene.elements) {
+        if (!p.hitFrame.contains(point)) continue;
+        if (auto* button = std::get_if<Button>(&p.item); button && !button->enabled) return true;
+        if (auto* toggle = std::get_if<Switch>(&p.item); toggle && !toggle->enabled) return true;
+        if (auto* segments = std::get_if<Segments>(&p.item); segments && !segments->enabled) return true;
+    }
+    return false;
+}
+
 std::string rowAt(const Scene& scene, Vec2 point)
 {
     auto rowOf = [](const Placed& p) { return p.key.substr(0, p.key.rfind('/')); };

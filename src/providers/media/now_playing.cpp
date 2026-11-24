@@ -91,18 +91,7 @@ Content cardContent(const NowPlaying& m)
         c.expandedBottom.back().id = "lyrics";
         c.smallCover = true; // the cover gives the line its room; without one it's full size
     }
-    if (m.volume && m.volumeOpen) {
-        // The app's volume, opened from its speaker (decision 180): its bar takes the song's own
-        // bar's row, right above the controls, for as long as it's open. The speaker at its
-        // level, the bar across the card, the level as a number in a column "0" to "100" wide.
-        float level = m.muted ? 0.0f : std::clamp(*m.volume, 0.0f, 1.0f);
-        Row volume = row({ Progress{ .timeline = levelTimeline(level), .seekable = true, .level = true, .actionId = act::kVolume } });
-        volume.leading.push_back(Icon{ volumeGlyph(*m.volume, m.muted) });
-        volume.trailing.push_back(Text{ .value = std::to_string(static_cast<int>(std::lround(level * 100))), .style = TextStyle::Digits,
-                                        .alignEnd = true, .sizedAs = "100" });
-        volume.id = "volume"; // its own name: the song's bar fades out and this in, not one turned into the other
-        c.expandedBottom.push_back(volume);
-    } else if (m.timeline.duration > Ms{ 0 }) {
+    if (m.timeline.duration > Ms{ 0 }) {
         // The times as wide as they get, so they sit close to the bar (decision 107).
         // The played part a wave, rippling while it plays and flat when paused (decision 167).
         c.expandedBottom.push_back(row({ TimeLabel{ .timeline = m.timeline, .fitted = true },
@@ -120,16 +109,24 @@ Content cardContent(const NowPlaying& m)
                        Align::Center);
     controls.loose = true; // big, well-separated targets
     controls.id = "controls";
-    // Two pairs at the row's edges, mirrored (decisions 168, 180): at the very ends the speaker
-    // that opens the volume's bar and the lyrics toggle, inside them shuffle and repeat. All four
+    // Two pairs at the row's edges, mirrored (decisions 168, 180): at the very ends the volume's
+    // speaker and the lyrics toggle, inside them shuffle and repeat. All four
     // the same quiet toggles; the transport stays centred between them. Shuffle, repeat and the
     // speaker only where they apply (the app's modes, a known volume). The lyrics button stays
     // with a song that has no lyrics, disabled: it says so, and keeps the row's end in place.
-    if (m.volume)
-        controls.leading.push_back(Button{ .glyph = volumeGlyph(*m.volume, m.muted), .actionId = act::kVolumeOpen,
-                                           .on = m.volumeOpen, .secondary = true });
-    if (m.canShuffle)
+    // The speaker mutes. With the pointer on it, it opens to its right into the volume's bar,
+    // over shuffle's place, the two on one pill that grows out of it (Row::leadingOpen); only
+    // the speaker lights up under the pointer, so it reads as the button. Shuffle is back when
+    // the pointer leaves the two.
+    bool volumeOpen = m.volume && m.volumeOpen;
+    if (m.volume) controls.leading.push_back(Button{ .glyph = volumeGlyph(*m.volume, m.muted), .actionId = act::kMute, .secondary = true });
+    if (volumeOpen) {
+        controls.leading.push_back(Progress{ .timeline = levelTimeline(m.muted ? 0.0f : std::clamp(*m.volume, 0.0f, 1.0f)), .seekable = true,
+                                             .level = true, .actionId = act::kVolume });
+        controls.leadingOpen = true;
+    } else if (m.canShuffle) {
         controls.leading.push_back(Button{ .glyph = Glyph::Shuffle, .actionId = act::kShuffle, .on = m.shuffle, .secondary = true });
+    }
     if (m.canRepeat)
         controls.trailing.push_back(Button{ .glyph = m.repeat == Repeat::One ? Glyph::RepeatOne : Glyph::Repeat, .actionId = act::kRepeat,
                                             .on = m.repeat != Repeat::Off, .secondary = true });

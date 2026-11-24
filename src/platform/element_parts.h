@@ -25,6 +25,9 @@ void fadeInSurface(wuc::SpriteVisual const& host, wuc::CompositionDrawingSurface
 // both ends given (decision 008). Its Offset is `to` from the start: nothing else waits on it.
 // `duration`: 0 = scrollDuration, as a list's rows glide.
 void glideFrom(wuc::Compositor const& c, wuc::Visual const& visual, wfn::float3 from, wfn::float3 to, Ms duration = Ms{ 0 });
+// A pill growing out of its start (GroupFill::unrolls, decision 180): `in`, from a square of its
+// height at its left end to its whole `size`; out, back to it, fading, then `done`. Its CenterPoint its middle.
+void unroll(wuc::Compositor const& c, wuc::Visual const& visual, Vec2 size, wfn::float3 at, bool in, std::function<void()> done = {});
 // Built at its new size `to` and place `at`, it grows or shrinks there from the size `from` and the
 // place `was` it had, its top left corner leading (a card's cover, decision 180). Its CenterPoint
 // must be its middle, as every element's is.

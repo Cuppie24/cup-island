@@ -26,6 +26,10 @@ std::optional<Hit> hitTest(const Scene& scene, Vec2 point);
 // The same test over any elements (a window's page, decision 104), in their coordinates.
 std::optional<Hit> hitIn(const std::vector<Placed>& elements, Vec2 point);
 
+// `point` is on a control that's there but takes no click now (a disabled button, switch
+// or segments): a click on it is meant for it, and does nothing; it isn't a click on the card.
+bool onDisabledControl(const Scene& scene, Vec2 point);
+
 // Where along a progress bar `x` (pill coordinates) points, 0..1. Clamped, so
 // a scrub dragged past either end (or off the pill) pins to it.
 float seekFraction(const Placed& progress, float x);

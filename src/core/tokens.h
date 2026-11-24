@@ -218,6 +218,10 @@ struct Tokens {
     float progressHeight = 4;
     float progressHitHeight = 16; // taller than drawn, so it's easy to click
     float progressKnobSize = 12;  // the scrub handle shown on hover
+    // A button opened into the control beside it (Row::leadingOpen, decision 180): a level's bar
+    // (Progress::level) this wide, the pill under the two reaching this far past the bar.
+    float levelBarWidth = 64;
+    float openButtonPadding = 12;
     // Progress::level: a volume's bar beside a card's title (decision 180)
     // A wavy bar (Progress::wavy, decision 167): one wave's length, how far it swings to each side of
     // the bar's line, how far back from its head it straightens out, how long one wave takes to
@@ -417,10 +421,17 @@ struct Tokens {
     // The line being sung (Text::drops, decision 180): the new one falls in
     // from above as the old one drops out below, over this long.
     Ms lyricDropDuration{ 420 };
+    // A line too long for its frame (Text::scrollUntil): of the time it has, it holds still at
+    // its start this share and at its end this share, and scrolls between; with less than
+    // lyricScrollLeast in all it isn't scrolled (it would only rush past).
+    float lyricScrollHoldStart = 0.3f;
+    float lyricScrollHoldEnd = 0.2f;
+    Ms lyricScrollLeast{ 1200 };
     Ms lyricLead{ 350 }; // ...and it's shown this long before it's sung: time to read its first words
     // A card's cover changing size (Content::smallCover coming or going,
     // decision 180): it grows or shrinks, and what's around it glides, over this long.
     Ms coverResizeDuration{ 320 };
+    Ms openButtonDuration{ 260 }; // Row::leadingOpen's pill growing out of its button, and back
     // New content starts arriving once the growing pill is this share of the
     // way to its new size (decision 080): with the spring that's early, and it
     // follows the morph's own timing. A shrinking pill shows it at once.
@@ -478,9 +489,6 @@ struct Tokens {
     // Lyrics (decision 180): a record's length may differ from the track's by
     // this much and still be the same cut of the song; and how many songs'
     // lyrics (or the lack of them) are remembered, so going back asks nothing.
-    // Media's volume bar (decision 180): opened from its speaker, it's put away by itself this
-    // long after it was last touched.
-    Ms volumeBarTimeout{ 3500 };
     Ms lyricsDurationTolerance{ 3000 };
     std::size_t lyricsRemembered = 20;
     // A track shows at once; its cover fades in over this when it's read (decision 056).
