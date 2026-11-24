@@ -1,5 +1,6 @@
 #pragma once
-// Lifting the island and moving it along the top edge (decision 026). Press
+// Lifting the island and moving it along the top edge (decision 026), and
+// onto another monitor (decision 178). Press
 // and hold the pill (or an alert) for liftHold without moving: it lifts,
 // follows the pointer sideways only, and lands where it's let go, snapping
 // to the centre or an edge (placement.h). Expanded never lifts. Shared by
@@ -16,6 +17,9 @@ namespace cup {
 void pressIsland(IslandState& s, Ms now);
 void dragIsland(IslandState& s, Vec2 drag);
 void releaseIsland(IslandState& s);
+// Lifted and carried onto another monitor (decision 178): it's that wide, and
+// the pill is under the pointer there. Drags are measured from here on.
+void carryIsland(IslandState& s, float screenWidth, float pointerX);
 // Every event: lifts a press held long enough; drops (where it is) a lift
 // whose mode can't be lifted any more, e.g. a card opened or the island hid.
 void settleLift(IslandState& s, Ms now);

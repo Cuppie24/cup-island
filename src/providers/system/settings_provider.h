@@ -1,8 +1,9 @@
 #pragma once
 // Settings (decisions 022, 030, 104): a button in the page row that opens the
 // Settings window, and what the window's actions do. The app theme, colours
-// from music (decision 052), glass (decision 089), the display (decision 023), Start with Windows, the keyboard
+// from music (decision 052), glass (decision 089), Start with Windows, the keyboard
 // shortcuts (decisions 031, 032), Copy logs and Centre island (decision 026).
+// It also remembers the monitor the island was dragged to (decisions 023, 178): not a setting any more, but kept under its key.
 // Picks are kept in the host's store (decision 028); recolouring, moving the
 // island, the Run key, hotkeys and the clipboard are the app's (handed in),
 // so this stays pure and is tested on Linux. The window itself: settings_window.h.
@@ -19,10 +20,10 @@
 
 namespace cup {
 
-// A connected monitor the island can be put on.
+// A connected monitor the island can be on.
 struct DisplayChoice {
     std::string id;   // stable across reboots and replugging (its device path)
-    std::string name; // what the card shows, e.g. "DELL U2720Q"
+    std::string name; // its friendly name, e.g. "DELL U2720Q"
     bool operator==(const DisplayChoice&) const = default;
 };
 
@@ -98,11 +99,14 @@ public:
     // Before start(), it only says whether start() registers them.
     void setHotkeysActive(bool on);
     // Monitors were plugged, unplugged or rearranged: re-list them and put the
-    // island back where it was picked (or on the main display if that's gone).
+    // island back on the one it was dragged to (or on the main display if that's gone).
     void refreshDisplays();
+    // The user dragged the island onto this monitor (decision 178): it's the
+    // one it starts on from now, and comes back to when it's plugged in again.
+    void islandMovedTo(const std::string& displayId);
 
     static constexpr const char* kPanelId = kSettingsPanelId;
-    // Store keys (Host::load/save): the theme's name, the display's id ("" = the main display),
+    // Store keys (Host::load/save): the theme's name, the display's id ("" = the main display: never dragged to another),
     // and Start with Windows as last set ("on"/"off"; "" = never: it starts on, decision 030).
     // The app reads the display's too, at startup, to open on the right monitor.
     static constexpr const char* kThemeKey = "theme";
@@ -121,7 +125,6 @@ public:
 
 private:
     void pick(const std::string& theme); // apply it, show it
-    void pickDisplay(const std::string& id);
     void placeIsland();                   // apply the wanted display if connected, else the main one
     void openWindow();                    // the window, or to the front if it's open
     void open(SettingsPage page);         // a page within a page
@@ -142,8 +145,7 @@ private:
     SettingsPage page_ = SettingsPage::List;
     std::string theme_;
     std::vector<DisplayChoice> displays_;
-    std::string wantedDisplay_;  // the user's pick, kept while its monitor is unplugged
-    std::string appliedDisplay_; // where the island is: wantedDisplay_ if connected, else "" (main)
+    std::string wantedDisplay_;  // where the user dragged it, kept while that monitor is unplugged
     LogsNote note_ = LogsNote::Ready;
     std::optional<UpdateStatus> offer_;
     Bindings shortcuts_;

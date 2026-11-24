@@ -1,7 +1,7 @@
 #pragma once
 // The Settings window (decisions 030, 032, 104): built from a SettingsView by
 // one pure function. Pages in a sidebar (Appearance, General, Updates) of
-// grouped settings; a setting with choices (themes, displays, music colours)
+// grouped settings; a setting with choices (themes, music colours)
 // or the keyboard shortcuts opens a page within its page, with a back arrow.
 // Its button in the page row only opens it.
 
@@ -24,7 +24,6 @@ namespace cup {
 namespace settings_action {
 inline constexpr const char* kOpenWindow = "settings.window"; // its button's tap: opens the window (decision 104)
 inline constexpr const char* kOpenThemes = "theme.open";
-inline constexpr const char* kOpenDisplays = "display.open";
 inline constexpr const char* kOpenShortcuts = "shortcuts.open";
 inline constexpr const char* kPickTabRow = "tabrow.pick:";     // + 0 (top) or 1 (bottom): its row's Segments (decision 093)
 inline constexpr const char* kBack = "settings.back";
@@ -32,7 +31,6 @@ inline constexpr const char* kPickTheme = "theme.pick:";       // + its index in
 inline constexpr const char* kOpenWindowTheme = "windowtheme.open";      // decision 150
 inline constexpr const char* kPickWindowThemeMode = "windowtheme.mode:"; // + 0 island, 1 system, 2 manual: its Segments
 inline constexpr const char* kPickWindowTheme = "windowtheme.pick:";     // + its index in tokens().themes (Manual)
-inline constexpr const char* kPickDisplay = "display.pick:";   // + its index in SettingsView::displays
 inline constexpr const char* kEditShortcut = "shortcut.edit:"; // + its index in commands()
 inline constexpr const char* kResetShortcut = "shortcut.reset:"; // + its index in commands(): back to its default (decision 103)
 inline constexpr const char* kResetShortcuts = "shortcuts.reset"; // every command back to its default (decision 103)
@@ -60,7 +58,6 @@ inline constexpr const char* kSettingsWindowId = "main";           // its window
 inline constexpr const char* kAppearancePage = "appearance";
 inline constexpr const char* kGeneralPage = "general";
 inline constexpr const char* kUpdatesPage = "updates";
-inline constexpr const char* kMainDisplayName = "Main display";    // the first display choice
 
 enum class LogsNote { Ready, Copied, Failed }; // what the Copy logs button says
 
@@ -72,8 +69,8 @@ struct UpdateNote {
 };
 
 // A page within a sidebar page: none (its settings), or one setting's
-// choices. Themes, WindowTheme, Displays, MusicColours and Glass are within Appearance, Shortcuts within General.
-enum class SettingsPage { List, Themes, WindowTheme, Displays, Shortcuts, MusicColours, Glass };
+// choices. Themes, WindowTheme, MusicColours and Glass are within Appearance, Shortcuts within General.
+enum class SettingsPage { List, Themes, WindowTheme, Shortcuts, MusicColours, Glass };
 
 // A setting added after people already had the app (decision 048): shown
 // with a "New" tag until it's been seen, and a dot on its parent's row while
@@ -84,7 +81,7 @@ struct SettingItem {
 };
 
 // Every announced setting, oldest first: add a line when adding a setting.
-// Rows' ids: "theme", "windowtheme", "glass" (and "transparency", "glasswindows" on its page), "musiccolours" (and "covercolours", "fade" on its page), "display",
+// Rows' ids: "theme", "windowtheme", "glass" (and "transparency", "glasswindows" on its page), "musiccolours" (and "covercolours", "fade" on its page),
 // "tabrow", "centre", "autostart", "shortcuts", "logs", "updates".
 std::vector<SettingItem> announcedSettings();
 
@@ -92,8 +89,6 @@ std::vector<SettingItem> announcedSettings();
 struct SettingsView {
     SettingsPage page = SettingsPage::List;
     std::string theme;                  // the applied theme's name
-    std::vector<std::string> displays;  // "Main display", then each monitor; empty: one monitor, no Display row
-    std::size_t display = 0;            // the one the island is on
     std::optional<bool> startsWithWindows; // nothing: the app can't tell, no row
     LogsNote note = LogsNote::Ready;
     Bindings shortcuts = defaultBindings(); // what each command is bound to

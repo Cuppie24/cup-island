@@ -36,7 +36,7 @@ So "why did X happen?" is always answered in `core/`, by a scenario test.
 ```
 src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (what providers show), layout.h, dialog.h + toast.h (a card's question and note, decisions 020, 071)
                 (+ slot_layout.h), split.h, tabs.h (the page row: providers' icons, panels' buttons; decisions 165, 170), hit_test.h, provider.h (Provider/Host API), commands.h (providers' commands: who published what, when one may run, decision 160),
-                lift.h + placement.h (moving the island along the top edge, decision 026),
+                lift.h + placement.h (moving the island along the top edge, decision 026, and onto another monitor, decision 178),
                 keyboard.h (arrow, Tab and digit focus, decisions 031, 033) + shortcuts.h (the shortcut table, decision 031)
                 + double_tap.h (Double Ctrl, decision 079),
                 badges.h (where notification dots go, decision 038),
@@ -56,7 +56,7 @@ src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interacti
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules, SMTC provider for real Windows media: its smtc_reader reads sessions on a thread of its own, decision 144),
                 pomodoro/ (the first panel: a timer card, the rest in its window, decision 106; tasks in groups, task_board, decision 117), search/ (the search card: apps, Settings, files; decisions 077, 079), service_host (Cup Island's service: setup, updates and providers' calls, decisions 076, 078), system/ (Home's theme and Settings widgets:
-                app themes, windows' own theme (decision 150), display, Start with Windows, Copy logs), update/ (updates from GitHub
+                app themes, windows' own theme (decision 150), the monitor the island was dragged to (decision 178), Start with Windows, Copy logs), update/ (updates from GitHub
                 Releases, offered in Settings with an accent dot, decision 152: versions and offers, pure; installing asks again and takes the latest, decision 172; github.cpp fetches and installs, decision 036)
 src/indexer/    the file index's logic (decision 075), pure: USN records from raw bytes, the index by MFT record,
                 journal changes and resume-or-rescan, queries and ranking, the snapshot file, the pipe's
@@ -293,7 +293,7 @@ over the file's, so `tokens()` is always what's on screen.
 | Log file, Copy logs (in Settings), hang/crash minidumps, exit without deadlock (decision 013) | done; button rules tested, the rest needs Windows |
 | Settings, app themes (dark and light) from tokens.json, saved per user (decision 022) | done; rules tested, visuals need Windows |
 | The island in the playing cover's colours, in the theme's recipe; the theme back when paused (decision 051); on/off in Settings (decision 052) | done; rules and contrast tested, the look and fade need Windows |
-| Settings as a list: Theme and Display pages of choices, Start with Windows on by default, stays open on a near miss (decision 030) | done; rules tested, visuals need Windows |
+| Settings as a list: a Theme page of choices (Display's gone, decision 178), Start with Windows on by default, stays open on a near miss (decision 030) | done; rules tested, visuals need Windows |
 | Keyboard: arrows move focus on cards, Enter/Space click (decision 031) | done; navigation tested, key handling needs Windows |
 | Keyboard: Tab/Shift+Tab, Home/End, Ctrl+Tab switches pages, Esc closes (decision 170), a focus ring (decision 033) | done; navigation and Esc tested, keys and ring need Windows |
 | Ctrl+W asks the activity's provider to close it: Pomodoro confirms, media ignores (decision 034) | done; tested, the key needs Windows |
@@ -304,3 +304,4 @@ over the file's, so `tokens()` is always what's on screen.
 | An update offer survives a restart (decision 039); Bluetooth removed (decision 042) | rules tested |
 | Grouped rows (decision 090): a quiet label over rows on one background, each a name over its description; every Settings page uses them. One updates row that turns into Update and restart (decision 091). Key caps on the shortcuts page (decision 092). Segments: Tab row and Colour fade picked in place (decision 093) | done; layout tested, the look needs a Windows run |
 | Mandatory releases: the Release workflow's checkbox; installed by itself at the next start, with an alert, 3 tries at most (decision 041) | rules tested; the workflow's first mandatory run confirms it |
+| The island dragged to another monitor: lifted and carried past its monitor's edge, it's on the one under the pointer, remembered (decision 178) | rules tested; the Windows side compiles in CI, needs a run on two monitors |

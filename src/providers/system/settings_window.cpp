@@ -113,7 +113,6 @@ WindowPage appearancePage(const SettingsView& v)
     if (!tokens().themes.empty() && v.windowTheme) look.push_back(marked(settingRow("Window theme", windowThemeValue(v), P::kOpenWindowTheme), "windowtheme", v));
     if (v.glass) look.push_back(marked(settingRow("Glass", !*v.glass ? "Off" : v.liquidGlass.value_or(false) ? "Liquid" : "On", P::kOpenGlass), "glass", v)); // decisions 089, 096
     if (v.coverColours) look.push_back(marked(settingRow("Music colours", *v.coverColours ? "On" : "Off", P::kOpenMusicColours), "musiccolours", v));
-    if (!v.displays.empty()) look.push_back(marked(settingRow("Display", v.displays[v.display], P::kOpenDisplays), "display", v));
     if (!look.empty()) page.sections.push_back({ .rows = std::move(look) });
     // Picked in place (decision 093): two options don't need a page.
     page.sections.push_back({ .rows = { marked(segmentsRow("Tab row", "Pages, Search and Settings", { "Top", "Bottom" }, v.tabsOnTop ? 0u : 1u, P::kPickTabRow), "tabrow", v),
@@ -230,13 +229,6 @@ void glassPage(WindowPage& page, const SettingsView& v)
     page.sections.push_back(std::move(rows));
 }
 
-void displaysPage(WindowPage& page, const SettingsView& v)
-{
-    WindowSection choices;
-    for (std::size_t i = 0; i < v.displays.size(); ++i) choices.rows.push_back(choiceRow(v.displays[i], i == v.display, P::kPickDisplay + std::to_string(i)));
-    page.sections.push_back(std::move(choices));
-}
-
 // The shortcuts (decision 032): the system-wide ones, each a row that takes
 // new keys when clicked and goes back to its default (decision 103), then the
 // fixed keys on the island. Keys as key caps (decision 092).
@@ -292,7 +284,7 @@ std::string pageOfSetting(const std::string& id)
 std::set<std::string> offeredSettings(const SettingsView& view)
 {
     std::set<std::string> offered;
-    for (SettingsPage page : { SettingsPage::List, SettingsPage::Themes, SettingsPage::WindowTheme, SettingsPage::Displays, SettingsPage::Shortcuts,
+    for (SettingsPage page : { SettingsPage::List, SettingsPage::Themes, SettingsPage::WindowTheme, SettingsPage::Shortcuts,
                                SettingsPage::MusicColours, SettingsPage::Glass }) {
         SettingsView v = view;
         v.page = page;
@@ -364,7 +356,6 @@ WindowContent settingsWindow(const SettingsView& v)
     case SettingsPage::WindowTheme: appearance = within(appearance, "Window theme", "Settings and other windows' colours."), windowThemePage(appearance, v); break;
     case SettingsPage::MusicColours: appearance = within(appearance, "Music colours", ""), musicColoursPage(appearance, v); break;
     case SettingsPage::Glass: appearance = within(appearance, "Glass", ""), glassPage(appearance, v); break;
-    case SettingsPage::Displays: appearance = within(appearance, "Display", "The monitor the island is on."), displaysPage(appearance, v); break;
     case SettingsPage::Shortcuts: general = within(general, "Keyboard shortcuts", v.shortcutNote), shortcutsPage(general, v); break;
     case SettingsPage::List: break;
     }

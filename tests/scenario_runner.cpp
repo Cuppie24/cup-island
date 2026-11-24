@@ -37,6 +37,7 @@
 //            wheel <card> <list> <from> <delta> <max>  reveal <card> <list> <row>    (lists, decision 029)
 //            pick <card> <list> <row> <y>  carry <y>  put-down
 //            screen <width>  hold  move <dx>  let-go  restore <dock> [fraction]      (lifting the island, decision 026)
+//            cross <width> <x>                                                      (...onto another monitor, the pointer at x on it, decision 178)
 // Checks after "->":  <Mode>  queue=<n>  top=<activity>  bubble=<activity>  alert=<name>
 //                     expanded=<activity|panel|none>  pinned=<activity>  dragging=yes|no  preview=yes|no
 //                     draft=<text>|empty|none  (_ for a space)  dialog=<card>|none
@@ -294,6 +295,7 @@ struct Runner {
         else if (cmd == "hold") apply(IslandPressed{});
         else if (cmd == "move") apply(IslandDragged{ { std::stof(arg(1)), 0 } });
         else if (cmd == "let-go") apply(IslandReleased{});
+        else if (cmd == "cross") apply(IslandCarried{ std::stof(arg(1)), std::stof(arg(2)) });
         else if (cmd == "restore") {
             Spot spot{ arg(1) == "left" ? Dock::Left : arg(1) == "right" ? Dock::Right : arg(1) == "free" ? Dock::Free : Dock::Centre };
             if (spot.dock == Dock::Free) spot.fraction = std::stof(arg(2));

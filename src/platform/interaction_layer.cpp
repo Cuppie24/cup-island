@@ -357,11 +357,12 @@ HWND createInteractionLayer(HINSTANCE instance, int renderLeft, int renderTop, V
     return g_hwnd;
 }
 
-void setRenderOrigin(int renderLeft, int renderTop)
+void setRenderOrigin(int renderLeft, int renderTop, std::optional<Vec2> offset)
 {
     g_renderLeft = renderLeft;
     g_renderTop = renderTop;
-    snap(g_morph.size, g_morph.offset);
+    if (offset) g_morph.active = false; // it's put there, not on its way
+    snap(g_morph.size, offset.value_or(g_morph.offset));
 }
 
 void followMorph(Vec2 toSize, Vec2 toOffset, const SceneMotion& motion)
