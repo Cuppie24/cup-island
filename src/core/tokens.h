@@ -225,6 +225,11 @@ struct Tokens {
     float progressKnobSize = 12;  // the scrub handle shown on hover
     // A button opened into the control beside it (Row::leadingOpen, decision 180): a level's bar
     // (Progress::level) this wide, the pill under the two reaching this far past the bar.
+    // A button over a card's rows (Content::overTop, decision 180): the rows fade out this far
+    // from its edge, into a veil of the island's colour at least this opaque (a see-through
+    // glass island's own colour would let them show).
+    float overTopFade = 18;
+    float overTopVeilOpacity = 0.9f;
     float levelBarWidth = 64;
     float openButtonPadding = 17; // past the bar's end and its knob, which reaches half its width over it
     // Progress::level: a volume's bar beside a card's title (decision 180)

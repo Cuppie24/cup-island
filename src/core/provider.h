@@ -146,6 +146,9 @@ public:
     // the action a click there would send. A hint, for a control that opens under the pointer
     // (media's volume, decision 180). Nothing may depend on it: keys and touch never hover.
     virtual void onHover(const Action& /*what*/, bool /*over*/) {}
+    // The user scrolled one of its card's lists themselves (the wheel): a row it asked the host
+    // to keep in view (Host::reveal, centre, follow) no longer is, until it asks again.
+    virtual void onListScrolled(const std::string& /*activityId*/, const std::string& /*list*/) {}
     // Its card stopped being shown (closed, or another card took its
     // place). A card with pages within it goes back to its first (Settings).
     virtual void onCardClosed(const std::string& /*activityId*/) {}

@@ -226,6 +226,11 @@ void ProviderRegistry::hover(const Action& what, bool over)
     if (Entry* e = find(what.providerId); e && e->running) e->provider->onHover(what, over);
 }
 
+void ProviderRegistry::listScrolled(const std::string& providerId, const std::string& activityId, const std::string& list)
+{
+    if (Entry* e = find(providerId); e && e->running) e->provider->onListScrolled(activityId, list);
+}
+
 void ProviderRegistry::route(const Action& action)
 {
     Entry* e = find(action.providerId);

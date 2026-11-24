@@ -430,7 +430,9 @@ void onWheel(app::Surface& s, Vec2 canvasPoint, float notches)
     s.pointer.still = false; // the wheel is the pointer at work: what scrolls under it lights (decision 087)
     const Placed* p = listAt(s.scene, toLocal(s, canvasPoint));
     if (!p) return;
-    dispatch(ListScrolled{ p->activityId, p->list->id, p->list->offset, notches * tokens().scrollStep, p->list->max }, "scroll");
+    std::string provider = p->providerId, activity = p->activityId, list = p->list->id; // the scene is laid out again below
+    dispatch(ListScrolled{ activity, list, p->list->offset, notches * tokens().scrollStep, p->list->max }, "scroll");
+    if (g_providers) g_providers->listScrolled(provider, activity, list); // it may have been following a row (decision 180)
 }
 
 // An edit button (Button::editsText): its row's text becomes a field holding it (decision 029).

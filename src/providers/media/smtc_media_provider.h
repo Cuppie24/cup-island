@@ -34,6 +34,10 @@ public:
     void onAction(const Action& action) override;
     void onWake() override { presenter_->onWake(); } // a vanished session's grace is over (decision 074)
     void onHover(const Action& what, bool over) override;
+    void onListScrolled(const std::string&, const std::string& list) override
+    {
+        if (list == media_action::kLyricsList) presenter_->lyricsScrolled();
+    }
     void onCardClosed(const std::string&) override // the volume's bar is shut, the lyrics' page left: it opens as the card
     {
         presenter_->closeVolume();
