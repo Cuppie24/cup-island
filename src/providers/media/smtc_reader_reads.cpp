@@ -133,14 +133,19 @@ void SmtcReader::onAction(const Action& action)
         else if (action.actionId == act::kPrevious) session_.TrySkipPreviousAsync();
         else if (action.actionId == act::kSource) cycleSource();
         else if (action.actionId == act::kShuffle) {
-            auto shuffle = session_.GetPlaybackInfo().IsShuffleActive();
+            auto info = session_.GetPlaybackInfo();
+            if (!info) return; // between two states: a call on no object is a crash, not a throw (decision 179)
+            auto shuffle = info.IsShuffleActive();
             session_.TryChangeShuffleActiveAsync(!(shuffle && shuffle.Value()));
         } else if (action.actionId == act::kRepeat) {
-            auto repeat = session_.GetPlaybackInfo().AutoRepeatMode();
+            auto info = session_.GetPlaybackInfo();
+            if (!info) return;
+            auto repeat = info.AutoRepeatMode();
             session_.TryChangeAutoRepeatModeAsync(toWindows(nextRepeat(repeat ? fromWindows(repeat.Value()) : Repeat::Off)));
         }
         else if (action.actionId == act::kSeek) {
             auto timeline = session_.GetTimelineProperties();
+            if (!timeline) return;
             auto start = timeline.StartTime(), end = timeline.EndTime();
             auto offset = static_cast<std::int64_t>(static_cast<double>((end - start).count()) * action.value);
             session_.TryChangePlaybackPositionAsync(start.count() + offset); // 100 ns ticks
