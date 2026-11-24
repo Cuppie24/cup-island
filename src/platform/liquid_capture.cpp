@@ -8,6 +8,7 @@
 #include <winrt/Windows.Foundation.Metadata.h>
 #include <winrt/Windows.Graphics.DirectX.Direct3D11.h>
 
+#include <exception>
 #include <utility>
 
 namespace cup::platform {
@@ -144,6 +145,9 @@ void LiquidCapture::take(wgc::Direct3D11CaptureFramePool const& pool)
         }
     } catch (winrt::hresult_error const& e) {
         logGlassError("liquid: a picture of the desktop was lost", "frame", e);
+        return;
+    } catch (std::exception const& e) { // not Windows' own (the lock): still nothing thrown back
+        logLine("glass: liquid: a picture of the desktop was lost (%s)", e.what());
         return;
     }
     if (onFrame_) onFrame_();

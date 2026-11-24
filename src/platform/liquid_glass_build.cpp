@@ -6,6 +6,7 @@
 #include "platform/liquid_shader.h"
 #include "platform/log.h"
 
+#include <d3d11_4.h>
 #include <d3dcompiler.h>
 
 #include <cstring>
@@ -41,6 +42,14 @@ void LiquidGlass::build(wuc::Compositor const& compositor, const char*& step)
     // would cost what this must never cost, so there it's refused.
     winrt::check_hresult(D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT, nullptr, 0, D3D11_SDK_VERSION,
                                            device_.put(), nullptr, context_.put()));
+    // Used from more than one thread at once: lock_ keeps the frames' thread
+    // and the UI thread apart, but Windows' capture works on this device
+    // too, whenever a picture arrives, and takes no lock of ours. Direct3D's
+    // context is one thread's unless told otherwise; told, it locks itself
+    // (decision 178). Refused (it never should be): as before.
+    winrt::com_ptr<ID3D11Multithread> shared;
+    if (SUCCEEDED(context_->QueryInterface(__uuidof(ID3D11Multithread), shared.put_void()))) shared->SetMultithreadProtected(TRUE);
+    else logLine("glass: liquid: Direct3D won't lock its context for several threads");
     step = "swap chain";
     winrt::com_ptr<IDXGIDevice> dxgi;
     winrt::check_hresult(device_->QueryInterface(__uuidof(IDXGIDevice), dxgi.put_void()));

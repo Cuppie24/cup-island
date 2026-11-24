@@ -4,6 +4,7 @@
 #include "platform/glass.h"
 #include "platform/liquid_shader.h"
 #include "platform/log.h"
+#include "platform/watchdog.h"
 
 
 #include <dwmapi.h>
@@ -117,7 +118,9 @@ void LiquidGlass::tick()
             moving_ = false;
             winrt::hresult code = e.code();
             winrt::hstring message = e.message();
-            queue_.TryEnqueue([this, code, message] { lost("frame (its thread)", winrt::hresult_error(code, message)); });
+            queue_.TryEnqueue([this, code, message] {
+                guardedTask("ending liquid glass", [&] { lost("frame (its thread)", winrt::hresult_error(code, message)); });
+            });
             continue;
         }
         // Home: one more frame from the UI thread, which also pauses the capture if the island is gone.
