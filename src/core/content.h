@@ -33,8 +33,10 @@ enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Sour
 // Hero: the one big number a card is about, heavy (Pomodoro's time); its digits roll as they change (decision 107).
 // Window*: Title, Body and Caption a step up in a standalone window (decision 112);
 // the window's layout swaps them in, providers write the plain three.
+// Lyric, LyricSung: a line on a page of lyrics, and the one being sung, bigger and bright; sized so
+// the page shows five lines, to be read from across a desk (decision 180).
 enum class TextStyle { Title, Body, Caption, Digits, Display, Heading, Result, ResultDetail, PageTitle, Hero, CardTitle,
-                       WindowTitle, WindowBody, WindowCaption };
+                       WindowTitle, WindowBody, WindowCaption, Lyric, LyricSung };
 
 // sRGB plus opacity. As an activity's accent (decision 010) it tints only
 // live data: progress fills (bar and ring), the current step, waveform bars.

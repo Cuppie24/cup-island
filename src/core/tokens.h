@@ -160,6 +160,11 @@ struct Tokens {
     float captionFontWeight = 600;
     float displayFontWeight = 300; // big and still the lightest, like a clock face
     float cardTitleFontWeight = 800;
+    // A page of lyrics (decision 180): its lines, and the one being sung; five lines to the page.
+    float lyricFontSize = 22;
+    float lyricFontWeight = 600;
+    float lyricSungFontSize = 26;
+    float lyricSungFontWeight = 800;
     float heroFontWeight = 800;    // heavy: the card's timer reads from across the desk (decision 107)
     float headingFontWeight = 600; // a group's label is quiet: its group's background sets it apart (decision 090)
     float pageTitleFontWeight = 800; // heavier: the page's one name (decision 112)

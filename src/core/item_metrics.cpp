@@ -223,6 +223,8 @@ float fontSize(TextStyle style)
     case TextStyle::PageTitle: return t.pageTitleFontSize;
     case TextStyle::Hero: return t.heroFontSize;
     case TextStyle::CardTitle: return t.cardTitleFontSize;
+    case TextStyle::Lyric: return t.lyricFontSize;
+    case TextStyle::LyricSung: return t.lyricSungFontSize;
     case TextStyle::WindowTitle: return t.windowTitleFontSize;
     case TextStyle::WindowBody: return t.windowBodyFontSize;
     case TextStyle::WindowCaption: return t.windowCaptionFontSize;

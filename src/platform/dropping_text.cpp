@@ -102,7 +102,11 @@ bool repaintDropping(GraphicsDevice& device, DroppingText& dropping, Vec2 size)
         if (dropping.lineWidth > 0) shown.centred = shown.alignEnd = false;
         Vec2 lineSize{ dropping.lineWidth > 0 ? dropping.lineWidth : size.x, size.y };
         // Under the pointer (a line that takes a click): as bright as text gets.
-        std::optional<Color> ink = dropping.lit ? std::optional<Color>(tokens().titleTextColor) : std::nullopt;
+        // A break's note sign is in a title's style, already that bright: at rest it's drawn as quiet
+        // as a line's words, so the pointer on it shows as it does on them.
+        std::optional<Color> ink = dropping.lit ? std::optional<Color>(tokens().titleTextColor)
+                                   : !shown.actionId.empty() && shown.value == kLyricBreak ? std::optional<Color>(tokens().bodyTextColor)
+                                                                                        : std::nullopt;
         auto draw = [&](ID2D1DeviceContext* target) { paintText(target, device.dwrite(), shown, lineSize, ink); };
         if (dropping.grey) paintGrey(dc, draw); // a muted tab's (decision 072)
         else draw(dc);

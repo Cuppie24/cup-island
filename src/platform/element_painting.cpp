@@ -228,6 +228,8 @@ TextLook lookOf(TextStyle style)
     case TextStyle::WindowTitle: return { t.windowTitleFontSize, t.titleTextColor, t.windowTitleFontWeight }; // decision 112
     case TextStyle::WindowBody: return { t.windowBodyFontSize, t.bodyTextColor, t.windowBodyFontWeight };
     case TextStyle::WindowCaption: return { t.windowCaptionFontSize, t.captionTextColor, t.windowCaptionFontWeight };
+    case TextStyle::Lyric: return { t.lyricFontSize, t.bodyTextColor, t.lyricFontWeight }; // a page of lyrics (decision 180)
+    case TextStyle::LyricSung: return { t.lyricSungFontSize, t.titleTextColor, t.lyricSungFontWeight };
     }
     return { t.bodyFontSize, t.bodyTextColor, t.bodyFontWeight };
 }
