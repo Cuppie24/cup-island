@@ -168,8 +168,15 @@ struct Menu {
 // The pill under a file dialog was clicked (decision 181, core/file_dialog.h):
 // the island is lent to the dialog. It hangs under it, showing the card that
 // picks files, until that card closes; then it's back in its own place.
+// It goes there and back unseen, in one step, and is seen only opening from
+// where the dialog's pill is and closing back to it:
+//   Arriving: put under the dialog as it rests, not yet seen; the card opens next (PickerOpened);
+//   Open:     the picking card is open there;
+//   Leaving:  the card closed, the island is closing to a pill there; the app takes it home (PickerLeft).
 struct Picker {
-    float centre = 0; // the card is centred here (render-layer x): the dialog's middle
+    float centre = 0; // it's centred here (render-layer x): the dialog's middle
+    enum class Stage { Arriving, Open, Leaving };
+    Stage stage = Stage::Arriving;
     bool operator==(const Picker&) const = default;
 };
 
@@ -188,11 +195,13 @@ struct ActivityUpdated { std::string id; Content content; };
 struct ActivityEnded { std::string id; };
 struct AlertPosted { Alert alert; };
 struct PillClicked {};
-// The pill under a file dialog was clicked (decision 181): the picking card
-// opens, hung under the dialog. `centre`: Picker::centre. Nothing without such a card.
-struct PickerOpened { float centre = 0; };
-struct PickerMoved { float centre = 0; }; // the dialog moved under an open picking card
+// The pill under a file dialog was clicked (decision 181): the island is under
+// the dialog (Picker::Arriving). `centre`: Picker::centre. Nothing without a picking card.
+struct PickerHung { float centre = 0; };
+struct PickerOpened {};                   // ...and, put there, opens the picking card (Picker::Open)
+struct PickerMoved { float centre = 0; }; // the dialog moved while the island is lent to it
 struct PickerClosed {};                   // the dialog went, or something else is in front: the picking card closes
+struct PickerLeft {};                     // the app took the island home after Picker::Leaving
 // A click in the top band of an expanded island (Scene::collapseZone): it always
 // closes, a card that keeps open or a pinned island too (decision 108).
 struct TopClicked {};
@@ -268,7 +277,7 @@ struct ClockSynced {
 };
 
 using Event = std::variant<ActivityStarted, ActivityUpdated, ActivityEnded, AlertPosted,
-                           PillClicked, PickerOpened, PickerMoved, PickerClosed, TopClicked, ClickedOutside, EscapePressed, PointerMoved,
+                           PillClicked, PickerHung, PickerOpened, PickerMoved, PickerClosed, PickerLeft, TopClicked, ClickedOutside, EscapePressed, PointerMoved,
                            DragEntered, DragLeft, Dropped, HiddenChanged, Tick,
                            BubbleClicked, ActivityPromoted, ActivitySwitched,
                            BubbleDragged, BubbleReleased, BubbleDragCancelled,

@@ -91,8 +91,11 @@ void settle(IslandState& s, Ms now)
     }
     if (s.card.toast && now >= s.card.toast->until) s.card.toast.reset(); // a toast goes by itself (decision 071)
     // Lent to a file dialog only while the picking card is open (decision 181):
-    // closed any way (Esc, a click elsewhere, a critical alert), the island is back in its place.
-    if (s.picker && !(isExpanded(s) && isPickingCard(s, s.expandedId))) s.picker.reset();
+    // closed any way (Esc, a click elsewhere, a critical alert), it closes
+    // there and leaves. Hidden, there's nothing to close: it's home.
+    if (s.picker && s.picker->stage == Picker::Stage::Open && !(isExpanded(s) && isPickingCard(s, s.expandedId)))
+        s.picker->stage = Picker::Stage::Leaving;
+    if (s.picker && s.hidden) s.picker.reset();
     dropStaleOverlays(s); // a draft, dialog or toast goes with its card
     dropStaleMenu(s);     // ...and a row's menu, or when its row changed (decision 086)
     focusFieldFirst(s);   // ...and a card that is its field has it at once (decision 079)
@@ -168,13 +171,23 @@ void handle(IslandState& s, const AlertPosted& e, Ms now)
     if (postAlert(s, e.alert, now)) collapse(s); // only critical interrupts Expanded
 }
 void handle(IslandState& s, const PillClicked&, Ms now) { onClick(s, now); }
-// The pill under a file dialog (decision 181): the island goes there with the picking card.
-void handle(IslandState& s, const PickerOpened& e, Ms now)
+// The pill under a file dialog (decision 181): the island goes there as it rests, then opens the picking card.
+void handle(IslandState& s, const PickerHung& e, Ms)
 {
-    std::string card = pickingCard(s);
-    if (card.empty() || s.hidden) return;
-    s.picker = Picker{ e.centre };
+    if (pickingCard(s).empty() || s.hidden) return;
+    collapse(s);
     s.alert.reset(); // as a click on an alert takes it away
+    s.picker = Picker{ e.centre };
+}
+void handle(IslandState& s, const PickerOpened&, Ms now)
+{
+    if (!s.picker || s.picker->stage != Picker::Stage::Arriving) return;
+    std::string card = pickingCard(s);
+    if (card.empty()) {
+        s.picker.reset();
+        return;
+    }
+    s.picker->stage = Picker::Stage::Open;
     expand(s, card, now);
 }
 void handle(IslandState& s, const PickerMoved& e, Ms)
@@ -183,10 +196,13 @@ void handle(IslandState& s, const PickerMoved& e, Ms)
 }
 void handle(IslandState& s, const PickerClosed&, Ms)
 {
-    if (isPickingCard(s, s.expandedId)) collapse(s); // nothing left to give a file to; settle() sends the island home
+    if (s.picker && s.picker->stage == Picker::Stage::Arriving) s.picker.reset(); // never seen there: simply home
+    if (isPickingCard(s, s.expandedId)) collapse(s); // nothing left to give a file to; settle() has it leave
 }
+void handle(IslandState& s, const PickerLeft&, Ms) { s.picker.reset(); }
 void handle(IslandState& s, const TopClicked&, Ms)
 {
+    if (s.picker) return; // under a file dialog its top is the dialog's edge, not a band to click (decision 181)
     if (isExpanded(s)) collapse(s); // whatever would keep it open: the top always closes (decision 108)
 }
 void handle(IslandState& s, const ClickedOutside&, Ms)

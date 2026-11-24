@@ -38,14 +38,16 @@
 //            pick <card> <list> <row> <y>  carry <y>  put-down
 //            screen <width>  hold  move <dx>  let-go  restore <dock> [fraction]      (lifting the island, decision 026)
 //            cross <width> <x>                                                      (...onto another monitor, the pointer at x on it, decision 178)
-//            picker <centre x>  picker-moved <centre x>  picker-gone               (a file dialog's pill clicked, decision 181: the island
-//                                                                     hangs under the dialog; panel <id> picker is the card that picks files)
+//            picker <centre x>  picker-open  picker-moved <centre x>  picker-gone  picker-left
+//                                                                    (a file dialog's pill clicked, decision 181: the island is put under
+//                                                                     the dialog, opens the picking card there; the dialog moved, went;
+//                                                                     the app took the island home. panel <id> picker is that card)
 // Checks after "->":  <Mode>  queue=<n>  top=<activity>  bubble=<activity>  alert=<name>
 //                     expanded=<activity|panel|none>  pinned=<activity>  dragging=yes|no  preview=yes|no
 //                     draft=<text>|empty|none  (_ for a space)  dialog=<card>|none
 //                     caret=<byte offset>  selected=<text>|none  (_ for a space)
 //                     lifted=yes|no  spot=centre|left|right|free  stay=yes|no  tabs=top|bottom
-//                     picking=yes|no  (lent to a file dialog, hung under it)  pill=<the shape's left edge's x, at the mode's width>
+//                     picking=no|arriving|open|leaving  (lent to a file dialog: Picker::Stage)  zone=yes|no (the top band that closes)  pill=<the shape's left edge's x, at the mode's width>
 //                     scroll=<card>/<list>:<offset>[+reveal]  carried=<row>|none  squash=yes|no (a press on empty space, decision 071)
 //                     toast=<card>|none
 //                     menu=<card>/<row>|none  lit=<item>|none   (the island's open menu, and its lit item)
@@ -183,7 +185,9 @@ struct Runner {
             }
             apply(AlertPosted{ a });
         } else if (cmd == "click") apply(PillClicked{});
-        else if (cmd == "picker") apply(PickerOpened{ std::stof(arg(1)) });
+        else if (cmd == "picker") apply(PickerHung{ std::stof(arg(1)) });
+        else if (cmd == "picker-open") apply(PickerOpened{});
+        else if (cmd == "picker-left") apply(PickerLeft{});
         else if (cmd == "picker-moved") apply(PickerMoved{ std::stof(arg(1)) });
         else if (cmd == "picker-gone") apply(PickerClosed{});
         else if (cmd == "top-click") apply(TopClicked{}); // the expanded island's top band (decision 108)
@@ -394,8 +398,12 @@ struct Runner {
                 std::string got = names[static_cast<int>(state.spot.dock)];
                 if (got != *v) fail("spot=" + *v + ", got " + got);
             } else if (auto v = option(word, "picking")) {
-                std::string got = state.picker ? "yes" : "no";
+                const char* stages[] = { "arriving", "open", "leaving" };
+                std::string got = state.picker ? stages[static_cast<int>(state.picker->stage)] : "no";
                 if (got != *v) fail("picking=" + *v + ", got " + got);
+            } else if (auto v = option(word, "zone")) {
+                std::string got = layout(state, now, [](const Text&) { return 0.0f; }).collapseZone ? "yes" : "no";
+                if (got != *v) fail("zone=" + *v + ", got " + got);
             } else if (auto v = option(word, "pill")) {
                 std::string got = std::to_string(static_cast<int>(placementOf(state, mode(state)).pillX));
                 if (got != *v) fail("pill=" + *v + ", got " + got);

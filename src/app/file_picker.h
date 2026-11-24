@@ -1,10 +1,14 @@
 #pragma once
 // The app's side of a file dialog in front (decision 181): a pill of its own
-// under the dialog (platform/picker_pill); clicked, the island's layers are
-// hung under the dialog and core opens the picking card there
-// (PickerOpened); when that card closes the layers go home and the pill is
+// by the dialog (platform/picker_pill); clicked, the island is lent to the
+// dialog and opens the picking card where the pill was; when that card has
+// closed back to a pill there, the island goes home and the dialog's pill is
 // back. Search is told while a dialog is in front, so its card picks.
-// The rules are core's (core/file_dialog.h); this makes the calls.
+// The rules are core's (core/file_dialog.h, Picker); this makes the calls.
+//
+// The island is never watched travelling between the top of the screen and
+// the dialog (its layers jump): it's made invisible, put there in one step,
+// and shown the moment it takes the pill's place.
 
 #include "core/island.h"
 
@@ -39,11 +43,9 @@ struct FilePickerHooks {
     std::function<void(std::optional<HangPlace>)> hang;
     std::function<float()> layerLeft; // the render layer's left edge, screen pixels: after hang(), the dialog's monitor's
     std::function<void()> focus;      // the island takes the keys: the card's field is typed in at once
-    // The island was made invisible for its jump between its own place and
-    // the dialog (main's dispatch does that when IslandState::picker comes
-    // or goes): now it's there, it fades in.
-    std::function<void()> unveil;
-    std::function<void()> veil;       // ...and invisible before the layers move to the dialog
+    std::function<void()> veil;       // the island invisible, at once
+    std::function<void(bool fade)> unveil; // ...and seen again: at once, or fading in over pickerFade
+    std::function<Ms()> morphTime;    // how long the morph just started runs
     SearchProvider* search = nullptr; // its card picks the file (SearchProvider::setPicking)
 };
 
@@ -62,7 +64,7 @@ bool filePickerShortcut();
 // False with no dialog in front.
 bool sayByFileDialog(const std::string& text);
 
-// After every dispatch: the picking card closed, so the island goes home and the pill is back.
+// After every dispatch: the picking card closed, so the island leaves and the pill is back.
 void settleFilePicker();
 
 } // namespace cup::app

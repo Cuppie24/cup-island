@@ -21,12 +21,12 @@ namespace cup::platform {
 void createPickerPill(HINSTANCE instance, wuc::Compositor const& compositor, GraphicsDevice& device, std::function<void()> onClick);
 
 // Shown at `frame` (screen pixels; core/file_dialog.h: pillPlace), drawn in
-// the theme's colours as they are now, and raised over the other ordinary
-// windows (never over the taskbar). Its flat side, with the island's flared
-// corners, is the one on the dialog: its top, or with `above` its bottom.
-// Called again while shown, it moves and is raised again.
-void showPickerPill(Rect frame, bool above);
-void hidePickerPill(); // fades out, then its window hides
+// the theme's colours as they are now, on top of every window. Its flat
+// side, with the island's flared corners, is the one on the dialog: its top,
+// or with `above` its bottom. Called again while shown, it moves.
+// `atOnce`: no fade, when the island takes its place or gives it back.
+void showPickerPill(Rect frame, bool above, bool atOnce = false);
+void hidePickerPill(bool atOnce = false); // fades out, then its window hides
 
 // `text` on the pill in place of its glyph, for pickerNote from now: the pill
 // is as wide as it needs. Said while hidden, it's there when the pill shows.

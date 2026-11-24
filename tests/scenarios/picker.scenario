@@ -1,47 +1,73 @@
 # A file dialog (Windows' Open or Save) in front (decision 181): a pill of its
-# own sits under it. Clicked, the island is lent to the dialog: it hangs
-# under it with the card that picks files, and is back in its own place when
-# that card closes, however it closes.
+# own sits by it. Clicked, the island is lent to the dialog: put under it as
+# it rests (arriving, unseen), it opens the card that picks files (open);
+# when that card closes, however it closes, it closes there (leaving) and the
+# app takes it home.
 # Default tokens: idle pill 160 wide, an expanded card 480. A 1000-wide screen.
 
-scenario: the dialog's pill opens the picking card, hung under the dialog
+scenario: the dialog's pill puts the island under the dialog, where it opens the picking card
 screen 1000
 restore left
 panel timer
 panel search picker
-picker 300                          -> Expanded expanded=search picking=yes pill=60 spot=left    # 480 wide, centred on 300
+picker 300                          -> Idle picking=arriving pill=220 spot=left   # the idle pill, centred on 300
+picker-open                         -> Expanded expanded=search picking=open pill=60
 picker-moved 600                    -> pill=360                 # the dialog moved
-picker-gone                         -> Idle picking=no pill=0   # nothing left to give a file to: back in its place
+picker-gone                         -> Idle picking=leaving pill=520   # nothing left to give a file to: it closes there
+picker-left                         -> Idle picking=no pill=0   # and is back in its place
 
 scenario: with no dialog the island is as ever
 panel timer
 panel search picker
-click                               -> Expanded expanded=timer picking=no
-card search                         -> Expanded expanded=search picking=no   # Search from its button or shortcut: in the island's own place
+click                               -> Expanded expanded=timer picking=no zone=yes
+card search                         -> Expanded expanded=search picking=no   # Search from its button: in the island's own place
 
-scenario: the card closed any way sends the island home
+scenario: the card closed any way closes there, then the island goes home
 screen 1000
 panel search picker
 picker 300
-esc                                 -> Idle picking=no
+picker-open
+esc                                 -> Idle picking=leaving pill=220
+picker-left                         -> picking=no pill=420
 picker 300
-outside                             -> Idle picking=no
+picker-open
+outside                             -> Idle picking=leaving
+picker-left
 picker 300
-close-card search                   -> Idle picking=no          # a file was given to the dialog
-picker 300
-top-click                           -> Idle picking=no
+picker-open
+close-card search                   -> Idle picking=leaving     # a file was given to the dialog
+picker-left                         -> picking=no
 
-scenario: another card instead of the picking one is in the island's own place
+scenario: under a dialog the card has no top band that closes it
 screen 1000
-panel timer
 panel search picker
-picker 300                          -> picking=yes
-card timer                          -> Expanded expanded=timer picking=no pill=260
+picker 300
+picker-open                         -> Expanded zone=no
+top-click                           -> Expanded expanded=search picking=open
+
+scenario: the pill takes the island from whatever it showed, and it comes back to that
+panel timer keep
+panel search picker
+start a
+click                               -> Expanded expanded=a
+picker 400                          -> Compact picking=arriving  # the open card closed: it arrives as a pill
+picker-open                         -> Expanded expanded=search
+esc                                 -> Compact picking=leaving
+picker-left                         -> Compact picking=no
+alert ping                          -> Alert
+picker 400                          -> Compact picking=arriving
+
+scenario: the dialog going before the card opened: simply home
+panel search picker
+picker 400                          -> picking=arriving
+picker-gone                         -> Idle picking=no
+picker-open                         -> Idle picking=no          # too late: nothing opens
 
 scenario: under a dialog at the screen's edge the card stays on the screen
 screen 1000
 panel search picker
-picker 990                          -> pill=520
+picker 990
+picker-open                         -> pill=520
 
 scenario: with no picking card the pill does nothing; nor while the island is hidden
 panel timer
@@ -49,28 +75,21 @@ picker 400                          -> Idle picking=no
 panel search picker
 hide
 picker 400                          -> Hidden picking=no
+show
+picker 400
+picker-open                         -> Expanded picking=open
+hide                                -> Hidden picking=no         # hidden while lent: home, nothing to close
 
-scenario: the pill takes the island from whatever it showed, and it comes back to that
-panel search picker
-start a
-alert ping                          -> Alert
-picker 400                          -> Expanded expanded=search
-esc                                 -> Compact picking=no
-click                               -> Expanded expanded=a
-picker 400                          -> Expanded expanded=search picking=yes
-
-scenario: a critical alert takes the island back
+scenario: a critical alert takes the card away, and the island leaves
 panel search picker
 start a
 picker 400
-alert fire critical                 -> Alert picking=no
+picker-open
+alert fire critical                 -> Alert picking=leaving
+picker-left                         -> Alert picking=no
 
-scenario: a moving dialog or one going changes nothing when the island isn't lent
-screen 1000
-panel timer keep
+scenario: Search open in the island's own place closes with the dialog too
 panel search picker
-click                               -> Expanded expanded=timer
-picker-moved 300                    -> picking=no pill=260
-picker-gone                         -> Expanded expanded=timer
-card search
-picker-gone                         -> Idle                     # Search open in its own place still closes: it was picking for that dialog
+card search                         -> Expanded expanded=search picking=no
+picker-moved 300                    -> picking=no
+picker-gone                         -> Idle picking=no          # it was picking for that dialog

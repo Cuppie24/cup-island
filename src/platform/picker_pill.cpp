@@ -99,8 +99,7 @@ void place(UINT flags)
 {
     Rect at = windowFrame();
     paint({ at.width, at.height });
-    // Over the other ordinary windows each time: the dialog's app came forward with it.
-    SetWindowPos(g_hwnd, HWND_TOP, static_cast<int>(at.x), static_cast<int>(at.y), static_cast<int>(at.width), static_cast<int>(at.height),
+    SetWindowPos(g_hwnd, HWND_TOPMOST, static_cast<int>(at.x), static_cast<int>(at.y), static_cast<int>(at.width), static_cast<int>(at.height),
                  SWP_NOACTIVATE | flags);
 }
 
@@ -145,11 +144,13 @@ void createPickerPill(HINSTANCE instance, wuc::Compositor const& compositor, Gra
     windowClass.lpszClassName = kClassName;
     RegisterClassExW(&windowClass);
 
-    // As the render layer: Composition owns every pixel, never focused, not
-    // in the taskbar. Not click-through: it's there to be clicked. And not
-    // topmost: an ordinary window like the dialog it hangs from, so where the
-    // dialog goes behind the taskbar, so does the pill.
-    g_hwnd = CreateWindowExW(WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, kClassName, L"Cup Island File Pill",
+    // As the render layer: Composition owns every pixel, on top, never
+    // focused, not in the taskbar. Not click-through: it's there to be
+    // clicked. Topmost: as an ordinary window it went behind the dialog's own
+    // app, which comes forward with the dialog. It's only shown while the
+    // dialog is in front, and with no room under the dialog it's above it,
+    // so it isn't left over the taskbar.
+    g_hwnd = CreateWindowExW(WS_EX_NOREDIRECTIONBITMAP | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, kClassName, L"Cup Island File Pill",
                              WS_POPUP, 0, 0, 1, 1, nullptr, nullptr, instance, nullptr);
     if (!g_hwnd) return;
     g_target = createWindowTarget(g_compositor, g_hwnd);
@@ -158,15 +159,21 @@ void createPickerPill(HINSTANCE instance, wuc::Compositor const& compositor, Gra
     g_target.Root(g_visual);
 }
 
-void showPickerPill(Rect frame, bool above)
+void showPickerPill(Rect frame, bool above, bool atOnce)
 {
     if (!g_hwnd || frame.width < 1 || frame.height < 1) return;
     g_frame = frame;
     g_above = above;
-    // It comes by fading in over pickerFade; following the dialog it moves at once, as one piece with it.
-    if (g_stage == Stage::Hidden) g_visual.Opacity(0.0f);
     if (g_stage == Stage::Leaving) KillTimer(g_hwnd, kLeaveTimer);
-    if (g_stage != Stage::Shown) fadeTo(g_compositor, g_visual, 1.0f, tokens().pickerFade); // from wherever a fade out left it
+    if (atOnce) {
+        g_visual.StopAnimation(L"Opacity");
+        g_visual.Opacity(1.0f);
+    } else if (g_stage != Stage::Shown) {
+        // It comes by fading in over pickerFade (from wherever a fade out left it);
+        // following the dialog it moves at once, as one piece with it.
+        if (g_stage == Stage::Hidden) g_visual.Opacity(0.0f);
+        fadeTo(g_compositor, g_visual, 1.0f, tokens().pickerFade);
+    }
     g_stage = Stage::Shown;
     place(SWP_SHOWWINDOW);
 }
@@ -179,10 +186,17 @@ void sayOnPickerPill(const std::string& text)
     if (g_stage == Stage::Shown) place(0);
 }
 
-void hidePickerPill()
+void hidePickerPill(bool atOnce)
 {
     g_pressed = false;
-    if (!g_hwnd || g_stage != Stage::Shown) return;
+    if (!g_hwnd || g_stage == Stage::Hidden) return;
+    if (atOnce) {
+        KillTimer(g_hwnd, kLeaveTimer);
+        g_stage = Stage::Hidden;
+        ShowWindow(g_hwnd, SW_HIDE);
+        return;
+    }
+    if (g_stage != Stage::Shown) return; // already on its way out
     // It goes by fading out; its window hides once nothing of it shows.
     g_stage = Stage::Leaving;
     fadeTo(g_compositor, g_visual, 0.0f, tokens().pickerFade);

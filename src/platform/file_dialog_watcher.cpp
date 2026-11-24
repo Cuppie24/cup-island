@@ -61,13 +61,11 @@ Rect frameOf(HWND hwnd)
     return { static_cast<float>(r.left), static_cast<float>(r.top), static_cast<float>(r.right - r.left), static_cast<float>(r.bottom - r.top) };
 }
 
-// `again`: said even if nothing changed. The dialog came forward again, and
-// its app's windows with it: what hangs from it has to be raised over them.
-void tell(bool again = false)
+void tell()
 {
     std::optional<FileDialogSeen> now;
     if (g_dialog) now = FileDialogSeen{ g_dialog, frameOf(g_dialog) };
-    if (now == g_told && !(again && now)) return;
+    if (now == g_told) return;
     g_told = now;
     g_onChange(now);
 }
@@ -124,7 +122,7 @@ void evaluate(bool mayRecheck)
     GetWindowThreadProcessId(front, &process);
     // The island's own card took the keys: the dialog behind it is still the one.
     if (process == GetCurrentProcessId() || front == g_dialog || (g_dialog && ownedByDialog(front))) {
-        tell(front == g_dialog);
+        tell();
         return;
     }
     std::string cls = classOf(front);
@@ -178,6 +176,11 @@ void watchFileDialogs(std::function<void(std::optional<FileDialogSeen>)> onChang
     // Out of context: delivered through this (UI) thread's message loop.
     SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, nullptr, onWinEvent, 0, 0, WINEVENT_OUTOFCONTEXT);
     evaluate(true); // started with one already open
+}
+
+void focusFileDialog()
+{
+    if (g_dialog && IsWindow(g_dialog)) SetForegroundWindow(g_dialog);
 }
 
 bool giveToFileDialog(const std::string& path)

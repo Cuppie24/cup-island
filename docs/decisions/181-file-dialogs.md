@@ -38,27 +38,33 @@ single click to open it.
   under it, cut off. (Cut off always, as first asked, hid it behind the
   taskbar with the dialog.) It moves with the
   dialog at once, as one piece, fades in and out over `pickerFade`, and
-  never takes the keys. It's an ordinary window, not a topmost one: where
-  the dialog goes behind the taskbar, so does the pill, and it's raised
-  over the dialog's app each time the dialog comes forward. The island
-  stays where it is, as it is.
-- *One click lends the island.* A click on the pill hangs the island's
-  layers under the dialog (on its monitor, at that monitor's scale) and
-  sends `PickerOpened`: core opens the card of the panel with
-  `Panel::picksFiles` (Search), centred on the dialog
-  (`IslandState::picker`, placed like a Free spot, so decision 026's
-  screen-edge rules hold). Search's shortcut does the same while a dialog
-  is in front, and pressed again closes the card. The island isn't watched
-  making the jump: morphing from the top of the screen to the dialog
-  flickered on the first run, so it's made invisible, put there in one step
-  and faded in as the pill fades out (and the same on its way home).
-  The card needs `pickerCardRoom`: when that isn't under the dialog, it
-  opens over the dialog's lower part rather than off the screen. Closed any
+  never takes the keys. It's topmost: as an ordinary window (tried, so it
+  would go behind the taskbar with the dialog) it went behind the dialog's
+  own app. The island stays where it is, as it is.
+- *One click lends the island.* A click on the pill, or Search's shortcut
+  while a dialog is in front, hangs the island's layers under the dialog
+  (on its monitor, at that monitor's scale) and core takes it through three
+  stages (`IslandState::picker`, `Picker::Stage`), placed like a Free spot
+  centred on the dialog, so decision 026's screen-edge rules hold:
+  *Arriving*, it's put there as it rests; *Open*, it opens the card of the
+  panel with `Panel::picksFiles` (Search); *Leaving*, that card closed any
   way (a pick, Esc, a click elsewhere, the dialog going, a critical alert),
-  `picker` is dropped, the layers go home and the pill is back. A second
-  island was the alternative: the renderer, the input window and the app's
-  loop are each built for one, and the island is only away while the user
-  is typing in the picking card.
+  it closes to a pill there, and the app takes it home (`PickerLeft`). The
+  card needs `pickerCardRoom`: when that isn't under the dialog, it opens
+  over the dialog's lower part rather than off the screen. Under a dialog
+  the card has no top band that closes it (decision 108): its top is the
+  dialog's edge. A second island was the alternative: the renderer, the
+  input window and the app's loop are each built for one, and the island is
+  only away while the user is typing in the picking card.
+- *It isn't watched travelling.* The layers jump between the top of the
+  screen and the dialog, and a morph across flickered (so did a cross-fade
+  of the whole card, which was also too quick to read). So the island is
+  made invisible, put under the dialog in one step, and `pickerSwap` later,
+  drawn there, it's shown at once as the dialog's pill is hidden at once:
+  what's seen is the pill opening into the card with the island's own
+  morph. Closing is that backwards: the card closes to a pill, the dialog's
+  pill takes its place, the island fades in at home, and the dialog has the
+  keys again.
 - *Picking.* The app tells Search while a dialog is in front
   (`SearchProvider::setPicking`). Its card then lists files and folders
   only, and nothing before something is typed. A result is given to the
@@ -77,6 +83,8 @@ single click to open it.
   screen; it's back the moment the card closes.
 - Search opened from its page-row button while a dialog is in front opens
   in the island's own place, and picks for the dialog too.
+- The island arrives as it rests: with music playing, the first frame of
+  the opening is its wider music pill, not the dialog's.
 - A dialog of an app running as administrator doesn't take the path from an
   island that isn't: Windows blocks the message, simulated keys too (UIPI).
   The clipboard is shared, so the path is copied instead, the dialog comes

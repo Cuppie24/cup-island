@@ -670,6 +670,10 @@ struct Tokens {
     float pickerCardRoom = 460;
     float pickerGlyphSize = 14; // the search glyph on the pill under the dialog
     Ms pickerFade{ 150 };       // that pill fades in and out over this
+    // The island put under the dialog unseen is shown, opening, this long
+    // after (Composition has drawn it there by then); closed back to a pill
+    // there, it's taken home this long after its morph ends.
+    Ms pickerSwap{ 50 };
     Ms pickerNote{ 5000 };      // a note on it ("Path copied...") stays this long,
     float pickerNotePadding = 14; // ...with this much of the pill either side of its words
     Ms pickerRecheck{ 150 };

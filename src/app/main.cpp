@@ -308,13 +308,22 @@ void tokensChanged(Vec2 oldCanvas, const char* reason);
 // The island unseen, at once, for a jump it shouldn't be watched making (decision 181)...
 void veilIsland()
 {
-    if (g_render.root) g_render.root.Opacity(0.0f);
+    if (!g_render.root) return;
+    g_render.root.StopAnimation(L"Opacity"); // a fade in still running would carry on over the new value
+    g_render.root.Opacity(0.0f);
 }
-// ...and fading in where it now is.
-void unveilIsland()
+// ...and seen where it now is: fading in, or at once (it takes the place of the dialog's pill).
+void unveilIsland(bool fade)
 {
-    if (g_render.root) fadeTo(g_render.compositor, g_render.root, 1.0f, tokens().pickerFade);
+    if (!g_render.root) return;
+    if (fade) {
+        fadeTo(g_render.compositor, g_render.root, 1.0f, tokens().pickerFade);
+        return;
+    }
+    g_render.root.StopAnimation(L"Opacity");
+    g_render.root.Opacity(1.0f);
 }
+Ms g_morphTime{}; // how long the morph the last dispatch started runs
 
 void dispatch(const Event& event, const char* reason)
 {
@@ -357,11 +366,12 @@ void dispatch(const Event& event, const char* reason)
     SceneMotion motion = sceneMotion(g_island.scene, next, flingVelocity(g_drag, t, tokens()), tokens());
     // Lent to a file dialog, or back from one (decision 181): the layers jump
     // between the top of the screen and the dialog, so the island doesn't
-    // morph across; it's put there unseen and fades in (app/file_picker unveils it).
+    // morph across; it's put there unseen, in one step (app/file_picker shows it again).
     if (g_state.picker.has_value() != wasLent) {
         motion = SceneMotion{ .morph = Motion{ .duration = Ms{ 1 } } };
         veilIsland();
     }
+    g_morphTime = motion.morph.duration;
     Applying applying; // until the scene is the shown one, or this is left by an exception
     g_renderer.apply(next, motion);
     Rect bounds = interactiveBounds(next), was = interactiveBounds(g_island.scene);
@@ -932,7 +942,9 @@ void hangLayers(std::optional<app::HangPlace> place)
     if (place && !g_homeDisplay && place->displayId != g_displayId) g_homeDisplay = g_displayId;
     std::string display = place ? place->displayId : g_homeDisplay.value_or(g_displayId);
     if (!place) g_homeDisplay.reset();
-    g_hangTop = place ? std::optional<float>(place->top) : std::nullopt;
+    std::optional<float> top = place ? std::optional<float>(place->top) : std::nullopt;
+    if (top == g_hangTop && display == g_displayId) return; // where they are: a move would start liquid glass over
+    g_hangTop = top;
     if (display != g_displayId) {
         placeIsland(display, std::nullopt);
         return;
@@ -1412,8 +1424,9 @@ int main()
         .hang = hangLayers,
         .layerLeft = [] { return static_cast<float>(g_render.left); },
         .focus = [] { bringToFront(g_inputHwnd); },
-        .unveil = unveilIsland,
         .veil = veilIsland,
+        .unveil = unveilIsland,
+        .morphTime = [] { return g_morphTime; },
         .search = searchProvider,
     });
 

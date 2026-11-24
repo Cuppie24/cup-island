@@ -23,8 +23,7 @@ struct FileDialogSeen {
 // `onChange`: one came in front or moved, or (nothing) it closed or another
 // app's window is in front. The island's own windows in front change
 // nothing: its card takes the keys while the dialog waits. Called on this
-// (the UI) thread, when something changed, and each time the dialog comes
-// forward again (what hangs from it is raised over its app's windows).
+// (the UI) thread, only when something changed.
 void watchFileDialogs(std::function<void(std::optional<FileDialogSeen>)> onChange);
 
 // Gives `path` (UTF-8) to the dialog being watched: put in its "File name"
@@ -34,5 +33,9 @@ void watchFileDialogs(std::function<void(std::optional<FileDialogSeen>)> onChang
 // doesn't, from an island that isn't): that dialog is brought in front all
 // the same, so the caller can leave the path on the clipboard for it.
 bool giveToFileDialog(const std::string& path);
+
+// The dialog being watched gets the keys back: the island's card closed
+// without a pick (Esc), and the user goes on in the dialog.
+void focusFileDialog();
 
 } // namespace cup::platform
