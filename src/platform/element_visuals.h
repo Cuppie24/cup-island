@@ -5,6 +5,7 @@
 // playing track costs no app CPU per frame (TR §5).
 
 #include "core/layout.h"
+#include "platform/dropping_text.h"
 #include "platform/element_art.h"
 #include "platform/graphics_device.h"
 #include "platform/list_viewports.h"
@@ -32,7 +33,9 @@ public:
     // `glide`: what moved glides to its new place instead of jumping there (a window's page, the
     // same size and page as before: a row opened above pushes it down, decision 132). Off while the
     // layout follows a resize, and for what's carried (Placed::carried).
-    void apply(const std::vector<Placed>& elements, Ms now, Ms reveal = Ms{ 0 }, bool glide = false);
+    // `glideFor`: how long that takes (0: scrollDuration); with it, a picture given another size
+    // grows or shrinks to it instead of being swapped (a card's cover, decision 180).
+    void apply(const std::vector<Placed>& elements, Ms now, Ms reveal = Ms{ 0 }, bool glide = false, Ms glideFor = Ms{ 0 });
     // Tokens changed. Colours only (a theme, a cover): shapes fade to the new
     // colours and text is redrawn in place. Anything else (tokens.json, display
     // scale): every visual is dropped, so the next apply() rebuilds it.
@@ -89,6 +92,7 @@ private:
         SwitchParts toggle; // a Switch's track and knob (decision 053)
         SegmentsParts segments; // Segments' track, sliding pill and labels (decision 093)
         RollingText rolling;    // a Hero time: a sprite per character, rolling as it changes (decision 107)
+        DroppingText dropping;  // the line being sung: each new line drops in as a whole (decision 180)
         // A focused field's caret (decision 131): its own sprite over the text, blinking on the compositor.
         wuc::SpriteVisual caret{ nullptr };
         Rect caretFrame; // ...where it is now
@@ -122,6 +126,7 @@ private:
     bool revealedNow(const Placed& placed) const; // a reveal-on-hover item: shown now
     Ms reveal_{}; // the latest apply()'s: what's built during it waits this long
     bool glide_ = false; // ...and whether what moves in it glides
+    Ms glideFor_{};      // ...over this long (0: scrollDuration); set, a resized picture grows or shrinks too
     std::optional<std::string> hoveredTab_;
     bool deviceLost_ = false;
     bool shiny_ = false; // setShiny()

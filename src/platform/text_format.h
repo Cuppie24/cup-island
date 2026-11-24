@@ -14,7 +14,9 @@ std::wstring widen(const std::string& utf8);
 const wchar_t* textFamily(IDWriteFactory* dw, float pixelSize);
 
 // One line, centred vertically in its box, ending in "…" if it doesn't fit.
-winrt::com_ptr<IDWriteTextFormat> format(IDWriteFactory* dw, const wchar_t* family, float size, float weight, DWRITE_TEXT_ALIGNMENT align);
+// `italic`: slanted (the line being sung, decision 180).
+winrt::com_ptr<IDWriteTextFormat> format(IDWriteFactory* dw, const wchar_t* family, float size, float weight, DWRITE_TEXT_ALIGNMENT align,
+                                         bool italic = false);
 
 // Lines exactly `height` apart (core's lineHeight): wrapped text is drawn as
 // tall as core laid it out (decision 045).

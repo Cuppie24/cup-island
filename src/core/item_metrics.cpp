@@ -162,16 +162,19 @@ float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& m
         return bar->wavy ? std::max(height, waveHeight(bar->seekable)) : height; // room for the wave's swing and its knob (decision 167)
     }
     if (auto* label = std::get_if<TimeLabel>(&item)) return lineHeight(label->style);
+    // One line, as slot_layout shows it: words, or a break's bigger note sign. Always room for either, so the row never changes height.
+    if (std::holds_alternative<Lyrics>(item)) return std::max(lineHeight(TextStyle::Body), lineHeight(TextStyle::CardTitle));
     if (auto* icon = std::get_if<Icon>(&item); icon && icon->large) return t.largeIconSize;
     return t.iconSize; // Icon, Waveform
 }
 
-// Fixed width, or nothing for items that stretch (Text, Progress, Divider).
+// Fixed width, or nothing for items that stretch (Text, Progress, Divider, Lyrics).
 std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureText& measure)
 {
     const Tokens& t = tokens();
+    if (auto* bar = std::get_if<Progress>(&item); bar && bar->level && !isRing(item)) return t.levelBarWidth; // a volume (decision 180)
     if (std::holds_alternative<Text>(item) || std::holds_alternative<TextInput>(item) || std::holds_alternative<Divider>(item) ||
-        (std::holds_alternative<Progress>(item) && !isRing(item)))
+        std::holds_alternative<Lyrics>(item) || (std::holds_alternative<Progress>(item) && !isRing(item)))
         return std::nullopt;
     if (std::holds_alternative<Image>(item) || isRing(item) || std::holds_alternative<Dial>(item)) return height; // squares
     if (auto* steps = std::get_if<Steps>(&item)) {
@@ -220,6 +223,8 @@ float fontSize(TextStyle style)
     case TextStyle::PageTitle: return t.pageTitleFontSize;
     case TextStyle::Hero: return t.heroFontSize;
     case TextStyle::CardTitle: return t.cardTitleFontSize;
+    case TextStyle::Lyric: return t.lyricFontSize;
+    case TextStyle::LyricSung: return t.lyricSungFontSize;
     case TextStyle::WindowTitle: return t.windowTitleFontSize;
     case TextStyle::WindowBody: return t.windowBodyFontSize;
     case TextStyle::WindowCaption: return t.windowCaptionFontSize;

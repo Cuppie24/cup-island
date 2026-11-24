@@ -52,9 +52,10 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them;
                 blob_backdrop: what's under a blob, its shadow and glass, decision 089; liquid_glass + liquid_capture + liquid_shader: liquid glass, a captured picture of the desktop bent by a shader, decision 165; its shapes in core/liquid_glass), glass (Windows 11's blurred backdrop, decision 089), provider_window (a provider's window, decision 104), figures (tabular digits centred on their line, decision 094), element_visuals (one visual
-                per content item) + rolling_text (a big time's digits rolling as they change, decision 107), top_glow (the top band lit, decision 108), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts) + tap_hook (double-tap shortcuts, decision 079), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
+                per content item) + rolling_text (a big time's digits rolling as they change, decision 107) + dropping_text (the line being sung dropping in, decision 180), top_glow (the top band lit, decision 108), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts) + tap_hook (double-tap shortcuts, decision 079), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
-                MediaPresenter rules, SMTC provider for real Windows media: its smtc_reader reads sessions on a thread of its own, decision 144),
+                MediaPresenter rules, SMTC provider for real Windows media: its smtc_reader reads sessions on a thread of its own, decision 144;
+                app_volume, the playing app's volume, likewise, decision 180), lyrics/ (the line being sung: LRC text, what to ask LRCLIB, one lookup per song, pure; lrclib_fetch asks, decision 180),
                 pomodoro/ (the first panel: a timer card, the rest in its window, decision 106; tasks in groups, task_board, decision 117), search/ (the search card: apps, Settings, files; decisions 077, 079), service_host (Cup Island's service: setup, updates and providers' calls, decisions 076, 078), system/ (Home's theme and Settings widgets:
                 app themes, windows' own theme (decision 150), the monitor the island was dragged to (decision 178), Start with Windows, Copy logs), update/ (updates from GitHub
                 Releases, offered in Settings with an accent dot, decision 152: versions and offers, pure; installing asks again and takes the latest, decision 172; github.cpp fetches and installs, decision 036)
@@ -111,7 +112,7 @@ A provider (`core/provider.h`) publishes activities and alerts through a
 the renderer. `ProviderRegistry` gives each provider its own Host, which
 stamps the provider id on everything it posts, and routes actions back.
 Content is declarative (`core/content.h`, decision 004): slots of rows of
-items (text, image, icon, button, progress, time label, waveform, swatch). Layout and
+items (text, image, icon, button, progress, time label, waveform, swatch, lyrics). Layout and
 drawing are the host's job, so every provider looks native.
 
 A provider can also publish **panels** (decision 009): always-available
@@ -129,6 +130,7 @@ user acted on it, and the owner gets its own action and may open its window.
 Neither knows the other.
 
 Providers that change on a schedule ask `Host::wakeAt` and get `onWake()`.
+A control that opens under the pointer hears of it through `onHover` (decision 180): a hint, never needed.
 Ctrl+W on an activity's card calls `onCloseRequested()`: the provider ends
 it, asks first, or ignores it (the default; decision 034).
 Keyboard navigation is the host's: providers never see keys or move
@@ -240,7 +242,7 @@ over the file's, so `tokens()` is always what's on screen.
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing), `list_card_tests.cpp` (Settings' List card), `group_tests.cpp` (grouped rows), `badge_tests.cpp` (notification dots),
   `page_row_tests.cpp` (the page row's buttons, the idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop), `command_tests.cpp` (providers' commands through the registry), `search_command_tests.cpp` (commands among Search's results), `pomodoro_stats_tests.cpp` (statistics, days off),
-  `media_tests.cpp` (media presenter), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end, on a fixture card: `todo_card_fixture.h`), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install), `window_tests.cpp` (where a window opens; the registry between providers and their windows), `window_field_tests.cpp` (typing in a window, decision 105).**
+  `media_tests.cpp` (media presenter), `lyrics_tests.cpp` (lyrics and the app's volume on media's card), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end, on a fixture card: `todo_card_fixture.h`), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install), `window_tests.cpp` (where a window opens; the registry between providers and their windows), `window_field_tests.cpp` (typing in a window, decision 105).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
 
@@ -266,6 +268,7 @@ over the file's, so `tokens()` is always what's on screen.
 | Provider API (PS §7 Tier 1), registry, demo music player | done, tested |
 | Switching activities (decision 007): bubble click, drag-to-swap, Expanded tabs, sticky pick | done; rules tested, tab visuals need Windows |
 | Real media provider (SMTC, TR §6): art, controls, seek, multi-app switch, paused media stays (decision 099), its card stays open when left alone (decision 177) | done; rules tested, WinRT part needs Windows |
+| Lyrics from LRCLIB, the line being sung over media's bar, dropping in; the playing app's volume beside the song's name (decision 180) | rules tested; the request, the volume calls and the animation need a Windows run |
 | File index logic (decision 075): USN records, the index, journal changes, queries, snapshots, pipe protocol | done, tested |
 | File index service + cupindex (decision 075, milestone 3) | runs on a real PC: both drives indexed, searches answered as the user |
 | File search installed with the app, self-updating (decision 076, milestone 4): its own admin installer, carried by the app's; set up at the end of setup or at the app's first start; updates from GitHub through the service | rules tested; --install/--uninstall and the update request run under Wine; installers and a real update need a Windows run; the search panel not yet |

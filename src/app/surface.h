@@ -5,6 +5,7 @@
 // surface their window belongs to; what a click means stays core's (hitTest).
 
 #include "core/layout.h"
+#include "core/provider.h"
 #include "core/tabs.h"
 #include "platform/pill_renderer.h"
 #include "platform/win.h"
@@ -24,6 +25,9 @@ struct Pointer {
     bool still = true;
     std::optional<Vec2> lastMove; // the last move's point (the window's): Windows repeats one when windows change under a still pointer
     std::string pressedKey;      // the button under the mouse-down
+    // What the pointer is on, as last told to its provider (Provider::onHover, decision 180):
+    // the action a click there would send.
+    std::optional<Action> hover;
     std::optional<Placed> scrub; // the progress bar being dragged
     float scrubFraction = 0;
     std::optional<Vec2> bubblePress; // mouse-down on the Split bubble, render-layer coordinates

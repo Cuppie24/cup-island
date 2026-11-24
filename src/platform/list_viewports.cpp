@@ -11,11 +11,11 @@ namespace {
 
 // Offset eases from wherever it is now to each new value: a new wheel step
 // mid-glide carries on from there (decision 029).
-wuc::ImplicitAnimationCollection offsetEase(wuc::Compositor const& c)
+wuc::ImplicitAnimationCollection offsetEase(wuc::Compositor const& c, Ms duration)
 {
     auto offset = c.CreateVector3KeyFrameAnimation();
     offset.InsertExpressionKeyFrame(1.0f, L"this.FinalValue", easingFor(c, tokens().morphEase));
-    offset.Duration(tokens().scrollDuration);
+    offset.Duration(std::max(duration, Ms{ 1 }));
     offset.Target(L"Offset");
     auto collection = c.CreateImplicitAnimationCollection();
     collection.Insert(L"Offset", offset);
@@ -37,8 +37,9 @@ wuc::ContainerVisual ListViewports::parentFor(const Placed& placed)
     if (!placed.list) return parent_;
     const InList& in = *placed.list;
     // Built lazily: tokens.json may change the duration, and refresh() clears these.
-    if (!scrollEase_) scrollEase_ = offsetEase(compositor_);
-    if (!glide_) glide_ = offsetEase(compositor_);
+    if (!scrollEase_) scrollEase_ = offsetEase(compositor_, tokens().scrollDuration);
+    if (!followEase_) followEase_ = offsetEase(compositor_, tokens().followScrollDuration);
+    if (!glide_) glide_ = offsetEase(compositor_, tokens().scrollDuration);
     List& list = lists_[keyOf(placed)];
     if (!list.clip) {
         list.clip = compositor_.CreateContainerVisual();
@@ -68,7 +69,9 @@ wuc::ContainerVisual ListViewports::parentFor(const Placed& placed)
             list.scroller.Offset(pixels(0, -in.offset));
             list.scroller.ImplicitAnimations(scrollEase_);
         } else {
-            list.scroller.Offset(pixels(0, -in.offset)); // eases (scrollEase_)
+            // Following a row that moves on (InList::following, decision 180): a slow glide; else the wheel's quick one.
+            list.scroller.ImplicitAnimations(in.following ? followEase_ : scrollEase_);
+            list.scroller.Offset(pixels(0, -in.offset)); // eases
         }
     }
     return list.scroller;
@@ -83,7 +86,7 @@ Vec2 ListViewports::positionOf(const Placed& placed)
 
 void ListViewports::setGliding(wuc::Visual const& visual, bool glide)
 {
-    if (!glide_) glide_ = offsetEase(compositor_);
+    if (!glide_) glide_ = offsetEase(compositor_, tokens().scrollDuration);
     visual.ImplicitAnimations(glide ? glide_ : nullptr);
 }
 
@@ -102,6 +105,7 @@ void ListViewports::clear()
     for (auto& [key, list] : lists_) parent_.Children().Remove(list.clip);
     lists_.clear();
     scrollEase_ = nullptr;
+    followEase_ = nullptr;
     glide_ = nullptr;
 }
 

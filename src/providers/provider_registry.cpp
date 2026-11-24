@@ -75,6 +75,16 @@ public:
         registry_.dispatch_(ListRevealed{ activityId, list, row }, providerId_.c_str());
     }
 
+    void centre(const std::string& activityId, const std::string& list, std::size_t row) override
+    {
+        registry_.dispatch_(ListRevealed{ activityId, list, row, false, true }, providerId_.c_str());
+    }
+
+    void follow(const std::string& activityId, const std::string& list, std::size_t row) override
+    {
+        registry_.dispatch_(ListRevealed{ activityId, list, row, true }, providerId_.c_str());
+    }
+
     void wakeAt(std::optional<Ms> at) override
     {
         Entry* e = registry_.find(providerId_);
@@ -209,6 +219,11 @@ bool ProviderRegistry::isRunning(const std::string& providerId) const
 {
     const Entry* e = find(providerId);
     return e && e->running;
+}
+
+void ProviderRegistry::hover(const Action& what, bool over)
+{
+    if (Entry* e = find(what.providerId); e && e->running) e->provider->onHover(what, over);
 }
 
 void ProviderRegistry::route(const Action& action)

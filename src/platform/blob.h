@@ -52,7 +52,11 @@ public:
     void setHighlighted(bool on);            // drop target: the background lightens (decision 007)
     void setCard(bool on);                   // an open card: its glow lighter, a line of it along the bottom edge (decision 166)
     // `reveal`: new content waits this long (the morph's, decision 080).
-    void setContent(const std::vector<Placed>& elements, Ms now, Ms reveal) { elements_.apply(elements, now, reveal); }
+    // `glideFor` > 0: what moved glides there over it, and a resized cover grows or shrinks (decision 180).
+    void setContent(const std::vector<Placed>& elements, Ms now, Ms reveal, Ms glideFor = Ms{ 0 })
+    {
+        elements_.apply(elements, now, reveal, glideFor > Ms{ 0 }, glideFor);
+    }
     ElementVisuals& elements() { return elements_; } // hover, press, scrub feedback on content
     // Expanded's page row (pill coordinates; nullopt = none, decision 165):
     // the shape behind the shown page's icon glides to a newly picked one;

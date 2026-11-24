@@ -168,11 +168,13 @@ bool raiseBest(const Search& search)
     return true;
 }
 
+// Store app ids look like "Package_hash!App"; desktop apps' usually name
+// their exe, else their shortcut does (shortcutTarget).
+bool isPackaged(const std::wstring& appId) { return appId.find(L'!') != std::wstring::npos; }
+
 bool openApp(const std::wstring& appId, const std::wstring& title)
 {
-    // Store app ids look like "Package_hash!App"; desktop apps' usually name
-    // their exe, else their shortcut does (shortcutTarget).
-    bool packaged = appId.find(L'!') != std::wstring::npos;
+    bool packaged = isPackaged(appId);
     std::vector<std::wstring> stems{ packaged ? L"" : exeStem(appId) };
     if (!packaged)
         if (std::wstring exe = shortcutTarget(appId); !exe.empty() && exeStem(exe) != stems[0]) stems.push_back(exeStem(exe));
@@ -197,6 +199,16 @@ bool openApp(const std::wstring& appId, const std::wstring& title)
 }
 
 } // namespace
+
+std::vector<std::wstring> appExeStems(const std::wstring& appId)
+{
+    if (isPackaged(appId)) return {};
+    std::vector<std::wstring> stems{ exeStem(appId) };
+    if (std::wstring exe = shortcutTarget(appId); !exe.empty() && exeStem(exe) != stems[0]) stems.push_back(exeStem(exe));
+    return stems;
+}
+
+std::wstring exeStemOfProcess(unsigned long pid) { return exeStem(processPath(pid)); }
 
 void openSourceApp(const std::wstring& appId, const std::wstring& title)
 {

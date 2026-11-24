@@ -15,6 +15,7 @@ void runContentTests();
 void runProviderTests();
 void runCommandTests();
 void runMediaTests();
+void runLyricsTests();
 void runFullscreenTests();
 void runPageRowTests();
 void runPomodoroTests();
@@ -65,6 +66,7 @@ int main(int argc, char** argv)
     runProviderTests();
     runCommandTests();
     runMediaTests();
+    runLyricsTests();
     runFullscreenTests();
     runPageRowTests();
     runPomodoroTests();

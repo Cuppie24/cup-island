@@ -207,8 +207,32 @@ std::optional<Vec2> hoverPoint(const app::Surface& s)
 // What's under the pointer changed without it moving: it lights nothing until it does (decision 087).
 void pointerStill(app::Surface& s) { s.pointer.still = true; }
 
+// Tells providers what the pointer is on (Provider::onHover, decision 180): the action a
+// click there would send, by where the pointer is, still or not (what it opens comes under
+// a still pointer, and must stay open). A bar being dragged keeps the pointer, even off it.
+// The new one first, then the old one's leaving: moving from a button onto what it opened
+// never reads as leaving both. Kept before the calls: a provider's answer lays out again.
+void tellHover(app::Surface& s)
+{
+    if (!g_providers) return;
+    std::optional<Action> now;
+    if (s.pointer.scrub) {
+        if (auto* bar = std::get_if<Progress>(&s.pointer.scrub->item))
+            now = Action{ s.pointer.scrub->providerId, s.pointer.scrub->activityId, seekAction(*bar), 0 };
+    } else if (s.pointer.at) {
+        if (auto hit = hitTest(s.scene, *s.pointer.at)) now = hit->action;
+    }
+    if (now) now->value = 0, now->text.clear(); // what it's on, not where on it
+    std::optional<Action> was = s.pointer.hover;
+    if (now == was) return;
+    s.pointer.hover = now;
+    if (now) g_providers->hover(*now, true);
+    if (was) g_providers->hover(*was, false);
+}
+
 void updateHover(app::Surface& s)
 {
+    tellHover(s);
     std::optional<Vec2> at = hoverPoint(s);
     // The top band (decision 108): it glows, and what's under it doesn't light up: a click there closes.
     bool onTop = at && !s.pointer.scrub && inCollapseZone(s.scene, *at);
@@ -465,6 +489,15 @@ void dropListRow(app::Surface& s, bool commit)
         g_providers->route({ dragged->providerId, dragged->activityId, dragged->list->moveAction, static_cast<float>(dragged->list->dropAt) });
 }
 
+// A level's bar (a volume) is heard as it's dragged, not only when it's let
+// go (Progress::level, decision 180): its action at every step. By value:
+// the provider's update lays the scene out again.
+void routeLevel(Placed bar, float fraction)
+{
+    auto* level = std::get_if<Progress>(&bar.item);
+    if (level && level->level) g_providers->route({ bar.providerId, bar.activityId, seekAction(*level), fraction });
+}
+
 // Mouse-down: the bubble may become a drag, a progress bar starts scrubbing,
 // a button gets its own press feedback, anything else squashes the pill.
 void onPressDown(app::Surface& s, Vec2 canvasPoint)
@@ -511,6 +544,7 @@ void onPressDown(app::Surface& s, Vec2 canvasPoint)
         s.pointer.scrub = *element;
         s.pointer.scrubFraction = hit->action.value;
         s.renderer->scrubElement(hit->key, s.pointer.scrubFraction);
+        routeLevel(*s.pointer.scrub, s.pointer.scrubFraction); // a volume: set from the press on
     } else if (element) {
         s.pointer.pressedKey = hit->key;
         s.pointer.textPress = point;
@@ -573,6 +607,8 @@ void onPointerMoved(app::Surface& s, Vec2 canvasPoint, bool inside)
     if (s.pointer.scrub) {
         s.pointer.scrubFraction = seekFraction(*s.pointer.scrub, point.x);
         s.renderer->scrubElement(s.pointer.scrub->key, s.pointer.scrubFraction);
+        // A level (a volume) is heard as it's dragged, not only when it's let go (decision 180).
+        routeLevel(*s.pointer.scrub, s.pointer.scrubFraction);
     }
     dispatch(PointerMoved{}, "pointer"); // keeps Expanded open while in use; refreshes hover
 }
@@ -663,7 +699,8 @@ void onPressRelease(app::Surface& s, Vec2 canvasPoint, Release how)
         Placed bar = *std::exchange(s.pointer.scrub, std::nullopt);
         bool commit = how != Release::Cancelled;
         s.renderer->endScrub(bar.key, commit ? std::optional<float>(s.pointer.scrubFraction) : std::nullopt, now());
-        if (commit) g_providers->route({ bar.providerId, bar.activityId, "seek", s.pointer.scrubFraction });
+        auto* progress = std::get_if<Progress>(&bar.item);
+        if (commit) g_providers->route({ bar.providerId, bar.activityId, progress ? seekAction(*progress) : "seek", s.pointer.scrubFraction });
         dispatch(PointerMoved{}, "seek");
         return;
     }
@@ -676,7 +713,9 @@ void onPressRelease(app::Surface& s, Vec2 canvasPoint, Release how)
         return;
     }
     s.renderer->pressRelease(false);
-    if (how == Release::Inside && onShape(s, canvasPoint) && !hitTest(s.scene, point)) dispatch(PillClicked{}, "click");
+    // A click on a disabled control does nothing, as it does nothing there: it doesn't close the card either.
+    if (how == Release::Inside && onShape(s, canvasPoint) && !hitTest(s.scene, point) && !onDisabledControl(s.scene, point))
+        dispatch(PillClicked{}, "click");
 }
 
 // Sends the focused field's text to its provider: what was typed (Enter), or
@@ -1145,7 +1184,7 @@ int main()
     });
     g_providers->onWindowsChanged(app::syncWindows);
     g_providers->onWakesChanged([] { armDeadline(now()); }); // a wake asked outside a dispatch (decision 163)
-    g_providers->add(std::make_unique<SmtcMediaProvider>(postToUi));
+    g_providers->add(std::make_unique<SmtcMediaProvider>(postToUi, CUP_VERSION_STRING));
     g_providers->add(std::make_unique<DemoMediaProvider>()); // M key
     g_providers->add(std::make_unique<ThemeProvider>(postToUi));
     // Fake statistics on its settings page (decision 061): Debug builds, or any build started under a

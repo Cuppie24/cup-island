@@ -24,8 +24,10 @@ std::optional<Hit> hitIn(const std::vector<Placed>& elements, Vec2 point)
             return Hit{ { p.providerId, p.activityId, input->actionId, 0 }, p.key };
         if (auto* text = std::get_if<Text>(&p.item); text && !text->editAction.empty()) // the app starts editing it (decision 043)
             return Hit{ { p.providerId, p.activityId, text->editAction, 0 }, p.key };
+        if (auto* text = std::get_if<Text>(&p.item); text && !text->actionId.empty()) // a text that's clicked like a button (decision 180)
+            return Hit{ { p.providerId, p.activityId, text->actionId, 0 }, p.key };
         if (auto* progress = std::get_if<Progress>(&p.item); progress && progress->seekable && progress->shape == ProgressShape::Bar && p.frame.width > 0)
-            return Hit{ { p.providerId, p.activityId, "seek", seekFraction(p, point.x) }, p.key };
+            return Hit{ { p.providerId, p.activityId, seekAction(*progress), seekFraction(p, point.x) }, p.key };
     }
     return std::nullopt;
 }
@@ -37,6 +39,18 @@ std::optional<Hit> hitTest(const Scene& scene, Vec2 point)
     // A toast floats over the content (decision 071): its button first, and the rest of it hides what's under it.
     if (scene.toast && scene.toast->frame.contains(point)) return hitIn(scene.toast->elements, point);
     return hitIn(scene.elements, point);
+}
+
+bool onDisabledControl(const Scene& scene, Vec2 point)
+{
+    if (hitTest(scene, point)) return false;
+    for (const Placed& p : scene.elements) {
+        if (!p.hitFrame.contains(point)) continue;
+        if (auto* button = std::get_if<Button>(&p.item); button && !button->enabled) return true;
+        if (auto* toggle = std::get_if<Switch>(&p.item); toggle && !toggle->enabled) return true;
+        if (auto* segments = std::get_if<Segments>(&p.item); segments && !segments->enabled) return true;
+    }
+    return false;
 }
 
 std::string rowAt(const Scene& scene, Vec2 point)
@@ -59,6 +73,8 @@ bool lightsAt(const Placed& p, Vec2 point)
     if (std::holds_alternative<Button>(p.item) && !p.litByRow) return p.frame.contains(point);
     return p.hitFrame.contains(point);
 }
+
+std::string seekAction(const Progress& bar) { return bar.actionId.empty() ? "seek" : bar.actionId; }
 
 float seekFraction(const Placed& progress, float x)
 {

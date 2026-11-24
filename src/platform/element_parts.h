@@ -8,6 +8,7 @@
 #include "platform/progress_wave.h"
 #include "platform/win.h"
 
+#include <functional>
 #include <vector>
 
 namespace cup::platform {
@@ -23,7 +24,15 @@ void fadeTo(wuc::Compositor const& c, wuc::Visual const& visual, float opacity, 
 void fadeInSurface(wuc::SpriteVisual const& host, wuc::CompositionDrawingSurface const& fresh, Ms duration);
 // Moved (a row opened above it pushes it down, decision 132): from where it was to `to`, eased,
 // both ends given (decision 008). Its Offset is `to` from the start: nothing else waits on it.
-void glideFrom(wuc::Compositor const& c, wuc::Visual const& visual, wfn::float3 from, wfn::float3 to);
+// `duration`: 0 = scrollDuration, as a list's rows glide.
+void glideFrom(wuc::Compositor const& c, wuc::Visual const& visual, wfn::float3 from, wfn::float3 to, Ms duration = Ms{ 0 });
+// A pill growing out of its start (GroupFill::unrolls, decision 180): `in`, from a square of its
+// height at its left end to its whole `size`; out, back to it, fading, then `done`. Its CenterPoint its middle.
+void unroll(wuc::Compositor const& c, wuc::Visual const& visual, Vec2 size, wfn::float3 at, bool in, std::function<void()> done = {});
+// Built at its new size `to` and place `at`, it grows or shrinks there from the size `from` and the
+// place `was` it had, its top left corner leading (a card's cover, decision 180). Its CenterPoint
+// must be its middle, as every element's is.
+void resizeFrom(wuc::Compositor const& c, wuc::Visual const& visual, Vec2 from, Vec2 to, wfn::float3 was, wfn::float3 at, Ms duration);
 void playScale(wuc::Compositor const& c, wuc::Visual const& visual, float scale, Ms duration, Bezier curve);
 // A colour (a brush's, a shadow's) to a new one (a cover, a theme; decision 051): over recolorDuration() (the picked speed, decision 053).
 void fadeColor(wuc::CompositionObject const& target, const Color& color);

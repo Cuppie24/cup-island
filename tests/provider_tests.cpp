@@ -101,7 +101,7 @@ void runProviderTests()
 
     island.state = reduce(island.state, PillClicked{}, island.now);
     expect(mode(island.state) == Mode::Expanded, "click expands");
-    const std::string playPause = "expandedBottom/1/1";
+    const std::string playPause = "expandedBottom/controls/1";
     expect(island.button(playPause) && island.button(playPause)->glyph == Glyph::Pause, "playing shows pause");
 
     island.now = Ms{ 5000 };
@@ -114,7 +114,7 @@ void runProviderTests()
         if (p.key == playPause)
             expect(std::abs(p.frame.y + p.frame.height - (card.size.y - tk.expandedPadding)) < 0.01f,
                    "the tallest control, play, keeps the same bottom margin as the sides");
-        if (p.key == "expandedBottom/1/2") {
+        if (p.key == "expandedBottom/controls/2") {
             const Placed* play = nullptr;
             for (const Placed& q : card.elements)
                 if (q.key == playPause) play = &q;
@@ -154,13 +154,13 @@ void runProviderTests()
     Scene paused = island.scene();
     const Progress* progress = nullptr;
     for (const Placed& p : paused.elements)
-        if (p.key == "expandedBottom/0/1") progress = std::get_if<Progress>(&p.item);
+        if (p.key == "expandedBottom/bar/1") progress = std::get_if<Progress>(&p.item);
     expect(progress && !progress->timeline.playing && progress->timeline.position == Ms{ 5000 },
            "pause freezes the timeline where it was");
 
     // Shuffle (leading) and repeat (trailing) are toggles that light up, at the
     // row's edges, apart from the skips (decision 168).
-    const std::string repeat = "expandedBottom/1/3", shuffle = "expandedBottom/1/4";
+    const std::string repeat = "expandedBottom/controls/3", shuffle = "expandedBottom/controls/4";
     {
         Scene controls = island.scene();
         auto at = [&](const std::string& key) {
@@ -168,12 +168,12 @@ void runProviderTests()
                 if (p.key == key) return p.frame;
             return Rect{};
         };
-        Rect prev = at("expandedBottom/1/0"), next = at("expandedBottom/1/2"), sh = at(shuffle), re = at(repeat), bar = at("expandedBottom/0/1");
+        Rect prev = at("expandedBottom/controls/0"), next = at("expandedBottom/controls/2"), sh = at(shuffle), re = at(repeat), bar = at("expandedBottom/bar/1");
         expect(std::abs(sh.x - tk.expandedPadding) < 0.01f && sh.x + sh.width + tk.looseItemSpacing < prev.x &&
                    next.x + next.width + tk.looseItemSpacing < re.x,
                "shuffle and repeat at the card's edges, apart from previous and next");
         expect(std::abs(sh.x - (controls.size.x - re.x - re.width)) < 0.01f, "the whole group centred");
-        Rect elapsed = at("expandedBottom/0/0"), left = at("expandedBottom/0/2");
+        Rect elapsed = at("expandedBottom/bar/0"), left = at("expandedBottom/bar/2");
         expect(elapsed.width < tk.timeLabelWidth && left.width < tk.timeLabelWidth && elapsed.x + elapsed.width + tk.itemSpacing == bar.x,
                "the times as wide as they get, close to the bar: no fixed column");
     }
@@ -190,7 +190,7 @@ void runProviderTests()
     island.click(repeat);
     expect(island.button(repeat)->on == false, "repeat: one -> off");
 
-    island.click("expandedBottom/1/2"); // next
+    island.click("expandedBottom/controls/2"); // next
     expect(island.state.alertQueue.size() == 1 && island.state.alertQueue[0].coalesceKey == "track",
            "next track queues a track alert (shown once Expanded closes)");
     expect(island.state.alertQueue[0].providerId == "demo", "alert carries the provider id");
