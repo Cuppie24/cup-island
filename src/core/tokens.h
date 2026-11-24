@@ -669,6 +669,7 @@ struct Tokens {
     // dialog gets pickerSendTimeout to take a path.
     float pickerCardRoom = 460;
     float pickerGlyphSize = 14; // the search glyph on the pill under the dialog
+    Ms pickerFade{ 150 };       // that pill fades in and out over this
     Ms pickerRecheck{ 150 };
     Ms pickerSendTimeout{ 500 };
 

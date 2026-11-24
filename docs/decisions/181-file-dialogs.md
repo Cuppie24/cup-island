@@ -33,7 +33,8 @@ single click to open it.
   island's size with a search glyph, hung from the dialog's bottom edge,
   centred (`hangUnder`, `pillFrame`). Always there, on whichever monitor the
   dialog is: with no room it's cut off by the screen. It moves with the
-  dialog as one piece, unanimated, and never takes the keys. The island
+  dialog at once, as one piece, fades in and out over `pickerFade`, and
+  never takes the keys. The island
   stays where it is, as it is.
 - *One click lends the island.* A click on the pill hangs the island's
   layers under the dialog (on its monitor, at that monitor's scale) and

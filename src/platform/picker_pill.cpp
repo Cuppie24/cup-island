@@ -1,6 +1,7 @@
 #include "platform/picker_pill.h"
 
 #include "platform/element_painting.h"
+#include "platform/element_parts.h"
 #include "platform/render_layer.h"
 #include "platform/text_format.h"
 
@@ -20,6 +21,10 @@ wuc::Desktop::DesktopWindowTarget g_target{ nullptr };
 wuc::SpriteVisual g_visual{ nullptr };
 std::function<void()> g_onClick;
 bool g_pressed = false;
+// Shown: on screen. Leaving: fading out, hidden when kLeaveTimer fires. Hidden: its window is.
+enum class Stage { Hidden, Shown, Leaving };
+Stage g_stage = Stage::Hidden;
+constexpr UINT_PTR kLeaveTimer = 1;
 // What the surface was last painted for: a dialog being dragged moves the pill many times a second.
 Vec2 g_paintedSize;
 Color g_paintedFill, g_paintedInk;
@@ -49,7 +54,13 @@ LRESULT CALLBACK windowProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPara
     case WM_MOUSEACTIVATE:
         return MA_NOACTIVATE; // the dialog keeps the keys until the card opens
     case WM_LBUTTONDOWN:
-        g_pressed = true;
+        g_pressed = g_stage == Stage::Shown; // on its way out it's no longer there to click
+        return 0;
+    case WM_TIMER:
+        if (wParam == kLeaveTimer) {
+            KillTimer(hwnd, kLeaveTimer);
+            if (std::exchange(g_stage, Stage::Hidden) == Stage::Leaving) ShowWindow(hwnd, SW_HIDE);
+        }
         return 0;
     case WM_LBUTTONUP:
         if (std::exchange(g_pressed, false) && g_onClick) g_onClick();
@@ -89,6 +100,11 @@ void showPickerPill(Rect frame)
 {
     if (!g_hwnd || frame.width < 1 || frame.height < 1) return;
     paint({ frame.width, frame.height });
+    // It comes by fading in over pickerFade; following the dialog it moves at once, as one piece with it.
+    if (g_stage == Stage::Hidden) g_visual.Opacity(0.0f);
+    if (g_stage == Stage::Leaving) KillTimer(g_hwnd, kLeaveTimer);
+    if (g_stage != Stage::Shown) fadeTo(g_compositor, g_visual, 1.0f, tokens().pickerFade); // from wherever a fade out left it
+    g_stage = Stage::Shown;
     SetWindowPos(g_hwnd, HWND_TOPMOST, static_cast<int>(frame.x), static_cast<int>(frame.y), static_cast<int>(frame.width),
                  static_cast<int>(frame.height), SWP_NOACTIVATE | SWP_SHOWWINDOW);
 }
@@ -96,7 +112,11 @@ void showPickerPill(Rect frame)
 void hidePickerPill()
 {
     g_pressed = false;
-    if (g_hwnd) ShowWindow(g_hwnd, SW_HIDE);
+    if (!g_hwnd || g_stage != Stage::Shown) return;
+    // It goes by fading out; its window hides once nothing of it shows.
+    g_stage = Stage::Leaving;
+    fadeTo(g_compositor, g_visual, 0.0f, tokens().pickerFade);
+    SetTimer(g_hwnd, kLeaveTimer, static_cast<UINT>(tokens().pickerFade.count()), nullptr);
 }
 
 } // namespace cup::platform

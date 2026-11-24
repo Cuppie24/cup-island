@@ -3,8 +3,8 @@
 // the size of the idle island, hung from the dialog's bottom edge with a
 // search glyph on it. The island stays where it is; a click on this pill
 // brings it there with the card that picks files (app/file_picker).
-// It never takes the keys from the dialog, and it isn't animated: it moves
-// with the dialog, as one piece. Windows 10 1809+ throughout (decision 015).
+// It never takes the keys from the dialog. It fades in and out over
+// pickerFade, and moves with the dialog at once, as one piece. Windows 10 1809+ throughout (decision 015).
 
 #include "platform/graphics_device.h"
 #include "platform/win.h"
@@ -19,6 +19,6 @@ void createPickerPill(HINSTANCE instance, wuc::Compositor const& compositor, Gra
 
 // Shown at `frame` (screen pixels), drawn in the theme's colours as they are now.
 void showPickerPill(Rect frame);
-void hidePickerPill();
+void hidePickerPill(); // fades out, then its window hides
 
 } // namespace cup::platform
