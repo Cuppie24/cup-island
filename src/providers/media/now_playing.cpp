@@ -40,6 +40,18 @@ Content lyricsPageContent(const NowPlaying& m)
     // The card keeps its height (the heading alone asks for less) and the list fills the rest, from the top.
     c.sizedLike = { heading };
     c.pageAtTop = true;
+    // Empty rows before the first line and after the last, about half the page's height: the
+    // song's first and last lines can be in the page's middle too, as every other is when sung.
+    auto margin = [&](const char* end) {
+        for (int i = 0; i < kLyricsPageMargin; ++i) {
+            Row blank = row({ Text{} });
+            blank.list = act::kLyricsList;
+            blank.visibleRows = -1;
+            blank.id = end + std::to_string(i);
+            c.expandedCenter.push_back(blank);
+        }
+    };
+    margin("before");
     for (std::size_t i = 0; i < m.lyrics->size(); ++i) {
         bool sung = static_cast<int>(i) == m.lyricsLine;
         const std::string& words = (*m.lyrics)[i].text;
@@ -53,13 +65,14 @@ Content lyricsPageContent(const NowPlaying& m)
         shown.id = "line" + std::to_string(i); // named: a row keeps its visual as the lit one moves on
         c.expandedCenter.push_back(shown);
     }
+    margin("after");
     return c;
 }
 
 std::size_t lyricsPageRow(const NowPlaying& m)
 {
     if (!m.lyrics || m.lyrics->empty()) return 0;
-    return std::min(static_cast<std::size_t>(std::max(m.lyricsLine, 0)), m.lyrics->size() - 1);
+    return kLyricsPageMargin + std::min(static_cast<std::size_t>(std::max(m.lyricsLine, 0)), m.lyrics->size() - 1); // past the empty rows at its top
 }
 
 namespace {

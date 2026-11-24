@@ -266,7 +266,7 @@ void pageAndPillTests()
     m.lyricsPage = true;
     m.lyricsLine = 2;
     Content page = nowPlayingContent(m);
-    expect(page.card == CardLayout::Centred && page.backAction == media_action::kLyricsBack && page.expandedCenter.size() == 1 + lines->size() &&
+    expect(page.card == CardLayout::Centred && page.backAction == media_action::kLyricsBack && page.expandedCenter.size() == 1 + lines->size() + 2 * kLyricsPageMargin &&
                page.expandedBottom.empty() && page.expandedLeading.empty() && !page.smallCover && page.pageAtTop && !page.sizedLike.empty(),
            "the page: one stack of rows from the card's top, Esc goes back");
     expect(page.label == nowPlayingContent(NowPlaying{ .title = "Song", .artist = "Artist" }).label && !page.compactLeading.empty() && page.noIdleTimeout,
@@ -278,24 +278,28 @@ void pageAndPillTests()
     expect(back && back->glyph == Glyph::ChevronLeft && back->actionId == media_action::kLyricsBack && sync && sync->glyph == Glyph::Sync &&
                sync->actionId == media_action::kLyricsSync && heading.list.empty(),
            "its back arrow at the first row's start, its sync button at the end; the heading doesn't scroll");
-    auto textOf = [&](std::size_t line) { return std::get_if<Text>(&page.expandedCenter[1 + line].items[0]); };
+    auto textOf = [&](std::size_t line) { return std::get_if<Text>(&page.expandedCenter[1 + kLyricsPageMargin + line].items[0]); };
     bool listed = true;
-    for (std::size_t i = 0; i < lines->size(); ++i) listed = listed && page.expandedCenter[1 + i].list == media_action::kLyricsList && textOf(i);
+    for (std::size_t i = 0; i < lines->size(); ++i) listed = listed && page.expandedCenter[1 + kLyricsPageMargin + i].list == media_action::kLyricsList && textOf(i);
     expect(listed && page.expandedCenter[1].visibleRows < 0 && textOf(0)->value == "one" && textOf(2)->value == "three" && textOf(4)->value == "five",
            "every line of the song a row of one list, which fills the rest of the card");
+    const Row &blankTop = page.expandedCenter[1], &blankEnd = page.expandedCenter.back();
+    expect(blankTop.list == media_action::kLyricsList && std::get<Text>(blankTop.items[0]).value.empty() && blankEnd.list == media_action::kLyricsList &&
+               std::get<Text>(blankEnd.items[0]).value.empty(),
+           "empty rows before the first line and after the last: room for either to be in the page's middle");
     expect(textOf(2)->style == TextStyle::Title && textOf(1)->style == TextStyle::Body && textOf(4)->style == TextStyle::Body && textOf(2)->centred &&
                textOf(2)->wrap && !textOf(2)->italic,
            "the one being sung bigger and bright, the rest quieter; long ones wrap");
     expect(textOf(3)->value == kLyricBreak && textOf(3)->style == TextStyle::Body && !textOf(3)->wrap, "a line with no words keeps its row: a note in it");
     m.lyricsLine = 3;
-    expect(std::get<Text>(nowPlayingContent(m).expandedCenter[4].items[0]).style == TextStyle::Title, "...lit like any other while it's the one being sung");
+    expect(std::get<Text>(nowPlayingContent(m).expandedCenter[1 + kLyricsPageMargin + 3].items[0]).style == TextStyle::Title, "...lit like any other while it's the one being sung");
     m.lyricsLine = 2;
     // Laid out: the card's height, the list a window under the heading that scrolls.
     Scene shown = layout(expandedWith(page), Ms{ 31000 });
     const Placed *first = find(shown, "expandedCenter/line0/0"), *header = find(shown, "expandedCenter/heading/0"); // the sync button: the heading has no text
     expect(shown.size.y == t.expandedSize.y && first && header && first->list && first->list->id == media_action::kLyricsList &&
-               first->list->viewport.y >= header->frame.y + header->frame.height && first->list->max == 0,
-           "in a card of Expanded's height, the list under the heading; a short song fits and doesn't scroll");
+               first->list->viewport.y >= header->frame.y + header->frame.height,
+           "in a card of Expanded's height, the list under the heading");
     // A real song is longer than the card: the list fills what's left of it and scrolls.
     auto many = std::make_shared<std::vector<LyricLine>>();
     for (int i = 0; i < 40; ++i) many->push_back({ Ms{ 2000 * (i + 1) }, "line " + std::to_string(i) });
@@ -309,16 +313,16 @@ void pageAndPillTests()
     auto syncHit = hitTest(shown, { shown.size.x - t.expandedPadding - 8, header->frame.y + header->frame.height / 2 });
     expect(syncHit && syncHit->action.actionId == media_action::kLyricsSync, "the sync button takes its click");
     // What's kept in the page's middle: the line being sung.
-    expect(lyricsPageRow(m) == 2, "kept in the middle: the one being sung");
+    expect(lyricsPageRow(m) == kLyricsPageMargin + 2, "kept in the middle: the one being sung, past the empty rows");
     m.lyricsLine = -1;
-    expect(lyricsPageRow(m) == 0 && std::get<Text>(nowPlayingContent(m).expandedCenter[1].items[0]).style == TextStyle::Body, "before the first line: the top, nothing lit");
+    expect(lyricsPageRow(m) == kLyricsPageMargin && std::get<Text>(nowPlayingContent(m).expandedCenter[1 + kLyricsPageMargin].items[0]).style == TextStyle::Body, "before the first line: the first line, nothing lit");
     m.lyricsLine = 4;
-    expect(lyricsPageRow(m) == 4, "at the last line: the last row");
+    expect(lyricsPageRow(m) == kLyricsPageMargin + 4, "at the last line: the last line");
     // Centred (Host::centre): the host scrolls the list so that row's middle is the window's; at the song's ends as near as it gets.
     {
         IslandState paged = expandedWith(nowPlayingContent(longSong));
         auto rowAt = [&](IslandState state, std::size_t row) {
-            state = reduce(state, ListRevealed{ "media.nowPlaying", media_action::kLyricsList, row, false, true }, Ms{ 0 });
+            state = reduce(state, ListRevealed{ "media.nowPlaying", media_action::kLyricsList, kLyricsPageMargin + row, false, true }, Ms{ 0 });
             Scene scene = layout(state, Ms{ 0 });
             const Placed* p = find(scene, "expandedCenter/line" + std::to_string(row) + "/0");
             Rect window = p->list->viewport;
@@ -326,9 +330,10 @@ void pageAndPillTests()
         };
         auto [middle, scrolled] = rowAt(paged, 20);
         expect(std::abs(middle) < 1.0f && scrolled > 0, "a line in the song's middle: in the window's middle");
-        expect(rowAt(paged, 0).second == 0 && rowAt(paged, 0).first < 0, "the first line: the list at its top, the line above the middle");
-        expect(rowAt(paged, 39).first > 0, "the last: the list at its end, the line below the middle");
-        IslandState edge = reduce(paged, ListRevealed{ "media.nowPlaying", media_action::kLyricsList, 20 }, Ms{ 0 });
+        // The song's first and last lines too, thanks to the empty rows at the list's ends: within a row's height of the middle.
+        expect(std::abs(rowAt(paged, 0).first) < 14 && std::abs(rowAt(paged, 39).first) < 14,
+               "the first line, and the last: in the page's middle as well, not at its edge");
+        IslandState edge = reduce(paged, ListRevealed{ "media.nowPlaying", media_action::kLyricsList, kLyricsPageMargin + 20 }, Ms{ 0 });
         const Scene edged = layout(edge, Ms{ 0 });
         const Placed* shownRow = find(edged, "expandedCenter/line20/0");
         expect(shownRow && shownRow->frame.y + shownRow->frame.height / 2 > shownRow->list->viewport.y + shownRow->list->viewport.height / 2 + 20,
@@ -572,13 +577,13 @@ void presenterTests()
     presenter.showLyricsPage(true);
     expect(host.started.size() == paged, "asked again: nothing new");
     // It follows the song: woken at each line's start, the line lit and kept in view until the user scrolls.
-    expect(host.centred.size() == 1 && host.centred.back() == "lyrics:0" && host.revealed.empty() && host.followed.empty() && host.wake == Ms{ 1000 } - tokens().lyricLead,
+    expect(host.centred.size() == 1 && host.centred.back() == "lyrics:" + std::to_string(kLyricsPageMargin) && host.revealed.empty() && host.followed.empty() && host.wake == Ms{ 1000 } - tokens().lyricLead,
            "opened where the song is, and woken for the first line");
     host.clock = Ms{ 1000 } - tokens().lyricLead;
     presenter.onWake();
     const Content& lit = host.started.back().content;
-    expect(lit.expandedCenter.size() == 2 && std::get<Text>(lit.expandedCenter[1].items[0]).style == TextStyle::Title && host.followed.size() == 1 &&
-               host.followed.back() == "lyrics:0" && !host.wake,
+    expect(lit.expandedCenter.size() == 2 + 2 * kLyricsPageMargin && std::get<Text>(lit.expandedCenter[1 + kLyricsPageMargin].items[0]).style == TextStyle::Title && host.followed.size() == 1 &&
+               host.followed.back() == "lyrics:" + std::to_string(kLyricsPageMargin) && !host.wake,
            "its line's start: lit, followed; nothing more to wait for after the last line");
     presenter.syncLyricsPage();
     expect(host.centred.size() == 2, "the sync button: the line being sung in the middle again");

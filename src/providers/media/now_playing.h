@@ -83,6 +83,8 @@ Content nowPlayingContent(const NowPlaying& media);
 // (`lyricsLine`) bigger and bright. A line with no words (a break) is a note. Everything off the card (the pill, alerts, the tint) as
 // nowPlayingContent's. What nowPlayingContent gives while `lyricsPage` is set and there are lyrics.
 Content lyricsPageContent(const NowPlaying& media);
+// Empty rows at each end of that list, so its first and last lines can be in the page's middle.
+inline constexpr int kLyricsPageMargin = 3;
 // The row of that list to keep in the middle of the page (Host::centre): the one being sung; the first before any is.
 std::size_t lyricsPageRow(const NowPlaying& media);
 
