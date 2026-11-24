@@ -48,6 +48,7 @@ private:
     wuc::Compositor compositor_{ nullptr };
     wuc::ContainerVisual parent_{ nullptr };
     wuc::ImplicitAnimationCollection scrollEase_{ nullptr }; // the scroller's Offset
+    wuc::ImplicitAnimationCollection followEase_{ nullptr }; // ...while it follows a centred row: slower (decision 180)
     wuc::ImplicitAnimationCollection glide_{ nullptr };      // an element's Offset
     std::map<std::string, List> lists_;
 };

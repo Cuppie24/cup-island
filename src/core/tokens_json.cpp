@@ -81,6 +81,8 @@ const Field kFields[] = {
     { "windowPagePadding", &Tokens::windowPagePadding },
     { "listCardMinHeight", &Tokens::listCardMinHeight },
     { "expandedArtSize", &Tokens::expandedArtSize },
+    { "smallCoverSize", &Tokens::smallCoverSize },
+    { "widePillWidth", &Tokens::widePillWidth },
     { "slotGap", &Tokens::slotGap },
     { "rowSpacing", &Tokens::rowSpacing },
     { "itemSpacing", &Tokens::itemSpacing },
@@ -101,6 +103,10 @@ const Field kFields[] = {
     { "displayFontWeight", &Tokens::displayFontWeight },
     { "heroFontWeight", &Tokens::heroFontWeight },
     { "cardTitleFontWeight", &Tokens::cardTitleFontWeight },
+    { "lyricFontSize", &Tokens::lyricFontSize },
+    { "lyricFontWeight", &Tokens::lyricFontWeight },
+    { "lyricSungFontSize", &Tokens::lyricSungFontSize },
+    { "lyricSungFontWeight", &Tokens::lyricSungFontWeight },
     { "headingFontWeight", &Tokens::headingFontWeight },
     { "pageTitleFontWeight", &Tokens::pageTitleFontWeight },
     { "textContrast", &Tokens::textContrast },
@@ -154,6 +160,8 @@ const Field kFields[] = {
     { "buttonPressScale", &Tokens::buttonPressScale },
     { "progressHeight", &Tokens::progressHeight },
     { "progressHitHeight", &Tokens::progressHitHeight },
+    { "levelBarWidth", &Tokens::levelBarWidth },
+    { "openButtonPadding", &Tokens::openButtonPadding },
     { "progressKnobSize", &Tokens::progressKnobSize },
     { "progressWaveLength", &Tokens::progressWaveLength },
     { "progressWaveAmplitude", &Tokens::progressWaveAmplitude },
@@ -285,6 +293,16 @@ const Field kFields[] = {
     { "reducedMotionDurationMs", &Tokens::reducedMotionDuration },
     { "contentFadeDurationMs", &Tokens::contentFadeDuration },
     { "digitRollDurationMs", &Tokens::digitRollDuration },
+    { "lyricDropDurationMs", &Tokens::lyricDropDuration },
+    { "lyricLeadMs", &Tokens::lyricLead },
+    { "followScrollDurationMs", &Tokens::followScrollDuration },
+    { "lineHoverScale", &Tokens::lineHoverScale },
+    { "noteHoverScale", &Tokens::noteHoverScale },
+    { "lyricScrollHoldStart", &Tokens::lyricScrollHoldStart },
+    { "lyricScrollHoldEnd", &Tokens::lyricScrollHoldEnd },
+    { "lyricScrollLeastMs", &Tokens::lyricScrollLeast },
+    { "coverResizeDurationMs", &Tokens::coverResizeDuration },
+    { "openButtonDurationMs", &Tokens::openButtonDuration },
     { "collapseGlowDurationMs", &Tokens::collapseGlowDuration },
     { "contentRevealAt", &Tokens::contentRevealAt },
     { "recolorFastMs", &Tokens::recolorFast },
@@ -308,6 +326,9 @@ const Field kFields[] = {
     { "alertQueueCapacity", &Tokens::alertQueueCapacity },
     { "mediaSessionRecheckMs", &Tokens::mediaSessionRecheck },
     { "mediaSessionGoneGraceMs", &Tokens::mediaSessionGoneGrace },
+    { "volumeOpenDelayMs", &Tokens::volumeOpenDelay },
+    { "lyricsDurationToleranceMs", &Tokens::lyricsDurationTolerance },
+    { "lyricsRemembered", &Tokens::lyricsRemembered },
     { "mediaArtFadeMs", &Tokens::mediaArtFade },
     { "mediaArtRecheckMs", &Tokens::mediaArtRecheck },
     { "mediaReadStuckMs", &Tokens::mediaReadStuck },
@@ -590,6 +611,8 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
                n.starts_with("glassDarken") ||                        // a colour scale and lift (decision 100)
                (n.starts_with("glass") && n.ends_with("Luminosity")) || // shares of an opacity (decision 100)
                n.ends_with("Bounce") || n == "contentArriveScale" || n == "contentRevealAt" || n == "morphSpringSettle" || n == "alertPulseScale" || // shares (decision 080)
+               n == "lineHoverScale" || n == "noteHoverScale" || // scales, not lengths
+               n.starts_with("lyricScrollHold") || // shares of a line's time (decision 180)
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");
     };
     Tokens out = t;

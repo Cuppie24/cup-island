@@ -1,7 +1,7 @@
 # 178: Liquid glass's Direct3D device is locked for several threads (the island vanished mid-video)
 
-Status: Accepted; built, not yet run on Windows. The cause is the likeliest
-one read from the log and the code, not a confirmed one (amends 165, 158)
+Status: Accepted, but its "likeliest cause" was wrong: the crashes were the
+media reader's (decision 179). The changes stay (amends 165, 158)
 
 **Symptom.** 0.13.5, liquid glass picked that morning. For 27 minutes with
 nothing playing, cards opened and closed without trouble. Then a video

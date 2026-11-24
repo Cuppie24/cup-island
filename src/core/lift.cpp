@@ -3,6 +3,8 @@
 #include "core/split.h"
 #include "core/tokens.h"
 
+#include <algorithm>
+
 namespace cup {
 namespace {
 
@@ -11,7 +13,7 @@ namespace {
 void land(IslandState& s)
 {
     Mode m = canLift(mode(s)) ? mode(s) : restingMode(s);
-    s.spot = spotForDrop(liftedCentre(s), footprintOf(m), screenWidthOf(s));
+    s.spot = spotForDrop(liftedCentre(s), footprintOf(s, m), screenWidthOf(s));
     s.lift.reset();
 }
 
@@ -57,7 +59,7 @@ void settleLift(IslandState& s, Ms now)
     if (s.pressedAt && !canLift(m)) s.pressedAt.reset();
     if (s.pressedAt && !s.lift && now >= *s.pressedAt + tokens().liftHold) {
         Placement at = placementOf(s, m);
-        s.lift = at.pillX + modeSize(m).x / 2 - s.pressDrag.x; // no jump: the pill stays under the pointer
+        s.lift = at.pillX + pillWidth(s, m) / 2 - s.pressDrag.x; // no jump: the pill stays under the pointer
     }
 }
 
@@ -91,15 +93,24 @@ Vec2 modeSize(Mode mode)
     return t.idleSize;
 }
 
-Footprint footprintOf(Mode mode)
+float pillWidth(const IslandState& s, Mode mode)
 {
     const Tokens& t = tokens();
-    return { modeSize(mode).x, mode == Mode::Split ? splitGap() + t.bubbleSize : 0 };
+    bool pill = mode == Mode::Compact || mode == Mode::Split;
+    if (pill && !s.activities.empty() && s.activities[0].content.widePill)
+        return std::min(std::max(t.widePillWidth, t.compactSize.x), t.canvas.x); // never narrower than the pill, nor wider than the canvas
+    return modeSize(mode).x;
+}
+
+Footprint footprintOf(const IslandState& s, Mode mode)
+{
+    const Tokens& t = tokens();
+    return { pillWidth(s, mode), mode == Mode::Split ? splitGap() + t.bubbleSize : 0 };
 }
 
 Placement placementOf(const IslandState& s, Mode mode, std::optional<float> width)
 {
-    Footprint footprint = footprintOf(mode);
+    Footprint footprint = footprintOf(s, mode);
     if (width) footprint.pillWidth = *width;
     return placeAt(s.spot, footprint, screenWidthOf(s));
 }
@@ -107,7 +118,7 @@ Placement placementOf(const IslandState& s, Mode mode, std::optional<float> widt
 float liftedCentre(const IslandState& s)
 {
     float base = s.lift.value_or(0);
-    return clampLifted(base + s.pressDrag.x, modeSize(mode(s)).x, screenWidthOf(s));
+    return clampLifted(base + s.pressDrag.x, pillWidth(s, mode(s)), screenWidthOf(s));
 }
 
 } // namespace cup

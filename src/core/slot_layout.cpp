@@ -33,6 +33,16 @@ Item resolve(const Item& item, Ms now, const Source& source)
         std::string value = label->countdown ? left : label->remaining ? "-" + left : formatDuration(position);
         return Text{ .value = value, .style = label->style, .alignEnd = label->remaining, .marquee = false, .centred = label->countdown };
     }
+    // The line being sung at `now` (decision 180): a centred text that drops in as it changes.
+    // A break's note sign is drawn bigger than words: the title's size (the row is that tall, item_metrics).
+    if (auto* lyrics = std::get_if<Lyrics>(&item)) {
+        std::string line = lyricAt(*lyrics, now);
+        bool note = line == kLyricBreak;
+        // It rises: the next line comes up from below, the last leaves at the top.
+        // Too long to fit, it's scrolled through by the time the next one comes.
+        return Text{ .value = line, .style = note ? TextStyle::CardTitle : TextStyle::Body, .centred = true, .drops = true, .rises = true,
+                     .scrollUntil = nextLyricChange(*lyrics, now), .actionId = lyrics->actionId, .italic = lyrics->italic && !note }; // the note always upright
+    }
     if (auto* dial = std::get_if<Dial>(&item)) { // the time left at `now`, for the renderer to draw (decision 065)
         Dial shown = *dial;
         shown.shown = formatDuration(dial->timeline.duration - dial->timeline.positionAt(now));
@@ -288,6 +298,7 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 placed.raised = slot.raised && std::holds_alternative<Image>(item);
                 if (auto* label = std::get_if<TimeLabel>(&item)) placed.ticking = label->timeline;
                 if (auto* dial = std::get_if<Dial>(&item)) placed.ticking = dial->timeline; // its time changes too
+                if (auto* lyrics = std::get_if<Lyrics>(&item)) placed.changesAt = nextLyricChange(*lyrics, now);
                 target.push_back(std::move(placed));
             };
             auto widthOf = [&](const Item& item) { return fixedWidthOf(item, heightOf(item, slot.frame, ringSide, measure), measure); };
@@ -415,6 +426,23 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
             }
             placeEdge(row.trailing, row.items.size(), trailingX);
             placeEdge(row.leading, row.items.size() + row.trailing.size(), leadingX);
+            // Row::leadingOpen (decision 180): one pill under the leading items, the first's height,
+            // from its start to openButtonPadding past the last; it unrolls from the first.
+            std::optional<float> openEnd; // Row::leadingOpen: its pill's right edge
+            if (row.leadingOpen && !row.leading.empty()) {
+                const Placed& opener = target[target.size() - row.leading.size()];
+                float right = opener.frame.x + opener.frame.width;
+                for (std::size_t i = target.size() - row.leading.size(); i < target.size(); ++i) right = std::max(right, target[i].frame.x + target[i].frame.width);
+                Placed pill;
+                pill.key = slot.name + "/" + rowName + "/open";
+                pill.item = GroupFill{ .unrolls = true };
+                pill.frame = { opener.frame.x, opener.frame.y, right + t.openButtonPadding - opener.frame.x, opener.frame.height };
+                openEnd = pill.frame.x + pill.frame.width;
+                pill.cornerRadius = pill.frame.height / 2;
+                pill.providerId = source.providerId;
+                pill.activityId = source.activityId;
+                fills.push_back(std::move(pill));
+            }
             // Its piece of its group's background (decision 090): from under its
             // gap down to the next row's top (the row spacing too), so the pieces
             // meet with no seam. Behind its content (the renderer puts it at the
@@ -456,6 +484,19 @@ float layRows(const SlotFrame& slot, const Source& source, float nestedRadius, M
                 float left = i == 0 ? f.x - gap / 2 : (placed[i - 1]->frame.x + placed[i - 1]->frame.width + f.x) / 2;
                 float right = i + 1 == placed.size() ? f.x + f.width + gap / 2 : (f.x + f.width + placed[i + 1]->frame.x) / 2;
                 placed[i]->hitFrame = { left, y - t.rowSpacing / 2, right - left, rowHeight + t.rowSpacing };
+            }
+            // Row::leadingOpen: the whole pill is its leading items'. The last of them takes the pointer
+            // to the pill's end, and what's beside it starts there: the pill never shuts under a pointer still on it.
+            if (openEnd) {
+                Placed* last = nullptr;
+                for (Placed* p : placed)
+                    if (p->frame.x < *openEnd) last = p; // sorted by x: the rightmost under the pill
+                for (Placed* p : placed) {
+                    Rect& hit = p->hitFrame;
+                    float end = hit.x + hit.width;
+                    if (p == last) hit.width = *openEnd - hit.x;
+                    else if (p->frame.x >= *openEnd && hit.x < *openEnd) hit = { *openEnd, hit.y, std::max(0.0f, end - *openEnd), hit.height };
+                }
             }
             // A list item: its button takes clicks anywhere across the row's
             // `items` (Row::clickAnywhere: a row of Settings). Edge items keep their own.

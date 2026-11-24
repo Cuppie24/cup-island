@@ -74,6 +74,9 @@ target_include_directories(cup_core PUBLIC src)
 # --- providers: data sources; the pure parts build on any OS -------------------
 add_library(cup_providers STATIC
     src/providers/demo/demo_media_provider.cpp
+    src/providers/lyrics/lrc.cpp
+    src/providers/lyrics/lrclib.cpp
+    src/providers/lyrics/lyrics_lookup.cpp
     src/providers/media/art_state.cpp
     src/providers/media/media_presenter.cpp
     src/providers/media/now_playing.cpp
@@ -146,6 +149,7 @@ if(CUP_BUILD_TESTS)
         tests/list_card_tests.cpp
         tests/group_tests.cpp
         tests/main.cpp
+        tests/lyrics_tests.cpp
         tests/media_tests.cpp
         tests/menu_tests.cpp
         tests/motion_tests.cpp
@@ -254,6 +258,7 @@ if(WIN32)
         src/platform/element_parts.cpp
         src/platform/progress_wave.cpp
         src/platform/element_visuals.cpp
+        src/platform/dropping_text.cpp
         src/platform/rolling_text.cpp
         src/platform/top_glow.cpp
         src/platform/switch_parts.cpp
@@ -286,7 +291,9 @@ if(WIN32)
         src/platform/provider_window_messages.cpp
         src/platform/window_name.cpp
         src/platform/wall_clock.cpp
+        src/providers/lyrics/lrclib_fetch.cpp
         src/providers/media/app_activation.cpp
+        src/providers/media/app_volume.cpp
         src/providers/media/browser_tabs.cpp
         src/providers/media/smtc_media_provider.cpp
         src/providers/media/smtc_reader.cpp

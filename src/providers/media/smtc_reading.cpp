@@ -18,6 +18,19 @@ using Status = wmc::GlobalSystemMediaTransportControlsSessionPlaybackStatus;
 
 constexpr std::uint32_t kMaxArtSize = 128;
 
+// Windows can hand back no object at all where it promises one: a session
+// between two states (a play/pause, an app taking over), or one just closed.
+// A call on it isn't an exception: C++/WinRT reads through the null pointer,
+// an access violation on the reader's thread, and the island was gone
+// (0.13.6, in readPlayback; decision 179). Thrown instead: every caller
+// already treats a throw as a read that failed.
+constexpr winrt::hresult kNoObject{ static_cast<std::int32_t>(0x80004003) }; // E_POINTER; Windows' own headers aren't included here
+
+void need(bool there, const wchar_t* what)
+{
+    if (!there) throw winrt::hresult_error(kNoObject, what);
+}
+
 } // namespace
 
 Repeat fromWindows(winrt::Windows::Media::MediaPlaybackAutoRepeatMode mode)
@@ -41,6 +54,7 @@ NowPlaying readNowPlaying(wmc::GlobalSystemMediaTransportControlsSessionMediaPro
                           wmc::GlobalSystemMediaTransportControlsSessionTimelineProperties const& timeline, Ms appNow)
 {
     NowPlaying m = readPlayback(playback, timeline, appNow);
+    need(properties != nullptr, L"no media properties");
     m.title = winrt::to_string(properties.Title());
     m.artist = winrt::to_string(properties.Artist());
     m.trackNumber = properties.TrackNumber();
@@ -52,7 +66,9 @@ NowPlaying readPlayback(wmc::GlobalSystemMediaTransportControlsSessionPlaybackIn
                         wmc::GlobalSystemMediaTransportControlsSessionTimelineProperties const& timeline, Ms appNow)
 {
     NowPlaying m;
+    need(playback != nullptr, L"no playback info");
     auto controls = playback.Controls();
+    need(controls != nullptr, L"no playback controls");
     m.canPrevious = controls.IsPreviousEnabled();
     m.canNext = controls.IsNextEnabled();
     m.canPlayPause = controls.IsPlayPauseToggleEnabled() || controls.IsPlayEnabled() || controls.IsPauseEnabled();
@@ -62,16 +78,19 @@ NowPlaying readPlayback(wmc::GlobalSystemMediaTransportControlsSessionPlaybackIn
     auto rate = playback.PlaybackRate();
     t.rate = rate && rate.Value() > 0 ? static_cast<float>(rate.Value()) : 1.0f;
 
-    auto start = timeline.StartTime(), end = timeline.EndTime();
-    if (end > start) { // apps without a timeline (some browsers, radio) report 0
-        t.duration = std::chrono::duration_cast<Ms>(end - start);
-        t.position = std::chrono::duration_cast<Ms>(timeline.Position() - start);
+    t.anchoredAt = appNow;
+    if (timeline) { // none: shown like an app without one, until the next read
+        auto start = timeline.StartTime(), end = timeline.EndTime();
+        if (end > start) { // apps without a timeline (some browsers, radio) report 0
+            t.duration = std::chrono::duration_cast<Ms>(end - start);
+            t.position = std::chrono::duration_cast<Ms>(timeline.Position() - start);
+        }
+        // Position was true at LastUpdatedTime (wall clock); translate that to app time.
+        auto updated = timeline.LastUpdatedTime();
+        auto age = winrt::clock::now() - updated;
+        if (updated.time_since_epoch().count() == 0 || age.count() < 0) age = {};
+        t.anchoredAt = appNow - std::chrono::duration_cast<Ms>(age);
     }
-    // Position was true at LastUpdatedTime (wall clock); translate that to app time.
-    auto updated = timeline.LastUpdatedTime();
-    auto age = winrt::clock::now() - updated;
-    if (updated.time_since_epoch().count() == 0 || age.count() < 0) age = {};
-    t.anchoredAt = appNow - std::chrono::duration_cast<Ms>(age);
 
     m.canSeek = controls.IsPlaybackPositionEnabled() && t.duration > Ms{ 0 };
 

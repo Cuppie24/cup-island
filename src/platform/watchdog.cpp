@@ -9,7 +9,9 @@
 #include <chrono>
 #include <csignal>
 #include <cstdlib>
+#include <cstdint>
 #include <exception>
+#include <optional>
 #include <string>
 #include <thread>
 
@@ -69,8 +71,33 @@ LONG WINAPI onUnhandledException(EXCEPTION_POINTERS* exception)
 // past its memory earlier).
 constexpr DWORD kHeapCorruption = 0xC0000374; // STATUS_HEAP_CORRUPTION
 
+// Where in CupIsland.exe an address is, or nothing if it's in another
+// module: the offset Windows' own crash record gives, which the release's
+// pdb turns into a function without a dump.
+std::optional<std::uintptr_t> offsetInApp(const void* address)
+{
+    auto base = reinterpret_cast<const BYTE*>(GetModuleHandleW(nullptr));
+    auto dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(base);
+    auto nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(base + dos->e_lfanew);
+    auto at = static_cast<const BYTE*>(address);
+    if (at < base || at >= base + nt->OptionalHeader.SizeOfImage) return std::nullopt;
+    return static_cast<std::uintptr_t>(at - base);
+}
+
 LONG WINAPI onFirstChance(EXCEPTION_POINTERS* exception)
 {
+    // An access violation in our own code, on any thread. On a
+    // DispatcherQueue's thread (the media reader's) Windows' queue ends the
+    // process over it itself, and the filter above is never asked: 0.13.6
+    // died in readPlayback with nothing in the log (decision 179). Nothing
+    // of ours recovers from one, so first sight of it is the crash.
+    if (exception->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        auto offset = offsetInApp(exception->ExceptionRecord->ExceptionAddress);
+        if (offset && firstReport()) {
+            logLine("CRASH: access violation at CupIsland.exe+0x%llx", static_cast<unsigned long long>(*offset));
+            writeDump("crash", exception);
+        }
+    }
     if (exception->ExceptionRecord->ExceptionCode == kHeapCorruption && firstReport())
         logLine("CRASH: Windows found the heap corrupted (0x%08lx) at %p: memory was overwritten earlier, by any thread",
                 exception->ExceptionRecord->ExceptionCode, exception->ExceptionRecord->ExceptionAddress);

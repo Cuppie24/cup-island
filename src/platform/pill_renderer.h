@@ -66,8 +66,8 @@ public:
     void setHoveredTab(const std::optional<std::string>& tab) { pill_.elements().setHoveredTab(tab); } // decision 072
     void pressElement(const std::string& key) { elementsFor(key).press(key); }
     void releaseElement(const std::string& key) { elementsFor(key).release(key); }
-    void scrubElement(const std::string& key, float fraction) { pill_.elements().scrub(key, fraction); }
-    void endScrub(const std::string& key, std::optional<float> seekTo, Ms now) { pill_.elements().endScrub(key, seekTo, now); }
+    void scrubElement(const std::string& key, float fraction) { elementsFor(key).scrub(key, fraction); }
+    void endScrub(const std::string& key, std::optional<float> seekTo, Ms now) { elementsFor(key).endScrub(key, seekTo, now); }
 
     // Expanded's page-row buttons and list rows: light up the one under the pointer (pill coordinates), or none.
     void setAreaHovered(std::optional<Rect> area, float cornerRadius) { pill_.setHovered(area, cornerRadius); }
@@ -101,6 +101,7 @@ private:
     Tokens applied_; // what the visuals were last built or recoloured for: tells a recolour from a resize
     winrt::Windows::System::DispatcherQueue queue_{ nullptr };
     std::optional<Scene> pendingContent_; // set: an applyContent() call is queued
+    std::optional<Scene> shownContent_;   // the scene whose content was applied last: what a cover's resize is told from (decision 180)
     // When the latest morph that grew the pill is far enough along for new
     // content (decision 080). Kept as a time, not a delay: the content is
     // built later (queued), and that wait counts toward it.

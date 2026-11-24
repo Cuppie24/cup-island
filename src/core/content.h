@@ -24,7 +24,7 @@ using Ms = std::chrono::milliseconds;
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
                    Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre,
                    Minus, Plus, Pin, Pinned, Fire, Chart, ChevronDown, Search, File, Folder, Close, Refresh, Reset,
-                   Palette, Sliders, Expand, Maximize, Restore, Minimize, CloseWindow, Grip, More, Gauge,
+                   Palette, Sliders, Expand, Maximize, Restore, Minimize, CloseWindow, Grip, More, Gauge, Volume, VolumeLow, VolumeMid, Muted, Lyrics, Sync,
                    // Statistics (decision 174): Bluetooth devices by kind (Bluetooth: any other), a drive, and the
                    // tiles' own, drawn as lines, not from the icon font: a processor, a graphics card, memory, the network.
                    Headphones, Earbuds, Mouse, Keyboard, Controller, Pen, Bluetooth, Drive, Chip, GraphicsCard, Memory, Network };
@@ -37,9 +37,11 @@ enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Sour
 // Hero: the one big number a card is about, heavy (Pomodoro's time); its digits roll as they change (decision 107).
 // Window*: Title, Body and Caption a step up in a standalone window (decision 112);
 // the window's layout swaps them in, providers write the plain three.
+// Lyric, LyricSung: a line on a page of lyrics, and the one being sung, bigger and bright; sized so
+// the page shows five lines, to be read from across a desk (decision 180).
 // Stat: a tile's reading, between CardTitle and Hero; its digits bright, a unit beside them quiet (statistics, decision 174).
 enum class TextStyle { Title, Body, Caption, Digits, Display, Heading, Result, ResultDetail, PageTitle, Hero, CardTitle,
-                       WindowTitle, WindowBody, WindowCaption, Stat };
+                       WindowTitle, WindowBody, WindowCaption, Lyric, LyricSung, Stat };
 
 // sRGB plus opacity. As an activity's accent (decision 010) it tints only
 // live data: progress fills (bar and ring), the current step, waveform bars.
@@ -111,6 +113,21 @@ struct Text {
     // other texts do: a file's folder beside its name, so the name stays
     // readable and the path takes the "…" (search, decision 079).
     bool yields = false;
+    // A new value comes in from above as the old one goes out below (or the other way: `rises`), the
+    // whole line at once: the line being sung (Lyrics, decision 180).
+    bool drops = false;
+    // ...or the other way (with `drops`): it rises in from below as the old one leaves at
+    // the top. Rows of these back to back, each taking the text of the one under it, read
+    // as one list scrolling up (a page of lyrics, decision 180).
+    bool rises = false;
+    // Too long for its frame (with `drops`), it's scrolled once from its start to its end
+    // by this moment (app time), holding still at each for a while, instead of ending in
+    // "…": a line of lyrics read whole before the next one (decision 180). None: it ends in "…".
+    std::optional<Ms> scrollUntil;
+    // Clickable: sent to its provider like a button's (the line being sung opens its page, decision 180).
+    std::string actionId;
+    // Slanted: words being sung, told apart from the song's name and artist over them (decision 180).
+    bool italic = false;
     // Host-filled: `value` with the spaces where its lines break turned into
     // '\n' (same length, so offsets hold). Empty: one line.
     std::string wrapped;
@@ -226,8 +243,17 @@ struct Progress {
     // head; the rest a straight track. Seekable, an upright knob is always at its
     // head, bigger under the pointer (decision 167). Its row is at least the wave's height.
     bool wavy = false;
+    // Bars only: a level set by hand, not a place in time (a volume, decision
+    // 180). levelBarWidth wide instead of stretching (it sits beside the button that opens
+    // it), and its action is sent as it's dragged, not only when it's let go.
+    // `timeline`: its level as a position, not playing (levelTimeline).
+    bool level = false;
+    // What a click or drag on a seekable bar sends, its value the 0..1 fraction. Empty: "seek".
+    std::string actionId;
     bool operator==(const Progress&) const = default;
 };
+// A level 0..1 as a Progress's timeline: a bar filled that far, standing still.
+Timeline levelTimeline(float level);
 // Elapsed "1:23"; `remaining` "-2:05" (media, right-aligned); `countdown`
 // "2:05", time left without the "-", centred (a timer). Digits labels sit in
 // a fixed column (timeLabelWidth); larger styles are as wide as their digits.
@@ -258,6 +284,37 @@ struct Steps {
     bool lit = true;
     bool operator==(const Steps&) const = default;
 };
+
+// One line of a song's words, and when in the song it starts.
+struct LyricLine {
+    Ms at{};
+    std::string text; // empty: a break with nothing sung
+    bool operator==(const LyricLine&) const = default;
+};
+// The line being sung (decision 180): the host picks it from the Timeline,
+// like a TimeLabel's time, so the provider sends the words once per song.
+// One line of text, centred, stretching across its row; each new line falls
+// in from above as the last drops out below (Text::drops), lyricLead before
+// it's sung, so its first words can be read in time. No lines (still
+// being looked up): an empty line, so the row keeps its place.
+struct Lyrics {
+    Timeline timeline;
+    std::shared_ptr<const std::vector<LyricLine>> lines; // by time; shared and immutable, like ImageData
+    // A click on the line sends this to the provider (it opens the lyrics' page). Empty: not clickable.
+    std::string actionId;
+    // Its words slanted (Text::italic): on a card, under the song's name and artist, so it
+    // doesn't read as a third line of them. Not in the pill, where it's the only text.
+    bool italic = false;
+    bool operator==(const Lyrics&) const = default;
+};
+// The text shown at `now`: the last line begun, or kLyricBreak where nothing is sung (before the first, a break).
+std::string lyricAt(const Lyrics& lyrics, Ms now);
+// Which of `lines` that is; none before the first (or with no lines).
+std::optional<std::size_t> lyricIndexAt(const Lyrics& lyrics, Ms now);
+// A note sign: there are words, none right now. Shown big (CardTitle): at a line's size it was a speck.
+inline constexpr const char* kLyricBreak = "\u266A";
+// When (app time) the shown line next changes; nothing while it doesn't play or after the last line.
+std::optional<Ms> nextLyricChange(const Lyrics& lyrics, Ms now);
 
 // A colour sample: a circle of `fill` with a dot of `mark` in it, ringed
 // faintly so a pale one still shows on a pale island. A theme in Settings'
@@ -338,11 +395,18 @@ struct GroupFill {
     // No fill, a soft solid outline in trackColor: where a card or task being
     // dragged in a window lands if let go now (decision 134).
     bool outline = false;
+    // It appears by growing from its start, a square of its height, to its full width, and goes
+    // back the same way: a button opening into the control beside it (Row::leadingOpen, decision 180).
+    bool unrolls = false;
+    // Solid, in the island's raised colour with a faint edge, and over the content instead of
+    // under it: the plate behind a button that floats over a card's rows (Content::overTop,
+    // decision 180), so what scrolls under it doesn't show through.
+    bool solid = false;
     bool operator==(const GroupFill&) const = default;
 };
 
 using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch, Tag, Switch, Divider, Dial,
-                          GroupFill, Keys, Segments, StatTile, BatteryTile>; // the last two: core/stat_items.h
+                          GroupFill, Keys, Segments, Lyrics, StatTile, BatteryTile>; // the last two: core/stat_items.h
 
 enum class Align { Start, Center, End };
 
@@ -459,6 +523,10 @@ struct Row {
     // item's. A row set apart (section, apart) starts a new group.
     // core/groups.h builds them.
     bool grouped = false;
+    // Its `leading` items sit on one pill (the host's GroupFill, tileColor), which grows out of the
+    // first of them as it appears and back into it as it goes: a button opened into the control
+    // beside it (media's speaker and its volume bar, decision 180). The row lays out as without it.
+    bool leadingOpen = false;
     // Its context menu (decision 086): every row may have its own. The host
     // ends the row in a › that opens it, beside the row.
     std::vector<MenuItem> menu;
@@ -533,6 +601,13 @@ struct Content {
     // Its card is wideCardWidth wide, not every card's expandedSize (decision
     // 085): room for what it shows side by side (the timer). Its pages too.
     bool wideCard = false;
+    // Its pill (Compact, and Split's) is widePillWidth wide, not compactSize: room between
+    // its ends for a line to read, not a name to glance at (media's line being sung, decision 180).
+    bool widePill = false;
+    // A Standard card's cover is smallCoverSize, not expandedArtSize: room
+    // under it for one more row in the same height (media with the line being
+    // sung, decision 180). Coming or going, the cover resizes and the rest glides.
+    bool smallCover = false;
     Slot compactLeading;
     Slot compactCenter;  // between the two compact squares, e.g. a swimming title
     Slot compactTrailing;
@@ -541,6 +616,11 @@ struct Content {
     Slot alertCenter;
     Slot expandedLeading;
     Slot expandedCenter;
+    // A stacked card's top corners (Centred, List): one row whose `leading` sits at the card's
+    // left corner and `trailing` at its right, over the card's rows, which start at its top
+    // under them. For a page that is all one thing to read, with a way back (a page of lyrics:
+    // its back and sync buttons, decision 180). Only those two take clicks there, not the strip between.
+    Slot overTop;
     Slot expandedTrailing; // a button-sized square in the top-right corner; the centre narrows only when it's used
     Slot expandedBottom;
     bool operator==(const Content&) const = default;

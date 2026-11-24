@@ -36,11 +36,21 @@ Spacing:
   square, `tabIconGap` 4 apart; a panel's button at the row's end is
   `rowButtonWidth` 44.
 
-Decision 119 took the card scale a step down (the cover 108, steps 30 and 14
+Decision 119 took the card scale a step down (the cover 108, 84 on a card with `Content::smallCover`: decision 180; steps 30 and 14
 long): the pieces read a little smaller in the same 248 height, with more
 room between them. A Standard card's bottom rows share the spare height
 evenly above each, so media's bar sits halfway between the cover and its
 controls.
+
+Media's card (decision 180): the line being sung is a `Lyrics` item, alone
+in the first row under the cover (Body, centred, italic), and the card asks for
+the small cover while it has one. Its controls' row ends in two mirrored
+pairs of `secondary` toggles: the volume's speaker and shuffle on the left,
+repeat and lyrics on the right (lyrics disabled, not hidden, for a song with none).
+The speaker mutes; under the pointer it opens into a `Progress::level` bar
+(`levelBarWidth` 64) on one pill with it (`Row::leadingOpen`). A click on the line opens a
+page of lyrics; while a song with lyrics plays the pill is `widePillWidth`
+wide and shows the line.
 
 ## Standalone windows: a step up, under the cards (decision 112)
 

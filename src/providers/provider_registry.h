@@ -48,6 +48,8 @@ public:
 
     // A click on one of a provider's buttons. Unknown or stopped providers are ignored.
     void route(const Action& action);
+    // The pointer came onto or left what would send `what` (Provider::onHover). Not the user acting: opens no window.
+    void hover(const Action& what, bool over);
 
     // A provider's card stopped being shown (shownCard changed): tells it (Provider::onCardClosed).
     void cardClosed(const ShownCard& card);
