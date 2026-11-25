@@ -66,18 +66,21 @@ later: media sessions don't carry one.
   card into a page (`lyricsPageContent`): a back arrow and a sync button over its
   top corners (`Content::overTop`: no row of their own, no song's name;
   the words are the whole page, five lines of it in `TextStyle::Lyric`.
-  The list itself fades out towards them (`InList::hideTop`): nothing of
-  it down to the buttons' bottom, then fading in over `overTopFade`, so
-  words scrolling up dissolve rather than show through a button. Drawn
-  as a live snapshot of the list's scroller through a gradient mask
-  (`platform/list_viewports`), so the island shows through as it is.
+  The list itself fades out round each button (`InList::holes`): nothing
+  of it under the button, then fading back in over `overTopFade` past its
+  edge, so words scrolling up dissolve there rather than show through a
+  button; between the two, the top line stays whole. Drawn as a live
+  snapshot of the list's scroller with a soft round hole cut for each
+  (radial gradients multiplied in, one Composite effect;
+  `platform/list_viewports`), so the island shows through as it is.
   Tried: a veil of the island's colour round each button, then a plate;
   on glass or a cover's glow either is a dark blot, as the island's
-  colour is not what it looks like. Before Windows 10 1903 (no
-  snapshots) the list is cut at the buttons' bottom instead. Decision
-  018's rule (no live snapshot of animating content) is about a blur
-  redone every frame for as long as music plays; this one has no blur
-  and re-renders only while a line glides in. Both are toggles, with a toggle's circle
+  colour is not what it looks like. Then the whole top faded, across the
+  page: it hid the middle of the top line too, where nothing covers it.
+  Before Windows 10 1903 (no snapshots) the words pass under the buttons.
+  Decision 018's rule (no live snapshot of animating content) is about a
+  blur redone every frame for as long as music plays; this one has no
+  blur and re-renders only while a line glides in. Both are toggles, with a toggle's circle
   and glass edge; the sync button is lit while the page follows the song
   and goes out when the user scrolls it, which the provider hears
   through `Provider::onListScrolled`), then every line of the song in a host list

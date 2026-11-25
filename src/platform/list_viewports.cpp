@@ -2,6 +2,7 @@
 
 #include "core/tokens.h"
 #include "platform/blob_shape.h"
+#include "platform/effects.h"
 #include "platform/log.h"
 
 #include <winrt/Windows.Foundation.Metadata.h>
@@ -28,11 +29,13 @@ wuc::ImplicitAnimationCollection offsetEase(wuc::Compositor const& c, Ms duratio
 
 wfn::float3 pixels(float x, float y) { return { std::round(x), std::round(y), 0.0f }; }
 
-// CreateVisualSurface is Windows 10 1903+ (decision 015): before it, a faded list is cut where its fade would start.
-bool canSnapshot()
+// CreateVisualSurface and CreateRadialGradientBrush are Windows 10 1903+ (decision 015): before
+// them, a list under buttons is drawn as any other, its words passing under them.
+bool canCutHoles()
 {
     using winrt::Windows::Foundation::Metadata::ApiInformation;
-    static const bool can = ApiInformation::IsMethodPresent(L"Windows.UI.Composition.Compositor", L"CreateVisualSurface");
+    static const bool can = ApiInformation::IsMethodPresent(L"Windows.UI.Composition.Compositor", L"CreateVisualSurface") &&
+                            ApiInformation::IsMethodPresent(L"Windows.UI.Composition.Compositor", L"CreateRadialGradientBrush");
     return can;
 }
 
@@ -60,13 +63,12 @@ wuc::ContainerVisual ListViewports::parentFor(const Placed& placed)
         list.scroller.Offset(pixels(0, -in.offset));
         list.scroller.ImplicitAnimations(scrollEase_);
     }
-    bool faded = in.hideTop > 0 || in.fadeTop > 0;
-    if (!list.clip || faded != list.faded) {
-        list.faded = faded;
+    if (!list.clip || in.holes.size() != list.asked) {
+        list.asked = in.holes.size();
         buildWindow(list, in);
     }
     // The card grew or moved: the window goes with it, at once.
-    if (!(list.viewport == in.viewport) || list.hideTop != in.hideTop || list.fadeTop != in.fadeTop) placeWindow(list, in);
+    if (!(list.viewport == in.viewport) || list.holeFrames != in.holes || list.holeFade != in.holeFade) placeWindow(list, in);
     if (list.offset != in.offset) {
         list.offset = in.offset;
         if (in.carrying) { // a row carried: at once, or it would lag behind the row it carries (decision 071)
@@ -91,8 +93,8 @@ void ListViewports::buildWindow(List& list, const InList& in)
     list.hidden = nullptr;
     list.root = nullptr;
     list.snapshot = nullptr;
-    list.mask = nullptr;
-    if (!list.faded || !fadedWindow(list)) {
+    list.holes.clear();
+    if (list.asked == 0 || !holedWindow(list, list.asked)) {
         list.clip = compositor_.CreateContainerVisual();
         list.clip.Clip(compositor_.CreateInsetClip());
         list.clip.Children().InsertAtTop(list.scroller);
@@ -109,11 +111,11 @@ void ListViewports::buildWindow(List& list, const InList& in)
     placeWindow(list, in);
 }
 
-bool ListViewports::fadedWindow(List& list)
+bool ListViewports::holedWindow(List& list, std::size_t holes)
 {
-    if (!canSnapshot()) {
+    if (!canCutHoles()) {
         static bool told = false;
-        if (!told) logLine("a list's fade: no snapshots here (before Windows 10 1903): cut where it would fade");
+        if (!told) logLine("a list's holes: no snapshots here (before Windows 10 1903): its words pass under the buttons");
         told = true;
         return false;
     }
@@ -132,28 +134,30 @@ bool ListViewports::fadedWindow(List& list)
         picture.Stretch(wuc::CompositionStretch::None); // pixel for pixel, pinned top-left: the text stays sharp
         picture.HorizontalAlignmentRatio(0.0f);
         picture.VerticalAlignmentRatio(0.0f);
-        // Clear above StartPoint, whole below EndPoint (placeWindow sets both), eased between:
-        // a straight ramp shows where it starts and ends. An opacity mask: only alpha matters.
-        auto mask = compositor_.CreateLinearGradientBrush();
-        mask.MappingMode(wuc::CompositionMappingMode::Absolute);
-        for (float at : { 0.0f, 0.25f, 0.5f, 0.75f, 1.0f }) {
-            float eased = at * at * (3 - 2 * at);
-            auto alpha = static_cast<std::uint8_t>(std::lround(255 * eased));
-            mask.ColorStops().Append(compositor_.CreateColorGradientStop(at, winrt::Windows::UI::Color{ alpha, 255, 255, 255 }));
+        // Each hole source-in the ones before, the list last: its colours, in the holes' alpha
+        // multiplied (as swimming text's edges, element_parts). One effect, nothing nested (decision 100).
+        std::vector<IGraphicsEffectSource> layers;
+        std::vector<wuc::CompositionRadialGradientBrush> cut;
+        for (std::size_t i = 0; i < holes; ++i) {
+            layers.push_back(wuc::CompositionEffectSourceParameter(L"Hole" + winrt::to_hstring(static_cast<std::uint32_t>(i))));
+            auto hole = compositor_.CreateRadialGradientBrush(); // placed and given its stops by placeWindow
+            hole.MappingMode(wuc::CompositionMappingMode::Absolute);
+            cut.push_back(hole);
         }
-        auto masked = compositor_.CreateMaskBrush();
-        masked.Source(picture);
-        masked.Mask(mask);
+        layers.push_back(wuc::CompositionEffectSourceParameter(L"List"));
+        auto brush = compositor_.CreateEffectFactory(composite(L"Holes", D2D1_COMPOSITE_MODE_SOURCE_IN, std::move(layers))).CreateBrush();
+        for (std::size_t i = 0; i < holes; ++i) brush.SetSourceParameter(L"Hole" + winrt::to_hstring(static_cast<std::uint32_t>(i)), cut[i]);
+        brush.SetSourceParameter(L"List", picture);
         auto sprite = compositor_.CreateSpriteVisual();
-        sprite.Brush(masked);
+        sprite.Brush(brush);
         list.clip = sprite;
         list.hidden = hidden;
         list.root = root;
         list.snapshot = snapshot;
-        list.mask = mask;
+        list.holes = std::move(cut);
         return true;
     } catch (winrt::hresult_error const& e) {
-        logLine("a list's fade: refused (0x%08lx): cut where it would fade", static_cast<unsigned long>(e.code()));
+        logLine("a list's holes: refused (0x%08lx): its words pass under the buttons", static_cast<unsigned long>(e.code()));
         if (auto parent = list.scroller.Parent()) parent.Children().Remove(list.scroller);
         return false;
     }
@@ -162,18 +166,30 @@ bool ListViewports::fadedWindow(List& list)
 void ListViewports::placeWindow(List& list, const InList& in)
 {
     list.viewport = in.viewport;
-    list.hideTop = in.hideTop;
-    list.fadeTop = in.fadeTop;
+    list.holeFrames = in.holes;
+    list.holeFade = in.holeFade;
     wfn::float2 size{ in.viewport.width, in.viewport.height };
     list.clip.Offset(pixels(in.viewport.x, in.viewport.y));
     list.clip.Size(size);
-    if (list.snapshot) {
-        list.root.Size(size);
-        list.snapshot.SourceSize(size);
-        list.mask.StartPoint({ 0.0f, in.hideTop });
-        list.mask.EndPoint({ 0.0f, in.hideTop + std::max(in.fadeTop, 1.0f) });
-    } else if (auto cut = list.clip.Clip().try_as<wuc::InsetClip>()) {
-        cut.TopInset(std::max(0.0f, in.hideTop)); // no snapshot: nothing under the buttons, but no fade either
+    if (!list.snapshot) return;
+    list.root.Size(size);
+    list.snapshot.SourceSize(size);
+    for (std::size_t i = 0; i < list.holes.size() && i < in.holes.size(); ++i) {
+        // Round the button: clear out to its edge, then eased back to whole over holeFade
+        // (a straight ramp shows where it starts and ends). An opacity mask: only alpha matters.
+        const Rect& b = in.holes[i];
+        float inner = std::min(b.width, b.height) / 2, outer = inner + std::max(in.holeFade, 1.0f);
+        wuc::CompositionRadialGradientBrush& hole = list.holes[i];
+        hole.EllipseCenter({ b.x + b.width / 2, b.y + b.height / 2 });
+        hole.EllipseRadius({ outer, outer });
+        hole.ColorStops().Clear();
+        float start = inner / outer;
+        hole.ColorStops().Append(compositor_.CreateColorGradientStop(0.0f, winrt::Windows::UI::Color{ 0, 255, 255, 255 }));
+        for (float at : { 0.0f, 0.25f, 0.5f, 0.75f, 1.0f }) {
+            float eased = at * at * (3 - 2 * at);
+            auto alpha = static_cast<std::uint8_t>(std::lround(255 * eased));
+            hole.ColorStops().Append(compositor_.CreateColorGradientStop(start + (1 - start) * at, winrt::Windows::UI::Color{ alpha, 255, 255, 255 }));
+        }
     }
 }
 

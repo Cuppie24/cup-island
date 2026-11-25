@@ -39,7 +39,7 @@ leaves it out cleanly.
 | Newer than 1809 | Fallback | Where |
 | --- | --- | --- |
 | `DCompositionWaitForCompositorClock` (Windows 11) | `DwmFlush()` | `platform/interaction_layer.cpp`, decision 001 |
-| `Compositor::CreateVisualSurface` (1903), live snapshots of visuals | no shadow or glass; a list under buttons cut, not faded | `platform/blob_backdrop.cpp` (decision 018), `platform/list_viewports.cpp` (decision 180) |
+| `Compositor::CreateVisualSurface` (1903), live snapshots of visuals; `CreateRadialGradientBrush` (1903) | no shadow or glass; a list's words pass under buttons, not faded round them | `platform/blob_backdrop.cpp` (decision 018), `platform/list_viewports.cpp` (decision 180) |
 | `AppInfo::GetFromAppUserModelId` (2004) | app name from the exe name | `providers/media/smtc_reading.cpp` |
 | Segoe Fluent Icons, Segoe UI Variable (Windows 11 fonts) | Segoe MDL2 Assets, Segoe UI | `platform/element_painting.cpp` |
 | Host backdrop for a Win32 window (`DWMWA_USE_HOSTBACKDROPBRUSH`, Windows 11) | no Glass setting: the island stays solid | `platform/glass.cpp`, decision 089 |

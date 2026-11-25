@@ -28,12 +28,13 @@ struct InList {
     // It's scrolled to keep a row in its middle (Host::centre, decision 180): it follows something
     // as that moves on, slowly (followScrollDuration), not at the wheel's quick step.
     bool following = false;
-    // Its window's top fades out under buttons floating over it (Content::overTop, decision 180):
-    // nothing of it shows in its first hideTop, where they are, and what scrolls up towards
-    // them fades out over the fadeTop below that. The renderer masks the list itself: no plate
-    // in some colour, so the island shows through as it is (glass, a cover's glow).
-    float hideTop = 0;
-    float fadeTop = 0;
+    // Buttons floating over it (Content::overTop, decision 180), in its window's coordinates
+    // (from the window's top-left, not scrolled): round each, nothing of the list shows, and it
+    // fades back in over holeFade past the button's edge. Elsewhere, between them too, it shows
+    // as ever. The renderer masks the list itself: no plate in some colour, so the island
+    // shows through as it is (glass, a cover's glow).
+    std::vector<Rect> holes;
+    float holeFade = 0;
     bool operator==(const InList&) const = default;
 };
 

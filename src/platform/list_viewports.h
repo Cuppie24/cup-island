@@ -6,9 +6,9 @@
 // and ease to a new one when the list reorders (a drop, a tick); a dragged
 // row follows the pointer at once.
 //
-// A list whose top fades (InList::hideTop, under buttons floating over it,
-// decision 180) is drawn instead through a live snapshot of its scroller,
-// masked by a gradient: its words fade to nothing, and whatever the island
+// A list with buttons floating over it (InList::holes, decision 180) is drawn
+// instead through a live snapshot of its scroller, with a soft round hole cut
+// round each button: its words fade to nothing there, and whatever the island
 // is (glass, a cover's glow) shows through as it is.
 
 #include "core/layout.h"
@@ -42,24 +42,25 @@ public:
 
 private:
     struct List {
-        wuc::ContainerVisual clip{ nullptr };     // at the window: clips to it, or (faded) shows `snapshot` through `mask`
+        wuc::ContainerVisual clip{ nullptr };     // at the window: clips to it, or (holed) shows `snapshot` with `holes` cut out
         wuc::ContainerVisual scroller{ nullptr }; // holds the elements; offset = -scroll, eased
-        // Faded: the scroller in `root`, the snapshot's source, kept in the tree out of sight in `hidden`.
+        // Holed: the scroller in `root`, the snapshot's source, kept in the tree out of sight in `hidden`.
         wuc::ContainerVisual hidden{ nullptr };
         wuc::ContainerVisual root{ nullptr };
         wuc::CompositionVisualSurface snapshot{ nullptr };
-        wuc::CompositionLinearGradientBrush mask{ nullptr };
-        bool faded = false; // asked for, whether or not Windows can (before 1903: a plain cut)
+        std::vector<wuc::CompositionRadialGradientBrush> holes; // one round each button: clear in it, whole past its fade
+        std::size_t asked = 0; // holes asked for when the window was built, built or not (before 1903: none)
         Rect viewport;
         float offset = 0;
-        float hideTop = 0, fadeTop = 0;
+        std::vector<Rect> holeFrames;
+        float holeFade = 0;
     };
 
     static std::string keyOf(const Placed& placed) { return placed.activityId + "/" + placed.list->id; }
     // (Re)builds the list's window round its scroller, in the old one's place; then places it.
     void buildWindow(List& list, const InList& in);
-    bool fadedWindow(List& list);
-    static void placeWindow(List& list, const InList& in);
+    bool holedWindow(List& list, std::size_t holes);
+    void placeWindow(List& list, const InList& in);
 
     wuc::Compositor compositor_{ nullptr };
     wuc::ContainerVisual parent_{ nullptr };

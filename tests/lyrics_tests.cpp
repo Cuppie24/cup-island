@@ -14,6 +14,8 @@
 #include "providers/media/media_presenter.h"
 #include "providers/media/now_playing.h"
 
+#include <algorithm>
+#include <cmath>
 #include <vector>
 
 namespace cup::test {
@@ -331,16 +333,24 @@ void pageAndPillTests()
     expect(syncHit && syncHit->action.actionId == media_action::kLyricsSync && backHit && backHit->action.actionId == media_action::kLyricsBack,
            "each takes its click");
     expect(!hitTest(shown, { shown.size.x / 2, syncAt->frame.y + syncAt->frame.height / 2 }), "the strip between them takes none: it's the words'");
-    // Under them the list itself fades out: hidden down to the buttons' bottom, so nothing shows
-    // through one, fading in over overTopFade below. Nothing is drawn under the buttons.
+    // Under them the list itself fades out round each button, so nothing shows through one,
+    // and back in over overTopFade past its edge; between them the words stay. Nothing is drawn under the buttons.
     {
-        float bottom = syncAt->frame.y + syncAt->frame.height;
-        bool faded = true;
-        for (const Placed& p : shown.elements)
-            if (p.list) faded = faded && std::abs(p.list->viewport.y + p.list->hideTop - bottom) < 1 && p.list->fadeTop == t.overTopFade;
+        bool holed = true;
+        for (const Placed& p : shown.elements) {
+            if (!p.list) continue;
+            const Rect& w = p.list->viewport;
+            auto at = [&](const Placed* b) { return Rect{ b->frame.x - w.x, b->frame.y - w.y, b->frame.width, b->frame.height }; };
+            holed = holed && p.list->holes.size() == 2 && p.list->holeFade == t.overTopFade &&
+                    std::find(p.list->holes.begin(), p.list->holes.end(), at(syncAt)) != p.list->holes.end() &&
+                    std::find(p.list->holes.begin(), p.list->holes.end(), at(backAt)) != p.list->holes.end();
+        }
         bool plain = true;
         for (const Placed& p : shown.elements) plain = plain && !std::holds_alternative<GroupFill>(p.item);
-        expect(first->list->hideTop > 0 && faded && plain, "the list fades out towards the buttons, from their bottom: no plate or veil of a colour under them");
+        expect(first->list && holed && plain, "the list fades out round each button, in the list's own coordinates: no plate or veil of a colour under them");
+        const InList& in = *first->list;
+        float gap = in.holes[0].x < in.holes[1].x ? in.holes[1].x - (in.holes[0].x + in.holes[0].width) : in.holes[0].x - (in.holes[1].x + in.holes[1].width);
+        expect(gap > 2 * in.holeFade, "...and only round them: the top's middle, between the two, stays whole");
         Content listed;
         listed.card = CardLayout::Centred;
         for (int i = 0; i < 12; ++i) {
@@ -350,7 +360,7 @@ void pageAndPillTests()
         }
         bool unfaded = true, anyListed = false;
         for (const Placed& p : layout(expandedWith(listed), Ms{ 0 }).elements)
-            if (p.list) anyListed = true, unfaded = unfaded && p.list->hideTop == 0 && p.list->fadeTop == 0;
+            if (p.list) anyListed = true, unfaded = unfaded && p.list->holes.empty() && p.list->holeFade == 0;
         expect(anyListed && unfaded, "...a list with nothing over it doesn't fade");
     }
     // What's kept in the page's middle: the line being sung.
