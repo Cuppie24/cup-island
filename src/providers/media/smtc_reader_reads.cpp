@@ -107,6 +107,24 @@ std::vector<SessionView> SmtcReader::describe(Session const& remembered) const
     return views;
 }
 
+// Windows can hand out a second object for a session: GetCurrentSession's
+// isn't always GetSessions'. One such Spotify object kept reading "paused"
+// while Spotify played and Windows' own flyout showed ⏸ (decision 181).
+// The watched object raises the playback events, so Windows keeps it up to
+// date: that's the one read, for the full read and for play/pause alike.
+SmtcReader::Session SmtcReader::watchedFor(Session const& session)
+{
+    if (!session) return session;
+    std::vector<SessionView> views;
+    for (auto const& w : playbackWatchers_) views.push_back({ w.app, w.session == session });
+    std::string app = winrt::to_string(session.SourceAppUserModelId());
+    auto i = watchedSession(views, app);
+    if (!i || playbackWatchers_[*i].session == session) return session;
+    if (std::exchange(swappedApp_, app) != app) // once per app, not at every event
+        platform::logLine("media: Windows handed out a second object for %s: reading the watched one", appName(session.SourceAppUserModelId()).c_str());
+    return playbackWatchers_[*i].session;
+}
+
 void SmtcReader::cycleSource()
 {
     auto sessions = manager_.GetSessions();

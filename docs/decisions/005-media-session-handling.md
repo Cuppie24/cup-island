@@ -1,6 +1,6 @@
 # 005: How the media provider handles Windows media sessions
 
-Status: Accepted; a track no longer waits for its cover (056); the late-update bugs are in 057; a session's brief gaps and self-named apps are in 074
+Status: Accepted; a track no longer waits for its cover (056); the late-update bugs are in 057; a session's brief gaps and self-named apps are in 074; the object read for a session is the watched one (181)
 
 **Context.** Windows exposes every app that plays media as an SMTC session
 (TR §6). Several can exist at once, they appear and vanish freely, they report

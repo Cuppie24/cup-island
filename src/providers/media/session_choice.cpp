@@ -11,6 +11,19 @@ std::optional<std::size_t> findSession(const std::vector<SessionView>& sessions,
     return std::nullopt;
 }
 
+std::optional<std::size_t> watchedSession(const std::vector<SessionView>& watched, const std::string& app)
+{
+    for (std::size_t i = 0; i < watched.size(); ++i)
+        if (watched[i].remembered) return i;
+    std::optional<std::size_t> only;
+    for (std::size_t i = 0; i < watched.size(); ++i) {
+        if (app.empty() || watched[i].app != app) continue;
+        if (only) return std::nullopt; // two of its app: either could be it
+        only = i;
+    }
+    return only;
+}
+
 bool mainMediaMoved(const std::string& lastApp, const std::string& currentApp)
 {
     return !currentApp.empty() && currentApp != lastApp;

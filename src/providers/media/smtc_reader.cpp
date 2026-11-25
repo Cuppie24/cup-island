@@ -102,6 +102,7 @@ void SmtcReader::disconnect()
         sessionsChanged_.revoke();
         propertiesChanged_.revoke();
         timelineChanged_.revoke();
+        shownPlaybackChanged_.revoke();
         playbackWatchers_.clear();
     } catch (winrt::hresult_error const&) {
         // Windows' side already gone: nothing left to unsubscribe from.
@@ -120,13 +121,21 @@ void SmtcReader::onSessionsChanged()
 void SmtcReader::watchAllSessions()
 {
     playbackWatchers_.clear(); // revokes the old subscriptions
-    for (auto const& s : manager_.GetSessions())
-        playbackWatchers_.push_back({ s, s.PlaybackInfoChanged(winrt::auto_revoke, onReaderThread(&SmtcReader::onPlaybackChanged)) });
+    swappedApp_.clear();       // new objects: a second one is worth a line again
+    for (auto const& s : manager_.GetSessions()) {
+        winrt::hstring id = s.SourceAppUserModelId();
+        auto changed = [weak = weak_from_this(), name = appName(id)](auto&&...) {
+            if (auto self = weak.lock()) self->post([name](SmtcReader& r) { r.onPlaybackChanged(name); });
+        };
+        playbackWatchers_.push_back({ s, winrt::to_string(id), s.PlaybackInfoChanged(winrt::auto_revoke, changed) });
+    }
 }
 
-void SmtcReader::onPlaybackChanged()
+void SmtcReader::onPlaybackChanged(const std::string& app)
 {
-    platform::logLine("media: playback changed"); // play/pause from any app: should show on the island at once
+    // Play/pause from any app: should show on the island at once. Named, so a
+    // late or stale state can be told apart from another app's (decision 181).
+    platform::logLine("media: playback changed (%s)", app.c_str());
     showPlaybackNow();
     pickSession();
     recheckSoon();
@@ -195,15 +204,21 @@ void SmtcReader::pickSession()
     }
     if (!chosen) chosen = current;
     if (!chosen && sessions.Size() > 0) chosen = sessions.GetAt(0);
+    chosen = watchedFor(chosen); // not a second object whose playback stays as it was (decision 181)
 
     if (chosen != session_) {
         session_ = chosen;
         propertiesChanged_.revoke();
         timelineChanged_.revoke();
+        shownPlaybackChanged_.revoke();
         if (session_) {
-            // (Playback changes are watched for every session in watchAllSessions.)
             propertiesChanged_ = session_.MediaPropertiesChanged(winrt::auto_revoke, onReaderThread(&SmtcReader::onPropertiesChanged));
             timelineChanged_ = session_.TimelinePropertiesChanged(winrt::auto_revoke, onReaderThread(&SmtcReader::onTimelineChanged));
+            // Every session's playback is watched in watchAllSessions. One that
+            // isn't among them is watched here: what's read must raise its own events.
+            bool watched = std::any_of(playbackWatchers_.begin(), playbackWatchers_.end(), [&](auto const& w) { return w.session == session_; });
+            if (!watched)
+                shownPlaybackChanged_ = session_.PlaybackInfoChanged(winrt::auto_revoke, onReaderThread(&SmtcReader::showPlaybackNow));
             platform::logLine("media: showing %s", appName(session_.SourceAppUserModelId()).c_str());
         }
         propertiesDirty_ = true; // another session: read its picture fresh
