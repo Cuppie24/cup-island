@@ -3,6 +3,7 @@
 // Stateless helpers; the provider owns sessions and threading.
 
 #include "providers/media/now_playing.h"
+#include "providers/media/playback_status.h"
 
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.Foundation.h>
@@ -28,6 +29,9 @@ NowPlaying readNowPlaying(wmc::GlobalSystemMediaTransportControlsSessionMediaPro
 // play/pause shows without waiting for the properties' read (decision 116).
 NowPlaying readPlayback(wmc::GlobalSystemMediaTransportControlsSessionPlaybackInfo const& playback,
                         wmc::GlobalSystemMediaTransportControlsSessionTimelineProperties const& timeline, Ms appNow);
+
+// A session's status, as the island's own enum (playing or not: showsPlaying, decision 182).
+PlaybackStatus fromWindows(wmc::GlobalSystemMediaTransportControlsSessionPlaybackStatus status);
 
 // SMTC's repeat modes: None / List / Track.
 Repeat fromWindows(winrt::Windows::Media::MediaPlaybackAutoRepeatMode mode);

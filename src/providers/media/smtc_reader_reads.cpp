@@ -62,7 +62,9 @@ winrt::fire_and_forget SmtcReader::load()
 
 void SmtcReader::showRead(Session const& session, Properties const& properties, bool propertiesChanged, Ms began)
 {
-    NowPlaying media = readNowPlaying(properties, session.GetPlaybackInfo(), session.GetTimelineProperties(), out_.now());
+    PlaybackInfo info = session.GetPlaybackInfo();
+    NowPlaying media = readNowPlaying(properties, info, session.GetTimelineProperties(), out_.now());
+    logStatus(session, info);
     readFailures_ = 0;
     if (Ms took = out_.now() - began; took > Ms{ 250 })
         platform::logLine("media: read took %lld ms", static_cast<long long>(took.count()));
@@ -97,6 +99,19 @@ void SmtcReader::showRead(Session const& session, Properties const& properties, 
     recheckArtIfMissing(); // no picture yet: look again, in case no event says it came
     media.art = art_.art();
     out_.show(MediaSnapshot{ winrt::to_string(app), media });
+}
+
+// Only "playing" and "paused" were logged, so a status between them couldn't
+// be seen: Spotify's button stuck on ▶ while Windows' flyout showed ⏸ (decision
+// 182). Logged when it's anything else, and again when it's back to one of the two.
+void SmtcReader::logStatus(Session const& session, PlaybackInfo const& info)
+{
+    PlaybackStatus status = fromWindows(info.PlaybackStatus()); // info: checked by the read before this
+    std::optional<PlaybackStatus> was = std::exchange(loggedStatus_, status);
+    auto usual = [](PlaybackStatus s) { return s == PlaybackStatus::Playing || s == PlaybackStatus::Paused; };
+    if (was == status || (usual(status) && (!was || usual(*was)))) return;
+    platform::logLine("media: %s reports %s (shown as %s)", appName(session.SourceAppUserModelId()).c_str(), statusName(status),
+                      showsPlaying(status) ? "playing" : "paused");
 }
 
 std::vector<SessionView> SmtcReader::describe(Session const& remembered) const

@@ -7,6 +7,7 @@
 #include "providers/media/art_state.h"
 #include "providers/media/media_presenter.h"
 #include "providers/media/now_playing.h"
+#include "providers/media/playback_status.h"
 #include "providers/media/session_choice.h"
 #include "providers/media/tab_match.h"
 
@@ -246,6 +247,13 @@ void runMediaTests()
     expect(!mainMediaMoved("Spotify.exe", "Spotify.exe"), "same main app (even a new object): no move");
     expect(!mainMediaMoved("Spotify.exe", ""), "a moment without main media: no move, the pick stays");
     expect(mainMediaMoved("Spotify.exe", "Chrome") && mainMediaMoved("", "Spotify.exe"), "another app took over: move");
+    // Windows' six statuses, shown as playing or not (decision 182): Changing is on its way, as in Windows' flyout.
+    expect(showsPlaying(PlaybackStatus::Playing) && showsPlaying(PlaybackStatus::Changing), "playing, and changing (Spotify, while it plays): ⏸");
+    expect(!showsPlaying(PlaybackStatus::Paused) && !showsPlaying(PlaybackStatus::Stopped) && !showsPlaying(PlaybackStatus::Opened) &&
+           !showsPlaying(PlaybackStatus::Closed), "paused, stopped, opened, closed: ▶");
+    expect(std::string(statusName(PlaybackStatus::Changing)) == "Changing" && std::string(statusName(static_cast<PlaybackStatus>(9))) == "unknown",
+           "statuses named for the log");
+
     // The object read (decision 181): the watched one, whose playback Windows keeps up to date.
     std::vector<SessionView> watched = { { "Chrome" }, { "Spotify.exe" }, { "Chrome" } };
     expect(watchedSession(watched, "Spotify.exe") == 1u, "a second object for Spotify: its watched one is read");

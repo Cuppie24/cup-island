@@ -1,6 +1,6 @@
 # 181: A second object for a media session read "paused" while it played
 
-Status: Accepted (amends 005, follows 116). Windows-only code: built on Linux only as far as its pure rule; needs a run on Windows.
+Status: Accepted (amends 005, follows 116); not the whole cause: the button still stuck in 0.14.4, see 182. Windows-only code: built on Linux only as far as its pure rule; needs a run on Windows.
 
 **Symptom.** Spotify playing "Call It Fate, Call It Karma", started from the
 island's buttons: the card's button stayed ▶, while Windows' own media

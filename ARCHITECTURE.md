@@ -267,7 +267,7 @@ over the file's, so `tokens()` is always what's on screen.
 | Real input for drag (OLE drop target) | not yet; the D key simulates it |
 | Provider API (PS §7 Tier 1), registry, demo music player | done, tested |
 | Switching activities (decision 007): bubble click, drag-to-swap, Expanded tabs, sticky pick | done; rules tested, tab visuals need Windows |
-| Real media provider (SMTC, TR §6): art, controls, seek, multi-app switch, paused media stays (decision 099), its card stays open when left alone (decision 177), read through the watched session object, never a stale second one (decision 181) | done; rules tested, WinRT part needs Windows |
+| Real media provider (SMTC, TR §6): art, controls, seek, multi-app switch, paused media stays (decision 099), its card stays open when left alone (decision 177), read through the watched session object, never a stale second one (decision 181), a "Changing" session shown as playing (decision 182) | done; rules tested, WinRT part needs Windows |
 | Lyrics from LRCLIB, the line being sung over media's bar, dropping in; the playing app's volume beside the song's name (decision 180) | rules tested; the request, the volume calls and the animation need a Windows run |
 | File index logic (decision 075): USN records, the index, journal changes, queries, snapshots, pipe protocol | done, tested |
 | File index service + cupindex (decision 075, milestone 3) | runs on a real PC: both drives indexed, searches answered as the user |

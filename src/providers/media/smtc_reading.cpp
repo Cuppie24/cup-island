@@ -33,6 +33,19 @@ void need(bool there, const wchar_t* what)
 
 } // namespace
 
+PlaybackStatus fromWindows(Status status)
+{
+    switch (status) {
+    case Status::Closed: return PlaybackStatus::Closed;
+    case Status::Opened: return PlaybackStatus::Opened;
+    case Status::Changing: return PlaybackStatus::Changing;
+    case Status::Stopped: return PlaybackStatus::Stopped;
+    case Status::Playing: return PlaybackStatus::Playing;
+    case Status::Paused: return PlaybackStatus::Paused;
+    }
+    return PlaybackStatus::Stopped; // a status newer than this code: not playing
+}
+
 Repeat fromWindows(winrt::Windows::Media::MediaPlaybackAutoRepeatMode mode)
 {
     using Mode = winrt::Windows::Media::MediaPlaybackAutoRepeatMode;
@@ -74,7 +87,7 @@ NowPlaying readPlayback(wmc::GlobalSystemMediaTransportControlsSessionPlaybackIn
     m.canPlayPause = controls.IsPlayPauseToggleEnabled() || controls.IsPlayEnabled() || controls.IsPauseEnabled();
 
     Timeline& t = m.timeline;
-    t.playing = playback.PlaybackStatus() == Status::Playing;
+    t.playing = showsPlaying(fromWindows(playback.PlaybackStatus())); // Changing too (decision 182)
     auto rate = playback.PlaybackRate();
     t.rate = rate && rate.Value() > 0 ? static_cast<float>(rate.Value()) : 1.0f;
 

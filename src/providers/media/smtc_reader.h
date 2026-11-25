@@ -51,6 +51,7 @@ private:
     using Manager = wmc::GlobalSystemMediaTransportControlsSessionManager;
     using Session = wmc::GlobalSystemMediaTransportControlsSession;
     using Properties = wmc::GlobalSystemMediaTransportControlsSessionMediaProperties;
+    using PlaybackInfo = wmc::GlobalSystemMediaTransportControlsSessionPlaybackInfo;
 
     SmtcReader(Out out, const Tokens& settings) : out_(std::move(out)), tokens_(settings) {}
 
@@ -65,6 +66,7 @@ private:
     void onPlaybackChanged(const std::string& app); // any app started/paused/stopped; `app` named in the log
     void onTimelineChanged(); // the shown session's position or state
     void showPlaybackNow();   // its playback read synchronously and shown, ahead of the full read (decision 116)
+    void logStatus(Session const& session, PlaybackInfo const& info); // Windows' own status, when it's neither playing nor paused (decision 182)
     void watchAllSessions();
     winrt::fire_and_forget recheckSoon();
     void pickSession();         // which session to show: manual choice, else Windows' current one
@@ -119,6 +121,7 @@ private:
     bool reloadWanted_ = false;
     bool stuckCheckQueued_ = false;    // a re-read queued for when the read in flight counts as stuck (decision 116)
     std::optional<bool> shownPlaying_; // logged when it changes, to time pauses
+    std::optional<PlaybackStatus> loggedStatus_; // the shown session's own, last logged (decision 182)
     std::string loggedTrack_;          // the last track logged: a recolour's wait starts with its line
     ArtState art_;                     // the cover: when to decode, when to hold a new track back
     bool propertiesDirty_ = false;     // properties re-sent since the last completed read
