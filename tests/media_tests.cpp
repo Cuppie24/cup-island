@@ -246,6 +246,13 @@ void runMediaTests()
     expect(!mainMediaMoved("Spotify.exe", "Spotify.exe"), "same main app (even a new object): no move");
     expect(!mainMediaMoved("Spotify.exe", ""), "a moment without main media: no move, the pick stays");
     expect(mainMediaMoved("Spotify.exe", "Chrome") && mainMediaMoved("", "Spotify.exe"), "another app took over: move");
+    // The object read (decision 181): the watched one, whose playback Windows keeps up to date.
+    std::vector<SessionView> watched = { { "Chrome" }, { "Spotify.exe" }, { "Chrome" } };
+    expect(watchedSession(watched, "Spotify.exe") == 1u, "a second object for Spotify: its watched one is read");
+    expect(!watchedSession(watched, "Chrome"), "two of an app, neither the same object: Windows' object is kept");
+    expect(!watchedSession(watched, "VLC") && !watchedSession(watched, ""), "not watched (yet): Windows' object is kept");
+    watched[2].remembered = true;
+    expect(watchedSession(watched, "Chrome") == 2u, "the very object watched: itself, even with two of its app");
     expect(nextSession(3, 1u) == 2 && nextSession(3, 2u) == 0, "source button steps and wraps");
     expect(nextSession(3, std::nullopt) == 0 && nextSession(0, std::nullopt) == 0, "nothing shown: start at the first");
 

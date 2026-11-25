@@ -62,12 +62,13 @@ private:
     winrt::fire_and_forget connect();
     void disconnect(); // stop()'s revokes: calls into Windows too, so made here
     void onSessionsChanged();
-    void onPlaybackChanged(); // any app started/paused/stopped
+    void onPlaybackChanged(const std::string& app); // any app started/paused/stopped; `app` named in the log
     void onTimelineChanged(); // the shown session's position or state
     void showPlaybackNow();   // its playback read synchronously and shown, ahead of the full read (decision 116)
     void watchAllSessions();
     winrt::fire_and_forget recheckSoon();
     void pickSession();         // which session to show: manual choice, else Windows' current one
+    Session watchedFor(Session const& session); // the watched object to read for it (decision 181)
     void refresh();             // re-read the shown session
     void onPropertiesChanged(); // the app re-sent title/art: the picture may be new
     // Re-read after `delay`; `rereadArt` treats it as a properties update (decode the cover again).
@@ -107,6 +108,7 @@ private:
     Session chosen_{ nullptr }; // manual pick via the source button; null = follow Windows
     std::string chosenApp_;     // its app id, to find it again if Windows hands out a new object
     std::string mainApp_;       // app of Windows' main media (what the media keys control), last seen
+    std::string swappedApp_;    // the app whose second object was last swapped for its watched one: logged once (decision 181)
 
     // One read at a time; events during it ask for one more after it. Not
     // "newest wins": Spotify sends timeline updates faster than a read takes
@@ -127,13 +129,18 @@ private:
     Manager::SessionsChanged_revoker sessionsChanged_;
     Session::MediaPropertiesChanged_revoker propertiesChanged_;
     Session::TimelinePropertiesChanged_revoker timelineChanged_;
+    // The shown session's own playback, when it isn't a watched object (an
+    // app with two sessions): whatever is read raises its own events (decision 181).
+    Session::PlaybackInfoChanged_revoker shownPlaybackChanged_;
     // Every session's playback: Windows doesn't reliably raise
     // CurrentSessionChanged when another app starts playing. Each keeps its
     // session alive: a revoker only holds a weak reference, and a session
     // object nothing holds is freed and raises nothing (a pause then showed
     // only at the app's next timeline update, seconds later; decision 005).
+    // These are also the objects read (watchedFor): Windows keeps them up to date.
     struct PlaybackWatcher {
         Session session{ nullptr };
+        std::string app; // its SourceAppUserModelId, read once
         Session::PlaybackInfoChanged_revoker changed;
     };
     std::vector<PlaybackWatcher> playbackWatchers_;

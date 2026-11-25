@@ -21,6 +21,13 @@ struct SessionView {
 // of its app. Nothing if its app is gone.
 std::optional<std::size_t> findSession(const std::vector<SessionView>& sessions, const std::string& app);
 
+// The watched session (one whose playback events we hold) that stands for a
+// session Windows handed out: the same object, else the only watched session
+// of its app. Windows can hand out a second object for a session whose
+// playback stays as it was (decision 181). Nothing if its app has several
+// (two browser profiles): which one it is can't be told.
+std::optional<std::size_t> watchedSession(const std::vector<SessionView>& watched, const std::string& app);
+
 // Did Windows move its main media to another app since `lastApp`? Having no
 // main media for a moment ("") is not a move.
 bool mainMediaMoved(const std::string& lastApp, const std::string& currentApp);
