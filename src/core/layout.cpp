@@ -247,14 +247,21 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
                     float m = tokens().itemSpacing / 2;
                     scene.elements[i].hitFrame = { f.x - m, f.y - m, f.width + 2 * m, f.height + 2 * m };
                 }
-                // ...and a list under them fades out towards them (InList::hideTop): hidden down to the
-                // buttons' bottom, so nothing shows through one, then fading in over overTopFade.
-                float bottom = slot.frame.y + slot.frame.height;
+                // ...and a list under them fades out round each (InList::holes): nothing shows through
+                // a button, and the words between them stay.
+                float fade = tokens().overTopFade;
                 for (std::size_t i = contentFrom; i < from; ++i) {
                     std::optional<InList>& list = scene.elements[i].list;
-                    if (!list || list->viewport.y >= bottom) continue; // it starts below them: nothing to fade
-                    list->hideTop = bottom - list->viewport.y;
-                    list->fadeTop = tokens().overTopFade;
+                    if (!list) continue;
+                    const Rect& window = list->viewport;
+                    for (std::size_t b = from; b < scene.elements.size(); ++b) {
+                        if (!std::holds_alternative<Button>(scene.elements[b].item)) continue;
+                        Rect f = scene.elements[b].frame;
+                        bool over = f.x < window.x + window.width + fade && f.x + f.width > window.x - fade &&
+                                    f.y < window.y + window.height + fade && f.y + f.height > window.y - fade;
+                        if (over) list->holes.push_back({ f.x - window.x, f.y - window.y, f.width, f.height });
+                    }
+                    if (!list->holes.empty()) list->holeFade = fade;
                 }
             }
         }

@@ -223,8 +223,8 @@ struct Tokens {
     float progressHeight = 4;
     float progressHitHeight = 16; // taller than drawn, so it's easy to click
     float progressKnobSize = 12;  // the scrub handle shown on hover
-    // Buttons over a card's list (Content::overTop, decision 180): the list is hidden down to
-    // their bottom and fades in over this far below it (InList::fadeTop).
+    // Buttons over a card's list (Content::overTop, decision 180): the list is hidden under each
+    // and fades back in over this far past its edge (InList::holeFade).
     float overTopFade = 24;
     // A button opened into the control beside it (Row::leadingOpen, decision 180): a level's bar
     // (Progress::level) this wide, the pill under the two reaching this far past the bar.

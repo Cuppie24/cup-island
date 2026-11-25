@@ -603,7 +603,7 @@ struct Content {
     // left corner and `trailing` at its right, over the card's rows, which start at its top
     // under them. For a page that is all one thing to read, with a way back (a page of lyrics:
     // its back and sync buttons, decision 180). Only those two take clicks there, not the strip between.
-    // A list under them fades out towards them (InList::hideTop).
+    // A list under them fades out round each (InList::holes).
     Slot overTop;
     Slot expandedTrailing; // a button-sized square in the top-right corner; the centre narrows only when it's used
     Slot expandedBottom;
