@@ -393,9 +393,10 @@ struct GroupFill {
     // It appears by growing from its start, a square of its height, to its full width, and goes
     // back the same way: a button opening into the control beside it (Row::leadingOpen, decision 180).
     bool unrolls = false;
-    // Solid, in the island's raised colour with a faint edge, and over the content instead of
-    // under it: the plate behind a button that floats over a card's rows (Content::overTop,
-    // decision 180), so what scrolls under it doesn't show through.
+    // A veil over the content instead of a fill under it: the island's colour, whole under a
+    // button that floats over a card's rows (Content::overTop, decision 180) and fading to
+    // nothing over overTopFade around it, so what scrolls towards the button fades away
+    // instead of showing through it. Its cornerRadius is the button's: where the fade starts.
     bool solid = false;
     bool operator==(const GroupFill&) const = default;
 };

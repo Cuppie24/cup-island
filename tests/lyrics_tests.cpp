@@ -275,6 +275,12 @@ void pageAndPillTests()
     auto* back = heading.leading.size() == 1 ? std::get_if<Button>(&heading.leading[0]) : nullptr;
     auto* sync = heading.trailing.size() == 1 ? std::get_if<Button>(&heading.trailing[0]) : nullptr;
     expect(heading.items.empty(), "no song's name over the words: only the two buttons");
+    expect(back && sync && back->on == false && sync->on == true, "both toggles (a circle, and on liquid glass a shiny edge); the sync button lit while the page follows the song");
+    {
+        NowPlaying adrift = m;
+        adrift.lyricsSynced = false;
+        expect(std::get<Button>(nowPlayingContent(adrift).overTop[0].trailing[0]).on == false, "...and not once the user has scrolled away");
+    }
     expect(back && back->glyph == Glyph::ChevronLeft && back->actionId == media_action::kLyricsBack && sync && sync->glyph == Glyph::Sync &&
                sync->actionId == media_action::kLyricsSync && heading.list.empty(),
            "its back arrow and its sync button over the page's top corners, not in a row of their own");
@@ -331,9 +337,10 @@ void pageAndPillTests()
         for (std::size_t i = 0; i + 1 < shown.elements.size(); ++i)
             if (shown.elements[i].key == "overTop/heading/0/plate") plate = &shown.elements[i], after = &shown.elements[i + 1];
         auto* fill = plate ? std::get_if<GroupFill>(&plate->item) : nullptr;
-        expect(fill && fill->solid && plate->frame == syncAt->frame && plate->cornerRadius == plate->frame.height / 2 && after == syncAt &&
-                   find(shown, "overTop/heading/1/plate"),
-               "a round, solid plate under each button, placed just before it");
+        float fade = t.overTopFade;
+        expect(fill && fill->solid && plate->frame == Rect{ syncAt->frame.x - fade, syncAt->frame.y - fade, syncAt->frame.width + 2 * fade, syncAt->frame.height + 2 * fade } &&
+                   plate->cornerRadius == syncAt->frame.height / 2 && after == syncAt && find(shown, "overTop/heading/1/plate"),
+               "a veil under each button, placed just before it: whole under the button, fading out overTopFade around it");
     }
     // What's kept in the page's middle: the line being sung.
     expect(lyricsPageRow(m) == kLyricsPageMargin + 2, "kept in the middle: the one being sung, past the empty rows");
@@ -630,8 +637,20 @@ void presenterTests()
     expect(lit.expandedCenter.size() == 1 + 2 * kLyricsPageMargin && std::get<Text>(lit.expandedCenter[kLyricsPageMargin].items[0]).style == TextStyle::LyricSung && host.followed.size() == 1 &&
                host.followed.back() == "lyrics:" + std::to_string(kLyricsPageMargin) && !host.wake,
            "its line's start: lit, followed; nothing more to wait for after the last line");
+    // The sync button is lit while the page follows the song; the user's own scrolling puts it out, a click lights it again.
+    auto syncLit = [&] { return std::get<Button>(host.started.back().content.overTop[0].trailing[0]).on == true; };
+    expect(syncLit(), "opened: following, its sync button lit");
+    std::size_t before = host.started.size();
+    presenter.lyricsScrolled();
+    expect(!syncLit() && host.started.size() == before + 1, "the user scrolls: no longer following, the button out");
+    presenter.lyricsScrolled();
+    expect(host.started.size() == before + 1, "scrolling on changes nothing more");
     presenter.syncLyricsPage();
-    expect(host.centred.size() == 2, "the sync button: the line being sung in the middle again");
+    expect(host.centred.size() == 2 && syncLit(), "the sync button: the line being sung in the middle again, and lit");
+    presenter.lyricsScrolled();
+    presenter.showLyricsPage(false);
+    presenter.showLyricsPage(true);
+    expect(syncLit() && host.centred.size() == 3, "left and opened again: on the line being sung, following");
     presenter.show(song("Two", "Spotify.exe"));
     expect(host.started.back().content.card == CardLayout::Standard, "a song with none: the card");
     presenter.show(song("One", "Spotify.exe"));

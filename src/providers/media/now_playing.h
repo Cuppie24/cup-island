@@ -47,6 +47,8 @@ struct NowPlaying {
     // ...and on it, which of `lyrics` is being sung now (-1: none yet): lit, and kept in view.
     // The presenter's, at each line's start; the page doesn't follow the timeline by itself.
     int lyricsLine = -1;
+    // ...and whether the page is following it: its sync button is on. Off once the user scrolls the page themselves.
+    bool lyricsSynced = true;
     // The playing app's own volume, 0..1, as Windows' mixer has it (decision
     // 180); none: not known (the app has no audio session), and no control.
     std::optional<float> volume;

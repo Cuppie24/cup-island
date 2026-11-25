@@ -65,7 +65,13 @@ later: media sessions don't carry one.
   something to click) turns the
   card into a page (`lyricsPageContent`): a back arrow and a sync button over its
   top corners (`Content::overTop`: no row of their own, no song's name;
-  the words are the whole page, five lines of it in `TextStyle::Lyric`), then every line of the song in a host list
+  the words are the whole page, five lines of it in `TextStyle::Lyric`.
+  Under each button a veil of the island's colour fades out over
+  `overTopFade`, so words scrolling towards it fade away rather than
+  show through or meet a plate. Both are toggles, with a toggle's circle
+  and glass edge; the sync button is lit while the page follows the song
+  and goes out when the user scrolls it, which the provider hears
+  through `Provider::onListScrolled`), then every line of the song in a host list
   (`Row::list`), which the wheel scrolls. The one being sung is bigger
   and bright; a line with no words is a note. Here the presenter follows
   the song itself: woken at each line's start, it relights the page and

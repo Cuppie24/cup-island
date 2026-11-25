@@ -44,6 +44,7 @@ void MediaPresenter::fill(MediaSnapshot& snapshot)
     m.muted = known && muted_;
     m.volumeOpen = volumeOpen_;
     m.lyricsPage = lyricsPage_;
+    m.lyricsSynced = lyricsSynced_;
     // On the page, the line being sung is the presenter's to say: it's lit and kept in view.
     auto line = lyricsPage_ && m.lyrics ? lyricIndexAt(Lyrics{ .timeline = m.timeline, .lines = m.lyrics }, host_.now()) : std::nullopt;
     m.lyricsLine = line ? static_cast<int>(*line) : -1;
@@ -85,6 +86,7 @@ void MediaPresenter::showLyricsPage(bool show)
 {
     if (lyricsPage_ == show) return;
     lyricsPage_ = show;
+    lyricsSynced_ = true; // it opens on the line being sung
     if (last_ && !goneSince_) this->show(*last_);
     armWake();
     if (show) syncLyricsPage(); // opened where the song is
@@ -92,7 +94,15 @@ void MediaPresenter::showLyricsPage(bool show)
 
 void MediaPresenter::syncLyricsPage()
 {
-    if (lyricsPage_ && last_ && last_->media.lyrics) host_.centre(kActivityId, media_action::kLyricsList, lyricsPageRow(last_->media));
+    if (!lyricsPage_ || !last_ || !last_->media.lyrics) return;
+    if (!std::exchange(lyricsSynced_, true) && !goneSince_) show(*last_); // its button lit again
+    host_.centre(kActivityId, media_action::kLyricsList, lyricsPageRow(last_->media));
+}
+
+void MediaPresenter::lyricsScrolled()
+{
+    if (!lyricsPage_ || !std::exchange(lyricsSynced_, false)) return;
+    if (last_ && !goneSince_) show(*last_);
 }
 
 // The host wakes a provider once (Host::wakeAt): for the earliest of a vanished session's

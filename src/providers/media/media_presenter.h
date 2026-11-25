@@ -44,6 +44,7 @@ public:
     void closeVolume(); // the card closed: shut, whatever the pointer was on
     void onWake();      // a time asked for has come: a vanished session's grace is over, or the lyrics' page has a new line
     void showLyricsPage(bool show); // the line being sung clicked, or the page's back arrow; the card closing goes back too
+    void lyricsScrolled();          // the user scrolled the page themselves: it no longer follows the song, and its sync button says so
     void syncLyricsPage();          // its sync button: scrolled back to the line being sung, and following it again
     void toggleLyrics(); // the card's lyrics button: off, nothing is looked up and no line shown; remembered
 
@@ -69,6 +70,7 @@ private:
     bool speakerHovered_ = false, barHovered_ = false;
     std::optional<Ms> volumeOpenAt_; // the pointer is on the speaker: its bar opens then, if it's still there
     bool lyricsPage_ = false; // the card is the lyrics' page while the song has lyrics
+    bool lyricsSynced_ = true; // ...and it follows the line being sung (the user hasn't scrolled it away)
     void armWake();           // the host's one wake: the session's grace, or the page's next line, whichever is first
 };
 

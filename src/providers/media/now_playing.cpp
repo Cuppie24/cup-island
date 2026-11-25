@@ -33,8 +33,10 @@ Content lyricsPageContent(const NowPlaying& m)
     // The words are the whole page, from its top. The arrow and the sync button float over its
     // top corners (Content::overTop): the line being sung is in the middle, never under them.
     Row heading;
-    heading.leading.push_back(Button{ .glyph = Glyph::ChevronLeft, .actionId = act::kLyricsBack, .compact = true, .secondary = true });
-    heading.trailing.push_back(Button{ .glyph = Glyph::Sync, .actionId = act::kLyricsSync, .compact = true, .secondary = true });
+    // Toggles both, so both have a toggle's circle and, on liquid glass, its shiny edge. The
+    // sync button's is lit while the page follows the song; the arrow's never is.
+    heading.leading.push_back(Button{ .glyph = Glyph::ChevronLeft, .actionId = act::kLyricsBack, .on = false, .compact = true, .secondary = true });
+    heading.trailing.push_back(Button{ .glyph = Glyph::Sync, .actionId = act::kLyricsSync, .on = m.lyricsSynced, .compact = true, .secondary = true });
     heading.id = "heading";
     c.overTop = { heading };
     c.expandedCenter.clear();

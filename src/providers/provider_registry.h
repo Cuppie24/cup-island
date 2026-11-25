@@ -50,6 +50,8 @@ public:
     void route(const Action& action);
     // The pointer came onto or left what would send `what` (Provider::onHover). Not the user acting: opens no window.
     void hover(const Action& what, bool over);
+    // The user scrolled a list on that provider's card (Provider::onListScrolled).
+    void listScrolled(const std::string& providerId, const std::string& activityId, const std::string& list);
 
     // A provider's card stopped being shown (shownCard changed): tells it (Provider::onCardClosed).
     void cardClosed(const ShownCard& card);
