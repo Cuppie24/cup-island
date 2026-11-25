@@ -331,16 +331,27 @@ void pageAndPillTests()
     expect(syncHit && syncHit->action.actionId == media_action::kLyricsSync && backHit && backHit->action.actionId == media_action::kLyricsBack,
            "each takes its click");
     expect(!hitTest(shown, { shown.size.x / 2, syncAt->frame.y + syncAt->frame.height / 2 }), "the strip between them takes none: it's the words'");
-    // Each on a solid plate of its own shape, right under it: words scrolling past don't show through.
+    // Under them the list itself fades out: hidden down to the buttons' bottom, so nothing shows
+    // through one, fading in over overTopFade below. Nothing is drawn under the buttons.
     {
-        const Placed *plate = nullptr, *after = nullptr;
-        for (std::size_t i = 0; i + 1 < shown.elements.size(); ++i)
-            if (shown.elements[i].key == "overTop/heading/0/plate") plate = &shown.elements[i], after = &shown.elements[i + 1];
-        auto* fill = plate ? std::get_if<GroupFill>(&plate->item) : nullptr;
-        float fade = t.overTopFade;
-        expect(fill && fill->solid && plate->frame == Rect{ syncAt->frame.x - fade, syncAt->frame.y - fade, syncAt->frame.width + 2 * fade, syncAt->frame.height + 2 * fade } &&
-                   plate->cornerRadius == syncAt->frame.height / 2 && after == syncAt && find(shown, "overTop/heading/1/plate"),
-               "a veil under each button, placed just before it: whole under the button, fading out overTopFade around it");
+        float bottom = syncAt->frame.y + syncAt->frame.height;
+        bool faded = true;
+        for (const Placed& p : shown.elements)
+            if (p.list) faded = faded && std::abs(p.list->viewport.y + p.list->hideTop - bottom) < 1 && p.list->fadeTop == t.overTopFade;
+        bool plain = true;
+        for (const Placed& p : shown.elements) plain = plain && !std::holds_alternative<GroupFill>(p.item);
+        expect(first->list->hideTop > 0 && faded && plain, "the list fades out towards the buttons, from their bottom: no plate or veil of a colour under them");
+        Content listed;
+        listed.card = CardLayout::Centred;
+        for (int i = 0; i < 12; ++i) {
+            Row r = row({ Text{ .value = "row " + std::to_string(i) } });
+            r.list = "rows";
+            listed.expandedCenter.push_back(r);
+        }
+        bool unfaded = true, anyListed = false;
+        for (const Placed& p : layout(expandedWith(listed), Ms{ 0 }).elements)
+            if (p.list) anyListed = true, unfaded = unfaded && p.list->hideTop == 0 && p.list->fadeTop == 0;
+        expect(anyListed && unfaded, "...a list with nothing over it doesn't fade");
     }
     // What's kept in the page's middle: the line being sung.
     expect(lyricsPageRow(m) == kLyricsPageMargin + 2, "kept in the middle: the one being sung, past the empty rows");

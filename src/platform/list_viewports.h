@@ -5,6 +5,11 @@
 // code per frame. Its elements sit at their unscrolled place in the scroller,
 // and ease to a new one when the list reorders (a drop, a tick); a dragged
 // row follows the pointer at once.
+//
+// A list whose top fades (InList::hideTop, under buttons floating over it,
+// decision 180) is drawn instead through a live snapshot of its scroller,
+// masked by a gradient: its words fade to nothing, and whatever the island
+// is (glass, a cover's glow) shows through as it is.
 
 #include "core/layout.h"
 #include "platform/win.h"
@@ -37,13 +42,24 @@ public:
 
 private:
     struct List {
-        wuc::ContainerVisual clip{ nullptr };     // at the window, clips to it
+        wuc::ContainerVisual clip{ nullptr };     // at the window: clips to it, or (faded) shows `snapshot` through `mask`
         wuc::ContainerVisual scroller{ nullptr }; // holds the elements; offset = -scroll, eased
+        // Faded: the scroller in `root`, the snapshot's source, kept in the tree out of sight in `hidden`.
+        wuc::ContainerVisual hidden{ nullptr };
+        wuc::ContainerVisual root{ nullptr };
+        wuc::CompositionVisualSurface snapshot{ nullptr };
+        wuc::CompositionLinearGradientBrush mask{ nullptr };
+        bool faded = false; // asked for, whether or not Windows can (before 1903: a plain cut)
         Rect viewport;
         float offset = 0;
+        float hideTop = 0, fadeTop = 0;
     };
 
     static std::string keyOf(const Placed& placed) { return placed.activityId + "/" + placed.list->id; }
+    // (Re)builds the list's window round its scroller, in the old one's place; then places it.
+    void buildWindow(List& list, const InList& in);
+    bool fadedWindow(List& list);
+    static void placeWindow(List& list, const InList& in);
 
     wuc::Compositor compositor_{ nullptr };
     wuc::ContainerVisual parent_{ nullptr };
