@@ -79,6 +79,7 @@ add_library(cup_providers STATIC
     src/providers/media/art_state.cpp
     src/providers/media/media_presenter.cpp
     src/providers/media/now_playing.cpp
+    src/providers/media/playback_status.cpp
     src/providers/media/session_choice.cpp
     src/providers/media/tab_match.cpp
     src/providers/pomodoro/pomodoro_card.cpp

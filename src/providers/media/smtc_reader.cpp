@@ -154,7 +154,9 @@ void SmtcReader::showPlaybackNow()
 {
     if (!session_) return;
     try {
-        NowPlaying playback = readPlayback(session_.GetPlaybackInfo(), session_.GetTimelineProperties(), out_.now());
+        PlaybackInfo info = session_.GetPlaybackInfo();
+        NowPlaying playback = readPlayback(info, session_.GetTimelineProperties(), out_.now());
+        logStatus(session_, info);
         if (shownPlaying_ != playback.timeline.playing) {
             if (shownPlaying_) platform::logLine("media: %s (from the playback event)", playback.timeline.playing ? "playing" : "paused");
             shownPlaying_ = playback.timeline.playing;
