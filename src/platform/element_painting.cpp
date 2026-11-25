@@ -13,7 +13,6 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <iterator>
 #include <cmath>
 #include <cwchar>
 #include <string>
@@ -268,27 +267,6 @@ void paintGroupFill(ID2D1DeviceContext* dc, const GroupFill& fill, Vec2 size, fl
     // A square end reaches a radius past the surface, which cuts it off: one
     // rounded rect gives any mix of rounded and square ends (decision 090).
     float top = fill.roundTop ? 0 : -radius, bottom = fill.roundBottom ? size.y : size.y + radius;
-    if (fill.solid) {
-        // The veil under a button floating over a card's rows (decision 180): the island's colour,
-        // whole out to the button's edge (`radius`) and fading to nothing at the surface's, so
-        // what scrolls towards the button fades away. No edge of its own: the button has one.
-        const Tokens& t = tokens();
-        Color veil = t.islandColor;
-        veil.a = static_cast<std::uint8_t>(std::max<float>(veil.a, 255.0f * std::clamp(t.overTopVeilOpacity, 0.0f, 1.0f)));
-        Color clear = veil;
-        clear.a = 0;
-        float outer = std::max(1.0f, std::min(size.x, size.y) / 2), inner = std::clamp(radius / outer, 0.0f, 0.99f);
-        // Eased, not straight: a straight ramp shows where it starts and ends.
-        D2D1_GRADIENT_STOP stops[] = { { 0.0f, toD2d(veil) }, { inner, toD2d(veil) }, { inner + (1 - inner) * 0.5f, toD2d(Color{ veil.r, veil.g, veil.b, static_cast<std::uint8_t>(veil.a * 0.35f) }) },
-                                       { 1.0f, toD2d(clear) } };
-        winrt::com_ptr<ID2D1GradientStopCollection> ramp;
-        winrt::com_ptr<ID2D1RadialGradientBrush> brush;
-        if (FAILED(dc->CreateGradientStopCollection(stops, static_cast<UINT32>(std::size(stops)), ramp.put()))) return;
-        auto shape = D2D1::RadialGradientBrushProperties(D2D1::Point2F(size.x / 2, size.y / 2), D2D1::Point2F(0, 0), size.x / 2, size.y / 2);
-        if (FAILED(dc->CreateRadialGradientBrush(shape, ramp.get(), brush.put()))) return;
-        dc->FillRectangle(D2D1::RectF(0, 0, size.x, size.y), brush.get());
-        return;
-    }
     if (fill.outline) { // where a dragged card or task lands (decision 134): a soft solid line, inside the surface
         float w = tokens().windowDropOutlineWidth, in = w / 2;
         D2D1_ROUNDED_RECT shape{ D2D1::RectF(in, top + in, size.x - in, bottom - in), std::max(0.0f, radius - in), std::max(0.0f, radius - in) };

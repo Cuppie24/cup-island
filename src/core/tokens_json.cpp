@@ -162,7 +162,6 @@ const Field kFields[] = {
     { "progressHitHeight", &Tokens::progressHitHeight },
     { "levelBarWidth", &Tokens::levelBarWidth },
     { "overTopFade", &Tokens::overTopFade },
-    { "overTopVeilOpacity", &Tokens::overTopVeilOpacity },
     { "openButtonPadding", &Tokens::openButtonPadding },
     { "progressKnobSize", &Tokens::progressKnobSize },
     { "progressWaveLength", &Tokens::progressWaveLength },
@@ -586,7 +585,6 @@ Tokens scaleTokens(const Tokens& t, float displayScale)
                n.starts_with("glassDarken") ||                        // a colour scale and lift (decision 100)
                (n.starts_with("glass") && n.ends_with("Luminosity")) || // shares of an opacity (decision 100)
                n.ends_with("Bounce") || n == "contentArriveScale" || n == "contentRevealAt" || n == "morphSpringSettle" || n == "alertPulseScale" || // shares (decision 080)
-               n == "overTopVeilOpacity" || // an opacity
                n == "lineHoverScale" || n == "noteHoverScale" || // scales, not lengths
                n.starts_with("lyricScrollHold") || // shares of a line's time (decision 180)
                (n.size() > 10 && n.substr(n.size() - 10) == "FontWeight");

@@ -393,11 +393,6 @@ struct GroupFill {
     // It appears by growing from its start, a square of its height, to its full width, and goes
     // back the same way: a button opening into the control beside it (Row::leadingOpen, decision 180).
     bool unrolls = false;
-    // A veil over the content instead of a fill under it: the island's colour, whole under a
-    // button that floats over a card's rows (Content::overTop, decision 180) and fading to
-    // nothing over overTopFade around it, so what scrolls towards the button fades away
-    // instead of showing through it. Its cornerRadius is the button's: where the fade starts.
-    bool solid = false;
     bool operator==(const GroupFill&) const = default;
 };
 
@@ -608,6 +603,7 @@ struct Content {
     // left corner and `trailing` at its right, over the card's rows, which start at its top
     // under them. For a page that is all one thing to read, with a way back (a page of lyrics:
     // its back and sync buttons, decision 180). Only those two take clicks there, not the strip between.
+    // A list under them fades out towards them (InList::hideTop).
     Slot overTop;
     Slot expandedTrailing; // a button-sized square in the top-right corner; the centre narrows only when it's used
     Slot expandedBottom;

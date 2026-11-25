@@ -247,21 +247,14 @@ Scene layout(const IslandState& state, Ms now, const MeasureText& measure)
                     float m = tokens().itemSpacing / 2;
                     scene.elements[i].hitFrame = { f.x - m, f.y - m, f.width + 2 * m, f.height + 2 * m };
                 }
-                // ...and under each button a veil (GroupFill::solid), placed just before it (so under it,
-                // over the rows): words scrolling towards it fade out, overTopFade from its edge.
-                for (std::size_t i = from; i < scene.elements.size(); ++i) {
-                    if (!std::holds_alternative<Button>(scene.elements[i].item)) continue;
-                    Placed plate;
-                    plate.key = scene.elements[i].key + "/plate";
-                    plate.item = GroupFill{ .solid = true };
-                    Rect button = scene.elements[i].frame;
-                    float fade = tokens().overTopFade;
-                    plate.frame = { button.x - fade, button.y - fade, button.width + 2 * fade, button.height + 2 * fade };
-                    plate.cornerRadius = std::min(button.width, button.height) / 2;
-                    plate.providerId = source.providerId;
-                    plate.activityId = source.activityId;
-                    scene.elements.insert(scene.elements.begin() + static_cast<std::ptrdiff_t>(i), std::move(plate));
-                    ++i; // past the button it's for
+                // ...and a list under them fades out towards them (InList::hideTop): hidden down to the
+                // buttons' bottom, so nothing shows through one, then fading in over overTopFade.
+                float bottom = slot.frame.y + slot.frame.height;
+                for (std::size_t i = contentFrom; i < from; ++i) {
+                    std::optional<InList>& list = scene.elements[i].list;
+                    if (!list || list->viewport.y >= bottom) continue; // it starts below them: nothing to fade
+                    list->hideTop = bottom - list->viewport.y;
+                    list->fadeTop = tokens().overTopFade;
                 }
             }
         }
