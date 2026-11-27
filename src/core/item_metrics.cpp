@@ -3,6 +3,7 @@
 #include "core/keycaps.h"
 #include "core/segments.h"
 #include "core/slot_layout.h"
+#include "core/stat_parts.h"
 #include "core/tokens.h"
 
 #include <algorithm>
@@ -136,6 +137,9 @@ float heightOf(const Item& item, Rect slot, float ringSide, const MeasureText& m
 {
     const Tokens& t = tokens();
     if (auto* dial = std::get_if<Dial>(&item)) return dialDiameter(*dial, measure);
+    // Measurements (decision 174): a tile by its kind; the devices' as tall as two small ones and their gap.
+    if (auto* tile = std::get_if<StatTile>(&item)) return statTileHeight(*tile);
+    if (std::holds_alternative<BatteryTile>(item)) return batteryTileHeight();
     if (auto* text = std::get_if<Text>(&item)) // a detail line under it: a caption's height more (decision 079)
         return lineHeight(text->style) + (text->detail.empty() ? 0.0f : lineHeight(detailStyleOf(text->style)));
     if (std::holds_alternative<Image>(item)) return std::min(slot.width, slot.height);
@@ -176,6 +180,7 @@ std::optional<float> fixedWidthOf(const Item& item, float height, const MeasureT
     if (std::holds_alternative<Text>(item) || std::holds_alternative<TextInput>(item) || std::holds_alternative<Divider>(item) ||
         std::holds_alternative<Lyrics>(item) || (std::holds_alternative<Progress>(item) && !isRing(item)))
         return std::nullopt;
+    if (std::holds_alternative<StatTile>(item) || std::holds_alternative<BatteryTile>(item)) return std::nullopt; // a tile: its share of the row (decision 174)
     if (std::holds_alternative<Image>(item) || isRing(item) || std::holds_alternative<Dial>(item)) return height; // squares
     if (auto* steps = std::get_if<Steps>(&item)) {
         float width = 2 * t.stepHaloWidth; // room for the current one's ring
@@ -228,6 +233,7 @@ float fontSize(TextStyle style)
     case TextStyle::WindowTitle: return t.windowTitleFontSize;
     case TextStyle::WindowBody: return t.windowBodyFontSize;
     case TextStyle::WindowCaption: return t.windowCaptionFontSize;
+    case TextStyle::Stat: return t.statValueFontSize;
     }
     return t.bodyFontSize;
 }

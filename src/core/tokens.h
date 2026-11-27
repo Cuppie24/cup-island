@@ -247,6 +247,20 @@ struct Tokens {
     Ms progressWaveSettle{ 900 };
     float timeLabelWidth = 56;  // fits "-1:02:05" at captionFontSize
     float ringThickness = 3;      // progress ring stroke (decision 010)
+    // Measurement tiles (decision 174, core/stat_items.h).
+    float statTileHeight = 100;     // StatTile::large
+    float statMiniHeight = 48;      // a small StatTile; a BatteryTile is two of them and their gap
+    float tileInset = 12;           // a tile's content, in from its edges
+    float tileRowGap = 6;           // between a small tile's line and its bar, a glyph and its caption
+    float statValueFontSize = 28;   // TextStyle::Stat: a large tile's reading
+    float statValueFontWeight = 800;
+    float statValueLineHeight = 30; // ...its line: digits and a "%", so tighter than other text's
+    float batteryRowHeight = 28;    // BatteryTile: a device's row
+    float deviceBubbleSize = 52;    // ...one device alone: the circle behind its glyph
+    Vec2 batterySize{ 23, 11 };     // a battery's body
+    float batteryCapWidth = 2;      // ...the nub at its right end
+    float batteryStroke = 1.5f;     // ...its outline, the gap inside it and before the nub
+    float columnGap = 8;            // CardLayout::Columns: between its two columns, and under its top rows
     float stepDotSize = 9;        // Steps: one dot per step; a pill step's height
     float stepDotGap = 8;
     float stepShortWidth = 14;    // StepLength::Short: a pill a little longer than a dot (the long break, decision 107)
@@ -620,6 +634,26 @@ struct Tokens {
     std::size_t pomodoroRounds = 4;
     // A session counts as finished (decision 061) with at most this many focus phases skipped.
     std::size_t pomodoroFocusSkipsAllowed = 1;
+    // Statistics (decisions 171, 174). Whole numbers, so the display's scale never touches them:
+    // a load (percent) or a temperature (°C) from here up is high, a battery (percent) down
+    // to here low; a temperature past the plausible one is a broken sensor, shown as none.
+    std::size_t statsHighLoad = 90;
+    std::size_t statsHighTemperature = 85;
+    std::size_t statsPlausibleTemperature = 125;
+    std::size_t statsLowBattery = 20;
+    std::size_t statsPillReadings = 2;         // readings the pill shows at once: picking one more drops the one picked longest ago
+    std::size_t statsKnownDevices = 8;         // Bluetooth devices remembered for Settings' list, the latest seen
+    std::size_t statsPillNameLength = 12;      // a device's name in the pill, in characters, before its "…"
+    Ms statsRefresh{ 2000 };                   // while its card is shown: a new reading this often
+    Ms statsBluetoothRefresh{ 10000 };         // ...and Bluetooth devices listed this often: the slowest look, and levels move slowly
+    Ms statsPillRefresh{ 5000 };               // its card closed, readings picked for the pill: those, this often
+    Ms statsPillBluetoothRefresh{ 60000 };     // ...and a picked device's battery: once a minute, on the minute like the idle clock (TR §8)
+    // The Windows reader's (decision 173). A rate needs two samples: with none recent enough it takes
+    // one, waits statsFirstSpan and reads; one older than statsStaleAfter isn't recent (the card was
+    // closed meanwhile); asked nothing for statsIdleClose, it closes its counters.
+    Ms statsFirstSpan{ 250 };
+    Ms statsStaleAfter{ 10000 };
+    Ms statsIdleClose{ 30000 };
     std::size_t todoMaxLength = 150; // characters in a to-do: wraps onto a few lines at most (decision 045)
     std::size_t taskGroupNameMaxLength = 40; // a task group's name, edited in place (decision 117)
     // Lists (Row::list, decision 029): the window shows this many rows (the

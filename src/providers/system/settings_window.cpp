@@ -151,6 +151,25 @@ WindowPage updatesPage(const SettingsView& v)
     return page;
 }
 
+// What the pill shows of the statistics (decision 174): a switch per reading, and per Bluetooth
+// device seen. On, a reading joins the pill; one more than fit turns off the one picked longest ago.
+WindowPage statisticsPage(const SettingsView& v)
+{
+    std::string most = v.statisticsMost == 1 ? "One reading" : std::to_string(v.statisticsMost) + " readings";
+    WindowPage page{ .id = kStatisticsPage, .title = "Statistics", .subtitle = "What the island shows while it's closed. " + most + " at most.",
+                     .glyph = Glyph::Gauge };
+    WindowSection readings{ .title = "Readings" }, devices{ .title = "Bluetooth batteries" };
+    for (std::size_t i = 0; i < v.statistics.size(); ++i) {
+        const SettingsChoice& choice = v.statistics[i];
+        Row r = groupItem(itemText(choice.name), { Switch{ .on = choice.on, .actionId = P::kToggleStatistic + std::to_string(i) } });
+        r.id = "statistic." + choice.id; // its visuals follow it when the devices' order changes
+        (choice.device ? devices : readings).rows.push_back(std::move(r));
+    }
+    if (!readings.rows.empty()) page.sections.push_back(std::move(readings));
+    if (!devices.rows.empty()) page.sections.push_back(std::move(devices));
+    return page;
+}
+
 // --- Pages within a page: one setting's choices, with a back arrow --------------
 
 WindowPage within(WindowPage parent, const char* title, std::string subtitle)
@@ -359,6 +378,7 @@ WindowContent settingsWindow(const SettingsView& v)
     case SettingsPage::Shortcuts: general = within(general, "Keyboard shortcuts", v.shortcutNote), shortcutsPage(general, v); break;
     case SettingsPage::List: break;
     }
+    if (!v.statistics.empty()) window.pages.push_back(statisticsPage(v)); // after the references above: it may move the pages
     // A dot beside a page that holds something new (decision 048); an update waiting, in the accent (decision 152).
     window.pages[2].badgeAccent = updateWaiting(v);
     for (WindowPage& page : window.pages)

@@ -6,6 +6,7 @@
 #include "core/tokens.h"
 #include "platform/element_painting.h"
 #include "platform/field_painting.h"
+#include "platform/stat_painting.h"
 #include "platform/element_parts.h"
 #include "platform/text_format.h"
 
@@ -732,6 +733,9 @@ void ElementVisuals::paint(View& view)
             paintGroupFill(dc, *fill, pixelSize(size), view.placed.cornerRadius);
         } else if (auto* swatch = std::get_if<Swatch>(&item)) {
             paintSwatch(dc, *swatch, size);
+        } else {
+            // Measurement tiles (decision 174): each painted whole, in the surface's whole pixels.
+            paintStat(dc, dw, item, pixelSize(size), view.placed.cornerRadius, accentOf(view.placed));
         }
     };
     // A timer's big digits are drawn as smooth outlines (decision 107): a Dial's, a Display or Hero text.

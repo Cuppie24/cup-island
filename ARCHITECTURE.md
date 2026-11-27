@@ -49,14 +49,15 @@ src/core/       pure logic: island.h (state machine), alert_queue.h, content.h (
                 menu.h (a row's context menu: when it opens, its keys, where it goes, decision 086)
                 groups.h (grouped rows: a quiet label, one background, a name over its description, decision 090)
                 keycaps.h (Keys drawn as key caps, decision 092), segments.h (a few options picked in place, decision 093)
+                stat_items.h (measurement tiles: a reading with its level, devices' batteries) + stat_parts.h (where their parts go, decision 174)
 src/platform/   Win32 + C++/WinRT + Composition: render (monitor-wide)/interaction layers, pill_renderer (two blobs:
                 pill + Split bubble, and the liquid_bridge between them;
                 blob_backdrop: what's under a blob, its shadow and glass, decision 089; liquid_glass + liquid_capture + liquid_shader: liquid glass, a captured picture of the desktop bent by a shader, decision 165; its shapes in core/liquid_glass), glass (Windows 11's blurred backdrop, decision 089), provider_window (a provider's window, decision 104), figures (tabular digits centred on their line, decision 094), element_visuals (one visual
-                per content item) + rolling_text (a big time's digits rolling as they change, decision 107) + dropping_text (the line being sung dropping in, decision 180), top_glow (the top band lit, decision 108), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts) + tap_hook (double-tap shortcuts, decision 079), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
+                per content item) + stat_painting (measurement tiles painted whole) + stat_glyphs (the few glyphs drawn as lines, decision 174) + rolling_text (a big time's digits rolling as they change, decision 107) + dropping_text (the line being sung dropping in, decision 180), top_glow (the top band lit, decision 108), graphics_device (D2D/DirectWrite), tray_icon (right-click → Exit), hotkeys (system-wide shortcuts) + tap_hook (double-tap shortcuts, decision 079), badge_dots (notification dots), autostart (Start with Windows, set from Settings), log (the log file), watchdog (hang/crash dumps), stay_on_top
 src/providers/  data sources + provider_registry. demo/ (fake player), media/ (now-playing content,
                 MediaPresenter rules, SMTC provider for real Windows media: its smtc_reader reads sessions on a thread of its own, decision 144;
                 app_volume, the playing app's volume, likewise, decision 180), lyrics/ (the line being sung: LRC text, what to ask LRCLIB, one lookup per song, pure; lrclib_fetch asks, decision 180),
-                pomodoro/ (the first panel: a timer card, the rest in its window, decision 106; tasks in groups, task_board, decision 117), search/ (the search card: apps, Settings, files; decisions 077, 079), service_host (Cup Island's service: setup, updates and providers' calls, decisions 076, 078), system/ (Home's theme and Settings widgets:
+                pomodoro/ (the first panel: a timer card, the rest in its window, decision 106; tasks in groups, task_board, decision 117), statistics/ (the machine's vital signs: a card of tiles, a pill of the readings picked in Settings, the reading's contract and what is asked of the reader when, formatting, and what Windows' counters, adapters and device tree mean (stats_counters, stats_network, stats_bluetooth), all pure, decisions 171, 174; stats_reader reads what a request asks on a thread of its own from stats_sources*, Windows-only like system_statistics_provider, which joins the two, decision 173), search/ (the search card: apps, Settings, files; decisions 077, 079), service_host (Cup Island's service: setup, updates and providers' calls, decisions 076, 078), system/ (Home's theme and Settings widgets:
                 app themes, windows' own theme (decision 150), the monitor the island was dragged to (decision 178), Start with Windows, Copy logs), update/ (updates from GitHub
                 Releases, offered in Settings with an accent dot, decision 152: versions and offers, pure; installing asks again and takes the latest, decision 172; github.cpp fetches and installs, decision 036)
 src/indexer/    the file index's logic (decision 075), pure: USN records from raw bytes, the index by MFT record,
@@ -78,7 +79,7 @@ docs/           specs (TR, PS) and decisions/ (why things are the way they are)
 Dependency direction is one-way: `app → platform → core`, `providers → core`.
 Pure provider logic builds on any OS (`cup_providers` library), as does
 the file index's (`cup_indexer`, depends on nothing). WinRT-backed
-parts (`providers/media/smtc_*`) are Windows-only files next to it, compiled
+parts (`providers/media/smtc_*`, the statistics reader) are Windows-only files next to it, compiled
 into the app.
 Nothing includes "upward". `core/` never includes `platform/`.
 
@@ -112,7 +113,7 @@ A provider (`core/provider.h`) publishes activities and alerts through a
 the renderer. `ProviderRegistry` gives each provider its own Host, which
 stamps the provider id on everything it posts, and routes actions back.
 Content is declarative (`core/content.h`, decision 004): slots of rows of
-items (text, image, icon, button, progress, time label, waveform, swatch, lyrics). Layout and
+items (text, image, icon, button, progress, time label, waveform, swatch, lyrics, measurement tiles). Layout and
 drawing are the host's job, so every provider looks native.
 
 A provider can also publish **panels** (decision 009): always-available
@@ -242,7 +243,7 @@ over the file's, so `tokens()` is always what's on screen.
 - **Pure helpers → `tests/unit_tests.cpp`, `content_tests.cpp` (layout, hit-testing), `list_card_tests.cpp` (Settings' List card), `group_tests.cpp` (grouped rows), `badge_tests.cpp` (notification dots),
   `page_row_tests.cpp` (the page row's buttons, the idle clock), `item_tests.cpp` (ring, steps, accent), `tokens_tests.cpp`,
   `provider_tests.cpp` and `pomodoro_tests.cpp` (registry + provider through the real loop), `command_tests.cpp` (providers' commands through the registry), `search_command_tests.cpp` (commands among Search's results), `pomodoro_stats_tests.cpp` (statistics, days off),
-  `media_tests.cpp` (media presenter), `lyrics_tests.cpp` (lyrics and the app's volume on media's card), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end, on a fixture card: `todo_card_fixture.h`), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install), `window_tests.cpp` (where a window opens; the registry between providers and their windows), `window_field_tests.cpp` (typing in a window, decision 105).**
+  `media_tests.cpp` (media presenter), `lyrics_tests.cpp` (lyrics and the app's volume on media's card), `stat_item_tests.cpp` (the measurement tiles, the Columns card), `statistics_tests.cpp` (statistics: formatting, picks, the pill's line, requests; `statistics_card_tests.cpp` its card and pill as content, `statistics_provider_tests.cpp` its schedule, ranking and Settings page; `statistics_reader_tests.cpp` the reader's pure parts; `statistics_fixture.h` their reading), `keyboard_tests.cpp` (arrow-key focus, shortcuts), `system_tests.cpp` (theme presenter), `settings_tests.cpp` and `shortcut_settings_tests.cpp` (Settings, its shortcuts page; `panel_host.h` is their Host), `todo_tests.cpp` (the to-do list end to end, on a fixture card: `todo_card_fixture.h`), `cover_tests.cpp` (the cover's colours on the island), `update_tests.cpp` (versions, offers, the updater's checks and install), `window_tests.cpp` (where a window opens; the registry between providers and their windows), `window_field_tests.cpp` (typing in a window, decision 105).**
   A tiny `expect()`, no framework.
 - **Platform code** is verified by running the app (no automated tests yet).
 
@@ -287,6 +288,7 @@ over the file's, so `tokens()` is always what's on screen.
 | No Home (decision 170): every card from the page row; the idle pill and Ctrl+Q open the default page | done; rules tested, the Windows side needs a run |
 | The page row: a constant list of providers' icons, the shown one lit; Search in the left corner, the theme switch by Settings' (decisions 165, 170) | done; rules tested, the look needs a Windows run |
 | Theme toggle | presenter tested; the Windows reader needs Windows |
+| Statistics (decisions 171, 174): a card of tiles (CPU, GPU, memory, disk, network, Bluetooth batteries); a pill of up to two readings picked on Settings' Statistics page, an activity under every other; read only while shown, or only what's picked | content model, layout, provider and Settings tested; the drawing needs a Windows build and a look; the reader (decision 173) follows the new contract, its rules tested, the reading itself (GPU temperature above all) needs a Windows run, and 042's test with Bluetooth music |
 | Pomodoro (first panel): focus rounds, breaks, pause/skip/stop, ring, phase dots | done, tested |
 | Pomodoro's window (decision 106): the card a timer at media's size with an expand button; the timer, today, to-dos, statistics and settings in a window, questions asked in place | core and provider tested; the window on Windows needs a run |
 | Progress ring, Steps, accent colour (decision 010) | done; rules tested, drawing needs Windows |

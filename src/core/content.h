@@ -4,6 +4,7 @@
 
 #include "core/geometry.h"
 #include "core/shortcuts.h"
+#include "core/stat_items.h"
 
 #include <chrono>
 #include <cstdint>
@@ -23,7 +24,10 @@ using Ms = std::chrono::milliseconds;
 enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Source, Music, Warning, Timer, Stop, Home,
                    Sun, Moon, Copy, Checked, Unchecked, Delete, Edit, OpenApp, Settings, ChevronLeft, ChevronRight, Download, Centre,
                    Minus, Plus, Pin, Pinned, Fire, Chart, ChevronDown, Search, File, Folder, Close, Refresh, Reset,
-                   Palette, Sliders, Expand, Maximize, Restore, Minimize, CloseWindow, Grip, More, Gauge, Volume, VolumeLow, VolumeMid, Muted, Lyrics, Sync };
+                   Palette, Sliders, Expand, Maximize, Restore, Minimize, CloseWindow, Grip, More, Gauge, Volume, VolumeLow, VolumeMid, Muted, Lyrics, Sync,
+                   // Statistics (decision 174): Bluetooth devices by kind (Bluetooth: any other), a drive, and the
+                   // tiles' own, drawn as lines, not from the icon font: a processor, a graphics card, memory, the network.
+                   Headphones, Earbuds, Mouse, Keyboard, Controller, Pen, Bluetooth, Drive, Chip, GraphicsCard, Memory, Network };
 
 // Display: a big number, the card's centre (a timer). Heading: a group's label over its rows (Settings'
 // "General", "Dark"): small and quiet, since the group's background already sets it apart (decision 090).
@@ -35,8 +39,9 @@ enum class Glyph { Play, Pause, Next, Previous, Shuffle, Repeat, RepeatOne, Sour
 // the window's layout swaps them in, providers write the plain three.
 // Lyric, LyricSung: a line on a page of lyrics, and the one being sung, bigger and bright; sized so
 // the page shows five lines, to be read from across a desk (decision 180).
+// Stat: a tile's reading, between CardTitle and Hero; its digits bright, a unit beside them quiet (statistics, decision 174).
 enum class TextStyle { Title, Body, Caption, Digits, Display, Heading, Result, ResultDetail, PageTitle, Hero, CardTitle,
-                       WindowTitle, WindowBody, WindowCaption, Lyric, LyricSung };
+                       WindowTitle, WindowBody, WindowCaption, Lyric, LyricSung, Stat };
 
 // sRGB plus opacity. As an activity's accent (decision 010) it tints only
 // live data: progress fills (bar and ring), the current step, waveform bars.
@@ -397,7 +402,7 @@ struct GroupFill {
 };
 
 using Item = std::variant<Text, Image, Icon, Button, Progress, TimeLabel, Waveform, Steps, TextInput, Swatch, Tag, Switch, Divider, Dial,
-                          GroupFill, Keys, Segments, Lyrics>;
+                          GroupFill, Keys, Segments, Lyrics, StatTile, BatteryTile>; // the last two: core/stat_items.h
 
 enum class Align { Start, Center, End };
 
@@ -416,7 +421,12 @@ enum class RowSpan { Slot, MatchAbove, MatchBelow };
 //  Search:   like List, but searchCardWidth wide with rows across all of it,
 //            and only as tall as its rows: the field alone until there are
 //            results (decision 079).
-enum class CardLayout { Standard, Centred, List, Search };
+//  Columns:  `expandedCenter` across the top, as tall as its rows; under it
+//            `expandedLeading` and `expandedTrailing` side by side, each
+//            half the width, columnGap apart and that far under the top
+//            rows, each a stack of rows centred in its column: a grid of
+//            tiles where one is as tall as two (statistics, decision 174).
+enum class CardLayout { Standard, Centred, List, Search, Columns };
 
 // One entry of a row's menu (decision 086). The provider says what's in it;
 // the host opens it (a right-click, Right, the row's ›), places it, draws it
@@ -516,6 +526,9 @@ struct Row {
     // Its context menu (decision 086): every row may have its own. The host
     // ends the row in a › that opens it, beside the row.
     std::vector<MenuItem> menu;
+    // A row of tiles under another: as far below it as its tiles are from
+    // each other (itemSpacing, not rowSpacing), so a grid's gaps are one size (decision 174).
+    bool tileGap = false;
     bool operator==(const Row&) const = default;
 };
 

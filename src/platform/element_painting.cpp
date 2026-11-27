@@ -6,6 +6,7 @@
 #include "core/text_edit.h"
 #include "core/tokens.h"
 #include "platform/figures.h"
+#include "platform/stat_glyphs.h"
 #include "platform/text_format.h"
 
 #include <d2d1effects.h>
@@ -61,11 +62,14 @@ const wchar_t* textFamily(IDWriteFactory* dw, float pixelSize)
 
 namespace {
 
-const wchar_t* iconFamily(IDWriteFactory* dw)
+// Windows 11's icon font; Windows 10 has only Segoe MDL2 Assets (decision 015).
+bool fluentIcons(IDWriteFactory* dw)
 {
-    static const wchar_t* family = hasFont(dw, L"Segoe Fluent Icons") ? L"Segoe Fluent Icons" : L"Segoe MDL2 Assets";
-    return family;
+    static const bool has = hasFont(dw, L"Segoe Fluent Icons");
+    return has;
 }
+
+const wchar_t* iconFamily(IDWriteFactory* dw) { return fluentIcons(dw) ? L"Segoe Fluent Icons" : L"Segoe MDL2 Assets"; }
 
 // Same code points in Segoe Fluent Icons and Segoe MDL2 Assets.
 const wchar_t* codepoint(Glyph glyph)
@@ -127,6 +131,20 @@ const wchar_t* codepoint(Glyph glyph)
     case Glyph::Lyrics: return L"\uED1E"; // Subtitles: lines of words, media's lyrics button (decision 180)
     case Glyph::Gauge: return L"\uEC4A";    // SpeedHigh: something costs performance (liquid glass's question, decision 165)
     case Glyph::Fire: return L"\U0001F525"; // not in the icon fonts: Segoe UI Emoji's, in colour (paintGlyph)
+    // Statistics (decision 174): Bluetooth devices by kind, a drive. Its tiles' own (Chip, GraphicsCard, Memory,
+    // Network) are drawn as lines, not from the font (stat_glyphs).
+    case Glyph::Headphones: return L"\uE7F6"; // Headphone
+    case Glyph::Earbuds: return L"\uF4C0";    // Earbud: Segoe Fluent Icons only; paintGlyph draws Headphones without it
+    case Glyph::Mouse: return L"\uE962";
+    case Glyph::Keyboard: return L"\uE92E";   // KeyboardStandard
+    case Glyph::Controller: return L"\uE7FC"; // Game
+    case Glyph::Pen: return L"\uEDC6";        // PenWorkspace
+    case Glyph::Bluetooth: return L"\uE702";
+    case Glyph::Drive: return L"\uEDA2";      // HardDrive
+    case Glyph::Chip:
+    case Glyph::GraphicsCard:
+    case Glyph::Memory:
+    case Glyph::Network: break; // paintDrawnGlyph
     }
     return L"?";
 }
@@ -230,6 +248,8 @@ TextLook lookOf(TextStyle style)
     case TextStyle::WindowCaption: return { t.windowCaptionFontSize, t.captionTextColor, t.windowCaptionFontWeight };
     case TextStyle::Lyric: return { t.lyricFontSize, t.bodyTextColor, t.lyricFontWeight }; // a page of lyrics (decision 180)
     case TextStyle::LyricSung: return { t.lyricSungFontSize, t.titleTextColor, t.lyricSungFontWeight };
+    // A tile's reading (decision 174): drawn with bright digits, so its own colour is what's beside them: a quiet "%".
+    case TextStyle::Stat: return { t.statValueFontSize, t.captionTextColor, t.statValueFontWeight };
     }
     return { t.bodyFontSize, t.bodyTextColor, t.bodyFontWeight };
 }
@@ -537,6 +557,7 @@ void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float f
         dc->FillRoundedRectangle(D2D1_ROUNDED_RECT{ D2D1::RectF(x, y, x + w, y + h), h / 2, h / 2 }, brushOf(dc, color).get());
         return;
     }
+    if (paintDrawnGlyph(dc, glyph, fontSize, size, color)) return; // the few the icon font doesn't have (decision 174)
     // Fire (days in a row, decision 061) is an emoji: Segoe UI Emoji, on every Windows 10 and 11, drawn in its own colours.
     bool emoji = glyph == Glyph::Fire;
     auto f = format(dw, emoji ? L"Segoe UI Emoji" : iconFamily(dw), fontSize, DWRITE_FONT_WEIGHT_NORMAL, DWRITE_TEXT_ALIGNMENT_CENTER); // icons: as designed
@@ -548,6 +569,8 @@ void paintGlyph(ID2D1DeviceContext* dc, IDWriteFactory* dw, Glyph glyph, float f
     // Centred by what it draws, not by the font's line box: the icon font's
     // ascent and descent aren't even, which left a checkbox off-centre in its
     // hover shape. The overhangs say how far the ink reaches past the box.
+    // Earbuds are in Windows 11's icon font only: on Windows 10 they're drawn as headphones (decision 015).
+    if (glyph == Glyph::Earbuds && !fluentIcons(dw)) glyph = Glyph::Headphones;
     auto glyphLayout = layoutOf(codepoint(glyph));
     D2D1_POINT_2F at = D2D1::Point2F(0, 0);
     DWRITE_OVERHANG_METRICS ink{};

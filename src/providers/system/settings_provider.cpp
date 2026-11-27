@@ -292,6 +292,11 @@ void SettingsProvider::onAction(const Action& action)
         hooks_.setGlassWindows(glassWindows_); // this window changes at once: the preview
         host_->save(kGlassWindowsKey, glassWindows_ ? "on" : "off");
         publish();
+    } else if (auto at = choiceIndex(id, settings_action::kToggleStatistic); at && hooks_.listStatistics && hooks_.toggleStatistic) {
+        // The rule (how many, which gives way) is the statistics provider's: flipped there, read back for the page.
+        std::vector<SettingsChoice> choices = hooks_.listStatistics();
+        if (*at < choices.size()) hooks_.toggleStatistic(choices[*at].id);
+        publish();
     } else if (id == settings_action::kWhatsNew) {
         if (std::string page = whatsNewPage(view()); hooks_.openPage && !page.empty()) hooks_.openPage(page);
     } else if (id == settings_action::kDownloadUpdate) {
@@ -463,6 +468,11 @@ void SettingsProvider::refresh()
     if (hooks_.applyWindowTheme) pickWindowTheme(windowTheme_, windowThemeName_); // the windows' may be gone too
 }
 
+void SettingsProvider::statisticsChanged()
+{
+    if (host_) publish();
+}
+
 void SettingsProvider::refreshDisplays()
 {
     if (!host_) return;
@@ -491,6 +501,10 @@ SettingsView SettingsProvider::view() const
     if (hooks_.setGlass && hooks_.setTransparency) v.transparency = transparency_; // on Glass' page
     if (hooks_.setGlass && hooks_.setGlassWindows) v.glassWindows = glassWindows_;  // ...and this
     if (hooks_.setCoverColours && hooks_.setFadeSpeed) v.fadeSpeed = fadeSpeed_; // on Music colours' page
+    if (hooks_.listStatistics && hooks_.toggleStatistic) {
+        v.statistics = hooks_.listStatistics();
+        v.statisticsMost = hooks_.statisticsMost;
+    }
     if (hooks_.applyWindowTheme) {
         v.windowTheme = windowTheme_;
         v.windowThemeName = windowThemeName_;
