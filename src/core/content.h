@@ -570,6 +570,9 @@ struct Content {
     // goes with the row. Content, not a Host call: whether there's a row is worked
     // out from what's shown on every layout, so it can't be left on.
     bool hidesTabs = false;
+    // Its card has no top band that closes it (decision 108): the island
+    // showing it hangs from a window, whose edge is no band to click (decision 181).
+    bool noTopBand = false;
     // A card on one of its own pages (Settings' Theme page): the action Esc
     // sends, as a click on its back arrow would. Empty: Esc closes,
     // as anywhere else (decision 033).

@@ -22,3 +22,12 @@ top-click                           -> Compact stay=no
 scenario: outside Expanded the top does nothing
 start timer                         -> Compact
 top-click                           -> Compact
+
+scenario: a card hung from a window has no top band (decision 181)
+panel timer
+panel search hung
+click                               -> Expanded expanded=timer zone=yes
+card search                         -> Expanded expanded=search zone=no
+top-click                           -> Expanded expanded=search    # its top is the window's edge: a click there closes nothing
+card timer                          -> Expanded expanded=timer zone=yes
+top-click                           -> Idle

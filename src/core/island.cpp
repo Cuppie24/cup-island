@@ -166,6 +166,8 @@ void handle(IslandState& s, const AlertPosted& e, Ms now)
 void handle(IslandState& s, const PillClicked&, Ms now) { onClick(s, now); }
 void handle(IslandState& s, const TopClicked&, Ms)
 {
+    const Content* card = cardContent(s, s.expandedId);
+    if (card && card->noTopBand) return; // hung from a window, its top is that window's edge, not a band to click (decision 181)
     if (isExpanded(s)) collapse(s); // whatever would keep it open: the top always closes (decision 108)
 }
 void handle(IslandState& s, const ClickedOutside&, Ms)

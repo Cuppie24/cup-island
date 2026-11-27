@@ -666,6 +666,15 @@ struct Tokens {
     std::size_t searchIconCache = 400; // result icons kept in memory; past it, they're all read again
     float searchVisibleRows = 8.5f;
     Ms launcherRefresh{ 600000 };
+    // By a file dialog (decision 181): its island's card keeps pickerCardRoom
+    // above the taskbar, moving up over the dialog if it must; the island
+    // fades in and out over pickerFade. A dialog whose file view isn't built
+    // yet is looked at again after pickerRecheck; the dialog gets
+    // pickerSendTimeout to take a path.
+    float pickerCardRoom = 460;
+    Ms pickerFade{ 150 };
+    Ms pickerRecheck{ 150 };
+    Ms pickerSendTimeout{ 500 };
 
     // The app themes the Settings card offers, in its order; the first is the
     // default (decision 022). tokens() already has the picked one applied.

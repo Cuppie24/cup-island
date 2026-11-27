@@ -30,4 +30,12 @@ bool elevates(const SearchProvider::Result& result);
 // each only where it applies.
 std::vector<MenuItem> resultMenu(const SearchProvider::Result& result, std::size_t index);
 
+// The menu by a file dialog (decision 181), for a file or folder result:
+//   Choose (Enter, bold; a folder: Open folder) · Go to its folder (Ctrl+Shift+E)
+//   Copy path (Ctrl+Shift+C)
+// The first two go to the dialog. Nothing that starts something else: the
+// user is in the middle of choosing a file. No "Remove from history" either:
+// this card shows no history to remove from.
+std::vector<MenuItem> pickingMenu(const SearchProvider::Result& result, std::size_t index);
+
 } // namespace cup

@@ -9,7 +9,7 @@
 //            click  outside  esc  pointer  drag-enter  drag-rejected
 //            drag-leave  drop  hide  show  wait <ms>  top-click (the expanded top band, decision 108)
 //            bubble  promote <id>  switch <id>  drag <dx> <dy>  release  cancel
-//            panel <id> [static|keep|awake|field|menu|menu=changed|button]  unpanel <id>  open-island  card <id>  (static: a panel with no card;
+//            panel <id> [static|keep|awake|field|menu|menu=changed|button|hung]  unpanel <id>  open-island  card <id>  (static: a panel with no card;
 //                                                                     button: a page-row button, not a widget, decision 113;
 //                                                                     field: a card that is its field "go", decision 079;
 //                                                                     menu: field, then rows 1 and 2 with menus Open, Run (dim), Reveal;
@@ -43,6 +43,7 @@
 //                     draft=<text>|empty|none  (_ for a space)  dialog=<card>|none
 //                     caret=<byte offset>  selected=<text>|none  (_ for a space)
 //                     lifted=yes|no  spot=centre|left|right|free  stay=yes|no  tabs=top|bottom
+//                     zone=yes|no (the top band that closes, decision 108)  pill=<the shape's left edge's x, at the mode's width>
 //                     scroll=<card>/<list>:<offset>[+reveal]  carried=<row>|none  squash=yes|no (a press on empty space, decision 071)
 //                     toast=<card>|none
 //                     menu=<card>/<row>|none  lit=<item>|none   (the island's open menu, and its lit item)
@@ -202,6 +203,7 @@ struct Runner {
             Panel p{ .id = arg(1), .content = { .label = arg(1) } };
             if (arg(2) != "static" && arg(2) != "button") p.content.expandedCenter = { row({ Text{ arg(1) } }) };
             if (arg(2) == "button") p.rowButton = Glyph::Settings, p.tapAction = "open"; // a page-row button, decision 113
+            p.content.noTopBand = arg(2) == "hung"; // a card hung from a window (decision 181)
             p.content.keepOpen = arg(2) == "keep" || arg(2) == "awake";
             p.content.noIdleTimeout = arg(2) == "awake";
             if (arg(2) == "field" || arg(2).rfind("menu", 0) == 0) {
@@ -386,6 +388,12 @@ struct Runner {
                 const char* names[] = { "centre", "left", "right", "free" };
                 std::string got = names[static_cast<int>(state.spot.dock)];
                 if (got != *v) fail("spot=" + *v + ", got " + got);
+            } else if (auto v = option(word, "zone")) {
+                std::string got = layout(state, now, [](const Text&) { return 0.0f; }).collapseZone ? "yes" : "no";
+                if (got != *v) fail("zone=" + *v + ", got " + got);
+            } else if (auto v = option(word, "pill")) {
+                std::string got = std::to_string(static_cast<int>(placementOf(state, mode(state)).pillX));
+                if (got != *v) fail("pill=" + *v + ", got " + got);
             } else if (auto v = option(word, "scroll")) {
                 std::string key = v->substr(0, v->find(':'));
                 auto it = state.scrolls.find(key);
