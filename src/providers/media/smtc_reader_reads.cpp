@@ -3,6 +3,8 @@
 #include "providers/media/smtc_reader.h"
 #include "platform/log.h"
 
+#include <cstdio>
+#include <exception>
 #include <utility>
 
 namespace cup {
@@ -155,13 +157,59 @@ void SmtcReader::cycleSource()
     pickSession();
 }
 
+// ▶ asks to play and ⏸ to pause, as the button shows (decision 183). A toggle
+// left Windows to work out which, and after a sleep Chrome's re-added session
+// took toggles and did nothing. An app that refuses the one asked for gets the
+// toggle. The ask is logged, and so is one that wasn't taken: with no
+// "playback changed" after it, it was taken and the app did nothing.
+winrt::fire_and_forget SmtcReader::playPause()
+{
+    auto self = shared_from_this(); // held across the awaits
+    Session session = session_;
+    bool play = !shownPlaying_.value_or(false);
+    std::string app = "the app", failed; // failed: why a call threw ("" = none did)
+    bool taken = false, toggled = false;
+    // Nothing may escape: out of a fire_and_forget it is a fail-fast (decision 158).
+    auto why = [](winrt::hresult_error const& e) {
+        char code[16];
+        std::snprintf(code, sizeof code, "0x%08x", static_cast<unsigned>(e.code()));
+        return std::string(code);
+    };
+    try {
+        app = appName(session.SourceAppUserModelId());
+        platform::logLine("media: %s asked of %s", play ? "play" : "pause", app.c_str());
+        taken = co_await (play ? session.TryPlayAsync() : session.TryPauseAsync());
+    } catch (winrt::hresult_error const& e) {
+        failed = why(e);
+    } catch (std::exception const& e) {
+        failed = e.what();
+    }
+    co_await onReader(); // decision 060
+    if (stopped_) co_return;
+    if (!taken && failed.empty()) {
+        toggled = true;
+        try {
+            taken = co_await session.TryTogglePlayPauseAsync(); // an app that takes only the toggle
+        } catch (winrt::hresult_error const& e) {
+            failed = why(e);
+        } catch (std::exception const& e) {
+            failed = e.what();
+        }
+        co_await onReader();
+        if (stopped_) co_return;
+    }
+    if (!failed.empty()) platform::logLine("media: %s couldn't be asked (%s)", app.c_str(), failed.c_str());
+    else if (!taken) platform::logLine("media: %s refused it, and the toggle too", app.c_str());
+    else if (toggled) platform::logLine("media: %s refused it, took the toggle", app.c_str());
+}
+
 void SmtcReader::onAction(const Action& action)
 {
     if (!session_) return;
     namespace act = media_action;
     try {
         // Fire and forget: the real state comes back through the change events.
-        if (action.actionId == act::kPlayPause) session_.TryTogglePlayPauseAsync();
+        if (action.actionId == act::kPlayPause) playPause();
         else if (action.actionId == act::kNext) session_.TrySkipNextAsync();
         else if (action.actionId == act::kPrevious) session_.TrySkipPreviousAsync();
         else if (action.actionId == act::kSource) cycleSource();

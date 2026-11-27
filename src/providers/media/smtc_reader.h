@@ -84,6 +84,7 @@ private:
     void showRead(Session const& session, Properties const& properties, bool propertiesChanged, Ms began);
     void loaded();                 // a read ended: start the one asked for meanwhile, if any
     void onAction(const Action& action);
+    winrt::fire_and_forget playPause(); // what the button shows: play or pause, the toggle if refused (decision 183)
     void cycleSource();
     std::vector<SessionView> describe(Session const& remembered) const; // the current sessions, for session_choice
 
